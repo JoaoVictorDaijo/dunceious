@@ -1,4 +1,4 @@
-# Dunceious v2.5 - Project Documentation
+# Dunceious v3.3 - Project Documentation
 
 ## 1. Project Overview
 Dunceious is a high-performance, web-based bioinformatics tool designed for Multi-Sequence Alignment (MSA) visualization, annotation transposition, and sequence analysis. It bridges the gap between raw genomic data (GenBank) and interactive visual insights, focusing on responsiveness and scientific accuracy.
@@ -7,7 +7,12 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 
 ### 2.1 Functional Requirements
 - **GenBank & BED Ingestion**: Parse multi-record GenBank files and BED files for quantitative tracks (line or interval).
+- **FASTA Import**: Upload a pre-aligned FASTA file to apply externally computed alignments directly to loaded records. Sequences are matched by record ID and must all have equal lengths.
+- **Annotation Import**: Upload GFF or BED annotation files to merge features and tracks into existing records, matched by ID, name, or accession.
 - **Alignment Engine**: Support for MSA algorithms (MAFFT/MUSCLE). The current implementation simulates a gap-aware alignment for demonstration but provides the hooks for system-level binary calls.
+- **Sequence Search**:
+    - **Exact / IUPAC Mode**: Regex-based search supporting the full IUPAC degenerate nucleotide alphabet (`N`, `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`). Gaps in aligned sequences are automatically skipped.
+    - **Fuzzy Mode**: Smith-Waterman local alignment with affine gap penalties (Gotoh's algorithm). Searches both the forward strand and the reverse complement. Results are ranked by alignment score; a "Min Match Confidence" slider filters results by percentage of the best score found.
 - **Quantitative Tracks**: 
     - **Line Tracks**: For continuous data like GC content or conservation scores.
     - **Interval Tracks**: For discrete regions with associated values (e.g., BED files). Supports dynamic packing to prevent overlap and automatic vertical scaling to show all data.
@@ -17,7 +22,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
     - **Sticky Headers**: Sequence names remain visible while scrolling horizontally.
     - **Semantic Zoom**: Variable detail levels (from global mismatch density to individual nucleotide bases and amino acid translations).
     - **Interaction Modes**: Toggle between **Pan** (navigation) and **Select** (region highlighting).
-- **Data Export**: Support for exporting full alignments or specific selected regions into FASTA format.
+- **Data Export**: Export full alignments or specific selected regions into **FASTA**, **GFF**, or **GenBank** format.
 
 ### 2.2 Non-Functional Requirements
 - **Performance**: High-density rendering using D3.js and SVG to handle thousands of base pairs across multiple records.
@@ -28,16 +33,21 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 
 ### 3.1 Frontend Stack
 - **Framework**: React 19 (Hooks-based architecture).
-- **Visualization**: D3.js for high-precision SVG coordinate math and rendering.
-- **Styling**: Tailwind CSS for a modular, responsive UI.
-- **Icons**: FontAwesome 6.
+- **Language**: TypeScript 5 (strict type checking via `tsc --noEmit`).
+- **Visualization**: D3.js 7 for high-precision SVG coordinate math and rendering.
+- **Styling**: Tailwind CSS (loaded via CDN) for a modular, responsive UI.
+- **Icons**: FontAwesome 6 (loaded via CDN).
+- **Build Tool**: Vite 6 (dev server on port 3000, HMR enabled).
 
 ### 3.2 Component Architecture
-- **`App.tsx`**: The orchestrator. Manages global state (records, logs, params) and the high-level workflow (Ingestion -> Alignment -> Transposition -> Visualization).
+- **`App.tsx`**: The orchestrator. Manages global state (records, logs, params) and the high-level workflow (Ingestion -> Alignment -> Transposition -> Visualization -> Search).
 - **`GenomeViewer.tsx`**: The core visualization engine. Implements the D3 canvas, handling zoom, drag, and rendering of the "Feature-above-Sequence" layout.
+- **`types.ts`**: Shared TypeScript type definitions (`SeqRecord`, `BioFeature`, `AlignmentParams`, `SearchResult`, etc.).
 - **`services/genbankParser.ts`**: A robust regex-based parser for the GenBank flat-file format.
 - **`services/alignmentLogic.ts`**: Contains the mathematical logic for gap-aware coordinate mapping and consensus sequence calculation.
-- **`services/bioUtils.ts`**: Utilities for genetic code translation (Codon -> AA), color-coding, and file I/O.
+- **`services/bioUtils.ts`**: Utilities for genetic code translation (Codon -> AA), color-coding, FASTA/GFF/GenBank export, and file I/O.
+- **`src/workers/bioWorker.ts`**: Web Worker that handles all file parsing (GenBank, FASTA, BED, GFF) and sequence processing off the main thread.
+- **`src/workers/searchWorker.ts`**: Web Worker that runs exact (IUPAC regex) and fuzzy (Smith-Waterman) sequence searches off the main thread.
 
 ## 4. Technical Implementation Details
 
@@ -56,11 +66,12 @@ When an alignment is performed, gaps (`-`) are inserted. To keep annotations acc
 The layout uses CSS `sticky` positioning and a shared overflow container. This ensures that while the user scrolls vertically through a large list of sequences, the labels stay aligned with the sequences, and both scroll together, maintaining the visual relationship.
 
 ## 5. Workflow Data Flow
-1.  **Input**: User uploads `.gb` files.
-2.  **Parsing**: `parseGenBank` converts strings to `SeqRecord` objects.
+1.  **Input**: User uploads `.gb`/`.gbk` files (GenBank), `.fasta`/`.fa` files (pre-aligned FASTA), or annotation files (`.gff`, `.bed`).
+2.  **Parsing**: `bioWorker.ts` converts files to `SeqRecord` objects. Annotation files are merged into existing records by matching ID, name, or accession.
 3.  **Alignment**: Records are passed to the alignment logic, producing `alignedSequence` strings.
 4.  **Transposition**: `processTransposition` updates `BioFeature` indices based on the new gap distribution.
 5.  **Rendering**: `GenomeViewer` receives the updated records and draws the SVG elements.
+6.  **Search**: When a query is entered, `searchWorker.ts` runs IUPAC regex matching or Smith-Waterman alignment and returns ranked `SearchResult` objects. Results are highlighted in the viewer and listed in the sidebar.
 
 ## 6. License
 This software is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. 

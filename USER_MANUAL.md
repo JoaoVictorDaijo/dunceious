@@ -1,14 +1,16 @@
-# Dunceious User Manual
+# Dunceious v3.3 User Manual
 
-Welcome to Dunceious, a high-performance bioinformatics platform for Multi-Sequence Alignment (MSA) visualization and analysis.
+Welcome to **Dunceious v3.3**, a high-performance bioinformatics platform for Multi-Sequence Alignment (MSA) visualization and analysis.
 
 ## 1. Getting Started
 
 ### 1.1 Ingesting Data
-- **GenBank Files**: Upload `.gb` or `.gbk` files. Dunceious supports multi-record files.
-- **BED Files**: Upload `.bed` files for quantitative tracks. 
+- **GenBank Files**: Upload `.gb` or `.gbk` files using the **Upload** button. Dunceious supports multi-record files (one upload can add multiple sequences at once).
+- **FASTA Files**: Upload a pre-aligned `.fasta` or `.fa` file to apply an externally computed alignment to already-loaded records. Every sequence ID in the FASTA file must match an existing record ID, and all sequences must have equal lengths.
+- **BED Files**: Upload `.bed` files for quantitative tracks.
   - If a BED file has a numerical score in the 5th column, it will be rendered as an **Interval Track**.
   - If a BED file has many data points, it will automatically pack overlapping intervals into multiple rows.
+- **Annotation Files**: Upload `.gff` or `.bed` annotation files to merge additional features into loaded records. The importer matches by record ID, name, or accession; unmatched IDs are reported in the **Logs** panel.
 
 ### 1.2 Alignment Workflow
 - Once records are loaded, click the **Align** button.
@@ -32,9 +34,21 @@ Welcome to Dunceious, a high-performance bioinformatics platform for Multi-Seque
 ## 3. Analysis Features
 
 ### 3.1 Search
-- Use the search bar to find specific nucleotide motifs or feature names.
-- Search results are highlighted across all records.
-- Use the arrow keys in the search bar to jump between matches.
+
+Dunceious provides two complementary search modes, selectable via the toggle buttons next to the search bar.
+
+#### IUPAC Mode (Exact)
+- Enter a nucleotide motif using standard IUPAC degenerate codes (e.g. `ATRN`).
+- Supported codes: `R`=[AG], `Y`=[CT], `S`=[GC], `W`=[AT], `K`=[GT], `M`=[AC], `B`=[CGT], `D`=[AGT], `H`=[ACT], `V`=[ACG], `N`=[ACGT].
+- Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches.
+
+#### Fuzzy Mode (Smith-Waterman)
+- Finds approximate matches using the Smith-Waterman local alignment algorithm with affine gap penalties.
+- Both the forward strand and its **reverse complement** are searched automatically.
+- A **Min Match Confidence** slider (0–100 %) appears below the search bar. This filters results by the percentage of the best alignment score found in the current search — raise the threshold to see only high-quality matches, lower it to include more divergent hits.
+- Results are sorted by alignment score (best match first).
+
+> **Tip**: Use IUPAC mode for known motifs or primer sequences, and Fuzzy mode to find similar but not identical sequences (e.g., for mutation detection or homology searches).
 
 ### 3.2 Feature Details
 - Click on any annotation (ORF, CDS, etc.) to view its metadata, including product name, note, and genomic coordinates.
@@ -46,8 +60,10 @@ Welcome to Dunceious, a high-performance bioinformatics platform for Multi-Seque
 - Track heights automatically adjust to show all overlapping data.
 
 ## 4. Exporting Data
-- **Export FASTA**: Click the **Export** button to download the full alignment or a specific selected region in FASTA format.
-- **Export Record**: Individual records can be exported from their respective right-click menus.
+- **Export FASTA**: Click the **Export** button and choose FASTA to download the full alignment or a specific selected region.
+- **Export GFF**: Download the current feature annotations in GFF3 format, suitable for use in other bioinformatics tools.
+- **Export GenBank**: Export one or more records in GenBank flat-file format, preserving sequence and annotation data.
+- **Export Record**: Individual records can also be exported from their respective right-click context menus.
 
 ## 5. Troubleshooting
 - **Missing Data**: Ensure your BED files follow the standard tab-delimited format.
