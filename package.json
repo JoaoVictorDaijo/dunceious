@@ -15,12 +15,12 @@
     "d3": "^7.9.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-window": "^1.8.10"
+    "react-window": "^1.8.11"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/node": "^22.19.15",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "~5.9.3",
+    "vite": "^6.4.1"
   }
 }
