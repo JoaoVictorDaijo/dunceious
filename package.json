@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && eslint .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -19,9 +19,12 @@
     "react-window": "^1.8.11"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.19.15",
     "@vitejs/plugin-react": "^5.2.0",
+    "eslint": "^10.1.0",
     "typescript": "~5.9.3",
+    "typescript-eslint": "^8.57.2",
     "vite": "^6.4.1",
     "vitest": "^4.1.2"
   }
