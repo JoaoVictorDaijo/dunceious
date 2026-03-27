@@ -951,6 +951,17 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
                   }
                 }}
                 onMouseLeave={() => setTooltip(null)}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const bp = xScale.invert(x + scrollX);
+                  const nearest = track.data.find((d: any) => bp >= d.start && bp <= d.end);
+                  if (nearest) {
+                    onSelectionChange({ start: nearest.start, end: nearest.end, recordIds: [l.id] });
+                  }
+                }}
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
