@@ -1837,7 +1837,7 @@ const GenomeViewer: React.FC<Props> = ({
       setDragCursorPos(null);
       
       setDragSelection(prev => {
-        if (prev && Math.abs(prev.end - prev.start) >= 0) {
+        if (prev && Math.abs(prev.end - prev.start) > 0) {
           // Move side effect out of functional update
           setTimeout(() => onSelectionChange(prev), 0);
         }
