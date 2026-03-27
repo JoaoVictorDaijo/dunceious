@@ -1,6 +1,7 @@
 # Dunceious
 
 > **Intelligence is Overpriced.**
+> **Invest in coffee and staff, not in genial expensive software.**
 
 Dunceious is a high-performance, browser-based bioinformatics platform for **Multi-Sequence Alignment (MSA) visualization**, annotation management, and sequence analysis. It parses GenBank and FASTA files, runs sequence alignment, renders an interactive genome viewer with semantic zoom, and provides both exact (IUPAC degenerate codes) and fuzzy (Smith-Waterman) sequence search — all without a backend.
 
