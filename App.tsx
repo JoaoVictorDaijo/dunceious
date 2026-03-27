@@ -692,19 +692,21 @@ const App: React.FC = () => {
 
     const start = Math.min(activeSelection.start, activeSelection.end);
     const end = Math.max(activeSelection.start, activeSelection.end);
-    const length = end - start;
+    const length = Math.max(0, end - start);
 
     const slicedRecords = records.map(record => {
       const seq = record.alignedSequence || record.sequence;
       const slicedSeq = seq.substring(Math.max(0, start), Math.min(seq.length, end));
       
+      // half-open interval [start, end): overlap requires f.start < end && f.end > start
       const slicedFeatures = record.features
         .filter(f => f.start < end && f.end > start)
         .map(f => ({
           ...f,
           start: Math.max(0, f.start - start),
           end: Math.min(length, f.end - start)
-        }));
+        }))
+        .filter(f => f.end > f.start);
 
       const slicedTracks = record.tracks?.map(track => ({
         ...track,
@@ -715,6 +717,7 @@ const App: React.FC = () => {
             start: Math.max(0, d.start - start),
             end: Math.min(length, d.end - start)
           }))
+          .filter(d => d.end > d.start)
       }));
 
       return {
