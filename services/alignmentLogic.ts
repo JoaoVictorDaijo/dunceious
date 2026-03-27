@@ -1,5 +1,5 @@
 
-import { SeqRecord, BioFeature } from '../types';
+import { SeqRecord } from '../types';
 
 /**
  * Transposes coordinates from raw sequence to aligned sequence containing gaps.

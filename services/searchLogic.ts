@@ -152,7 +152,7 @@ function traceback(
   const seen = new Set<number>();
 
   for (const pos of positions) {
-    let currPos = pos;
+    const currPos = pos;
     let i = Math.floor(currPos / rowWidth);
     let j = currPos % rowWidth;
     const jEnd = j;

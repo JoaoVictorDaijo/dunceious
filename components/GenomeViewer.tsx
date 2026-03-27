@@ -3,7 +3,6 @@ import * as d3 from 'd3';
 import { VariableSizeList, ListChildComponentProps } from 'react-window';
 import { SeqRecord, SelectionArea, SearchResult, BioFeature } from '../types';
 import { getFeatureColor, translateSequence, getNucleotideColor, reverseComplement } from '../services/bioUtils';
-import { calculateConsensus } from '../services/alignmentLogic';
 
 interface Props {
   records: SeqRecord[];
@@ -27,7 +26,6 @@ interface Props {
   showTracks: boolean;
 }
 
-const SIDEBAR_WIDTH = 120;
 const NT_ROW_HEIGHT = 22;
 const AA_ROW_HEIGHT = 18;
 const ANNOT_ROW_HEIGHT = 14;
@@ -56,7 +54,7 @@ const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLinear<nu
       g.call(axisTop);
       
       // Add minor ticks
-      const [min, max] = xScale.domain();
+      const [, max] = xScale.domain();
       const tickValues = xScale.ticks(Math.max(5, Math.floor((width - sidebarWidth) / 120)));
       
       g.selectAll('.minor-tick').remove();
@@ -120,7 +118,7 @@ interface SequenceTrackProps {
 
 const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features,
-  conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
+  conservationScores: _conservationScores, showConservation: _showConservation, searchResults, allSearchResults, currentSearchIdx
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -387,7 +385,6 @@ const ConservationTrack: React.FC<{
 
     ctx.clearRect(0, 0, viewportWidth, height);
 
-    const [minBP, maxBP] = xScale.domain();
     const vStart = Math.max(0, Math.floor(xScale.invert(scrollX)) - 5);
     const vEnd = Math.min(scores.length, Math.ceil(xScale.invert(scrollX + viewportWidth)) + 5);
 
@@ -823,9 +820,9 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
 
                 if (f.type === 'quantitative_data') return null; // Handled by QuantitativeTrack
 
-                let rectHeight = ANNOT_ROW_HEIGHT;
-                let rectY = y;
-                let fill = f.color || getFeatureColor(f.type, customColors);
+                const rectHeight = ANNOT_ROW_HEIGHT;
+                const rectY = y;
+                const fill = f.color || getFeatureColor(f.type, customColors);
 
                 return (
                   <rect 
@@ -854,8 +851,6 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
               };
 
               if (f.segments && f.segments.length > 0) {
-                const firstSeg = f.segments[0];
-                const lastSeg = f.segments[f.segments.length - 1];
                 const lineY = y + ANNOT_ROW_HEIGHT / 2;
                 
                 // Draw connecting lines between segments
@@ -1005,12 +1000,12 @@ const GenomeViewer: React.FC<Props> = ({
   activeSelection,
   onSelectionChange,
   onExportFasta,
-  onAddAnnotation,
+  onAddAnnotation: _onAddAnnotation,
   onExportRecord,
   onViewDetails,
   searchResults,
   currentSearchIdx,
-  selectedSearchIndices = new Set(),
+  selectedSearchIndices: _selectedSearchIndices = new Set(),
   customColors,
   jumpTo,
   onJumpComplete,
@@ -1102,7 +1097,6 @@ const GenomeViewer: React.FC<Props> = ({
       
       // If mouseBp is provided, adjust scroll to keep it centered
       if (mouseBp !== undefined && horizontalScrollRef.current) {
-        const actualFactor = clamped / prev;
         const currentScroll = horizontalScrollRef.current.scrollLeft;
         const mouseX = mouseBp * prev - currentScroll;
         const newScroll = mouseBp * clamped - mouseX;
@@ -1229,8 +1223,6 @@ const GenomeViewer: React.FC<Props> = ({
 
   // Layout Constants
   const RIGHT_SPACER = 250;
-  const OVERVIEW_HEIGHT = 65;
-  const SCROLLBAR_HEIGHT = 16;
 
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1298,7 +1290,7 @@ const GenomeViewer: React.FC<Props> = ({
       
       const trackLayouts = tracks.map(track => {
         let height = 80; // Default height for line tracks
-        let packedRows: any[][] = [];
+        const packedRows: any[][] = [];
         
         if (track.kind === 'interval') {
           // Pack intervals to determine required height
@@ -1679,13 +1671,7 @@ const GenomeViewer: React.FC<Props> = ({
     }
 
     if (dragSelection) {
-      const isCircular = dragSelection.start > dragSelection.end;
-      const s = xScale(isCircular ? dragSelection.end : dragSelection.start) - scrollX;
-      const e = xScale(isCircular ? dragSelection.start : dragSelection.end) - scrollX;
-      
-      // For drag selection, we usually just show the linear range being dragged
-      // unless we want to support circular dragging which is more complex.
-      // For now, let's just ensure it renders correctly.
+      // For drag selection, show the linear range being dragged.
       const left = xScale(Math.min(dragSelection.start, dragSelection.end)) - scrollX;
       const width = Math.max(2, xScale(Math.max(dragSelection.start, dragSelection.end)) - xScale(Math.min(dragSelection.start, dragSelection.end)));
 

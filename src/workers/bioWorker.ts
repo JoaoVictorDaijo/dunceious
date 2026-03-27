@@ -132,7 +132,7 @@ const parseGenBank = (content: string): any[] => {
     let definition = '';
     let sequence = '';
     let isCircular = false;
-    let features: any[] = [];
+    const features: any[] = [];
     let isSequence = false;
     let inFeaturesSection = false;
 
@@ -297,10 +297,10 @@ const parseBED = (content: string, filename: string): Record<string, any[]> => {
     const chrom = parts[0];
     const start = parseInt(parts[1]);
     const end = parseInt(parts[2]);
-    const name = parts[3] || `feature_${start}_${end}`;
+    const _name = parts[3] || `feature_${start}_${end}`;
     const scoreVal = parseFloat(parts[4]);
     const strandChar = parts[5];
-    const strand = strandChar === '-' ? -1 : 1;
+    const _strand = strandChar === '-' ? -1 : 1;
 
     if (isNaN(start) || isNaN(end)) return;
 

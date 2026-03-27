@@ -14,7 +14,7 @@ export const parseGenBank = (content: string): SeqRecord[] => {
     let definition = '';
     let sequence = '';
     let isCircular = false;
-    let features: BioFeature[] = [];
+    const features: BioFeature[] = [];
     let isSequence = false;
     let inFeaturesSection = false;
 
