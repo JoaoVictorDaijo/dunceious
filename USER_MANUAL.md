@@ -63,6 +63,12 @@ Dunceious provides two complementary search modes, selectable via the toggle but
 - **Export FASTA**: Click the **Export** button and choose FASTA to download the full alignment or a specific selected region.
 - **Export GFF**: Download the current feature annotations in GFF3 format, suitable for use in other bioinformatics tools.
 - **Export GenBank**: Export one or more records in GenBank flat-file format, preserving sequence and annotation data.
+- **Export Selection JSON**: When a selection is active, choose **Export Selection JSON** to download the
+  selected region as a JSON project snapshot.
+  All coordinates in the exported file use **0-based half-open intervals `[start, end)`**: `start` is the
+  first included position and `end` is the first excluded position (matching JavaScript `substring` semantics).
+  Features and quantitative track intervals are clipped to the selection window and rebased relative to the
+  selection start; zero-length intervals produced by clipping are omitted.
 - **Export Record**: Individual records can also be exported from their respective right-click context menus.
 
 ## 5. Troubleshooting
