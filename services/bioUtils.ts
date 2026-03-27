@@ -1,5 +1,5 @@
 
-import { BioFeature, FeatureSegment, SeqRecord } from '../types';
+import { SeqRecord } from '../types';
 
 const GENETIC_CODE: Record<string, string> = {
   'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
@@ -144,85 +144,6 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
   }).join('\n');
 };
 
-/**
- * Clips and rebases a single interval (start, end) to the selection window [selStart, selEnd).
- * Returns null when the interval does not overlap the selection or collapses to zero length.
- */
-export const clipInterval = (
-  start: number,
-  end: number,
-  selStart: number,
-  selEnd: number
-): { start: number; end: number } | null => {
-  if (start >= selEnd || end <= selStart) return null;
-  const length = selEnd - selStart;
-  const newStart = Math.max(0, start - selStart);
-  const newEnd = Math.min(length, end - selStart);
-  return newEnd > newStart ? { start: newStart, end: newEnd } : null;
-};
-
-/**
- * Clips and rebases a BioFeature (including its segments) to the selection window [selStart, selEnd).
- * Returns null when the feature does not overlap the selection or collapses to zero length.
- */
-const clipFeature = (feature: BioFeature, selStart: number, selEnd: number): BioFeature | null => {
-  const clipped = clipInterval(feature.start, feature.end, selStart, selEnd);
-  if (!clipped) return null;
-
-  let newSegments: FeatureSegment[] | undefined;
-  if (feature.segments && feature.segments.length > 0) {
-    newSegments = feature.segments
-      .map(s => clipInterval(s.start, s.end, selStart, selEnd))
-      .filter((s): s is { start: number; end: number } => s !== null);
-    if (newSegments.length === 0) newSegments = undefined;
-  }
-
-  return {
-    ...feature,
-    start: clipped.start,
-    end: clipped.end,
-    segments: newSegments,
-  };
-};
-
-/**
- * Slices all records to the given half-open selection window [selStart, selEnd).
- * Sequences are sliced, feature/track coordinates are rebased to the new origin,
- * and any intervals that do not overlap or collapse to zero length are removed.
- */
-export const sliceRecordsBySelection = (
-  records: SeqRecord[],
-  selStart: number,
-  selEnd: number
-): SeqRecord[] => {
-  return records.map(record => {
-    const seq = record.alignedSequence || record.sequence;
-    const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
-
-    const slicedFeatures = record.features
-      .map(f => clipFeature(f, selStart, selEnd))
-      .filter((f): f is BioFeature => f !== null);
-
-    const slicedTracks = record.tracks?.map(track => ({
-      ...track,
-      data: track.data
-        .map(d => {
-          const clipped = clipInterval(d.start, d.end, selStart, selEnd);
-          return clipped ? { ...d, start: clipped.start, end: clipped.end } : null;
-        })
-        .filter((d): d is { start: number; end: number; value: number } => d !== null),
-    }));
-
-    return {
-      ...record,
-      sequence: slicedSeq,
-      alignedSequence: undefined,
-      features: slicedFeatures,
-      tracks: slicedTracks,
-    };
-  });
-};
-
 export const downloadBlob = (content: string, filename: string, mimeType: string) => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -261,6 +182,92 @@ export const reverseComplement = (seq: string): string => {
   };
   return seq.split('').reverse().map(base => complement[base] || base).join('');
 };
+
+// ---------------------------------------------------------------------------
+// Selection-export helpers
+// ---------------------------------------------------------------------------
+
+export type Interval = { start: number; end: number };
+type TrackDataItem = { start: number; end: number; value: number };
+
+/**
+ * Clips a single half-open `[start, end)` interval to the selection window
+ * `[selStart, selEnd)` and rebases the result to selection-local coordinates.
+ * Returns `null` when there is no overlap or the clipped interval is zero-length.
+ */
+export function clipInterval(
+  start: number,
+  end: number,
+  selStart: number,
+  selEnd: number
+): Interval | null {
+  if (!(start < selEnd && end > selStart)) return null;
+  const length = Math.max(0, selEnd - selStart);
+  const out: Interval = {
+    start: Math.max(0, start - selStart),
+    end: Math.min(length, end - selStart),
+  };
+  return out.end > out.start ? out : null;
+}
+
+/**
+ * Clips a `BioFeature` (including its `segments` array) to the selection window
+ * and rebases all coordinates to be selection-local.
+ * Returns `null` when the feature does not overlap the selection at all.
+ */
+function clipFeature(
+  feature: import('../types').BioFeature,
+  selStart: number,
+  selEnd: number
+): import('../types').BioFeature | null {
+  const clipped = clipInterval(feature.start, feature.end, selStart, selEnd);
+  if (!clipped) return null;
+  const newSegments = feature.segments
+    ?.map(s => clipInterval(s.start, s.end, selStart, selEnd))
+    .filter((s): s is Interval => s !== null);
+  return {
+    ...feature,
+    ...clipped,
+    segments: newSegments?.length ? newSegments : undefined,
+  };
+}
+
+/**
+ * Slices all records to the selection window `[selStart, selEnd)`, rebasing
+ * feature/segment coordinates and filtering zero-length track intervals.
+ */
+export function sliceRecordsBySelection(
+  records: import('../types').SeqRecord[],
+  selStart: number,
+  selEnd: number
+): import('../types').SeqRecord[] {
+  return records.map(record => {
+    const seq = record.alignedSequence || record.sequence;
+    const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+
+    const slicedFeatures = record.features
+      .map(f => clipFeature(f, selStart, selEnd))
+      .filter((f): f is import('../types').BioFeature => f !== null);
+
+    const slicedTracks = record.tracks?.map(track => ({
+      ...track,
+      data: track.data
+        .map(d => {
+          const clippedInterval = clipInterval(d.start, d.end, selStart, selEnd);
+          return clippedInterval ? { ...d, ...clippedInterval } : null;
+        })
+        .filter((d): d is TrackDataItem => d !== null),
+    }));
+
+    return {
+      ...record,
+      sequence: slicedSeq,
+      alignedSequence: undefined,
+      features: slicedFeatures,
+      tracks: slicedTracks,
+    };
+  });
+}
 
 /**
  * Maps a position in an aligned sequence (with gaps) back to the original sequence index.
