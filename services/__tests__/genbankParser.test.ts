@@ -154,3 +154,41 @@ ORIGIN
     expect(record.isCircular).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// smoke test: parseGenBank – complement() strand
+// ---------------------------------------------------------------------------
+
+describe('parseGenBank – complement strand', () => {
+  const COMP_GB = `LOCUS       COMP001       30 bp    DNA
+FEATURES             Location/Qualifiers
+     gene            complement(10..20)
+                     /gene="revGene"
+     CDS             5..15
+                     /gene="fwdCds"
+ORIGIN
+        1 atgcatgcat gcatgcatgc atgcatgcat
+//
+`;
+
+  it('assigns strand -1 to a complement() feature', () => {
+    const [record] = parseGenBank(COMP_GB);
+    const gene = record.features.find(f => f.name === 'revGene');
+    expect(gene).toBeDefined();
+    expect(gene!.strand).toBe(-1);
+  });
+
+  it('assigns correct 0-based coordinates for a complement() feature', () => {
+    const [record] = parseGenBank(COMP_GB);
+    const gene = record.features.find(f => f.name === 'revGene');
+    // complement(10..20) → 0-based [9, 20)
+    expect(gene!.start).toBe(9);
+    expect(gene!.end).toBe(20);
+  });
+
+  it('assigns strand +1 to a non-complement feature in the same record', () => {
+    const [record] = parseGenBank(COMP_GB);
+    const cds = record.features.find(f => f.name === 'fwdCds');
+    expect(cds!.strand).toBe(1);
+  });
+});

@@ -161,4 +161,26 @@ describe('processTransposition', () => {
     // transposeCoordinates(2, '--ACGTACGT') = 4
     expect(result.features[0].end).toBe(4);
   });
+
+  it('splits a feature into sub-segments around internal gaps in the aligned sequence', () => {
+    // Aligned: 'AC--GTACGT' (8 real bases, gap at positions 2-3)
+    // Feature covers raw [0, 4) which aligns to [0, 6)
+    // Sub-segments must skip the '--': [0,2) and [4,6)
+    const record = makeRecord('r1', 'ACGTACGT', 'AC--GTACGT');
+    record.features = [{ type: 'gene', name: 'g1', start: 0, end: 4, strand: 1 }];
+    const [result] = processTransposition([record]);
+    expect(result.features[0].segments).toEqual([
+      { start: 0, end: 2 },
+      { start: 4, end: 6 },
+    ]);
+  });
+
+  it('produces a single segment when the aligned region has no internal gaps', () => {
+    // Gaps only after the feature: 'ACGT----' (4 real bases)
+    // Feature [0,4) → aligned [0,4), no gaps inside → one segment
+    const record = makeRecord('r1', 'ACGT', 'ACGT----');
+    record.features = [{ type: 'gene', name: 'g1', start: 0, end: 4, strand: 1 }];
+    const [result] = processTransposition([record]);
+    expect(result.features[0].segments).toEqual([{ start: 0, end: 4 }]);
+  });
 });
