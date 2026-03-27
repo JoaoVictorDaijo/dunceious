@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@types/react-window": "^1.8.8",
@@ -21,6 +22,7 @@
     "@types/node": "^22.19.15",
     "@vitejs/plugin-react": "^5.2.0",
     "typescript": "~5.9.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.1.2"
   }
 }

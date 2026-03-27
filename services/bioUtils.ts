@@ -1,5 +1,5 @@
 
-import { SeqRecord } from '../types';
+import { BioFeature, FeatureSegment, SeqRecord } from '../types';
 
 const GENETIC_CODE: Record<string, string> = {
   'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
@@ -142,6 +142,85 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     gb += `//\n`;
     return gb;
   }).join('\n');
+};
+
+/**
+ * Clips and rebases a single interval (start, end) to the selection window [selStart, selEnd).
+ * Returns null when the interval does not overlap the selection or collapses to zero length.
+ */
+export const clipInterval = (
+  start: number,
+  end: number,
+  selStart: number,
+  selEnd: number
+): { start: number; end: number } | null => {
+  if (start >= selEnd || end <= selStart) return null;
+  const length = selEnd - selStart;
+  const newStart = Math.max(0, start - selStart);
+  const newEnd = Math.min(length, end - selStart);
+  return newEnd > newStart ? { start: newStart, end: newEnd } : null;
+};
+
+/**
+ * Clips and rebases a BioFeature (including its segments) to the selection window [selStart, selEnd).
+ * Returns null when the feature does not overlap the selection or collapses to zero length.
+ */
+const clipFeature = (feature: BioFeature, selStart: number, selEnd: number): BioFeature | null => {
+  const clipped = clipInterval(feature.start, feature.end, selStart, selEnd);
+  if (!clipped) return null;
+
+  let newSegments: FeatureSegment[] | undefined;
+  if (feature.segments && feature.segments.length > 0) {
+    newSegments = feature.segments
+      .map(s => clipInterval(s.start, s.end, selStart, selEnd))
+      .filter((s): s is { start: number; end: number } => s !== null);
+    if (newSegments.length === 0) newSegments = undefined;
+  }
+
+  return {
+    ...feature,
+    start: clipped.start,
+    end: clipped.end,
+    segments: newSegments,
+  };
+};
+
+/**
+ * Slices all records to the given half-open selection window [selStart, selEnd).
+ * Sequences are sliced, feature/track coordinates are rebased to the new origin,
+ * and any intervals that do not overlap or collapse to zero length are removed.
+ */
+export const sliceRecordsBySelection = (
+  records: SeqRecord[],
+  selStart: number,
+  selEnd: number
+): SeqRecord[] => {
+  return records.map(record => {
+    const seq = record.alignedSequence || record.sequence;
+    const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+
+    const slicedFeatures = record.features
+      .map(f => clipFeature(f, selStart, selEnd))
+      .filter((f): f is BioFeature => f !== null);
+
+    const slicedTracks = record.tracks?.map(track => ({
+      ...track,
+      data: track.data
+        .map(d => {
+          const clipped = clipInterval(d.start, d.end, selStart, selEnd);
+          return clipped ? { ...d, start: clipped.start, end: clipped.end } : null;
+        })
+        .filter((d): d is { start: number; end: number; value: number } => d !== null),
+    }));
+
+    return {
+      ...record,
+      sequence: slicedSeq,
+      alignedSequence: undefined,
+      features: slicedFeatures,
+      tracks: slicedTracks,
+    };
+  });
 };
 
 export const downloadBlob = (content: string, filename: string, mimeType: string) => {
