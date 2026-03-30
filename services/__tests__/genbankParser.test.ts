@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseGenBank } from '../genbankParser';
+import { parseGenBank } from '../genbank/index';
 
 // ---------------------------------------------------------------------------
 // Minimal inline GenBank fixture (avoids filesystem I/O in unit tests)

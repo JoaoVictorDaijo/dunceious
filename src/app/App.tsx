@@ -1,6 +1,12 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { SeqRecord, SelectionArea, BioFeature, SearchResult } from '@/src/domain/bio/types';
+import { SeqRecord, SelectionArea, BioFeature, SearchResult, QuantitativeTrack } from '@/src/domain/bio/types';
 import { exportToFasta, downloadBlob, exportToGff, exportToGenBank, getOriginalPos, sliceRecordsBySelection } from '@/services/bioUtils';
+import type {
+  BioWorkerRequest,
+  BioWorkerResponse,
+  SearchWorkerRequest,
+  SearchWorkerResponse,
+} from '@/src/workers/protocol';
 import GenomeViewer from '@/components/GenomeViewer';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import StatusBar from './components/StatusBar';
@@ -70,34 +76,38 @@ const App: React.FC = () => {
 
   useEffect(() => {
     bioWorkerRef.current = new Worker(new URL('@/src/workers/bioWorker.ts', import.meta.url), { type: 'module' });
-    bioWorkerRef.current.onmessage = (e) => {
-      const { type, records: transposed, consensus: newConsensus, error } = e.data;
-      if (type === 'SUCCESS') {
-        setTransposedRecords(transposed);
-        setConsensus(newConsensus);
+    bioWorkerRef.current.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
+      const msg = e.data;
+      if (msg.type === 'SUCCESS') {
+        setTransposedRecords(msg.records);
+        setConsensus(msg.consensus);
         setIsProcessing(false);
-        addLog(`Genomic processing complete. ${transposed.length} records ready.`);
-      } else if (type === 'PARSE_SUCCESS') {
-        const newRecords = e.data.records.map((r: any) => ({ ...r, visible: true }));
+        addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
+      } else if (msg.type === 'PARSE_SUCCESS') {
+        const newRecords = msg.records.map(r => ({ ...r, visible: true }));
         setRecords(prev => [...prev, ...newRecords]);
         setIsProcessing(false);
         addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
-      } else if (type === 'ANNOTATIONS_SUCCESS') {
-        const annotations = e.data.annotations;
+      } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
+        const annotations = msg.annotations;
         setRecords(prev => {
           let totalAdded = 0;
           const matchedIds = new Set<string>();
+          /** Look up annotation items by record id, name, or accession. */
+          const lookupItems = (r: SeqRecord) =>
+            annotations[r.id] ?? annotations[r.name] ?? (r.accession ? annotations[r.accession] : undefined) ?? [];
           const next = prev.map(r => {
-            const items = annotations[r.id] || annotations[r.name] || (r.accession ? annotations[r.accession] : []) || [];
+            const items = lookupItems(r);
             if (items.length > 0) {
-              const newFeats = items.filter((i: any) => i.type !== 'track');
-              const newTracks = items.filter((i: any) => i.type === 'track');
+              // Discriminant: only QuantitativeTrack carries a `data` array field
+              const newFeats = items.filter((i): i is BioFeature => !('data' in i));
+              const newTracks = items.filter((i): i is QuantitativeTrack => 'data' in i);
               totalAdded += items.length;
               matchedIds.add(r.id);
               return {
                 ...r,
                 features: [...r.features, ...newFeats],
-                tracks: [...(r.tracks || []), ...newTracks]
+                tracks: [...(r.tracks ?? []), ...newTracks]
               };
             }
             return r;
@@ -111,32 +121,32 @@ const App: React.FC = () => {
           return next;
         });
         setIsProcessing(false);
-      } else if (type === 'FASTA_SUCCESS') {
-        const alignedData = e.data.alignedData;
+      } else if (msg.type === 'FASTA_SUCCESS') {
+        const alignedData = msg.alignedData;
         setRecords(prev => {
           const currentIds = new Set(prev.map(r => r.id));
-          const uploadedIds = new Set(alignedData.map((d: any) => d.id));
+          const uploadedIds = new Set(alignedData.map(d => d.id));
           const missingInUpload = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);
-          const extraInUpload = alignedData.filter((d: any) => !currentIds.has(d.id)).map((d: any) => d.id);
+          const extraInUpload = alignedData.filter(d => !currentIds.has(d.id)).map(d => d.id);
           if (missingInUpload.length > 0 || extraInUpload.length > 0) {
             addLog(`ERROR: Sequence mismatch. Missing: [${missingInUpload.join(', ')}], Extra: [${extraInUpload.join(', ')}]`);
             return prev;
           }
-          const lengths = new Set(alignedData.map((d: any) => d.sequence.length));
+          const lengths = new Set(alignedData.map(d => d.sequence.length));
           if (lengths.size > 1) {
             addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${Array.from(lengths).join(', ')}`);
             return prev;
           }
-          addLog(`External alignment applied successfully (${alignedData[0].sequence.length} bp).`);
+          addLog(`External alignment applied successfully (${alignedData[0]?.sequence.length ?? 0} bp).`);
           return prev.map(r => {
-            const match = alignedData.find((d: any) => d.id === r.id);
+            const match = alignedData.find(d => d.id === r.id);
             return { ...r, alignedSequence: match?.sequence };
           });
         });
         setIsProcessing(false);
-      } else if (type === 'ERROR') {
+      } else if (msg.type === 'ERROR') {
         setIsProcessing(false);
-        addLog(`Processing Error: ${error}`);
+        addLog(`Processing Error: ${msg.error}`);
       }
     };
     return () => { bioWorkerRef.current?.terminate(); };
@@ -146,7 +156,8 @@ const App: React.FC = () => {
     const visibleRecords = records.filter(r => r.visible !== false);
     if (visibleRecords.length > 0) {
       setIsProcessing(true);
-      bioWorkerRef.current?.postMessage({ type: 'PROCESS_RECORDS', records: visibleRecords });
+      const request: BioWorkerRequest = { type: 'PROCESS_RECORDS', records: visibleRecords };
+      bioWorkerRef.current?.postMessage(request);
     } else {
       setTransposedRecords([]);
       setConsensus('');
@@ -156,7 +167,7 @@ const App: React.FC = () => {
   // ── Search worker ─────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'exact' | 'fuzzy'>('exact');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIdx, setCurrentSearchIdx] = useState(-1);
   const [selectedSearchIndices, setSelectedSearchIndices] = useState<Set<number>>(new Set());
   const [isSearching, setIsSearching] = useState(false);
@@ -171,16 +182,17 @@ const App: React.FC = () => {
 
   const filteredResults = useMemo(() => {
     if (searchMode !== 'fuzzy' || maxScoreFound === 0) return searchResults;
-    return searchResults.filter(r => (r.score / maxScoreFound) * 100 >= searchOptions.minScore);
+    return searchResults.filter(r => ((r.score ?? 0) / maxScoreFound) * 100 >= searchOptions.minScore);
   }, [searchResults, searchMode, maxScoreFound, searchOptions.minScore]);
 
   useEffect(() => {
     searchWorkerRef.current = new Worker(new URL('@/src/workers/searchWorker.ts', import.meta.url), { type: 'module' });
-    searchWorkerRef.current.onmessage = (e) => {
-      const { results, error } = e.data;
+    searchWorkerRef.current.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
+      const msg = e.data;
       setIsSearching(false);
-      if (error) { addLog(`Search Error: ${error}`); return; }
-      const max = results.length > 0 ? Math.max(...results.map((r: any) => r.score || 0)) : 0;
+      if ('error' in msg) { addLog(`Search Error: ${msg.error}`); return; }
+      const { results } = msg;
+      const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
       setMaxScoreFound(max);
       setSearchResults(results);
       if (results.length > 0) {
@@ -210,12 +222,13 @@ const App: React.FC = () => {
     setSelectedSearchIndices(new Set());
     addLog(`Initiating ${searchMode} search for '${searchQuery}'...`);
     const workerMinScore = searchMode === 'fuzzy' ? 5 : 0;
-    searchWorkerRef.current?.postMessage({
+    const request: SearchWorkerRequest = {
       searchQuery,
       records,
       mode: searchMode,
       options: { ...searchOptions, minScore: workerMinScore }
-    });
+    };
+    searchWorkerRef.current?.postMessage(request);
   }, [searchQuery, records, searchMode, searchOptions]);
 
   const groupedSearchResults = useMemo<GroupedSearchResults>(() => {
@@ -417,7 +430,10 @@ const App: React.FC = () => {
     addLog(`Ingesting batch: ${files.length} GenBank files.`);
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = ev => bioWorkerRef.current?.postMessage({ type: 'PARSE_GENBANK', content: ev.target?.result as string });
+      reader.onload = ev => {
+        const request: BioWorkerRequest = { type: 'PARSE_GENBANK', content: ev.target?.result as string };
+        bioWorkerRef.current?.postMessage(request);
+      };
       reader.readAsText(file);
     });
   };
@@ -428,7 +444,10 @@ const App: React.FC = () => {
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
     const reader = new FileReader();
-    reader.onload = ev => bioWorkerRef.current?.postMessage({ type: 'PARSE_FASTA', content: ev.target?.result as string });
+    reader.onload = ev => {
+      const request: BioWorkerRequest = { type: 'PARSE_FASTA', content: ev.target?.result as string };
+      bioWorkerRef.current?.postMessage(request);
+    };
     reader.readAsText(file);
   };
 
@@ -439,7 +458,10 @@ const App: React.FC = () => {
     addLog(`Importing annotations from ${files.length} files...`);
     Array.from(files).forEach(file => {
       const reader = new FileReader();
-      reader.onload = ev => bioWorkerRef.current?.postMessage({ type: 'PARSE_ANNOTATIONS', filename: file.name, content: ev.target?.result as string });
+      reader.onload = ev => {
+        const request: BioWorkerRequest = { type: 'PARSE_ANNOTATIONS', filename: file.name, content: ev.target?.result as string };
+        bioWorkerRef.current?.postMessage(request);
+      };
       reader.readAsText(file);
     });
   };

@@ -3,8 +3,8 @@ import {
   transposeCoordinates,
   processTransposition,
   calculateConsensus,
-  mockAlign,
-} from '../alignmentLogic';
+} from '../../src/domain/bio/index';
+import { mockAlign } from '../alignmentLogic';
 import type { SeqRecord } from '../../types';
 
 // ---------------------------------------------------------------------------

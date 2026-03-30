@@ -1,7 +1,9 @@
 
+/**
+ * Mock alignment utility for demonstration and testing.
+ * For production alignment/consensus logic, import from `src/domain/bio/`.
+ */
 import type { SeqRecord } from '../types';
-export { transposeCoordinates, processTransposition } from '../src/domain/bio/coordinate';
-export { calculateConsensus } from '../src/domain/bio/consensus';
 
 /**
  * Improved mock alignment for demonstration.
