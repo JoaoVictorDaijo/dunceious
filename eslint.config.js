@@ -32,7 +32,11 @@ export default tseslint.config(
       // These will be tightened during later refactor phases.
       // -----------------------------------------------------------------------
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
       'prefer-const': 'warn',
       'no-unused-vars': 'off',
     },
