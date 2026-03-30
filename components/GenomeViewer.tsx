@@ -1923,7 +1923,12 @@ const GenomeViewer: React.FC<Props> = ({
               <i className="fas fa-vector-square text-[10px] opacity-50"></i>
               <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
               <span className="opacity-30">|</span>
-              <span>{Math.abs(activeSelection.end - activeSelection.start).toLocaleString()} bp</span>
+              {/* For circular wrap-around selections (start > end), compute length
+                  as (seqLength - start) + end to avoid a negative/wrong value. */}
+              <span>{(activeSelection.start <= activeSelection.end
+                ? activeSelection.end - activeSelection.start
+                : (alignmentLength - activeSelection.start) + activeSelection.end
+              ).toLocaleString()} bp</span>
             </div>
           )}
           <div className="flex bg-white rounded-md border border-slate-200 shadow-sm p-0.5">

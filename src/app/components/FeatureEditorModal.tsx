@@ -34,6 +34,10 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 }) => {
   const { feature, recordId, featureIndex } = editing;
   const isNew = featureIndex === -1;
+  // A wrap-around feature has start > end (it crosses the genome origin on a
+  // circular molecule).  We surface this prominently so users know the
+  // coordinates are intentionally inverted, not a data error.
+  const isCircularWrap = feature.start > feature.end;
 
   const setFeature = (patch: Partial<BioFeature>) =>
     onChange({ ...editing, feature: { ...feature, ...patch } });
@@ -45,6 +49,22 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           <i className="fas fa-microchip text-amber-500"></i>
           {isNew ? 'Create Feature' : 'Metadata Inspector'}
         </h3>
+
+        {/* Circular wrap-around badge – shown whenever start > end */}
+        {isCircularWrap && (
+          <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-950/40 border border-amber-700/50 rounded-xl text-amber-400">
+            <i className="fas fa-circle-notch text-sm"></i>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-widest">Circular wrap-around</div>
+              <div className="text-[9px] opacity-70 mt-0.5">
+                This feature crosses the genome origin (start &gt; end).
+                Editing start/end here preserves the wrap-around semantics.
+                {/* TODO: Full circular annotation editing (graphical segment drag) is not yet
+                    implemented.  Use the Segments editor below for precise coordinate changes. */}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar-pro">
           {/* Target sequence selector (new features only) */}
@@ -123,7 +143,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
-                {feature.segments && feature.segments.length > 1 ? 'Envelope Start (bp)' : 'Start (bp)'}
+                {feature.segments && feature.segments.length > 1
+                  ? isCircularWrap ? 'Wrap-around Start (bp)' : 'Envelope Start (bp)'
+                  : 'Start (bp)'}
               </label>
               <input
                 type="number"
@@ -141,7 +163,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
-                {feature.segments && feature.segments.length > 1 ? 'Envelope End (bp)' : 'End (bp)'}
+                {feature.segments && feature.segments.length > 1
+                  ? isCircularWrap ? 'Wrap-around End (bp)' : 'Envelope End (bp)'
+                  : 'End (bp)'}
               </label>
               <input
                 type="number"
