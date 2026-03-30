@@ -5,13 +5,15 @@ import {
   getNonGapSegments,
   smithWaterman,
 } from '../../services/searchLogic';
+import type { SearchWorkerRequest, SearchWorkerResponse } from './protocol';
 
-self.onmessage = (e: MessageEvent) => {
-  const { searchQuery, records, mode = 'exact', options = {} } = e.data;
+self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
+  const { searchQuery, records, mode, options } = e.data;
   const { minScore = 5, strand = 'both', maxResults = 100 } = options;
 
   if (!searchQuery || searchQuery.length < 2) {
-    self.postMessage({ results: [] });
+    const response: SearchWorkerResponse = { results: [] };
+    self.postMessage(response);
     return;
   }
 
@@ -19,7 +21,7 @@ self.onmessage = (e: MessageEvent) => {
     let results: SearchResult[] = [];
     const queryUpper = searchQuery.toUpperCase();
 
-    records.forEach((record: { id: string; sequence: string; alignedSequence?: string }) => {
+    records.forEach((record) => {
       const seq = record.alignedSequence || record.sequence;
       const L = seq.length;
 
@@ -113,9 +115,11 @@ self.onmessage = (e: MessageEvent) => {
       results = results.slice(0, maxResults);
     }
 
-    self.postMessage({ results });
+    const response: SearchWorkerResponse = { results };
+    self.postMessage(response);
   } catch (error) {
     console.error('Worker search error:', error);
-    self.postMessage({ error: String(error) });
+    const response: SearchWorkerResponse = { error: String(error) };
+    self.postMessage(response);
   }
 };

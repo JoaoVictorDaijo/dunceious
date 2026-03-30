@@ -14,8 +14,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseGenBank } from '../genbankParser';
-import { mockAlign, processTransposition } from '../alignmentLogic';
+import { parseGenBank } from '../genbank/index';
+import { mockAlign } from '../alignmentLogic';
+import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
 import type { SeqRecord } from '../../types';
 

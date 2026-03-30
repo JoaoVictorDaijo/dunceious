@@ -1,20 +1,18 @@
-
 // bioWorker.ts
+// Handles heavy parsing and transposition tasks off the main thread.
+// All message shapes are defined in `./protocol.ts`.
 
 import { processTransposition, calculateConsensus } from '../domain/bio/index';
-import type { SeqRecord, BioFeature, FeatureSegment, QuantitativeTrack } from '../domain/bio/types';
+import { parseGenBank } from '../../services/genbank/index';
+import type { BioFeature, FeatureSegment, QuantitativeTrack } from '../domain/bio/types';
+import type {
+  BioWorkerRequest,
+  BioWorkerResponse,
+} from './protocol';
 
 /** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
 interface AnnotationTrack extends QuantitativeTrack {
   type: string;
-}
-
-/** Parsed location data extracted from a GenBank feature line. */
-interface ParsedLocation {
-  segments: FeatureSegment[];
-  strand: 1 | -1;
-  start: number;
-  end: number;
 }
 
 /** Minimal FASTA record (subset of SeqRecord). */
@@ -24,143 +22,6 @@ interface FastaRecord {
   sequence: string;
   features: BioFeature[];
 }
-
-/**
- * Parses GenBank content into SeqRecord objects.
- */
-const parseGenBank = (content: string): SeqRecord[] => {
-  const records: SeqRecord[] = [];
-  const recordStrings = content.split(/\r?\n\/\/\s*(?:\r?\n|$)/);
-
-  for (const recordStr of recordStrings) {
-    if (!recordStr.trim()) continue;
-
-    const lines = recordStr.split(/\r?\n/);
-    let id = 'Unknown';
-    let name = 'Unknown';
-    let definition = '';
-    let sequence = '';
-    let isCircular = false;
-    const features: BioFeature[] = [];
-    let isSequence = false;
-    let inFeaturesSection = false;
-
-    const parseLocation = (loc: string): ParsedLocation => {
-      const strand: 1 | -1 = loc.includes('complement') ? -1 : 1;
-      const segments: FeatureSegment[] = [];
-      const cleanLoc = loc.replace(/[<>\s]/g, '');
-      const regex = /(\d+)(?:\.\.|\^)(\d+)|(\d+)/g;
-      let match;
-      while ((match = regex.exec(cleanLoc)) !== null) {
-        if (match[1] && match[2]) {
-          segments.push({ start: parseInt(match[1]) - 1, end: parseInt(match[2]) });
-        } else if (match[3]) {
-          const val = parseInt(match[3]);
-          segments.push({ start: val - 1, end: val });
-        }
-      }
-      let start = 0;
-      let end = 0;
-      if (segments.length > 0) {
-        const firstStart = segments[0].start;
-        const lastEnd = segments[segments.length - 1].end;
-        const minStart = Math.min(...segments.map(s => s.start));
-        const maxEnd = Math.max(...segments.map(s => s.end));
-        if (segments.length > 1 && firstStart > lastEnd) {
-          start = firstStart;
-          end = lastEnd;
-        } else {
-          start = minStart;
-          end = maxEnd;
-        }
-      }
-      return { segments, strand, start, end };
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      if (line.startsWith('LOCUS')) {
-        const parts = line.split(/\s+/);
-        id = parts[1] || 'Unknown';
-        name = id;
-        isCircular = line.toLowerCase().includes('circular');
-        continue;
-      }
-      if (line.startsWith('DEFINITION')) {
-        definition = line.substring(12).trim();
-        while (i + 1 < lines.length && lines[i+1].startsWith(' '.repeat(12))) {
-          definition += ' ' + lines[++i].trim();
-        }
-        name = definition.length > 30 ? definition.substring(0, 27) + '...' : definition;
-        continue;
-      }
-      if (line.startsWith('SOURCE')) {
-        const source = line.substring(12).trim();
-        if (!definition) name = source;
-        continue;
-      }
-      if (line.startsWith('FEATURES')) {
-        inFeaturesSection = true;
-        continue;
-      }
-      if (line.startsWith('ORIGIN')) {
-        inFeaturesSection = false;
-        isSequence = true;
-        continue;
-      }
-      if (isSequence) {
-        sequence += line.replace(/[\d\s]/g, '').toUpperCase();
-        continue;
-      }
-      if (inFeaturesSection) {
-        const featureMatch = line.match(/^ {5}(\w+) +(.+)$/);
-        if (featureMatch) {
-          const [, type, initialLoc] = featureMatch;
-          let fullLocation = initialLoc.trim();
-          while (i + 1 < lines.length && lines[i+1].startsWith(' '.repeat(21)) && !lines[i+1].trim().startsWith('/')) {
-            fullLocation += lines[++i].trim();
-          }
-          const { segments, strand, start, end } = parseLocation(fullLocation);
-          const currentFeature: BioFeature & { translation?: string } = {
-            type,
-            name: type,
-            start, 
-            end,   
-            strand,
-            segments,
-            locationString: fullLocation,
-            metadata: {}
-          };
-          while (i + 1 < lines.length && lines[i+1].startsWith(' '.repeat(21))) {
-            i++;
-            const qualLine = lines[i].trim();
-            if (qualLine.startsWith('/')) {
-              const qualMatch = qualLine.match(/^\/(\w+)(?:=(.*))?$/);
-              if (qualMatch) {
-                const [, key, value] = qualMatch;
-                let valContent = value ? value.replace(/^"|"$/g, '') : '';
-                while (i + 1 < lines.length && lines[i+1].startsWith(' '.repeat(21)) && !lines[i+1].trim().startsWith('/')) {
-                  valContent += lines[++i].trim().replace(/"/g, '');
-                }
-                if (['gene', 'product', 'label', 'locus_tag'].includes(key)) {
-                  currentFeature.name = valContent;
-                }
-                if (key === 'translation') {
-                  currentFeature.translation = valContent;
-                }
-                currentFeature.metadata![key] = valContent;
-              }
-            }
-          }
-          features.push(currentFeature);
-        }
-      }
-    }
-    records.push({ id, name, definition, sequence, features, isCircular });
-  }
-  return records;
-};
 
 /**
  * Parses FASTA content into simple record objects.
@@ -212,8 +73,6 @@ const parseBED = (content: string, filename: string): Record<string, AnnotationT
 
     if (!results[chrom]) results[chrom] = [];
 
-    // Treat all BED lines as track points if they are from a BED file
-    // Default score to 0 if missing or invalid
     const finalScore = isNaN(scoreVal) ? 0 : scoreVal;
 
     let track = results[chrom].find(t => t.type === 'track' && t.name === filename);
@@ -275,12 +134,14 @@ const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
 
     if (!name) name = `${type}_${start + 1}`;
 
+    const segments: FeatureSegment[] = [{ start, end }];
     const feature: BioFeature = {
       type,
       name,
       start,
       end,
       strand,
+      segments,
       metadata
     };
 
@@ -312,8 +173,7 @@ const parseBedGraph = (content: string, filename: string): Record<string, Annota
     if (isNaN(start) || isNaN(end) || isNaN(value)) return;
 
     if (!results[chrom]) results[chrom] = [];
-    
-    // Find or create track for this file in this chromosome
+
     let track = results[chrom].find(t => t.type === 'track' && t.name === filename);
     if (!track) {
       track = {
@@ -325,59 +185,66 @@ const parseBedGraph = (content: string, filename: string): Record<string, Annota
       };
       results[chrom].push(track);
     }
-    
+
     track.data.push({ start, end, value });
   });
 
   return results;
 };
 
-self.onmessage = (e) => {
-  const { type, records, content } = e.data;
+self.onmessage = (e: MessageEvent<BioWorkerRequest>) => {
+  const msg = e.data;
 
-  if (type === 'PROCESS_RECORDS') {
+  if (msg.type === 'PROCESS_RECORDS') {
     try {
-      const transposed = processTransposition(records as SeqRecord[]);
+      const transposed = processTransposition(msg.records);
       const consensus = calculateConsensus(transposed);
-      self.postMessage({ type: 'SUCCESS', records: transposed, consensus });
+      const response: BioWorkerResponse = { type: 'SUCCESS', records: transposed, consensus };
+      self.postMessage(response);
     } catch (error) {
-      self.postMessage({ type: 'ERROR', error: (error as Error).message });
+      const response: BioWorkerResponse = { type: 'ERROR', error: (error as Error).message };
+      self.postMessage(response);
     }
-  } else if (type === 'PARSE_GENBANK') {
+  } else if (msg.type === 'PARSE_GENBANK') {
     try {
-      const parsed = parseGenBank(content);
-      self.postMessage({ type: 'PARSE_SUCCESS', records: parsed });
+      const parsed = parseGenBank(msg.content);
+      const response: BioWorkerResponse = { type: 'PARSE_SUCCESS', records: parsed };
+      self.postMessage(response);
     } catch (error) {
-      self.postMessage({ type: 'ERROR', error: (error as Error).message });
+      const response: BioWorkerResponse = { type: 'ERROR', error: (error as Error).message };
+      self.postMessage(response);
     }
-  } else if (type === 'PARSE_FASTA') {
+  } else if (msg.type === 'PARSE_FASTA') {
     try {
-      const parsed = parseFasta(content);
-      self.postMessage({ type: 'FASTA_SUCCESS', alignedData: parsed });
+      const parsed = parseFasta(msg.content);
+      const response: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: parsed };
+      self.postMessage(response);
     } catch (error) {
-      self.postMessage({ type: 'ERROR', error: (error as Error).message });
+      const response: BioWorkerResponse = { type: 'ERROR', error: (error as Error).message };
+      self.postMessage(response);
     }
-  } else if (type === 'PARSE_ANNOTATIONS') {
+  } else if (msg.type === 'PARSE_ANNOTATIONS') {
     try {
-      const { filename, content: annotContent } = e.data as { filename: string; content: string };
-      const ext = filename.split('.').pop()?.toLowerCase();
+      const ext = msg.filename.split('.').pop()?.toLowerCase();
       let parsed: Record<string, AnnotationTrack[] | BioFeature[]>;
-      
-      if (ext === 'bed') parsed = parseBED(annotContent, filename);
-      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(annotContent);
-      else if (ext === 'bedgraph') parsed = parseBedGraph(annotContent, filename);
+
+      if (ext === 'bed') parsed = parseBED(msg.content, msg.filename);
+      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(msg.content);
+      else if (ext === 'bedgraph') parsed = parseBedGraph(msg.content, msg.filename);
       else {
         // Fallback detection
-        if (annotContent.includes('\t') && annotContent.split('\n')[0].split('\t').length === 9) {
-          parsed = parseGFF3(annotContent);
+        if (msg.content.includes('\t') && msg.content.split('\n')[0].split('\t').length === 9) {
+          parsed = parseGFF3(msg.content);
         } else {
-          parsed = parseBED(annotContent, filename);
+          parsed = parseBED(msg.content, msg.filename);
         }
       }
-      
-      self.postMessage({ type: 'ANNOTATIONS_SUCCESS', annotations: parsed });
+
+      const response: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: parsed };
+      self.postMessage(response);
     } catch (error) {
-      self.postMessage({ type: 'ERROR', error: (error as Error).message });
+      const response: BioWorkerResponse = { type: 'ERROR', error: (error as Error).message };
+      self.postMessage(response);
     }
   }
 };

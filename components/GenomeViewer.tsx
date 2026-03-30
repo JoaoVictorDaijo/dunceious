@@ -3,7 +3,6 @@ import * as d3 from 'd3';
 import { VariableSizeList, ListChildComponentProps } from 'react-window';
 import { SeqRecord, SelectionArea, SearchResult, BioFeature } from '../types';
 import { getFeatureColor, translateSequence, getNucleotideColor, reverseComplement } from '../services/bioUtils';
-import { calculateConsensus } from '../services/alignmentLogic';
 
 interface Props {
   records: SeqRecord[];
@@ -62,7 +61,7 @@ const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLinear<nu
       g.selectAll('.minor-tick').remove();
       if (tickValues.length > 1) {
         const step = tickValues[1] - tickValues[0];
-        const minorTicks = [];
+        const minorTicks: number[] = [];
         for (let i = 0; i < tickValues.length; i++) {
           for (let j = 1; j < 5; j++) {
             const val = tickValues[i] + (step / 5) * j;
@@ -859,7 +858,7 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
                 const lineY = y + ANNOT_ROW_HEIGHT / 2;
                 
                 // Draw connecting lines between segments
-                const connectingLines = [];
+                const connectingLines: React.ReactElement[] = [];
                 for (let idx = 0; idx < f.segments.length - 1; idx++) {
                   const s1 = f.segments[idx];
                   const s2 = f.segments[idx + 1];
@@ -1589,7 +1588,7 @@ const GenomeViewer: React.FC<Props> = ({
   // Selection Overlay (Global)
   const renderSelectionOverlay = () => {
     const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
-    const elements = [];
+    const elements: (React.ReactElement | null)[] = [];
 
     // Vertical Cursor Line
     if (mousePos) {
