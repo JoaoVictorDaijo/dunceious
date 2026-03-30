@@ -1,126 +1,35 @@
 
-// bioWorker.ts - Self-contained worker to avoid import resolution issues in some environments
+// bioWorker.ts
 
-/**
- * Transposes coordinates from raw sequence to aligned sequence containing gaps.
- */
-const transposeCoordinates = (
-  originalPos: number,
-  alignedSeq: string
-): number => {
-  let ungappedCount = 0;
-  for (let i = 0; i < alignedSeq.length; i++) {
-    if (ungappedCount === originalPos) {
-      return i;
-    }
-    if (alignedSeq[i] !== '-') {
-      ungappedCount++;
-    }
-  }
-  return alignedSeq.length;
-};
+import { processTransposition, calculateConsensus } from '../domain/bio/index';
+import type { SeqRecord, BioFeature, FeatureSegment, QuantitativeTrack } from '../domain/bio/types';
 
-/**
- * Processes a list of SeqRecords, transposing all their features 
- * based on their provided alignedSequence.
- */
-const processTransposition = (records: any[]): any[] => {
-  return records.map(record => {
-    if (!record.alignedSequence) return record;
+/** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
+interface AnnotationTrack extends QuantitativeTrack {
+  type: string;
+}
 
-    const transposedFeatures = record.features.map((feat: any) => {
-      const originalSegments = feat.segments && feat.segments.length > 0 
-        ? feat.segments 
-        : [{ start: feat.start, end: feat.end }];
+/** Parsed location data extracted from a GenBank feature line. */
+interface ParsedLocation {
+  segments: FeatureSegment[];
+  strand: 1 | -1;
+  start: number;
+  end: number;
+}
 
-      const newSegments: { start: number, end: number }[] = [];
-
-      originalSegments.forEach((seg: any) => {
-        const isWrap = seg.start > seg.end;
-        const parts = isWrap 
-          ? [{ s: seg.start, e: record.sequence.length }, { s: 0, e: seg.end }]
-          : [{ s: seg.start, e: seg.end }];
-
-        parts.forEach(part => {
-          const alignedStart = transposeCoordinates(part.s, record.alignedSequence!);
-          const alignedEnd = transposeCoordinates(part.e, record.alignedSequence!);
-          
-          let currentStart: number | null = null;
-          for (let i = alignedStart; i < alignedEnd; i++) {
-            const char = record.alignedSequence![i];
-            if (char !== '-') {
-              if (currentStart === null) {
-                currentStart = i;
-              }
-            } else {
-              if (currentStart !== null) {
-                newSegments.push({ start: currentStart, end: i });
-                currentStart = null;
-              }
-            }
-          }
-          if (currentStart !== null) {
-            newSegments.push({ start: currentStart, end: alignedEnd });
-          }
-        });
-      });
-
-      const newStart = transposeCoordinates(feat.start, record.alignedSequence!);
-      const newEnd = transposeCoordinates(feat.end, record.alignedSequence!);
-
-      return {
-        ...feat,
-        start: newStart,
-        end: newEnd,
-        segments: newSegments
-      };
-    });
-
-    return {
-      ...record,
-      features: transposedFeatures
-    };
-  });
-};
-
-/**
- * Calculates a consensus sequence from aligned records.
- */
-const calculateConsensus = (records: any[]): string => {
-  if (records.length === 0) return "";
-  const alignedRecords = records.filter(r => r.alignedSequence);
-  if (alignedRecords.length === 0) return "";
-  
-  const length = Math.max(...alignedRecords.map(r => r.alignedSequence!.length));
-  let consensus = "";
-
-  for (let i = 0; i < length; i++) {
-    const counts: Record<string, number> = {};
-    alignedRecords.forEach(r => {
-      const char = r.alignedSequence![i];
-      if (char) {
-        counts[char] = (counts[char] || 0) + 1;
-      }
-    });
-
-    let maxChar = "-";
-    let maxCount = 0;
-    Object.entries(counts).forEach(([char, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        maxChar = char;
-      }
-    });
-    consensus += maxChar;
-  }
-  return consensus;
-};
+/** Minimal FASTA record (subset of SeqRecord). */
+interface FastaRecord {
+  id: string;
+  name: string;
+  sequence: string;
+  features: BioFeature[];
+}
 
 /**
  * Parses GenBank content into SeqRecord objects.
  */
-const parseGenBank = (content: string): any[] => {
-  const records: any[] = [];
+const parseGenBank = (content: string): SeqRecord[] => {
+  const records: SeqRecord[] = [];
   const recordStrings = content.split(/\r?\n\/\/\s*(?:\r?\n|$)/);
 
   for (const recordStr of recordStrings) {
@@ -132,13 +41,13 @@ const parseGenBank = (content: string): any[] => {
     let definition = '';
     let sequence = '';
     let isCircular = false;
-    let features: any[] = [];
+    const features: BioFeature[] = [];
     let isSequence = false;
     let inFeaturesSection = false;
 
-    const parseLocation = (loc: string): { segments: any[], strand: 1 | -1, start: number, end: number } => {
+    const parseLocation = (loc: string): ParsedLocation => {
       const strand: 1 | -1 = loc.includes('complement') ? -1 : 1;
-      const segments: any[] = [];
+      const segments: FeatureSegment[] = [];
       const cleanLoc = loc.replace(/[<>\s]/g, '');
       const regex = /(\d+)(?:\.\.|\^)(\d+)|(\d+)/g;
       let match;
@@ -213,7 +122,7 @@ const parseGenBank = (content: string): any[] => {
             fullLocation += lines[++i].trim();
           }
           const { segments, strand, start, end } = parseLocation(fullLocation);
-          const currentFeature: any = {
+          const currentFeature: BioFeature & { translation?: string } = {
             type,
             name: type,
             start, 
@@ -254,11 +163,11 @@ const parseGenBank = (content: string): any[] => {
 };
 
 /**
- * Parses FASTA content into simple objects.
+ * Parses FASTA content into simple record objects.
  */
-const parseFasta = (content: string): any[] => {
+const parseFasta = (content: string): FastaRecord[] => {
   const lines = content.split('\n');
-  const results: any[] = [];
+  const results: FastaRecord[] = [];
   let currentId = '';
   let currentSeq = '';
 
@@ -266,7 +175,7 @@ const parseFasta = (content: string): any[] => {
     const trimmed = line.trim();
     if (trimmed.startsWith('>')) {
       if (currentId) {
-        results.push({ id: currentId, sequence: currentSeq });
+        results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [] });
       }
       currentId = trimmed.substring(1).split(/\s+/)[0];
       currentSeq = '';
@@ -276,7 +185,7 @@ const parseFasta = (content: string): any[] => {
   });
 
   if (currentId) {
-    results.push({ id: currentId, sequence: currentSeq });
+    results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [] });
   }
   return results;
 };
@@ -284,9 +193,9 @@ const parseFasta = (content: string): any[] => {
 /**
  * Parses BED content.
  */
-const parseBED = (content: string, filename: string): Record<string, any[]> => {
+const parseBED = (content: string, filename: string): Record<string, AnnotationTrack[]> => {
   const lines = content.split('\n');
-  const results: Record<string, any[]> = {};
+  const results: Record<string, AnnotationTrack[]> = {};
 
   lines.forEach(line => {
     if (!line.trim() || line.startsWith('#') || line.startsWith('track') || line.startsWith('browser')) return;
@@ -297,10 +206,7 @@ const parseBED = (content: string, filename: string): Record<string, any[]> => {
     const chrom = parts[0];
     const start = parseInt(parts[1]);
     const end = parseInt(parts[2]);
-    const name = parts[3] || `feature_${start}_${end}`;
     const scoreVal = parseFloat(parts[4]);
-    const strandChar = parts[5];
-    const strand = strandChar === '-' ? -1 : 1;
 
     if (isNaN(start) || isNaN(end)) return;
 
@@ -330,9 +236,9 @@ const parseBED = (content: string, filename: string): Record<string, any[]> => {
 /**
  * Parses GFF3 content.
  */
-const parseGFF3 = (content: string): Record<string, any[]> => {
+const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
   const lines = content.split('\n');
-  const results: Record<string, any[]> = {};
+  const results: Record<string, BioFeature[]> = {};
 
   lines.forEach(line => {
     if (!line.trim() || line.startsWith('#')) return;
@@ -352,7 +258,7 @@ const parseGFF3 = (content: string): Record<string, any[]> => {
 
     if (isNaN(start) || isNaN(end)) return;
 
-    const strand = strandChar === '-' ? -1 : 1;
+    const strand: 1 | -1 = strandChar === '-' ? -1 : 1;
     const metadata: Record<string, string> = { source, phase };
     if (score !== '.') metadata.score = score;
 
@@ -369,7 +275,7 @@ const parseGFF3 = (content: string): Record<string, any[]> => {
 
     if (!name) name = `${type}_${start + 1}`;
 
-    const feature: any = {
+    const feature: BioFeature = {
       type,
       name,
       start,
@@ -388,9 +294,9 @@ const parseGFF3 = (content: string): Record<string, any[]> => {
 /**
  * Parses BedGraph content.
  */
-const parseBedGraph = (content: string, filename: string): Record<string, any[]> => {
+const parseBedGraph = (content: string, filename: string): Record<string, AnnotationTrack[]> => {
   const lines = content.split('\n');
-  const results: Record<string, any[]> = {};
+  const results: Record<string, AnnotationTrack[]> = {};
 
   lines.forEach(line => {
     if (!line.trim() || line.startsWith('#') || line.startsWith('track') || line.startsWith('browser')) return;
@@ -431,7 +337,7 @@ self.onmessage = (e) => {
 
   if (type === 'PROCESS_RECORDS') {
     try {
-      const transposed = processTransposition(records);
+      const transposed = processTransposition(records as SeqRecord[]);
       const consensus = calculateConsensus(transposed);
       self.postMessage({ type: 'SUCCESS', records: transposed, consensus });
     } catch (error) {
@@ -453,19 +359,19 @@ self.onmessage = (e) => {
     }
   } else if (type === 'PARSE_ANNOTATIONS') {
     try {
-      const { filename, content } = e.data;
+      const { filename, content: annotContent } = e.data as { filename: string; content: string };
       const ext = filename.split('.').pop()?.toLowerCase();
-      let parsed: Record<string, any[]>;
+      let parsed: Record<string, AnnotationTrack[] | BioFeature[]>;
       
-      if (ext === 'bed') parsed = parseBED(content, filename);
-      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(content);
-      else if (ext === 'bedgraph') parsed = parseBedGraph(content, filename);
+      if (ext === 'bed') parsed = parseBED(annotContent, filename);
+      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(annotContent);
+      else if (ext === 'bedgraph') parsed = parseBedGraph(annotContent, filename);
       else {
         // Fallback detection
-        if (content.includes('\t') && content.split('\n')[0].split('\t').length === 9) {
-          parsed = parseGFF3(content);
+        if (annotContent.includes('\t') && annotContent.split('\n')[0].split('\t').length === 9) {
+          parsed = parseGFF3(annotContent);
         } else {
-          parsed = parseBED(content, filename);
+          parsed = parseBED(annotContent, filename);
         }
       }
       
