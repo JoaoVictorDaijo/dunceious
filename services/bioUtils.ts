@@ -63,32 +63,6 @@ export const exportToFasta = (records: SeqRecord[], start?: number, end?: number
   }).join('\n\n');
 };
 
-export const parseFasta = (content: string): { id: string, sequence: string }[] => {
-  const lines = content.split('\n');
-  const results: { id: string, sequence: string }[] = [];
-  let currentId = '';
-  let currentSeq = '';
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('>')) {
-      if (currentId) {
-        results.push({ id: currentId, sequence: currentSeq });
-      }
-      currentId = trimmed.substring(1).split(/\s+/)[0]; // Get first word as ID
-      currentSeq = '';
-    } else if (trimmed) {
-      currentSeq += trimmed;
-    }
-  });
-
-  if (currentId) {
-    results.push({ id: currentId, sequence: currentSeq });
-  }
-
-  return results;
-};
-
 export const exportToGff = (records: SeqRecord[]): string => {
   let gff = "##gff-version 3\n";
   records.forEach(r => {
@@ -154,22 +128,6 @@ export const downloadBlob = (content: string, filename: string, mimeType: string
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-};
-
-const IUPAC_MAP: Record<string, string> = {
-  'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
-  'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-  'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-  'H': '[ACT]', 'V': '[ACG]', 'N': '[ACGT]',
-};
-
-export const degenerateToRegex = (query: string): RegExp => {
-  if (!query) return /$.^/;
-  // Escape special regex characters in query if any (though IUPAC usually doesn't have them)
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Allow optional gaps between bases for searching in aligned sequences
-  const pattern = escaped.toUpperCase().split('').map(char => IUPAC_MAP[char] || char).join('-*');
-  return new RegExp(pattern, 'gi');
 };
 
 export const reverseComplement = (seq: string): string => {
@@ -281,18 +239,4 @@ export const getOriginalPos = (alignedSeq: string, alignedPos: number): number =
     }
   }
   return originalPos;
-};
-
-/**
- * Maps a position in the original sequence to its index in the aligned sequence (with gaps).
- */
-export const getAlignedPos = (alignedSeq: string, originalPos: number): number => {
-  let currentOriginal = 0;
-  for (let i = 0; i < alignedSeq.length; i++) {
-    if (alignedSeq[i] !== '-') {
-      if (currentOriginal === originalPos) return i;
-      currentOriginal++;
-    }
-  }
-  return alignedSeq.length;
 };

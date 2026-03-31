@@ -4,7 +4,6 @@ import {
   processTransposition,
   calculateConsensus,
 } from '../../src/domain/bio/index';
-import { mockAlign } from '../alignmentLogic';
 import type { SeqRecord } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -80,52 +79,6 @@ describe('calculateConsensus', () => {
     // Both records contribute '-' at position 1
     const consensus = calculateConsensus([r1, r2]);
     expect(consensus[1]).toBe('-');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// mockAlign – produces aligned sequences with correct length and composition
-// ---------------------------------------------------------------------------
-
-describe('mockAlign – smoke test', () => {
-  it('returns empty array for empty input', () => {
-    expect(mockAlign([])).toHaveLength(0);
-  });
-
-  it('returns the same number of records', () => {
-    const records = [
-      makeRecord('r1', 'ACGTACGT'),
-      makeRecord('r2', 'ACGTACGT'),
-    ];
-    expect(mockAlign(records)).toHaveLength(2);
-  });
-
-  it('sets alignedSequence on every output record', () => {
-    const records = [makeRecord('r1', 'ACGTACGT')];
-    const [aligned] = mockAlign(records);
-    expect(aligned.alignedSequence).toBeDefined();
-    expect(aligned.alignedSequence!.length).toBeGreaterThan(0);
-  });
-
-  it('aligned sequence is at least as long as the original', () => {
-    const seq = 'ACGTACGTACGT';
-    const [aligned] = mockAlign([makeRecord('r1', seq)]);
-    expect(aligned.alignedSequence!.length).toBeGreaterThanOrEqual(seq.length);
-  });
-
-  it('non-gap characters in aligned sequence equal the original sequence', () => {
-    const seq = 'ACGTACGT';
-    const [aligned] = mockAlign([makeRecord('r1', seq)]);
-    const nonGap = aligned.alignedSequence!.replace(/-/g, '');
-    expect(nonGap).toBe(seq);
-  });
-
-  it('does not mutate input records', () => {
-    const original = makeRecord('r1', 'ACGTACGT');
-    const copy = { ...original };
-    mockAlign([original]);
-    expect(original.alignedSequence).toBeUndefined();
-    expect(original.sequence).toBe(copy.sequence);
   });
 });
 
