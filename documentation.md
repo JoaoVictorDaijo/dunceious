@@ -1,4 +1,4 @@
-# Dunceious v3.3 - Project Documentation
+# Dunceious v3.4 - Project Documentation
 
 ## 1. Project Overview
 Dunceious is a high-performance, web-based bioinformatics tool designed for Multi-Sequence Alignment (MSA) visualization, annotation transposition, and sequence analysis. It bridges the gap between raw genomic data (GenBank) and interactive visual insights, focusing on responsiveness and scientific accuracy.
@@ -40,11 +40,11 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 - **Build Tool**: Vite 6 (dev server on port 3000, HMR enabled).
 
 ### 3.2 Component Architecture
-- **`App.tsx`**: The orchestrator. Manages global state (records, logs, params) and the high-level workflow (Ingestion -> Alignment -> Transposition -> Visualization -> Search).
-- **`GenomeViewer.tsx`**: The core visualization engine. Implements the D3 canvas, handling zoom, drag, and rendering of the "Feature-above-Sequence" layout.
-- **`types.ts`**: Shared TypeScript type definitions (`SeqRecord`, `BioFeature`, `AlignmentParams`, `SearchResult`, etc.).
-- **`services/genbankParser.ts`**: A robust regex-based parser for the GenBank flat-file format.
-- **`services/alignmentLogic.ts`**: Contains the mathematical logic for gap-aware coordinate mapping and consensus sequence calculation.
+- **`src/app/App.tsx`**: The orchestrator. Manages global state (records, logs, params) and the high-level workflow (Ingestion -> Alignment -> Transposition -> Visualization -> Search).
+- **`components/GenomeViewer.tsx`**: The core visualization engine. Implements the D3 canvas, handling zoom, drag, and rendering of the "Feature-above-Sequence" layout.
+- **`src/domain/bio/types.ts`**: Shared TypeScript type definitions (`SeqRecord`, `BioFeature`, `AlignmentParams`, `SearchResult`, etc.). The root-level `types.ts` is a backward-compatibility re-export shim.
+- **`services/genbank/`**: Modular GenBank flat-file parser (entry point: `services/genbank/index.ts`). Submodules: `recordSplitter.ts`, `headerParser.ts`, `locationParser.ts`, `qualifierParser.ts`, `featureParser.ts`, `toSeqRecord.ts`.
+- **`src/domain/bio/`**: Pure domain logic — `coordinate.ts` (coordinate transposition), `consensus.ts` (consensus sequence calculation), `intervals.ts` (interval utilities). No DOM or worker globals.
 - **`services/bioUtils.ts`**: Utilities for genetic code translation (Codon -> AA), color-coding, FASTA/GFF/GenBank export, and file I/O.
 - **`src/workers/bioWorker.ts`**: Web Worker that handles all file parsing (GenBank, FASTA, BED, GFF) and sequence processing off the main thread.
 - **`src/workers/searchWorker.ts`**: Web Worker that runs exact (IUPAC regex) and fuzzy (Smith-Waterman) sequence searches off the main thread.
