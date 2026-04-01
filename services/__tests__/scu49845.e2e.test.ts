@@ -15,7 +15,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '../genbank/index';
-import { mockAlign } from '../alignmentLogic';
 import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
 import type { SeqRecord } from '../../types';
@@ -167,32 +166,18 @@ describe('SCU49845.gb – /translation qualifiers', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Full pipeline: parse → align → transpose
+// Full pipeline: parse → processTransposition
 // ---------------------------------------------------------------------------
 
-describe('SCU49845.gb – parse → mockAlign → processTransposition pipeline', () => {
+describe('SCU49845.gb – parse → processTransposition pipeline', () => {
   let original: SeqRecord;
-  let aligned: SeqRecord;
   let transposed: SeqRecord;
 
   beforeAll(() => {
     [original] = parseGenBank(SCU49845_CONTENT);
-    [aligned] = mockAlign([original]);
+    // Use an identity alignment (alignedSequence = sequence, no gaps introduced)
+    const aligned = { ...original, alignedSequence: original.sequence };
     [transposed] = processTransposition([aligned]);
-  });
-
-  it('mockAlign sets alignedSequence on the record', () => {
-    expect(aligned.alignedSequence).toBeDefined();
-    expect(aligned.alignedSequence!.length).toBeGreaterThan(0);
-  });
-
-  it('aligned sequence is at least as long as the original (gaps are only added)', () => {
-    expect(aligned.alignedSequence!.length).toBeGreaterThanOrEqual(original.sequence.length);
-  });
-
-  it('non-gap characters in alignedSequence equal the original sequence exactly', () => {
-    const nonGap = aligned.alignedSequence!.replace(/-/g, '');
-    expect(nonGap).toBe(original.sequence);
   });
 
   it('processTransposition preserves the number of features', () => {
@@ -208,10 +193,10 @@ describe('SCU49845.gb – parse → mockAlign → processTransposition pipeline'
     expect(axl2Gene!.strand).toBe(1);
   });
 
-  it('transposed AXL2 start coordinate is >= original (gaps can only push positions forward)', () => {
+  it('transposed AXL2 start coordinate matches original (identity alignment has no gaps)', () => {
     const origStart = original.features.find(f => f.name === 'AXL2' && f.type === 'gene')!.start;
     const transStart = transposed.features.find(f => f.name === 'AXL2' && f.type === 'gene')!.start;
-    expect(transStart).toBeGreaterThanOrEqual(origStart);
+    expect(transStart).toBe(origStart);
   });
 
   it('every transposed feature has segments set by processTransposition', () => {

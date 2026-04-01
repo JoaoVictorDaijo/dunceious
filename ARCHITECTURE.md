@@ -27,7 +27,6 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 │   │   ├── featureParser.ts
 │   │   ├── toSeqRecord.ts
 │   │   └── index.ts      ← canonical entry point
-│   ├── alignmentLogic.ts # mockAlign (demo only; prod logic is in src/domain/bio/)
 │   ├── bioUtils.ts       # Export/import/slice utilities
 │   └── searchLogic.ts    # Pure search functions (exact, IUPAC, Smith-Waterman)
 ├── src/
@@ -41,17 +40,6 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 │   │       ├── intervals.ts    # interval utilities
 │   │       ├── types.ts        # SeqRecord, BioFeature, … (canonical types)
 │   │       └── index.ts        # barrel export
-│   ├── features/         # Feature-first modules (see src/features/README.md)
-│   │   ├── alignment/    #   components/, hooks/, services/
-│   │   ├── ingestion/    #   components/, hooks/, services/
-│   │   ├── search/       #   components/, hooks/, services/
-│   │   └── viewer/       #   components/, hooks/
-│   ├── shared/           # Cross-cutting helpers (see src/shared/README.md)
-│   │   ├── constants/
-│   │   ├── errors/
-│   │   ├── hooks/
-│   │   ├── ui/
-│   │   └── utils/
 │   └── workers/
 │       ├── protocol.ts         # ← Worker message contracts (Phase 5)
 │       ├── bioWorker.ts        # Parsing & transposition worker
@@ -64,8 +52,6 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 ### Extension Rules
 - **New domain algorithms**: add to `src/domain/bio/` and export from `index.ts`. No DOM imports.
 - **New worker**: create `src/workers/<name>Worker.ts`, add request/response types to `src/workers/protocol.ts`, wire in `App.tsx`.
-- **New feature module**: create under `src/features/<feature>/` with `components/`, `hooks/`, and `services/` subdirs.
-- **New shared helper**: add to the appropriate `src/shared/` subdirectory (constants, errors, hooks, ui, or utils).
 - **New component**: create under `src/app/components/` if app-scoped, or `components/` if it needs to be shared with legacy paths.
 - **New service**: add to `services/` when it is shared between workers and the app; keep free of React imports.
 
@@ -175,15 +161,15 @@ All planned modularisation phases (0–6) are **complete** and merged into `main
 | 0     | #7  | ✅ Merged   | ESLint + architectural size guards, smoke tests, PR template       |
 | 1     | #8  | ✅ Merged   | Normalize layout — `src/app/`, `src/domain/`, `src/workers/`       |
 | 2     | #9  | ✅ Merged   | Extract 8 UI components from `App.tsx` (1820 → 655 lines)         |
-| 2-fix | #10 | ✅ Applied  | Post-Phase-2 verification: lint fixes, `src/features/` + `src/shared/` scaffold; deliverables merged via PR #15 |
+| 2-fix | #10 | ✅ Applied  | Post-Phase-2 verification: lint fixes, ESLint `varsIgnorePattern`; deliverables merged via PR #15 |
 | 3     | #12 | ✅ Merged   | Extract `src/domain/bio/` — coordinate, consensus, intervals       |
 | 4     | #13 | ✅ Merged   | Modularise GenBank parser into `services/genbank/` submodules      |
 | 5+6   | #14 | ✅ Merged   | Worker contracts (`protocol.ts`), `strictNullChecks`, remove shims |
 
 > **PR #10** was opened as a post-Phase-2 verification pass but was superseded
 > by later phase PRs before it could be merged. Its structural deliverables
-> (`src/features/`, `src/shared/`, ESLint `varsIgnorePattern`) were applied
-> directly to `main` during the Phase 0–6 audit (PR #15).
+> (ESLint `varsIgnorePattern`) were applied directly to `main` during the
+> Phase 0–6 audit (PR #15).
 
 ---
 
