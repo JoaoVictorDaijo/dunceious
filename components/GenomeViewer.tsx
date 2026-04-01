@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback, memo } from '
 import * as d3 from 'd3';
 import { VariableSizeList, ListChildComponentProps } from 'react-window';
 import { SeqRecord, SelectionArea, SearchResult, BioFeature } from '../types';
-import { getFeatureColor, translateSequence, getNucleotideColor, reverseComplement } from '../services/bioUtils';
+import { getFeatureColor, translateSequence, getNucleotideColor, extractCodingSequence, detectEarlyStop } from '../services/bioUtils';
 
 interface Props {
   records: SeqRecord[];
@@ -123,6 +123,20 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Pre-compute broken-protein status for each CDS/ORF feature.
+  // Keyed by `${start}-${end}-${strand}` to avoid re-running on unrelated re-renders.
+  const brokenFeatureMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!showTranslation) return map;
+    features
+      .filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
+      .forEach(f => {
+        const { codingSeq } = extractCodingSequence(f, seq);
+        map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
+      });
+    return map;
+  }, [features, seq, showTranslation]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -239,104 +253,49 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       }
     }
 
-    // 2. Render Translation
+    // 2. Render Translation (CDS/ORF annotation features only)
     if (showTranslation && zoomLevel > 5) {
       features.filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type)).forEach(f => {
-        const segments = f.segments || [{ start: f.start, end: f.end }];
-        let codingSeq = "";
-        const alignedIndices: number[] = [];
-        
-        segments.forEach(seg => {
-          for (let j = seg.start; j < seg.end; j++) {
-            const char = seq[j];
-            if (char && char !== '-') {
-              codingSeq += char;
-              alignedIndices.push(j);
-            }
-          }
-        });
+        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+        const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
 
-        if (f.strand === -1) {
-          codingSeq = reverseComplement(codingSeq);
-          alignedIndices.reverse();
-        }
+        const frame = f.strand === 1 ? (f.start % 3) : (f.end % 3);
+        const aaY = f.strand === 1
+          ? y - AA_ROW_HEIGHT * (3 - frame)
+          : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;
+
+        const baseColor = f.strand === 1 ? '#475569' : '#be185d';
+
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const aa = translateSequence(codingSeq.substring(j, j + 3));
           const startIdx = alignedIndices[j];
-          const endIdx = alignedIndices[j+2];
-          
+          const endIdx = alignedIndices[j + 2];
+
+          if (startIdx === undefined || endIdx === undefined) continue;
+
           const aX = xScale(Math.min(startIdx, endIdx)) - scrollX;
-          const aW = (xScale(Math.max(startIdx, endIdx) + 1) - xScale(Math.min(startIdx, endIdx)));
+          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(Math.min(startIdx, endIdx));
 
           if (aX + aW < 0 || aX > viewportWidth) continue;
 
+          // An early stop is a stop codon that is NOT the last codon in the sequence
+          const isEarlyStop = isBroken && aa === '_' && j < codingSeq.length - 3;
+
           ctx.globalAlpha = 0.9;
-          ctx.fillStyle = f.strand === 1 ? "#475569" : "#be185d";
-          const frame = f.strand === 1 ? (f.start % 3) : (f.end % 3);
-          const aaY = f.strand === 1 
-            ? y - AA_ROW_HEIGHT * (3 - frame) 
-            : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;
-          
+          ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
           ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
-          
+
           ctx.globalAlpha = 1.0;
           ctx.fillStyle = '#fff';
-          ctx.font = 'bold 9px monospace';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(aa, aX + aW/2, aaY + AA_ROW_HEIGHT/2);
+          ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
         }
       });
     }
-
-    // 3. Render 6-Frame Translation Reference (Background)
-    if (showTranslation && zoomLevel > 20) {
-      const genomeLength = seq.length;
-      ctx.save();
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      for (let frame = 0; frame < 3; frame++) {
-        // Forward frames
-        const fY = y - AA_ROW_HEIGHT * (3 - frame);
-        // Start from the first possible codon start for this frame before vStart
-        const startJ = vStart - ((vStart - frame + 3) % 3);
-        
-        for (let j = startJ; j < vEnd; j += 3) {
-          if (j < 0 || j + 2 >= genomeLength) continue;
-          const codon = seq.substring(j, j + 3);
-          if (codon.includes('-')) continue;
-          const aa = translateSequence(codon);
-          const aX = xScale(j) - scrollX;
-          const aW = xScale(j + 3) - xScale(j);
-          if (aX + aW < 0 || aX > viewportWidth) continue;
-          
-          ctx.fillStyle = 'rgba(71, 85, 105, 0.4)';
-          ctx.fillText(aa, aX + aW/2, fY + AA_ROW_HEIGHT/2);
-        }
-
-        // Reverse frames
-        const rY = y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;
-        // Reverse frame logic: translate RC(seq[j...j+2])
-        // We use the same j positions but reverse complement the codon
-        for (let j = startJ; j < vEnd; j += 3) {
-          if (j < 0 || j + 2 >= genomeLength) continue;
-          const codon = seq.substring(j, j + 3);
-          if (codon.includes('-')) continue;
-          const aa = translateSequence(reverseComplement(codon));
-          const aX = xScale(j) - scrollX;
-          const aW = xScale(j + 3) - xScale(j);
-          if (aX + aW < 0 || aX > viewportWidth) continue;
-          
-          ctx.fillStyle = 'rgba(190, 24, 93, 0.4)';
-          ctx.fillText(aa, aX + aW/2, rY + AA_ROW_HEIGHT/2);
-        }
-      }
-      ctx.restore();
-    }
-  }, [seq, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features, brokenFeatureMap, searchResults, allSearchResults, currentSearchIdx]);
 
   return <canvas ref={canvasRef} style={{ width: viewportWidth, height: height, position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} />;
 });
@@ -637,6 +596,18 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 
+  // Pre-compute broken-protein status for each CDS/ORF feature in this record.
+  const brokenFeatureMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    l.record.features
+      .filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
+      .forEach(f => {
+        const { codingSeq } = extractCodingSequence(f, seq);
+        map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
+      });
+    return map;
+  }, [l.record.features, seq]);
+
   return (
     <div 
       style={style} 
@@ -807,8 +778,12 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
               const y = p.row * (ANNOT_ROW_HEIGHT + 6) + l.topPadding;
               const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
+              // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
+              const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
+
               const tooltipContent = [
                 `${f.name} [${f.type}]`,
+                isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${f.start + 1}..${f.end}`}`,
                 `Strand: ${f.strand === 1 ? '+' : '-'}`,
@@ -831,7 +806,9 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
                     key={`${i}-${keySuffix}`}
                     x={fX} y={rectY} width={Math.max(1, fW)} height={rectHeight}
                     fill={fill} rx={4}
-                    stroke={isSelected ? '#000' : 'none'} strokeWidth={1}
+                    stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : 'none')}
+                    strokeWidth={isSelected ? 1 : (isBroken ? 1.5 : 0)}
+                    strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
                     style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
                     onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
                     onMouseOut={() => setTooltip(null)}
