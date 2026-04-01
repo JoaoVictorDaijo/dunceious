@@ -1,6 +1,6 @@
-# Dunceious v3.3 User Manual
+# Dunceious v3.4 User Manual
 
-Welcome to **Dunceious v3.3**, a high-performance bioinformatics platform for Multi-Sequence Alignment (MSA) visualization and analysis.
+Welcome to **Dunceious v3.4**, a high-performance bioinformatics platform for Multi-Sequence Alignment (MSA) visualization and analysis.
 
 ## 1. Getting Started
 

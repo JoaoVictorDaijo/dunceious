@@ -71,4 +71,4 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 ## License
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.  
-Commercial use is **strictly prohibited** ~~without explicit written permission from the authors~~ no matter what.
+Commercial use is **strictly prohibited**.
