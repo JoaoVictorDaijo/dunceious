@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit && eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "perf": "node --expose-gc node_modules/.bin/vitest run --config vitest.perf.config.ts"
   },
   "dependencies": {
     "@types/react-window": "^1.8.8",
