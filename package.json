@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit && eslint .",
-    "test": "vitest run"
+    "test": "vitest run --exclude 'benchmark/**'",
+    "bench": "vitest run benchmark"
   },
   "dependencies": {
     "@types/react-window": "^1.8.8",
