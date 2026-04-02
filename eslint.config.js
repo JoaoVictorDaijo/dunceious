@@ -42,6 +42,16 @@ export default tseslint.config(
     },
   },
   {
+    // Plain Node.js scripts in the benchmark directory are not TypeScript and
+    // need access to Node.js globals (process, etc.).
+    files: ['benchmark/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ['dist/**', 'node_modules/**'],
   },
 );
