@@ -16,6 +16,10 @@ export default defineConfig(() => {
       },
       test: {
         environment: 'node',
+        // Exclude *.bench.ts files from the default `npm test` run so that
+        // benchmarks don't make CI non-deterministic.  Run them with
+        // `npm run perf` instead (see package.json).
+        exclude: ['**/*.bench.ts', '**/node_modules/**'],
       },
     };
 });
