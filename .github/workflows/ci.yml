@@ -3,7 +3,10 @@ name: CI – Tests & Resource Benchmarks
 on:
   push:
     branches: [main]
-  pull_request:
+  # pull_request_target runs the workflow definition from the base branch
+  # even when triggered by a bot or first-time contributor, so it never
+  # gets stuck in the "action_required" approval gate.
+  pull_request_target:
 
 permissions:
   contents: read
@@ -11,8 +14,19 @@ permissions:
 jobs:
   test-and-bench:
     runs-on: ubuntu-latest
+    # Restrict pull_request_target runs to PRs from the same repository so
+    # untrusted fork code is never executed in a privileged context.
+    if: >
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v4
+        with:
+          # For pull_request_target the default checkout is the base branch;
+          # explicitly pin to the PR head so we test the incoming code.
+          # For push events github.event.pull_request.head.sha is empty, so
+          # the expression falls back to github.sha (the pushed commit).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -28,6 +42,10 @@ jobs:
 
       - name: Run benchmarks
         run: npm run bench
+
+      - name: Summarise benchmark results
+        if: always()
+        run: node benchmark/summarize.mjs
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
