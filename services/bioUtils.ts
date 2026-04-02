@@ -21,6 +21,84 @@ export const translateSequence = (seq: string): string => {
   return protein;
 };
 
+/**
+ * Extracts the coding sequence for a feature from the full genome sequence,
+ * respecting multi-part (join) and circular wrap-around locations.
+ *
+ * For reverse-strand features the nucleotide string is reverse-complemented
+ * and `alignedIndices` is reversed so that codon position `i` maps to the
+ * correct genomic coordinate.
+ *
+ * @param feature  A BioFeature-like object with strand, start, end, and optional segments.
+ * @param seq      The raw genome sequence (no gap characters expected, but '-' is tolerated).
+ * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
+ */
+export function extractCodingSequence(
+  feature: {
+    strand: 1 | -1;
+    start: number;
+    end: number;
+    segments?: { start: number; end: number }[];
+  },
+  seq: string
+): { codingSeq: string; alignedIndices: number[] } {
+  const seqLen = seq.length;
+  let segments: { start: number; end: number }[];
+
+  if (feature.segments && feature.segments.length > 0) {
+    segments = feature.segments;
+  } else if (feature.start > feature.end) {
+    // Circular wrap-around without explicit segments: split at origin
+    segments = [
+      { start: feature.start, end: seqLen },
+      { start: 0, end: feature.end },
+    ];
+  } else {
+    segments = [{ start: feature.start, end: feature.end }];
+  }
+
+  let codingSeq = '';
+  const alignedIndices: number[] = [];
+
+  segments.forEach(seg => {
+    for (let j = seg.start; j < seg.end; j++) {
+      const char = seq[j];
+      if (char && char !== '-') {
+        codingSeq += char;
+        alignedIndices.push(j);
+      }
+    }
+  });
+
+  if (feature.strand === -1) {
+    codingSeq = reverseComplement(codingSeq);
+    alignedIndices.reverse();
+  }
+
+  return { codingSeq, alignedIndices };
+}
+
+/**
+ * Returns `true` when the coding sequence contains an in-frame stop codon
+ * before the final codon – indicating a "broken" (truncated) protein.
+ *
+ * A CDS that ends normally with a stop codon is NOT considered broken;
+ * only an internal stop codon before the last position is flagged.
+ *
+ * @param codingSeq  Nucleotide string in translation-ready order (already
+ *                   reverse-complemented for minus-strand features).
+ */
+export function detectEarlyStop(codingSeq: string): boolean {
+  const fullCodons = Math.floor(codingSeq.length / 3);
+  // Examine every codon except the last one
+  for (let i = 0; i < fullCodons - 1; i++) {
+    if (translateSequence(codingSeq.substring(i * 3, i * 3 + 3)) === '_') {
+      return true;
+    }
+  }
+  return false;
+}
+
 export const getNucleotideColor = (char: string): string => {
   const c = char.toUpperCase();
   if (c === 'A') return '#22c55e'; // Emerald
