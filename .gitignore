@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Benchmark results – generated at runtime; uploaded as CI artifact
+benchmark/results/
