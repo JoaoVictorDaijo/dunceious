@@ -73,3 +73,9 @@ jobs:
         with:
           name: benchmark-results
           path: benchmark/results/benchmark.json
+
+      - name: Upload simulated GenBank files
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulated-genbanks
+          path: benchmark/results/genbanks/

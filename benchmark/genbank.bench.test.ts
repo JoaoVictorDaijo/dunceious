@@ -30,6 +30,7 @@ import { makeMultiRecord } from './syntheticGenbank';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, 'results');
+const GENBANKS_DIR = join(RESULTS_DIR, 'genbanks');
 
 // ── Result schema ─────────────────────────────────────────────────────────────
 
@@ -61,7 +62,14 @@ interface BenchmarkEntry {
   featuresParsed: number;
 }
 
+interface GeneratedGenBank {
+  seqLength_bp: number;
+  numRecords: number;
+  content: string;
+}
+
 const entries: BenchmarkEntry[] = [];
+const generatedGenBanks: GeneratedGenBank[] = [];
 
 // ── measurement helper ────────────────────────────────────────────────────────
 
@@ -103,6 +111,7 @@ describe('benchmark – grid: seq length × number of records', () => {
           numRecords,
           ...result,
         });
+        generatedGenBanks.push({ seqLength_bp: seqLengthBp, numRecords, content });
 
         // Correctness assertions – the benchmark should also test the parser.
         expect(result.recordsParsed).toBe(numRecords);
@@ -116,6 +125,7 @@ describe('benchmark – grid: seq length × number of records', () => {
 
 afterAll(() => {
   mkdirSync(RESULTS_DIR, { recursive: true });
+  mkdirSync(GENBANKS_DIR, { recursive: true });
 
   const output = {
     generatedAt: new Date().toISOString(),
@@ -135,4 +145,9 @@ afterAll(() => {
   };
 
   writeFileSync(join(RESULTS_DIR, 'benchmark.json'), JSON.stringify(output, null, 2));
+
+  for (const { seqLength_bp, numRecords, content } of generatedGenBanks) {
+    const filename = `seqLen${seqLength_bp}_n${numRecords}.gb`;
+    writeFileSync(join(GENBANKS_DIR, filename), content);
+  }
 });
