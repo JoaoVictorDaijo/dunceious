@@ -82,15 +82,9 @@ export function useSearchWorker(
 
   useEffect(() => {
     latestQueryRef.current = searchQuery;
-  }, [searchQuery]);
-
-  useEffect(() => {
     addLogRef.current = addLog;
-  }, [addLog]);
-
-  useEffect(() => {
     onFirstResultRef.current = onFirstResult;
-  }, [onFirstResult]);
+  }, [searchQuery, addLog, onFirstResult]);
 
   // ── Fuzzy filter ──────────────────────────────────────────────────────────
   const filteredResults = useMemo(() => {
@@ -102,7 +96,6 @@ export function useSearchWorker(
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
-    isMountedRef.current = true;
     searchWorkerRef.current = new Worker(
       new URL('@/src/workers/searchWorker.ts', import.meta.url),
       { type: 'module' },
