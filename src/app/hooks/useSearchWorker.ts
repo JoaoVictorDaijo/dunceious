@@ -78,6 +78,7 @@ export function useSearchWorker(
   const latestQueryRef = useRef(searchQuery);
   const addLogRef = useRef(addLog);
   const onFirstResultRef = useRef(onFirstResult);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     latestQueryRef.current = searchQuery;
@@ -101,12 +102,14 @@ export function useSearchWorker(
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
+    isMountedRef.current = true;
     searchWorkerRef.current = new Worker(
       new URL('@/src/workers/searchWorker.ts', import.meta.url),
       { type: 'module' },
     );
 
     searchWorkerRef.current.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
+      if (!isMountedRef.current) return;
       const msg = e.data;
       setIsSearching(false);
       if ('error' in msg) { addLogRef.current(`Search Error: ${msg.error}`); return; }
@@ -129,7 +132,10 @@ export function useSearchWorker(
       }
     };
 
-    return () => { searchWorkerRef.current?.terminate(); };
+    return () => {
+      isMountedRef.current = false;
+      searchWorkerRef.current?.terminate();
+    };
   }, []);
 
   // ── Dispatch search request ───────────────────────────────────────────────
