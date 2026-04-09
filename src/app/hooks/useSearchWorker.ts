@@ -41,8 +41,8 @@ export interface UseSearchWorkerReturn {
 /**
  * Manages the searchWorker Web Worker lifecycle and all sequence-search state.
  *
- * The worker is recreated whenever `searchQuery` changes so that pending
- * handlers referencing stale query text are discarded cleanly.
+ * The worker is created once and reused; refs keep callback/query values fresh
+ * for response handling without worker churn during typing.
  *
  * @param records                 - Current active records to search over.
  * @param addLog                  - Callback to append a timestamped message.
@@ -75,6 +75,21 @@ export function useSearchWorker(
   const [maxScoreFound, setMaxScoreFound] = useState(0);
 
   const searchWorkerRef = useRef<Worker | null>(null);
+  const latestQueryRef = useRef(searchQuery);
+  const addLogRef = useRef(addLog);
+  const onFirstResultRef = useRef(onFirstResult);
+
+  useEffect(() => {
+    latestQueryRef.current = searchQuery;
+  }, [searchQuery]);
+
+  useEffect(() => {
+    addLogRef.current = addLog;
+  }, [addLog]);
+
+  useEffect(() => {
+    onFirstResultRef.current = onFirstResult;
+  }, [onFirstResult]);
 
   // ── Fuzzy filter ──────────────────────────────────────────────────────────
   const filteredResults = useMemo(() => {
@@ -84,7 +99,7 @@ export function useSearchWorker(
     );
   }, [searchResults, searchMode, maxScoreFound, searchOptions.minScore]);
 
-  // ── Worker lifecycle (recreated on query change) ──────────────────────────
+  // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
     searchWorkerRef.current = new Worker(
       new URL('@/src/workers/searchWorker.ts', import.meta.url),
@@ -94,7 +109,7 @@ export function useSearchWorker(
     searchWorkerRef.current.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
       const msg = e.data;
       setIsSearching(false);
-      if ('error' in msg) { addLog(`Search Error: ${msg.error}`); return; }
+      if ('error' in msg) { addLogRef.current(`Search Error: ${msg.error}`); return; }
 
       const { results } = msg;
       const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
@@ -105,18 +120,17 @@ export function useSearchWorker(
         setCurrentSearchIdx(0);
         const first = results[0];
         setTimeout(() => {
-          onFirstResult({ start: first.start, end: first.end, recordIds: [first.recordId] });
+          onFirstResultRef.current({ start: first.start, end: first.end, recordIds: [first.recordId] });
         }, 0);
-        addLog(`Search complete: ${results.length} matches found.`);
+        addLogRef.current(`Search complete: ${results.length} matches found.`);
       } else {
         setCurrentSearchIdx(-1);
-        addLog(`No matches found for '${searchQuery}'.`);
+        addLogRef.current(`No matches found for '${latestQueryRef.current}'.`);
       }
     };
 
     return () => { searchWorkerRef.current?.terminate(); };
-    // searchQuery is captured in the closure for the "no matches" log message.
-  }, [searchQuery]);
+  }, []);
 
   // ── Dispatch search request ───────────────────────────────────────────────
   const handleSearch = useCallback(() => {
