@@ -12,8 +12,12 @@ permissions:
   contents: read
 
 jobs:
+<<<<<<< copilot/implement-2d-benchmark-grid
+  test-and-bench:
+=======
   unit-tests:
     name: Unit tests (synthetic data construction)
+>>>>>>> main
     runs-on: ubuntu-latest
     # Restrict pull_request_target runs to PRs from the same repository so
     # untrusted fork code is never executed in a privileged context.
@@ -38,6 +42,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+<<<<<<< copilot/implement-2d-benchmark-grid
+      - name: Run tests
+        run: npm test
+
+      - name: Run benchmarks
+=======
       - name: Run unit tests
         run: npm test
 
@@ -62,6 +72,7 @@ jobs:
         run: npm ci
 
       - name: Run benchmarks (sequence-length & record-count modalities)
+>>>>>>> main
         run: npm run bench
 
       - name: Summarise benchmark results
