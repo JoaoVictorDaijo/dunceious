@@ -45,6 +45,12 @@ describe('parseGenBank – smoke tests', () => {
     expect(record.sequence).toBe('ATGCATGCATGCATGCATGCATGCATGCAT');
   });
 
+  it('ignores non-sequence symbols in ORIGIN lines', () => {
+    const noisyGb = `LOCUS       NOISY001      12 bp    DNA\nORIGIN\n        1 atgc..nnnn**\n//\n`;
+    const [record] = parseGenBank(noisyGb);
+    expect(record.sequence).toBe('ATGCNNNN**');
+  });
+
   it('parses features with correct coordinates (0-based half-open)', () => {
     const [record] = parseGenBank(MINIMAL_GB);
     // gene feature: location 1..20 → 0-based [0, 20)

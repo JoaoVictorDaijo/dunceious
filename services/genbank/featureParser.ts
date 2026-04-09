@@ -31,8 +31,9 @@ export function parseFeatures(lines: string[]): BioFeature[] {
     // ORIGIN marks the end of the FEATURES section
     if (line.startsWith('ORIGIN')) break;
 
-    // Feature key line: exactly 5 spaces, a word, then whitespace + location
-    const featureMatch = line.match(/^ {5}(\w+) +(.+)$/);
+    // Feature key line: exactly 5 spaces, then a non-space key token.
+    // Keys such as 5'UTR are valid in GenBank and are not matched by \w+.
+    const featureMatch = line.match(/^ {5}(\S+) +(.+)$/);
     if (!featureMatch) continue;
 
     const [, type, initialLoc] = featureMatch;

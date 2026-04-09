@@ -221,35 +221,52 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     });
 
     // 1. Render Nucleotides
-    for (let j = vStart; j < vEnd; j++) {
-      const char = seq[j] || '-';
-      const isGap = char === '-';
-      const cX = xScale(j) - scrollX;
-      const cW = Math.max(0.1, xScale(j+1) - xScale(j));
-      
-      if (cX > viewportWidth) break;
-      if (cX + cW < 0) continue;
+    // For very large records at low zoom, rendering one rect per base causes
+    // hundreds of thousands of draw calls per frame. Switch to pixel columns.
+    if (zoomLevel < 0.5) {
+      const pxStart = Math.max(0, Math.floor(xScale(vStart) - scrollX));
+      const pxEnd = Math.min(viewportWidth, Math.ceil(xScale(vEnd) - scrollX));
 
-      const highlight = highlightMap.get(j);
-      if (!highlight) {
+      for (let px = pxStart; px < pxEnd; px++) {
+        const bp = Math.max(0, Math.min(seq.length - 1, Math.floor((scrollX + px + 0.5) / zoomLevel)));
+        const char = seq[bp] || '-';
+        const isGap = char === '-';
+
         ctx.fillStyle = isGap ? '#f1f5f9' : getNucleotideColor(char);
-        ctx.globalAlpha = isGap ? 0.5 : 0.9;
-        ctx.fillRect(cX, seqY, cW, NT_ROW_HEIGHT);
+        ctx.globalAlpha = isGap ? 0.35 : 0.8;
+        ctx.fillRect(px, seqY, 1.2, NT_ROW_HEIGHT);
       }
-      
-      if (zoomLevel > 12) {
+    } else {
+      for (let j = vStart; j < vEnd; j++) {
+        const char = seq[j] || '-';
+        const isGap = char === '-';
+        const cX = xScale(j) - scrollX;
+        const cW = Math.max(0.1, xScale(j+1) - xScale(j));
+
+        if (cX > viewportWidth) break;
+        if (cX + cW < 0) continue;
+
+        const highlight = highlightMap.get(j);
         if (!highlight) {
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(cX, seqY, cW, NT_ROW_HEIGHT);
+          ctx.fillStyle = isGap ? '#f1f5f9' : getNucleotideColor(char);
+          ctx.globalAlpha = isGap ? 0.5 : 0.9;
+          ctx.fillRect(cX, seqY, cW, NT_ROW_HEIGHT);
         }
-        
-        ctx.globalAlpha = 1.0;
-        ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
+
+        if (zoomLevel > 12) {
+          if (!highlight) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(cX, seqY, cW, NT_ROW_HEIGHT);
+          }
+
+          ctx.globalAlpha = 1.0;
+          ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
+        }
       }
     }
 

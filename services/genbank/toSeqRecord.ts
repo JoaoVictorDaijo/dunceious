@@ -18,7 +18,8 @@ function parseSequence(lines: string[]): string {
       continue;
     }
     if (inOrigin) {
-      sequence += line.replace(/[\d\s]/g, '').toUpperCase();
+      if (line.trim().startsWith('//')) break;
+      sequence += line.replace(/[^A-Za-z\-*]/g, '').toUpperCase();
     }
   }
 

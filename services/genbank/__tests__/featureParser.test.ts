@@ -136,6 +136,19 @@ describe('parseFeatures – circular wrap-around', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseFeatures – edge cases', () => {
+  it('parses non-word feature keys like 5\'UTR', () => {
+    const lines = wrapInRecord(
+      '     5\'UTR           1..42\n' +
+      '                     /gene="utrA"',
+    );
+    const features = parseFeatures(lines);
+    expect(features).toHaveLength(1);
+    expect(features[0].type).toBe("5'UTR");
+    expect(features[0].name).toBe('utrA');
+    expect(features[0].start).toBe(0);
+    expect(features[0].end).toBe(42);
+  });
+
   it('handles a feature with no qualifiers', () => {
     const lines = wrapInRecord('     source          1..100');
     const features = parseFeatures(lines);
