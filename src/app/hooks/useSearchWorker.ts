@@ -126,8 +126,13 @@ export function useSearchWorker(
     };
 
     return () => {
+      const worker = searchWorkerRef.current;
+      if (worker) {
+        worker.onmessage = null;
+        worker.terminate();
+        searchWorkerRef.current = null;
+      }
       isMountedRef.current = false;
-      searchWorkerRef.current?.terminate();
     };
   }, []);
 
