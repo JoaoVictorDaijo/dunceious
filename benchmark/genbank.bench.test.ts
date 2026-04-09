@@ -91,26 +91,15 @@ const SEQ_LENGTHS = [1_000, 3_000, 5_000, 10_000, 200_000];
 const RECORD_COUNTS = [1, 10, 30, 50];
 
 describe('benchmark – grid: seq length × number of records', () => {
-<<<<<<< copilot/implement-2d-benchmark-grid
-  for (const seqLength of SEQ_LENGTHS) {
-    for (const numRecords of RECORD_COUNTS) {
-      it(`parses ${numRecords} record${numRecords === 1 ? '' : 's'} of ${seqLength.toLocaleString()} bp each`, () => {
-        const content = makeMultiRecord(numRecords, seqLength);
-=======
   for (const seqLengthBp of SEQ_LENGTHS) {
     for (const numRecords of RECORD_COUNTS) {
       it(`parses ${numRecords} record${numRecords === 1 ? '' : 's'} of ${seqLengthBp.toLocaleString()} bp each`, () => {
         const content = makeMultiRecord(numRecords, seqLengthBp);
->>>>>>> main
         const result = measure(content);
 
         entries.push({
           modality: 'grid',
-<<<<<<< copilot/implement-2d-benchmark-grid
-          seqLength_bp: seqLength,
-=======
           seqLength_bp: seqLengthBp,
->>>>>>> main
           numRecords,
           ...result,
         });
