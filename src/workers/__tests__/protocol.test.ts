@@ -82,7 +82,7 @@ function dispatchSearchRequest(req: SearchWorkerRequest): SearchWorkerResponse {
   const { searchQuery, records, mode, options } = req;
   const { strand = 'both', maxResults = 100 } = options;
 
-  if (!searchQuery || searchQuery.length < 2) return { results: [] };
+  if (!searchQuery || searchQuery.length < 1) return { results: [] };
 
   try {
     type SR = { start: number; end: number; sequence: string; recordId: string; strand: 1 | -1; score?: number; segments?: { start: number; end: number }[] };
@@ -259,9 +259,23 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
     }
   });
 
+  it('single-character query is supported', () => {
+    const req: SearchWorkerRequest = {
+      searchQuery: 'A',
+      records,
+      mode: 'exact',
+      options: { minScore: 0, strand: 'both', maxResults: 100 },
+    };
+    const resp = dispatchSearchRequest(req);
+    expect('results' in resp).toBe(true);
+    if ('results' in resp) {
+      expect(resp.results.length).toBeGreaterThan(0);
+    }
+  });
+
   it('empty query returns empty results', () => {
     const req: SearchWorkerRequest = {
-      searchQuery: 'A', // length < 2
+      searchQuery: '',
       records,
       mode: 'exact',
       options: { minScore: 0, strand: 'both', maxResults: 100 },

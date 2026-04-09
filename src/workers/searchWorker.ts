@@ -11,7 +11,7 @@ self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
   const { searchQuery, records, mode, options } = e.data;
   const { minScore = 5, strand = 'both', maxResults = 100 } = options;
 
-  if (!searchQuery || searchQuery.length < 2) {
+  if (!searchQuery || searchQuery.length < 1) {
     const response: SearchWorkerResponse = { results: [] };
     self.postMessage(response);
     return;

@@ -138,7 +138,7 @@ export function useSearchWorker(
 
   // ── Dispatch search request ───────────────────────────────────────────────
   const handleSearch = useCallback(() => {
-    if (!searchQuery || searchQuery.length < 2) {
+    if (!searchQuery || searchQuery.length < 1) {
       setSearchResults([]);
       setCurrentSearchIdx(-1);
       setSelectedSearchIndices(new Set());

@@ -154,12 +154,12 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     const vStart = Math.max(0, Math.floor(scrollX / zoomLevel) - 5);
     const vEnd = Math.min(seq.length, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 5);
+    const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
 
     // Pre-calculate search highlights for this viewport
     const highlightMap = new Map<number, { isActive: boolean, strand: number }>();
     searchResults.forEach(r => {
-      const globalIdx = allSearchResults.indexOf(r);
-      const isActive = globalIdx === currentSearchIdx;
+      const isActive = r === activeResult;
       
       const applyHighlight = (start: number, end: number) => {
         for (let k = start; k < end; k++) {
@@ -187,8 +187,7 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     const fullTrackH = (showTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT;
     const highlightY = showTranslation ? y - AA_ROW_HEIGHT * 3 : y;
     searchResults.forEach(r => {
-      const globalIdx = allSearchResults.indexOf(r);
-      const isActive = globalIdx === currentSearchIdx;
+      const isActive = r === activeResult;
       
       const renderMatch = (start: number, end: number) => {
         const x = xScale(start) - scrollX;
