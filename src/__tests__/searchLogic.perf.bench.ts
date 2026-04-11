@@ -44,7 +44,7 @@ function makeIupacQuery(length: number): string {
 /** Log a benchmark result to the console for visibility in perf runs. */
 function logResult(label: string, result: ReturnType<typeof bench>): void {
   const memNote = GC_AVAILABLE
-    ? `  mem median=${(result.medianHeapBytes / 1024).toFixed(1)} KB`
+    ? `  mem peak=${(result.peakHeapDeltaBytes / 1024).toFixed(1)} KB`
     : '  mem=skipped (no --expose-gc)';
   console.log(
     `[bench] ${label.padEnd(50)} ` +
@@ -104,7 +104,7 @@ describe('reverseComplement – scaling with sequence length', () => {
     const r100k = results.get(100_000);
     if (!r1k || !r100k) return;
 
-    const memRatio = r100k.medianHeapBytes / Math.max(r1k.medianHeapBytes, 1);
+    const memRatio = r100k.peakHeapDeltaBytes / Math.max(r1k.peakHeapDeltaBytes, 1);
     expect(memRatio).toBeLessThan(1_000);
   });
 });

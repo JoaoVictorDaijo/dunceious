@@ -119,7 +119,7 @@ function makeMultiRecordGenbank(numRecords: number): string {
 /** Log a benchmark result to the console for visibility in perf runs. */
 function logResult(label: string, result: ReturnType<typeof bench>): void {
   const memNote = GC_AVAILABLE
-    ? `  mem median=${(result.medianHeapBytes / 1024).toFixed(1)} KB`
+    ? `  mem peak=${(result.peakHeapDeltaBytes / 1024).toFixed(1)} KB`
     : '  mem=skipped (no --expose-gc)';
   console.log(
     `[bench] ${label.padEnd(40)} ` +
@@ -194,7 +194,7 @@ describe('parseGenBank – scaling with sequence length', () => {
 
     // 100× input → allow up to 1000× memory growth before failing.
     // In practice, a well-behaved parser should be ≤ 200×.
-    const memRatio = r100k.medianHeapBytes / Math.max(r1k.medianHeapBytes, 1);
+    const memRatio = r100k.peakHeapDeltaBytes / Math.max(r1k.peakHeapDeltaBytes, 1);
     expect(memRatio).toBeLessThan(1_000);
   });
 });
@@ -253,7 +253,7 @@ describe('parseGenBank – scaling with number of records', () => {
 
     if (!r1 || !r100) return;
 
-    const memRatio = r100.medianHeapBytes / Math.max(r1.medianHeapBytes, 1);
+    const memRatio = r100.peakHeapDeltaBytes / Math.max(r1.peakHeapDeltaBytes, 1);
     expect(memRatio).toBeLessThan(10_000);
   });
 });

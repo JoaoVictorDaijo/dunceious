@@ -66,6 +66,11 @@ const entries: BenchmarkEntry[] = [];
 // ── measurement helper ────────────────────────────────────────────────────────
 
 function measure(content: string): Omit<BenchmarkEntry, 'modality' | 'seqLength_bp' | 'numRecords'> {
+  // Force GC to establish a clean baseline (available via --expose-gc).
+  if (typeof (globalThis as Record<string, unknown>).gc === 'function') {
+    (globalThis as unknown as { gc(): void }).gc();
+  }
+
   const memBefore = process.memoryUsage();
   const heapBefore = memBefore.heapUsed;
   const rssBefore = memBefore.rss;

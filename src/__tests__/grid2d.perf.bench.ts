@@ -105,7 +105,7 @@ function makeSegments(count: number, rangeEnd: number): FeatureSegment[] {
 /** Log a benchmark result to the console for visibility in perf runs. */
 function logResult(label: string, result: ReturnType<typeof bench>): void {
   const memNote = GC_AVAILABLE
-    ? `  mem median=${(result.medianHeapBytes / 1024).toFixed(1)} KB`
+    ? `  mem peak=${(result.peakHeapDeltaBytes / 1024).toFixed(1)} KB`
     : '  mem=skipped (no --expose-gc)';
   console.log(
     `[bench] ${label.padEnd(60)} ` +
@@ -272,7 +272,7 @@ describe('processTransposition – scaling with grid size (rows × features per 
     const rLarge = results.get('20x100');
     if (!rSmall || !rLarge) return;
 
-    const memRatio = rLarge.medianHeapBytes / Math.max(rSmall.medianHeapBytes, 1);
+    const memRatio = rLarge.peakHeapDeltaBytes / Math.max(rSmall.peakHeapDeltaBytes, 1);
     expect(memRatio).toBeLessThan(1_000);
   });
 });
@@ -391,7 +391,7 @@ describe('calculateConsensus – scaling with grid dimensions (rows × columns)'
     const rLarge = results.get('50x20000');
     if (!rSmall || !rLarge) return;
 
-    const memRatio = rLarge.medianHeapBytes / Math.max(rSmall.medianHeapBytes, 1);
+    const memRatio = rLarge.peakHeapDeltaBytes / Math.max(rSmall.peakHeapDeltaBytes, 1);
     expect(memRatio).toBeLessThan(1_000);
   });
 });

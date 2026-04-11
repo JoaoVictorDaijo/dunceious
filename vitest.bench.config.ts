@@ -24,6 +24,9 @@ export default defineConfig(() => {
       environment: 'node',
       // Only run files inside benchmark/ that end with .bench.test.ts.
       include: ['benchmark/**/*.bench.test.ts'],
+      // Pass --expose-gc to worker processes so that global.gc() is available
+      // for GC-aware memory sampling (clean baseline before each measurement).
+      execArgv: ['--expose-gc'],
     },
   };
 });
