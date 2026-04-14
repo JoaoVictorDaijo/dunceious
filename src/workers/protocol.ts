@@ -105,6 +105,7 @@ export interface SearchOptions {
 }
 
 export interface SearchWorkerRequest {
+  requestId?: number;
   searchQuery: string;
   records: SearchableRecord[];
   mode: 'exact' | 'fuzzy';
@@ -116,10 +117,12 @@ export interface SearchWorkerRequest {
 // ---------------------------------------------------------------------------
 
 export interface SearchSuccessResponse {
+  requestId?: number;
   results: SearchResult[];
 }
 
 export interface SearchErrorResponse {
+  requestId?: number;
   error: string;
 }
 

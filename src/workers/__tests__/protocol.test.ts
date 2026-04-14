@@ -21,7 +21,7 @@ import type {
 } from '../protocol';
 import { processTransposition, calculateConsensus } from '../../domain/bio/index';
 import { parseGenBank } from '../../../services/genbank/index';
-import { degenerateToRegex, reverseComplement, getNonGapSegments } from '../../../services/searchLogic';
+import { degenerateToRegex, reverseComplement, getNonGapSegments, smithWaterman } from '../../../services/searchLogic';
 import type { SeqRecord } from '../../domain/bio/types';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
 /** Simulate what the search worker does for a SearchWorkerRequest. */
 function dispatchSearchRequest(req: SearchWorkerRequest): SearchWorkerResponse {
   const { searchQuery, records, mode, options } = req;
-  const { strand = 'both', maxResults = 100 } = options;
+  const { strand = 'both', maxResults = 100, minScore = 5 } = options;
 
   if (!searchQuery || searchQuery.length < 1) return { results: [] };
 
@@ -93,7 +93,38 @@ function dispatchSearchRequest(req: SearchWorkerRequest): SearchWorkerResponse {
       const L = seq.length;
 
       if (mode === 'fuzzy') {
-        // skip fuzzy in unit tests – covered by searchLogic tests
+        if (strand === 'both' || strand === 'fwd') {
+          const fwdFuzzy = smithWaterman(searchQuery.toUpperCase(), seq, 2, -1, -3, -1, minScore);
+          fwdFuzzy.forEach(m => {
+            typedResults.push({
+              start: m.start,
+              end: m.end,
+              sequence: m.sequence,
+              score: m.score,
+              recordId: record.id,
+              strand: 1,
+              segments: getNonGapSegments(seq, m.start, m.end),
+            });
+          });
+        }
+
+        if (strand === 'both' || strand === 'rev') {
+          const rcSeq = reverseComplement(seq);
+          const revFuzzy = smithWaterman(searchQuery.toUpperCase(), rcSeq, 2, -1, -3, -1, minScore);
+          revFuzzy.forEach(m => {
+            const start = L - m.end;
+            const end = L - m.start;
+            typedResults.push({
+              start,
+              end,
+              sequence: m.sequence,
+              score: m.score,
+              recordId: record.id,
+              strand: -1,
+              segments: getNonGapSegments(seq, start, end),
+            });
+          });
+        }
       } else {
         const regex = degenerateToRegex(searchQuery);
         if (strand === 'both' || strand === 'fwd') {
@@ -122,7 +153,11 @@ function dispatchSearchRequest(req: SearchWorkerRequest): SearchWorkerResponse {
       }
     });
 
-    typedResults.sort((a, b) => a.start - b.start);
+    if (mode === 'fuzzy') {
+      typedResults.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
+    } else {
+      typedResults.sort((a, b) => a.start - b.start);
+    }
     const limited = typedResults.length > maxResults ? typedResults.slice(0, maxResults) : typedResults;
     return { results: limited };
   } catch (err) {
@@ -303,6 +338,39 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
   it('SearchWorkerResponse error variant is type-safe', () => {
     const errorResp: SearchWorkerResponse = { error: 'something went wrong' };
     expect('error' in errorResp).toBe(true);
+  });
+
+  it('fuzzy search finds approximate forward-strand hits', () => {
+    const req: SearchWorkerRequest = {
+      searchQuery: 'AATC',
+      records,
+      mode: 'fuzzy',
+      options: { minScore: 3, strand: 'fwd', maxResults: 100 },
+    };
+    const resp = dispatchSearchRequest(req);
+    expect('results' in resp).toBe(true);
+    if ('results' in resp) {
+      expect(resp.results.length).toBeGreaterThan(0);
+      resp.results.forEach(r => {
+        expect(r.strand).toBe(1);
+        expect(typeof r.score).toBe('number');
+      });
+    }
+  });
+
+  it('fuzzy search supports reverse strand output', () => {
+    const req: SearchWorkerRequest = {
+      searchQuery: 'CCAA',
+      records,
+      mode: 'fuzzy',
+      options: { minScore: 3, strand: 'rev', maxResults: 100 },
+    };
+    const resp = dispatchSearchRequest(req);
+    expect('results' in resp).toBe(true);
+    if ('results' in resp) {
+      expect(resp.results.length).toBeGreaterThan(0);
+      resp.results.forEach(r => expect(r.strand).toBe(-1));
+    }
   });
 
   it('results carry recordId and segments fields', () => {

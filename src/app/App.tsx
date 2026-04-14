@@ -95,7 +95,6 @@ const App: React.FC = () => {
     setSearchMode,
     searchOptions,
     setSearchOptions,
-    searchResults,
     filteredResults,
     currentSearchIdx,
     setCurrentSearchIdx,
@@ -277,7 +276,7 @@ const App: React.FC = () => {
                   onSelectionChange={setActiveSelection}
                   onExportFasta={exportSelection}
                   onAddAnnotation={addAnnotationFromSearch}
-                  searchResults={searchResults}
+                  searchResults={filteredResults}
                   currentSearchIdx={currentSearchIdx}
                   selectedSearchIndices={selectedSearchIndices}
                   customColors={featureColors}

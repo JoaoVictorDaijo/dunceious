@@ -23,7 +23,13 @@ const IUPAC_MAP: Record<string, string> = {
 export function degenerateToRegex(query: string): RegExp {
   if (!query) return /$.^/;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = escaped.toUpperCase().split('').map(char => IUPAC_MAP[char] || char).join('-*');
+  const pattern = escaped
+    .toUpperCase()
+    .split('')
+    .map(char => IUPAC_MAP[char] || char)
+    // Search operates on aligned sequences where '-' are frequent.
+    // Allow optional gaps between query symbols.
+    .join('-*');
   return new RegExp(pattern, 'gi');
 }
 
@@ -62,6 +68,32 @@ export function getNonGapSegments(
   return segments;
 }
 
+export function removeGapsWithMap(seq: string): { ungapped: string; map: number[] } {
+  const chars: string[] = [];
+  const map: number[] = [];
+  for (let i = 0; i < seq.length; i++) {
+    if (seq[i] !== '-') {
+      chars.push(seq[i]);
+      map.push(i);
+    }
+  }
+  return { ungapped: chars.join(''), map };
+}
+
+export function mapUngappedRangeToAligned(
+  map: number[],
+  start: number,
+  end: number,
+): { start: number; end: number } {
+  if (map.length === 0) return { start: 0, end: 0 };
+  const safeStart = Math.max(0, Math.min(start, map.length - 1));
+  const safeEndExclusive = Math.max(safeStart + 1, Math.min(end, map.length));
+
+  const alignedStart = map[safeStart] ?? 0;
+  const alignedEnd = (map[safeEndExclusive - 1] ?? alignedStart) + 1;
+  return { start: alignedStart, end: alignedEnd };
+}
+
 /**
  * Optimized Smith-Waterman local alignment with affine gap (Gotoh's algorithm).
  * Uses TypedArrays for memory efficiency and performance.
@@ -82,6 +114,13 @@ export function smithWaterman(
   const rowWidth = m + 1;
   const size = (n + 1) * rowWidth;
 
+  // Avoid pathological memory/time behavior for very large targets.
+  // In those cases, use a fast ungapped approximation.
+  const MAX_SW_CELLS = 600_000;
+  if (size > MAX_SW_CELLS) {
+    return ungappedFuzzyScan(query, target, matchScore, mismatchPenalty, minScore);
+  }
+
   const M = new Int32Array(size);
   const Iq = new Int32Array(size);
   const It = new Int32Array(size);
@@ -91,7 +130,10 @@ export function smithWaterman(
   It.fill(NEG_INF);
 
   let maxScore = 0;
-  const maxPositions: number[] = [];
+  const candidateEndPoints: Array<{ pos: number; score: number }> = [];
+  const MAX_CANDIDATE_ENDPOINTS = 400;
+  const TRIM_THRESHOLD = 4000;
+  let candidateFloor = minScore;
 
   for (let i = 1; i <= n; i++) {
     const rowOffset = i * rowWidth;
@@ -123,11 +165,19 @@ export function smithWaterman(
 
       if (score > maxScore) {
         maxScore = score;
-        maxPositions.length = 0;
-        maxPositions.push(rowOffset + j);
-      } else if (score === maxScore && score > 0) {
-        if (maxPositions.length < 100) {
-          maxPositions.push(rowOffset + j);
+      }
+
+      if (score >= candidateFloor) {
+        candidateEndPoints.push({ pos: rowOffset + j, score });
+        if (candidateEndPoints.length >= TRIM_THRESHOLD) {
+          candidateEndPoints.sort((a, b) => b.score - a.score || a.pos - b.pos);
+          if (candidateEndPoints.length > MAX_CANDIDATE_ENDPOINTS) {
+            candidateEndPoints.length = MAX_CANDIDATE_ENDPOINTS;
+          }
+          candidateFloor = Math.max(
+            minScore,
+            candidateEndPoints[candidateEndPoints.length - 1]?.score ?? minScore,
+          );
         }
       }
     }
@@ -135,7 +185,89 @@ export function smithWaterman(
 
   if (maxScore < minScore) return [];
 
-  return traceback(M, Iq, It, query, target, maxPositions, rowWidth, maxScore);
+  if (candidateEndPoints.length === 0) return [];
+
+  candidateEndPoints.sort((a, b) => b.score - a.score || a.pos - b.pos);
+  if (candidateEndPoints.length > MAX_CANDIDATE_ENDPOINTS) {
+    candidateEndPoints.length = MAX_CANDIDATE_ENDPOINTS;
+  }
+
+  return traceback(
+    M,
+    Iq,
+    It,
+    query,
+    target,
+    candidateEndPoints,
+    rowWidth,
+    matchScore,
+    mismatchPenalty,
+    gapOpen,
+    gapExtend,
+  );
+}
+
+function ungappedFuzzyScan(
+  query: string,
+  target: string,
+  matchScore: number,
+  mismatchPenalty: number,
+  minScore: number,
+): { score: number; start: number; end: number; sequence: string }[] {
+  const q = query.toUpperCase();
+  const t = target.toUpperCase();
+  const n = q.length;
+  const m = t.length;
+  if (n === 0 || m === 0) return [];
+
+  const windowLen = Math.min(n, m);
+  const hits: { score: number; start: number; end: number; sequence: string }[] = [];
+
+  // Keep fallback deterministic and bounded for UI responsiveness.
+  const maxScanMs = 200;
+  const startedAt = Date.now();
+  const totalStarts = Math.max(1, m - windowLen + 1);
+  const maxWindows = 50_000;
+  const step = Math.max(1, Math.floor(totalStarts / maxWindows));
+
+  for (let start = 0; start <= m - windowLen; start += step) {
+    if (Date.now() - startedAt > maxScanMs) break;
+
+    let score = 0;
+    for (let k = 0; k < windowLen; k++) {
+      score += q[k] === t[start + k] ? matchScore : mismatchPenalty;
+    }
+    if (score >= minScore) {
+      hits.push({
+        score,
+        start,
+        end: start + windowLen,
+        sequence: target.substring(start, start + windowLen),
+      });
+      if (hits.length > 5000) break;
+    }
+  }
+
+  hits.sort((a, b) => b.score - a.score || a.start - b.start);
+
+  const selected: { score: number; start: number; end: number; sequence: string }[] = [];
+  const seen = new Set<number>();
+  for (const h of hits) {
+    let overlap = false;
+    for (let i = h.start; i < h.end; i++) {
+      if (seen.has(i)) {
+        overlap = true;
+        break;
+      }
+    }
+    if (!overlap) {
+      selected.push(h);
+      for (let i = h.start; i < h.end; i++) seen.add(i);
+      if (selected.length >= 20) break;
+    }
+  }
+
+  return selected;
 }
 
 function traceback(
@@ -144,31 +276,36 @@ function traceback(
   It: Int32Array,
   query: string,
   target: string,
-  positions: number[],
+  candidates: Array<{ pos: number; score: number }>,
   rowWidth: number,
-  maxScore: number,
+  matchScore: number,
+  mismatchPenalty: number,
+  gapOpen: number,
+  gapExtend: number,
 ): { score: number; start: number; end: number; sequence: string }[] {
   const results: { score: number; start: number; end: number; sequence: string }[] = [];
   const seen = new Set<number>();
 
-  for (const pos of positions) {
-    let currPos = pos;
-    let i = Math.floor(currPos / rowWidth);
-    let j = currPos % rowWidth;
+  for (const candidate of candidates) {
+    let i = Math.floor(candidate.pos / rowWidth);
+    let j = candidate.pos % rowWidth;
     const jEnd = j;
 
     let state: 'M' | 'Iq' | 'It' = 'M';
 
-    while (i > 0 && j > 0 && M[i * rowWidth + j] > 0) {
+    while (i > 0 && j > 0) {
       const idx = i * rowWidth + j;
       const prevIdxDiag = (i - 1) * rowWidth + (j - 1);
       const prevIdxUp = (i - 1) * rowWidth + j;
       const prevIdxLeft = i * rowWidth + (j - 1);
 
+      const stateScore = state === 'M' ? M[idx] : state === 'Iq' ? Iq[idx] : It[idx];
+      if (stateScore <= 0) break;
+
       if (state === 'M') {
         const qChar = query[i - 1].toUpperCase();
         const tChar = target[j - 1].toUpperCase();
-        const match = qChar === tChar ? 2 : -1;
+        const match = qChar === tChar ? matchScore : mismatchPenalty;
 
         if (M[idx] === M[prevIdxDiag] + match) {
           i--; j--;
@@ -180,18 +317,22 @@ function traceback(
           break;
         }
       } else if (state === 'Iq') {
-        if (Iq[idx] === M[prevIdxUp] - 3) {
+        if (Iq[idx] === M[prevIdxUp] + gapOpen) {
           state = 'M';
           i--;
-        } else {
+        } else if (Iq[idx] === Iq[prevIdxUp] + gapExtend) {
           i--;
+        } else {
+          break;
         }
       } else if (state === 'It') {
-        if (It[idx] === M[prevIdxLeft] - 3) {
+        if (It[idx] === M[prevIdxLeft] + gapOpen) {
           state = 'M';
           j--;
-        } else {
+        } else if (It[idx] === It[prevIdxLeft] + gapExtend) {
           j--;
+        } else {
+          break;
         }
       }
     }
@@ -204,7 +345,7 @@ function traceback(
 
     if (!overlap) {
       results.push({
-        score: maxScore,
+        score: candidate.score,
         start: jStart,
         end: jEnd,
         sequence: target.substring(jStart, jEnd),

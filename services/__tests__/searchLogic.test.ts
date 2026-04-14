@@ -57,6 +57,12 @@ describe('degenerateToRegex', () => {
     expect(degenerateToRegex('R').test('C')).toBe(false);
   });
 
+  it('matches consecutive IUPAC symbols without separators', () => {
+    expect(degenerateToRegex('RY').test('AC')).toBe(true);
+    expect(degenerateToRegex('RY').test('GT')).toBe(true);
+    expect(degenerateToRegex('RY').test('AG')).toBe(false);
+  });
+
   it('returns a non-matching regex for an empty query', () => {
     const re = degenerateToRegex('');
     expect(re.test('ACGT')).toBe(false);
@@ -135,6 +141,13 @@ describe('exact sequence search (degenerateToRegex)', () => {
     const m = re.exec(rc);
     expect(m).not.toBeNull();
   });
+
+  it('matches through alignment gaps', () => {
+    const re = degenerateToRegex('ACGT');
+    re.lastIndex = 0;
+    const m = re.exec('AAA A-C--G---T TTT'.replace(/\s/g, ''));
+    expect(m).not.toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -168,5 +181,22 @@ describe('smithWaterman – fuzzy search smoke tests', () => {
     // Query 'ACGT', target 'ACCT' — one mismatch but should still align
     const results = smithWaterman('ACGT', 'ACCT', 2, -1, -3, -1, 3);
     expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('returns a valid alignment when using non-default gap penalties', () => {
+    const results = smithWaterman('ACGTAC', 'TTACG--TACAA'.replace(/-/g, ''), 2, -1, -4, -2, 4);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].start).toBeLessThan(results[0].end);
+    expect(results[0].score).toBeGreaterThanOrEqual(4);
+  });
+
+  it('returns a score spread (not only global maxima)', () => {
+    const results = smithWaterman('ACGT', 'ACGTNNNACGA', 2, -1, -3, -1, 4);
+    expect(results.length).toBeGreaterThan(1);
+
+    const scores = results.map(r => r.score);
+    const max = Math.max(...scores);
+    const min = Math.min(...scores);
+    expect(max).toBeGreaterThan(min);
   });
 });

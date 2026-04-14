@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
+import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
+import {
+  degenerateToRegex,
+  getNonGapSegments,
+  mapUngappedRangeToAligned,
+  removeGapsWithMap,
+  reverseComplement,
+  smithWaterman,
+} from '@/services/searchLogic';
 
 export interface SearchOptions {
   minScore: number;
@@ -74,11 +82,181 @@ export function useSearchWorker(
   });
   const [maxScoreFound, setMaxScoreFound] = useState(0);
 
+  const searchableRecords = useMemo<SearchableRecord[]>(() => {
+    return records.map(r => ({
+      id: r.id,
+      sequence: r.sequence,
+      alignedSequence: r.alignedSequence,
+    }));
+  }, [records]);
+
+  const executeSearchInline = useCallback((request: SearchWorkerRequest): SearchResult[] => {
+    const { searchQuery, records: inputRecords, mode, options } = request;
+    const { minScore = 5, strand = 'both', maxResults = 100 } = options;
+
+    if (!searchQuery || searchQuery.length < 1) return [];
+
+    const results: SearchResult[] = [];
+    const queryUpper = searchQuery.toUpperCase();
+    const startedAt = Date.now();
+    const maxInlineMs = mode === 'fuzzy' ? 1800 : 6000;
+
+    for (const record of inputRecords) {
+      if (Date.now() - startedAt > maxInlineMs) break;
+      const seq = typeof record.alignedSequence === 'string'
+        ? record.alignedSequence
+        : (typeof record.sequence === 'string' ? record.sequence : '');
+      if (!seq) continue;
+      const L = seq.length;
+
+      if (mode === 'fuzzy') {
+        const { ungapped: ungappedSeq, map: fwdMap } = removeGapsWithMap(seq);
+
+        if ((strand === 'both' || strand === 'fwd') && ungappedSeq.length > 0) {
+          const fwdFuzzy = smithWaterman(queryUpper, ungappedSeq, 2, -1, -3, -1, minScore);
+          fwdFuzzy.forEach(m => {
+            const aligned = mapUngappedRangeToAligned(fwdMap, m.start, m.end);
+            results.push({
+              start: aligned.start,
+              end: aligned.end,
+              sequence: seq.substring(aligned.start, aligned.end),
+              score: m.score,
+              recordId: record.id,
+              strand: 1,
+              segments: getNonGapSegments(seq, aligned.start, aligned.end),
+            });
+          });
+        }
+
+        if (Date.now() - startedAt > maxInlineMs) break;
+
+        if (strand === 'both' || strand === 'rev') {
+          const rcSeq = reverseComplement(seq);
+          const { ungapped: ungappedRcSeq, map: revMap } = removeGapsWithMap(rcSeq);
+          if (ungappedRcSeq.length === 0) continue;
+
+          const revFuzzy = smithWaterman(queryUpper, ungappedRcSeq, 2, -1, -3, -1, minScore);
+          revFuzzy.forEach(m => {
+            const rcRange = mapUngappedRangeToAligned(revMap, m.start, m.end);
+            const start = L - rcRange.end;
+            const end = L - rcRange.start;
+            results.push({
+              score: m.score,
+              start,
+              end,
+              sequence: seq.substring(start, end),
+              recordId: record.id,
+              strand: -1,
+              segments: getNonGapSegments(seq, start, end),
+            });
+          });
+        }
+      } else {
+        const regex = degenerateToRegex(searchQuery);
+
+        if (strand === 'both' || strand === 'fwd') {
+          let match;
+          regex.lastIndex = 0;
+          while ((match = regex.exec(seq)) !== null) {
+            const start = match.index;
+            const end = match.index + match[0].length;
+            results.push({
+              start,
+              end,
+              sequence: match[0],
+              recordId: record.id,
+              strand: 1,
+              segments: getNonGapSegments(seq, start, end),
+            });
+            regex.lastIndex = match.index + 1;
+          }
+        }
+
+        if (strand === 'both' || strand === 'rev') {
+          const rcSeq = reverseComplement(seq);
+          let match;
+          regex.lastIndex = 0;
+          while ((match = regex.exec(rcSeq)) !== null) {
+            const rcStart = match.index;
+            const rcEnd = match.index + match[0].length;
+            const start = L - rcEnd;
+            const end = L - rcStart;
+
+            results.push({
+              start,
+              end,
+              sequence: match[0],
+              recordId: record.id,
+              strand: -1,
+              segments: getNonGapSegments(seq, start, end),
+            });
+            regex.lastIndex = match.index + 1;
+          }
+        }
+      }
+    }
+
+    if (mode === 'fuzzy') {
+      results.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
+    } else {
+      results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
+    }
+
+    return results.length > maxResults ? results.slice(0, maxResults) : results;
+  }, []);
+
   const searchWorkerRef = useRef<Worker | null>(null);
+  const lastRequestRef = useRef<SearchWorkerRequest | null>(null);
+  const nextRequestIdRef = useRef(0);
+  const pendingRequestIdRef = useRef<number | null>(null);
+  const fuzzyTimeoutRef = useRef<number | null>(null);
   const latestQueryRef = useRef(searchQuery);
   const addLogRef = useRef(addLog);
   const onFirstResultRef = useRef(onFirstResult);
   const isMountedRef = useRef(true);
+
+  const clearFuzzyTimeout = useCallback(() => {
+    if (fuzzyTimeoutRef.current !== null) {
+      window.clearTimeout(fuzzyTimeoutRef.current);
+      fuzzyTimeoutRef.current = null;
+    }
+  }, []);
+
+  const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
+    setIsSearching(false);
+    const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
+    setMaxScoreFound(max);
+    setSearchResults(results);
+
+    addLogRef.current(`Search complete: ${results.length} matches found.`);
+
+    if (results.length > 0) {
+      setCurrentSearchIdx(0);
+      const first = results[0];
+      setTimeout(() => {
+        onFirstResultRef.current({ start: first.start, end: first.end, recordIds: [first.recordId] });
+      }, 0);
+    } else {
+      setCurrentSearchIdx(-1);
+      addLogRef.current(`No matches found for '${queryForLog}'.`);
+    }
+  }, []);
+
+  const runInlineFallback = useCallback((request: SearchWorkerRequest, reason: string) => {
+    addLogRef.current(reason);
+    try {
+      const results = executeSearchInline(request);
+      applySearchResults(results, request.searchQuery);
+    } catch (err) {
+      addLogRef.current(`Fallback search failed: ${String(err)}`);
+      setIsSearching(false);
+      setCurrentSearchIdx(-1);
+      setSearchResults([]);
+    } finally {
+      pendingRequestIdRef.current = null;
+      clearFuzzyTimeout();
+    }
+  }, [executeSearchInline, applySearchResults, clearFuzzyTimeout]);
 
   useEffect(() => {
     latestQueryRef.current = searchQuery;
@@ -96,6 +274,8 @@ export function useSearchWorker(
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
+    isMountedRef.current = true;
+
     searchWorkerRef.current = new Worker(
       new URL('@/src/workers/searchWorker.ts', import.meta.url),
       { type: 'module' },
@@ -104,31 +284,51 @@ export function useSearchWorker(
     searchWorkerRef.current.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
       if (!isMountedRef.current) return;
       const msg = e.data;
+
+      if (
+        typeof msg.requestId === 'number' &&
+        pendingRequestIdRef.current !== null &&
+        msg.requestId !== pendingRequestIdRef.current
+      ) {
+        return;
+      }
+
+      clearFuzzyTimeout();
+      pendingRequestIdRef.current = null;
       setIsSearching(false);
-      if ('error' in msg) { addLogRef.current(`Search Error: ${msg.error}`); return; }
+      if ('error' in msg) {
+        addLogRef.current(`Search Error: ${msg.error}`);
+        const pending = lastRequestRef.current;
+        if (pending && pending.mode === 'fuzzy') {
+          runInlineFallback(pending, 'Worker returned an error for fuzzy search; using local fallback.');
+        }
+        return;
+      }
 
       const { results } = msg;
-      const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
-      setMaxScoreFound(max);
-      setSearchResults(results);
+      applySearchResults(results, latestQueryRef.current);
+    };
 
-      if (results.length > 0) {
-        setCurrentSearchIdx(0);
-        const first = results[0];
-        setTimeout(() => {
-          onFirstResultRef.current({ start: first.start, end: first.end, recordIds: [first.recordId] });
-        }, 0);
-        addLogRef.current(`Search complete: ${results.length} matches found.`);
-      } else {
-        setCurrentSearchIdx(-1);
-        addLogRef.current(`No matches found for '${latestQueryRef.current}'.`);
+    searchWorkerRef.current.onerror = (event: ErrorEvent) => {
+      if (!isMountedRef.current) return;
+      const pending = lastRequestRef.current;
+      if (pending && pending.mode === 'fuzzy') {
+        runInlineFallback(pending, `Search Worker Error: ${event.message}. Using local fallback.`);
+        return;
       }
+      clearFuzzyTimeout();
+      pendingRequestIdRef.current = null;
+      setIsSearching(false);
+      addLogRef.current(`Search Worker Error: ${event.message}`);
     };
 
     return () => {
+      clearFuzzyTimeout();
+      pendingRequestIdRef.current = null;
       const worker = searchWorkerRef.current;
       if (worker) {
         worker.onmessage = null;
+        worker.onerror = null;
         worker.terminate();
         searchWorkerRef.current = null;
       }
@@ -138,7 +338,8 @@ export function useSearchWorker(
 
   // ── Dispatch search request ───────────────────────────────────────────────
   const handleSearch = useCallback(() => {
-    if (!searchQuery || searchQuery.length < 1) {
+    const normalizedQuery = searchQuery.replace(/\s+/g, '');
+    if (!normalizedQuery || normalizedQuery.length < 1) {
       setSearchResults([]);
       setCurrentSearchIdx(-1);
       setSelectedSearchIndices(new Set());
@@ -146,17 +347,76 @@ export function useSearchWorker(
     }
     setIsSearching(true);
     setSelectedSearchIndices(new Set());
-    addLog(`Initiating ${searchMode} search for '${searchQuery}'...`);
+    addLog(`Initiating ${searchMode} search for '${normalizedQuery}'...`);
 
-    const workerMinScore = searchMode === 'fuzzy' ? 5 : 0;
+    const workerMinScore = searchMode === 'fuzzy'
+      ? 1
+      : 0;
+    const requestId = ++nextRequestIdRef.current;
     const request: SearchWorkerRequest = {
-      searchQuery,
-      records,
+      requestId,
+      searchQuery: normalizedQuery,
+      records: searchableRecords,
       mode: searchMode,
       options: { ...searchOptions, minScore: workerMinScore },
     };
-    searchWorkerRef.current?.postMessage(request);
-  }, [searchQuery, records, searchMode, searchOptions, addLog]);
+    lastRequestRef.current = request;
+
+    // Keep exact/IUPAC deterministic and independent of worker state.
+    if (searchMode === 'exact') {
+      try {
+        const exactResults = executeSearchInline(request);
+        applySearchResults(exactResults, normalizedQuery);
+      } catch (err) {
+        addLog(`Search execution failed: ${String(err)}`);
+        setCurrentSearchIdx(-1);
+        setSearchResults([]);
+      }
+      setIsSearching(false);
+      pendingRequestIdRef.current = null;
+      clearFuzzyTimeout();
+      return;
+    }
+
+    const worker = searchWorkerRef.current;
+    if (worker) {
+      try {
+        pendingRequestIdRef.current = requestId;
+        worker.postMessage(request);
+
+        clearFuzzyTimeout();
+        fuzzyTimeoutRef.current = window.setTimeout(() => {
+          if (!isMountedRef.current) return;
+          if (pendingRequestIdRef.current !== requestId) return;
+          const pending = lastRequestRef.current;
+          if (!pending || pending.mode !== 'fuzzy') return;
+          runInlineFallback(pending, 'Fuzzy worker timeout; using local fallback.');
+        }, 4500);
+
+        return;
+      } catch (err) {
+        if (searchMode === 'fuzzy') {
+          runInlineFallback(request, `Search Worker dispatch failed: ${String(err)}. Using local fallback.`);
+          return;
+        }
+        addLog(`Search Worker dispatch failed: ${String(err)}`);
+        setIsSearching(false);
+        pendingRequestIdRef.current = null;
+        clearFuzzyTimeout();
+        return;
+      }
+    } else {
+      if (searchMode === 'fuzzy') {
+        runInlineFallback(request, 'Search Worker unavailable for fuzzy search; using local fallback.');
+        return;
+      }
+      addLog('Search Worker unavailable.');
+      setIsSearching(false);
+      pendingRequestIdRef.current = null;
+      clearFuzzyTimeout();
+      return;
+    }
+  }, [searchQuery, searchableRecords, searchMode, searchOptions, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
   const groupedSearchResults = useMemo<GroupedSearchResults>(() => {
