@@ -21,7 +21,7 @@
  *   npm run bench
  */
 
-import { describe, it, afterAll, expect } from 'vitest';
+import { describe, it, beforeAll, afterAll, expect } from 'vitest';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -30,6 +30,7 @@ import { makeMultiRecord } from './syntheticGenbank';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, 'results');
+const FIXTURES_DIR = join(__dirname, 'fixtures');
 
 // ── Result schema ─────────────────────────────────────────────────────────────
 
@@ -63,9 +64,20 @@ interface BenchmarkEntry {
 
 const entries: BenchmarkEntry[] = [];
 
+// ── Fixtures directory ────────────────────────────────────────────────────────
+
+beforeAll(() => {
+  mkdirSync(FIXTURES_DIR, { recursive: true });
+});
+
 // ── measurement helper ────────────────────────────────────────────────────────
 
 function measure(content: string): Omit<BenchmarkEntry, 'modality' | 'seqLength_bp' | 'numRecords'> {
+  // Force GC to establish a clean baseline (available via --expose-gc).
+  if (typeof (globalThis as Record<string, unknown>).gc === 'function') {
+    (globalThis as unknown as { gc(): void }).gc();
+  }
+
   const memBefore = process.memoryUsage();
   const heapBefore = memBefore.heapUsed;
   const rssBefore = memBefore.rss;
@@ -95,6 +107,7 @@ describe('benchmark – grid: seq length × number of records', () => {
     for (const numRecords of RECORD_COUNTS) {
       it(`parses ${numRecords} record${numRecords === 1 ? '' : 's'} of ${seqLengthBp.toLocaleString()} bp each`, () => {
         const content = makeMultiRecord(numRecords, seqLengthBp);
+        writeFileSync(join(FIXTURES_DIR, `seq${seqLengthBp}_rec${numRecords}.gb`), content);
         const result = measure(content);
 
         entries.push({

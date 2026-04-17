@@ -38,10 +38,11 @@ export interface BenchResult {
   /** 95th-percentile wall-clock duration in milliseconds. */
   p95Ms: number;
   /**
-   * Median heap-used delta in bytes.
+   * Peak heap-used delta in bytes: the maximum `heapUsed` observed after any
+   * iteration minus the GC-cleaned baseline taken before the measurement loop.
    * Only meaningful when GC_AVAILABLE — noted in individual test assertions.
    */
-  medianHeapBytes: number;
+  peakHeapDeltaBytes: number;
   /** Number of measured iterations actually used for statistics. */
   iterations: number;
 }
@@ -69,29 +70,32 @@ export function bench(fn: () => unknown, opts: BenchOptions = {}): BenchResult {
     fn();
   }
 
+  // --- Establish a GC-cleaned baseline before measuring ---
+  tryGC();
+  const baselineHeap = process.memoryUsage().heapUsed;
+
   // --- Measured iterations ---
   const durations: number[] = [];
-  const heapDeltas: number[] = [];
+  let maxHeapUsed = 0;
 
   for (let i = 0; i < iters; i++) {
     // Attempt to reduce GC noise before each sample.  When GC is not exposed
     // the tryGC() call is a no-op, so we still measure — just with more noise.
     tryGC();
 
-    const heapBefore = process.memoryUsage().heapUsed;
     const t0 = performance.now();
     fn();
     const t1 = performance.now();
     const heapAfter = process.memoryUsage().heapUsed;
 
     durations.push(t1 - t0);
-    heapDeltas.push(heapAfter - heapBefore);
+    maxHeapUsed = Math.max(maxHeapUsed, heapAfter);
   }
 
   return {
     medianMs: median(durations),
     p95Ms: percentile(durations, 95),
-    medianHeapBytes: median(heapDeltas),
+    peakHeapDeltaBytes: maxHeapUsed - baselineHeap,
     iterations: iters,
   };
 }
