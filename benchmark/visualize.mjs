@@ -285,7 +285,7 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
   };
   writePivot('Duration (ms) — seqLength × numRecords', 'durationMs', (v) => v.toFixed(3), 'pivot-duration.svg');
   writePivot('Peak heap (bytes) — seqLength × numRecords', 'heapDeltaBytes', (v) => v.toLocaleString(), 'pivot-heap.svg');
-  writePivot('RSS delta (bytes) — seqLength × numRecords', 'rssDeltaBytes', (v) => v.toLocaleString(), 'pivot-rss.svg');
+  writePivot('Peak RSS delta (bytes) — seqLength × numRecords', 'rssDeltaBytes', (v) => v.toLocaleString(), 'pivot-rss.svg');
 
   // ── Line charts ────────────────────────────────────────────────────────────
   // groupBy='seqLength_bp': one line per sequence length, x-axis = numRecords

@@ -4,13 +4,19 @@
  * Measures wall-clock time and memory usage of `parseGenBank` across a 2D
  * grid of inputs:
  *
- *   - seqLength_bp ∈ [1 000, 3 000, 5 000, 10 000, 200 000]
+ *   - seqLength_bp ∈ [5 000, 10 000, 50 000, 100 000, 200 000, 300 000]
  *   - numRecords   ∈ [1, 10, 30, 50]
  *
- * Two memory metrics are collected per cell:
- *   - `heapDeltaBytes`  – JS heap delta (noisy when GC runs between samples).
- *   - `rssDeltaBytes`   – Resident-set-size delta; includes heap + native
- *                         overhead and is closer to "hardware RAM used".
+ * Each cell is run `ITERATIONS` times and reduced to:
+ *   - `durationMs`      – median wall-clock across iterations.
+ *   - `heapDeltaBytes`  – peak `heapUsed` observed after any iteration minus
+ *                         a GC-cleaned baseline taken once before the loop.
+ *                         GC is drained before each iteration so each sample
+ *                         reflects what the parse actually allocated.
+ *   - `rssDeltaBytes`   – peak `process.memoryUsage().rss` observed after any
+ *                         iteration minus the same GC-cleaned baseline.
+ *                         Clamped ≥ 0. Each cell is measured independently so
+ *                         cells are directly comparable.
  *
  * Each test asserts basic correctness (records parsed = numRecords, features
  * parsed > 0) so the suite fails loudly if the parser breaks.  Performance
@@ -43,17 +49,20 @@ interface BenchmarkEntry {
   /** Number of GenBank records in this input. */
   numRecords: number;
 
-  /** Wall-clock parse time in milliseconds. */
+  /** Median wall-clock parse time in milliseconds across `ITERATIONS` runs. */
   durationMs: number;
   /**
-   * Approximate heap growth during parsing in bytes.
-   * May be negative when GC runs between measurements – treat as indicative.
+   * Peak `heapUsed` observed after any iteration minus a GC-cleaned baseline
+   * taken before the loop, in bytes. Bounded ≥ 0 in practice since GC runs
+   * before each iteration establish a consistent low-water reference.
    */
   heapDeltaBytes: number;
   /**
-   * RSS (resident set size) delta during parsing in bytes.
-   * Includes heap + native overhead; closer to "hardware RAM used by process"
-   * than heapUsed alone.
+   * Peak `process.memoryUsage().rss` across iterations minus a GC-cleaned
+   * baseline, in bytes. Clamped ≥ 0. Sampled after each parse, so transient
+   * intra-call peaks released before return are not observed — acceptable
+   * for the parser, where allocated records are retained until return.
+   * Each cell is measured independently from its own baseline.
    */
   rssDeltaBytes: number;
 
@@ -73,32 +82,62 @@ beforeAll(() => {
 
 // ── measurement helper ────────────────────────────────────────────────────────
 
+/** Measured iterations per cell. Median duration + peak memory across runs. */
+const ITERATIONS = 5;
+
+function tryGC(): void {
+  const g = (globalThis as Record<string, unknown>).gc;
+  if (typeof g === 'function') (g as () => void)();
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? (sorted[mid] as number)
+    : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+}
+
 function measure(content: string): Omit<BenchmarkEntry, 'modality' | 'seqLength_bp' | 'numRecords'> {
-  // Force GC to establish a clean baseline (available via --expose-gc).
-  if (typeof (globalThis as Record<string, unknown>).gc === 'function') {
-    (globalThis as unknown as { gc(): void }).gc();
+  tryGC();
+  const memBaseline = process.memoryUsage();
+  const baselineHeap = memBaseline.heapUsed;
+  const baselineRss = memBaseline.rss;
+
+  const durations: number[] = [];
+  let peakHeap = baselineHeap;
+  let peakRss = baselineRss;
+  let records: ReturnType<typeof parseGenBank> = [];
+
+  for (let i = 0; i < ITERATIONS; i++) {
+    // Drain transient garbage before each sample so post-parse heap/rss
+    // reflect what this iteration allocated, not cruft from the last one.
+    tryGC();
+
+    const t0 = performance.now();
+    records = parseGenBank(content);
+    durations.push(performance.now() - t0);
+
+    const memAfter = process.memoryUsage();
+    peakHeap = Math.max(peakHeap, memAfter.heapUsed);
+    peakRss = Math.max(peakRss, memAfter.rss);
   }
 
-  const memBefore = process.memoryUsage();
-  const heapBefore = memBefore.heapUsed;
-  const rssBefore = memBefore.rss;
-
-  const t0 = performance.now();
-  const records = parseGenBank(content);
-  const durationMs = performance.now() - t0;
-
-  const memAfter = process.memoryUsage();
-  const heapDeltaBytes = memAfter.heapUsed - heapBefore;
-  const rssDeltaBytes = memAfter.rss - rssBefore;
-
   const featuresParsed = records.reduce((sum, r) => sum + r.features.length, 0);
-  return { durationMs, heapDeltaBytes, rssDeltaBytes, recordsParsed: records.length, featuresParsed };
+
+  return {
+    durationMs: median(durations),
+    heapDeltaBytes: Math.max(0, peakHeap - baselineHeap),
+    rssDeltaBytes: Math.max(0, peakRss - baselineRss),
+    recordsParsed: records.length,
+    featuresParsed,
+  };
 }
 
 // ── Grid: sequence length × number of records ─────────────────────────────────
 
 /** Sequence lengths to sweep (in base pairs). */
-const SEQ_LENGTHS = [1_000, 3_000, 5_000, 10_000, 200_000];
+const SEQ_LENGTHS = [5_000, 10_000, 50_000, 100_000, 200_000, 300_000];
 
 /** Record counts to sweep (records per input). */
 const RECORD_COUNTS = [1, 10, 30, 50];
