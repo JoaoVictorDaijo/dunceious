@@ -13,14 +13,20 @@ For a full feature description see [`documentation.md`](./documentation.md), for
 
 | Requirement | Minimum version |
 |---|---|
-| [Node.js](https://nodejs.org/) | **18** (LTS or later) |
+| [Node.js](https://nodejs.org/) | **18** (or later) |
 | npm | Ships with Node.js |
 
 > **Why Node.js 18?** The project uses Vite 6 and React 19, both of which require Node.js 18+.
 
+There are many ways to install Node.js, but we recommend **NVM (Node Version Manager)** as it lets you install and switch between Node versions without touching your system install. Use [nvm](https://github.com/nvm-sh/nvm) on Linux and macOS, or [nvm-windows](https://github.com/coreybutler/nvm-windows) on Windows.
+
+Once NVM is installed, run `nvm install --lts` to install the latest LTS release of Node.js. npm is bundled with it, so that single command is everything you need to install and run Dunceious.
+
 ---
 
 ## Installation & Local Development
+
+> Make sure you have **Node.js 18+** installed before running any of the steps below — see [Prerequisites](#prerequisites).
 
 ### 1. Clone the repository
 
@@ -50,9 +56,12 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the Vite development server on port 3000 |
-| `npm run build` | Compile and bundle the app for production (output in `dist/`) |
-| `npm run preview` | Locally preview the production build after `npm run build` |
+| `npm run build` | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly |
+| `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact |
 | `npm run lint` | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors |
+| `npm test` | Run the unit test suite |
+| `npm run bench` | Run the GenBank parser benchmark grid (seq length × record count) and write results to `benchmark/results/benchmark.json` and SVG plots to `benchmark/plots/` |
+| `npm run plot` | Regenerate the SVG plots from an existing `benchmark/results/benchmark.json` without re-running the benchmarks |
 
 ---
 
