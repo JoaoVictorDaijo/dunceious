@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit && eslint .",
     "test": "vitest run",
     "bench": "vitest run --config vitest.bench.config.ts",
+    "plot": "node benchmark/visualize.mjs",
     "perf": "node --expose-gc node_modules/.bin/vitest run --config vitest.perf.config.ts"
   },
   "dependencies": {

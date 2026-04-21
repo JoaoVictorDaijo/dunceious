@@ -31,6 +31,7 @@ import { makeMultiRecord } from './syntheticGenbank';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, 'results');
 const FIXTURES_DIR = join(__dirname, 'fixtures');
+const PLOTS_DIR = join(__dirname, 'plots');
 
 // ── Result schema ─────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ describe('benchmark – grid: seq length × number of records', () => {
 
 // ── Write results ─────────────────────────────────────────────────────────────
 
-afterAll(() => {
+afterAll(async () => {
   mkdirSync(RESULTS_DIR, { recursive: true });
 
   const output = {
@@ -147,5 +148,17 @@ afterAll(() => {
     results: entries,
   };
 
-  writeFileSync(join(RESULTS_DIR, 'benchmark.json'), JSON.stringify(output, null, 2));
+  const resultsPath = join(RESULTS_DIR, 'benchmark.json');
+  writeFileSync(resultsPath, JSON.stringify(output, null, 2));
+
+  // Refresh SVG tables & charts in benchmark/plots/. Failures here must not
+  // break the bench run – the JSON above is the source of truth.
+  try {
+    const { generatePlots } = (await import('./visualize.mjs')) as {
+      generatePlots: (opts?: { resultsPath?: string; outDir?: string }) => void;
+    };
+    generatePlots({ resultsPath, outDir: PLOTS_DIR });
+  } catch (err) {
+    console.error('benchmark: failed to generate plots:', err);
+  }
 });
