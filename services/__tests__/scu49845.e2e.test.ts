@@ -238,30 +238,9 @@ describe('SCU49845.gb – sequence search', () => {
 // ---------------------------------------------------------------------------
 
 describe('SCU49845.gb – GenBank round-trip', () => {
-  it('preserves core record/feature data after export and re-import', () => {
+  it('produces output byte-for-byte equal to the original file', () => {
     const [original] = parseGenBank(SCU49845_CONTENT);
     const exported = exportToGenBank([original]);
-    const [roundTripped] = parseGenBank(exported);
-
-    expect(roundTripped.id).toBe(original.id);
-    expect(roundTripped.sequence).toBe(original.sequence);
-    expect(roundTripped.isCircular).toBe(original.isCircular);
-    expect(roundTripped.features).toHaveLength(original.features.length);
-
-    const featureSortKey = (f: { type: string; name: string; start: number; end: number; strand: 1 | -1 }) =>
-      `${f.type}:${f.name}:${f.start}:${f.end}:${f.strand}`;
-
-    const project = (record: SeqRecord) =>
-      record.features
-        .map(f => ({
-          type: f.type,
-          name: f.name,
-          start: f.start,
-          end: f.end,
-          strand: f.strand,
-        }))
-        .sort((a, b) => featureSortKey(a).localeCompare(featureSortKey(b)));
-
-    expect(project(roundTripped)).toEqual(project(original));
+    expect(exported).toBe(SCU49845_CONTENT);
   });
 });

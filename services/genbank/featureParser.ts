@@ -38,6 +38,7 @@ export function parseFeatures(lines: string[]): BioFeature[] {
 
     const [, type, initialLoc] = featureMatch;
     let fullLocation = initialLoc.trim();
+    const featureStartLineIdx = i;
 
     // Accumulate multi-line location (continuation lines, no qualifier)
     while (
@@ -64,6 +65,10 @@ export function parseFeatures(lines: string[]): BioFeature[] {
     // Parse qualifiers immediately following this feature
     const { qualifiers, lastIdx } = parseQualifiers(lines, i + 1);
     i = lastIdx;
+
+    // Preserve the original text of this feature block (type/location line + all
+    // qualifier lines) so that exportToGenBank can reproduce the file byte-for-byte.
+    feature.metadata!._rawBlock = lines.slice(featureStartLineIdx, i + 1).join('\n');
 
     for (const [key, value] of Object.entries(qualifiers)) {
       if (NAME_QUALIFIERS.includes(key)) {
