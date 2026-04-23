@@ -155,9 +155,11 @@ export const exportToGff = (records: SeqRecord[]): string => {
 
 export const exportToGenBank = (records: SeqRecord[]): string => {
   return records.map(r => {
+    const escapeQualifierValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
     const seq = r.sequence;
     const length = seq.length;
+    const sourceFeature = r.features.find(f => f.type === 'source');
     
     let gb = `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     linear   UNK ${date}\n`;
     gb += `DEFINITION  ${r.name || r.id} exported from Dunceious.\n`;
@@ -167,17 +169,24 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     gb += `SOURCE      .\n`;
     gb += `  ORGANISM  .\n`;
     gb += `FEATURES             Location/Qualifiers\n`;
-    gb += `     source          1..${length}\n`;
-    gb += `                     /organism="."\n`;
-    gb += `                     /mol_type="genomic DNA"\n`;
+    gb += `     source          ${sourceFeature ? `${sourceFeature.start + 1}..${sourceFeature.end}` : `1..${length}`}\n`;
+    if (sourceFeature?.metadata && Object.keys(sourceFeature.metadata).length > 0) {
+      Object.entries(sourceFeature.metadata).forEach(([k, v]) => {
+        if (v) gb += `                     /${k}="${escapeQualifierValue(v)}"\n`;
+      });
+    } else {
+      gb += `                     /organism="."\n`;
+      gb += `                     /mol_type="genomic DNA"\n`;
+    }
 
     r.features.forEach(f => {
+      if (f.type === 'source') return;
       const location = f.strand === 1 ? `${f.start + 1}..${f.end}` : `complement(${f.start + 1}..${f.end})`;
       gb += `     ${f.type.padEnd(15)} ${location}\n`;
-      gb += `                     /label="${f.name}"\n`;
+      gb += `                     /label="${escapeQualifierValue(f.name)}"\n`;
       if (f.metadata) {
         Object.entries(f.metadata).forEach(([k, v]) => {
-          if (v) gb += `                     /${k}="${v}"\n`;
+          if (v) gb += `                     /${k}="${escapeQualifierValue(v)}"\n`;
         });
       }
     });

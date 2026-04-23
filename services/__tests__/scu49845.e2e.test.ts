@@ -248,6 +248,9 @@ describe('SCU49845.gb – GenBank round-trip', () => {
     expect(roundTripped.isCircular).toBe(original.isCircular);
     expect(roundTripped.features).toHaveLength(original.features.length);
 
+    const featureSortKey = (f: { type: string; name: string; start: number; end: number; strand: 1 | -1 }) =>
+      `${f.type}:${f.name}:${f.start}:${f.end}:${f.strand}`;
+
     const project = (record: SeqRecord) =>
       record.features
         .map(f => ({
@@ -257,11 +260,7 @@ describe('SCU49845.gb – GenBank round-trip', () => {
           end: f.end,
           strand: f.strand,
         }))
-        .sort((a, b) =>
-          `${a.type}:${a.name}:${a.start}:${a.end}:${a.strand}`.localeCompare(
-            `${b.type}:${b.name}:${b.start}:${b.end}:${b.strand}`
-          )
-        );
+        .sort((a, b) => featureSortKey(a).localeCompare(featureSortKey(b)));
 
     expect(project(roundTripped)).toEqual(project(original));
   });
