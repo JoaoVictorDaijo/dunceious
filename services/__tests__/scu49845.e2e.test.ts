@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '../genbank/index';
+import { exportToGenBank } from '../bioUtils';
 import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
 import type { SeqRecord } from '../../types';
@@ -229,5 +230,39 @@ describe('SCU49845.gb – sequence search', () => {
 
   it('AXL2 start codon ATG is present at position 686 (0-based)', () => {
     expect(record.sequence.slice(686, 689)).toBe('ATG');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GenBank round-trip: parse → export → parse
+// ---------------------------------------------------------------------------
+
+describe('SCU49845.gb – GenBank round-trip', () => {
+  it('preserves core record/feature data after export and re-import', () => {
+    const [original] = parseGenBank(SCU49845_CONTENT);
+    const exported = exportToGenBank([original]);
+    const [roundTripped] = parseGenBank(exported);
+
+    expect(roundTripped.id).toBe(original.id);
+    expect(roundTripped.sequence).toBe(original.sequence);
+    expect(roundTripped.isCircular).toBe(original.isCircular);
+    expect(roundTripped.features).toHaveLength(original.features.length);
+
+    const project = (record: SeqRecord) =>
+      record.features
+        .map(f => ({
+          type: f.type,
+          name: f.name,
+          start: f.start,
+          end: f.end,
+          strand: f.strand,
+        }))
+        .sort((a, b) =>
+          `${a.type}:${a.name}:${a.start}:${a.end}:${a.strand}`.localeCompare(
+            `${b.type}:${b.name}:${b.start}:${b.end}:${b.strand}`
+          )
+        );
+
+    expect(project(roundTripped)).toEqual(project(original));
   });
 });
