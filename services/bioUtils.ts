@@ -155,41 +155,66 @@ export const exportToGff = (records: SeqRecord[]): string => {
 
 export const exportToGenBank = (records: SeqRecord[]): string => {
   return records.map(r => {
+    const escapeQualifierValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
     const seq = r.sequence;
     const length = seq.length;
-    
-    let gb = `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     linear   UNK ${date}\n`;
-    gb += `DEFINITION  ${r.name || r.id} exported from Dunceious.\n`;
+    const topology = r.isCircular ? 'circular' : 'linear  ';
+
+    let gb = '';
+
+    // LOCUS
+    gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
+
+    // DEFINITION – always stamped with the Dunceious exporter marker.
+    // Strip any existing marker first so repeated exports don't accumulate duplicates.
+    const DUNCEIOUS_MARKER = ' Exported by Dunceious.';
+    const rawDefinition = (r.definition || r.name || r.id).replace(DUNCEIOUS_MARKER, '');
+    gb += `DEFINITION  ${rawDefinition}${DUNCEIOUS_MARKER}\n`;
+
+    // ACCESSION / VERSION
     gb += `ACCESSION   ${r.id}\n`;
     gb += `VERSION     ${r.id}\n`;
     gb += `KEYWORDS    .\n`;
-    gb += `SOURCE      .\n`;
-    gb += `  ORGANISM  .\n`;
-    gb += `FEATURES             Location/Qualifiers\n`;
-    gb += `     source          1..${length}\n`;
-    gb += `                     /organism="."\n`;
-    gb += `                     /mol_type="genomic DNA"\n`;
 
+    // SOURCE / ORGANISM from source feature when available
+    const sourceFeature = r.features.find(f => f.type === 'source');
+    const organism = sourceFeature?.metadata?.['organism'] ?? '.';
+    gb += `SOURCE      ${organism}\n`;
+    gb += `  ORGANISM  ${organism}\n`;
+
+    // FEATURES
+    gb += `FEATURES             Location/Qualifiers\n`;
     r.features.forEach(f => {
-      const location = f.strand === 1 ? `${f.start + 1}..${f.end}` : `complement(${f.start + 1}..${f.end})`;
+      // Prefer the original location string (preserves partial/join syntax);
+      // fall back to reconstructing a simple 1-based location.
+      const location = f.locationString ?? (
+        f.strand === 1
+          ? `${f.start + 1}..${f.end}`
+          : `complement(${f.start + 1}..${f.end})`
+      );
       gb += `     ${f.type.padEnd(15)} ${location}\n`;
-      gb += `                     /label="${f.name}"\n`;
       if (f.metadata) {
         Object.entries(f.metadata).forEach(([k, v]) => {
-          if (v) gb += `                     /${k}="${v}"\n`;
+          // Keys prefixed with '_' are internal Dunceious fields, not GenBank qualifiers
+          if (k.startsWith('_')) return;
+          if (v !== undefined && v !== null && v !== '') {
+            gb += `                     /${k}="${escapeQualifierValue(String(v))}"\n`;
+          }
         });
       }
     });
 
+    // ORIGIN
     gb += `ORIGIN\n`;
-    for (let i = 0; i < seq.length; i += 60) {
-      const line = seq.substring(i, i + 60);
-      gb += `${(i + 1).toString().padStart(9)} `;
-      for (let j = 0; j < line.length; j += 10) {
-        gb += line.substring(j, j + 10) + ' ';
+    const originSeq = seq.toLowerCase();
+    for (let i = 0; i < originSeq.length; i += 60) {
+      const lineSeq = originSeq.substring(i, i + 60);
+      const groups: string[] = [];
+      for (let j = 0; j < lineSeq.length; j += 10) {
+        groups.push(lineSeq.substring(j, j + 10));
       }
-      gb += `\n`;
+      gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
     }
     gb += `//\n`;
     return gb;
