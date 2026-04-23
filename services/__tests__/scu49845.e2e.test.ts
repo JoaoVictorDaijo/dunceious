@@ -18,7 +18,7 @@ import { parseGenBank } from '../genbank/index';
 import { exportToGenBank } from '../bioUtils';
 import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
-import type { SeqRecord } from '../../types';
+import type { SeqRecord, BioFeature } from '../../types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCU49845_CONTENT = readFileSync(resolve(__dirname, '../../SCU49845.gb'), 'utf-8');
@@ -273,5 +273,111 @@ describe('SCU49845.gb – GenBank round-trip', () => {
 
     // The exported DEFINITION is stamped with the Dunceious exporter marker
     expect(roundTripped.definition).toContain('Exported by Dunceious');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GenBank export after user modifications
+// ---------------------------------------------------------------------------
+
+describe('SCU49845.gb – export after user modifications', () => {
+  let original: SeqRecord;
+
+  beforeAll(() => {
+    [original] = parseGenBank(SCU49845_CONTENT);
+  });
+
+  it('reflects a sequence substitution in the exported ORIGIN section', () => {
+    const TEN_T_SEQUENCE = 'TTTTTTTTTT'; // 10 T's replacing positions [0, 10)
+    const modified: SeqRecord = {
+      ...original,
+      sequence: TEN_T_SEQUENCE + original.sequence.slice(10),
+    };
+    const [result] = parseGenBank(exportToGenBank([modified]));
+    expect(result.sequence.length).toBe(original.sequence.length);
+    expect(result.sequence.slice(0, 10)).toBe(TEN_T_SEQUENCE);
+    // Remainder is unchanged
+    expect(result.sequence.slice(10)).toBe(original.sequence.slice(10));
+  });
+
+  it('reflects a user-added feature in the exported FEATURES table', () => {
+    const newFeature: BioFeature = {
+      type: 'misc_feature',
+      name: 'user_mark',
+      start: 100,
+      end: 200,
+      strand: 1,
+      metadata: {},
+    };
+    const modified: SeqRecord = {
+      ...original,
+      features: [...original.features, newFeature],
+    };
+    const [result] = parseGenBank(exportToGenBank([modified]));
+    expect(result.features).toHaveLength(original.features.length + 1);
+    const found = result.features.find(f => f.type === 'misc_feature' && f.start === 100);
+    expect(found).toBeDefined();
+    expect(found!.end).toBe(200);
+    expect(found!.strand).toBe(1);
+  });
+
+  it('preserves a /note qualifier on a newly added feature', () => {
+    const newFeature: BioFeature = {
+      type: 'regulatory',
+      name: 'promoter_region',
+      start: 500,
+      end: 600,
+      strand: 1,
+      metadata: { note: 'TATA-box proximal region' },
+    };
+    const modified: SeqRecord = {
+      ...original,
+      features: [...original.features, newFeature],
+    };
+    const [result] = parseGenBank(exportToGenBank([modified]));
+    const found = result.features.find(f => f.type === 'regulatory' && f.start === 500);
+    expect(found).toBeDefined();
+    expect(found!.metadata?.['note']).toBe('TATA-box proximal region');
+  });
+
+  it('reflects a modified qualifier on an existing feature', () => {
+    const axl2Gene = original.features.find(f => f.type === 'gene' && f.name === 'AXL2')!;
+    const modified: SeqRecord = {
+      ...original,
+      features: original.features.map(f =>
+        f === axl2Gene
+          ? { ...f, metadata: { ...f.metadata, note: 'modified by user' } }
+          : f
+      ),
+    };
+    const [result] = parseGenBank(exportToGenBank([modified]));
+    const found = result.features.find(f => f.type === 'gene' && f.start === axl2Gene.start);
+    expect(found).toBeDefined();
+    expect(found!.metadata?.['note']).toBe('modified by user');
+  });
+
+  it('reflects isCircular toggled to true in the LOCUS line and on re-parse', () => {
+    const modified: SeqRecord = { ...original, isCircular: true };
+    const exported = exportToGenBank([modified]);
+    expect(exported).toContain('circular');
+    const [result] = parseGenBank(exported);
+    expect(result.isCircular).toBe(true);
+  });
+
+  it('reflects a changed DEFINITION in the exported file', () => {
+    const modified: SeqRecord = {
+      ...original,
+      definition: 'Custom user description.',
+    };
+    const [result] = parseGenBank(exportToGenBank([modified]));
+    expect(result.definition).toContain('Custom user description.');
+    expect(result.definition).toContain('Exported by Dunceious');
+  });
+
+  it('does not accumulate the Dunceious marker on repeated exports', () => {
+    const [once] = parseGenBank(exportToGenBank([original]));
+    const [twice] = parseGenBank(exportToGenBank([once]));
+    const markerCount = (twice.definition ?? '').split('Exported by Dunceious').length - 1;
+    expect(markerCount).toBe(1);
   });
 });
