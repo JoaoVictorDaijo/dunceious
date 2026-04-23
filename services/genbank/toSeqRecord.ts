@@ -37,6 +37,7 @@ export function toSeqRecord(recordStr: string): SeqRecord {
     id: header.id,
     name: header.name,
     definition: header.definition,
+    moleculeType: header.moleculeType,
     sequence,
     features,
     isCircular: header.isCircular,
