@@ -33,13 +33,6 @@ export function toSeqRecord(recordStr: string): SeqRecord {
   const features = parseFeatures(lines);
   const sequence = parseSequence(lines);
 
-  // Preserve everything before the FEATURES line so exportToGenBank can
-  // reproduce the original file exactly (LOCUS, DEFINITION, REFERENCE blocks…)
-  const featuresLineIdx = lines.findIndex(l => l.startsWith('FEATURES'));
-  const rawHeader = featuresLineIdx > 0
-    ? lines.slice(0, featuresLineIdx).join('\n') + '\n'
-    : undefined;
-
   return {
     id: header.id,
     name: header.name,
@@ -47,6 +40,5 @@ export function toSeqRecord(recordStr: string): SeqRecord {
     sequence,
     features,
     isCircular: header.isCircular,
-    metadata: rawHeader ? { _rawHeader: rawHeader } : undefined,
   };
 }

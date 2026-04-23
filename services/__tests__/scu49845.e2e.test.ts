@@ -238,9 +238,40 @@ describe('SCU49845.gb – sequence search', () => {
 // ---------------------------------------------------------------------------
 
 describe('SCU49845.gb – GenBank round-trip', () => {
-  it('produces output byte-for-byte equal to the original file', () => {
+  it('preserves core record/feature data after export and re-import', () => {
     const [original] = parseGenBank(SCU49845_CONTENT);
     const exported = exportToGenBank([original]);
-    expect(exported).toBe(SCU49845_CONTENT);
+    const [roundTripped] = parseGenBank(exported);
+
+    // Core record fields
+    expect(roundTripped.id).toBe(original.id);
+    expect(roundTripped.sequence).toBe(original.sequence);
+    expect(roundTripped.isCircular).toBe(original.isCircular);
+
+    // Same number of features
+    expect(roundTripped.features).toHaveLength(original.features.length);
+
+    // Feature coordinates and strands are preserved
+    const featureSortKey = (f: { type: string; start: number; end: number; strand: 1 | -1 }) =>
+      `${f.type}:${f.start}:${f.end}:${f.strand}`;
+
+    const projectCoords = (record: SeqRecord) =>
+      record.features
+        .map(f => ({ type: f.type, start: f.start, end: f.end, strand: f.strand }))
+        .sort((a, b) => featureSortKey(a).localeCompare(featureSortKey(b)));
+
+    expect(projectCoords(roundTripped)).toEqual(projectCoords(original));
+
+    // Translations are preserved (most complex multi-line qualifier)
+    const translations = (record: SeqRecord) =>
+      record.features
+        .filter(f => f.translation)
+        .map(f => f.translation)
+        .sort();
+
+    expect(translations(roundTripped)).toEqual(translations(original));
+
+    // The exported DEFINITION is stamped with the Dunceious exporter marker
+    expect(roundTripped.definition).toContain('Exported by Dunceious');
   });
 });

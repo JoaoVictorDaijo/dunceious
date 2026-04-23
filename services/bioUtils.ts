@@ -159,66 +159,53 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
     const seq = r.sequence;
     const length = seq.length;
+    const topology = r.isCircular ? 'circular' : 'linear  ';
 
     let gb = '';
 
-    // ── Header ──────────────────────────────────────────────────────────────
-    if (r.metadata?._rawHeader) {
-      // Re-emit the original preamble exactly (LOCUS, DEFINITION, REFERENCE…)
-      gb += r.metadata._rawHeader as string;
-    } else {
-      // Fallback: generate a synthetic header for programmatically created records
-      const sourceFeature = r.features.find(f => f.type === 'source');
-      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     linear   UNK ${date}\n`;
-      gb += `DEFINITION  ${r.name || r.id} exported from Dunceious.\n`;
-      gb += `ACCESSION   ${r.id}\n`;
-      gb += `VERSION     ${r.id}\n`;
-      gb += `KEYWORDS    .\n`;
-      gb += `SOURCE      .\n`;
-      gb += `  ORGANISM  .\n`;
-      gb += `FEATURES             Location/Qualifiers\n`;
-      gb += `     source          ${sourceFeature ? `${sourceFeature.start + 1}..${sourceFeature.end}` : `1..${length}`}\n`;
-      if (sourceFeature?.metadata && Object.keys(sourceFeature.metadata).some(k => !k.startsWith('_'))) {
-        Object.entries(sourceFeature.metadata).forEach(([k, v]) => {
-          if (k.startsWith('_')) return;
-          if (v) gb += `                     /${k}="${escapeQualifierValue(v)}"\n`;
-        });
-      } else {
-        gb += `                     /organism="."\n`;
-        gb += `                     /mol_type="genomic DNA"\n`;
-      }
-    }
+    // LOCUS
+    gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
 
-    // ── FEATURES header (only when we used the raw header path) ─────────────
-    if (r.metadata?._rawHeader) {
-      gb += `FEATURES             Location/Qualifiers\n`;
-    }
+    // DEFINITION – always stamped with the Dunceious exporter marker.
+    // Strip any existing marker first so repeated exports don't accumulate duplicates.
+    const DUNCEIOUS_MARKER = ' Exported by Dunceious.';
+    const rawDefinition = (r.definition || r.name || r.id).replace(DUNCEIOUS_MARKER, '');
+    gb += `DEFINITION  ${rawDefinition}${DUNCEIOUS_MARKER}\n`;
 
-    // ── Feature blocks ───────────────────────────────────────────────────────
+    // ACCESSION / VERSION
+    gb += `ACCESSION   ${r.id}\n`;
+    gb += `VERSION     ${r.id}\n`;
+    gb += `KEYWORDS    .\n`;
+
+    // SOURCE / ORGANISM from source feature when available
+    const sourceFeature = r.features.find(f => f.type === 'source');
+    const organism = sourceFeature?.metadata?.['organism'] ?? '.';
+    gb += `SOURCE      ${organism}\n`;
+    gb += `  ORGANISM  ${organism}\n`;
+
+    // FEATURES
+    gb += `FEATURES             Location/Qualifiers\n`;
     r.features.forEach(f => {
-      const rawBlock = f.metadata?._rawBlock;
-      if (rawBlock) {
-        // Re-emit the original text of this feature exactly
-        gb += rawBlock + '\n';
-      } else {
-        // Fallback: generate feature text for programmatically created features
-        if (f.type === 'source' && r.metadata?._rawHeader) return; // source already in header path
-        if (f.type === 'source') return; // source handled above in fallback header
-        const location = f.strand === 1
+      // Prefer the original location string (preserves partial/join syntax);
+      // fall back to reconstructing a simple 1-based location.
+      const location = f.locationString ?? (
+        f.strand === 1
           ? `${f.start + 1}..${f.end}`
-          : `complement(${f.start + 1}..${f.end})`;
-        gb += `     ${f.type.padEnd(15)} ${location}\n`;
-        gb += `                     /label="${escapeQualifierValue(f.name)}"\n`;
-        if (f.metadata) {
-          Object.entries(f.metadata).forEach(([k, v]) => {
-            if (k.startsWith('_')) return;
-            if (v) gb += `                     /${k}="${escapeQualifierValue(v)}"\n`;
-          });
-        }
+          : `complement(${f.start + 1}..${f.end})`
+      );
+      gb += `     ${f.type.padEnd(15)} ${location}\n`;
+      if (f.metadata) {
+        Object.entries(f.metadata).forEach(([k, v]) => {
+          // Keys prefixed with '_' are internal Dunceious fields, not GenBank qualifiers
+          if (k.startsWith('_')) return;
+          if (v !== undefined && v !== null && v !== '') {
+            gb += `                     /${k}="${escapeQualifierValue(String(v))}"\n`;
+          }
+        });
       }
     });
 
-    // ── Sequence (ORIGIN) ────────────────────────────────────────────────────
+    // ORIGIN
     gb += `ORIGIN\n`;
     const originSeq = seq.toLowerCase();
     for (let i = 0; i < originSeq.length; i += 60) {
