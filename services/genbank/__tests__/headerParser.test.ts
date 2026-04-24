@@ -80,3 +80,29 @@ describe('parseHeader – SOURCE fallback', () => {
     expect(h.name).toBe('My definition.');
   });
 });
+
+describe('parseHeader – moleculeType', () => {
+  it('defaults to "dna" for a standard bp LOCUS line', () => {
+    const lines = ['LOCUS       TEST001   30 bp    DNA'];
+    expect(parseHeader(lines).moleculeType).toBe('dna');
+  });
+
+  it('detects protein records when unit is "aa"', () => {
+    const lines = ['LOCUS       PROT001  150 aa            linear   UNK 01-JAN-2024'];
+    expect(parseHeader(lines).moleculeType).toBe('protein');
+  });
+
+  it('detects RNA records when unit is "mRNA"', () => {
+    const lines = ['LOCUS       SEQ001    50 bp    mRNA'];
+    expect(parseHeader(lines).moleculeType).toBe('rna');
+  });
+
+  it('is case-insensitive for RNA detection', () => {
+    const lines = ['LOCUS       SEQ002    50 bp    rRNA'];
+    expect(parseHeader(lines).moleculeType).toBe('rna');
+  });
+
+  it('defaults to "dna" when no LOCUS line is present', () => {
+    expect(parseHeader([]).moleculeType).toBe('dna');
+  });
+});

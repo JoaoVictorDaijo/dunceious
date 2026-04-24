@@ -37,11 +37,12 @@ export function parseHeader(lines: string[]): HeaderData {
 
       // Determine molecule type from the unit field on the LOCUS line.
       // Protein GenBank records use "aa" (amino acids); nucleotide records use "bp".
-      // RNA molecule types contain "RNA" in the molecule-type token.
+      // RNA molecule types contain "RNA" anywhere in the molecule-type token
+      // (e.g. "mRNA", "rRNA", "tRNA", "ncRNA").
       const locusLower = line.toLowerCase();
       if (locusLower.includes(' aa ') || locusLower.endsWith(' aa')) {
         moleculeType = 'protein';
-      } else if (locusLower.match(/\brna\b/)) {
+      } else if (locusLower.includes('rna')) {
         moleculeType = 'rna';
       } else {
         moleculeType = 'dna';
