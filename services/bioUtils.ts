@@ -109,6 +109,66 @@ export const getNucleotideColor = (char: string): string => {
   return '#94a3b8';
 };
 
+/**
+ * Returns a display colour for a single-letter amino-acid code.
+ *
+ * Colour groupings follow chemical/biochemical property conventions
+ * (similar to ClustalX / RasMol):
+ *
+ * - Hydrophobic non-polar (A V I L M P G):  amber tones
+ * - Aromatic            (F W Y):            purple tones
+ * - Positively charged  (K R):              blue
+ * - Histidine           (H):                sky-blue (partly positive)
+ * - Negatively charged  (D E):              red tones
+ * - Polar uncharged     (S T N Q):          green tones
+ * - Cysteine            (C):                yellow (unique reactivity)
+ * - Stop / unknown      (* _):              red
+ * - Gap                 (-):                slate
+ */
+export const getAminoAcidColor = (char: string): string => {
+  const c = char.toUpperCase();
+  switch (c) {
+    // Hydrophobic non-polar
+    case 'A': case 'V': case 'I': case 'L': case 'M':
+      return '#f59e0b'; // Amber
+    case 'G':
+      return '#94a3b8'; // Slate – smallest / most flexible
+    case 'P':
+      return '#d97706'; // Dark amber – rigid ring
+    // Aromatic
+    case 'F': case 'W':
+      return '#a855f7'; // Purple
+    case 'Y':
+      return '#8b5cf6'; // Violet – aromatic + hydroxyl
+    // Positively charged
+    case 'K': case 'R':
+      return '#3b82f6'; // Blue
+    case 'H':
+      return '#60a5fa'; // Sky blue – weakly basic
+    // Negatively charged
+    case 'D':
+      return '#ef4444'; // Red
+    case 'E':
+      return '#f97316'; // Orange-red
+    // Polar uncharged
+    case 'S': case 'T':
+      return '#22c55e'; // Green
+    case 'N': case 'Q':
+      return '#10b981'; // Emerald
+    // Unique
+    case 'C':
+      return '#eab308'; // Yellow – disulfide bridges
+    // Stop codon
+    case '*': case '_':
+      return '#ef4444'; // Red
+    // Gap
+    case '-':
+      return '#64748b'; // Slate
+    default:
+      return '#94a3b8'; // Unknown
+  }
+};
+
 export const getFeatureColor = (type: string, customColors?: Record<string, string>): string => {
   if (customColors && customColors[type]) return customColors[type];
   
@@ -160,11 +220,16 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     const seq = r.sequence;
     const length = seq.length;
     const topology = r.isCircular ? 'circular' : 'linear  ';
+    const isProtein = r.moleculeType === 'protein';
 
     let gb = '';
 
-    // LOCUS
-    gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
+    // LOCUS – protein records use "aa" as the unit and omit the molecule type
+    if (isProtein) {
+      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} aa            ${topology}   UNK ${date}\n`;
+    } else {
+      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
+    }
 
     // DEFINITION – always stamped with the Dunceious exporter marker.
     // Strip any existing marker first so repeated exports don't accumulate duplicates.

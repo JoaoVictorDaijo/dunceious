@@ -31,6 +31,7 @@ export interface SeqRecord {
   definition?: string;
   accession?: string;
   sequence: string;
+  moleculeType?: 'dna' | 'rna' | 'protein';
   features: BioFeature[];
   tracks?: QuantitativeTrack[];
   alignedSequence?: string;

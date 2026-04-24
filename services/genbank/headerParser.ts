@@ -13,6 +13,8 @@ export interface HeaderData {
   definition: string;
   /** True when the LOCUS line contains the word "circular" */
   isCircular: boolean;
+  /** Molecule type derived from the LOCUS line unit field */
+  moleculeType: 'dna' | 'rna' | 'protein';
 }
 
 const INDENT12 = ' '.repeat(12);
@@ -22,6 +24,7 @@ export function parseHeader(lines: string[]): HeaderData {
   let name = 'Unknown';
   let definition = '';
   let isCircular = false;
+  let moleculeType: 'dna' | 'rna' | 'protein' = 'dna';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -31,6 +34,19 @@ export function parseHeader(lines: string[]): HeaderData {
       id = parts[1] || 'Unknown';
       name = id;
       isCircular = line.toLowerCase().includes('circular');
+
+      // Determine molecule type from the unit field on the LOCUS line.
+      // Protein GenBank records use "aa" (amino acids); nucleotide records use "bp".
+      // RNA molecule types contain "RNA" anywhere in the molecule-type token
+      // (e.g. "mRNA", "rRNA", "tRNA", "ncRNA").
+      const locusLower = line.toLowerCase();
+      if (/\baa\b/.test(locusLower)) {
+        moleculeType = 'protein';
+      } else if (locusLower.includes('rna')) {
+        moleculeType = 'rna';
+      } else {
+        moleculeType = 'dna';
+      }
       continue;
     }
 
@@ -57,5 +73,5 @@ export function parseHeader(lines: string[]): HeaderData {
     if (line.startsWith('FEATURES') || line.startsWith('ORIGIN')) break;
   }
 
-  return { id, name, definition, isCircular };
+  return { id, name, definition, isCircular, moleculeType };
 }

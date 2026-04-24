@@ -66,7 +66,7 @@ export interface ParseGenBankSuccessResponse {
 
 export interface ParseFastaSuccessResponse {
   type: 'FASTA_SUCCESS';
-  alignedData: Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features'>[];
+  alignedData: Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>[];
 }
 
 export interface AnnotationsSuccessResponse {

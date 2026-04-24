@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback, memo } from '
 import * as d3 from 'd3';
 import { VariableSizeList, ListChildComponentProps } from 'react-window';
 import { SeqRecord, SelectionArea, SearchResult, BioFeature } from '../types';
-import { getFeatureColor, translateSequence, getNucleotideColor, extractCodingSequence, detectEarlyStop } from '../services/bioUtils';
+import { getFeatureColor, translateSequence, getNucleotideColor, getAminoAcidColor, extractCodingSequence, detectEarlyStop } from '../services/bioUtils';
 
 interface Props {
   records: SeqRecord[];
@@ -102,6 +102,7 @@ const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLinear<nu
 
 interface SequenceTrackProps {
   seq: string;
+  moleculeType?: 'dna' | 'rna' | 'protein';
   xScale: d3.ScaleLinear<number, number>;
   viewportWidth: number;
   height: number;
@@ -118,7 +119,7 @@ interface SequenceTrackProps {
 }
 
 const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
-  seq, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features,
+  seq, moleculeType, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,6 +152,8 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     ctx.clearRect(0, 0, viewportWidth, height);
     
     const seqY = y;
+    const isProtein = moleculeType === 'protein';
+    const getResidueColor = isProtein ? getAminoAcidColor : getNucleotideColor;
 
     const vStart = Math.max(0, Math.floor(scrollX / zoomLevel) - 5);
     const vEnd = Math.min(seq.length, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 5);
@@ -231,7 +234,7 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const char = seq[bp] || '-';
         const isGap = char === '-';
 
-        ctx.fillStyle = isGap ? '#f1f5f9' : getNucleotideColor(char);
+        ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
         ctx.globalAlpha = isGap ? 0.35 : 0.8;
         ctx.fillRect(px, seqY, 1.2, NT_ROW_HEIGHT);
       }
@@ -247,7 +250,7 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
         const highlight = highlightMap.get(j);
         if (!highlight) {
-          ctx.fillStyle = isGap ? '#f1f5f9' : getNucleotideColor(char);
+          ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
           ctx.globalAlpha = isGap ? 0.5 : 0.9;
           ctx.fillRect(cX, seqY, cW, NT_ROW_HEIGHT);
         }
@@ -714,6 +717,7 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
 
           <SequenceTrack 
             seq={seq}
+            moleculeType={l.record.moleculeType}
             xScale={xScale}
             viewportWidth={viewportWidth}
             height={l.height}
