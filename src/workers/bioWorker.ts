@@ -31,6 +31,11 @@ interface FastaRecord {
  * which do not appear in a strict DNA/RNA alphabet (A, C, G, T/U, N, gap).
  * If any of those protein-only characters are present the sequence is classified
  * as a protein; otherwise it is treated as DNA.
+ *
+ * Note: sequences composed entirely of characters that overlap with nucleotides
+ * (A, C, G, T, N) will be classified as DNA even if they are protein sequences.
+ * In practice such sequences are extremely rare and are best loaded via GenBank
+ * format where the molecule type is declared explicitly on the LOCUS line.
  */
 const detectMoleculeType = (seq: string): 'dna' | 'rna' | 'protein' => {
   const upper = seq.toUpperCase();

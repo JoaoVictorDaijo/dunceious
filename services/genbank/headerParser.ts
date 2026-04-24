@@ -40,7 +40,7 @@ export function parseHeader(lines: string[]): HeaderData {
       // RNA molecule types contain "RNA" anywhere in the molecule-type token
       // (e.g. "mRNA", "rRNA", "tRNA", "ncRNA").
       const locusLower = line.toLowerCase();
-      if (locusLower.includes(' aa ') || locusLower.endsWith(' aa')) {
+      if (/\baa\b/.test(locusLower)) {
         moleculeType = 'protein';
       } else if (locusLower.includes('rna')) {
         moleculeType = 'rna';
