@@ -239,7 +239,7 @@ self.onmessage = (e: MessageEvent<BioWorkerRequest>) => {
   } else if (msg.type === 'PARSE_FASTA') {
     try {
       const parsed = parseFasta(msg.content);
-      const response: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: parsed };
+      const response: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: parsed, asAlignment: msg.asAlignment };
       self.postMessage(response);
     } catch (error) {
       const response: BioWorkerResponse = { type: 'ERROR', error: (error as Error).message };

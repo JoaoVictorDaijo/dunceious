@@ -2,6 +2,13 @@ import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 
+function uniquifyId(id: string, existingIds: Set<string>): string {
+  if (!existingIds.has(id)) return id;
+  let n = 1;
+  while (existingIds.has(`${id} (${n})`)) n++;
+  return `${id} (${n})`;
+}
+
 export interface UseBioWorkerReturn {
   records: SeqRecord[];
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
@@ -47,10 +54,17 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
 
       } else if (msg.type === 'PARSE_SUCCESS') {
-        const newRecords = msg.records.map(r => ({ ...r, visible: true }));
-        setRecords(prev => [...prev, ...newRecords]);
+        setRecords(prev => {
+          const existingIds = new Set(prev.map(r => r.id));
+          const newRecords = msg.records.map(r => {
+            const uniqueId = uniquifyId(r.id, existingIds);
+            existingIds.add(uniqueId);
+            return { ...r, id: uniqueId, name: uniqueId, visible: true };
+          });
+          addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
+          return [...prev, ...newRecords];
+        });
         setIsProcessing(false);
-        addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
         const annotations = msg.annotations;
@@ -99,16 +113,21 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         setIsProcessing(false);
 
       } else if (msg.type === 'FASTA_SUCCESS') {
-        const alignedData = msg.alignedData;
+        const { alignedData, asAlignment } = msg;
         setRecords(prev => {
-          // No existing records — treat as primary sequence loading
-          if (prev.length === 0) {
-            const newRecords = alignedData.map(r => ({ ...r, visible: true }));
+          if (!asAlignment) {
+            // Batch load — add as new records with deduplication
+            const existingIds = new Set(prev.map(r => r.id));
+            const newRecords = alignedData.map(r => {
+              const uniqueId = uniquifyId(r.id, existingIds);
+              existingIds.add(uniqueId);
+              return { ...r, id: uniqueId, name: uniqueId, visible: true };
+            });
             addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
-            return newRecords;
+            return [...prev, ...newRecords];
           }
 
-          // Existing records — treat as an external pre-aligned FASTA overlay
+          // Pre-aligned FASTA overlay — IDs must match exactly
           const currentIds = new Set(prev.map(r => r.id));
           const uploadedIds = new Set(alignedData.map(d => d.id));
           const missingInUpload = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);

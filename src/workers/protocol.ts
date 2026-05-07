@@ -34,6 +34,8 @@ export interface ParseGenBankRequest {
 export interface ParseFastaRequest {
   type: 'PARSE_FASTA';
   content: string;
+  /** When true the FASTA is an external pre-aligned overlay; otherwise it is a batch load. */
+  asAlignment?: boolean;
 }
 
 export interface ParseAnnotationsRequest {
@@ -67,6 +69,7 @@ export interface ParseGenBankSuccessResponse {
 export interface ParseFastaSuccessResponse {
   type: 'FASTA_SUCCESS';
   alignedData: Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>[];
+  asAlignment?: boolean;
 }
 
 export interface AnnotationsSuccessResponse {

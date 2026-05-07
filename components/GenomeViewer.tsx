@@ -615,6 +615,8 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 
+  const effectiveTranslation = showTranslation && l.record.moleculeType !== 'protein';
+
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(() => {
     const map = new Map<string, boolean>();
@@ -673,12 +675,12 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
           </>
         )}
 
-        <div className="absolute right-0 w-1 bg-emerald-400/30" style={{ top: l.seqBaseY - (showTranslation ? AA_ROW_HEIGHT * 3 : 0), height: (showTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT }} />
-        <div className="absolute right-2 flex items-center" style={{ top: l.seqBaseY - (showTranslation ? AA_ROW_HEIGHT * 3 : 0) - 12, height: 12 }}>
+        <div className="absolute right-0 w-1 bg-emerald-400/30" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0), height: (effectiveTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT }} />
+        <div className="absolute right-2 flex items-center" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) - 12, height: 12 }}>
           <span className="text-[6px] font-black uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        {showTranslation && (
+        {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY - AA_ROW_HEIGHT * 3 }}>
             <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">F1</span>
             <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">F2</span>
@@ -688,7 +690,7 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
         <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-black text-slate-900 shadow-sm tracking-tight" title={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
           {l.id}
         </div>
-        {showTranslation && (
+        {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY + NT_ROW_HEIGHT }}>
             <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">R1</span>
             <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">R2</span>
@@ -724,7 +726,7 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
             y={l.seqBaseY}
             zoomLevel={zoomLevel}
             scrollX={scrollX}
-            showTranslation={showTranslation}
+            showTranslation={effectiveTranslation}
             features={l.record.features}
             showConservation={showConservation}
             conservationScores={conservationScores}
@@ -1329,8 +1331,9 @@ const GenomeViewer: React.FC<Props> = ({
 
       const quantHeight = showTracks ? totalQuantHeight : 0;
       const topPadding = (featRowsCount > 0 || quantHeight > 0) ? 24 : 0;
-      const seqBaseY = annotHeight + quantHeight + topPadding + (showTranslation ? AA_ROW_HEIGHT * 3 : 0);
-      const height = seqBaseY + (showTranslation ? AA_ROW_HEIGHT * 3 : 0) + NT_ROW_HEIGHT + 20;
+      const effectiveTranslation = showTranslation && record.moleculeType !== 'protein';
+      const seqBaseY = annotHeight + quantHeight + topPadding + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0);
+      const height = seqBaseY + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) + NT_ROW_HEIGHT + 20;
 
       return { 
         id: record.id, 

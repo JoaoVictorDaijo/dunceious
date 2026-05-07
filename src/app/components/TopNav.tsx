@@ -130,9 +130,10 @@ const TopNav: React.FC<TopNavProps> = ({
               Tracks
             </button>
             <button
+              disabled={sessionMoleculeType === 'protein'}
               onClick={onToggleTranslation}
-              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${showTranslation ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
-              title="Toggle Translation"
+              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${sessionMoleculeType === 'protein' ? 'opacity-30 cursor-not-allowed grayscale' : ''} ${showTranslation ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+              title={sessionMoleculeType === 'protein' ? 'Not applicable for peptide sessions' : 'Toggle Translation'}
             >
               Translation
             </button>

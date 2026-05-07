@@ -154,7 +154,7 @@ export function useFileHandlers(
         setIsProcessing(false);
         return;
       }
-      const request: BioWorkerRequest = { type: 'PARSE_FASTA', content };
+      const request: BioWorkerRequest = { type: 'PARSE_FASTA', content, asAlignment: true };
       bioWorkerRef.current?.postMessage(request);
     };
     reader.readAsText(file);
