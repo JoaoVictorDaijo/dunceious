@@ -1,4 +1,24 @@
-import type { SeqRecord, BioFeature, FeatureSegment } from './types';
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+import type { BioFeature, FeatureSegment, SeqRecord } from "./types";
 
 /**
  * Transposes a raw-sequence position to the corresponding index in an
@@ -9,14 +29,14 @@ import type { SeqRecord, BioFeature, FeatureSegment } from './types';
  */
 export const transposeCoordinates = (
   originalPos: number,
-  alignedSeq: string
+  alignedSeq: string,
 ): number => {
   let ungappedCount = 0;
   for (let i = 0; i < alignedSeq.length; i++) {
     if (ungappedCount === originalPos) {
       return i;
     }
-    if (alignedSeq[i] !== '-') {
+    if (alignedSeq[i] !== "-") {
       ungappedCount++;
     }
   }
@@ -34,13 +54,13 @@ export const transposeCoordinates = (
 export const buildAlignedSegments = (
   alignedSeq: string,
   alignedStart: number,
-  alignedEnd: number
+  alignedEnd: number,
 ): FeatureSegment[] => {
   const segments: FeatureSegment[] = [];
   let currentStart: number | null = null;
 
   for (let i = alignedStart; i < alignedEnd; i++) {
-    if (alignedSeq[i] !== '-') {
+    if (alignedSeq[i] !== "-") {
       if (currentStart === null) {
         currentStart = i;
       }
@@ -67,12 +87,12 @@ export const buildAlignedSegments = (
  * sequences) are split into two coordinate ranges before transposition.
  */
 export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
-  return records.map(record => {
+  return records.map((record) => {
     if (!record.alignedSequence) return record;
 
     const alignedSeq = record.alignedSequence;
 
-    const transposedFeatures: BioFeature[] = record.features.map(feat => {
+    const transposedFeatures: BioFeature[] = record.features.map((feat) => {
       const originalSegments: FeatureSegment[] =
         feat.segments && feat.segments.length > 0
           ? feat.segments
@@ -92,7 +112,9 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
         for (const part of parts) {
           const alignedStart = transposeCoordinates(part.s, alignedSeq);
           const alignedEnd = transposeCoordinates(part.e, alignedSeq);
-          newSegments.push(...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd));
+          newSegments.push(
+            ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd),
+          );
         }
       }
 

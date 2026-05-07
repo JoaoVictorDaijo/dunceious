@@ -1,19 +1,39 @@
-import React, { useState, useMemo } from 'react';
-import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 import GenomeViewer from '@/components/GenomeViewer';
+import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
+import React, { useMemo, useState } from 'react';
+import DatabaseHubPanel from './components/DatabaseHubPanel';
+import FeatureEditorModal from './components/FeatureEditorModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
+import RecordDetailsModal from './components/RecordDetailsModal';
+import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TopNav from './components/TopNav';
-import Sidebar from './components/Sidebar';
-import RecordDetailsModal from './components/RecordDetailsModal';
-import FeatureEditorModal from './components/FeatureEditorModal';
-import DatabaseHubPanel from './components/DatabaseHubPanel';
 import {
-  useAppLogger,
-  useBioWorker,
-  useSearchWorker,
-  useFeatureManager,
-  useFileHandlers,
+    useAppLogger,
+    useBioWorker,
+    useFeatureManager,
+    useFileHandlers,
+    useSearchWorker,
 } from './hooks';
 
 // ---------------------------------------------------------------------------

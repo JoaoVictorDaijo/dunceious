@@ -5,6 +5,7 @@
 This document outlines the high-level architecture of the Dunceious bioinformatics platform.
 
 ## 1. Core Principles
+
 - **Data-Driven Rendering**: The UI is a direct reflection of the underlying `SeqRecord` state.
 - **Worker-Based Processing**: Heavy parsing, alignment, and search tasks are offloaded to Web Workers to keep the UI thread responsive.
 - **Typed Worker Contracts**: All messages crossing the main-thread ↔ worker boundary are defined as discriminated-union types in `src/workers/protocol.ts`. There is no `any` usage on worker message paths.
@@ -50,6 +51,7 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 ```
 
 ### Extension Rules
+
 - **New domain algorithms**: add to `src/domain/bio/` and export from `index.ts`. No DOM imports.
 - **New worker**: create `src/workers/<name>Worker.ts`, add request/response types to `src/workers/protocol.ts`, wire in `App.tsx`.
 - **New component**: create under `src/app/components/` if app-scoped, or `components/` if it needs to be shared with legacy paths.
@@ -60,13 +62,16 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 ## 3. Worker Contract Usage
 
 ### Protocol file (`src/workers/protocol.ts`)
+
 All messages are typed as discriminated unions:
+
 - **Bio Worker requests** (`BioWorkerRequest`): `PROCESS_RECORDS | PARSE_GENBANK | PARSE_FASTA | PARSE_ANNOTATIONS`
 - **Bio Worker responses** (`BioWorkerResponse`): `SUCCESS | PARSE_SUCCESS | FASTA_SUCCESS | ANNOTATIONS_SUCCESS | ERROR`
 - **Search Worker requests** (`SearchWorkerRequest`): `{ searchQuery, records, mode, options }`
 - **Search Worker responses** (`SearchWorkerResponse`): `{ results } | { error }`
 
 ### How to add a new worker message type
+
 1. Add request and response interfaces to `src/workers/protocol.ts`.
 2. Add the new interface to the appropriate union type.
 3. Handle the new `type` branch in the relevant worker's `onmessage` handler.
@@ -79,6 +84,7 @@ All messages are typed as discriminated unions:
 ## 4. Data Processing Pipeline
 
 ### Ingestion (`src/workers/bioWorker.ts`)
+
 - **GenBank Parser**: Delegates to `services/genbank/index.ts` (modular, fully tested).
 - **FASTA Parser**: Parses pre-aligned FASTA files and applies aligned sequences back to loaded records.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
@@ -87,10 +93,12 @@ All messages are typed as discriminated unions:
 - **Transposition**: Delegates to `src/domain/bio/coordinate.ts → processTransposition`.
 
 ### Consensus (`src/domain/bio/consensus.ts`)
+
 - Generates a master consensus sequence across all aligned records to identify conservation.
 - Imported directly by `bioWorker.ts` (no duplication).
 
 ### Search (`src/workers/searchWorker.ts`)
+
 - **Exact / IUPAC Mode**: `degenerateToRegex` from `services/searchLogic.ts`.
 - **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `services/searchLogic.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
 
@@ -99,11 +107,13 @@ All messages are typed as discriminated unions:
 ## 5. Component Hierarchy
 
 ### `src/app/App.tsx` (Composition Root)
+
 - Holds all application state: `records`, `transposedRecords`, `consensus`, search state, UI toggles.
 - Owns `bioWorkerRef` and `searchWorkerRef`; dispatches typed `BioWorkerRequest` / `SearchWorkerRequest` messages.
 - Consumes typed `BioWorkerResponse` / `SearchWorkerResponse` messages—no `any` in worker message paths.
 
 ### `src/app/components/` (Extracted Components)
+
 - `ProcessingOverlay` – full-screen loading overlay
 - `StatusBar` – bottom status bar with selection metrics
 - `TopNav` – toolbar with file import actions
@@ -114,6 +124,7 @@ All messages are typed as discriminated unions:
 - `DatabaseHubPanel` – NCBI/EBI database browser
 
 ### `components/GenomeViewer.tsx` (Rendering Engine)
+
 - **Virtualization**: `react-window` row-virtualized list.
 - **Feature Packing**: Non-overlapping annotation rows (greedy interval packing).
 - **Track Packing**: Quantitative BED/BedGraph tracks with canvas rendering.
@@ -123,16 +134,17 @@ All messages are typed as discriminated unions:
 
 ## 6. TypeScript Configuration
 
-| Option | Status | Notes |
-|---|---|---|
-| `strictNullChecks` | ✅ enabled | All null/undefined paths are checked |
-| `noUncheckedIndexedAccess` | 🔜 future | Enabling would require ~280 targeted fixes across GenomeViewer and domain code |
-| `exactOptionalPropertyTypes` | 🔜 future | Enabling would require updating ~10 object literals in test helpers |
-| `strict` (full mode) | 🔜 future | Incrementally approachable after the above two are resolved |
+| Option                       | Status     | Notes                                                                          |
+| ---------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `strictNullChecks`           | ✅ enabled | All null/undefined paths are checked                                           |
+| `noUncheckedIndexedAccess`   | 🔜 future  | Enabling would require ~280 targeted fixes across GenomeViewer and domain code |
+| `exactOptionalPropertyTypes` | 🔜 future  | Enabling would require updating ~10 object literals in test helpers            |
+| `strict` (full mode)         | 🔜 future  | Incrementally approachable after the above two are resolved                    |
 
 ---
 
 ## 7. Performance Optimizations
+
 - **Canvas for Tracks**: Quantitative data is rendered to Canvas to avoid DOM overhead.
 - **Memoization**: Layout calculations wrapped in `useMemo`.
 - **Debounced Updates**: Scroll/zoom interactions are debounced.
@@ -141,6 +153,7 @@ All messages are typed as discriminated unions:
 ---
 
 ## 8. Technology Stack
+
 - **React 19**: Modern UI framework with concurrent features.
 - **TypeScript 5** with `strictNullChecks`: Type-safe across the entire codebase.
 - **D3.js 7**: Coordinate scaling and color interpolation.
@@ -156,15 +169,15 @@ All messages are typed as discriminated unions:
 
 All planned modularisation phases (0–6) are **complete** and merged into `main`.
 
-| Phase | PR  | Status      | Description                                                        |
-|-------|-----|-------------|--------------------------------------------------------------------|
-| 0     | #7  | ✅ Merged   | ESLint + architectural size guards, smoke tests, PR template       |
-| 1     | #8  | ✅ Merged   | Normalize layout — `src/app/`, `src/domain/`, `src/workers/`       |
-| 2     | #9  | ✅ Merged   | Extract 8 UI components from `App.tsx` (1820 → 655 lines)         |
-| 2-fix | #10 | ✅ Applied  | Post-Phase-2 verification: lint fixes, ESLint `varsIgnorePattern`; deliverables merged via PR #15 |
-| 3     | #12 | ✅ Merged   | Extract `src/domain/bio/` — coordinate, consensus, intervals       |
-| 4     | #13 | ✅ Merged   | Modularise GenBank parser into `services/genbank/` submodules      |
-| 5+6   | #14 | ✅ Merged   | Worker contracts (`protocol.ts`), `strictNullChecks`, remove shims |
+| Phase | PR  | Status     | Description                                                                                       |
+| ----- | --- | ---------- | ------------------------------------------------------------------------------------------------- |
+| 0     | #7  | ✅ Merged  | ESLint + architectural size guards, smoke tests, PR template                                      |
+| 1     | #8  | ✅ Merged  | Normalize layout — `src/app/`, `src/domain/`, `src/workers/`                                      |
+| 2     | #9  | ✅ Merged  | Extract 8 UI components from `App.tsx` (1820 → 655 lines)                                         |
+| 2-fix | #10 | ✅ Applied | Post-Phase-2 verification: lint fixes, ESLint `varsIgnorePattern`; deliverables merged via PR #15 |
+| 3     | #12 | ✅ Merged  | Extract `src/domain/bio/` — coordinate, consensus, intervals                                      |
+| 4     | #13 | ✅ Merged  | Modularise GenBank parser into `services/genbank/` submodules                                     |
+| 5+6   | #14 | ✅ Merged  | Worker contracts (`protocol.ts`), `strictNullChecks`, remove shims                                |
 
 > **PR #10** was opened as a post-Phase-2 verification pass but was superseded
 > by later phase PRs before it could be merged. Its structural deliverables
@@ -174,4 +187,5 @@ All planned modularisation phases (0–6) are **complete** and merged into `main
 ---
 
 ## 9. License
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license. Commercial use is strictly prohibited.
+
+This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE or COPYING file for details.

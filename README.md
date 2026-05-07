@@ -11,10 +11,10 @@ For a full feature description see [`documentation.md`](./documentation.md), for
 
 ## Prerequisites
 
-| Requirement | Minimum version |
-|---|---|
-| [Node.js](https://nodejs.org/) | **18** (or later) |
-| npm | Ships with Node.js |
+| Requirement                    | Minimum version    |
+| ------------------------------ | ------------------ |
+| [Node.js](https://nodejs.org/) | **18** (or later)  |
+| npm                            | Ships with Node.js |
 
 > **Why Node.js 18?** The project uses Vite 6 and React 19, both of which require Node.js 18+.
 
@@ -53,15 +53,15 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 
 ## Available Scripts
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Start the Vite development server on port 3000 |
-| `npm run build` | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly |
-| `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact |
-| `npm run lint` | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors |
-| `npm test` | Run the unit test suite |
-| `npm run bench` | Run the GenBank parser benchmark grid (seq length × record count) and write results to `benchmark/results/benchmark.json` and SVG plots to `benchmark/plots/` |
-| `npm run plot` | Regenerate the SVG plots from an existing `benchmark/results/benchmark.json` without re-running the benchmarks |
+| Command           | What it does                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`     | Start the Vite development server on port 3000                                                                                                                |
+| `npm run build`   | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly                                                  |
+| `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact                                                                           |
+| `npm run lint`    | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors                                                                                  |
+| `npm test`        | Run the unit test suite                                                                                                                                       |
+| `npm run bench`   | Run the GenBank parser benchmark grid (seq length × record count) and write results to `benchmark/results/benchmark.json` and SVG plots to `benchmark/plots/` |
+| `npm run plot`    | Regenerate the SVG plots from an existing `benchmark/results/benchmark.json` without re-running the benchmarks                                                |
 
 ---
 
@@ -79,5 +79,4 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 
 ## License
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.  
-Commercial use is **strictly prohibited**.
+This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE or COPYING file for details.
