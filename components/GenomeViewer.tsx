@@ -1990,7 +1990,7 @@ const GenomeViewer: React.FC<Props> = ({
             >
               <i className="fas fa-download w-4 text-center opacity-50"></i> Export Sequence
             </button>
-            <button 
+            <button
               onClick={() => {
                 onViewDetails?.(contextMenu.recordId, contextMenu.feature);
                 setContextMenu(null);
@@ -1998,6 +1998,33 @@ const GenomeViewer: React.FC<Props> = ({
               className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-600 flex items-center gap-3 transition-colors"
             >
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
+            </button>
+            <button
+              onClick={() => {
+                if (contextMenu.feature) {
+                  const record = records.find(r => r.id === contextMenu.recordId);
+                  if (record) {
+                    const seq = record.alignedSequence || record.sequence;
+                    const copiedSeq = seq.substring(contextMenu.feature.start, contextMenu.feature.end);
+                    navigator.clipboard.writeText(copiedSeq);
+                    setContextMenu(null);
+                  }
+                } else if (persistentSelection) {
+                  const record = records.find(r => r.id === persistentSelection.recordIds[0]);
+                  if (record) {
+                    const seq = record.alignedSequence || record.sequence;
+                    const start = Math.min(persistentSelection.start, persistentSelection.end);
+                    const end = Math.max(persistentSelection.start, persistentSelection.end);
+                    const copiedSeq = seq.substring(start, end);
+                    navigator.clipboard.writeText(copiedSeq);
+                    setContextMenu(null);
+                  }
+                }
+              }}
+              disabled={!persistentSelection && !contextMenu.feature}
+              className={`w-full text-left px-4 py-2 text-[11px] font-bold flex items-center gap-3 transition-colors ${(!persistentSelection && !contextMenu.feature) ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+            >
+              <i className="fas fa-copy w-4 text-center opacity-50"></i> Copy Sequence
             </button>
           </div>
         )}
