@@ -45,6 +45,7 @@ export interface SidebarProps {
   onJoinSelectedMatches: () => void;
   onAnnotateMatch: (recordId: string, start: number, end: number, name: string) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
+  isProteinSession: boolean;
 }
 
 /**
@@ -91,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onJoinSelectedMatches,
   onAnnotateMatch,
   getSequenceContext,
+  isProteinSession,
 }) => {
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -370,6 +372,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onJoinSelectedMatches={onJoinSelectedMatches}
         onAnnotateMatch={onAnnotateMatch}
         getSequenceContext={getSequenceContext}
+        isProteinSession={isProteinSession}
       />
 
       {/* Log terminal */}

@@ -110,6 +110,7 @@ export interface SearchWorkerRequest {
   records: SearchableRecord[];
   mode: 'exact' | 'fuzzy';
   options: SearchOptions;
+  moleculeType?: 'dna' | 'rna' | 'protein';
 }
 
 // ---------------------------------------------------------------------------

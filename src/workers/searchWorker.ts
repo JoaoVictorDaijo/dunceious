@@ -90,8 +90,9 @@ function collectSeededFuzzyHits(
 }
 
 self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
-  const { requestId, searchQuery, records, mode, options } = e.data;
+  const { requestId, searchQuery, records, mode, options, moleculeType } = e.data;
   const { minScore = 5, strand = 'both', maxResults = 100 } = options;
+  const isProtein = moleculeType === 'protein';
 
   if (!searchQuery || searchQuery.length < 1) {
     const response: SearchWorkerResponse = { requestId, results: [] };
@@ -112,7 +113,7 @@ self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
           results.push(...collectSeededFuzzyHits(queryUpper, seq, record.id, 1, minScore));
         }
 
-        if (strand === 'both' || strand === 'rev') {
+        if (!isProtein && (strand === 'both' || strand === 'rev')) {
           const rcSeq = reverseComplement(seq);
           const revHits = collectSeededFuzzyHits(queryUpper, rcSeq, record.id, -1, minScore);
           revHits.forEach(hit => {
@@ -129,7 +130,7 @@ self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
         }
       } else {
         // Exact / IUPAC Mode
-        const regex = degenerateToRegex(searchQuery);
+        const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
 
         // Forward search
         if (strand === 'both' || strand === 'fwd') {
@@ -150,8 +151,8 @@ self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
           }
         }
 
-        // Reverse search
-        if (strand === 'both' || strand === 'rev') {
+        // Reverse search (nucleotide only — proteins have no reverse complement)
+        if (!isProtein && (strand === 'both' || strand === 'rev')) {
           const rcSeq = reverseComplement(seq);
           let match;
           regex.lastIndex = 0;

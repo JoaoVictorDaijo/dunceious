@@ -20,15 +20,33 @@ const IUPAC_MAP: Record<string, string> = {
   'H': '[ACT]', 'V': '[ACG]', 'N': '[ACGT]',
 };
 
-export function degenerateToRegex(query: string): RegExp {
+const PROTEIN_IUPAC_MAP: Record<string, string> = {
+  // Standard 20 amino acids
+  'A': 'A', 'C': 'C', 'D': 'D', 'E': 'E', 'F': 'F',
+  'G': 'G', 'H': 'H', 'I': 'I', 'K': 'K', 'L': 'L',
+  'M': 'M', 'N': 'N', 'P': 'P', 'Q': 'Q', 'R': 'R',
+  'S': 'S', 'T': 'T', 'V': 'V', 'W': 'W', 'Y': 'Y',
+  // IUPAC ambiguity codes
+  'B': '[DN]',   // Asp or Asn
+  'Z': '[EQ]',   // Glu or Gln
+  'J': '[IL]',   // Ile or Leu
+  'X': '[ACDEFGHIKLMNPQRSTVWY]',  // Any amino acid
+  'U': 'U',      // Selenocysteine
+  'O': 'O',      // Pyrrolysine
+};
+
+export function degenerateToRegex(
+  query: string,
+  moleculeType: 'nucleotide' | 'protein' = 'nucleotide',
+): RegExp {
   if (!query) return /$.^/;
+  const map = moleculeType === 'protein' ? PROTEIN_IUPAC_MAP : IUPAC_MAP;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = escaped
     .toUpperCase()
     .split('')
-    .map(char => IUPAC_MAP[char] || char)
-    // Search operates on aligned sequences where '-' are frequent.
-    // Allow optional gaps between query symbols.
+    .map(char => map[char] || char)
+    // Allow optional alignment gaps between residues
     .join('-*');
   return new RegExp(pattern, 'gi');
 }

@@ -33,6 +33,7 @@ export interface UseSearchWorkerReturn {
   setSelectedSearchIndices: (next: Set<number>) => void;
   maxScoreFound: number;
   isSearching: boolean;
+  isProteinSession: boolean;
   groupedSearchResults: GroupedSearchResults;
   handleSearch: () => void;
   toggleRecordSelection: (recordId: string, select: boolean) => void;
@@ -82,6 +83,11 @@ export function useSearchWorker(
   });
   const [maxScoreFound, setMaxScoreFound] = useState(0);
 
+  const isProteinSession = useMemo(
+    () => records.some(r => r.moleculeType === 'protein'),
+    [records],
+  );
+
   const searchableRecords = useMemo<SearchableRecord[]>(() => {
     return records.map(r => ({
       id: r.id,
@@ -91,8 +97,9 @@ export function useSearchWorker(
   }, [records]);
 
   const executeSearchInline = useCallback((request: SearchWorkerRequest): SearchResult[] => {
-    const { searchQuery, records: inputRecords, mode, options } = request;
+    const { searchQuery, records: inputRecords, mode, options, moleculeType } = request;
     const { minScore = 5, strand = 'both', maxResults = 100 } = options;
+    const isProtein = moleculeType === 'protein';
 
     if (!searchQuery || searchQuery.length < 1) return [];
 
@@ -130,7 +137,7 @@ export function useSearchWorker(
 
         if (Date.now() - startedAt > maxInlineMs) break;
 
-        if (strand === 'both' || strand === 'rev') {
+        if (!isProtein && (strand === 'both' || strand === 'rev')) {
           const rcSeq = reverseComplement(seq);
           const { ungapped: ungappedRcSeq, map: revMap } = removeGapsWithMap(rcSeq);
           if (ungappedRcSeq.length === 0) continue;
@@ -152,7 +159,7 @@ export function useSearchWorker(
           });
         }
       } else {
-        const regex = degenerateToRegex(searchQuery);
+        const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
 
         if (strand === 'both' || strand === 'fwd') {
           let match;
@@ -172,7 +179,7 @@ export function useSearchWorker(
           }
         }
 
-        if (strand === 'both' || strand === 'rev') {
+        if (!isProtein && (strand === 'both' || strand === 'rev')) {
           const rcSeq = reverseComplement(seq);
           let match;
           regex.lastIndex = 0;
@@ -359,6 +366,7 @@ export function useSearchWorker(
       records: searchableRecords,
       mode: searchMode,
       options: { ...searchOptions, minScore: workerMinScore },
+      moleculeType: isProteinSession ? 'protein' : 'dna',
     };
     lastRequestRef.current = request;
 
@@ -416,7 +424,7 @@ export function useSearchWorker(
       clearFuzzyTimeout();
       return;
     }
-  }, [searchQuery, searchableRecords, searchMode, searchOptions, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
+  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
   const groupedSearchResults = useMemo<GroupedSearchResults>(() => {
@@ -509,6 +517,7 @@ export function useSearchWorker(
     setSelectedSearchIndices,
     maxScoreFound,
     isSearching,
+    isProteinSession,
     groupedSearchResults,
     handleSearch,
     toggleRecordSelection,

@@ -21,6 +21,7 @@ export interface TopNavProps {
   showConservation: boolean;
   onToggleConservation: () => void;
   isAlignmentLoaded: boolean;
+  sessionMoleculeType: 'nucleotide' | 'protein' | null;
 }
 
 /**
@@ -45,7 +46,9 @@ const TopNav: React.FC<TopNavProps> = ({
   showConservation,
   onToggleConservation,
   isAlignmentLoaded,
+  sessionMoleculeType,
 }) => (
+  <>
   <nav className="h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-50">
     <div className="flex items-center gap-6">
       <button
@@ -146,6 +149,11 @@ const TopNav: React.FC<TopNavProps> = ({
       )}
     </div>
   </nav>
+  <div className={`h-0.5 shrink-0 transition-colors duration-700 ${
+    sessionMoleculeType === 'protein'    ? 'bg-violet-500/70' :
+    sessionMoleculeType === 'nucleotide' ? 'bg-sky-500/70'    : 'bg-transparent'
+  }`} />
+  </>
 );
 
 export default TopNav;

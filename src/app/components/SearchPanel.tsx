@@ -29,6 +29,7 @@ export interface SearchPanelProps {
   onJoinSelectedMatches: () => void;
   onAnnotateMatch: (recordId: string, start: number, end: number, name: string) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
+  isProteinSession?: boolean;
 }
 
 /**
@@ -58,6 +59,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   onJoinSelectedMatches,
   onAnnotateMatch,
   getSequenceContext,
+  isProteinSession = false,
 }) => {
   const clearSearch = () => {
     onSearchQueryChange('');
@@ -139,22 +141,24 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         )}
 
         {/* Search options */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">Strand</label>
-            <div className="relative">
-              <select
-                value={searchOptions.strand}
-                onChange={e => onSearchOptionsChange({ ...searchOptions, strand: e.target.value as 'fwd' | 'rev' | 'both' })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-black text-slate-400 outline-none focus:border-sky-500 appearance-none cursor-pointer"
-              >
-                <option value="both">Both Strands</option>
-                <option value="fwd">Forward Only</option>
-                <option value="rev">Reverse Only</option>
-              </select>
-              <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-slate-600 pointer-events-none"></i>
+        <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {!isProteinSession && (
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">Strand</label>
+              <div className="relative">
+                <select
+                  value={searchOptions.strand}
+                  onChange={e => onSearchOptionsChange({ ...searchOptions, strand: e.target.value as 'fwd' | 'rev' | 'both' })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-black text-slate-400 outline-none focus:border-sky-500 appearance-none cursor-pointer"
+                >
+                  <option value="both">Both Strands</option>
+                  <option value="fwd">Forward Only</option>
+                  <option value="rev">Reverse Only</option>
+                </select>
+                <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-slate-600 pointer-events-none"></i>
+              </div>
             </div>
-          </div>
+          )}
           <div className="space-y-2">
             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">Result Limit</label>
             <input

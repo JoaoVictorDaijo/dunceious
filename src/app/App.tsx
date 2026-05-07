@@ -92,6 +92,7 @@ const App: React.FC = () => {
     joinAllInRecord,
     joinSelectedMatches,
     getSequenceContext,
+    isProteinSession,
   } = useSearchWorker(records, addLog, addAnnotationFromSearch, selection => {
     setActiveTab('alignment');
     setActiveSelection(selection);
@@ -144,6 +145,11 @@ const App: React.FC = () => {
     return Math.max(...records.map(r => (r.alignedSequence || r.sequence).length));
   }, [records]);
 
+  const sessionMoleculeType = useMemo<'nucleotide' | 'protein' | null>(
+    () => records.length === 0 ? null : (isProteinSession ? 'protein' : 'nucleotide'),
+    [records, isProteinSession],
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none">
@@ -193,6 +199,7 @@ const App: React.FC = () => {
         showConservation={showConservation}
         onToggleConservation={() => setShowConservation(!showConservation)}
         isAlignmentLoaded={isAlignmentLoaded}
+        sessionMoleculeType={sessionMoleculeType}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -236,6 +243,7 @@ const App: React.FC = () => {
           onJoinSelectedMatches={joinSelectedMatches}
           onAnnotateMatch={addAnnotationFromSearch}
           getSequenceContext={getSequenceContext}
+          isProteinSession={isProteinSession}
         />
 
         <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
@@ -300,7 +308,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <StatusBar />
+      <StatusBar sessionMoleculeType={sessionMoleculeType} />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
