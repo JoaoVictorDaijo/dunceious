@@ -279,7 +279,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             </div>
                           </div>
 
-                          <div className="text-[11px] font-mono bg-black/60 p-3 rounded-xl border border-slate-800/50 overflow-hidden whitespace-nowrap text-ellipsis shadow-inner">
+                          <div className="seq-scroll text-[11px] font-mono bg-black/60 p-3 rounded-xl border border-slate-800/50 overflow-x-auto whitespace-nowrap shadow-inner">
                             <span className="text-slate-600">{context.pre}</span>
                             <span className="text-sky-400 font-black bg-sky-400/20 px-1 rounded-sm shadow-[0_0_10px_rgba(56,189,248,0.2)]">{context.match}</span>
                             <span className="text-slate-600">{context.post}</span>
