@@ -5,18 +5,11 @@
  * grid of inputs:
  *
  *   - seqLength_bp ∈ [5 000, 10 000, 50 000, 100 000, 200 000, 300 000]
- *   - numRecords   ∈ [1, 10, 30, 50]
+ *   - numRecords   ∈ [1, 10, 30, 50] by default, or a custom list passed via
+ *                   `npm run bench 1 10 30 50 100`
  *
- * Each cell is run `ITERATIONS` times and reduced to:
- *   - `durationMs`      – median wall-clock across iterations.
- *   - `heapDeltaBytes`  – peak `heapUsed` observed after any iteration minus
- *                         a GC-cleaned baseline taken once before the loop.
- *                         GC is drained before each iteration so each sample
- *                         reflects what the parse actually allocated.
- *   - `rssDeltaBytes`   – peak `process.memoryUsage().rss` observed after any
- *                         iteration minus the same GC-cleaned baseline.
- *                         Clamped ≥ 0. Each cell is measured independently so
- *                         cells are directly comparable.
+ * Each cell is run `REPLICATES` times and reduced to mean / standard error.
+ * Raw samples are also persisted so the plotter can render uncertainty.
  *
  * Each test asserts basic correctness (records parsed = numRecords, features
  * parsed > 0) so the suite fails loudly if the parser breaks.  Performance
@@ -49,30 +42,40 @@ interface BenchmarkEntry {
   /** Number of GenBank records in this input. */
   numRecords: number;
 
-  /** Median wall-clock parse time in milliseconds across `ITERATIONS` runs. */
-  durationMs: number;
-  /**
-   * Peak `heapUsed` observed after any iteration minus a GC-cleaned baseline
-   * taken before the loop, in bytes. Bounded ≥ 0 in practice since GC runs
-   * before each iteration establish a consistent low-water reference.
-   */
-  heapDeltaBytes: number;
-  /**
-   * Peak `process.memoryUsage().rss` across iterations minus a GC-cleaned
-   * baseline, in bytes. Clamped ≥ 0. Sampled after each parse, so transient
-   * intra-call peaks released before return are not observed — acceptable
-   * for the parser, where allocated records are retained until return.
-   * Each cell is measured independently from its own baseline.
-   */
-  rssDeltaBytes: number;
+  replicates: BenchmarkSample[];
 
-  /** Number of SeqRecord objects returned by the parser. */
+  durationMs: MetricSummary;
+  heapDeltaBytes: MetricSummary;
+  rssDeltaBytes: MetricSummary;
+  recordsParsed: MetricSummary;
+  featuresParsed: MetricSummary;
+}
+
+interface BenchmarkSample {
+  durationMs: number;
+  heapDeltaBytes: number;
+  rssDeltaBytes: number;
   recordsParsed: number;
-  /** Total number of BioFeature objects across all records. */
   featuresParsed: number;
 }
 
+interface MetricSummary {
+  mean: number;
+  stderr: number;
+  samples: number[];
+}
+
 const entries: BenchmarkEntry[] = [];
+
+const DEFAULT_RECORD_COUNTS = [1, 10, 30, 50];
+const RECORD_COUNTS = (() => {
+  const parsed = (process.env.BENCH_RECORD_COUNTS ?? '')
+    .split(',')
+    .map(value => Number.parseInt(value, 10))
+    .filter(value => Number.isFinite(value) && value > 0);
+  return parsed.length > 0 ? parsed : DEFAULT_RECORD_COUNTS;
+})();
+const REPLICATES = Math.max(1, Number.parseInt(process.env.BENCH_REPLICATES ?? '30', 10) || 30);
 
 // ── Fixtures directory ────────────────────────────────────────────────────────
 
@@ -82,51 +85,56 @@ beforeAll(() => {
 
 // ── measurement helper ────────────────────────────────────────────────────────
 
-/** Measured iterations per cell. Median duration + peak memory across runs. */
-const ITERATIONS = 5;
-
 function tryGC(): void {
   const g = (globalThis as Record<string, unknown>).gc;
   if (typeof g === 'function') (g as () => void)();
 }
 
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1
-    ? (sorted[mid] as number)
-    : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function measure(content: string): Omit<BenchmarkEntry, 'modality' | 'seqLength_bp' | 'numRecords'> {
+function stddev(values: number[]): number {
+  if (values.length <= 1) return 0;
+  const avg = mean(values);
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+function stderr(values: number[]): number {
+  return stddev(values) / Math.sqrt(values.length);
+}
+
+function summarize(values: number[]): MetricSummary {
+  return {
+    mean: mean(values),
+    stderr: stderr(values),
+    samples: values,
+  };
+}
+
+function measure(content: string): BenchmarkSample {
   tryGC();
   const memBaseline = process.memoryUsage();
   const baselineHeap = memBaseline.heapUsed;
   const baselineRss = memBaseline.rss;
 
-  const durations: number[] = [];
-  let peakHeap = baselineHeap;
-  let peakRss = baselineRss;
-  let records: ReturnType<typeof parseGenBank> = [];
+  // Drain transient garbage so the sample reflects the parse we are about to
+  // measure, not allocation debris from the previous replicate.
+  tryGC();
 
-  for (let i = 0; i < ITERATIONS; i++) {
-    // Drain transient garbage before each sample so post-parse heap/rss
-    // reflect what this iteration allocated, not cruft from the last one.
-    tryGC();
+  const t0 = performance.now();
+  const records = parseGenBank(content);
+  const durationMs = performance.now() - t0;
 
-    const t0 = performance.now();
-    records = parseGenBank(content);
-    durations.push(performance.now() - t0);
-
-    const memAfter = process.memoryUsage();
-    peakHeap = Math.max(peakHeap, memAfter.heapUsed);
-    peakRss = Math.max(peakRss, memAfter.rss);
-  }
+  const memAfter = process.memoryUsage();
+  const peakHeap = memAfter.heapUsed;
+  const peakRss = memAfter.rss;
 
   const featuresParsed = records.reduce((sum, r) => sum + r.features.length, 0);
 
   return {
-    durationMs: median(durations),
+    durationMs,
     heapDeltaBytes: Math.max(0, peakHeap - baselineHeap),
     rssDeltaBytes: Math.max(0, peakRss - baselineRss),
     recordsParsed: records.length,
@@ -140,26 +148,35 @@ function measure(content: string): Omit<BenchmarkEntry, 'modality' | 'seqLength_
 const SEQ_LENGTHS = [5_000, 10_000, 50_000, 100_000, 200_000, 300_000];
 
 /** Record counts to sweep (records per input). */
-const RECORD_COUNTS = [1, 10, 30, 50];
-
 describe('benchmark – grid: seq length × number of records', () => {
   for (const seqLengthBp of SEQ_LENGTHS) {
     for (const numRecords of RECORD_COUNTS) {
       it(`parses ${numRecords} record${numRecords === 1 ? '' : 's'} of ${seqLengthBp.toLocaleString()} bp each`, () => {
-        const content = makeMultiRecord(numRecords, seqLengthBp);
-        writeFileSync(join(FIXTURES_DIR, `seq${seqLengthBp}_rec${numRecords}.gb`), content);
-        const result = measure(content);
+        const replicates = Array.from({ length: REPLICATES }, (_, replicateIndex) => {
+          const content = makeMultiRecord(numRecords, seqLengthBp, replicateIndex);
+          writeFileSync(
+            join(FIXTURES_DIR, `seq${seqLengthBp}_rec${numRecords}_rep${replicateIndex + 1}.gb`),
+            content,
+          );
+          const result = measure(content);
+
+          expect(result.recordsParsed).toBe(numRecords);
+          expect(result.featuresParsed).toBeGreaterThan(0);
+
+          return result;
+        });
 
         entries.push({
           modality: 'grid',
           seqLength_bp: seqLengthBp,
           numRecords,
-          ...result,
+          replicates,
+          durationMs: summarize(replicates.map(r => r.durationMs)),
+          heapDeltaBytes: summarize(replicates.map(r => r.heapDeltaBytes)),
+          rssDeltaBytes: summarize(replicates.map(r => r.rssDeltaBytes)),
+          recordsParsed: summarize(replicates.map(r => r.recordsParsed)),
+          featuresParsed: summarize(replicates.map(r => r.featuresParsed)),
         });
-
-        // Correctness assertions – the benchmark should also test the parser.
-        expect(result.recordsParsed).toBe(numRecords);
-        expect(result.featuresParsed).toBeGreaterThan(0);
       });
     }
   }
@@ -179,9 +196,10 @@ afterAll(async () => {
     },
     modalities: {
       grid: {
-        description: 'Parse time / memory vs. (seqLength_bp, numRecords)',
+        description: 'Mean parse time / memory vs. (seqLength_bp, numRecords) with standard error from repeated runs',
         seqLength_bp: SEQ_LENGTHS,
         numRecords: RECORD_COUNTS,
+        replicates: REPLICATES,
       },
     },
     results: entries,

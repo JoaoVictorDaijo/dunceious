@@ -48,79 +48,132 @@ function niceCeil(n) {
   return nice * pow;
 }
 
-function niceTicks(max, count = 5) {
-  const step = niceCeil(max / count);
+function niceTicks(min, max, count = 5) {
+  const step = niceCeil((max - min) / count);
   const ticks = [];
-  for (let v = 0; v <= max + step / 2; v += step) ticks.push(v);
+  const start = Math.floor(min / step) * step;
+  for (let v = start; v <= max + step / 2; v += step) ticks.push(v);
   return ticks;
+}
+
+function mean(values) {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function stddev(values) {
+  if (values.length <= 1) return 0;
+  const avg = mean(values);
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+function formatMeanStd(metric, decimals = 2) {
+  return `${metric.mean.toFixed(decimals)} ± ${metric.stderr.toFixed(decimals)}`;
 }
 
 // ── SVG primitives ────────────────────────────────────────────────────────────
 
-function lineChart({ title, xLabel, yLabel, xLabels, series, legendTitle, formatY }) {
-  const width = 960;
-  const height = 540;
-  const pad = { l: 96, r: 220, t: 60, b: 84 };
+function lineChart({ title, subtitle, xLabel, yLabel, xLabels, series, legendTitle, formatY }) {
+  const width = 1120;
+  const height = 680;
+  const pad = { l: 110, r: 300, t: 96, b: 116 };
   const plotW = width - pad.l - pad.r;
   const plotH = height - pad.t - pad.b;
 
-  const allY = series.flatMap((s) => s.points.map((p) => p.y));
-  const yMax = niceCeil(Math.max(...allY, 1));
-  const yTicks = niceTicks(yMax, 5);
+  const allY = series.flatMap((s) => s.points.flatMap((p) => [Math.max(0, p.y - (p.sd ?? 0)), p.y + (p.sd ?? 0)]));
+  const rawMin = Math.min(...allY, 0);
+  const rawMax = Math.max(...allY, 1);
+  const span = Math.max(rawMax - rawMin, rawMax || 1);
+  const yMin = Math.max(0, rawMin - span * 0.12);
+  const yMax = rawMax + span * 0.12;
+  const yTicks = niceTicks(yMin, yMax, 6);
 
   const xn = xLabels.length;
   const xPos = (i) => pad.l + (xn === 1 ? plotW / 2 : (i / (xn - 1)) * plotW);
-  const yPos = (y) => pad.t + plotH - (y / yMax) * plotH;
+  const yPos = (y) => pad.t + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
   const fmtY = formatY ?? ((v) => String(v));
 
   const parts = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="system-ui, -apple-system, sans-serif" font-size="12">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="Inter, Avenir Next, Avenir, Helvetica, Arial, sans-serif" font-size="13">`,
   );
-  parts.push(`<rect width="${width}" height="${height}" fill="white"/>`);
+  parts.push(`<rect width="${width}" height="${height}" fill="#fbfdff"/>`);
   parts.push(
-    `<text x="${width / 2}" y="30" font-size="16" font-weight="600" text-anchor="middle" fill="#222">${svgEscape(title)}</text>`,
+    `<text x="${width / 2}" y="36" font-size="22" font-weight="700" text-anchor="middle" fill="#111">${svgEscape(title)}</text>`,
   );
+  if (subtitle) {
+    parts.push(
+      `<text x="${width / 2}" y="58" font-size="12" text-anchor="middle" fill="#526071">${svgEscape(subtitle)}</text>`,
+    );
+  }
 
   // Horizontal gridlines & Y ticks
   for (const t of yTicks) {
     const y = yPos(t);
-    parts.push(`<line x1="${pad.l}" y1="${y}" x2="${pad.l + plotW}" y2="${y}" stroke="#eee"/>`);
+    parts.push(`<line x1="${pad.l}" y1="${y}" x2="${pad.l + plotW}" y2="${y}" stroke="#e6edf5"/>`);
     parts.push(
-      `<text x="${pad.l - 8}" y="${y + 4}" text-anchor="end" fill="#555">${svgEscape(fmtY(t))}</text>`,
+      `<text x="${pad.l - 10}" y="${y + 4}" text-anchor="end" fill="#4b5563">${svgEscape(fmtY(t))}</text>`,
     );
   }
 
   // X ticks & labels
   for (let i = 0; i < xn; i++) {
     const x = xPos(i);
-    parts.push(`<line x1="${x}" y1="${pad.t + plotH}" x2="${x}" y2="${pad.t + plotH + 4}" stroke="#555"/>`);
+    parts.push(`<line x1="${x}" y1="${pad.t + plotH}" x2="${x}" y2="${pad.t + plotH + 4}" stroke="#6b7280"/>`);
     parts.push(
-      `<text x="${x}" y="${pad.t + plotH + 22}" text-anchor="middle" fill="#555">${svgEscape(xLabels[i])}</text>`,
+      `<text x="${x}" y="${pad.t + plotH + 26}" text-anchor="middle" fill="#4b5563">${svgEscape(xLabels[i])}</text>`,
     );
   }
 
   // Axes
-  parts.push(`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="#333"/>`);
-  parts.push(`<line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="#333"/>`);
+  parts.push(`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="#1f2937" stroke-width="1.4"/>`);
+  parts.push(`<line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="#1f2937" stroke-width="1.4"/>`);
 
   // Axis labels
   parts.push(
-    `<text x="${pad.l + plotW / 2}" y="${height - 26}" text-anchor="middle" fill="#333">${svgEscape(xLabel)}</text>`,
+    `<text x="${pad.l + plotW / 2}" y="${height - 28}" text-anchor="middle" fill="#111827" font-size="14" font-weight="600">${svgEscape(xLabel)}</text>`,
   );
   parts.push(
-    `<text transform="translate(26, ${pad.t + plotH / 2}) rotate(-90)" text-anchor="middle" fill="#333">${svgEscape(yLabel)}</text>`,
+    `<text transform="translate(34, ${pad.t + plotH / 2}) rotate(-90)" text-anchor="middle" fill="#111827" font-size="14" font-weight="600">${svgEscape(yLabel)}</text>`,
   );
 
   // Series lines & markers
   series.forEach((s, idx) => {
     const color = s.color || COLORS[idx % COLORS.length];
+    const upper = s.points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xPos(p.xi).toFixed(1)} ${yPos(p.y + (p.sd ?? 0)).toFixed(1)}`)
+      .join(' ');
+    const lower = s.points
+      .slice()
+      .reverse()
+      .map((p) => `L ${xPos(p.xi).toFixed(1)} ${yPos(Math.max(yMin, p.y - (p.sd ?? 0))).toFixed(1)}`)
+      .join(' ');
+    parts.push(`<path d="${upper} ${lower} Z" fill="${color}" opacity="0.12" stroke="none"/>`);
+
     const d = s.points
       .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xPos(p.xi).toFixed(1)} ${yPos(p.y).toFixed(1)}`)
       .join(' ');
-    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="2"/>`);
+    parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`);
     for (const p of s.points) {
-      parts.push(`<circle cx="${xPos(p.xi).toFixed(1)}" cy="${yPos(p.y).toFixed(1)}" r="3.5" fill="${color}"/>`);
+      const x = xPos(p.xi).toFixed(1);
+      const y = yPos(p.y).toFixed(1);
+      const low = yPos(Math.max(0, p.y - (p.sd ?? 0))).toFixed(1);
+      const high = yPos(p.y + (p.sd ?? 0)).toFixed(1);
+      if (Array.isArray(p.samples) && p.samples.length > 0) {
+        const jitterSpan = Math.min(18, 6 + p.samples.length * 1.5);
+        p.samples.forEach((sample, sampleIndex) => {
+          const jitter = (sampleIndex / Math.max(1, p.samples.length - 1) - 0.5) * jitterSpan;
+          parts.push(
+            `<circle cx="${(Number(x) + jitter).toFixed(1)}" cy="${yPos(sample).toFixed(1)}" r="2.1" fill="${color}" opacity="0.22"/>`,
+          );
+        });
+      }
+      if ((p.sd ?? 0) > 0) {
+        parts.push(`<line x1="${x}" y1="${high}" x2="${x}" y2="${low}" stroke="${color}" stroke-width="1.5" opacity="0.8"/>`);
+        parts.push(`<line x1="${(Number(x) - 6).toFixed(1)}" y1="${high}" x2="${(Number(x) + 6).toFixed(1)}" y2="${high}" stroke="${color}" stroke-width="1.5" opacity="0.8"/>`);
+        parts.push(`<line x1="${(Number(x) - 6).toFixed(1)}" y1="${low}" x2="${(Number(x) + 6).toFixed(1)}" y2="${low}" stroke="${color}" stroke-width="1.5" opacity="0.8"/>`);
+      }
+      parts.push(`<circle cx="${x}" cy="${y}" r="4.6" fill="${color}" stroke="white" stroke-width="1.5"/>`);
     }
   });
 
@@ -128,16 +181,22 @@ function lineChart({ title, xLabel, yLabel, xLabels, series, legendTitle, format
   const legX = pad.l + plotW + 24;
   if (legendTitle) {
     parts.push(
-      `<text x="${legX}" y="${pad.t + 4}" font-weight="600" fill="#333">${svgEscape(legendTitle)}</text>`,
+      `<text x="${legX}" y="${pad.t + 4}" font-weight="700" fill="#111827">${svgEscape(legendTitle)}</text>`,
     );
   }
   series.forEach((s, i) => {
     const color = s.color || COLORS[i % COLORS.length];
     const y = pad.t + 24 + i * 22;
-    parts.push(`<line x1="${legX}" y1="${y}" x2="${legX + 26}" y2="${y}" stroke="${color}" stroke-width="2"/>`);
-    parts.push(`<circle cx="${legX + 13}" cy="${y}" r="3.5" fill="${color}"/>`);
-    parts.push(`<text x="${legX + 34}" y="${y + 4}" fill="#333">${svgEscape(s.name)}</text>`);
+    parts.push(`<line x1="${legX}" y1="${y}" x2="${legX + 28}" y2="${y}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`);
+    parts.push(`<circle cx="${legX + 14}" cy="${y}" r="4" fill="${color}" stroke="white" stroke-width="1.5"/>`);
+    parts.push(`<text x="${legX + 38}" y="${y + 4}" fill="#111827">${svgEscape(s.name)}</text>`);
   });
+
+  if (subtitle) {
+    parts.push(
+      `<text x="${pad.l}" y="${height - 18}" fill="#526071" font-size="11">${svgEscape(subtitle)}</text>`,
+    );
+  }
 
   parts.push(`</svg>`);
   return parts.join('');
@@ -162,15 +221,15 @@ function tableSvg({ title, subtitle, headers, rows, colAligns }) {
 
   const parts = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="Inter, Avenir Next, Avenir, Helvetica, Arial, sans-serif" font-size="13">`,
   );
   parts.push(`<rect width="${width}" height="${height}" fill="white"/>`);
   parts.push(
-    `<text x="${width / 2}" y="26" font-family="system-ui, sans-serif" font-size="16" font-weight="600" text-anchor="middle" fill="#222">${svgEscape(title)}</text>`,
+    `<text x="${width / 2}" y="28" font-family="Inter, Avenir Next, Avenir, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#111827">${svgEscape(title)}</text>`,
   );
   if (subtitle) {
     parts.push(
-      `<text x="${width / 2}" y="46" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle" fill="#666">${svgEscape(subtitle)}</text>`,
+      `<text x="${width / 2}" y="48" font-family="Inter, Avenir Next, Avenir, Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#6b7280">${svgEscape(subtitle)}</text>`,
     );
   }
 
@@ -243,23 +302,23 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
       (a, b) => a.seqLength_bp - b.seqLength_bp || a.numRecords - b.numRecords,
     );
     const headers = [
-      'seqLength (bp)',
-      'numRecords',
-      'duration (ms)',
-      'heap (bytes)',
-      'rss (bytes)',
-      'records',
-      'features',
+      'Sequence length (bp)',
+      'Record count',
+      'Duration, mean ± sd (ms)',
+      'Heap delta, mean ± sd (bytes)',
+      'RSS delta, mean ± sd (bytes)',
+      'Records parsed, mean ± sd',
+      'Features parsed, mean ± sd',
     ];
     const aligns = ['right', 'right', 'right', 'right', 'right', 'right', 'right'];
     const rows = sorted.map((r) => [
       r.seqLength_bp.toLocaleString(),
       r.numRecords.toString(),
-      r.durationMs.toFixed(3),
-      r.heapDeltaBytes.toLocaleString(),
-      r.rssDeltaBytes.toLocaleString(),
-      r.recordsParsed.toString(),
-      r.featuresParsed.toString(),
+      formatMeanStd(r.durationMs),
+      formatMeanStd(r.heapDeltaBytes, 0),
+      formatMeanStd(r.rssDeltaBytes, 0),
+      formatMeanStd(r.recordsParsed, 0),
+      formatMeanStd(r.featuresParsed, 0),
     ]);
     writeFileSync(
       join(outDir, 'summary-table.svg'),
@@ -269,7 +328,7 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
 
   // ── Pivot tables (seqLength × numRecords) ──────────────────────────────────
   const writePivot = (title, field, formatter, outName) => {
-    const headers = ['seqLength (bp)', ...recordCounts.map((n) => `${n} rec`)];
+    const headers = ['Sequence length (bp)', ...recordCounts.map((n) => `${n} records`)];
     const aligns = headers.map(() => 'right');
     const rows = seqLengths.map((sl) => [
       sl.toLocaleString(),
@@ -283,9 +342,9 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
       tableSvg({ title, subtitle, headers, rows, colAligns: aligns }),
     );
   };
-  writePivot('Duration (ms) — seqLength × numRecords', 'durationMs', (v) => v.toFixed(3), 'pivot-duration.svg');
-  writePivot('Peak heap (bytes) — seqLength × numRecords', 'heapDeltaBytes', (v) => v.toLocaleString(), 'pivot-heap.svg');
-  writePivot('Peak RSS delta (bytes) — seqLength × numRecords', 'rssDeltaBytes', (v) => v.toLocaleString(), 'pivot-rss.svg');
+  writePivot('Mean duration (ms) by sequence length and record count', 'durationMs', (v) => formatMeanStd(v), 'pivot-duration.svg');
+  writePivot('Mean heap delta (bytes) by sequence length and record count', 'heapDeltaBytes', (v) => formatMeanStd(v, 0), 'pivot-heap.svg');
+  writePivot('Mean RSS delta (bytes) by sequence length and record count', 'rssDeltaBytes', (v) => formatMeanStd(v, 0), 'pivot-rss.svg');
 
   // ── Line charts ────────────────────────────────────────────────────────────
   // groupBy='seqLength_bp': one line per sequence length, x-axis = numRecords
@@ -295,12 +354,13 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
     const xVals = groupBy === 'seqLength_bp' ? recordCounts : seqLengths;
     return (yField) =>
       groupVals.map((g, i) => ({
-        name: groupBy === 'seqLength_bp' ? `${g.toLocaleString()} bp` : `${g} record${g === 1 ? '' : 's'}`,
+        name: groupBy === 'seqLength_bp' ? `${g.toLocaleString()} base pairs` : `${g} records`,
         color: COLORS[i % COLORS.length],
         points: xVals.map((xv, xi) => {
           const key = groupBy === 'seqLength_bp' ? `${g}|${xv}` : `${xv}|${g}`;
           const r = lookup.get(key);
-          return { xi, y: r ? r[yField] : 0 };
+          const metric = r ? r[yField] : { mean: 0, stderr: 0 };
+          return { xi, y: metric.mean, sd: metric.stderr };
         }),
       }));
   };
@@ -313,48 +373,52 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
   writeFileSync(
     join(outDir, 'duration-vs-records.svg'),
     lineChart({
-      title: 'Parse duration vs number of records',
-      xLabel: 'numRecords',
-      yLabel: 'Duration (ms)',
+      title: 'Mean parse duration by record count',
+      subtitle: 'Shaded band = mean ± 1 standard error; faint dots = individual replicates.',
+      xLabel: 'Record count',
+      yLabel: 'Mean duration (ms)',
       xLabels: recordCounts.map(String),
       series: byLen('durationMs'),
-      legendTitle: 'seqLength',
+      legendTitle: 'Sequence length (base pairs)',
       formatY: fmtMs,
     }),
   );
   writeFileSync(
     join(outDir, 'duration-vs-seqlength.svg'),
     lineChart({
-      title: 'Parse duration vs sequence length',
-      xLabel: 'seqLength (bp)',
-      yLabel: 'Duration (ms)',
+      title: 'Mean parse duration by sequence length',
+      subtitle: 'Shaded band = mean ± 1 standard error; faint dots = individual replicates.',
+      xLabel: 'Sequence length (base pairs)',
+      yLabel: 'Mean duration (ms)',
       xLabels: seqLengths.map((n) => n.toLocaleString()),
       series: byRec('durationMs'),
-      legendTitle: 'numRecords',
+      legendTitle: 'Record count',
       formatY: fmtMs,
     }),
   );
   writeFileSync(
     join(outDir, 'heap-vs-records.svg'),
     lineChart({
-      title: 'Peak heap vs number of records',
-      xLabel: 'numRecords',
-      yLabel: 'Heap (MB)',
+      title: 'Mean heap delta by record count',
+      subtitle: 'Shaded band = mean ± 1 standard error; faint dots = individual replicates.',
+      xLabel: 'Record count',
+      yLabel: 'Mean heap delta (MB)',
       xLabels: recordCounts.map(String),
       series: byLen('heapDeltaBytes'),
-      legendTitle: 'seqLength',
+      legendTitle: 'Sequence length (base pairs)',
       formatY: fmtMB,
     }),
   );
   writeFileSync(
     join(outDir, 'heap-vs-seqlength.svg'),
     lineChart({
-      title: 'Peak heap vs sequence length',
-      xLabel: 'seqLength (bp)',
-      yLabel: 'Heap (MB)',
+      title: 'Mean heap delta by sequence length',
+      subtitle: 'Shaded band = mean ± 1 standard error; faint dots = individual replicates.',
+      xLabel: 'Sequence length (base pairs)',
+      yLabel: 'Mean heap delta (MB)',
       xLabels: seqLengths.map((n) => n.toLocaleString()),
       series: byRec('heapDeltaBytes'),
-      legendTitle: 'numRecords',
+      legendTitle: 'Record count',
       formatY: fmtMB,
     }),
   );

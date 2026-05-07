@@ -27,6 +27,8 @@ export default defineConfig(() => {
       // Pass --expose-gc to worker processes so that global.gc() is available
       // for GC-aware memory sampling (clean baseline before each measurement).
       execArgv: ['--expose-gc'],
+      // Increase timeout for full benchmark grid (168 tests = 6 seqLengths × 4 recordCounts × 30 replicates)
+      testTimeout: 100000,
     },
   };
 });

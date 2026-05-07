@@ -24,18 +24,22 @@ try {
 }
 const rows = data.results ?? [];
 
+const fmtMeanStd = (metric, decimals = 2) => `${metric.mean.toFixed(decimals)} ± ${metric.stderr.toFixed(decimals)}`;
+
 const header = [
-  '## 📊 Benchmark Results',
+  '## Benchmark Results',
   '',
   `_Generated at: ${data.generatedAt}_`,
   '',
-  '| seqLength_bp | numRecords | durationMs | heapΔ bytes | rssΔ bytes | records | features |',
+  `Replicates per point: ${data.modalities?.grid?.replicates ?? 'n/a'}`,
+  '',
+  '| seqLength_bp | numRecords | durationMs (mean ± se) | heapΔ bytes (mean ± se) | rssΔ bytes (mean ± se) | records parsed | features parsed |',
   '|---:|---:|---:|---:|---:|---:|---:|',
 ];
 
 const tableRows = rows.map(
   (r) =>
-    `| ${r.seqLength_bp.toLocaleString()} | ${r.numRecords} | ${r.durationMs.toFixed(2)} | ${r.heapDeltaBytes.toLocaleString()} | ${r.rssDeltaBytes.toLocaleString()} | ${r.recordsParsed} | ${r.featuresParsed} |`,
+    `| ${r.seqLength_bp.toLocaleString()} | ${r.numRecords} | ${fmtMeanStd(r.durationMs)} | ${fmtMeanStd(r.heapDeltaBytes, 0)} | ${fmtMeanStd(r.rssDeltaBytes, 0)} | ${fmtMeanStd(r.recordsParsed, 0)} | ${fmtMeanStd(r.featuresParsed, 0)} |`,
 );
 
 appendFileSync(SUMMARY_PATH, [...header, ...tableRows, ''].join('\n'));
