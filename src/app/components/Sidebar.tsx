@@ -376,7 +376,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       {/* Log terminal */}
-      <section className="flex-1 flex flex-col min-h-[140px]">
+      <section className="h-48 flex flex-col shrink-0">
         <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-3 flex items-center justify-between">
           Log Terminal <i className="fas fa-terminal text-[8px]"></i>
         </h3>
