@@ -308,6 +308,11 @@ const App: React.FC = () => {
         </main>
       </div>
 
+      <div className={`h-0.5 shrink-0 transition-colors duration-700 ${
+        sessionMoleculeType === 'protein'    ? 'bg-violet-500/70' :
+        sessionMoleculeType === 'nucleotide' ? 'bg-sky-500/70'    : 'bg-transparent'
+      }`} />
+
       <StatusBar sessionMoleculeType={sessionMoleculeType} />
 
       <style dangerouslySetInnerHTML={{ __html: `
