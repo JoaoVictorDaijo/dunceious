@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
 import GenomeViewer from '@/components/GenomeViewer';
 import ProcessingOverlay from './components/ProcessingOverlay';
@@ -45,23 +45,7 @@ const App: React.FC = () => {
   // ── Misc UI ───────────────────────────────────────────────────────────────
   const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
   const [jumpTo, setJumpTo] = useState<number | null>(null);
-  const [listHeight, setListHeight] = useState(600);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // ── Container resize observer ─────────────────────────────────────────────
-  useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        if (entry.target === containerRef.current) {
-          setListHeight(entry.contentRect.height - 250);
-        }
-      }
-    });
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -162,7 +146,7 @@ const App: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none" ref={containerRef}>
+    <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none">
       <ProcessingOverlay isProcessing={isProcessing} />
 
       {viewingRecordDetails && (
@@ -293,7 +277,6 @@ const App: React.FC = () => {
                   featureSearch={featureSearch}
                   onFeatureSearchChange={setFeatureSearch}
                   featureColors={featureColors}
-                  listHeight={listHeight}
                   activeSelection={activeSelection}
                   onStartNewFeature={startNewFeature}
                   onToggleRecordVisibility={toggleRecordVisibility}

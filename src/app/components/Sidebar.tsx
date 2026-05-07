@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/services/bioUtils';
 import { getOriginalPos } from '@/services/bioUtils';
@@ -91,8 +91,48 @@ const Sidebar: React.FC<SidebarProps> = ({
   onJoinSelectedMatches,
   onAnnotateMatch,
   getSequenceContext,
-}) => (
-  <aside className={`border-r border-slate-800/50 bg-[#020617] transition-all duration-300 flex flex-col shadow-inner ${open ? 'w-72 p-5' : 'w-0 p-0 opacity-0 pointer-events-none'}`}>
+}) => {
+  const [width, setWidth] = useState(320);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const widthRef = useRef(320);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = widthRef.current;
+    if (sidebarRef.current) sidebarRef.current.style.transition = 'none';
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(560, startWidth + (ev.clientX - startX)));
+      widthRef.current = newWidth;
+      if (sidebarRef.current) sidebarRef.current.style.width = `${newWidth}px`;
+    };
+
+    const onMouseUp = () => {
+      if (sidebarRef.current) sidebarRef.current.style.transition = '';
+      setWidth(widthRef.current);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  return (
+  <aside
+    ref={sidebarRef}
+    style={open ? { width } : { width: 0 }}
+    className={`relative border-r border-slate-800/50 bg-[#020617] transition-all duration-300 flex flex-col shadow-inner overflow-hidden ${open ? 'p-5' : 'p-0 opacity-0 pointer-events-none'}`}
+  >
+    {open && (
+      <div
+        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-20 group"
+        onMouseDown={handleDragStart}
+      >
+        <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-sky-500/60 transition-colors" />
+      </div>
+    )}
     <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
 
       {/* Selection Inspector */}
@@ -349,6 +389,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     </div>
   </aside>
-);
+  );
+};
 
 export default Sidebar;

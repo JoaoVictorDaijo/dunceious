@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/services/bioUtils';
@@ -15,7 +15,6 @@ export interface DatabaseHubPanelProps {
   featureSearch: string;
   onFeatureSearchChange: (q: string) => void;
   featureColors: Record<string, string>;
-  listHeight: number;
   activeSelection: SelectionArea | null;
   onStartNewFeature: () => void;
   onToggleRecordVisibility: (recordId: string) => void;
@@ -42,7 +41,6 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
   featureSearch,
   onFeatureSearchChange,
   featureColors,
-  listHeight,
   activeSelection,
   onStartNewFeature,
   onToggleRecordVisibility,
@@ -58,6 +56,20 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
   addLog,
 }) => {
   const hubListRef = useRef<VariableSizeList>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(600);
+
+  useEffect(() => {
+    const el = listContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setListHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const isFeatureInSelection = useCallback((f: BioFeature) => {
     if (!activeSelection) return false;
@@ -298,7 +310,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
           <div className="w-[10%] px-4 text-right">Length (bp)</div>
           <div className="w-[20%] text-right">Actions</div>
         </div>
-        <div className="flex-1">
+        <div className="flex-1" ref={listContainerRef}>
           <VariableSizeList
             ref={hubListRef}
             height={listHeight || 600}
