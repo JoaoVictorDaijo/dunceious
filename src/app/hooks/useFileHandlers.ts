@@ -107,13 +107,14 @@ export function useFileHandlers(
     const files = e.target.files;
     if (!files) return;
     setIsProcessing(true);
-    addLog(`Ingesting batch: ${files.length} GenBank files.`);
+    addLog(`Ingesting batch: ${files.length} file(s).`);
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = ev => {
         const content = ev.target?.result as string;
+        const isFasta = content.trimStart().startsWith('>');
         if (records.length > 0) {
-          const incoming = sniffGenBankCategory(content);
+          const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
           const loaded = getLoadedCategory(records);
           if (incoming !== loaded) {
             const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
@@ -125,7 +126,9 @@ export function useFileHandlers(
             return;
           }
         }
-        const request: BioWorkerRequest = { type: 'PARSE_GENBANK', content };
+        const request: BioWorkerRequest = isFasta
+          ? { type: 'PARSE_FASTA', content }
+          : { type: 'PARSE_GENBANK', content };
         bioWorkerRef.current?.postMessage(request);
       };
       reader.readAsText(file);

@@ -277,9 +277,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           Ingestion <i className="fas fa-plus-circle text-sky-600"></i>
         </h3>
         <div className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
-          <input type="file" multiple accept=".gb,.genbank" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onFileUpload} />
+          <input type="file" multiple accept=".gb,.genbank,.fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onFileUpload} />
           <i className="fas fa-folder-tree text-slate-700 group-hover:text-sky-500 mb-4 block text-4xl transition-colors"></i>
-          <p className="text-[10px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Drop GenBank Batch</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Drop Input Batch</p>
+          <p className="text-[7px] font-medium text-slate-600 group-hover:text-slate-500 mt-1">(GenBank, FASTA)</p>
         </div>
 
         <div className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>

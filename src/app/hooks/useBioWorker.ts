@@ -101,6 +101,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       } else if (msg.type === 'FASTA_SUCCESS') {
         const alignedData = msg.alignedData;
         setRecords(prev => {
+          // No existing records — treat as primary sequence loading
+          if (prev.length === 0) {
+            const newRecords = alignedData.map(r => ({ ...r, visible: true }));
+            addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
+            return newRecords;
+          }
+
+          // Existing records — treat as an external pre-aligned FASTA overlay
           const currentIds = new Set(prev.map(r => r.id));
           const uploadedIds = new Set(alignedData.map(d => d.id));
           const missingInUpload = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);
