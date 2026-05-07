@@ -9,6 +9,40 @@ import {
 } from '@/services/bioUtils';
 import type { BioWorkerRequest } from '@/src/workers/protocol';
 
+/** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
+function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
+  const match = content.match(/^LOCUS\s+.+$/m);
+  if (match && /\baa\b/.test(match[0].toLowerCase())) return 'protein';
+  return 'nucleotide';
+}
+
+/**
+ * Samples the first sequence in a FASTA string to detect its category.
+ * Checks for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y).
+ */
+function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
+  const lines = content.split('\n');
+  let seq = '';
+  let seenHeader = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (t.startsWith('>')) {
+      if (seenHeader && seq) break;
+      seenHeader = true;
+    } else if (seenHeader && t) {
+      seq += t;
+      if (seq.length >= 200) break;
+    }
+  }
+  if (/[DEFHIKLMPQRSVWY]/.test(seq.substring(0, 200).toUpperCase())) return 'protein';
+  return 'nucleotide';
+}
+
+/** Returns the effective category of the current session's records. */
+function getLoadedCategory(records: SeqRecord[]): 'nucleotide' | 'protein' {
+  return records.some(r => r.moleculeType === 'protein') ? 'protein' : 'nucleotide';
+}
+
 /** Subset of app state that the project-restore handler needs to write back. */
 export interface ProjectSetters {
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
@@ -77,10 +111,21 @@ export function useFileHandlers(
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = ev => {
-        const request: BioWorkerRequest = {
-          type: 'PARSE_GENBANK',
-          content: ev.target?.result as string,
-        };
+        const content = ev.target?.result as string;
+        if (records.length > 0) {
+          const incoming = sniffGenBankCategory(content);
+          const loaded = getLoadedCategory(records);
+          if (incoming !== loaded) {
+            const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
+            const incomingLabel = incoming === 'protein' ? 'peptide' : 'nucleotide';
+            addLog(
+              `Cannot load ${incomingLabel} file "${file.name}": session contains ${loadedLabel} sequences. Clear all records first to switch sequence type.`,
+            );
+            setIsProcessing(false);
+            return;
+          }
+        }
+        const request: BioWorkerRequest = { type: 'PARSE_GENBANK', content };
         bioWorkerRef.current?.postMessage(request);
       };
       reader.readAsText(file);
@@ -94,10 +139,19 @@ export function useFileHandlers(
     addLog(`Importing external alignment: ${file.name}`);
     const reader = new FileReader();
     reader.onload = ev => {
-      const request: BioWorkerRequest = {
-        type: 'PARSE_FASTA',
-        content: ev.target?.result as string,
-      };
+      const content = ev.target?.result as string;
+      const incoming = sniffFastaCategory(content);
+      const loaded = getLoadedCategory(records);
+      if (incoming !== loaded) {
+        const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
+        const incomingLabel = incoming === 'protein' ? 'peptide' : 'nucleotide';
+        addLog(
+          `Cannot import ${incomingLabel} alignment "${file.name}": session contains ${loadedLabel} sequences. Clear all records first to switch sequence type.`,
+        );
+        setIsProcessing(false);
+        return;
+      }
+      const request: BioWorkerRequest = { type: 'PARSE_FASTA', content };
       bioWorkerRef.current?.postMessage(request);
     };
     reader.readAsText(file);
