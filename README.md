@@ -5,7 +5,7 @@
 
 Dunceious is a high-performance, browser-based bioinformatics platform for **Multi-Sequence Alignment (MSA) visualization**, annotation management, and sequence analysis. It parses GenBank and FASTA files, runs sequence alignment, renders an interactive genome viewer with semantic zoom, and provides both exact (IUPAC degenerate codes) and fuzzy (Smith-Waterman) sequence search — all without a backend.
 
-For a full feature description see [`documentation.md`](./documentation.md), for the technical design see [`ARCHITECTURE.md`](./ARCHITECTURE.md), and for usage instructions see [`USER_MANUAL.md`](./USER_MANUAL.md).
+For a full feature description see [`DOCUMENTATION.md`](./DOCUMENTATION.md), for the technical design see [`ARCHITECTURE.md`](./ARCHITECTURE.md), and for usage instructions see [`USER_MANUAL.md`](./USER_MANUAL.md).
 
 ---
 
@@ -53,16 +53,16 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 
 ## Available Scripts
 
-| Command           | What it does                                                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`     | Start the Vite development server on port 3000                                                                                                                |
-| `npm run build`   | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly                                                  |
-| `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact                                                                           |
-| `npm run lint`    | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors                                                                                  |
-| `npm test`        | Run the unit test suite (excludes benchmarks)                                                                                                                 |
-| `npm run perf`    | Run performance tests (`*.perf.bench.ts`) — measure grid transposition, consensus, and core algorithm speeds on large datasets                               |
-| `npm run bench`   | Run the GenBank parser benchmark grid (seq length × record count) and write results to `bench/results/benchmark.json` and SVG plots to `bench/plots/`       |
-| `npm run plot`    | Regenerate the SVG plots from an existing `bench/results/benchmark.json` without re-running the benchmarks                                                    |
+| Command           | What it does                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`     | Start the Vite development server on port 3000                                                                                                        |
+| `npm run build`   | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly                                          |
+| `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact                                                                   |
+| `npm run lint`    | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors                                                                          |
+| `npm test`        | Run the unit test suite (excludes benchmarks)                                                                                                         |
+| `npm run perf`    | Run performance tests (`*.perf.bench.ts`) — measure grid transposition, consensus, and core algorithm speeds on large datasets                        |
+| `npm run bench`   | Run the GenBank parser benchmark grid (seq length × record count) and write results to `bench/results/benchmark.json` and SVG plots to `bench/plots/` |
+| `npm run plot`    | Regenerate the SVG plots from an existing `bench/results/benchmark.json` without re-running the benchmarks                                            |
 
 ---
 
