@@ -79,4 +79,4 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 
 ## License
 
-This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE or COPYING file for details.
+This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the COPYING file for details.
