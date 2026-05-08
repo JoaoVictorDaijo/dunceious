@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import {
   exportToFasta,
@@ -73,6 +73,12 @@ export interface ProjectSetters {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
 }
 
+export interface MoleculeTypeMismatchError {
+  incoming: 'nucleotide' | 'protein';
+  loaded: 'nucleotide' | 'protein';
+  fileName: string;
+}
+
 export interface UseFileHandlersReturn {
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -85,6 +91,8 @@ export interface UseFileHandlersReturn {
   exportGenBankFile: () => void;
   exportGffFile: () => void;
   exportProjectJson: () => void;
+  moleculeTypeMismatch: MoleculeTypeMismatchError | null;
+  closeMismatchModal: () => void;
 }
 
 /**
@@ -120,6 +128,8 @@ export function useFileHandlers(
     setIsProcessing,
   } = setters;
 
+  const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
+
   // ── Upload handlers ───────────────────────────────────────────────────────
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,10 +146,9 @@ export function useFileHandlers(
           const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
           const loaded = getLoadedCategory(records);
           if (incoming !== loaded) {
-            const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
-            const incomingLabel = incoming === 'protein' ? 'peptide' : 'nucleotide';
+            setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
             addLog(
-              `Cannot load ${incomingLabel} file "${file.name}": session contains ${loadedLabel} sequences. Clear all records first to switch sequence type.`,
+              `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
             );
             setIsProcessing(false);
             return;
@@ -165,10 +174,9 @@ export function useFileHandlers(
       const incoming = sniffFastaCategory(content);
       const loaded = getLoadedCategory(records);
       if (incoming !== loaded) {
-        const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
-        const incomingLabel = incoming === 'protein' ? 'peptide' : 'nucleotide';
+        setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
         addLog(
-          `Cannot import ${incomingLabel} alignment "${file.name}": session contains ${loadedLabel} sequences. Clear all records first to switch sequence type.`,
+          `Cannot import ${incoming === 'protein' ? 'peptide' : 'nucleotide'} alignment "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
         );
         setIsProcessing(false);
         return;
@@ -310,5 +318,7 @@ export function useFileHandlers(
     exportGenBankFile,
     exportGffFile,
     exportProjectJson,
+    moleculeTypeMismatch,
+    closeMismatchModal: () => setMoleculeTypeMismatch(null),
   };
 }

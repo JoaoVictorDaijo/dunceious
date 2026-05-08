@@ -29,6 +29,9 @@ export type { FlatItem } from './DatabaseHubPanel';
 export { default as FeatureEditorModal } from './FeatureEditorModal';
 export type { EditingFeatureState } from './FeatureEditorModal';
 
+export { default as MoleculeTypeMismatchModal } from './MoleculeTypeMismatchModal';
+export type { MoleculeTypeMismatchModalProps } from './MoleculeTypeMismatchModal';
+
 export { default as ProcessingOverlay } from './ProcessingOverlay';
 
 export { default as RecordDetailsModal } from './RecordDetailsModal';

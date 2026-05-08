@@ -23,6 +23,7 @@ import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useMemo, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
+import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import Sidebar from './components/Sidebar';
@@ -130,6 +131,8 @@ const App: React.FC = () => {
     exportGenBankFile,
     exportGffFile,
     exportProjectJson,
+    moleculeTypeMismatch,
+    closeMismatchModal,
   } = useFileHandlers(
     bioWorkerRef,
     records,
@@ -197,6 +200,15 @@ const App: React.FC = () => {
           onChange={setEditing}
           onSave={saveEditedFeature}
           onDiscard={() => setEditing(null)}
+        />
+      )}
+
+      {moleculeTypeMismatch && (
+        <MoleculeTypeMismatchModal
+          incoming={moleculeTypeMismatch.incoming}
+          loaded={moleculeTypeMismatch.loaded}
+          fileName={moleculeTypeMismatch.fileName}
+          onClose={closeMismatchModal}
         />
       )}
 
