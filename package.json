@@ -26,6 +26,7 @@
     "@types/node": "^22.19.15",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^10.1.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.2",
     "vite": "^6.4.1",

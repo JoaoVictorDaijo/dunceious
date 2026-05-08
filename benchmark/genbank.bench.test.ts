@@ -39,17 +39,19 @@
  *   npm run bench
  */
 
-import { describe, it, beforeAll, afterAll, expect } from 'vitest';
+import { describe, it, afterAll, expect } from 'vitest';
 import { mkdirSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
+import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { parseGenBank } from '../services/genbank/index';
-import { makeMultiRecord } from './syntheticGenbank';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, 'results');
-const FIXTURES_DIR = join(__dirname, 'fixtures');
 const PLOTS_DIR = join(__dirname, 'plots');
+const TSX_BIN = process.platform === 'win32'
+  ? resolve('node_modules/.bin/tsx.cmd')
+  : resolve('node_modules/.bin/tsx');
+const MEASURE_HELPER = join(__dirname, 'measureGenBank.ts');
 
 // ── Result schema ─────────────────────────────────────────────────────────────
 
@@ -98,17 +100,6 @@ const REPLICATES = Math.max(1, Number.parseInt(process.env.BENCH_REPLICATES ?? '
 
 // ── Fixtures directory ────────────────────────────────────────────────────────
 
-beforeAll(() => {
-  mkdirSync(FIXTURES_DIR, { recursive: true });
-});
-
-// ── measurement helper ────────────────────────────────────────────────────────
-
-function tryGC(): void {
-  const g = (globalThis as Record<string, unknown>).gc;
-  if (typeof g === 'function') (g as () => void)();
-}
-
 function mean(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
@@ -132,33 +123,38 @@ function summarize(values: number[]): MetricSummary {
   };
 }
 
-function measure(content: string): BenchmarkSample {
-  tryGC();
-  const memBaseline = process.memoryUsage();
-  const baselineHeap = memBaseline.heapUsed;
-  const baselineRss = memBaseline.rss;
+function measureInChildProcess(seqLengthBp: number, numRecords: number, replicateIndex: number): BenchmarkSample {
+  const result = spawnSync(TSX_BIN, [MEASURE_HELPER], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --expose-gc`.trim(),
+      BENCH_SEQ_LENGTH_BP: String(seqLengthBp),
+      BENCH_NUM_RECORDS: String(numRecords),
+      BENCH_REPLICATE_INDEX: String(replicateIndex),
+    },
+  });
 
-  // Drain transient garbage so the sample reflects the parse we are about to
-  // measure, not allocation debris from the previous replicate.
-  tryGC();
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`benchmark child process failed (${result.status}): ${result.stderr.trim() || result.stdout.trim() || 'no output'}`);
+  }
 
-  const t0 = performance.now();
-  const records = parseGenBank(content);
-  const durationMs = performance.now() - t0;
+  const payload = JSON.parse(result.stdout.trim()) as BenchmarkSample;
+  if (
+    typeof payload.durationMs !== 'number'
+    || typeof payload.heapDeltaBytes !== 'number'
+    || typeof payload.rssDeltaBytes !== 'number'
+    || typeof payload.recordsParsed !== 'number'
+    || typeof payload.featuresParsed !== 'number'
+  ) {
+    throw new Error(`benchmark child returned an invalid sample: ${result.stdout.trim()}`);
+  }
 
-  const memAfter = process.memoryUsage();
-  const peakHeap = memAfter.heapUsed;
-  const peakRss = memAfter.rss;
-
-  const featuresParsed = records.reduce((sum, r) => sum + r.features.length, 0);
-
-  return {
-    durationMs,
-    heapDeltaBytes: Math.max(0, peakHeap - baselineHeap),
-    rssDeltaBytes: Math.max(0, peakRss - baselineRss),
-    recordsParsed: records.length,
-    featuresParsed,
-  };
+  return payload;
 }
 
 // ── Grid: sequence length × number of records ─────────────────────────────────
@@ -172,12 +168,7 @@ describe('benchmark – grid: seq length × number of records', () => {
     for (const numRecords of RECORD_COUNTS) {
       it(`parses ${numRecords} record${numRecords === 1 ? '' : 's'} of ${seqLengthBp.toLocaleString()} bp each`, () => {
         const replicates = Array.from({ length: REPLICATES }, (_, replicateIndex) => {
-          const content = makeMultiRecord(numRecords, seqLengthBp, replicateIndex);
-          writeFileSync(
-            join(FIXTURES_DIR, `seq${seqLengthBp}_rec${numRecords}_rep${replicateIndex + 1}.gb`),
-            content,
-          );
-          const result = measure(content);
+          const result = measureInChildProcess(seqLengthBp, numRecords, replicateIndex);
 
           expect(result.recordsParsed).toBe(numRecords);
           expect(result.featuresParsed).toBeGreaterThan(0);
