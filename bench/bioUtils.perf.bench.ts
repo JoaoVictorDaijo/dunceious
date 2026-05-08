@@ -37,8 +37,8 @@ import {
   translateSequence,
   sliceRecordsBySelection,
   exportToGenBank,
-} from '../../services/bioUtils';
-import type { SeqRecord, BioFeature } from '../../types';
+} from '../services/bioUtils';
+import type { SeqRecord, BioFeature } from '../types';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 // ---------------------------------------------------------------------------

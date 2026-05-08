@@ -17,30 +17,18 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import react from "@vitejs/plugin-react";
-import path from "path";
-import { defineConfig } from "vite";
-
-export default defineConfig(() => {
-  return {
-    server: {
-      port: 3000,
-      host: "0.0.0.0",
-    },
-    plugins: [react()],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "."),
-      },
-    },
-    test: {
-      environment: "node",
-      exclude: [
-        "bench/**",
-        "**/*.bench.ts",
-        "**/*.bench.test.ts",
-        "**/node_modules/**",
-      ],
-    },
-  };
-});
+/**
+ * Generate a unique ID by appending a numeric suffix if the base ID collides
+ * with any existing ID (case-insensitive). Preserves the original case of baseId.
+ *
+ * @param baseId - The desired ID
+ * @param existingIds - Array of existing IDs to check against (case-insensitive)
+ * @returns The baseId if unique, or baseId with a (n) suffix
+ */
+export function makeUniqueId(baseId: string, existingIds: string[]): string {
+  const existing = new Set(existingIds.map(id => id.toLowerCase()));
+  if (!existing.has(baseId.toLowerCase())) return baseId;
+  let n = 1;
+  while (existing.has(`${baseId.toLowerCase()} (${n})`)) n++;
+  return `${baseId} (${n})`;
+}

@@ -46,7 +46,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseGenBank } from '../../services/genbank/index';
+import { parseGenBank } from '../services/genbank/index';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -282,7 +282,7 @@ describe('parseGenBank – scaling with number of records', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseGenBank – SCU49845.gb real-world fixture', () => {
-  const SCU49845_CONTENT = readFileSync(resolve(__dirname, '../../SCU49845.gb'), 'utf-8');
+  const SCU49845_CONTENT = readFileSync(resolve(__dirname, '../SCU49845.gb'), 'utf-8');
 
   it('parses SCU49845.gb with stable median parse time < 2000 ms (p95)', () => {
     // Correctness smoke-check.

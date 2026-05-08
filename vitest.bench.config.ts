@@ -18,11 +18,11 @@
  */
 
 /**
- * Vitest configuration for the GenBank parser 2D benchmark grid.
+ * Vitest configuration for benchmark tests.
  *
  * Run via:  npm run bench
  *
- * This config targets only files inside `benchmark/` that match
+ * This config targets only files inside `bench/` that match
  * `*.bench.test.ts` and is intentionally separate from vite.config.ts so
  * that `npm test` stays fast and deterministic.
  */
@@ -41,8 +41,8 @@ export default defineConfig(() => {
     },
     test: {
       environment: 'node',
-      // Only run files inside benchmark/ that end with .bench.test.ts.
-      include: ['benchmark/**/*.bench.test.ts'],
+      // Only run files inside bench/ that end with .bench.test.ts.
+      include: ['bench/**/*.bench.test.ts'],
       // Pass --expose-gc to worker processes so that global.gc() is available
       // for GC-aware memory sampling (clean baseline before each measurement).
       execArgv: ['--expose-gc'],

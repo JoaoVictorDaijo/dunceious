@@ -33,7 +33,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { reverseComplement, smithWaterman, degenerateToRegex } from '../../services/searchLogic';
+import { reverseComplement, smithWaterman, degenerateToRegex } from '../services/searchLogic';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 // ---------------------------------------------------------------------------

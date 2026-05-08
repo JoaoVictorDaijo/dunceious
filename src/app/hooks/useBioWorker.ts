@@ -20,13 +20,7 @@
 import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-
-function uniquifyId(id: string, existingIds: Set<string>): string {
-  if (!existingIds.has(id)) return id;
-  let n = 1;
-  while (existingIds.has(`${id} (${n})`)) n++;
-  return `${id} (${n})`;
-}
+import { makeUniqueId } from '@/services/idHelpers';
 
 export interface UseBioWorkerReturn {
   records: SeqRecord[];
@@ -74,10 +68,10 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       } else if (msg.type === 'PARSE_SUCCESS') {
         setRecords(prev => {
-          const existingIds = new Set(prev.map(r => r.id));
+          const existingIds = prev.map(r => r.id);
           const newRecords = msg.records.map(r => {
-            const uniqueId = uniquifyId(r.id, existingIds);
-            existingIds.add(uniqueId);
+            const uniqueId = makeUniqueId(r.id, existingIds);
+            existingIds.push(uniqueId);
             return { ...r, id: uniqueId, name: uniqueId, visible: true };
           });
           addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
@@ -136,10 +130,10 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         setRecords(prev => {
           if (!asAlignment) {
             // Batch load — add as new records with deduplication
-            const existingIds = new Set(prev.map(r => r.id));
+            const existingIds = prev.map(r => r.id);
             const newRecords = alignedData.map(r => {
-              const uniqueId = uniquifyId(r.id, existingIds);
-              existingIds.add(uniqueId);
+              const uniqueId = makeUniqueId(r.id, existingIds);
+              existingIds.push(uniqueId);
               return { ...r, id: uniqueId, name: uniqueId, visible: true };
             });
             addLog(`Batch ingestion complete: ${newRecords.length} records added.`);

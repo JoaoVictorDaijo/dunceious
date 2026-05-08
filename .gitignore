@@ -24,6 +24,6 @@ dist-ssr
 *.sw?
 
 # Benchmark files generated at runtime; uploaded as CI artifact
-benchmark/results/
-benchmark/fixtures/
-benchmark/plots/
+bench/results/
+bench/fixtures/
+bench/plots/

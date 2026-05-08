@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit && eslint .",
     "test": "vitest run",
-    "bench": "node benchmark/runBench.mjs",
-    "plot": "node benchmark/visualize.mjs",
+    "bench": "node bench/runBench.mjs",
+    "plot": "node bench/visualize.mjs",
     "perf": "node --expose-gc node_modules/.bin/vitest run --config vitest.perf.config.ts"
   },
   "dependencies": {

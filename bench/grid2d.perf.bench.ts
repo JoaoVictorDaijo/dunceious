@@ -45,8 +45,8 @@ import {
   processTransposition,
   clipSegments,
   calculateConsensus,
-} from '../domain/bio/index';
-import type { SeqRecord, BioFeature, FeatureSegment } from '../../types';
+} from '../src/domain/bio/index';
+import type { SeqRecord, BioFeature, FeatureSegment } from '../types';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 // ---------------------------------------------------------------------------
