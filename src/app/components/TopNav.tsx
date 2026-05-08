@@ -169,10 +169,14 @@ const TopNav: React.FC<TopNavProps> = ({
       )}
     </div>
   </nav>
-  <div className={`h-0.5 shrink-0 transition-colors duration-700 ${
-    sessionMoleculeType === 'protein'    ? 'bg-violet-500/70' :
-    sessionMoleculeType === 'nucleotide' ? 'bg-sky-500/70'    : 'bg-transparent'
-  }`} />
+  <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
+    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-sky-500/40 via-sky-500/10 to-transparent ${
+      sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
+    }`} />
+    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-violet-500/40 via-violet-500/10 to-transparent ${
+      sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
+    }`} />
+  </div>
   </>
 );
 
