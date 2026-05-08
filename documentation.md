@@ -9,12 +9,15 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 ### 2.1 Functional Requirements
 
 - **GenBank & BED Ingestion**: Parse multi-record GenBank files and BED files for quantitative tracks (line or interval).
-- **FASTA Import**: Upload a pre-aligned FASTA file to apply externally computed alignments directly to loaded records. Sequences are matched by record ID and must all have equal lengths.
-- **Annotation Import**: Upload GFF or BED annotation files to merge features and tracks into existing records, matched by ID, name, or accession.
-- **Alignment Engine**: Support for MSA algorithms (MAFFT/MUSCLE). The current implementation simulates a gap-aware alignment for demonstration but provides the hooks for system-level binary calls.
+- **FASTA Import** (Batch): Upload one or more FASTA files to add sequences to the workspace. Duplicate IDs are automatically de-duplicated with numeric suffixes (e.g., `seq1 (1)`, `seq1 (2)`). Molecule type (nucleotide vs protein) is detected per-record and enforced — sessions must be homogeneous.
+- **Alignment Overlay**: Upload a pre-aligned FASTA file using the **Upload Alignment** action to apply externally computed alignments to already-loaded records. Sequences are matched by record ID and must all have equal lengths; mismatches are rejected with an error log.
+- **External Alignment**: Dunceious does not include a built-in MSA aligner. Users compute alignments externally (e.g., MAFFT, MUSCLE, Clustal Omega) and import the result via the Alignment Overlay action (see above).
 - **Sequence Search**:
-  - **Exact / IUPAC Mode**: Regex-based search supporting the full IUPAC degenerate nucleotide alphabet (`N`, `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`). Gaps in aligned sequences are automatically skipped.
-  - **Fuzzy Mode**: Smith-Waterman local alignment with affine gap penalties (Gotoh's algorithm). Searches both the forward strand and the reverse complement. Results are ranked by alignment score; a "Min Match Confidence" slider filters results by percentage of the best score found.
+  - **Exact / IUPAC Mode**: Regex-based degenerate search. Supported codes depend on the active session type:
+    - **Nucleotide**: Standard IUPAC codes — `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`, `N`.
+    - **Protein**: All 20 standard amino acids plus ambiguity codes — `B` (D/N), `Z` (E/Q), `J` (I/L), `X` (all 20), `U` (selenocysteine), `O` (pyrrolysine).
+      Gaps in aligned sequences are automatically skipped.
+  - **Fuzzy Mode**: Smith-Waterman local alignment with affine gap penalties (Gotoh's algorithm). For nucleotide sessions, both the forward strand and reverse complement are searched automatically. For protein sessions, reverse-complement search is suppressed (not applicable). Results are ranked by alignment score; a "Min Match Confidence" slider filters results by percentage of the best score found.
 - **Quantitative Tracks**:
   - **Line Tracks**: For continuous data like GC content or conservation scores.
   - **Interval Tracks**: For discrete regions with associated values (e.g., BED files). Supports dynamic packing to prevent overlap and automatic vertical scaling to show all data.
@@ -24,7 +27,12 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
   - **Sticky Headers**: Sequence names remain visible while scrolling horizontally.
   - **Semantic Zoom**: Variable detail levels (from global mismatch density to individual nucleotide bases and amino acid translations).
   - **Interaction Modes**: Toggle between **Pan** (navigation) and **Select** (region highlighting).
-- **Data Export**: Export full alignments or specific selected regions into **FASTA**, **GFF**, or **GenBank** format.
+- **Data Export**: Export data in multiple formats:
+  - **FASTA**: Full alignment or selected region.
+  - **GFF**: Feature annotations in GFF3 format.
+  - **GenBank**: One or more records in GenBank flat-file format.
+  - **Selection JSON**: Selected region as a JSON project snapshot (0-based half-open intervals).
+  - **Project JSON**: Full workspace state (records, features, colors, UI toggles) for project persistence.
 
 ### 2.2 Non-Functional Requirements
 
@@ -45,14 +53,43 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 
 ### 3.2 Component Architecture
 
-- **`src/app/App.tsx`**: The orchestrator. Manages global state (records, logs, params) and the high-level workflow (Ingestion -> Alignment -> Transposition -> Visualization -> Search).
-- **`components/GenomeViewer.tsx`**: The core visualization engine. Implements the D3 canvas, handling zoom, drag, and rendering of the "Feature-above-Sequence" layout.
-- **`src/domain/bio/types.ts`**: Shared TypeScript type definitions (`SeqRecord`, `BioFeature`, `AlignmentParams`, `SearchResult`, etc.). The root-level `types.ts` is a backward-compatibility re-export shim.
+**Application Hooks** (`src/app/hooks/`) — Custom React hooks that encapsulate state and logic:
+
+- **`useAppLogger`**: Manages the append-only activity log with a stable `addLog` callback.
+- **`useBioWorker`**: Manages the bioWorker lifecycle, `records` / `transposedRecords` / `consensus` state, and automatic ID deduplication via `uniquifyId()`.
+- **`useFeatureManager`**: Feature CRUD operations (create, edit, delete), search-to-annotation bridge via `addAnnotationFromSearch`, and record visibility toggling.
+- **`useFileHandlers`**: Handles all file uploads (with molecule-type enforcement to prevent mixing) and data exports (FASTA, GFF, GenBank, JSON).
+- **`useSearchWorker`**: Bridges the search worker, derives `isProteinSession`, and exposes grouped results with join helpers.
+
+**Components** (`src/app/components/` and `components/`):
+
+- **`App.tsx`**: Composition root. Wires together all hooks and manages the top-level layout and event dispatching.
+- **`GenomeViewer.tsx`**: The core rendering engine. Implements D3 coordinate scaling and SVG-based visualization of the "Feature-above-Sequence" layout with virtualization via `react-window`.
+- **`TopNav.tsx`**: Top navigation bar with tab switcher, drag/select mode toggle, viewport display toggles (annotations, tracks, translation, conservation), and session-type gradient accent.
+- **`Sidebar.tsx`**: Tab panel for file upload, record list, feature list, activity logs, and search UI.
+- **`SearchPanel.tsx`**: Sequence search interface with IUPAC and fuzzy modes, grouped results, and strand selector (hidden for protein sessions).
+- **`StatusBar.tsx`**: Bottom status bar showing selection metrics, session molecule-type indicator, and license link.
+- **`RecordDetailsModal.tsx`**: Modal viewer for record metadata and feature information.
+- **`FeatureEditorModal.tsx`**: Modal editor for creating and modifying annotations, with support for circular features.
+- **`DatabaseHubPanel.tsx`**: Records and features table with bulk export actions.
+- **`ProcessingOverlay.tsx`**: Full-screen loading overlay during file processing.
+
+**Shared Services** (`services/` and `src/domain/bio/`):
+
 - **`services/genbank/`**: Modular GenBank flat-file parser (entry point: `services/genbank/index.ts`). Submodules: `recordSplitter.ts`, `headerParser.ts`, `locationParser.ts`, `qualifierParser.ts`, `featureParser.ts`, `toSeqRecord.ts`.
-- **`src/domain/bio/`**: Pure domain logic — `coordinate.ts` (coordinate transposition), `consensus.ts` (consensus sequence calculation), `intervals.ts` (interval utilities). No DOM or worker globals.
-- **`services/bioUtils.ts`**: Utilities for genetic code translation (Codon -> AA), color-coding, FASTA/GFF/GenBank export, and file I/O.
-- **`src/workers/bioWorker.ts`**: Web Worker that handles all file parsing (GenBank, FASTA, BED, GFF) and sequence processing off the main thread.
-- **`src/workers/searchWorker.ts`**: Web Worker that runs exact (IUPAC regex) and fuzzy (Smith-Waterman) sequence searches off the main thread.
+- **`src/domain/bio/`**: Pure domain logic with no DOM or worker globals:
+  - `coordinate.ts` — coordinate transposition from raw to aligned space
+  - `consensus.ts` — consensus sequence calculation
+  - `intervals.ts` — interval utilities
+  - `types.ts` — shared TypeScript types (`SeqRecord`, `BioFeature`, `QuantitativeTrack`, etc.)
+- **`services/bioUtils.ts`**: Utilities for genetic code translation (codon → amino acid), color-coding, and FASTA/GFF/GenBank export.
+- **`services/searchLogic.ts`**: Pure search functions — `degenerateToRegex(query, moleculeType)` for IUPAC mode and `smithWaterman()` for fuzzy mode.
+
+**Web Workers** (`src/workers/`):
+
+- **`bioWorker.ts`**: Handles all file parsing (GenBank, FASTA, BED, GFF) and sequence processing off the main thread. Detects molecule type per-record and reports it in the response.
+- **`searchWorker.ts`**: Runs exact (IUPAC regex) and fuzzy (Smith-Waterman) sequence searches off the main thread. Accepts `moleculeType` in requests to suppress reverse-complement search for protein sessions.
+- **`protocol.ts`**: Typed message contracts (discriminated unions) for all worker communication.
 
 ## 4. Technical Implementation Details
 
@@ -62,7 +99,7 @@ To maximize readability, the viewport uses a layered approach for each record:
 
 1.  **Annotation Layer (Top)**: Features are packed into non-overlapping rows.
 2.  **Sequence Layer (Bottom)**: Nucleotide bases are rendered as a grid.
-3.  **Translation Overlay**: When zoomed in sufficiently (>45x), CDS features automatically display their corresponding amino acid translation directly over the nucleotide grid.
+3.  **Translation Overlay**: In nucleotide sessions, when zoomed in sufficiently (>45x), CDS features automatically display their corresponding amino acid translation directly over the nucleotide grid. This layer is not shown in protein sessions.
 
 ### 4.2 Coordinate Transposition Logic
 
@@ -77,13 +114,16 @@ The layout uses CSS `sticky` positioning and a shared overflow container. This e
 
 ## 5. Workflow Data Flow
 
-1.  **Input**: User uploads `.gb`/`.gbk` files (GenBank), `.fasta`/`.fa` files (pre-aligned FASTA), or annotation files (`.gff`, `.bed`).
-2.  **Parsing**: `bioWorker.ts` converts files to `SeqRecord` objects. Annotation files are merged into existing records by matching ID, name, or accession.
-3.  **Alignment**: Records are passed to the alignment logic, producing `alignedSequence` strings.
-4.  **Transposition**: `processTransposition` updates `BioFeature` indices based on the new gap distribution.
-5.  **Rendering**: `GenomeViewer` receives the updated records and draws the SVG elements.
-6.  **Search**: When a query is entered, `searchWorker.ts` runs IUPAC regex matching or Smith-Waterman alignment and returns ranked `SearchResult` objects. Results are highlighted in the viewer and listed in the sidebar.
+1.  **Input**: User uploads files via the UI:
+    - `.gb`/`.gbk` files (GenBank, batch load)
+    - `.fasta`/`.fa` files (FASTA batch load or alignment overlay)
+    - `.gff`/`.bed` annotation files (merge into existing records by ID/name/accession)
+2.  **Parsing**: `bioWorker.ts` converts files to `SeqRecord` objects. Molecule type (nucleotide vs protein) is detected per-record from the sequence content (GenBank: `LOCUS` line; FASTA: presence of protein-exclusive IUPAC codes). Duplicate record IDs are de-duplicated with numeric suffixes.
+3.  **Alignment Overlay** (optional): User uploads a pre-aligned FASTA via the **Upload Alignment** action. `bioWorker.ts` matches IDs and updates the `alignedSequence` field of matching records without altering their features or sequence data.
+4.  **Transposition**: When an alignment is active, `processTransposition` updates `BioFeature` indices to map original genomic coordinates to the new "aligned space" (indices including gaps).
+5.  **Rendering**: `GenomeViewer` receives the records and renders the SVG elements. Translation overlays are shown only in nucleotide sessions.
+6.  **Search**: When a user enters a query, `searchWorker.ts` runs exact (IUPAC regex) or fuzzy (Smith-Waterman) search, passing the session's `moleculeType` to suppress reverse-complement for protein sessions. Results are ranked and highlighted in the viewer.
 
 ## 6. License
 
-This software is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE or COPYING file for details.
+This software is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the `COPYING` file for details.

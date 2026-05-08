@@ -18,9 +18,9 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 
 ```
 /
-├── components/           # Root-level legacy UI components (GenomeViewer)
+├── components/           # Root-level rendering components (GenomeViewer)
 ├── services/             # Shared services consumed by workers & app
-│   ├── genbank/          # Modular GenBank parser (Phase 4)
+│   ├── genbank/          # Modular GenBank parser
 │   │   ├── recordSplitter.ts
 │   │   ├── headerParser.ts
 │   │   ├── locationParser.ts
@@ -32,8 +32,24 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 │   └── searchLogic.ts    # Pure search functions (exact, IUPAC, Smith-Waterman)
 ├── src/
 │   ├── app/
-│   │   ├── App.tsx       # Composition root – state, workers, event wiring
-│   │   └── components/   # Extracted presentational components
+│   │   ├── App.tsx       # Composition root – wires hooks, renders layout
+│   │   ├── components/   # Presentational app-scoped UI components
+│   │   │   ├── DatabaseHubPanel.tsx
+│   │   │   ├── FeatureEditorModal.tsx
+│   │   │   ├── ProcessingOverlay.tsx
+│   │   │   ├── RecordDetailsModal.tsx
+│   │   │   ├── SearchPanel.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── StatusBar.tsx
+│   │   │   ├── TopNav.tsx
+│   │   │   └── index.ts
+│   │   └── hooks/        # Custom hooks – state and logic extraction
+│   │       ├── useAppLogger.ts      # Activity log state
+│   │       ├── useBioWorker.ts      # Worker lifecycle, records & alignment state
+│   │       ├── useFeatureManager.ts # Feature CRUD and search-to-annotation bridge
+│   │       ├── useFileHandlers.ts   # File upload & export handlers
+│   │       ├── useSearchWorker.ts   # Search worker bridge, isProteinSession
+│   │       └── index.ts
 │   ├── domain/
 │   │   └── bio/          # Pure domain logic (no DOM/worker globals)
 │   │       ├── coordinate.ts   # transposeCoordinates, processTransposition
@@ -42,7 +58,7 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 │   │       ├── types.ts        # SeqRecord, BioFeature, … (canonical types)
 │   │       └── index.ts        # barrel export
 │   └── workers/
-│       ├── protocol.ts         # ← Worker message contracts (Phase 5)
+│       ├── protocol.ts         # Worker message contracts
 │       ├── bioWorker.ts        # Parsing & transposition worker
 │       ├── searchWorker.ts     # Sequence search worker
 │       └── __tests__/
@@ -67,7 +83,7 @@ All messages are typed as discriminated unions:
 
 - **Bio Worker requests** (`BioWorkerRequest`): `PROCESS_RECORDS | PARSE_GENBANK | PARSE_FASTA | PARSE_ANNOTATIONS`
 - **Bio Worker responses** (`BioWorkerResponse`): `SUCCESS | PARSE_SUCCESS | FASTA_SUCCESS | ANNOTATIONS_SUCCESS | ERROR`
-- **Search Worker requests** (`SearchWorkerRequest`): `{ searchQuery, records, mode, options }`
+- **Search Worker requests** (`SearchWorkerRequest`): `{ searchQuery, records, mode, options, moleculeType? }`
 - **Search Worker responses** (`SearchWorkerResponse`): `{ results } | { error }`
 
 ### How to add a new worker message type
@@ -85,8 +101,11 @@ All messages are typed as discriminated unions:
 
 ### Ingestion (`src/workers/bioWorker.ts`)
 
-- **GenBank Parser**: Delegates to `services/genbank/index.ts` (modular, fully tested).
-- **FASTA Parser**: Parses pre-aligned FASTA files and applies aligned sequences back to loaded records.
+- **GenBank Parser**: Delegates to `services/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
+- **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
+  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `uniquifyId()` in `useBioWorker`.
+  - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every ID in the file must match an existing workspace record exactly, and all sequences must have equal length; any mismatch is rejected with an error log entry. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
+- **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
 - **GFF3 Parser**: Merges GFF3 features into existing records, matching by sequence ID.
 - **Annotation Import**: Merges external annotation files (GFF/BED) into existing records.
@@ -99,7 +118,11 @@ All messages are typed as discriminated unions:
 
 ### Search (`src/workers/searchWorker.ts`)
 
-- **Exact / IUPAC Mode**: `degenerateToRegex` from `services/searchLogic.ts`.
+- **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `services/searchLogic.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
+  - **Nucleotide** (`IUPAC_MAP`): standard degenerate codes — `R`=[AG], `Y`=[CT], `S`=[GC], `W`=[AT], `K`=[GT], `M`=[AC], `B`=[CGT], `D`=[AGT], `H`=[ACT], `V`=[ACG], `N`=[ACGT].
+  - **Protein** (`PROTEIN_IUPAC_MAP`): all 20 standard amino acids plus ambiguity codes — `B`=[DN], `Z`=[EQ], `J`=[IL], `X`=[all 20 AAs], `U` (selenocysteine), `O` (pyrrolysine).
+- **Reverse-complement search**: Performed automatically for nucleotide sessions (forward + reverse strands). Suppressed entirely for protein sessions where strand orientation is not applicable.
+- **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`.
 - **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `services/searchLogic.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
 
 ---
@@ -112,16 +135,26 @@ All messages are typed as discriminated unions:
 - Owns `bioWorkerRef` and `searchWorkerRef`; dispatches typed `BioWorkerRequest` / `SearchWorkerRequest` messages.
 - Consumes typed `BioWorkerResponse` / `SearchWorkerResponse` messages—no `any` in worker message paths.
 
-### `src/app/components/` (Extracted Components)
+### `src/app/hooks/` (Custom Hooks)
+
+State and logic extracted from `App.tsx` into purpose-built hooks, each with a single responsibility:
+
+- `useAppLogger` – append-only activity log, stable `addLog` callback
+- `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
+- `useFeatureManager` – feature CRUD, search-to-annotation bridge, record visibility toggle
+- `useFileHandlers` – file upload handlers (with molecule-type enforcement) and export helpers
+- `useSearchWorker` – search worker bridge; derives `isProteinSession`; exposes grouped results and join helpers
+
+### `src/app/components/` (Presentational Components)
 
 - `ProcessingOverlay` – full-screen loading overlay
-- `StatusBar` – bottom status bar with selection metrics
-- `TopNav` – toolbar with file import actions
-- `Sidebar` – tab panel: alignment list / features list
+- `StatusBar` – bottom status bar: selection metrics, session molecule-type chip, license link
+- `TopNav` – top navigation: tab switcher, drag/select mode toggle, viewport display toggles; translation button disabled for protein sessions; session-type gradient accent strip
+- `Sidebar` – tab panel: file upload, alignment record list / feature list / search
+- `SearchPanel` – sequence search UI with grouped results; strand selector hidden for protein sessions
 - `RecordDetailsModal` – record metadata viewer
 - `FeatureEditorModal` – annotation editor (supports circular features)
-- `SearchPanel` – sequence search UI with grouped results
-- `DatabaseHubPanel` – NCBI/EBI database browser
+- `DatabaseHubPanel` – records and features table with export actions
 
 ### `components/GenomeViewer.tsx` (Rendering Engine)
 
@@ -188,4 +221,4 @@ All planned modularisation phases (0–6) are **complete** and merged into `main
 
 ## 9. License
 
-This project is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the LICENSE or COPYING file for details.
+This project is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The AGPL v3 was chosen specifically because Dunceious is a web application: it ensures that anyone who runs a modified version as a network service must also publish their source code. See the `COPYING` file for the full license text.
