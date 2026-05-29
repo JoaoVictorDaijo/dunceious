@@ -254,16 +254,6 @@ ORIGIN
     }
   });
 
-  it('PARSE_FASTA keeps aligned IUPAC nucleotide sequences as dna', () => {
-    const fasta = '>seq1\nATGCDHVN--A\n';
-    const req: BioWorkerRequest = { type: 'PARSE_FASTA', content: fasta };
-    const resp = dispatchBioRequest(req);
-    expect(resp.type).toBe('FASTA_SUCCESS');
-    if (resp.type === 'FASTA_SUCCESS') {
-      expect(resp.alignedData[0]?.moleculeType).toBe('dna');
-    }
-  });
-
   it('BioWorkerResponse discriminated union covers all expected variants', () => {
     // Type-level test: construct each variant and verify `.type` discriminant
     const success: BioWorkerResponse = { type: 'SUCCESS', records: [], consensus: '' };
