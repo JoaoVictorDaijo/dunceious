@@ -37,6 +37,7 @@ export interface DatabaseHubPanelProps {
   activeSelection: SelectionArea | null;
   onStartNewFeature: () => void;
   onToggleRecordVisibility: (recordId: string) => void;
+  onRemoveRecord: (recordId: string) => void;
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
   onRemoveFeature: (recordId: string, featureIndex: number) => void;
@@ -63,6 +64,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
   activeSelection,
   onStartNewFeature,
   onToggleRecordVisibility,
+  onRemoveRecord,
   onViewFeatureDetails,
   onEditFeature,
   onRemoveFeature,
@@ -133,7 +135,20 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
               )}
             </div>
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
+            <button
+              onClick={() => {
+                if (window.confirm(`Remove sequence "${record?.name || item.recordId}" from project?`)) {
+                  onRemoveRecord(item.recordId);
+                }
+              }}
+              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              title="Remove Sequence"
+            >
+              <i className="fas fa-trash-alt"></i>
+            </button>
+          </div>
         </div>
       );
     }
@@ -270,7 +285,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
         </div>
       </div>
     );
-  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem]);
+  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem]);
 
   return (
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-slate-50/30 overflow-hidden">

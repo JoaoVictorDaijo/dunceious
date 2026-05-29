@@ -26,6 +26,11 @@ import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
+import {
+  removeRecordFromProject,
+  sanitizeSearchStateAfterRecordRemoval,
+  updateSelectionAfterRecordRemoval,
+} from './recordRemoval';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TopNav from './components/TopNav';
@@ -160,6 +165,30 @@ const App: React.FC = () => {
   const handleViewDetails = (recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (record) { setViewingRecordDetails(record); setViewingFeatureDetails(feature || null); }
+  };
+
+  const handleRemoveRecord = (recordId: string) => {
+    const record = records.find(r => r.id === recordId);
+    if (!record) return;
+
+    setRecords(prev => removeRecordFromProject(prev, recordId));
+    setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
+
+    const nextSearchState = sanitizeSearchStateAfterRecordRemoval(
+      filteredResults,
+      currentSearchIdx,
+      selectedSearchIndices,
+      recordId,
+    );
+    setCurrentSearchIdx(nextSearchState.currentSearchIdx);
+    setSelectedSearchIndices(nextSearchState.selectedSearchIndices);
+
+    if (viewingRecordDetails?.id === recordId) {
+      setViewingRecordDetails(null);
+      setViewingFeatureDetails(null);
+    }
+
+    addLog(`Sequence ${record.name || record.id} removed from project.`);
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────
@@ -361,6 +390,7 @@ const App: React.FC = () => {
                   onJumpComplete={() => setJumpTo(null)}
                   onExportRecord={handleExportRecord}
                   onViewDetails={handleViewDetails}
+                  onRemoveRecord={handleRemoveRecord}
                 />
               ) : (
                 <DatabaseHubPanel
@@ -373,6 +403,7 @@ const App: React.FC = () => {
                   activeSelection={activeSelection}
                   onStartNewFeature={startNewFeature}
                   onToggleRecordVisibility={toggleRecordVisibility}
+                  onRemoveRecord={handleRemoveRecord}
                   onViewFeatureDetails={handleViewDetails}
                   onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
                   onRemoveFeature={removeFeature}
