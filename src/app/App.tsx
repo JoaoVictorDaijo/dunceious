@@ -182,6 +182,7 @@ const App: React.FC = () => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (records.length === 0) return;
       event.preventDefault();
+      // Required to trigger the standard browser confirmation prompt on tab/window close.
       event.returnValue = '';
     };
 
