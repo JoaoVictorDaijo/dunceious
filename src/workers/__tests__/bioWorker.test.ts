@@ -32,4 +32,12 @@ describe('bioWorker FASTA molecule type detection', () => {
     expect(payload.type).toBe('FASTA_SUCCESS');
     expect(payload.alignedData[0]?.moleculeType).toBe('protein');
   });
+
+  it('classifies U-containing nucleotide FASTA as rna', () => {
+    postMessage.mockClear();
+    workerScope.onmessage?.({ data: { type: 'PARSE_FASTA', content: '>rna\nATUGCN\n' } });
+    const payload = postMessage.mock.calls[0]?.[0];
+    expect(payload.type).toBe('FASTA_SUCCESS');
+    expect(payload.alignedData[0]?.moleculeType).toBe('rna');
+  });
 });

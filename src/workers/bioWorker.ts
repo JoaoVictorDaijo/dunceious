@@ -47,7 +47,8 @@ interface FastaRecord {
  * Detects whether a sequence is nucleotide or protein.
  *
  * We treat all IUPAC nucleotide ambiguity symbols as nucleotide
- * (A C G T U R Y S W K M B D H V N), plus common alignment gap/mask chars.
+ * (A C G T U R Y S W K M B D H V N), plus common alignment gap/mask chars
+ * (`-`, `.`, `*`, `?`).
  *
  * Note: sequences composed entirely of characters that overlap with nucleotides
  * (A, C, G, T, N) will be classified as DNA even if they are protein sequences.
@@ -57,7 +58,7 @@ const detectMoleculeType = (seq: string): 'dna' | 'rna' | 'protein' => {
   const nucleotideLike = /^[ACGTURYSWKMBDHVN\-.*?]+$/;
 
   if (nucleotideLike.test(upper)) {
-    if (/U/.test(upper) && !/T/.test(upper)) return 'rna';
+    if (/U/.test(upper)) return 'rna';
     return 'dna';
   }
 
