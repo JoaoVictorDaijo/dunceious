@@ -28,6 +28,11 @@ import {
 } from '@/services/bioUtils';
 import type { BioWorkerRequest } from '@/src/workers/protocol';
 
+const FASTA_SAMPLE_MAX_RECORDS = 3;
+const FASTA_SAMPLE_MAX_LENGTH = 1200;
+const FASTA_STRONG_PROTEIN_MIN_COUNT = 2;
+const FASTA_STRONG_PROTEIN_MIN_RATIO = 0.01;
+
 /** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
 function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
   const match = content.match(/^LOCUS\s+.+$/m);
@@ -43,17 +48,41 @@ function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
   const lines = content.split('\n');
   let seq = '';
   let seenHeader = false;
+  let sampledRecords = 0;
   for (const line of lines) {
     const t = line.trim();
     if (t.startsWith('>')) {
-      if (seenHeader && seq) break;
+      if (seenHeader && seq) {
+        sampledRecords += 1;
+        if (sampledRecords >= FASTA_SAMPLE_MAX_RECORDS || seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
+      }
       seenHeader = true;
+      continue;
     } else if (seenHeader && t) {
       seq += t;
-      if (seq.length >= 200) break;
+      if (seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
     }
   }
-  if (/[DEFHIKLMPQRSVWY]/.test(seq.substring(0, 200).toUpperCase())) return 'protein';
+
+  const sample = seq.toUpperCase().replace(/[^A-Z*-]/g, '');
+  if (!sample) return 'nucleotide';
+
+  const nucleotideAlphabet = new Set('ACGTUNRYSWKMBDHV'.split(''));
+  const strongProteinAlphabet = new Set('EFILPQZJO*'.split(''));
+
+  let strongProtein = 0;
+  let nonNucleotide = 0;
+  for (const ch of sample) {
+    if (ch === '-') continue;
+    if (strongProteinAlphabet.has(ch)) strongProtein += 1;
+    if (!nucleotideAlphabet.has(ch)) nonNucleotide += 1;
+  }
+
+  if (
+    strongProtein >= FASTA_STRONG_PROTEIN_MIN_COUNT
+    || strongProtein / Math.max(1, sample.length) >= FASTA_STRONG_PROTEIN_MIN_RATIO
+  ) return 'protein';
+  if (nonNucleotide > 0) return 'protein';
   return 'nucleotide';
 }
 
@@ -129,6 +158,16 @@ export function useFileHandlers(
   } = setters;
 
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
+  const [projectName, setProjectName] = useState('dunceious_project');
+
+  const promptForProjectName = () => {
+    const input = window.prompt('Project name (required):', projectName);
+    if (input === null) return null;
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    setProjectName(trimmed);
+    return trimmed;
+  };
 
   // ── Upload handlers ───────────────────────────────────────────────────────
 
@@ -225,6 +264,7 @@ export function useFileHandlers(
         if (project.showAnnotations !== undefined) setShowAnnotations(project.showAnnotations);
         if (project.showTranslation !== undefined) setShowTranslation(project.showTranslation);
         if (project.showConservation !== undefined) setShowConservation(project.showConservation);
+        if (typeof project.name === 'string' && project.name.trim()) setProjectName(project.name.trim());
         addLog('Project loaded successfully.');
       } catch (err) {
         addLog(`Error loading project: ${err}`);
@@ -293,7 +333,14 @@ export function useFileHandlers(
   };
 
   const exportProjectJson = () => {
+    const chosenProjectName = promptForProjectName();
+    if (!chosenProjectName) {
+      addLog('Project save cancelled: a project name is required.');
+      return;
+    }
+    const safeName = chosenProjectName.replace(/[^a-z0-9._-]/gi, '_');
     const project = {
+      name: chosenProjectName,
       records,
       featureColors,
       activeSelection,
@@ -302,7 +349,7 @@ export function useFileHandlers(
       showConservation: viewportState.showConservation,
       version: '3.4',
     };
-    downloadBlob(JSON.stringify(project, null, 2), 'dunceious_project.json', 'application/json');
+    downloadBlob(JSON.stringify(project, null, 2), `${safeName || 'dunceious_project'}.json`, 'application/json');
     addLog('Project JSON exported.');
   };
 

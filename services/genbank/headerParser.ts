@@ -26,6 +26,8 @@
 export interface HeaderData {
   /** LOCUS identifier (accession) */
   id: string;
+  /** ACCESSION (or VERSION fallback) */
+  accession?: string;
   /** Display name – derived from DEFINITION (truncated) or SOURCE */
   name: string;
   /** Full DEFINITION text (multi-line values are space-joined) */
@@ -42,6 +44,7 @@ export function parseHeader(lines: string[]): HeaderData {
   let id = 'Unknown';
   let name = 'Unknown';
   let definition = '';
+  let accession: string | undefined;
   let isCircular = false;
   let moleculeType: 'dna' | 'rna' | 'protein' = 'dna';
 
@@ -88,9 +91,21 @@ export function parseHeader(lines: string[]): HeaderData {
       continue;
     }
 
+    if (line.startsWith('ACCESSION')) {
+      const values = line.substring(12).trim().split(/\s+/).filter(Boolean);
+      if (values.length > 0) accession = values[0];
+      continue;
+    }
+
+    if (!accession && line.startsWith('VERSION')) {
+      const value = line.substring(12).trim().split(/\s+/)[0];
+      if (value) accession = value;
+      continue;
+    }
+
     // Stop scanning at FEATURES or ORIGIN (data sections)
     if (line.startsWith('FEATURES') || line.startsWith('ORIGIN')) break;
   }
 
-  return { id, name, definition, isCircular, moleculeType };
+  return { id, name, definition, accession, isCircular, moleculeType };
 }

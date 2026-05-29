@@ -56,6 +56,7 @@ export function toSeqRecord(recordStr: string): SeqRecord {
     id: header.id,
     name: header.name,
     definition: header.definition,
+    accession: header.accession ?? (header.id !== 'Unknown' ? header.id : undefined),
     moleculeType: header.moleculeType,
     sequence,
     features,
