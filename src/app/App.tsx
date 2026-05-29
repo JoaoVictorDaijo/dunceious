@@ -20,7 +20,7 @@
 
 import GenomeViewer from '@/components/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
@@ -157,11 +157,6 @@ const App: React.FC = () => {
     if (record) { setViewingRecordDetails(record); setViewingFeatureDetails(feature || null); }
   };
 
-  const handleRemoveRecord = (recordId: string) => {
-    setRecords(prev => prev.filter(r => r.id !== recordId));
-    addLog(`Record ${recordId} excluded from project.`);
-  };
-
   // ── Derived state ─────────────────────────────────────────────────────────
   const isAlignmentLoaded = useMemo(() => {
     if (records.length < 2) return false;
@@ -178,18 +173,6 @@ const App: React.FC = () => {
     [records, isProteinSession],
   );
 
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (records.length === 0) return;
-      event.preventDefault();
-      // Required to trigger the standard browser confirmation prompt on tab/window close.
-      event.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [records.length]);
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none">
@@ -205,7 +188,6 @@ const App: React.FC = () => {
             setActiveSelection({ start, end, recordIds: [recordId] });
           }}
           onExportRecord={handleExportRecord}
-          onRemoveRecord={handleRemoveRecord}
           onCopyLog={addLog}
         />
       )}
