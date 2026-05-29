@@ -20,7 +20,7 @@
 
 import GenomeViewer from '@/components/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
@@ -45,6 +45,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const App: React.FC = () => {
+  const CLEAR_CONFIRM_PREF_KEY = 'dunceious.skipClearAllConfirmation';
   // ── Logger ────────────────────────────────────────────────────────────────
   const { logs, addLog } = useAppLogger();
 
@@ -67,6 +68,10 @@ const App: React.FC = () => {
   const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
   const [jumpTo, setJumpTo] = useState<number | null>(null);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
+  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(CLEAR_CONFIRM_PREF_KEY) === '1';
+  });
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -172,6 +177,29 @@ const App: React.FC = () => {
     () => records.length === 0 ? null : (isProteinSession ? 'protein' : 'nucleotide'),
     [records, isProteinSession],
   );
+
+  useEffect(() => {
+    if (records.length === 0) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [records.length]);
+
+  const handleClearAll = () => {
+    if (records.length === 0) return;
+    if (!skipClearAllConfirmation) {
+      if (!window.confirm('Are you sure you want to clear all data?')) return;
+      if (window.confirm("Don't ask again for clear-all confirmation on this browser?")) {
+        window.localStorage.setItem(CLEAR_CONFIRM_PREF_KEY, '1');
+        setSkipClearAllConfirmation(true);
+      }
+    }
+    setRecords([]);
+    addLog('Workspace cleared.');
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -350,7 +378,7 @@ const App: React.FC = () => {
                   onExportGenBank={exportGenBankFile}
                   onExportGff={exportGffFile}
                   onExportProjectJson={exportProjectJson}
-                  onClearAll={() => setRecords([])}
+                  onClearAll={handleClearAll}
                   addLog={addLog}
                 />
               )}

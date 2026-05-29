@@ -53,6 +53,11 @@ describe('parseGenBank – smoke tests', () => {
     expect(record.id).toBe('TEST001');
   });
 
+  it('ingests accession metadata', () => {
+    const [record] = parseGenBank(MINIMAL_GB);
+    expect(record.accession).toBe('TEST001');
+  });
+
   it('extracts the definition as name', () => {
     const [record] = parseGenBank(MINIMAL_GB);
     // definition is > 30 chars so name is truncated to 27 + '...'

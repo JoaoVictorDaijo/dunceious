@@ -90,6 +90,18 @@ describe('parseHeader – SOURCE fallback', () => {
     expect(h.name).toBe('Homo sapiens');
   });
 
+  describe('parseHeader – accession', () => {
+    it('parses ACCESSION from header', () => {
+      const lines = ['LOCUS       T1   10 bp', 'ACCESSION   AB000123'];
+      expect(parseHeader(lines).accession).toBe('AB000123');
+    });
+
+    it('falls back to VERSION when ACCESSION is absent', () => {
+      const lines = ['LOCUS       T1   10 bp', 'VERSION     NM_123456.1  GI:11111'];
+      expect(parseHeader(lines).accession).toBe('NM_123456.1');
+    });
+  });
+
   it('does not overwrite DEFINITION-derived name with SOURCE', () => {
     const lines = [
       'DEFINITION  My definition.',

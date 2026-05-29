@@ -313,7 +313,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
             </button>
           </div>
           <button
-            onClick={() => { if (confirm('Are you sure you want to clear all data?')) onClearAll(); }}
+            onClick={onClearAll}
             className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All
