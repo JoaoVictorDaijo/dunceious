@@ -157,6 +157,11 @@ const App: React.FC = () => {
     if (record) { setViewingRecordDetails(record); setViewingFeatureDetails(feature || null); }
   };
 
+  const handleRemoveRecord = (recordId: string) => {
+    setRecords(prev => prev.filter(r => r.id !== recordId));
+    addLog(`Record ${recordId} excluded from project.`);
+  };
+
   // ── Derived state ─────────────────────────────────────────────────────────
   const isAlignmentLoaded = useMemo(() => {
     if (records.length < 2) return false;
@@ -188,6 +193,7 @@ const App: React.FC = () => {
             setActiveSelection({ start, end, recordIds: [recordId] });
           }}
           onExportRecord={handleExportRecord}
+          onRemoveRecord={handleRemoveRecord}
           onCopyLog={addLog}
         />
       )}
