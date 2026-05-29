@@ -191,8 +191,14 @@ const App: React.FC = () => {
   const handleClearAll = () => {
     if (records.length === 0) return;
     if (!skipClearAllConfirmation) {
-      if (!window.confirm('Are you sure you want to clear all data?')) return;
-      if (window.confirm("Don't ask again for clear-all confirmation on this browser?")) {
+      const choice = window.prompt(
+        'Type CLEAR to confirm. Type CLEAR ALWAYS to confirm and stop asking in this browser.',
+        'CLEAR',
+      );
+      if (!choice) return;
+      const normalized = choice.trim().toUpperCase();
+      if (normalized !== 'CLEAR' && normalized !== 'CLEAR ALWAYS') return;
+      if (normalized === 'CLEAR ALWAYS') {
         window.localStorage.setItem(CLEAR_CONFIRM_PREF_KEY, '1');
         setSkipClearAllConfirmation(true);
       }
