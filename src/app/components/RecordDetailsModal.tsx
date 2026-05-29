@@ -26,7 +26,6 @@ export interface RecordDetailsModalProps {
   onClose: () => void;
   onFocusFeature: (recordId: string, start: number, end: number) => void;
   onExportRecord: (recordId: string) => void;
-  onRemoveRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
 }
 
@@ -40,7 +39,6 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onClose,
   onFocusFeature,
   onExportRecord,
-  onRemoveRecord,
   onCopyLog,
 }) => {
   const getDisplaySeq = (): string => {
@@ -69,13 +67,6 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleExport = () => {
     onExportRecord(record.id);
-    onClose();
-  };
-
-  const handleExcludeRecord = () => {
-    if (feature) return;
-    if (!confirm(`Exclude record "${record.id}" from this project?`)) return;
-    onRemoveRecord(record.id);
     onClose();
   };
 
@@ -246,14 +237,6 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-black uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
             >
               <i className="fas fa-download"></i> Export FASTA
-            </button>
-          )}
-          {!feature && (
-            <button
-              onClick={handleExcludeRecord}
-              className="px-6 py-2.5 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase hover:bg-rose-500 transition-all shadow-lg shadow-rose-900/20 flex items-center gap-2"
-            >
-              <i className="fas fa-trash-alt"></i> Exclude Record
             </button>
           )}
         </div>
