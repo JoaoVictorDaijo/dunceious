@@ -20,7 +20,7 @@
 
 import GenomeViewer from '@/components/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
@@ -177,6 +177,17 @@ const App: React.FC = () => {
     () => records.length === 0 ? null : (isProteinSession ? 'protein' : 'nucleotide'),
     [records, isProteinSession],
   );
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (records.length === 0) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [records.length]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
