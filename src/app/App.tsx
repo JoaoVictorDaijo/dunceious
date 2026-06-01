@@ -333,6 +333,7 @@ const App: React.FC = () => {
           onSetSelectedIndices={setSelectedSearchIndices}
           maxScoreFound={maxScoreFound}
           onSetActiveTab={setActiveTab}
+          onRemoveRecord={handleRemoveRecord}
           onToggleRecordSelection={toggleRecordSelection}
           onJoinAllInRecord={joinAllInRecord}
           onJoinSelectedMatches={joinSelectedMatches}

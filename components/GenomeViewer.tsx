@@ -1990,7 +1990,9 @@ const GenomeViewer: React.FC<Props> = ({
                 {contextMenu.feature ? 'Annotation Actions' : 'Record Actions'}
               </span>
               <div className="text-[11px] font-bold text-slate-900 truncate">
-                {contextMenu.feature ? contextMenu.feature.name : contextMenu.recordId}
+                {contextMenu.feature
+                  ? contextMenu.feature.name
+                  : (records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId)}
               </div>
             </div>
             <button 
@@ -2024,10 +2026,11 @@ const GenomeViewer: React.FC<Props> = ({
             >
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
-            {!contextMenu.feature && (
+            {onRemoveRecord && (
               <button
                 onClick={() => {
-                  if (window.confirm(`Remove sequence "${contextMenu.recordId}" from project?`)) {
+                  const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
+                  if (window.confirm(`Remove sequence "${label}" from project?`)) {
                     onRemoveRecord?.(contextMenu.recordId);
                   }
                   setContextMenu(null);

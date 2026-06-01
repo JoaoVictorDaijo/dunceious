@@ -72,7 +72,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
           const newRecords = msg.records.map(r => {
             const uniqueId = makeUniqueId(r.id, existingIds);
             existingIds.push(uniqueId);
-            return { ...r, id: uniqueId, name: uniqueId, visible: true };
+            const normalizedAccession = r.accession?.trim();
+            return {
+              ...r,
+              id: uniqueId,
+              name: uniqueId,
+              accession: normalizedAccession || (r.id && r.id !== 'Unknown' ? r.id : uniqueId),
+              visible: true,
+            };
           });
           addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
           return [...prev, ...newRecords];
@@ -134,7 +141,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
             const newRecords = alignedData.map(r => {
               const uniqueId = makeUniqueId(r.id, existingIds);
               existingIds.push(uniqueId);
-              return { ...r, id: uniqueId, name: uniqueId, visible: true };
+              const normalizedAccession = r.accession?.trim();
+              return {
+                ...r,
+                id: uniqueId,
+                name: uniqueId,
+                accession: normalizedAccession || uniqueId,
+                visible: true,
+              };
             });
             addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
             return [...prev, ...newRecords];
