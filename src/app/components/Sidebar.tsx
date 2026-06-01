@@ -59,6 +59,7 @@ export interface SidebarProps {
   onSetSelectedIndices: (next: Set<number>) => void;
   maxScoreFound: number;
   onSetActiveTab: (tab: 'alignment' | 'features') => void;
+  onRemoveRecord: (recordId: string) => void;
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
@@ -106,6 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetSelectedIndices,
   maxScoreFound,
   onSetActiveTab,
+  onRemoveRecord,
   onToggleRecordSelection,
   onJoinAllInRecord,
   onJoinSelectedMatches,
@@ -242,16 +244,33 @@ const Sidebar: React.FC<SidebarProps> = ({
           </h3>
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
             {records.map(r => (
-              <button
+              <div
                 key={r.id}
-                onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
-                className="w-full text-left px-3 py-2 rounded-xl bg-black/20 hover:bg-sky-500/20 border border-slate-800/50 hover:border-sky-500/50 transition-all group"
+                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-sky-500/50 transition-all group"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 group-hover:text-sky-400 truncate max-w-[150px]">{r.id}</span>
-                  <i className="fas fa-chevron-right text-[8px] text-slate-600 group-hover:text-sky-500"></i>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
+                    className="flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-sky-500/20 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-400 group-hover:text-sky-400 truncate max-w-[150px]">{r.id}</span>
+                      <i className="fas fa-chevron-right text-[8px] text-slate-600 group-hover:text-sky-500"></i>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Remove sequence "${r.name || r.id}" from project?`)) {
+                        onRemoveRecord(r.id);
+                      }
+                    }}
+                    className="w-7 h-7 shrink-0 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                    title="Remove Sequence"
+                  >
+                    <i className="fas fa-trash-alt text-[10px]"></i>
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </section>

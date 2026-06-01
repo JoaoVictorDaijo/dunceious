@@ -36,6 +36,7 @@ interface Props {
   onAddAnnotation: (recordId: string, start: number, end: number, name: string) => void;
   onExportRecord?: (recordId: string) => void;
   onViewDetails?: (recordId: string, feature?: BioFeature) => void;
+  onRemoveRecord?: (recordId: string) => void;
   searchResults: SearchResult[];
   currentSearchIdx: number;
   selectedSearchIndices?: Set<number>;
@@ -1026,6 +1027,7 @@ const GenomeViewer: React.FC<Props> = ({
   onAddAnnotation,
   onExportRecord,
   onViewDetails,
+  onRemoveRecord,
   searchResults,
   currentSearchIdx,
   selectedSearchIndices = new Set(),
@@ -1988,7 +1990,9 @@ const GenomeViewer: React.FC<Props> = ({
                 {contextMenu.feature ? 'Annotation Actions' : 'Record Actions'}
               </span>
               <div className="text-[11px] font-bold text-slate-900 truncate">
-                {contextMenu.feature ? contextMenu.feature.name : contextMenu.recordId}
+                {contextMenu.feature
+                  ? contextMenu.feature.name
+                  : (records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId)}
               </div>
             </div>
             <button 
@@ -2022,6 +2026,20 @@ const GenomeViewer: React.FC<Props> = ({
             >
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
+            {onRemoveRecord && (
+              <button
+                onClick={() => {
+                  const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
+                  if (window.confirm(`Remove sequence "${label}" from project?`)) {
+                    onRemoveRecord(contextMenu.recordId);
+                  }
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
+              >
+                <i className="fas fa-trash-alt w-4 text-center opacity-50"></i> Remove Sequence
+              </button>
+            )}
             <button
               onClick={() => {
                 if (contextMenu.feature) {

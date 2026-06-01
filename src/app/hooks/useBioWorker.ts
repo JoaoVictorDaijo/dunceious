@@ -33,6 +33,17 @@ export interface UseBioWorkerReturn {
   bioWorkerRef: React.MutableRefObject<Worker | null>;
 }
 
+function resolveAccession(
+  incomingAccession: string | undefined,
+  incomingId: string,
+  uniqueId: string,
+): string {
+  const normalizedAccession = incomingAccession?.trim();
+  if (normalizedAccession) return normalizedAccession;
+  if (incomingId && incomingId !== 'Unknown') return incomingId;
+  return uniqueId;
+}
+
 /**
  * Manages the bioWorker Web Worker lifecycle and all record / alignment state.
  *
@@ -72,7 +83,13 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
           const newRecords = msg.records.map(r => {
             const uniqueId = makeUniqueId(r.id, existingIds);
             existingIds.push(uniqueId);
-            return { ...r, id: uniqueId, name: uniqueId, visible: true };
+            return {
+              ...r,
+              id: uniqueId,
+              name: uniqueId,
+              accession: resolveAccession(r.accession, r.id, uniqueId),
+              visible: true,
+            };
           });
           addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
           return [...prev, ...newRecords];
@@ -134,7 +151,13 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
             const newRecords = alignedData.map(r => {
               const uniqueId = makeUniqueId(r.id, existingIds);
               existingIds.push(uniqueId);
-              return { ...r, id: uniqueId, name: uniqueId, visible: true };
+              return {
+                ...r,
+                id: uniqueId,
+                name: uniqueId,
+                accession: resolveAccession(undefined, r.id, uniqueId),
+                visible: true,
+              };
             });
             addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
             return [...prev, ...newRecords];

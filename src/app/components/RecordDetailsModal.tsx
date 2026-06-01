@@ -132,7 +132,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Accession</label>
-                <p className="text-sm font-mono font-bold text-slate-700">{record.accession || 'N/A'}</p>
+                <p className="text-sm font-mono font-bold text-slate-700">
+                  {record.accession?.trim() || record.id || 'N/A'}
+                </p>
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Length</label>
