@@ -141,12 +141,11 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
             const newRecords = alignedData.map(r => {
               const uniqueId = makeUniqueId(r.id, existingIds);
               existingIds.push(uniqueId);
-              const normalizedAccession = r.accession?.trim();
               return {
                 ...r,
                 id: uniqueId,
                 name: uniqueId,
-                accession: normalizedAccession || uniqueId,
+                accession: uniqueId,
                 visible: true,
               };
             });
