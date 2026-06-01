@@ -33,6 +33,17 @@ export interface UseBioWorkerReturn {
   bioWorkerRef: React.MutableRefObject<Worker | null>;
 }
 
+function resolveAccession(
+  incomingAccession: string | undefined,
+  incomingId: string,
+  uniqueId: string,
+): string {
+  const normalizedAccession = incomingAccession?.trim();
+  if (normalizedAccession) return normalizedAccession;
+  if (incomingId && incomingId !== 'Unknown') return incomingId;
+  return uniqueId;
+}
+
 /**
  * Manages the bioWorker Web Worker lifecycle and all record / alignment state.
  *
@@ -72,12 +83,11 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
           const newRecords = msg.records.map(r => {
             const uniqueId = makeUniqueId(r.id, existingIds);
             existingIds.push(uniqueId);
-            const normalizedAccession = r.accession?.trim();
             return {
               ...r,
               id: uniqueId,
               name: uniqueId,
-              accession: normalizedAccession || (r.id && r.id !== 'Unknown' ? r.id : uniqueId),
+              accession: resolveAccession(r.accession, r.id, uniqueId),
               visible: true,
             };
           });
@@ -145,7 +155,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
                 ...r,
                 id: uniqueId,
                 name: uniqueId,
-                accession: uniqueId,
+                accession: resolveAccession(undefined, r.id, uniqueId),
                 visible: true,
               };
             });

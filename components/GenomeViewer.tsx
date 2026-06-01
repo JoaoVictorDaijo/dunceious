@@ -2031,7 +2031,7 @@ const GenomeViewer: React.FC<Props> = ({
                 onClick={() => {
                   const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
                   if (window.confirm(`Remove sequence "${label}" from project?`)) {
-                    onRemoveRecord?.(contextMenu.recordId);
+                    onRemoveRecord(contextMenu.recordId);
                   }
                   setContextMenu(null);
                 }}
