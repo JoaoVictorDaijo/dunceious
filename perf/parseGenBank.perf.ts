@@ -31,7 +31,7 @@
  *
  * ## Methodology
  *
- * See src/__tests__/perfUtils.ts for a detailed explanation of why Node/V8
+ * See perfUtils.ts for a detailed explanation of why Node/V8
  * memory measurements are unreliable and what we do to reduce noise.
  *
  * Summary:

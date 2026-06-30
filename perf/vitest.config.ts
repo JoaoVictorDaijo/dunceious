@@ -17,29 +17,17 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import react from "@vitejs/plugin-react";
-import path from "path";
-import { defineConfig } from "vite";
+/**
+ * Vitest config for the performance regression guardrails.
+ * Run via:  npm run perf
+ */
+import { defineConfig } from 'vitest/config';
+import { sharedBenchConfig } from '../vitest.shared';
 
-export default defineConfig(() => {
-  return {
-    server: {
-      port: 3000,
-      host: "0.0.0.0",
-    },
-    plugins: [react()],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "."),
-      },
-    },
-    test: {
-      environment: "node",
-      exclude: [
-        "perf/**",
-        "bench/**",
-        "**/node_modules/**",
-      ],
-    },
-  };
+export default defineConfig({
+  ...sharedBenchConfig,
+  test: {
+    ...sharedBenchConfig.test,
+    include: ['perf/**/*.perf.ts'],
+  },
 });

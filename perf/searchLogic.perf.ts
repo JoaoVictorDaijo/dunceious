@@ -29,7 +29,7 @@
  *   - smithWaterman     – O(n·m) affine-gap local alignment
  *   - degenerateToRegex – IUPAC-pattern regex construction + execution
  *
- * Methodology: see src/__tests__/perfUtils.ts and parseGenBank.perf.bench.ts.
+ * Methodology: see perfUtils.ts and parseGenBank.perf.ts.
  */
 
 import { describe, it, expect } from 'vitest';
