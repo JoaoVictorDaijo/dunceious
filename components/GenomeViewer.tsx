@@ -642,8 +642,8 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
   const brokenFeatureMap = useMemo(() => {
     const map = new Map<string, boolean>();
     l.record.features
-      .filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
-      .forEach(f => {
+      .filter((f: BioFeature) => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
+      .forEach((f: BioFeature) => {
         const { codingSeq } = extractCodingSequence(f, seq);
         map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
       });
