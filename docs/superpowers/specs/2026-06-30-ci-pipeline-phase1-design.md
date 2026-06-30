@@ -70,7 +70,11 @@ Three pre-existing problems:
 
 Replaces the broken file entirely.
 
-- **Triggers:** `pull_request:` (all PRs) and `push: branches: [main]`.
+- **Triggers:** `pull_request:` and `push:`, both scoped to `branches: [main]`.
+  (Implementation note: the `pull_request` trigger was scoped to `branches: [main]`
+  during code review rather than left unscoped as originally written here — `main`
+  is the only protected/integration branch, so this is symmetric with the `push`
+  filter and matches intent. Maintainer-approved deviation, 2026-06-30.)
 - **Permissions:** `contents: read` (minimal).
 - **Concurrency:** group keyed on the workflow + ref so superseded runs on the
   same PR are auto-cancelled.
