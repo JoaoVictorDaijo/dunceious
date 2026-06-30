@@ -25,7 +25,7 @@
  *
  *   - seqLength_bp ∈ [5 000, 10 000, 50 000, 100 000, 200 000, 300 000]
  *   - numRecords   ∈ [1, 10, 30, 50] by default, or a custom list passed via
- *                   `npm run bench 1 10 30 50 100`
+ *                   `npm run bench -- 1 10 30 50 100`
  *
  * Each cell is run `REPLICATES` times and reduced to mean / standard error.
  * Raw samples are also persisted so the plotter can render uncertainty.

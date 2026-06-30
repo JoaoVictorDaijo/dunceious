@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Benchmark files generated at runtime; uploaded as CI artifact
+# Benchmark output generated at runtime by `npm run bench` / `npm run plot`
 bench/results/
 bench/fixtures/
 bench/plots/
