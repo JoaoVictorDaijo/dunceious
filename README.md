@@ -58,7 +58,8 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 | `npm run dev`     | Start the Vite development server on port 3000                                                                                                        |
 | `npm run build`   | Type-check and bundle the app — useful for catching build-time errors or verifying a change compiles cleanly                                          |
 | `npm run preview` | Serve the last `npm run build` output locally — useful for testing a built artifact                                                                   |
-| `npm run lint`    | Run the TypeScript type-checker (`tsc --noEmit`) — no output means no errors                                                                          |
+| `npm run typecheck` | Type-check the codebase with `tsc --noEmit` — no output means no type errors                                                                        |
+| `npm run lint`      | Run ESLint over the codebase (`eslint .`)                                                                                                            |
 | `npm test`        | Run the unit test suite (excludes benchmarks)                                                                                                         |
 | `npm run perf`    | Run performance tests (`*.perf.bench.ts`) — measure grid transposition, consensus, and core algorithm speeds on large datasets                        |
 | `npm run bench`   | Run the GenBank parser benchmark grid (seq length × record count) and write results to `bench/results/benchmark.json` and SVG plots to `bench/plots/` |
