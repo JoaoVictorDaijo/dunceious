@@ -33,7 +33,7 @@
  * Each test asserts basic correctness (records parsed = numRecords, features
  * parsed > 0) so the suite fails loudly if the parser breaks.  Performance
  * numbers are never compared against hard thresholds – they are written as
- * JSON to `benchmark/results/benchmark.json` at the end of the run.
+ * JSON to `bench/results/benchmark.json` at the end of the run.
  *
  * Run with:
  *   npm run bench
@@ -218,7 +218,7 @@ afterAll(async () => {
   const resultsPath = join(RESULTS_DIR, 'benchmark.json');
   writeFileSync(resultsPath, JSON.stringify(output, null, 2));
 
-  // Refresh SVG tables & charts in benchmark/plots/. Failures here must not
+  // Refresh SVG tables & charts in bench/plots/. Failures here must not
   // break the bench run – the JSON above is the source of truth.
   try {
     const { generatePlots } = (await import('./visualize.mjs')) as {
