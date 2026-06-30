@@ -1,37 +1,25 @@
-name: CI – Tests & Resource Benchmarks
+name: CI
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-  # pull_request_target runs the workflow definition from the base branch
-  # even when triggered by a bot or first-time contributor, so it never
-  # gets stuck in the "action_required" approval gate.
-  pull_request_target:
 
 permissions:
   contents: read
 
+# Cancel superseded runs on the same ref (e.g. successive pushes to a PR).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-<<<<<<< copilot/implement-2d-benchmark-grid
-  test-and-bench:
-=======
-  unit-tests:
-    name: Unit tests (synthetic data construction)
->>>>>>> main
+  ci:
     runs-on: ubuntu-latest
-    # Restrict pull_request_target runs to PRs from the same repository so
-    # untrusted fork code is never executed in a privileged context.
-    if: >
-      github.event_name == 'push' ||
-      github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v4
-        with:
-          # For pull_request_target the default checkout is the base branch;
-          # explicitly pin to the PR head so we test the incoming code.
-          # For push events github.event.pull_request.head.sha is empty, so
-          # the expression falls back to github.sha (the pushed commit).
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -42,45 +30,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-<<<<<<< copilot/implement-2d-benchmark-grid
-      - name: Run tests
+      # Each gate runs even if an earlier one fails, so a single CI run
+      # surfaces every failure at once. The job still fails if any gate fails.
+      - name: Type-check
+        if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: npm run lint
+
+      - name: Test
+        if: ${{ !cancelled() }}
         run: npm test
 
-      - name: Run benchmarks
-=======
-      - name: Run unit tests
-        run: npm test
-
-  benchmarks:
-    name: Resource measurement benchmarks (both modalities)
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'push' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run benchmarks (sequence-length & record-count modalities)
->>>>>>> main
-        run: npm run bench
-
-      - name: Summarise benchmark results
-        if: always()
-        run: node benchmark/summarize.mjs
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark/results/benchmark.json
+      - name: Build
+        if: ${{ !cancelled() }}
+        run: npm run build

@@ -55,7 +55,11 @@ function makeIupacQuery(length: number): string {
   const chars = ['A', 'T', 'C', 'G', 'N', 'R', 'Y', 'S', 'W', 'K', 'M'];
   let s = 7;
   return Array.from({ length }, () => {
-    s = (s * 6364136223846793005 + 1442695040888963407) & 0x7fffffff;
+    // 32-bit LCG (Numerical Recipes constants), same as makeDna. Keep both
+    // operands < 2^53: larger 64-bit constants lose float precision and silently
+    // collapse this generator to a near-degenerate distribution (and trip the
+    // no-loss-of-precision lint rule).
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
     return chars[s % chars.length] as string;
   }).join('');
 }

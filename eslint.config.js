@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -42,12 +43,13 @@ export default tseslint.config(
     },
   },
   {
-    // Plain Node.js scripts in the benchmark directory are not TypeScript and
-    // need access to Node.js globals (process, etc.).
-    files: ['benchmark/**/*.mjs'],
+    // Plain Node.js scripts in the bench directory are not TypeScript and
+    // need access to the full set of Node.js globals (process, console,
+    // URL, Buffer, etc.).
+    files: ['bench/**/*.mjs'],
     languageOptions: {
       globals: {
-        process: 'readonly',
+        ...globals.node,
       },
     },
   },
