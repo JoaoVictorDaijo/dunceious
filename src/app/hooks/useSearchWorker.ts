@@ -21,14 +21,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
-import {
-  degenerateToRegex,
-  getNonGapSegments,
-  mapUngappedRangeToAligned,
-  removeGapsWithMap,
-  reverseComplement,
-  smithWaterman,
-} from '@/services/searchLogic';
+import { runInlineSearch } from '@/services/search/runInlineSearch';
 
 export interface SearchOptions {
   minScore: number;
@@ -115,121 +108,10 @@ export function useSearchWorker(
     }));
   }, [records]);
 
-  const executeSearchInline = useCallback((request: SearchWorkerRequest): SearchResult[] => {
-    const { searchQuery, records: inputRecords, mode, options, moleculeType } = request;
-    const { minScore = 5, strand = 'both', maxResults = 100 } = options;
-    const isProtein = moleculeType === 'protein';
-
-    if (!searchQuery || searchQuery.length < 1) return [];
-
-    const results: SearchResult[] = [];
-    const queryUpper = searchQuery.toUpperCase();
-    const startedAt = Date.now();
-    const maxInlineMs = mode === 'fuzzy' ? 1800 : 6000;
-
-    for (const record of inputRecords) {
-      if (Date.now() - startedAt > maxInlineMs) break;
-      const seq = typeof record.alignedSequence === 'string'
-        ? record.alignedSequence
-        : (typeof record.sequence === 'string' ? record.sequence : '');
-      if (!seq) continue;
-      const L = seq.length;
-
-      if (mode === 'fuzzy') {
-        const { ungapped: ungappedSeq, map: fwdMap } = removeGapsWithMap(seq);
-
-        if ((strand === 'both' || strand === 'fwd') && ungappedSeq.length > 0) {
-          const fwdFuzzy = smithWaterman(queryUpper, ungappedSeq, 2, -1, -3, -1, minScore);
-          fwdFuzzy.forEach(m => {
-            const aligned = mapUngappedRangeToAligned(fwdMap, m.start, m.end);
-            results.push({
-              start: aligned.start,
-              end: aligned.end,
-              sequence: seq.substring(aligned.start, aligned.end),
-              score: m.score,
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, aligned.start, aligned.end),
-            });
-          });
-        }
-
-        if (Date.now() - startedAt > maxInlineMs) break;
-
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
-          const { ungapped: ungappedRcSeq, map: revMap } = removeGapsWithMap(rcSeq);
-          if (ungappedRcSeq.length === 0) continue;
-
-          const revFuzzy = smithWaterman(queryUpper, ungappedRcSeq, 2, -1, -3, -1, minScore);
-          revFuzzy.forEach(m => {
-            const rcRange = mapUngappedRangeToAligned(revMap, m.start, m.end);
-            const start = L - rcRange.end;
-            const end = L - rcRange.start;
-            results.push({
-              score: m.score,
-              start,
-              end,
-              sequence: seq.substring(start, end),
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-          });
-        }
-      } else {
-        const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
-
-        if (strand === 'both' || strand === 'fwd') {
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(seq)) !== null) {
-            const start = match.index;
-            const end = match.index + match[0].length;
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(rcSeq)) !== null) {
-            const rcStart = match.index;
-            const rcEnd = match.index + match[0].length;
-            const start = L - rcEnd;
-            const end = L - rcStart;
-
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-      }
-    }
-
-    if (mode === 'fuzzy') {
-      results.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
-    } else {
-      results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-    }
-
-    return results.length > maxResults ? results.slice(0, maxResults) : results;
-  }, []);
+  const executeSearchInline = useCallback(
+    (request: SearchWorkerRequest): SearchResult[] => runInlineSearch(request),
+    [],
+  );
 
   const searchWorkerRef = useRef<Worker | null>(null);
   const lastRequestRef = useRef<SearchWorkerRequest | null>(null);
