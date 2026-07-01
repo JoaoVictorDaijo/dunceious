@@ -42,7 +42,7 @@ jobs:
 
       - name: Test
         if: ${{ !cancelled() }}
-        run: npm test
+        run: npm run test:coverage
 
       - name: Build
         if: ${{ !cancelled() }}

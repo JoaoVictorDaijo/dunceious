@@ -23,6 +23,8 @@ import {
   reverseComplement,
   getNonGapSegments,
   smithWaterman,
+  removeGapsWithMap,
+  mapUngappedRangeToAligned,
 } from '../searchLogic';
 
 // ---------------------------------------------------------------------------
@@ -182,7 +184,8 @@ describe('smithWaterman – fuzzy search smoke tests', () => {
   it('finds an exact local alignment with default scoring', () => {
     const results = smithWaterman('ACGT', 'NNNACGTNNN', 2, -1, -3, -1, 4);
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].sequence).toBe('ACGT');
+    // 'ACGT' sits at target[3..7); 4 matches × 2 = score 8.
+    expect(results[0]).toMatchObject({ start: 3, end: 7, score: 8, sequence: 'ACGT' });
   });
 
   it('returns empty array when score is below minScore', () => {
@@ -217,5 +220,121 @@ describe('smithWaterman – fuzzy search smoke tests', () => {
     const max = Math.max(...scores);
     const min = Math.min(...scores);
     expect(max).toBeGreaterThan(min);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removeGapsWithMap
+// ---------------------------------------------------------------------------
+
+describe('removeGapsWithMap', () => {
+  it('returns the sequence unchanged with an identity map when gap-free', () => {
+    expect(removeGapsWithMap('ACGT')).toEqual({ ungapped: 'ACGT', map: [0, 1, 2, 3] });
+  });
+
+  it('strips gaps and maps each kept base to its original index', () => {
+    // 'A-C--G' → kept A(0) C(2) G(5)
+    expect(removeGapsWithMap('A-C--G')).toEqual({ ungapped: 'ACG', map: [0, 2, 5] });
+  });
+
+  it('returns empty ungapped and empty map for an all-gap sequence', () => {
+    expect(removeGapsWithMap('----')).toEqual({ ungapped: '', map: [] });
+  });
+
+  it('returns empty results for an empty string', () => {
+    expect(removeGapsWithMap('')).toEqual({ ungapped: '', map: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mapUngappedRangeToAligned
+// ---------------------------------------------------------------------------
+
+describe('mapUngappedRangeToAligned', () => {
+  // ungapped indices 0,1,2,3 → aligned positions 0,2,4,6
+  const map = [0, 2, 4, 6];
+
+  it('returns {0,0} for an empty map', () => {
+    expect(mapUngappedRangeToAligned([], 0, 4)).toEqual({ start: 0, end: 0 });
+  });
+
+  it('maps an in-range half-open ungapped range to aligned coordinates', () => {
+    // start=1,end=3 → alignedStart=map[1]=2, alignedEnd=map[2]+1=5
+    expect(mapUngappedRangeToAligned(map, 1, 3)).toEqual({ start: 2, end: 5 });
+  });
+
+  it('clamps a negative start up to 0', () => {
+    // start=-5→0, end=2 → alignedStart=map[0]=0, alignedEnd=map[1]+1=3
+    expect(mapUngappedRangeToAligned(map, -5, 2)).toEqual({ start: 0, end: 3 });
+  });
+
+  it('clamps an out-of-range start/end to the last index', () => {
+    // start=10→3, end=20→4 → alignedStart=map[3]=6, alignedEnd=map[3]+1=7
+    expect(mapUngappedRangeToAligned(map, 10, 20)).toEqual({ start: 6, end: 7 });
+  });
+
+  it('handles a single-element map', () => {
+    expect(mapUngappedRangeToAligned([5], 0, 1)).toEqual({ start: 5, end: 6 });
+  });
+
+  it('keeps a non-empty aligned span for a degenerate range (start >= end)', () => {
+    // safeEndExclusive is floored to safeStart+1, so an inverted/zero-width
+    // request still yields a single-position aligned span.
+    expect(mapUngappedRangeToAligned(map, 2, 2)).toEqual({ start: 4, end: 5 });
+    expect(mapUngappedRangeToAligned(map, 3, 1)).toEqual({ start: 6, end: 7 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// smithWaterman – gapped traceback (exercises Iq / It gap states)
+// ---------------------------------------------------------------------------
+
+describe('smithWaterman – gapped alignments', () => {
+  it('aligns across an insertion in the target (It gap state)', () => {
+    // 'ACGTACGT' vs 'ACGTTTACGT': the optimal alignment matches ACGT (8),
+    // opens a gap in the query to skip the inserted 'TT' (open -3, extend -1),
+    // then matches ACGT (8) → score 12, spanning the ENTIRE target [0,10).
+    // A broken gap-traceback would fall back to the best no-gap local score
+    // (10, over a 4-base span), so pinning the exact score AND full span makes
+    // this test fail if the It gap state is dropped.
+    const [best] = smithWaterman('ACGTACGT', 'ACGTTTACGT');
+    expect(best.score).toBe(12);
+    expect(best.start).toBe(0);
+    expect(best.end).toBe(10);
+    expect(best.sequence).toBe('ACGTTTACGT');
+  });
+
+  it('aligns across an insertion in the query (Iq gap state)', () => {
+    // Mirror image: the query carries the extra 'TT'; the 8-base target is
+    // fully spanned via an Iq gap, same score 12.
+    const [best] = smithWaterman('ACGTTTACGT', 'ACGTACGT');
+    expect(best.score).toBe(12);
+    expect(best.start).toBe(0);
+    expect(best.end).toBe(8);
+    expect(best.sequence).toBe('ACGTACGT');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// smithWaterman – ungapped fallback for very large targets (> MAX_SW_CELLS)
+// ---------------------------------------------------------------------------
+
+describe('smithWaterman – large-target ungapped fallback', () => {
+  it('falls back and finds a strong ungapped match when the DP matrix is too large', () => {
+    // (1000+1) * (700+1) = 701,701 cells > 600,000 → ungapped fallback path.
+    const query = 'A'.repeat(1000);
+    const target = 'A'.repeat(700);
+    const results = smithWaterman(query, target);
+    expect(results).toHaveLength(1);
+    expect(results[0].start).toBe(0);
+    expect(results[0].end).toBe(700);
+    expect(results[0].score).toBe(1400); // 700 matches × matchScore(2)
+  });
+
+  it('returns no hits when the fallback window scores below minScore', () => {
+    // All-mismatch window → negative score → filtered out.
+    const query = 'A'.repeat(1000);
+    const target = 'T'.repeat(700);
+    expect(smithWaterman(query, target)).toHaveLength(0);
   });
 });

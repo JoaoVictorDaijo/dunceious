@@ -40,6 +40,32 @@ export default defineConfig(() => {
         "bench/**",
         "**/node_modules/**",
       ],
+      coverage: {
+        provider: "v8" as const,
+        all: true,
+        include: [
+          "services/**",
+          "src/app/recordRemoval.ts",
+          "src/domain/**",
+        ],
+        exclude: [
+          "**/__tests__/**",
+          "**/*.test.ts",
+          "**/index.ts",
+          "**/types.ts",
+        ],
+        reporter: ["text", "text-summary", "json-summary"],
+        // Thresholds are a RATCHET: set a few points below achieved (lines
+        // 98.1 / branches 88.9 / functions 97.3 / statements 96.8 as of Phase 1)
+        // so normal v8 jitter and hard-to-hit defensive branches don't break CI.
+        // Raise (never lower) in later phases; branches keeps a wider buffer.
+        thresholds: {
+          lines: 94,
+          branches: 83,
+          functions: 93,
+          statements: 92,
+        },
+      },
     },
   };
 });

@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "bench": "node bench/runBench.mjs",
     "plot": "node bench/visualize.mjs",
     "perf": "node --expose-gc node_modules/.bin/vitest run --config perf/vitest.config.ts"
@@ -28,6 +29,7 @@
     "@types/node": "^22.19.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^10.1.0",
     "globals": "^17.7.0",
     "tsx": "^4.21.0",
