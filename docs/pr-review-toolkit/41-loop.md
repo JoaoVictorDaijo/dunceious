@@ -55,3 +55,31 @@ issues; tsc/lint/build clean; tests mutation-sensitive. All findings below.
   tri-state asAlignment — all pre-existing codebase patterns); m6 low-value
   test notes. Rationale: pre-existing, out of scope for a behavior-preserving
   extraction; can be a separate cleanup.
+
+## Round 2 (re-review of fix commit 7f5789a: code, comments, silent-failure)
+
+**CONVERGED — 0 Critical / 0 Important survive.**
+
+- **code**: PASS. reject-empty verified (right field, can't reject valid overlays,
+  ordering sound, union exhaustive, no state mutation); SearchableRecord = pure
+  type change; log guard + dead-code removal correct.
+- **comments**: PASS. all 3 reworded comments now accurate; traced that
+  reject-empty genuinely closes the alignedSequence:'' reachability (no other
+  producer of '' exists). 0 findings.
+- **silent-failure**: PASS. reject-empty surfaces its error like the sibling
+  rejects; switch covers all 5 kinds; log guard silences only the unreachable
+  no-match. 0 findings.
+
+### Surviving minors (non-blocking; human's call)
+- **s1 [silent-failure, Minor]** the useBioWorker `kind` switch has no
+  `default`/assertNever exhaustiveness guard → a *future* union member added
+  without a case would silently drop. Cheap hardening; not triggered by this PR.
+- **s2 [comments, not-flagged]** bioResponse validation-order JSDoc says
+  "all-empty" while the guard is any-empty (`some`). One-word wording nit.
+- **m7 [types, deferred]** isProtein-boolean / positional-number ergonomics /
+  inline range shape / tri-state asAlignment — pre-existing codebase patterns.
+
+| Round | C | I | Minor surviving | Status |
+|-------|---|---|-----------------|--------|
+| 1     | 1 | 2 | 7 | all fixed in 7f5789a |
+| 2     | 0 | 0 | 3 (all optional) | CONVERGED |

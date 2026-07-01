@@ -114,6 +114,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
             case 'overlay':
               addLog(`External alignment applied successfully (${res.length} bp).`);
               break;
+            default: {
+              // Exhaustiveness guard: adding a new `kind` without a case here is a
+              // compile error, and any unhandled kind still surfaces a logged error
+              // instead of silently dropping (never reached today).
+              const _exhaustive: never = res;
+              addLog(`ERROR: Unhandled FASTA response kind: ${JSON.stringify(_exhaustive)}`);
+              break;
+            }
           }
           return res.next;
         });

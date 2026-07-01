@@ -93,8 +93,9 @@ export function applyAnnotations(
 /**
  * FASTA_SUCCESS reducer. When !asAlignment: batch-append with dedup (like
  * applyParseSuccess but accession resolves from undefined). When asAlignment:
- * validate exact ID match (missing/extra), reject an all-empty overlay, and
- * validate uniform length, then overlay alignedSequence onto matching records.
+ * validate exact ID match (missing/extra), reject any overlay with an empty
+ * sequence, and validate uniform length, then overlay alignedSequence onto
+ * matching records.
  * Returns a discriminated `kind`.
  */
 export function applyFastaResponse(
