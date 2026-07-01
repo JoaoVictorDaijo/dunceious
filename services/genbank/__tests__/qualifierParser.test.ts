@@ -101,3 +101,25 @@ describe('parseQualifiers', () => {
     expect(qualifiers['note']).toContain('note that wraps');
   });
 });
+
+describe('parseQualifiers – malformed / skip branches', () => {
+  const INDENT = ' '.repeat(21);
+
+  it('skips a leading indented line that does not start with "/"', () => {
+    // An orphan continuation-style line at fromIdx (not preceded by a matched
+    // qualifier) hits the `!qualLine.startsWith('/')` skip branch.
+    const lines = [`${INDENT}orphan text`, `${INDENT}/gene="AXL2"`];
+    const { qualifiers, lastIdx } = parseQualifiers(lines, 0);
+    expect(qualifiers).not.toHaveProperty('orphan');
+    expect(qualifiers['gene']).toBe('AXL2');
+    expect(lastIdx).toBe(1);
+  });
+
+  it('skips a "/" line that fails the /key(=value) pattern', () => {
+    // A bare "/" has no \w+ after it → regex match fails → skip branch.
+    const lines = [`${INDENT}/`, `${INDENT}/gene="AXL2"`];
+    const { qualifiers } = parseQualifiers(lines, 0);
+    expect(Object.keys(qualifiers)).toEqual(['gene']);
+    expect(qualifiers['gene']).toBe('AXL2');
+  });
+});
