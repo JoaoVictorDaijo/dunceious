@@ -61,9 +61,9 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 | `npm run typecheck` | Type-check the codebase with `tsc --noEmit` — no output means no type errors                                                                          |
 | `npm run lint`      | Run ESLint over the codebase (`eslint .`) — exits non-zero on lint errors (warnings are allowed)                                                       |
 | `npm test`          | Run the unit test suite (excludes benchmarks)                                                                                                         |
-| `npm run perf`      | Run performance tests (`*.perf.bench.ts`) — measure grid transposition, consensus, and core algorithm speeds on large datasets                        |
-| `npm run bench`     | Run the GenBank parser benchmark grid (seq length × record count) and write results to `bench/results/benchmark.json` and SVG plots to `bench/plots/` |
-| `npm run plot`      | Regenerate the SVG plots from an existing `bench/results/benchmark.json` without re-running the benchmarks                                             |
+| `npm run perf`      | Run the performance regression guardrails in `perf/` — absolute + relative time/memory budgets on core algorithms (console only)                       |
+| `npm run bench`     | Run the GenBank parse-time data grid in `bench/` and write results to `bench/results/benchmark.json` + SVG plots to `bench/plots/`                     |
+| `npm run plot`      | Regenerate the SVG plots in `bench/plots/` from an existing `bench/results/benchmark.json` without re-running the grid                                  |
 
 ---
 

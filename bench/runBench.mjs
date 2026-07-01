@@ -24,7 +24,7 @@ const counts = [...cliArgs, ...npmArgs]
 const recordCounts = counts.length > 0 ? counts : DEFAULT_COUNTS;
 const vitestBin = resolve('node_modules/.bin/vitest');
 
-const result = spawnSync(vitestBin, ['run', '--config', 'vitest.bench.config.ts'], {
+const result = spawnSync(vitestBin, ['run', '--config', 'bench/vitest.config.ts'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
   env: {

@@ -13,7 +13,7 @@
     "test": "vitest run",
     "bench": "node bench/runBench.mjs",
     "plot": "node bench/visualize.mjs",
-    "perf": "node --expose-gc node_modules/.bin/vitest run --config vitest.perf.config.ts"
+    "perf": "node --expose-gc node_modules/.bin/vitest run --config perf/vitest.config.ts"
   },
   "dependencies": {
     "@types/react-window": "^1.8.8",

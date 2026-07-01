@@ -25,7 +25,7 @@
  *
  *   - seqLength_bp ∈ [5 000, 10 000, 50 000, 100 000, 200 000, 300 000]
  *   - numRecords   ∈ [1, 10, 30, 50] by default, or a custom list passed via
- *                   `npm run bench 1 10 30 50 100`
+ *                   `npm run bench -- 1 10 30 50 100`
  *
  * Each cell is run `REPLICATES` times and reduced to mean / standard error.
  * Raw samples are also persisted so the plotter can render uncertainty.
@@ -33,7 +33,7 @@
  * Each test asserts basic correctness (records parsed = numRecords, features
  * parsed > 0) so the suite fails loudly if the parser breaks.  Performance
  * numbers are never compared against hard thresholds – they are written as
- * JSON to `benchmark/results/benchmark.json` at the end of the run.
+ * JSON to `bench/results/benchmark.json` at the end of the run.
  *
  * Run with:
  *   npm run bench
@@ -218,7 +218,7 @@ afterAll(async () => {
   const resultsPath = join(RESULTS_DIR, 'benchmark.json');
   writeFileSync(resultsPath, JSON.stringify(output, null, 2));
 
-  // Refresh SVG tables & charts in benchmark/plots/. Failures here must not
+  // Refresh SVG tables & charts in bench/plots/. Failures here must not
   // break the bench run – the JSON above is the source of truth.
   try {
     const { generatePlots } = (await import('./visualize.mjs')) as {

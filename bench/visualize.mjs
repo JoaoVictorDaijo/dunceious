@@ -1,8 +1,8 @@
 /**
  * Benchmark visualization module.
  *
- * Reads `benchmark/results/benchmark.json` and writes SVG images to
- * `benchmark/plots/`:
+ * Reads `bench/results/benchmark.json` and writes SVG images to
+ * `bench/plots/`:
  *   - summary-table.svg      flat table of every benchmark entry
  *   - pivot-duration.svg     seqLength × numRecords pivot of durationMs
  *   - pivot-heap.svg         seqLength × numRecords pivot of heapDeltaBytes
@@ -426,7 +426,7 @@ export function generatePlots({ resultsPath = DEFAULT_RESULTS, outDir = DEFAULT_
   process.stdout.write(`visualize: wrote 8 SVGs to ${outDir}\n`);
 }
 
-// CLI entry: `node benchmark/visualize.mjs`
+// CLI entry: `node bench/visualize.mjs`
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   generatePlots();
 }

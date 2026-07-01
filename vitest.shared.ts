@@ -17,29 +17,25 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import react from "@vitejs/plugin-react";
-import path from "path";
-import { defineConfig } from "vite";
+/**
+ * Shared Vitest configuration for the perf/ (regression guardrails) and
+ * bench/ (data-collection grid) suites. Each suite's vitest.config.ts spreads
+ * this and adds its own `include` (and, for the grid, a longer testTimeout).
+ */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
 
-export default defineConfig(() => {
-  return {
-    server: {
-      port: 3000,
-      host: "0.0.0.0",
-    },
-    plugins: [react()],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "."),
-      },
-    },
-    test: {
-      environment: "node",
-      exclude: [
-        "perf/**",
-        "bench/**",
-        "**/node_modules/**",
-      ],
-    },
-  };
-});
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+export const sharedBenchConfig = {
+  plugins: [react()],
+  resolve: {
+    alias: { '@': ROOT },
+  },
+  test: {
+    environment: 'node' as const,
+    // Expose global.gc() to worker processes for GC-aware memory sampling.
+    execArgv: ['--expose-gc'],
+  },
+};

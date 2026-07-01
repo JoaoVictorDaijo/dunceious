@@ -17,29 +17,19 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import react from "@vitejs/plugin-react";
-import path from "path";
-import { defineConfig } from "vite";
+/**
+ * Vitest config for the GenBank parse-time data-collection grid.
+ * Run via:  npm run bench   (and npm run plot to regenerate SVGs)
+ */
+import { defineConfig } from 'vitest/config';
+import { sharedBenchConfig } from '../vitest.shared';
 
-export default defineConfig(() => {
-  return {
-    server: {
-      port: 3000,
-      host: "0.0.0.0",
-    },
-    plugins: [react()],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "."),
-      },
-    },
-    test: {
-      environment: "node",
-      exclude: [
-        "perf/**",
-        "bench/**",
-        "**/node_modules/**",
-      ],
-    },
-  };
+export default defineConfig({
+  ...sharedBenchConfig,
+  test: {
+    ...sharedBenchConfig.test,
+    include: ['bench/**/*.grid.bench.ts'],
+    // The grid spawns child processes per replicate; allow a long budget.
+    testTimeout: 300000,
+  },
 });

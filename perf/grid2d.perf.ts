@@ -35,7 +35,7 @@
  *   - clipSegments          – per-frame viewport clipping (O(segments) per call)
  *   - calculateConsensus    – majority-vote consensus (O(rows × columns))
  *
- * Methodology: see src/__tests__/perfUtils.ts and parseGenBank.perf.bench.ts.
+ * Methodology: see perfUtils.ts and parseGenBank.perf.ts.
  */
 
 import { describe, it, expect } from 'vitest';

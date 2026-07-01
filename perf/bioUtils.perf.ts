@@ -29,7 +29,7 @@
  *   - sliceRecordsBySelection – feature/track clipping over many records
  *   - exportToGenBank         – serialisation of SeqRecord[] to GenBank text
  *
- * Methodology: see src/__tests__/perfUtils.ts and parseGenBank.perf.bench.ts.
+ * Methodology: see perfUtils.ts and parseGenBank.perf.ts.
  */
 
 import { describe, it, expect } from 'vitest';
