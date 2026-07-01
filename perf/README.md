@@ -11,7 +11,7 @@ Console output only — no artifacts, not a CI gate.
 | `searchLogic.perf.ts` | `services/searchLogic` — reverseComplement, smithWaterman, degenerateToRegex |
 | `bioUtils.perf.ts` | `services/bioUtils` — translateSequence, sliceRecordsBySelection, exportToGenBank |
 | `parseGenBank.perf.ts` | `services/genbank` — parseGenBank |
-| `grid2d.perf.ts` | `src/domain/bio` — transposeCoordinates, processTransposition, calculateConsensus, … |
+| `grid2d.perf.ts` | `src/domain/bio` — transposeCoordinates, buildAlignedSegments, processTransposition, clipSegments, calculateConsensus |
 
 ## Run
 
