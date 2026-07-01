@@ -276,3 +276,51 @@ describe('mapUngappedRangeToAligned', () => {
     expect(mapUngappedRangeToAligned([5], 0, 1)).toEqual({ start: 5, end: 6 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// smithWaterman – gapped traceback (exercises Iq / It gap states)
+// ---------------------------------------------------------------------------
+
+describe('smithWaterman – gapped alignments', () => {
+  it('aligns across an insertion in the target (It gap state)', () => {
+    // query 'ACGTACGT' vs target with 'TT' inserted in the middle.
+    // Optimal local alignment must open a gap in the query to skip 'TT'.
+    const results = smithWaterman('ACGTACGT', 'ACGTTTACGT');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].start).toBeLessThan(results[0].end);
+    // Spanning both halves scores higher than either 4-mer half alone (8).
+    expect(results[0].score).toBeGreaterThan(8);
+  });
+
+  it('aligns across an insertion in the query (Iq gap state)', () => {
+    // Mirror image: the query carries the extra 'TT'.
+    const results = smithWaterman('ACGTTTACGT', 'ACGTACGT');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].start).toBeLessThan(results[0].end);
+    expect(results[0].score).toBeGreaterThan(8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// smithWaterman – ungapped fallback for very large targets (> MAX_SW_CELLS)
+// ---------------------------------------------------------------------------
+
+describe('smithWaterman – large-target ungapped fallback', () => {
+  it('falls back and finds a strong ungapped match when the DP matrix is too large', () => {
+    // (1000+1) * (700+1) = 701,701 cells > 600,000 → ungapped fallback path.
+    const query = 'A'.repeat(1000);
+    const target = 'A'.repeat(700);
+    const results = smithWaterman(query, target);
+    expect(results).toHaveLength(1);
+    expect(results[0].start).toBe(0);
+    expect(results[0].end).toBe(700);
+    expect(results[0].score).toBe(1400); // 700 matches × matchScore(2)
+  });
+
+  it('returns no hits when the fallback window scores below minScore', () => {
+    // All-mismatch window → negative score → filtered out.
+    const query = 'A'.repeat(1000);
+    const target = 'T'.repeat(700);
+    expect(smithWaterman(query, target)).toHaveLength(0);
+  });
+});
