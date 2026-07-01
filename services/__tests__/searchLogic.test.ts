@@ -184,7 +184,8 @@ describe('smithWaterman – fuzzy search smoke tests', () => {
   it('finds an exact local alignment with default scoring', () => {
     const results = smithWaterman('ACGT', 'NNNACGTNNN', 2, -1, -3, -1, 4);
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0].sequence).toBe('ACGT');
+    // 'ACGT' sits at target[3..7); 4 matches × 2 = score 8.
+    expect(results[0]).toMatchObject({ start: 3, end: 7, score: 8, sequence: 'ACGT' });
   });
 
   it('returns empty array when score is below minScore', () => {
@@ -275,6 +276,13 @@ describe('mapUngappedRangeToAligned', () => {
   it('handles a single-element map', () => {
     expect(mapUngappedRangeToAligned([5], 0, 1)).toEqual({ start: 5, end: 6 });
   });
+
+  it('keeps a non-empty aligned span for a degenerate range (start >= end)', () => {
+    // safeEndExclusive is floored to safeStart+1, so an inverted/zero-width
+    // request still yields a single-position aligned span.
+    expect(mapUngappedRangeToAligned(map, 2, 2)).toEqual({ start: 4, end: 5 });
+    expect(mapUngappedRangeToAligned(map, 3, 1)).toEqual({ start: 6, end: 7 });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -283,21 +291,27 @@ describe('mapUngappedRangeToAligned', () => {
 
 describe('smithWaterman – gapped alignments', () => {
   it('aligns across an insertion in the target (It gap state)', () => {
-    // query 'ACGTACGT' vs target with 'TT' inserted in the middle.
-    // Optimal local alignment must open a gap in the query to skip 'TT'.
-    const results = smithWaterman('ACGTACGT', 'ACGTTTACGT');
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].start).toBeLessThan(results[0].end);
-    // Spanning both halves scores higher than either 4-mer half alone (8).
-    expect(results[0].score).toBeGreaterThan(8);
+    // 'ACGTACGT' vs 'ACGTTTACGT': the optimal alignment matches ACGT (8),
+    // opens a gap in the query to skip the inserted 'TT' (open -3, extend -1),
+    // then matches ACGT (8) → score 12, spanning the ENTIRE target [0,10).
+    // A broken gap-traceback would fall back to the best no-gap local score
+    // (10, over a 4-base span), so pinning the exact score AND full span makes
+    // this test fail if the It gap state is dropped.
+    const [best] = smithWaterman('ACGTACGT', 'ACGTTTACGT');
+    expect(best.score).toBe(12);
+    expect(best.start).toBe(0);
+    expect(best.end).toBe(10);
+    expect(best.sequence).toBe('ACGTTTACGT');
   });
 
   it('aligns across an insertion in the query (Iq gap state)', () => {
-    // Mirror image: the query carries the extra 'TT'.
-    const results = smithWaterman('ACGTTTACGT', 'ACGTACGT');
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].start).toBeLessThan(results[0].end);
-    expect(results[0].score).toBeGreaterThan(8);
+    // Mirror image: the query carries the extra 'TT'; the 8-base target is
+    // fully spanned via an Iq gap, same score 12.
+    const [best] = smithWaterman('ACGTTTACGT', 'ACGTACGT');
+    expect(best.score).toBe(12);
+    expect(best.start).toBe(0);
+    expect(best.end).toBe(8);
+    expect(best.sequence).toBe('ACGTACGT');
   });
 });
 

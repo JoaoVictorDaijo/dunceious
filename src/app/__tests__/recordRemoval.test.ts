@@ -95,10 +95,20 @@ describe('sanitizeSearchStateAfterRecordRemoval', () => {
     expect(currentSearchIdx).toBe(-1);
   });
 
-  it('returns an empty selection set when it was empty', () => {
+  it('keeps selected indices that all point at surviving records', () => {
+    // index 1 → r2, which survives when r1 is removed → nothing is dropped.
     const { selectedSearchIndices } = sanitizeSearchStateAfterRecordRemoval(
-      results, 1, new Set(), 'r2',
+      results, 1, new Set([1]), 'r1',
     );
-    expect(selectedSearchIndices.size).toBe(0);
+    expect([...selectedSearchIndices]).toEqual([1]);
+  });
+
+  it('keeps a stale out-of-range selected index (optional-chaining short-circuit)', () => {
+    // index 9 is out of range → filteredResults[9]?.recordId is undefined,
+    // which is !== recordId, so the stale index is retained rather than throwing.
+    const { selectedSearchIndices } = sanitizeSearchStateAfterRecordRemoval(
+      results, 1, new Set([1, 9]), 'r1',
+    );
+    expect([...selectedSearchIndices].sort((a, b) => a - b)).toEqual([1, 9]);
   });
 });

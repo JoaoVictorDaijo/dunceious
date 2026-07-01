@@ -21,12 +21,10 @@ import { describe, it, expect } from 'vitest';
 import { parseQualifiers } from '../qualifierParser';
 
 /**
- * Build an array that mimics a GenBank record's line array by prepending
- * filler lines so that fromIdx=0 refers to the first qualifier line.
+ * Identity passthrough: the qualifier lines are handed straight to
+ * parseQualifiers with fromIdx=0, so index 0 is the first qualifier line.
  */
 function makeLines(qualLines: string[]): string[] {
-  // Prefix with a dummy feature line at index -1
-  // We'll pass fromIdx = 0 pointing straight at qualLines
   return qualLines;
 }
 
@@ -105,9 +103,12 @@ describe('parseQualifiers', () => {
 describe('parseQualifiers – malformed / skip branches', () => {
   const INDENT = ' '.repeat(21);
 
-  it('skips a leading indented line that does not start with "/"', () => {
-    // An orphan continuation-style line at fromIdx (not preceded by a matched
-    // qualifier) hits the `!qualLine.startsWith('/')` skip branch.
+  // NOTE: a trimmed line that does not start with '/' can never match the
+  // '^/'-anchored qualifier regex, so the `!startsWith('/')` guard and the
+  // regex-no-match guard are two routes to the same "skip this line" outcome —
+  // no input can isolate one from the other. These tests pin the observable
+  // contract (line skipped, index advanced), not a specific guard.
+  it('skips an indented non-"/" line and advances the index past it', () => {
     const lines = [`${INDENT}orphan text`, `${INDENT}/gene="AXL2"`];
     const { qualifiers, lastIdx } = parseQualifiers(lines, 0);
     expect(qualifiers).not.toHaveProperty('orphan');
@@ -115,11 +116,29 @@ describe('parseQualifiers – malformed / skip branches', () => {
     expect(lastIdx).toBe(1);
   });
 
-  it('skips a "/" line that fails the /key(=value) pattern', () => {
+  it('skips a "/" line that fails the /key(=value) pattern and advances the index', () => {
     // A bare "/" has no \w+ after it → regex match fails → skip branch.
     const lines = [`${INDENT}/`, `${INDENT}/gene="AXL2"`];
+    const { qualifiers, lastIdx } = parseQualifiers(lines, 0);
+    expect(Object.keys(qualifiers)).toEqual(['gene']);
+    expect(qualifiers['gene']).toBe('AXL2');
+    expect(lastIdx).toBe(1);
+  });
+
+  it('does not absorb a following non-qualifier line into a skipped "/" line', () => {
+    // The malformed '/' is skipped outright; the loose line after it is not
+    // swallowed as a continuation value, and the real qualifier still parses.
+    const lines = [`${INDENT}/`, `${INDENT}loose continuation`, `${INDENT}/gene="AXL2"`];
     const { qualifiers } = parseQualifiers(lines, 0);
     expect(Object.keys(qualifiers)).toEqual(['gene']);
     expect(qualifiers['gene']).toBe('AXL2');
+  });
+
+  it('returns empty qualifiers and the terminal index when every line is skipped', () => {
+    const lines = [`${INDENT}orphan one`, `${INDENT}orphan two`];
+    const { qualifiers, lastIdx } = parseQualifiers(lines, 0);
+    expect(Object.keys(qualifiers)).toHaveLength(0);
+    // Both indented lines are consumed (i → 2) so lastIdx = i - 1 = 1.
+    expect(lastIdx).toBe(1);
   });
 });

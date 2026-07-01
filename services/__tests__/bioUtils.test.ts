@@ -24,6 +24,7 @@ import {
   getAminoAcidColor,
   getFeatureColor,
   getOriginalPos,
+  exportToFasta,
   exportToGff,
   exportToGenBank,
   downloadBlob,
@@ -134,11 +135,40 @@ describe('exportToGff', () => {
     expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=my_gene;Name=my gene');
   });
 
-  it('renders the minus strand as "-"', () => {
+  it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
     const gff = exportToGff([record({
-      features: [{ type: 'gene', name: 'g1', start: 0, end: 5, strand: -1 }],
+      features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
     })]);
-    expect(gff).toContain('\t-\t0\t');
+    // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
+    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
+  });
+});
+
+describe('exportToFasta', () => {
+  it('wraps a single record at 60 characters per line', () => {
+    expect(exportToFasta([record({ sequence: 'A'.repeat(70) })]))
+      .toBe('>REC1\n' + 'A'.repeat(60) + '\n' + 'A'.repeat(10));
+  });
+
+  it('emits a plain header and unwrapped sequence for a short record', () => {
+    expect(exportToFasta([record()])).toBe('>REC1\nATGCAAATAG');
+  });
+
+  it('slices to [start, end) and stamps the slice header when both are given', () => {
+    // 'ATGCAAATAG'.substring(2, 5) → 'GCA'
+    expect(exportToFasta([record()], 2, 5)).toBe('>REC1 [Slice: 2-5]\nGCA');
+  });
+
+  it('prefers alignedSequence over sequence when present', () => {
+    expect(exportToFasta([record({ alignedSequence: 'XXXX' })])).toBe('>REC1\nXXXX');
+  });
+
+  it('joins multiple records with a blank line', () => {
+    const out = exportToFasta([
+      record({ id: 'A', sequence: 'AAA' }),
+      record({ id: 'B', sequence: 'CCC' }),
+    ]);
+    expect(out).toBe('>A\nAAA\n\n>B\nCCC');
   });
 });
 
@@ -168,6 +198,25 @@ describe('exportToGenBank', () => {
     expect(gb).toContain(' aa ');
     expect(gb).not.toContain('DNA');
   });
+
+  it('renders the ORIGIN block and feature locations (plus, complement, passthrough)', () => {
+    const gb = exportToGenBank([record({
+      sequence: 'ATGCAAATAG', // 10 bp
+      features: [
+        { type: 'CDS', name: 'fwd', start: 0, end: 6, strand: 1 },
+        { type: 'CDS', name: 'rev', start: 2, end: 8, strand: -1 },
+        { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1, locationString: 'join(1..3,6..8)' },
+      ],
+    })]);
+    // ORIGIN: 1-based line number right-justified to width 9, then the
+    // lowercased sequence in 10-base groups.
+    expect(gb).toContain('        1 atgcaaatag');
+    // strand +1 reconstructs '1..6'; strand -1 reconstructs 'complement(3..8)';
+    // an explicit locationString is passed through verbatim.
+    expect(gb).toContain('1..6');
+    expect(gb).toContain('complement(3..8)');
+    expect(gb).toContain('join(1..3,6..8)');
+  });
 });
 
 describe('downloadBlob', () => {
@@ -175,24 +224,38 @@ describe('downloadBlob', () => {
     vi.unstubAllGlobals();
   });
 
-  it('wires up an anchor, triggers a click, and revokes the object URL', () => {
+  it('wires content and mimeType into a Blob, clicks the anchor, and revokes the URL', () => {
     const click = vi.fn();
     const anchor: Record<string, unknown> = { click };
     const createElement = vi.fn(() => anchor);
     const appendChild = vi.fn();
     const removeChild = vi.fn();
-    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    const createObjectURL = vi.fn((_blob: unknown) => 'blob:mock-url');
     const revokeObjectURL = vi.fn();
+    const blobs: Array<{ parts: unknown; opts: unknown }> = [];
+    class BlobStub {
+      parts: unknown;
+      opts: unknown;
+      constructor(parts: unknown, opts: unknown) {
+        this.parts = parts;
+        this.opts = opts;
+        blobs.push(this);
+      }
+    }
 
     vi.stubGlobal('document', { createElement, body: { appendChild, removeChild } });
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
-    vi.stubGlobal('Blob', class {
-      parts: unknown; opts: unknown;
-      constructor(parts: unknown, opts: unknown) { this.parts = parts; this.opts = opts; }
-    });
+    vi.stubGlobal('Blob', BlobStub);
 
     downloadBlob('hello', 'out.txt', 'text/plain');
 
+    // Blob is built from the content + mimeType and handed to createObjectURL.
+    expect(blobs).toHaveLength(1);
+    expect(blobs[0].parts).toEqual(['hello']);
+    expect(blobs[0].opts).toEqual({ type: 'text/plain' });
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(BlobStub);
+    // Anchor wiring + lifecycle.
     expect(createElement).toHaveBeenCalledWith('a');
     expect(anchor.href).toBe('blob:mock-url');
     expect(anchor.download).toBe('out.txt');
