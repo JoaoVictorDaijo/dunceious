@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq, featureLength, scorePercent } from '../viewModel';
+import { getDisplaySeq, featureLength, scorePercent, deriveAlignmentState } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -73,5 +73,39 @@ describe('scorePercent', () => {
   });
   it('rounds a .5 up (Math.round half-up)', () => {
     expect(scorePercent(1, 8)).toBe(13); // 12.5 -> 13
+  });
+});
+
+describe('deriveAlignmentState', () => {
+  it('reports no alignment and zero length for no records', () => {
+    expect(deriveAlignmentState([], false)).toEqual({
+      isAlignmentLoaded: false, alignmentLength: 0, sessionMoleculeType: null,
+    });
+  });
+  it('requires at least two records to be considered aligned', () => {
+    expect(deriveAlignmentState([{ sequence: 'ACGT' }], false)).toEqual({
+      isAlignmentLoaded: false, alignmentLength: 4, sessionMoleculeType: 'nucleotide',
+    });
+  });
+  it('is aligned when two records share an equal length', () => {
+    expect(deriveAlignmentState([{ sequence: 'ACGT' }, { sequence: 'TGCA' }], false)).toEqual({
+      isAlignmentLoaded: true, alignmentLength: 4, sessionMoleculeType: 'nucleotide',
+    });
+  });
+  it('is not aligned when two records differ in length', () => {
+    expect(deriveAlignmentState([{ sequence: 'ACGT' }, { sequence: 'TGC' }], false)).toEqual({
+      isAlignmentLoaded: false, alignmentLength: 4, sessionMoleculeType: 'nucleotide',
+    });
+  });
+  it('prefers alignedSequence length and honours the protein session flag', () => {
+    expect(deriveAlignmentState(
+      [{ sequence: 'ACGT', alignedSequence: 'AC-GT' }, { sequence: 'TGCA', alignedSequence: 'TG-CA' }],
+      true,
+    )).toEqual({ isAlignmentLoaded: true, alignmentLength: 5, sessionMoleculeType: 'protein' });
+  });
+  it('sets sessionMoleculeType to protein for a single protein record', () => {
+    expect(deriveAlignmentState([{ sequence: 'MK' }], true)).toEqual({
+      isAlignmentLoaded: false, alignmentLength: 2, sessionMoleculeType: 'protein',
+    });
   });
 });

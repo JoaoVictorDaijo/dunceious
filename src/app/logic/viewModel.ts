@@ -70,3 +70,30 @@ export function featureLength(
 export function scorePercent(score: number, maxScoreFound: number): number {
   return maxScoreFound > 0 ? Math.round((score / maxScoreFound) * 100) : 0;
 }
+
+/**
+ * Alignment-related derived state for the App shell, combining the three inline
+ * `useMemo` derivations verbatim:
+ *  - `isAlignmentLoaded`: >= 2 records AND all (aligned-or-raw) lengths equal.
+ *  - `alignmentLength`: max (aligned-or-raw) length; 0 for no records.
+ *  - `sessionMoleculeType`: null for no records, else 'protein'/'nucleotide'
+ *    from the session flag.
+ * `alignedSequence || sequence` is the per-record length source. Pure; the
+ * `useMemo` wiring stays in App.
+ */
+export function deriveAlignmentState(
+  records: { sequence: string; alignedSequence?: string }[],
+  isProteinSession: boolean,
+): { isAlignmentLoaded: boolean; alignmentLength: number; sessionMoleculeType: 'nucleotide' | 'protein' | null } {
+  const isAlignmentLoaded =
+    records.length < 2
+      ? false
+      : new Set(records.map(r => (r.alignedSequence || r.sequence).length)).size === 1;
+  const alignmentLength =
+    records.length === 0
+      ? 0
+      : Math.max(...records.map(r => (r.alignedSequence || r.sequence).length));
+  const sessionMoleculeType: 'nucleotide' | 'protein' | null =
+    records.length === 0 ? null : isProteinSession ? 'protein' : 'nucleotide';
+  return { isAlignmentLoaded, alignmentLength, sessionMoleculeType };
+}

@@ -26,6 +26,7 @@ import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
+import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -192,18 +193,8 @@ const App: React.FC = () => {
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const isAlignmentLoaded = useMemo(() => {
-    if (records.length < 2) return false;
-    return new Set(records.map(r => (r.alignedSequence || r.sequence).length)).size === 1;
-  }, [records]);
-
-  const alignmentLength = useMemo(() => {
-    if (records.length === 0) return 0;
-    return Math.max(...records.map(r => (r.alignedSequence || r.sequence).length));
-  }, [records]);
-
-  const sessionMoleculeType = useMemo<'nucleotide' | 'protein' | null>(
-    () => records.length === 0 ? null : (isProteinSession ? 'protein' : 'nucleotide'),
+  const { isAlignmentLoaded, alignmentLength, sessionMoleculeType } = useMemo(
+    () => deriveAlignmentState(records, isProteinSession),
     [records, isProteinSession],
   );
 
