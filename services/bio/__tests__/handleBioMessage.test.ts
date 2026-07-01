@@ -65,3 +65,23 @@ describe('handleBioMessage — PARSE_ANNOTATIONS format dispatch', () => {
     } else { throw new Error('expected ANNOTATIONS_SUCCESS'); }
   });
 });
+
+describe('handleBioMessage — records & genbank routing', () => {
+  it('routes PROCESS_RECORDS to transposition + consensus (empty input)', () => {
+    const res = handleBioMessage({ type: 'PROCESS_RECORDS', records: [] });
+    expect(res.type).toBe('SUCCESS');
+    if (res.type === 'SUCCESS') {
+      expect(res.records).toEqual([]);
+      expect(res.consensus).toBe('');
+    }
+  });
+  it('routes PARSE_GENBANK to the GenBank parser', () => {
+    const gb = 'LOCUS       TEST        10 bp    DNA     linear   UNK 01-JAN-2020\nORIGIN\n        1 atgcaaatag\n//\n';
+    const res = handleBioMessage({ type: 'PARSE_GENBANK', content: gb });
+    expect(res.type).toBe('PARSE_SUCCESS');
+  });
+  it('echoes asAlignment=false on FASTA_SUCCESS', () => {
+    const res = handleBioMessage({ type: 'PARSE_FASTA', content: '>a\nACGT', asAlignment: false });
+    expect(res).toMatchObject({ type: 'FASTA_SUCCESS', asAlignment: false });
+  });
+});

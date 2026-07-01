@@ -102,4 +102,33 @@ describe('collectSeededFuzzyHits', () => {
     expect(hits.length).toBeGreaterThan(0);
     expect(hits.every(h => h.recordId === 'r1' && h.strand === 1)).toBe(true);
   });
+  it('uses the full-sequence Smith-Waterman fallback for a query shorter than the seed length', () => {
+    const hits = collectSeededFuzzyHits('A', 'AAAA', 'r1', 1, 2);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits.every(h => h.recordId === 'r1' && h.strand === 1)).toBe(true);
+  });
+});
+
+describe('runSearch — reverse fuzzy & exact tiebreak', () => {
+  it('finds fuzzy hits on the reverse strand (strand -1)', () => {
+    // 'TTTACGTACGTTTT' reverse-complemented contains 'ACGTACGT'.
+    const res = runSearch(req({
+      searchQuery: 'ACGTACGT',
+      records: [{ id: 'r1', sequence: 'TTTACGTACGTTTT' }],
+      mode: 'fuzzy', options: { minScore: 5, strand: 'rev', maxResults: 100 },
+    }));
+    if ('error' in res) throw new Error(res.error);
+    expect(res.results.some(r => r.strand === -1)).toBe(true);
+    res.results.forEach(r => expect(r.start).toBeLessThan(r.end));
+  });
+  it('breaks equal-start exact ties by recordId ascending', () => {
+    const res = runSearch(req({
+      searchQuery: 'AAA',
+      records: [{ id: 'r2', sequence: 'AAA' }, { id: 'r1', sequence: 'AAA' }],
+      mode: 'exact', options: { minScore: 5, strand: 'fwd', maxResults: 100 },
+    }));
+    if ('error' in res) throw new Error(res.error);
+    const atZero = res.results.filter(r => r.start === 0);
+    expect(atZero.map(r => r.recordId)).toEqual(['r1', 'r2']);
+  });
 });

@@ -46,4 +46,8 @@ describe('parseFasta', () => {
     expect(parseFasta('')).toEqual([]);
     expect(parseFasta('ACGT\nACGT')).toEqual([]);
   });
+
+  it('skips blank and whitespace-only sequence lines', () => {
+    expect(parseFasta('>s\nAC\n\n  \nGT')[0].sequence).toBe('ACGT');
+  });
 });

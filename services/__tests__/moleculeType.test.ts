@@ -42,4 +42,10 @@ describe('detectMoleculeType', () => {
   it('treats ambiguous nucleotide codes (N) as dna', () => {
     expect(detectMoleculeType('ACGTN')).toBe('dna');
   });
+  it('classifies excluded/ambiguous codes (B/J/O/X/Z) as dna', () => {
+    expect(detectMoleculeType('ACGTX')).toBe('dna');
+  });
+  it('detects rna from lowercase u', () => {
+    expect(detectMoleculeType('acgu')).toBe('rna');
+  });
 });

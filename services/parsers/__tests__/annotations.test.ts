@@ -39,6 +39,10 @@ describe('parseBED', () => {
     expect(out.chr1).toHaveLength(1);
     expect(out.chr1[0].data).toHaveLength(2);
   });
+  it('groups features under multiple chromosomes', () => {
+    const out = parseBED('chr1\t0\t5\nchr2\t3\t8', 'f.bed');
+    expect(Object.keys(out).sort()).toEqual(['chr1', 'chr2']);
+  });
 });
 
 describe('parseGFF3', () => {
@@ -67,6 +71,12 @@ describe('parseGFF3', () => {
   it('skips rows with fewer than 9 tab columns', () => {
     expect(parseGFF3('c\ts\tgene\t1\t9')).toEqual({});
   });
+  it('maps + / . / missing strand to 1', () => {
+    expect(parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g').c[0].strand).toBe(1);
+  });
+  it('skips a GFF3 row with a non-numeric start', () => {
+    expect(parseGFF3('c\ts\tgene\tx\t9\t.\t+\t0\tID=g')).toEqual({});
+  });
 });
 
 describe('parseBedGraph', () => {
@@ -80,5 +90,10 @@ describe('parseBedGraph', () => {
   });
   it('skips lines with fewer than 4 columns', () => {
     expect(parseBedGraph('chr1\t10\t20', 'f.bedgraph')).toEqual({});
+  });
+  it('reuses one line track across multiple valid rows in a chrom', () => {
+    const out = parseBedGraph('chr1\t0\t5\t1\nchr1\t5\t9\t2', 'f.bedgraph');
+    expect(out.chr1).toHaveLength(1);
+    expect(out.chr1[0].data).toHaveLength(2);
   });
 });
