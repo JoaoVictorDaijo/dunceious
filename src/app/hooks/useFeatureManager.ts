@@ -19,9 +19,17 @@
 
 import { useState, useMemo, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
-import { getOriginalPos } from '@/services/bioUtils';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
 import type { FlatItem } from '../components/DatabaseHubPanel';
+import {
+  saveEditedFeature as saveEditedFeatureReducer,
+  removeFeature as removeFeatureReducer,
+  toggleRecordVisibility as toggleVisibility,
+  groupFeaturesBySearch,
+  buildFlattenedFeatures,
+  newFeatureFromSelection,
+  annotationCoords,
+} from '@/src/app/logic/featureManager';
 
 export interface UseFeatureManagerReturn {
   /** State for the feature-editor modal; null when modal is closed. */
@@ -81,62 +89,34 @@ export function useFeatureManager(
 
   // ── Derived lists ─────────────────────────────────────────────────────────
 
-  const groupedFeatures = useMemo(() => {
-    const groups: Record<string, (BioFeature & { index: number })[]> = {};
-    const search = featureSearch.toLowerCase();
-    records.forEach(r => {
-      groups[r.id] = r.features
-        .map((f, idx) => ({ ...f, index: idx }))
-        .filter(f => {
-          const inName = f.name.toLowerCase().includes(search);
-          const inType = f.type.toLowerCase().includes(search);
-          const inDef = r.definition?.toLowerCase().includes(search);
-          const inMeta = f.metadata
-            ? Object.values(f.metadata).some(v => v.toLowerCase().includes(search))
-            : false;
-          return inName || inType || inDef || inMeta;
-        });
-    });
-    return groups;
-  }, [records, featureSearch]);
+  const groupedFeatures = useMemo(
+    () => groupFeaturesBySearch(records, featureSearch),
+    [records, featureSearch],
+  );
 
   const allFeaturesCount = useMemo(
     () => records.reduce((acc, r) => acc + r.features.length, 0),
     [records],
   );
 
-  const flattenedFeatures = useMemo<FlatItem[]>(() => {
-    const items: FlatItem[] = [];
-    Object.entries(groupedFeatures).forEach(([recordId, features]) => {
-      const record = records.find(r => r.id === recordId);
-      const tracks = record?.tracks || [];
-      if (features.length === 0 && tracks.length === 0 && featureSearch) return;
-      items.push({ type: 'header', recordId, count: features.length + tracks.length });
-      tracks.forEach(t => items.push({ type: 'track', recordId, track: t }));
-      features.forEach(f => items.push({ type: 'feature', recordId, feature: f }));
-    });
-    return items;
-  }, [groupedFeatures, records, featureSearch]);
+  const flattenedFeatures = useMemo<FlatItem[]>(
+    () => buildFlattenedFeatures(records, featureSearch),
+    [records, featureSearch],
+  );
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const toggleRecordVisibility = (recordId: string) => {
-    setRecords(prev =>
-      prev.map(r => (r.id === recordId ? { ...r, visible: !r.visible } : r)),
-    );
+    setRecords(prev => toggleVisibility(prev, recordId));
   };
 
   const removeFeature = useCallback(
     (recordId: string, featureIndex: number) => {
-      setRecords(prev =>
-        prev.map(r => {
-          if (r.id !== recordId) return r;
-          const newFeatures = [...r.features];
-          const removed = newFeatures.splice(featureIndex, 1);
-          addLog(`Removed feature: ${removed[0].name}`);
-          return { ...r, features: newFeatures };
-        }),
-      );
+      setRecords(prev => {
+        const { next, removedName } = removeFeatureReducer(prev, recordId, featureIndex);
+        addLog(`Removed feature: ${removedName}`);
+        return next;
+      });
     },
     [setRecords, addLog],
   );
@@ -144,15 +124,7 @@ export function useFeatureManager(
   const saveEditedFeature = () => {
     if (!editing) return;
     const { recordId, featureIndex, feature } = editing;
-    setRecords(prev =>
-      prev.map(r => {
-        if (r.id !== recordId) return r;
-        const newFeatures = [...r.features];
-        if (featureIndex === -1) newFeatures.push(feature);
-        else newFeatures[featureIndex] = feature;
-        return { ...r, features: newFeatures };
-      }),
-    );
+    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature));
     addLog(
       featureIndex === -1
         ? `New feature '${feature.name}' created.`
@@ -162,30 +134,18 @@ export function useFeatureManager(
   };
 
   const startNewFeature = () => {
-    if (records.length === 0) return;
-    let start = 0;
-    let end = 100;
-    let targetRecordId = records[0].id;
-
-    if (activeSelection) {
-      targetRecordId = activeSelection.recordIds[0] || records[0].id;
-      const targetRecord = records.find(r => r.id === targetRecordId);
-      if (targetRecord) {
-        start = getOriginalPos(
-          targetRecord.alignedSequence || targetRecord.sequence,
-          Math.min(activeSelection.start, activeSelection.end),
-        );
-        end = getOriginalPos(
-          targetRecord.alignedSequence || targetRecord.sequence,
-          Math.max(activeSelection.start, activeSelection.end),
-        );
-      }
-    }
-
+    const coords = newFeatureFromSelection(records, activeSelection);
+    if (!coords) return;
     setEditing({
-      recordId: targetRecordId,
+      recordId: coords.targetRecordId,
       featureIndex: -1,
-      feature: { name: 'New Feature', type: 'misc_feature', start, end, strand: 1 },
+      feature: {
+        name: 'New Feature',
+        type: 'misc_feature',
+        start: coords.start,
+        end: coords.end,
+        strand: 1,
+      },
     });
   };
 
@@ -197,23 +157,7 @@ export function useFeatureManager(
     segments?: { start: number; end: number }[],
   ) => {
     const targetRecord = records.find(r => r.id === recordId);
-    let finalStart = start;
-    let finalEnd = end;
-    let finalSegments = segments;
-
-    if (targetRecord) {
-      const seq = targetRecord.alignedSequence || targetRecord.sequence;
-      finalStart = getOriginalPos(seq, start);
-      finalEnd = getOriginalPos(seq, end);
-      if (segments) {
-        finalSegments = segments
-          .map(seg => ({
-            start: getOriginalPos(seq, seg.start),
-            end: getOriginalPos(seq, seg.end),
-          }))
-          .sort((a, b) => a.start - b.start);
-      }
-    }
+    const c = annotationCoords(targetRecord, start, end, segments);
 
     setEditing({
       recordId,
@@ -221,14 +165,14 @@ export function useFeatureManager(
       feature: {
         name,
         type: 'misc_feature',
-        start: finalStart,
-        end: finalEnd,
+        start: c.start,
+        end: c.end,
         strand: 1,
-        segments: finalSegments,
+        segments: c.segments,
       },
     });
     addLog(
-      `Preparing annotation for match${segments ? ' (multi-segment)' : ''} at ${finalStart} bp.`,
+      `Preparing annotation for match${segments ? ' (multi-segment)' : ''} at ${c.start} bp.`,
     );
   };
 
