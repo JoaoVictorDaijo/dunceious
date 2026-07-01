@@ -60,3 +60,13 @@ export function featureLength(
   }
   return Math.abs(end - start);
 }
+
+/**
+ * Fuzzy-match score as a whole-number percentage of the best score found,
+ * matching SearchPanel's inline calc. Guards divide-by-zero: when
+ * `maxScoreFound <= 0` returns 0. Otherwise `round((score / maxScoreFound) * 100)`.
+ * The `%` suffix and the `match.score` truthiness guard stay in the component.
+ */
+export function scorePercent(score: number, maxScoreFound: number): number {
+  return maxScoreFound > 0 ? Math.round((score / maxScoreFound) * 100) : 0;
+}

@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq, featureLength } from '../viewModel';
+import { getDisplaySeq, featureLength, scorePercent } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -55,5 +55,23 @@ describe('featureLength', () => {
   });
   it('falls through an empty segments array to the length branch', () => {
     expect(featureLength(100, 5, 15, [])).toBe(10);
+  });
+});
+
+describe('scorePercent', () => {
+  it('returns the exact percentage for a clean ratio', () => {
+    expect(scorePercent(50, 100)).toBe(50);
+  });
+  it('guards divide-by-zero, returning 0 when maxScoreFound is 0', () => {
+    expect(scorePercent(50, 0)).toBe(0);
+  });
+  it('rounds down below the half boundary', () => {
+    expect(scorePercent(1, 3)).toBe(33); // 33.33...
+  });
+  it('rounds up above the half boundary', () => {
+    expect(scorePercent(2, 3)).toBe(67); // 66.66...
+  });
+  it('rounds a .5 up (Math.round half-up)', () => {
+    expect(scorePercent(1, 8)).toBe(13); // 12.5 -> 13
   });
 });
