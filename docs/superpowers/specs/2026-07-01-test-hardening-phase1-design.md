@@ -24,8 +24,9 @@ Coverage splits cleanly into three buckets:
   `src/app/recordRemoval.ts` (55% ln / 29% br), `services/genbank/qualifierParser.ts`
   (79% ln / 82% br).
 - **Zero coverage (Phase 2 — deferred):** `components/GenomeViewer.tsx` (935 lines),
-  all `src/app/hooks/*`, both `src/workers/*.ts`, `src/app/App.tsx`, and the
-  modal/panel components. These need React test infra (jsdom/happy-dom +
+  all `src/app/hooks/*`, `src/workers/bioWorker.ts` and `src/workers/searchWorker.ts`
+  (note: `src/workers/protocol.ts` is already ~100% covered), `src/app/App.tsx`, and
+  the modal/panel components. These need React test infra (jsdom/happy-dom +
   `@testing-library`), a decision deferred to the Phase 2 checkpoint.
 
 This is the first of two phases. **Phase 1 = improve existing partial-coverage
@@ -144,3 +145,50 @@ boundary at the last codon).
   inputs — not just the happy path.
 - If a test cannot pass because the code is genuinely wrong, **stop and surface
   the bug** rather than writing a test that encodes the wrong behaviour.
+
+## Phase 1 Results
+
+Executed via subagent-driven development (one implementer per file) followed by
+an adversarial verification pass (5 independent opus reviewers that recomputed
+every expected value and mutation-tested each assertion).
+
+**Suite:** 295 → **347 tests** (19 files), all green. No production code changed
+(no bugs surfaced; the added tests confirm existing behaviour).
+
+**Per-file coverage (target files):**
+
+| File | lines | branches | funcs |
+|---|---|---|---|
+| `src/app/recordRemoval.ts` | 100 | 100 | 100 |
+| `services/genbank/qualifierParser.ts` | 100 | 100 | 100 |
+| `services/bioUtils.ts` | ~99 | ~89 | ~97 |
+| `services/searchLogic.ts` | 93.8 | 76.3 | 84.6 |
+
+**Scoped-gate aggregate** (`services/**`, `src/app/recordRemoval.ts`,
+`src/domain/**`): **lines 98.1 / branches 88.9 / functions 97.3 / statements 96.8**
+(up from a whole-repo baseline of ~16%).
+
+**Enforced ratchet thresholds** (committed in `vite.config.ts`, ~4–5 pts below
+achieved to absorb jitter): **lines 94 / branches 83 / functions 93 / statements 92.**
+No 100% thresholds. Wired into `ci.yml` via `npm run test:coverage`.
+
+**Adversarial pass — fixed before finalizing:**
+- *searchLogic (important):* the gapped-alignment tests asserted only `score > 8`,
+  but a gap-broken Smith-Waterman still scores 10 → not mutation-sensitive. Now
+  pin the exact score (12) and full span.
+- *qualifierParser (important):* the "orphan text" test could not isolate the
+  line-48 guard (logically redundant with line-54); relabelled to the observable
+  contract and added `lastIdx` assertions + two edge cases.
+- *minors:* replaced a near-tautological empty-set test; added an out-of-range
+  selected-index case; added `exportToFasta` coverage; asserted the full GFF
+  minus-strand line; added GenBank ORIGIN + plus/complement/passthrough
+  assertions; verified Blob content/mimeType wiring in `downloadBlob`.
+
+**Intentionally left uncovered** (accepted, not worth brittle tests): the
+Smith-Waterman candidate-trimming path (`TRIM_THRESHOLD`, needs >4000 candidate
+endpoints) and the `?? fallback` defensive branches in
+`mapUngappedRangeToAligned` (unreachable while `map.length > 0`).
+
+**Deferred to Phase 2:** `src/workers/protocol.ts` is ~100% covered today but sits
+outside the gate's `include` scope, so it is not yet protected against regression —
+either widen the scope or fold it in when the component/hook infra decision lands.
