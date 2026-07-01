@@ -22,6 +22,12 @@ import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/services/search/runInlineSearch';
+import {
+  filteredResults as computeFilteredResults,
+  groupedSearchResults as computeGroupedSearchResults,
+  joinSegments,
+  getSequenceContext as computeSequenceContext,
+} from '@/src/app/logic/searchState';
 
 export interface SearchOptions {
   minScore: number;
@@ -173,12 +179,10 @@ export function useSearchWorker(
   }, [searchQuery, addLog, onFirstResult]);
 
   // ── Fuzzy filter ──────────────────────────────────────────────────────────
-  const filteredResults = useMemo(() => {
-    if (searchMode !== 'fuzzy' || maxScoreFound === 0) return searchResults;
-    return searchResults.filter(
-      r => ((r.score ?? 0) / maxScoreFound) * 100 >= searchOptions.minScore,
-    );
-  }, [searchResults, searchMode, maxScoreFound, searchOptions.minScore]);
+  const filteredResults = useMemo(
+    () => computeFilteredResults(searchResults, searchMode, maxScoreFound, searchOptions.minScore),
+    [searchResults, searchMode, maxScoreFound, searchOptions.minScore],
+  );
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -328,15 +332,10 @@ export function useSearchWorker(
   }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
-  const groupedSearchResults = useMemo<GroupedSearchResults>(() => {
-    const groups: GroupedSearchResults = {};
-    filteredResults.forEach((r, idx) => {
-      if (!groups[r.recordId]) groups[r.recordId] = { results: [], indices: [] };
-      groups[r.recordId].results.push(r);
-      groups[r.recordId].indices.push(idx);
-    });
-    return groups;
-  }, [filteredResults]);
+  const groupedSearchResults = useMemo<GroupedSearchResults>(
+    () => computeGroupedSearchResults(filteredResults),
+    [filteredResults],
+  );
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   const toggleRecordSelection = (recordId: string, select: boolean) => {
@@ -349,21 +348,20 @@ export function useSearchWorker(
 
   const joinAllInRecord = (recordId: string) => {
     const group = groupedSearchResults[recordId];
-    if (!group || group.results.length < 2) return;
-    const strand = group.results[0].strand;
-    if (group.results.some(r => r.strand !== strand)) {
-      alert('All matches in the record must have the same strand to be joined automatically.');
+    if (!group) return;
+    const res = joinSegments(group.results, 'record');
+    if ('error' in res) {
+      if (res.error === 'mixed') {
+        alert('All matches in the record must have the same strand to be joined automatically.');
+      }
       return;
     }
-    const segments = group.results
-      .map(r => ({ start: r.start, end: r.end }))
-      .sort((a, b) => a.start - b.start);
     addAnnotationFromSearch(
       recordId,
-      segments[0].start,
-      segments[segments.length - 1].end,
+      res.start,
+      res.end,
       `Joined Record Search: ${searchQuery}`,
-      segments,
+      res.segments,
     );
   };
 
@@ -372,18 +370,19 @@ export function useSearchWorker(
     const indices = Array.from(selectedSearchIndices).sort((a, b) => a - b);
     const matches = indices.map(i => filteredResults[i]);
     const recordId = matches[0].recordId;
-    const strand = matches[0].strand;
-    if (matches.some(m => m.recordId !== recordId || m.strand !== strand)) {
-      alert('All selected matches must be on the same sequence and strand to be joined.');
+    const res = joinSegments(matches, 'selection');
+    if ('error' in res) {
+      if (res.error === 'mixed') {
+        alert('All selected matches must be on the same sequence and strand to be joined.');
+      }
       return;
     }
-    const segments = matches.map(m => ({ start: m.start, end: m.end }));
     addAnnotationFromSearch(
       recordId,
-      Math.min(...segments.map(s => s.start)),
-      Math.max(...segments.map(s => s.end)),
+      res.start,
+      res.end,
       `Joined Search: ${searchQuery}`,
-      segments,
+      res.segments,
     );
   };
 
@@ -394,13 +393,7 @@ export function useSearchWorker(
     contextLen = 8,
   ): { pre: string; match: string; post: string } => {
     const record = records.find(r => r.id === recordId);
-    if (!record) return { pre: '', match: '', post: '' };
-    const seq = record.alignedSequence || record.sequence;
-    return {
-      pre: seq.substring(Math.max(0, start - contextLen), start),
-      match: seq.substring(start, end),
-      post: seq.substring(end, Math.min(seq.length, end + contextLen)),
-    };
+    return computeSequenceContext(record, start, end, contextLen);
   };
 
   return {
