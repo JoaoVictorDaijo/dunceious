@@ -46,11 +46,16 @@ passing `npm run build` + full CI mirror is the proof. Then unit-test the pure
 modules. Where logic is duplicated across two sites, extract **once** (de-dup is
 a bonus, not the goal).
 
-The one intentional structural change: the sequence-search engine currently
-exists in **both** `src/workers/searchWorker.ts` (its `onmessage` body) and
-`src/app/hooks/useSearchWorker.ts` (`executeSearchInline`, the synchronous exact
-path + fuzzy-worker fallback). Both are extracted into one shared
-`services/search/runSearch.ts` that both call — removing the duplicate.
+The sequence-search engine exists in **two** places — `src/workers/searchWorker.ts`
+(its `onmessage` body) and `src/app/hooks/useSearchWorker.ts`
+(`executeSearchInline`, the synchronous fallback). Their **exact/IUPAC** (regex)
+paths are byte-identical and will be shared via a common helper. Their **fuzzy**
+paths are *intentionally different algorithms* — the worker uses seeded windowing
+(`collectSeededFuzzyHits`); the inline fallback runs Smith-Waterman on the whole
+ungapped sequence (lighter, for when the worker already timed out). These are
+**preserved as separate functions, not merged** — merging would change results
+and violate behavior preservation. Both engines are relocated into
+`services/search/` and tested; only the provably-identical exact logic is de-duped.
 
 ## Module layout (locked)
 
@@ -83,9 +88,14 @@ Extract from `src/workers/bioWorker.ts` and `src/workers/searchWorker.ts`:
 - `parseFasta`, `parseBED`, `parseGFF3`, `parseBedGraph`, `detectMoleculeType`
   → `services/parsers/*` + `services/moleculeType.ts`.
 - The `searchWorker` onmessage body + `collectSeededFuzzyHits`
-  → `services/search/runSearch.ts`; the worker's `onmessage` becomes a thin
-  `postMessage(runSearch(e.data))`. `useSearchWorker.executeSearchInline` is
-  re-pointed at the same `runSearch` (de-dup).
+  → `services/search/runSearch.ts` as a pure `runSearch(request): SearchWorkerResponse`
+  (verbatim logic); the worker's `onmessage` becomes a thin
+  `postMessage(runSearch(e.data))`. The hook is **not** touched in PR1. (The shared
+  exact-mode helper is factored out in PR2 when the inline engine — the second
+  consumer — is extracted and identity can be proven.)
+- The bio worker's routing/error-wrap/annotation-format dispatch
+  → `services/bio/handleBioMessage.ts` as a pure `handleBioMessage(msg): BioWorkerResponse`;
+  the worker's `onmessage` becomes `postMessage(handleBioMessage(e.data))`.
 - Both worker files end as thin dispatchers importing the above.
 
 Tests (node): parser edges — GFF3 0-based start (`col4 - 1`), strand mapping,
@@ -104,7 +114,11 @@ fallback, dedup, 256 window cap.
 Extract reducer/derivation bodies (currently inside `setState` updaters and
 `useMemo`/`useCallback` closures) from `useBioWorker`, `useSearchWorker`,
 `useFeatureManager` into `src/app/logic/{bioResponse,searchState,featureManager}.ts`.
-The hooks call the extracted functions.
+The hooks call the extracted functions. Also extract
+`useSearchWorker.executeSearchInline` into `services/search/runInlineSearch.ts`,
+reusing `runExactSearch` (from PR1) for the exact path and keeping its distinct
+whole-ungapped-sequence fuzzy path — verified equivalent by test, not merged with
+the worker's seeded strategy.
 
 Tests (node): `resolveAccession` precedence; `applyBioResponse` feature/track
 split by the `'data' in item` discriminant, id/name/accession lookup precedence,
