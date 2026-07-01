@@ -46,6 +46,7 @@ export default defineConfig(() => {
         include: [
           "services/**",
           "src/app/recordRemoval.ts",
+          "src/app/logic/**",
           "src/domain/**",
         ],
         exclude: [
@@ -56,9 +57,10 @@ export default defineConfig(() => {
         ],
         reporter: ["text", "text-summary", "json-summary"],
         // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 97.8 / branches 89.7 / functions 96.8 / statements 96.2 as of Phase 2A
-        // PR1, after the worker/parsing extraction) so normal v8 jitter and
-        // hard-to-hit defensive branches don't break CI. Raise (never lower).
+        // 98.3 / branches 89.4 / functions 97.5 / statements 96.5 as of Phase 2A
+        // PR2, after the app-state extraction added src/app/logic/** to scope) so
+        // normal v8 jitter and hard-to-hit defensive branches don't break CI.
+        // Raise (never lower); the ~4pt buffer here already holds for PR2.
         thresholds: {
           lines: 94,
           branches: 85,

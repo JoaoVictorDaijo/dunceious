@@ -18,9 +18,9 @@
  */
 
 import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
-import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
+import { SeqRecord } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-import { makeUniqueId } from '@/services/idHelpers';
+import { applyParseSuccess, applyAnnotations, applyFastaResponse } from '@/src/app/logic/bioResponse';
 
 export interface UseBioWorkerReturn {
   records: SeqRecord[];
@@ -31,17 +31,6 @@ export interface UseBioWorkerReturn {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
   /** Ref to the underlying Worker instance — used by file-upload handlers. */
   bioWorkerRef: React.MutableRefObject<Worker | null>;
-}
-
-function resolveAccession(
-  incomingAccession: string | undefined,
-  incomingId: string,
-  uniqueId: string,
-): string {
-  const normalizedAccession = incomingAccession?.trim();
-  if (normalizedAccession) return normalizedAccession;
-  if (incomingId && incomingId !== 'Unknown') return incomingId;
-  return uniqueId;
 }
 
 /**
@@ -79,57 +68,16 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       } else if (msg.type === 'PARSE_SUCCESS') {
         setRecords(prev => {
-          const existingIds = prev.map(r => r.id);
-          const newRecords = msg.records.map(r => {
-            const uniqueId = makeUniqueId(r.id, existingIds);
-            existingIds.push(uniqueId);
-            return {
-              ...r,
-              id: uniqueId,
-              name: uniqueId,
-              accession: resolveAccession(r.accession, r.id, uniqueId),
-              visible: true,
-            };
-          });
-          addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
-          return [...prev, ...newRecords];
+          const { next, count } = applyParseSuccess(prev, msg.records);
+          addLog(`Batch ingestion complete: ${count} records added.`);
+          return next;
         });
         setIsProcessing(false);
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
         const annotations = msg.annotations;
         setRecords(prev => {
-          let totalAdded = 0;
-          const matchedIds = new Set<string>();
-
-          /** Look up annotation items by record id, name, or accession. */
-          const lookupItems = (r: SeqRecord) =>
-            annotations[r.id] ??
-            annotations[r.name] ??
-            (r.accession ? annotations[r.accession] : undefined) ??
-            [];
-
-          const next = prev.map(r => {
-            const items = lookupItems(r);
-            if (items.length > 0) {
-              // Discriminant: only QuantitativeTrack carries a `data` array field
-              const newFeats = items.filter((i): i is BioFeature => !('data' in i));
-              const newTracks = items.filter((i): i is QuantitativeTrack => 'data' in i);
-              totalAdded += items.length;
-              matchedIds.add(r.id);
-              return {
-                ...r,
-                features: [...r.features, ...newFeats],
-                tracks: [...(r.tracks ?? []), ...newTracks],
-              };
-            }
-            return r;
-          });
-
-          const fileIds = Object.keys(annotations);
-          const unmatched = fileIds.filter(
-            id => !prev.some(r => r.id === id || r.name === id || r.accession === id),
-          );
+          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations);
           if (unmatched.length > 0) {
             addLog(
               `WARNING: Some IDs in file did not match active records: [${unmatched
@@ -145,52 +93,37 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       } else if (msg.type === 'FASTA_SUCCESS') {
         const { alignedData, asAlignment } = msg;
         setRecords(prev => {
-          if (!asAlignment) {
-            // Batch load — add as new records with deduplication
-            const existingIds = prev.map(r => r.id);
-            const newRecords = alignedData.map(r => {
-              const uniqueId = makeUniqueId(r.id, existingIds);
-              existingIds.push(uniqueId);
-              return {
-                ...r,
-                id: uniqueId,
-                name: uniqueId,
-                accession: resolveAccession(undefined, r.id, uniqueId),
-                visible: true,
-              };
-            });
-            addLog(`Batch ingestion complete: ${newRecords.length} records added.`);
-            return [...prev, ...newRecords];
+          const res = applyFastaResponse(prev, alignedData, asAlignment);
+          switch (res.kind) {
+            case 'batch':
+              addLog(`Batch ingestion complete: ${res.count} records added.`);
+              break;
+            case 'reject-mismatch':
+              addLog(
+                `ERROR: Sequence mismatch. Missing: [${res.missing.join(', ')}], Extra: [${res.extra.join(', ')}]`,
+              );
+              break;
+            case 'reject-length':
+              addLog(
+                `ERROR: Aligned sequences must have identical lengths. Found: ${res.lengths.join(', ')}`,
+              );
+              break;
+            case 'reject-empty':
+              addLog('ERROR: Aligned sequences cannot be empty.');
+              break;
+            case 'overlay':
+              addLog(`External alignment applied successfully (${res.length} bp).`);
+              break;
+            default: {
+              // Exhaustiveness guard: adding a new `kind` without a case here is a
+              // compile error, and any unhandled kind still surfaces a logged error
+              // instead of silently dropping (never reached today).
+              const _exhaustive: never = res;
+              addLog(`ERROR: Unhandled FASTA response kind: ${JSON.stringify(_exhaustive)}`);
+              break;
+            }
           }
-
-          // Pre-aligned FASTA overlay — IDs must match exactly
-          const currentIds = new Set(prev.map(r => r.id));
-          const uploadedIds = new Set(alignedData.map(d => d.id));
-          const missingInUpload = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);
-          const extraInUpload = alignedData.filter(d => !currentIds.has(d.id)).map(d => d.id);
-
-          if (missingInUpload.length > 0 || extraInUpload.length > 0) {
-            addLog(
-              `ERROR: Sequence mismatch. Missing: [${missingInUpload.join(', ')}], Extra: [${extraInUpload.join(', ')}]`,
-            );
-            return prev;
-          }
-
-          const lengths = new Set(alignedData.map(d => d.sequence.length));
-          if (lengths.size > 1) {
-            addLog(
-              `ERROR: Aligned sequences must have identical lengths. Found: ${Array.from(lengths).join(', ')}`,
-            );
-            return prev;
-          }
-
-          addLog(
-            `External alignment applied successfully (${alignedData[0]?.sequence.length ?? 0} bp).`,
-          );
-          return prev.map(r => {
-            const match = alignedData.find(d => d.id === r.id);
-            return { ...r, alignedSequence: match?.sequence };
-          });
+          return res.next;
         });
         setIsProcessing(false);
 

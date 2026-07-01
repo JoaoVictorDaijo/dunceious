@@ -21,14 +21,13 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
+import { runInlineSearch } from '@/services/search/runInlineSearch';
 import {
-  degenerateToRegex,
-  getNonGapSegments,
-  mapUngappedRangeToAligned,
-  removeGapsWithMap,
-  reverseComplement,
-  smithWaterman,
-} from '@/services/searchLogic';
+  filteredResults as computeFilteredResults,
+  groupedSearchResults as computeGroupedSearchResults,
+  joinSegments,
+  getSequenceContext as computeSequenceContext,
+} from '@/src/app/logic/searchState';
 
 export interface SearchOptions {
   minScore: number;
@@ -115,121 +114,10 @@ export function useSearchWorker(
     }));
   }, [records]);
 
-  const executeSearchInline = useCallback((request: SearchWorkerRequest): SearchResult[] => {
-    const { searchQuery, records: inputRecords, mode, options, moleculeType } = request;
-    const { minScore = 5, strand = 'both', maxResults = 100 } = options;
-    const isProtein = moleculeType === 'protein';
-
-    if (!searchQuery || searchQuery.length < 1) return [];
-
-    const results: SearchResult[] = [];
-    const queryUpper = searchQuery.toUpperCase();
-    const startedAt = Date.now();
-    const maxInlineMs = mode === 'fuzzy' ? 1800 : 6000;
-
-    for (const record of inputRecords) {
-      if (Date.now() - startedAt > maxInlineMs) break;
-      const seq = typeof record.alignedSequence === 'string'
-        ? record.alignedSequence
-        : (typeof record.sequence === 'string' ? record.sequence : '');
-      if (!seq) continue;
-      const L = seq.length;
-
-      if (mode === 'fuzzy') {
-        const { ungapped: ungappedSeq, map: fwdMap } = removeGapsWithMap(seq);
-
-        if ((strand === 'both' || strand === 'fwd') && ungappedSeq.length > 0) {
-          const fwdFuzzy = smithWaterman(queryUpper, ungappedSeq, 2, -1, -3, -1, minScore);
-          fwdFuzzy.forEach(m => {
-            const aligned = mapUngappedRangeToAligned(fwdMap, m.start, m.end);
-            results.push({
-              start: aligned.start,
-              end: aligned.end,
-              sequence: seq.substring(aligned.start, aligned.end),
-              score: m.score,
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, aligned.start, aligned.end),
-            });
-          });
-        }
-
-        if (Date.now() - startedAt > maxInlineMs) break;
-
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
-          const { ungapped: ungappedRcSeq, map: revMap } = removeGapsWithMap(rcSeq);
-          if (ungappedRcSeq.length === 0) continue;
-
-          const revFuzzy = smithWaterman(queryUpper, ungappedRcSeq, 2, -1, -3, -1, minScore);
-          revFuzzy.forEach(m => {
-            const rcRange = mapUngappedRangeToAligned(revMap, m.start, m.end);
-            const start = L - rcRange.end;
-            const end = L - rcRange.start;
-            results.push({
-              score: m.score,
-              start,
-              end,
-              sequence: seq.substring(start, end),
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-          });
-        }
-      } else {
-        const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
-
-        if (strand === 'both' || strand === 'fwd') {
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(seq)) !== null) {
-            const start = match.index;
-            const end = match.index + match[0].length;
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(rcSeq)) !== null) {
-            const rcStart = match.index;
-            const rcEnd = match.index + match[0].length;
-            const start = L - rcEnd;
-            const end = L - rcStart;
-
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-      }
-    }
-
-    if (mode === 'fuzzy') {
-      results.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
-    } else {
-      results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-    }
-
-    return results.length > maxResults ? results.slice(0, maxResults) : results;
-  }, []);
+  const executeSearchInline = useCallback(
+    (request: SearchWorkerRequest): SearchResult[] => runInlineSearch(request),
+    [],
+  );
 
   const searchWorkerRef = useRef<Worker | null>(null);
   const lastRequestRef = useRef<SearchWorkerRequest | null>(null);
@@ -291,12 +179,10 @@ export function useSearchWorker(
   }, [searchQuery, addLog, onFirstResult]);
 
   // ── Fuzzy filter ──────────────────────────────────────────────────────────
-  const filteredResults = useMemo(() => {
-    if (searchMode !== 'fuzzy' || maxScoreFound === 0) return searchResults;
-    return searchResults.filter(
-      r => ((r.score ?? 0) / maxScoreFound) * 100 >= searchOptions.minScore,
-    );
-  }, [searchResults, searchMode, maxScoreFound, searchOptions.minScore]);
+  const filteredResults = useMemo(
+    () => computeFilteredResults(searchResults, searchMode, maxScoreFound, searchOptions.minScore),
+    [searchResults, searchMode, maxScoreFound, searchOptions.minScore],
+  );
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -446,15 +332,10 @@ export function useSearchWorker(
   }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
-  const groupedSearchResults = useMemo<GroupedSearchResults>(() => {
-    const groups: GroupedSearchResults = {};
-    filteredResults.forEach((r, idx) => {
-      if (!groups[r.recordId]) groups[r.recordId] = { results: [], indices: [] };
-      groups[r.recordId].results.push(r);
-      groups[r.recordId].indices.push(idx);
-    });
-    return groups;
-  }, [filteredResults]);
+  const groupedSearchResults = useMemo<GroupedSearchResults>(
+    () => computeGroupedSearchResults(filteredResults),
+    [filteredResults],
+  );
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   const toggleRecordSelection = (recordId: string, select: boolean) => {
@@ -467,21 +348,20 @@ export function useSearchWorker(
 
   const joinAllInRecord = (recordId: string) => {
     const group = groupedSearchResults[recordId];
-    if (!group || group.results.length < 2) return;
-    const strand = group.results[0].strand;
-    if (group.results.some(r => r.strand !== strand)) {
-      alert('All matches in the record must have the same strand to be joined automatically.');
+    if (!group) return;
+    const res = joinSegments(group.results, 'record');
+    if ('error' in res) {
+      if (res.error === 'mixed') {
+        alert('All matches in the record must have the same strand to be joined automatically.');
+      }
       return;
     }
-    const segments = group.results
-      .map(r => ({ start: r.start, end: r.end }))
-      .sort((a, b) => a.start - b.start);
     addAnnotationFromSearch(
       recordId,
-      segments[0].start,
-      segments[segments.length - 1].end,
+      res.start,
+      res.end,
       `Joined Record Search: ${searchQuery}`,
-      segments,
+      res.segments,
     );
   };
 
@@ -490,18 +370,19 @@ export function useSearchWorker(
     const indices = Array.from(selectedSearchIndices).sort((a, b) => a - b);
     const matches = indices.map(i => filteredResults[i]);
     const recordId = matches[0].recordId;
-    const strand = matches[0].strand;
-    if (matches.some(m => m.recordId !== recordId || m.strand !== strand)) {
-      alert('All selected matches must be on the same sequence and strand to be joined.');
+    const res = joinSegments(matches, 'selection');
+    if ('error' in res) {
+      if (res.error === 'mixed') {
+        alert('All selected matches must be on the same sequence and strand to be joined.');
+      }
       return;
     }
-    const segments = matches.map(m => ({ start: m.start, end: m.end }));
     addAnnotationFromSearch(
       recordId,
-      Math.min(...segments.map(s => s.start)),
-      Math.max(...segments.map(s => s.end)),
+      res.start,
+      res.end,
       `Joined Search: ${searchQuery}`,
-      segments,
+      res.segments,
     );
   };
 
@@ -512,13 +393,7 @@ export function useSearchWorker(
     contextLen = 8,
   ): { pre: string; match: string; post: string } => {
     const record = records.find(r => r.id === recordId);
-    if (!record) return { pre: '', match: '', post: '' };
-    const seq = record.alignedSequence || record.sequence;
-    return {
-      pre: seq.substring(Math.max(0, start - contextLen), start),
-      match: seq.substring(start, end),
-      post: seq.substring(end, Math.min(seq.length, end + contextLen)),
-    };
+    return computeSequenceContext(record, start, end, contextLen);
   };
 
   return {
