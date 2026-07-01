@@ -56,12 +56,12 @@ export default defineConfig(() => {
         ],
         reporter: ["text", "text-summary", "json-summary"],
         // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 98.1 / branches 88.9 / functions 97.3 / statements 96.8 as of Phase 1)
-        // so normal v8 jitter and hard-to-hit defensive branches don't break CI.
-        // Raise (never lower) in later phases; branches keeps a wider buffer.
+        // 97.8 / branches 89.7 / functions 96.8 / statements 96.2 as of Phase 2A
+        // PR1, after the worker/parsing extraction) so normal v8 jitter and
+        // hard-to-hit defensive branches don't break CI. Raise (never lower).
         thresholds: {
           lines: 94,
-          branches: 83,
+          branches: 85,
           functions: 93,
           statements: 92,
         },
