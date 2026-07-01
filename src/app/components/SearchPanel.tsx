@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
+import { scorePercent } from '@/src/app/logic/viewModel';
 
 export interface GroupedSearchResults {
   [recordId: string]: { results: SearchResult[]; indices: number[] };
@@ -291,7 +292,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               {match.score && (
                                 <div className="flex flex-col items-end">
                                   <span className="text-[10px] font-black text-amber-500">
-                                    {maxScoreFound > 0 ? Math.round((match.score / maxScoreFound) * 100) : 0}%
+                                    {scorePercent(match.score, maxScoreFound)}%
                                   </span>
                                   <span className="text-[7px] font-black text-slate-600 uppercase tracking-tighter">Match</span>
                                 </div>

@@ -21,6 +21,7 @@ import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/services/bioUtils';
+import { featureLength } from '@/src/app/logic/viewModel';
 
 export type FlatItem =
   | { type: 'header'; recordId: string; count: number }
@@ -236,15 +237,8 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
         </div>
         <div className="w-[10%] shrink-0 px-4 text-right font-mono text-slate-500 font-bold">
           {(() => {
-            if (f.segments && f.segments.length > 0) {
-              return f.segments.reduce((acc: number, seg: any) => acc + Math.abs(seg.end - seg.start), 0).toLocaleString();
-            }
-            if (f.start > f.end) {
-              const record = records.find(r => r.id === recordId);
-              const len = record ? (record.sequence.length - f.start) + f.end : Math.abs(f.end - f.start);
-              return len.toLocaleString();
-            }
-            return Math.abs(f.end - f.start).toLocaleString();
+            const record = records.find(r => r.id === recordId);
+            return featureLength(record?.sequence.length, f.start, f.end, f.segments).toLocaleString();
           })()}
         </div>
         <div className="w-[20%] shrink-0 text-right pl-4">

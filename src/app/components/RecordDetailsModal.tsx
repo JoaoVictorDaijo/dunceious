@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
+import { getDisplaySeq } from '@/src/app/logic/viewModel';
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
@@ -41,14 +42,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onExportRecord,
   onCopyLog,
 }) => {
-  const getDisplaySeq = (): string => {
-    if (!feature) return record.sequence;
-    const { start, end } = feature;
-    if (start <= end) return record.sequence.substring(start, end);
-    return record.sequence.substring(start) + record.sequence.substring(0, end);
-  };
-
-  const displaySeq = getDisplaySeq();
+  const displaySeq = getDisplaySeq(record.sequence, feature);
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
 
   const handleCopy = () => {

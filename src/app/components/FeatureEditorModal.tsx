@@ -20,6 +20,7 @@
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/services/bioUtils';
+import { featureCoordPatch } from '@/src/app/logic/viewModel';
 
 export interface EditingFeatureState {
   recordId: string;
@@ -169,14 +170,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <input
                 type="number"
                 value={feature.start}
-                onChange={e => {
-                  const val = parseInt(e.target.value);
-                  const patch: Partial<BioFeature> = { start: val };
-                  if (!feature.segments || feature.segments.length <= 1) {
-                    patch.segments = [{ start: val, end: feature.end }];
-                  }
-                  setFeature(patch);
-                }}
+                onChange={e => setFeature(featureCoordPatch(feature, 'start', e.target.value))}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none text-slate-200"
               />
             </div>
@@ -189,14 +183,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <input
                 type="number"
                 value={feature.end}
-                onChange={e => {
-                  const val = parseInt(e.target.value);
-                  const patch: Partial<BioFeature> = { end: val };
-                  if (!feature.segments || feature.segments.length <= 1) {
-                    patch.segments = [{ start: feature.start, end: val }];
-                  }
-                  setFeature(patch);
-                }}
+                onChange={e => setFeature(featureCoordPatch(feature, 'end', e.target.value))}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none text-slate-200"
               />
             </div>
