@@ -17,12 +17,16 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { SeqRecord } from '../../types';
 import {
   getNucleotideColor,
   getAminoAcidColor,
   getFeatureColor,
   getOriginalPos,
+  exportToGff,
+  exportToGenBank,
+  downloadBlob,
 } from '../bioUtils';
 
 describe('getNucleotideColor', () => {
@@ -113,5 +117,88 @@ describe('getOriginalPos', () => {
 
   it('clamps a position past the end of the aligned sequence', () => {
     expect(getOriginalPos('ACGT', 100)).toBe(4);
+  });
+});
+
+function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
+  return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
+}
+
+describe('exportToGff', () => {
+  it('emits the version header and a tab-delimited feature line with 1-based start', () => {
+    const gff = exportToGff([record({
+      features: [{ type: 'CDS', name: 'my gene', start: 9, end: 20, strand: 1 }],
+    })]);
+    expect(gff.startsWith('##gff-version 3\n')).toBe(true);
+    // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
+    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=my_gene;Name=my gene');
+  });
+
+  it('renders the minus strand as "-"', () => {
+    const gff = exportToGff([record({
+      features: [{ type: 'gene', name: 'g1', start: 0, end: 5, strand: -1 }],
+    })]);
+    expect(gff).toContain('\t-\t0\t');
+  });
+});
+
+describe('exportToGenBank', () => {
+  it('writes a DNA LOCUS with a de-duplicated Dunceious definition marker', () => {
+    const gb = exportToGenBank([record({
+      definition: 'Sample seq Exported by Dunceious.',
+      features: [{
+        type: 'source', name: 'source', start: 0, end: 10, strand: 1,
+        metadata: { organism: 'E. coli', _internal: 'hidden', empty: '' },
+      }],
+    })]);
+    expect(gb).toContain('LOCUS');
+    expect(gb).toContain('bp    DNA');
+    // Marker must appear exactly once (not accumulated on re-export).
+    expect(gb.match(/Exported by Dunceious\./g)).toHaveLength(1);
+    expect(gb).toContain('ORGANISM  E. coli');
+    // '_'-prefixed and empty metadata are omitted; real qualifier is kept.
+    expect(gb).toContain('/organism="E. coli"');
+    expect(gb).not.toContain('_internal');
+    expect(gb).not.toContain('/empty=');
+    expect(gb.trimEnd().endsWith('//')).toBe(true);
+  });
+
+  it('writes a protein LOCUS using "aa" units', () => {
+    const gb = exportToGenBank([record({ moleculeType: 'protein', sequence: 'MKV' })]);
+    expect(gb).toContain(' aa ');
+    expect(gb).not.toContain('DNA');
+  });
+});
+
+describe('downloadBlob', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('wires up an anchor, triggers a click, and revokes the object URL', () => {
+    const click = vi.fn();
+    const anchor: Record<string, unknown> = { click };
+    const createElement = vi.fn(() => anchor);
+    const appendChild = vi.fn();
+    const removeChild = vi.fn();
+    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    const revokeObjectURL = vi.fn();
+
+    vi.stubGlobal('document', { createElement, body: { appendChild, removeChild } });
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
+    vi.stubGlobal('Blob', class {
+      parts: unknown; opts: unknown;
+      constructor(parts: unknown, opts: unknown) { this.parts = parts; this.opts = opts; }
+    });
+
+    downloadBlob('hello', 'out.txt', 'text/plain');
+
+    expect(createElement).toHaveBeenCalledWith('a');
+    expect(anchor.href).toBe('blob:mock-url');
+    expect(anchor.download).toBe('out.txt');
+    expect(appendChild).toHaveBeenCalledWith(anchor);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(removeChild).toHaveBeenCalledWith(anchor);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
   });
 });
