@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq } from '../viewModel';
+import { getDisplaySeq, featureLength } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -33,5 +33,27 @@ describe('getDisplaySeq', () => {
   });
   it('returns an empty string for a zero-width feature (start === end)', () => {
     expect(getDisplaySeq('ACGTACGT', { start: 3, end: 3 })).toBe('');
+  });
+});
+
+describe('featureLength', () => {
+  it('sums |end - start| across all segments when segments are present', () => {
+    expect(featureLength(100, 0, 0, [{ start: 5, end: 10 }, { start: 20, end: 23 }])).toBe(8);
+  });
+  it('spans (seqLen - start) + end for a circular wrap-around (start > end)', () => {
+    expect(featureLength(100, 90, 10)).toBe(20);
+  });
+  it('returns |end - start| for a normal feature', () => {
+    expect(featureLength(100, 5, 15)).toBe(10);
+  });
+  it('uses the circular formula for a reversed simple feature on a known-length record', () => {
+    // start(20) > end(5) with seqLen 100 -> (100-20)+5
+    expect(featureLength(100, 20, 5)).toBe(85);
+  });
+  it('falls back to |end - start| when the feature wraps but seqLen is unknown', () => {
+    expect(featureLength(undefined, 20, 5)).toBe(15);
+  });
+  it('falls through an empty segments array to the length branch', () => {
+    expect(featureLength(100, 5, 15, [])).toBe(10);
   });
 });

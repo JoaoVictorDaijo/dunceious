@@ -36,3 +36,27 @@ export function getDisplaySeq(
   if (start <= end) return sequence.substring(start, end);
   return sequence.substring(start) + sequence.substring(0, end);
 }
+
+/**
+ * The displayed length (in bp) of a feature, matching DatabaseHubPanel's inline
+ * calc. Priority: (1) if it has segments, the sum of each segment's |end-start|;
+ * (2) a circular wrap-around (`start > end`) on a known-length sequence spans
+ * `(seqLen - start) + end`; (3) otherwise the simple `|end - start|`. If the
+ * feature wraps but the owning record's length is unknown (`seqLen` undefined),
+ * fall back to `|end - start|` (the component's record-not-found path). Returns
+ * a raw number; the `.toLocaleString()` formatting stays in the component.
+ */
+export function featureLength(
+  seqLen: number | undefined,
+  start: number,
+  end: number,
+  segments?: { start: number; end: number }[],
+): number {
+  if (segments && segments.length > 0) {
+    return segments.reduce((acc, seg) => acc + Math.abs(seg.end - seg.start), 0);
+  }
+  if (start > end) {
+    return seqLen !== undefined ? (seqLen - start) + end : Math.abs(end - start);
+  }
+  return Math.abs(end - start);
+}
