@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq, featureLength, scorePercent, deriveAlignmentState } from '../viewModel';
+import { getDisplaySeq, featureLength, scorePercent, deriveAlignmentState, featureCoordPatch } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -107,5 +107,39 @@ describe('deriveAlignmentState', () => {
     expect(deriveAlignmentState([{ sequence: 'MK' }], true)).toEqual({
       isAlignmentLoaded: false, alignmentLength: 2, sessionMoleculeType: 'protein',
     });
+  });
+});
+
+describe('featureCoordPatch', () => {
+  it('patches start and rewrites the single segment for a segmentless feature', () => {
+    expect(featureCoordPatch({ start: 10, end: 50 }, 'start', '20')).toEqual({
+      start: 20, segments: [{ start: 20, end: 50 }],
+    });
+  });
+  it('patches end and rewrites the single segment for a segmentless feature', () => {
+    expect(featureCoordPatch({ start: 10, end: 50 }, 'end', '60')).toEqual({
+      end: 60, segments: [{ start: 10, end: 60 }],
+    });
+  });
+  it('does NOT clobber segments for a multi-segment feature', () => {
+    expect(
+      featureCoordPatch(
+        { start: 10, end: 50, segments: [{ start: 10, end: 20 }, { start: 30, end: 50 }] },
+        'start',
+        '5',
+      ),
+    ).toEqual({ start: 5 });
+  });
+  it('rewrites the segment when the feature has exactly one segment (length <= 1)', () => {
+    expect(
+      featureCoordPatch({ start: 10, end: 50, segments: [{ start: 10, end: 50 }] }, 'start', '5'),
+    ).toEqual({ start: 5, segments: [{ start: 5, end: 50 }] });
+  });
+  it('preserves the parseInt NaN quirk for an unparseable value (not guarded)', () => {
+    const patch = featureCoordPatch({ start: 10, end: 50 }, 'start', 'abc');
+    expect(Number.isNaN(patch.start as number)).toBe(true);
+    expect(patch.segments).toHaveLength(1);
+    expect(Number.isNaN(patch.segments![0].start)).toBe(true);
+    expect(patch.segments![0].end).toBe(50);
   });
 });

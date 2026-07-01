@@ -17,6 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { BioFeature } from '@/src/domain/bio/types';
+
 /**
  * The sequence slice a record/feature detail view should display.
  *
@@ -96,4 +98,35 @@ export function deriveAlignmentState(
   const sessionMoleculeType: 'nucleotide' | 'protein' | null =
     records.length === 0 ? null : isProteinSession ? 'protein' : 'nucleotide';
   return { isAlignmentLoaded, alignmentLength, sessionMoleculeType };
+}
+
+/**
+ * The patch produced by editing a feature's start or end coordinate in
+ * FeatureEditorModal, extracted verbatim from its two `onChange` handlers.
+ *
+ * The edited field is set to `parseInt(rawValue)`. When the feature has 0 or 1
+ * segment, its `segments` is rebuilt to a single `[{ start, end }]` reflecting
+ * the new coordinate (a single-range feature keeps segments and coordinates in
+ * sync). A multi-segment feature (`length > 1`) gets NO `segments` in the patch
+ * — only the envelope coordinate changes; the explicit segment list is edited
+ * separately.
+ *
+ * NOTE: `parseInt` of an unparseable value yields `NaN`, which is stored as-is
+ * (existing behavior — intentionally NOT guarded here). The `setFeature`/
+ * `onChange` side-effect stays in the component.
+ */
+export function featureCoordPatch(
+  feature: Pick<BioFeature, 'start' | 'end' | 'segments'>,
+  field: 'start' | 'end',
+  rawValue: string,
+): Partial<BioFeature> {
+  const val = parseInt(rawValue);
+  const patch: Partial<BioFeature> = field === 'start' ? { start: val } : { end: val };
+  if (!feature.segments || feature.segments.length <= 1) {
+    patch.segments =
+      field === 'start'
+        ? [{ start: val, end: feature.end }]
+        : [{ start: feature.start, end: val }];
+  }
+  return patch;
 }
