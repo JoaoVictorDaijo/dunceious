@@ -31,11 +31,12 @@ import { runExactSearch } from './exact';
 /**
  * Synchronous inline search fallback (extracted from useSearchWorker).
  *
- * Exact/IUPAC mode delegates to the shared `runExactSearch`. Fuzzy mode runs
- * Smith-Waterman over the WHOLE ungapped sequence (a lighter, distinct strategy
- * from the worker's seeded `collectSeededFuzzyHits` — intentionally NOT merged).
- * Reads `Date.now()` for a time budget (1800ms fuzzy / 6000ms exact); with small
- * inputs the budget never trips, so results are deterministic.
+ * Exact/IUPAC mode delegates to the shared `runExactSearch`, which has no time
+ * budget of its own. Fuzzy mode runs Smith-Waterman over the WHOLE ungapped
+ * sequence (a lighter, distinct strategy from the worker's seeded
+ * `collectSeededFuzzyHits` — intentionally NOT merged) and reads `Date.now()`
+ * for a 1800ms time budget; with small inputs the budget never trips, so
+ * results are deterministic.
  */
 export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
   const { searchQuery, records: inputRecords, mode, options, moleculeType } = request;
@@ -47,12 +48,13 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
   let results: SearchResult[];
 
   if (mode !== 'fuzzy') {
-    // Delegates to the shared `runExactSearch`, which derives `seq` as
-    // `record.alignedSequence || record.sequence` (the worker convention) rather
-    // than this file's fuzzy-branch `typeof`-guard below. The two derivations only
-    // diverge for a record with `alignedSequence: ''` and a non-empty `sequence`,
-    // which is not a producible state in this app (FASTA-overlay validation rejects
-    // empty aligned sequences). Behavior-preserving for all reachable inputs.
+    // Delegates to the shared `runExactSearch`, which derives `seq` via the
+    // shared worker convention `record.alignedSequence || record.sequence`
+    // (distinct from this file's fuzzy-branch `typeof`-guard below). An empty
+    // aligned overlay (`alignedSequence: ''`) is rejected upstream by
+    // `applyFastaResponse` (`kind: 'reject-empty'`), so a record with an empty
+    // `alignedSequence` and a non-empty `sequence` cannot occur here — the
+    // derivation difference cannot manifest.
     results = runExactSearch(searchQuery, inputRecords, isProtein, strand);
   } else {
     results = [];

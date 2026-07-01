@@ -72,6 +72,13 @@ describe('applyParseSuccess', () => {
     expect(next[0].moleculeType).toBe('dna');
     expect(next[0].features).toEqual([f1]);
   });
+
+  it('dedups two colliding INCOMING records against each other, pushing the freshly-minted id back into existingIds', () => {
+    const { next, count } = applyParseSuccess([], [rec({ id: 'b' }), rec({ id: 'b' })]);
+    expect(count).toBe(2);
+    expect(next.map(r => r.id)).toEqual(['b', 'b (1)']);
+    expect(next.map(r => r.name)).toEqual(['b', 'b (1)']);
+  });
 });
 
 describe('applyAnnotations', () => {
@@ -103,6 +110,13 @@ describe('applyAnnotations', () => {
     const byAcc = applyAnnotations(prev, { ACC1: [feat('viaAcc')] });
     expect(byAcc.next[0].features.map(f => f.name)).toEqual(['viaAcc']);
     expect(byAcc.unmatched).toEqual([]);
+  });
+
+  it('matches via the middle `?? annotations[r.name]` tier when keyed purely by name (id differs, no accession match)', () => {
+    const prev = [rec({ id: 'r1', name: 'displayName' })];
+    const byName = applyAnnotations(prev, { displayName: [feat('viaName')] });
+    expect(byName.next[0].features.map(f => f.name)).toEqual(['viaName']);
+    expect(byName.unmatched).toEqual([]);
   });
 
   it('returns a record with no matching annotation items unchanged (same reference)', () => {
@@ -167,5 +181,12 @@ describe('applyFastaResponse', () => {
     const res = applyFastaResponse(prev, [fa('a', 'ACGT'), fa('b', 'ACGTA')], true);
     expect(res.kind).toBe('reject-length');
     if (res.kind === 'reject-length') expect(res.lengths).toEqual([4, 5]);
+  });
+
+  it('rejects with kind reject-empty when every aligned sequence is empty (uniform length 0)', () => {
+    const prev = [rec({ id: 'a', sequence: 'ACGT' }), rec({ id: 'b', sequence: 'ACGT' })];
+    const res = applyFastaResponse(prev, [fa('a', ''), fa('b', '')], true);
+    expect(res.kind).toBe('reject-empty');
+    expect(res.next).toBe(prev);
   });
 });

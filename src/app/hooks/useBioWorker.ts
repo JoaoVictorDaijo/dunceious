@@ -108,6 +108,9 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
                 `ERROR: Aligned sequences must have identical lengths. Found: ${res.lengths.join(', ')}`,
               );
               break;
+            case 'reject-empty':
+              addLog('ERROR: Aligned sequences cannot be empty.');
+              break;
             case 'overlay':
               addLog(`External alignment applied successfully (${res.length} bp).`);
               break;

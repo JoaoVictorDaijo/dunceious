@@ -114,7 +114,9 @@ export function useFeatureManager(
     (recordId: string, featureIndex: number) => {
       setRecords(prev => {
         const { next, removedName } = removeFeatureReducer(prev, recordId, featureIndex);
-        addLog(`Removed feature: ${removedName}`);
+        if (removedName !== undefined) {
+          addLog(`Removed feature: ${removedName}`);
+        }
         return next;
       });
     },

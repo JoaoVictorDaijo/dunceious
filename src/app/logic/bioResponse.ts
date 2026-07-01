@@ -61,7 +61,6 @@ export function applyAnnotations(
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
 ): { next: SeqRecord[]; totalAdded: number; unmatched: string[] } {
   let totalAdded = 0;
-  const matchedIds = new Set<string>();
 
   const lookupItems = (r: SeqRecord) =>
     annotations[r.id] ??
@@ -75,7 +74,6 @@ export function applyAnnotations(
       const newFeats = items.filter((i): i is BioFeature => !('data' in i));
       const newTracks = items.filter((i): i is QuantitativeTrack => 'data' in i);
       totalAdded += items.length;
-      matchedIds.add(r.id);
       return {
         ...r,
         features: [...r.features, ...newFeats],
@@ -95,8 +93,9 @@ export function applyAnnotations(
 /**
  * FASTA_SUCCESS reducer. When !asAlignment: batch-append with dedup (like
  * applyParseSuccess but accession resolves from undefined). When asAlignment:
- * validate exact ID match (missing/extra) and uniform length, then overlay
- * alignedSequence onto matching records. Returns a discriminated `kind`.
+ * validate exact ID match (missing/extra), reject an all-empty overlay, and
+ * validate uniform length, then overlay alignedSequence onto matching records.
+ * Returns a discriminated `kind`.
  */
 export function applyFastaResponse(
   prev: SeqRecord[],
@@ -106,7 +105,8 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'batch'; count: number })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
-  | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] }) {
+  | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
+  | ({ next: SeqRecord[]; kind: 'reject-empty' }) {
   if (!asAlignment) {
     const existingIds = prev.map(r => r.id);
     const newRecords = alignedData.map(r => {
@@ -130,6 +130,10 @@ export function applyFastaResponse(
 
   if (missing.length > 0 || extra.length > 0) {
     return { next: prev, kind: 'reject-mismatch', missing, extra };
+  }
+
+  if (alignedData.some(d => d.sequence.length === 0)) {
+    return { next: prev, kind: 'reject-empty' };
   }
 
   const lengths = new Set(alignedData.map(d => d.sequence.length));

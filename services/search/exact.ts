@@ -23,27 +23,22 @@ import {
   reverseComplement,
   getNonGapSegments,
 } from '../searchLogic';
-
-/** A record projection carrying the sequence(s) the exact loop scans. */
-export interface ExactSearchRecord {
-  id: string;
-  sequence: string;
-  alignedSequence?: string;
-}
+import type { SearchableRecord } from '../../src/workers/protocol';
 
 /**
  * Exact / IUPAC-degenerate regex search over the given records.
  *
  * Shared verbatim between the search worker (`runSearch`) and the inline
- * fallback (`runInlineSearch`); their exact paths were byte-identical. Forward
- * matches use the raw index; reverse matches are remapped onto forward
- * coordinates as `start = L - rcEnd`, `end = L - rcStart`. Proteins skip the
- * reverse strand. Overlapping matches are found via `lastIndex = index + 1`.
- * Results are returned unsorted; the caller sorts/slices.
+ * fallback (`runInlineSearch`); the exact *matching loops* were byte-identical
+ * in both callers — they differed only in how `seq` was derived before being
+ * passed in. Forward matches use the raw index; reverse matches are remapped
+ * onto forward coordinates as `start = L - rcEnd`, `end = L - rcStart`.
+ * Proteins skip the reverse strand. Overlapping matches are found via
+ * `lastIndex = index + 1`. Results are returned unsorted; the caller sorts/slices.
  */
 export function runExactSearch(
   searchQuery: string,
-  records: ExactSearchRecord[],
+  records: SearchableRecord[],
   isProtein: boolean,
   strand: 'fwd' | 'rev' | 'both',
 ): SearchResult[] {
