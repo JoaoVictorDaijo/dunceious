@@ -40,6 +40,10 @@ describe('featureLength', () => {
   it('sums |end - start| across all segments when segments are present', () => {
     expect(featureLength(100, 0, 0, [{ start: 5, end: 10 }, { start: 20, end: 23 }])).toBe(8);
   });
+  it('takes the absolute value of a reversed segment (end < start)', () => {
+    // pins Math.abs inside the segment reduce: |5 - 10| = 5
+    expect(featureLength(100, 0, 0, [{ start: 10, end: 5 }])).toBe(5);
+  });
   it('spans (seqLen - start) + end for a circular wrap-around (start > end)', () => {
     expect(featureLength(100, 90, 10)).toBe(20);
   });
