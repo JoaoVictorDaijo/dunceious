@@ -19,7 +19,6 @@
 
 import {
   SearchResult,
-  degenerateToRegex,
   reverseComplement,
   getNonGapSegments,
   removeGapsWithMap,
@@ -27,6 +26,7 @@ import {
   smithWaterman,
 } from '../searchLogic';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '../../src/workers/protocol';
+import { runExactSearch } from './exact';
 
 export function collectSeededFuzzyHits(
   queryUpper: string,
@@ -122,15 +122,13 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
     let results: SearchResult[] = [];
     const queryUpper = searchQuery.toUpperCase();
 
-    records.forEach((record) => {
-      const seq = record.alignedSequence || record.sequence;
-      const L = seq.length;
-
-      if (mode === 'fuzzy') {
+    if (mode === 'fuzzy') {
+      records.forEach((record) => {
+        const seq = record.alignedSequence || record.sequence;
+        const L = seq.length;
         if (strand === 'both' || strand === 'fwd') {
           results.push(...collectSeededFuzzyHits(queryUpper, seq, record.id, 1, minScore));
         }
-
         if (!isProtein && (strand === 'both' || strand === 'rev')) {
           const rcSeq = reverseComplement(seq);
           const revHits = collectSeededFuzzyHits(queryUpper, rcSeq, record.id, -1, minScore);
@@ -146,53 +144,10 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
             });
           });
         }
-      } else {
-        // Exact / IUPAC Mode
-        const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
-
-        // Forward search
-        if (strand === 'both' || strand === 'fwd') {
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(seq)) !== null) {
-            const start = match.index;
-            const end = match.index + match[0].length;
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-
-        // Reverse search (nucleotide only — proteins have no reverse complement)
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(rcSeq)) !== null) {
-            const rcStart = match.index;
-            const rcEnd = match.index + match[0].length;
-            const start = L - rcEnd;
-            const end = L - rcStart;
-
-            results.push({
-              start,
-              end,
-              sequence: match[0],
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-      }
-    });
+      });
+    } else {
+      results = runExactSearch(searchQuery, records, isProtein, strand);
+    }
 
     // Sort results
     if (mode === 'fuzzy') {
