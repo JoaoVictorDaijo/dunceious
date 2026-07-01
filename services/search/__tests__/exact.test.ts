@@ -49,6 +49,24 @@ describe('runExactSearch — reverse strand remap', () => {
       { start: 2, strand: 1 },
     ]);
   });
+
+  it('with strand=both and a non-palindromic query, returns both a strand:1 and a strand:-1 result, forward first', () => {
+    // query 'AACG' is non-palindromic: reverseComplement('AACG') === 'CGTT' !== 'AACG'.
+    // seq 'AACGTTTTTTTTCGTT' (len 16) contains a forward 'AACG' at [0,4) and, on the
+    // reverse strand, revcomp(seq) contains 'AACG' whose rebased fwd coords are
+    // computed straight from the source (verified via runExactSearch itself in scratch).
+    const seq = 'AACGTTTTTTTTCGTT';
+    const out = runExactSearch('AACG', [{ id: 'r1', sequence: seq }], false, 'both');
+    expect(out).toEqual([
+      { start: 0, end: 4, sequence: 'AACG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 4 }] },
+      { start: 12, end: 16, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 12, end: 16 }] },
+      { start: 2, end: 6, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 2, end: 6 }] },
+    ]);
+    const fwdIdx = out.findIndex(r => r.strand === 1);
+    const revIdx = out.findIndex(r => r.strand === -1);
+    expect(fwdIdx).toBeGreaterThanOrEqual(0);
+    expect(revIdx).toBeGreaterThan(fwdIdx);
+  });
 });
 
 describe('runExactSearch — gapped alignedSequence & empty guard', () => {

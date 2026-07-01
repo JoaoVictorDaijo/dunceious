@@ -80,6 +80,12 @@ describe('joinSegments — selection mode', () => {
   it('rejects mixed recordId (even when strand matches)', () => {
     expect(joinSegments([mk({ recordId: 'r1' }), mk({ recordId: 'r2' })], 'selection')).toEqual({ error: 'mixed' });
   });
+  it('rejects mixed strand (even when recordId matches)', () => {
+    expect(joinSegments([mk({ recordId: 'r1', strand: 1 }), mk({ recordId: 'r1', strand: -1 })], 'selection')).toEqual({ error: 'mixed' });
+  });
+  it('rejects fewer than two results', () => {
+    expect(joinSegments([mk({ recordId: 'r1' })], 'selection')).toEqual({ error: 'few' });
+  });
   it('preserves input order and spans min-start to max-end', () => {
     expect(joinSegments([mk({ start: 10, end: 15 }), mk({ start: 0, end: 5 })], 'selection')).toEqual({
       start: 0, end: 15, segments: [{ start: 10, end: 15 }, { start: 0, end: 5 }],

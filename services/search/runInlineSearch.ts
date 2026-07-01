@@ -47,6 +47,12 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
   let results: SearchResult[];
 
   if (mode !== 'fuzzy') {
+    // Delegates to the shared `runExactSearch`, which derives `seq` as
+    // `record.alignedSequence || record.sequence` (the worker convention) rather
+    // than this file's fuzzy-branch `typeof`-guard below. The two derivations only
+    // diverge for a record with `alignedSequence: ''` and a non-empty `sequence`,
+    // which is not a producible state in this app (FASTA-overlay validation rejects
+    // empty aligned sequences). Behavior-preserving for all reachable inputs.
     results = runExactSearch(searchQuery, inputRecords, isProtein, strand);
   } else {
     results = [];

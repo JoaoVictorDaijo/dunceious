@@ -67,6 +67,15 @@ describe('runInlineSearch — exact mode (delegates to runExactSearch)', () => {
     ]);
   });
 
+  it('breaks recordId ties ascending when start positions tie', () => {
+    const out = runInlineSearch(req({
+      searchQuery: 'AAA', records: [{ id: 'r2', sequence: 'AAA' }, { id: 'r1', sequence: 'AAA' }],
+      mode: 'exact', options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+    }));
+    expect(out.map(r => r.recordId)).toEqual(['r1', 'r2']);
+    expect(out.every(r => r.start === 0)).toBe(true);
+  });
+
   it('scans alignedSequence when present, splitting segments across a gap', () => {
     // executeSearchInline derives seq from alignedSequence via typeof-guard; the
     // IUPAC regex for 'ACG' matches the gapped run 'A-CG' → segments split.
@@ -102,5 +111,17 @@ describe('runInlineSearch — fuzzy mode (whole-ungapped Smith-Waterman)', () =>
     }));
     expect(out.some(r => r.strand === -1)).toBe(true);
     out.forEach(r => expect(r.start).toBeLessThan(r.end));
+  });
+
+  it('does not crash on an all-gap alignedSequence (both strands)', () => {
+    // removeGapsWithMap('----') -> ungapped '' for both fwd and reverseComplement('----') === '----'.
+    // fwd: (both||fwd) && ungappedSeq.length>0 is false -> skipped.
+    // rev: ungappedRcSeq.length===0 -> continue. No matches, no throw.
+    const out = runInlineSearch(req({
+      searchQuery: 'ACGT', records: [{ id: 'r1', sequence: 'ACGT', alignedSequence: '----' }],
+      mode: 'fuzzy', options: { minScore: 5, strand: 'both', maxResults: 100 },
+    }));
+    expect(Array.isArray(out)).toBe(true);
+    expect(out).toEqual([]);
   });
 });

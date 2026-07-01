@@ -60,6 +60,18 @@ describe('applyParseSuccess', () => {
     // prev record is preserved unchanged
     expect(next[0]).toBe(prev[0]);
   });
+
+  it('carries through moleculeType and features via the spread', () => {
+    const f1: BioFeature = { type: 'gene', name: 'f1', start: 0, end: 5, strand: 1 };
+    const incoming = [rec({
+      id: 'g1',
+      moleculeType: 'dna',
+      features: [f1],
+    })];
+    const { next } = applyParseSuccess([], incoming);
+    expect(next[0].moleculeType).toBe('dna');
+    expect(next[0].features).toEqual([f1]);
+  });
 });
 
 describe('applyAnnotations', () => {
@@ -91,6 +103,20 @@ describe('applyAnnotations', () => {
     const byAcc = applyAnnotations(prev, { ACC1: [feat('viaAcc')] });
     expect(byAcc.next[0].features.map(f => f.name)).toEqual(['viaAcc']);
     expect(byAcc.unmatched).toEqual([]);
+  });
+
+  it('returns a record with no matching annotation items unchanged (same reference)', () => {
+    const prev = [rec({ id: 'r1', features: [feat('f0')] }), rec({ id: 'r2', features: [] })];
+    const { next } = applyAnnotations(prev, { r1: [feat('featA')] });
+    expect(next[1]).toBe(prev[1]);
+    expect(next[1].features).toEqual([]);
+  });
+
+  it('creates a tracks array (from undefined) when a matching TRACK annotation arrives', () => {
+    const prev = [rec({ id: 'r1' })]; // tracks left undefined
+    expect(prev[0].tracks).toBeUndefined();
+    const { next } = applyAnnotations(prev, { r1: [track('t1')] });
+    expect(next[0].tracks).toEqual([track('t1')]);
   });
 });
 

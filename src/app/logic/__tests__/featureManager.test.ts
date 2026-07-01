@@ -86,6 +86,10 @@ describe('groupFeaturesBySearch', () => {
     expect(groupFeaturesBySearch(recs, 'plasmid').r1).toHaveLength(1); // via definition
     expect(groupFeaturesBySearch(recs, 'hello').r1).toHaveLength(1);   // via metadata (case-insensitive)
   });
+  it('excludes a feature whose metadata is present but no value contains the search term', () => {
+    const recs = [rec({ id: 'r1', features: [feat({ name: 'x', type: 'y', metadata: { note: 'zzz' } })] })];
+    expect(groupFeaturesBySearch(recs, 'qqq').r1).toEqual([]);
+  });
 });
 
 describe('buildFlattenedFeatures', () => {
@@ -99,6 +103,12 @@ describe('buildFlattenedFeatures', () => {
     const recs = [rec({ id: 'r1', features: [feat({ name: 'x' })], tracks: [] })];
     expect(buildFlattenedFeatures(recs, 'zzz')).toEqual([]);
     expect(buildFlattenedFeatures(recs, '').map(i => i.type)).toEqual(['header', 'feature']);
+  });
+  it('still pushes header+track when features is empty, tracks is non-empty, and a search is active', () => {
+    const recs = [rec({ id: 'r1', features: [], tracks: [{ id: 't1', name: 'trk', data: [] }] })];
+    const out = buildFlattenedFeatures(recs, 'zzz');
+    expect(out.map(i => i.type)).toEqual(['header', 'track']);
+    expect(out[0]).toMatchObject({ type: 'header', count: 1 });
   });
 });
 
@@ -114,6 +124,18 @@ describe('newFeatureFromSelection', () => {
     const recs = [rec({ id: 'r1', sequence: 'ACGTAC', alignedSequence: 'A-CG-TAC' })];
     expect(newFeatureFromSelection(recs, { recordIds: ['r1'], start: 5, end: 2 })).toEqual({ targetRecordId: 'r1', start: 1, end: 3 });
   });
+  it('falls back to default start=0/end=100 (still returning the named recordId) when it names a record not in records', () => {
+    const recs = [rec({ id: 'r1', sequence: 'ACGT' })];
+    expect(newFeatureFromSelection(recs, { recordIds: ['ghost'], start: 0, end: 2 })).toEqual({
+      targetRecordId: 'ghost', start: 0, end: 100,
+    });
+  });
+  it('falls back to records[0].id when recordIds[0] is empty/falsy', () => {
+    const recs = [rec({ id: 'r1', sequence: 'ACGT' })];
+    expect(newFeatureFromSelection(recs, { recordIds: [''], start: 0, end: 2 })).toEqual({
+      targetRecordId: 'r1', start: 0, end: 2,
+    });
+  });
 });
 
 describe('annotationCoords', () => {
@@ -125,6 +147,14 @@ describe('annotationCoords', () => {
     const record = rec({ id: 'r1', sequence: 'ACGT', alignedSequence: 'A-CG-T' });
     expect(annotationCoords(record, 2, 5, [{ start: 4, end: 6 }])).toEqual({
       start: 1, end: 3, segments: [{ start: 3, end: 4 }],
+    });
+  });
+  it('sorts an out-of-order 2+ segment array ascending by converted start', () => {
+    // aligned 'A-CG-TAC' (len 8): getOriginalPos(0)=0, (2)=1, (4)=3, (6)=4, (8)=6
+    // segments [{4,6},{0,2}] convert to [{3,4},{0,1}] (input order) then sort -> [{0,1},{3,4}]
+    const record = rec({ id: 'r1', sequence: 'ACGTAC', alignedSequence: 'A-CG-TAC' });
+    expect(annotationCoords(record, 0, 8, [{ start: 4, end: 6 }, { start: 0, end: 2 }])).toEqual({
+      start: 0, end: 6, segments: [{ start: 0, end: 1 }, { start: 3, end: 4 }],
     });
   });
 });
