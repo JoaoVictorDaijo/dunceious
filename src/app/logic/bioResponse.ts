@@ -19,9 +19,9 @@
 
 import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { makeUniqueId } from '@/services/idHelpers';
+import type { FastaAlignedRecord } from '@/src/workers/protocol';
 
-/** The record shape carried in a FASTA_SUCCESS response's alignedData. */
-export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>;
+export type { FastaAlignedRecord };
 
 /** Accession precedence: trimmed incoming accession > incoming id (unless 'Unknown') > uniqueId. */
 export function resolveAccession(

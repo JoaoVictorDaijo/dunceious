@@ -85,9 +85,12 @@ export interface ParseGenBankSuccessResponse {
   records: SeqRecord[];
 }
 
+/** The record shape carried in a FASTA_SUCCESS response's alignedData. */
+export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>;
+
 export interface ParseFastaSuccessResponse {
   type: 'FASTA_SUCCESS';
-  alignedData: Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>[];
+  alignedData: FastaAlignedRecord[];
   asAlignment?: boolean;
 }
 
