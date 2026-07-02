@@ -19,6 +19,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
+import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/services/search/runInlineSearch';
@@ -98,7 +99,7 @@ export function useSearchWorker(
   const [maxScoreFound, setMaxScoreFound] = useState(0);
 
   const isProteinSession = useMemo(
-    () => records.some(r => r.moleculeType === 'protein'),
+    () => computeIsProteinSession(records),
     [records],
   );
 

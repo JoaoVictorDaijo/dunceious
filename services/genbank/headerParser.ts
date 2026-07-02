@@ -23,6 +23,8 @@
  * SOURCE fallback for the display name.
  */
 
+import { classifyLocusMoleculeType } from '../../src/domain/bio';
+
 export interface HeaderData {
   /** LOCUS identifier (accession) */
   id: string;
@@ -57,18 +59,7 @@ export function parseHeader(lines: string[]): HeaderData {
       name = id;
       isCircular = line.toLowerCase().includes('circular');
 
-      // Determine molecule type from the unit field on the LOCUS line.
-      // Protein GenBank records use "aa" (amino acids); nucleotide records use "bp".
-      // RNA molecule types contain "RNA" anywhere in the molecule-type token
-      // (e.g. "mRNA", "rRNA", "tRNA", "ncRNA").
-      const locusLower = line.toLowerCase();
-      if (/\baa\b/.test(locusLower)) {
-        moleculeType = 'protein';
-      } else if (locusLower.includes('rna')) {
-        moleculeType = 'rna';
-      } else {
-        moleculeType = 'dna';
-      }
+      moleculeType = classifyLocusMoleculeType(line);
       continue;
     }
 
