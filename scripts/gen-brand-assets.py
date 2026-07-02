@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+#
+# Dunceious
+#
+# This file is part of Dunceious.
+#
+# Dunceious is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Dunceious is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+#
+
 """
 Regenerate Dunceious brand assets into public/.
 
@@ -30,6 +49,24 @@ EMER, AMBER, ROSE, INDIGO = "#10b981", "#f59e0b", "#f43f5e", "#6366f1"
 GRAD_TOP, GRAD_BOT = "#38bdf8", "#0ea5e9"
 FA_ATTR = "Font Awesome Free 6.4.0 fa-dna glyph, CC BY 4.0 - https://fontawesome.com/license/free"
 
+# AGPL header emitted into generated SVGs (see scripts/check-license-headers.mjs).
+AGPL_SVG = (
+    "<!--\n"
+    "  Dunceious\n\n"
+    "  This file is part of Dunceious.\n\n"
+    "  Dunceious is free software: you can redistribute it and/or modify\n"
+    "  it under the terms of the GNU Affero General Public License as published by\n"
+    "  the Free Software Foundation, either version 3 of the License, or\n"
+    "  (at your option) any later version.\n\n"
+    "  Dunceious is distributed in the hope that it will be useful,\n"
+    "  but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+    "  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+    "  GNU Affero General Public License for more details.\n\n"
+    "  You should have received a copy of the GNU Affero General Public License\n"
+    "  along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.\n"
+    "-->\n"
+)
+
 # fa-dna solid glyph, viewBox 0 0 448 512
 DNA = ("M416 0c17.7 0 32 14.3 32 32c0 59.8-30.3 107.5-69.4 146.6c-28 28-62.5 53.5-97.3 77.4l-2.5 1.7c-11.9 8.1-23.8 "
        "16.1-35.5 23.9l0 0 0 0 0 0-1.6 1c-6 4-11.9 7.9-17.8 11.9c-20.9 14-40.8 27.7-59.3 41.5H283.3c-9.8-7.4-20.1-14.7"
@@ -53,7 +90,7 @@ def favicon(full_bleed=False):
     tile = ('<rect width="64" height="64" fill="url(#bg)"/>' if full_bleed else
             f'<rect x="1" y="1" width="62" height="62" rx="15" fill="url(#bg)" '
             f'stroke="{SKY}" stroke-opacity="0.22" stroke-width="1.5"/>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><!-- {FA_ATTR} -->
+    return AGPL_SVG + f'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><!-- {FA_ATTR} -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="{VOID}"/></linearGradient>
     <linearGradient id="dna" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{GRAD_TOP}"/><stop offset="1" stop-color="{GRAD_BOT}"/></linearGradient>
