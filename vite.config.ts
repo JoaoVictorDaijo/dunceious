@@ -57,13 +57,13 @@ export default defineConfig(() => {
         ],
         reporter: ["text", "text-summary", "json-summary"],
         // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 98.3 / branches 89.4 / functions 97.5 / statements 96.5 as of Phase 2A
-        // PR2, after the app-state extraction added src/app/logic/** to scope) so
+        // 98.3 / branches 90.0 / functions 97.6 / statements 96.6 as of Phase B,
+        // after domain/bio/sequence.ts consolidated the sequence primitives) so
         // normal v8 jitter and hard-to-hit defensive branches don't break CI.
-        // Raise (never lower); the ~4pt buffer here already holds for PR2.
+        // Raise (never lower); the ~4pt buffer holds.
         thresholds: {
           lines: 94,
-          branches: 85,
+          branches: 86,
           functions: 93,
           statements: 92,
         },
