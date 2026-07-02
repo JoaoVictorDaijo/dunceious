@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { runSearch } from '../../services/search/runSearch';
+import { runSearch } from './handlers/search';
 import type { SearchWorkerRequest } from './protocol';
 
 self.onmessage = (e: MessageEvent<SearchWorkerRequest>) => {
