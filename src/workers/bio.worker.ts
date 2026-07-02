@@ -17,7 +17,6 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// bioWorker.ts
 // Thin worker shell — all logic lives in ./handlers/bio.ts.
 import { handleBioMessage } from './handlers/bio';
 import type { BioWorkerRequest } from './protocol';
