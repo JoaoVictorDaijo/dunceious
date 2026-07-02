@@ -9,6 +9,22 @@ For a full feature description see [`DOCUMENTATION.md`](./DOCUMENTATION.md), for
 
 ---
 
+## Use Dunceious
+
+**Everything runs locally in your browser.** Your sequences are parsed, viewed, aligned, and searched entirely on your own machine — nothing is uploaded, and nothing is stored on any server. Dunceious has no backend.
+
+You can use it two ways:
+
+### 1. Online — no install
+
+Open **[dunceious.pages.dev](https://dunceious.pages.dev/)**. The app is fully static and self-contained (no third-party CDNs), so every file you open stays on your device. It's hosted on Cloudflare Pages purely as static files — the hosting only serves the app; it never sees your data.
+
+### 2. Run it locally
+
+Prefer to run it yourself, work offline, or hack on the code? Build and serve it locally — see [Installation & Local Development](#installation--local-development) below.
+
+---
+
 ## Prerequisites
 
 | Requirement                    | Minimum version    |
@@ -74,8 +90,8 @@ The app will be available at **http://localhost:3000**. The dev server supports 
 - **Vite 6** — Build tool and dev server
 - **D3.js 7** — Coordinate scaling and SVG rendering
 - **react-window** — Virtualized list rendering for large sequence sets
-- **Tailwind CSS** (CDN) — Utility-first styling
-- **FontAwesome 6** (CDN) — Icon set
+- **Tailwind CSS** — Utility-first styling, compiled at build time (self-hosted, no CDN)
+- **Font Awesome 6** — Icon set (self-hosted, no CDN)
 
 ---
 
