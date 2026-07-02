@@ -168,6 +168,21 @@ describe('mapUngappedRangeToAligned', () => {
     // Out-of-range: safeStart clamps to map.length-1 (=5) → map[5]=7, end=map[5]+1=8.
     expect(mapUngappedRangeToAligned(map, 10, 20)).toEqual({ start: 7, end: 8 });
   });
+  it('clamps a negative start up to 0', () => {
+    // start=-5→0, end=2 → alignedStart=map[0]=0, alignedEnd=map[1]+1=3
+    const map = [0, 2, 4, 5, 6, 7];
+    expect(mapUngappedRangeToAligned(map, -5, 2)).toEqual({ start: 0, end: 3 });
+  });
+  it('handles a single-element map', () => {
+    expect(mapUngappedRangeToAligned([5], 0, 1)).toEqual({ start: 5, end: 6 });
+  });
+  it('floors a degenerate/inverted range (start >= end) to a single-position span', () => {
+    // safeEndExclusive is floored to safeStart+1, so a zero-width/inverted
+    // request still yields a single-position aligned span.
+    const map = [0, 2, 4, 5, 6, 7];
+    expect(mapUngappedRangeToAligned(map, 2, 2)).toEqual({ start: 4, end: 5 });
+    expect(mapUngappedRangeToAligned(map, 3, 1)).toEqual({ start: 5, end: 6 });
+  });
 });
 
 describe('getOriginalPos', () => {
