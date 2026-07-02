@@ -119,6 +119,27 @@ describe('extractCodingSequence – circular wrap-around (start > end)', () => {
     );
     expect(codingSeq).toBe('GGGCT');
   });
+
+  // Degenerate wrap cases: splitWrapAround omits an empty part; assert the
+  // caller's output matches the old always-both-parts inline code (which
+  // iterated the omitted part zero times).
+  it('omits the empty leading part when start == seqLength', () => {
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: 1, start: 10, end: 3 },
+      genome
+    );
+    expect(codingSeq).toBe('CCC');
+    expect(alignedIndices).toEqual([0, 1, 2]);
+  });
+
+  it('omits the empty trailing part when end == 0', () => {
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: 1, start: 8, end: 0 },
+      genome
+    );
+    expect(codingSeq).toBe('AG');
+    expect(alignedIndices).toEqual([8, 9]);
+  });
 });
 
 // ---------------------------------------------------------------------------

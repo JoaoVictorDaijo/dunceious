@@ -53,7 +53,7 @@ const AA_ROW_HEIGHT = 18;
 const ANNOT_ROW_HEIGHT = 14;
 const RULER_HEIGHT = 25;
 
-/** Feature types rendered as translated coding sequences (CDS/ORF, case variants). */
+/** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 
 /**
