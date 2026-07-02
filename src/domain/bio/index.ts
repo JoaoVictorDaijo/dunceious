@@ -25,10 +25,6 @@ export type {
   BioFeature,
   QuantitativeTrack,
   SeqRecord,
-  WorkflowStep,
-  AlignmentMode,
-  AlignmentParams,
   SearchResult,
   SelectionArea,
-  ProjectState,
 } from './types';

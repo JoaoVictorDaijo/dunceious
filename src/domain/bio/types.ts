@@ -59,25 +59,6 @@ export interface SeqRecord {
   visible?: boolean;
 }
 
-export enum WorkflowStep {
-  INGESTION = 'Ingestion',
-  ALIGNMENT = 'Alignment',
-  TRANSPOSITION = 'Transposition',
-  VISUALIZATION = 'Visualization'
-}
-
-export type AlignmentMode = 'auto' | 'FFT-NS-1' | 'FFT-NS-2' | 'L-INS-i' | 'E-INS-i' | 'G-INS-i';
-
-export interface AlignmentParams {
-  algorithm: 'mafft' | 'muscle';
-  mode: AlignmentMode;
-  gapOpeningPenalty: number;
-  gapExtensionPenalty: number;
-  maxIterations: number;
-  matrix: 'BLOSUM62' | 'PAM30' | 'PAM70';
-  threadCount: number;
-}
-
 export interface SearchResult {
   start: number;
   end: number;
@@ -93,23 +74,3 @@ export interface SelectionArea {
   end: number;
   recordIds: string[];
 }
-
-export interface ProjectState {
-  records: SeqRecord[];
-  featureColors: Record<string, string>;
-  activeSelection: SelectionArea | null;
-  showAnnotations: boolean;
-  showTranslation: boolean;
-  showConservation: boolean;
-  version: string;
-}
-
-export const DEFAULT_PARAMS: AlignmentParams = {
-  algorithm: 'mafft',
-  mode: 'auto',
-  gapOpeningPenalty: 1.53,
-  gapExtensionPenalty: 0.123,
-  maxIterations: 1000,
-  matrix: 'BLOSUM62',
-  threadCount: 4,
-};

@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { makeUniqueId } from '../bioUtils';
+import { makeUniqueId } from '../idHelpers';
 
 describe('makeUniqueId', () => {
   it('returns the baseId if it is unique (case-insensitive)', () => {

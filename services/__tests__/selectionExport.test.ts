@@ -18,72 +18,72 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { clipInterval, sliceRecordsBySelection } from '../bioUtils';
+import { clipAndRebaseInterval, sliceRecordsBySelection } from '../bioUtils';
 import type { SeqRecord, BioFeature } from '../../types';
 
 // ---------------------------------------------------------------------------
-// clipInterval – half-open [start, end) boundary semantics
+// clipAndRebaseInterval – half-open [start, end) boundary semantics
 // ---------------------------------------------------------------------------
 
-describe('clipInterval – interval clipping and rebasing (half-open [start, end))', () => {
+describe('clipAndRebaseInterval – interval clipping and rebasing (half-open [start, end))', () => {
   const SEL_START = 10;
   const SEL_END = 20; // selection window is [10, 20)
 
   it('returns rebased coords for a fully contained interval', () => {
-    expect(clipInterval(12, 18, SEL_START, SEL_END)).toEqual({ start: 2, end: 8 });
+    expect(clipAndRebaseInterval(12, 18, SEL_START, SEL_END)).toEqual({ start: 2, end: 8 });
   });
 
   it('clips a left-overlapping interval to the selection boundary', () => {
     // [5, 12) ∩ [10, 20) → rebased [0, 2)
-    expect(clipInterval(5, 12, SEL_START, SEL_END)).toEqual({ start: 0, end: 2 });
+    expect(clipAndRebaseInterval(5, 12, SEL_START, SEL_END)).toEqual({ start: 0, end: 2 });
   });
 
   it('clips a right-overlapping interval to the selection boundary', () => {
     // [18, 25) ∩ [10, 20) → rebased [8, 10)
-    expect(clipInterval(18, 25, SEL_START, SEL_END)).toEqual({ start: 8, end: 10 });
+    expect(clipAndRebaseInterval(18, 25, SEL_START, SEL_END)).toEqual({ start: 8, end: 10 });
   });
 
   it('drops an interval that touches the left boundary but does not overlap', () => {
     // [0, 10) ends exactly at selStart → no overlap
-    expect(clipInterval(0, 10, SEL_START, SEL_END)).toBeNull();
+    expect(clipAndRebaseInterval(0, 10, SEL_START, SEL_END)).toBeNull();
   });
 
   it('drops an interval that touches the right boundary but does not overlap', () => {
     // [20, 30) starts exactly at selEnd → no overlap
-    expect(clipInterval(20, 30, SEL_START, SEL_END)).toBeNull();
+    expect(clipAndRebaseInterval(20, 30, SEL_START, SEL_END)).toBeNull();
   });
 
   it('drops a zero-length interval inside the selection', () => {
-    expect(clipInterval(10, 10, SEL_START, SEL_END)).toBeNull();
+    expect(clipAndRebaseInterval(10, 10, SEL_START, SEL_END)).toBeNull();
   });
 
   it('returns null for an interval wholly outside the selection (left)', () => {
-    expect(clipInterval(0, 5, SEL_START, SEL_END)).toBeNull();
+    expect(clipAndRebaseInterval(0, 5, SEL_START, SEL_END)).toBeNull();
   });
 
   it('returns null for an interval wholly outside the selection (right)', () => {
-    expect(clipInterval(25, 30, SEL_START, SEL_END)).toBeNull();
+    expect(clipAndRebaseInterval(25, 30, SEL_START, SEL_END)).toBeNull();
   });
 
   it('handles an interval that spans the entire selection', () => {
     // [5, 30) covers [10, 20) → rebased [0, 10)
-    expect(clipInterval(5, 30, SEL_START, SEL_END)).toEqual({ start: 0, end: 10 });
+    expect(clipAndRebaseInterval(5, 30, SEL_START, SEL_END)).toEqual({ start: 0, end: 10 });
   });
 
   it('returns null for a degenerate selection (selEnd <= selStart)', () => {
-    expect(clipInterval(10, 15, 20, 10)).toBeNull();
+    expect(clipAndRebaseInterval(10, 15, 20, 10)).toBeNull();
   });
 
   it('handles an interval exactly matching the selection window', () => {
-    expect(clipInterval(10, 20, SEL_START, SEL_END)).toEqual({ start: 0, end: 10 });
+    expect(clipAndRebaseInterval(10, 20, SEL_START, SEL_END)).toEqual({ start: 0, end: 10 });
   });
 
   it('handles single-base interval at the start of the selection', () => {
-    expect(clipInterval(10, 11, SEL_START, SEL_END)).toEqual({ start: 0, end: 1 });
+    expect(clipAndRebaseInterval(10, 11, SEL_START, SEL_END)).toEqual({ start: 0, end: 1 });
   });
 
   it('handles single-base interval at the last position of the selection', () => {
-    expect(clipInterval(19, 20, SEL_START, SEL_END)).toEqual({ start: 9, end: 10 });
+    expect(clipAndRebaseInterval(19, 20, SEL_START, SEL_END)).toEqual({ start: 9, end: 10 });
   });
 });
 

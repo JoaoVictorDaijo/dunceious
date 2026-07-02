@@ -19,7 +19,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
+import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/services/search/runInlineSearch';
 import {
@@ -29,11 +29,7 @@ import {
   getSequenceContext as computeSequenceContext,
 } from '@/src/app/logic/searchState';
 
-export interface SearchOptions {
-  minScore: number;
-  strand: 'fwd' | 'rev' | 'both';
-  maxResults: number;
-}
+export type { SearchOptions };
 
 export interface UseSearchWorkerReturn {
   searchQuery: string;
