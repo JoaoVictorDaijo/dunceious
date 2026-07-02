@@ -19,85 +19,9 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  getNucleotideColor,
-  getAminoAcidColor,
-  getFeatureColor,
   getOriginalPos,
   downloadBlob,
 } from '../bioUtils';
-
-describe('getNucleotideColor', () => {
-  it('returns the canonical colour for each base (case-insensitive)', () => {
-    expect(getNucleotideColor('A')).toBe('#22c55e');
-    expect(getNucleotideColor('t')).toBe('#f43f5e');
-    expect(getNucleotideColor('C')).toBe('#3b82f6');
-    expect(getNucleotideColor('g')).toBe('#eab308');
-  });
-
-  it('returns the gap colour for "-"', () => {
-    expect(getNucleotideColor('-')).toBe('#64748b');
-  });
-
-  it('returns the fallback colour for an unknown character', () => {
-    expect(getNucleotideColor('X')).toBe('#94a3b8');
-  });
-});
-
-describe('getAminoAcidColor', () => {
-  it('colours hydrophobic non-polar residues amber', () => {
-    for (const aa of ['A', 'V', 'I', 'L', 'M']) {
-      expect(getAminoAcidColor(aa)).toBe('#f59e0b');
-    }
-  });
-
-  it('colours each special/grouped residue by its convention', () => {
-    expect(getAminoAcidColor('G')).toBe('#94a3b8'); // slate
-    expect(getAminoAcidColor('P')).toBe('#d97706'); // dark amber
-    expect(getAminoAcidColor('F')).toBe('#a855f7'); // aromatic purple
-    expect(getAminoAcidColor('W')).toBe('#a855f7');
-    expect(getAminoAcidColor('Y')).toBe('#8b5cf6'); // violet
-    expect(getAminoAcidColor('K')).toBe('#3b82f6'); // positive blue
-    expect(getAminoAcidColor('R')).toBe('#3b82f6');
-    expect(getAminoAcidColor('H')).toBe('#60a5fa'); // sky blue
-    expect(getAminoAcidColor('D')).toBe('#ef4444'); // negative red
-    expect(getAminoAcidColor('E')).toBe('#f97316'); // orange-red
-    expect(getAminoAcidColor('S')).toBe('#22c55e'); // polar green
-    expect(getAminoAcidColor('T')).toBe('#22c55e');
-    expect(getAminoAcidColor('N')).toBe('#10b981'); // emerald
-    expect(getAminoAcidColor('Q')).toBe('#10b981');
-    expect(getAminoAcidColor('C')).toBe('#eab308'); // cysteine yellow
-  });
-
-  it('colours stop codons (* and _) red and gaps slate', () => {
-    expect(getAminoAcidColor('*')).toBe('#ef4444');
-    expect(getAminoAcidColor('_')).toBe('#ef4444');
-    expect(getAminoAcidColor('-')).toBe('#64748b');
-  });
-
-  it('is case-insensitive and falls back for unknown residues', () => {
-    expect(getAminoAcidColor('a')).toBe('#f59e0b');
-    expect(getAminoAcidColor('Z')).toBe('#94a3b8');
-  });
-});
-
-describe('getFeatureColor', () => {
-  it('returns the mapped colour for a known feature type', () => {
-    expect(getFeatureColor('CDS')).toBe('#8b5cf6');
-    expect(getFeatureColor('gene')).toBe('#0ea5e9');
-  });
-
-  it('prefers a custom colour override when provided', () => {
-    expect(getFeatureColor('CDS', { CDS: '#123456' })).toBe('#123456');
-  });
-
-  it('falls through to the built-in map when the override lacks the type', () => {
-    expect(getFeatureColor('gene', { CDS: '#123456' })).toBe('#0ea5e9');
-  });
-
-  it('returns the fallback colour for an unknown feature type', () => {
-    expect(getFeatureColor('totally_unknown')).toBe('#94a3b8');
-  });
-});
 
 describe('getOriginalPos', () => {
   it('is the identity for a gap-free sequence', () => {

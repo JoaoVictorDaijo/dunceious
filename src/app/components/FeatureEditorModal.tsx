@@ -19,7 +19,7 @@
 
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
-import { getFeatureColor } from '@/services/bioUtils';
+import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 
 export interface EditingFeatureState {
