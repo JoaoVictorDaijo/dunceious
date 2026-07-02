@@ -340,7 +340,7 @@ type TrackDataItem = { start: number; end: number; value: number };
  * `[selStart, selEnd)` and rebases the result to selection-local coordinates.
  * Returns `null` when there is no overlap or the clipped interval is zero-length.
  */
-export function clipInterval(
+export function clipAndRebaseInterval(
   start: number,
   end: number,
   selStart: number,
@@ -365,10 +365,10 @@ function clipFeature(
   selStart: number,
   selEnd: number
 ): import('../types').BioFeature | null {
-  const clipped = clipInterval(feature.start, feature.end, selStart, selEnd);
+  const clipped = clipAndRebaseInterval(feature.start, feature.end, selStart, selEnd);
   if (!clipped) return null;
   const newSegments = feature.segments
-    ?.map(s => clipInterval(s.start, s.end, selStart, selEnd))
+    ?.map(s => clipAndRebaseInterval(s.start, s.end, selStart, selEnd))
     .filter((s): s is Interval => s !== null);
   return {
     ...feature,
@@ -398,7 +398,7 @@ export function sliceRecordsBySelection(
       ...track,
       data: track.data
         .map(d => {
-          const clippedInterval = clipInterval(d.start, d.end, selStart, selEnd);
+          const clippedInterval = clipAndRebaseInterval(d.start, d.end, selStart, selEnd);
           return clippedInterval ? { ...d, ...clippedInterval } : null;
         })
         .filter((d): d is TrackDataItem => d !== null),
