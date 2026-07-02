@@ -22,15 +22,7 @@
  * No DOM / worker globals are used here.
  */
 
-export interface SearchResult {
-  start: number;
-  end: number;
-  sequence: string;
-  recordId: string;
-  strand: 1 | -1;
-  score?: number;
-  segments?: { start: number; end: number }[];
-}
+export type { SearchResult } from '../src/domain/bio/types';
 
 const IUPAC_MAP: Record<string, string> = {
   'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
