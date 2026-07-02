@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment, QuantitativeTrack } from '../../src/domain/bio/types';
+import type { BioFeature, FeatureSegment, QuantitativeTrack, SeqRecord } from '@/src/domain/bio/types';
 
 /** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
 export interface AnnotationTrack extends QuantitativeTrack {
@@ -163,4 +163,16 @@ export const parseBedGraph = (content: string, filename: string): Record<string,
   });
 
   return results;
+};
+
+export const exportToGff = (records: SeqRecord[]): string => {
+  let gff = "##gff-version 3\n";
+  records.forEach(r => {
+    r.features.forEach(f => {
+      const strand = f.strand === 1 ? '+' : '-';
+      const attributes = `ID=${f.name.replace(/\s+/g, '_')};Name=${f.name}`;
+      gff += `${r.id}\tDunceious\t${f.type}\t${f.start + 1}\t${f.end}\t.\t${strand}\t0\t${attributes}\n`;
+    });
+  });
+  return gff;
 };

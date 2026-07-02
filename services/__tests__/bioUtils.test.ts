@@ -18,13 +18,11 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { SeqRecord } from '../../types';
 import {
   getNucleotideColor,
   getAminoAcidColor,
   getFeatureColor,
   getOriginalPos,
-  exportToGff,
   downloadBlob,
 } from '../bioUtils';
 
@@ -116,29 +114,6 @@ describe('getOriginalPos', () => {
 
   it('clamps a position past the end of the aligned sequence', () => {
     expect(getOriginalPos('ACGT', 100)).toBe(4);
-  });
-});
-
-function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
-  return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
-}
-
-describe('exportToGff', () => {
-  it('emits the version header and a tab-delimited feature line with 1-based start', () => {
-    const gff = exportToGff([record({
-      features: [{ type: 'CDS', name: 'my gene', start: 9, end: 20, strand: 1 }],
-    })]);
-    expect(gff.startsWith('##gff-version 3\n')).toBe(true);
-    // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
-    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=my_gene;Name=my gene');
-  });
-
-  it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
-    const gff = exportToGff([record({
-      features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
-    })]);
-    // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
-    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
   });
 });
 

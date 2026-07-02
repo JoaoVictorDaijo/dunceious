@@ -120,18 +120,6 @@ export const getFeatureColor = (type: string, customColors?: Record<string, stri
   return colors[type] || '#94a3b8';
 };
 
-export const exportToGff = (records: SeqRecord[]): string => {
-  let gff = "##gff-version 3\n";
-  records.forEach(r => {
-    r.features.forEach(f => {
-      const strand = f.strand === 1 ? '+' : '-';
-      const attributes = `ID=${f.name.replace(/\s+/g, '_')};Name=${f.name}`;
-      gff += `${r.id}\tDunceious\t${f.type}\t${f.start + 1}\t${f.end}\t.\t${strand}\t0\t${attributes}\n`;
-    });
-  });
-  return gff;
-};
-
 export const downloadBlob = (content: string, filename: string, mimeType: string) => {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
