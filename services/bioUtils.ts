@@ -19,7 +19,6 @@
 
 
 import { SeqRecord } from '../types';
-export { makeUniqueId } from './idHelpers';
 
 const GENETIC_CODE: Record<string, string> = {
   'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
