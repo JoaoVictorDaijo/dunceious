@@ -33,7 +33,7 @@ describe('parseFasta', () => {
   });
 
   it('parses multiple records and infers molecule type per record', () => {
-    const recs = parseFasta('>a\nACGT\n>b\nMKV');
+    const recs = parseFasta('>a\nACGT\n>b\nMKLEP');
     expect(recs.map(r => r.id)).toEqual(['a', 'b']);
     expect(recs[1].moleculeType).toBe('protein');
   });

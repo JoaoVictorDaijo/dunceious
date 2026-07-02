@@ -19,6 +19,7 @@
 
 import { Dispatch, SetStateAction, useState } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { detectMoleculeType, classifyLocusMoleculeType, isProteinSession } from '@/src/domain/bio';
 import {
   exportToFasta,
   downloadBlob,
@@ -30,19 +31,18 @@ import type { BioWorkerRequest } from '@/src/workers/protocol';
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;
 const FASTA_SAMPLE_MAX_LENGTH = 1200;
-const FASTA_STRONG_PROTEIN_MIN_COUNT = 2;
-const FASTA_STRONG_PROTEIN_MIN_RATIO = 0.01;
 
 /** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
 function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
   const match = content.match(/^LOCUS\s+.+$/m);
-  if (match && /\baa\b/.test(match[0].toLowerCase())) return 'protein';
+  if (match && classifyLocusMoleculeType(match[0]) === 'protein') return 'protein';
   return 'nucleotide';
 }
 
 /**
- * Samples the first sequence in a FASTA string to detect its category.
- * Checks for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y).
+ * Samples the first few records of a FASTA string and classifies the sample
+ * via the canonical `detectMoleculeType` (protein-only alphabet =
+ * PROTEIN_ONLY_RESIDUES). RNA maps to 'nucleotide'.
  */
 function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
   const lines = content.split('\n');
@@ -66,29 +66,12 @@ function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
 
   const sample = seq.toUpperCase().replace(/[^A-Z*-]/g, '');
   if (!sample) return 'nucleotide';
-
-  const nucleotideAlphabet = new Set('ACGTUNRYSWKMBDHV'.split(''));
-  const strongProteinAlphabet = new Set('EFILPQZJO*'.split(''));
-
-  let strongProtein = 0;
-  let nonNucleotide = 0;
-  for (const ch of sample) {
-    if (ch === '-') continue;
-    if (strongProteinAlphabet.has(ch)) strongProtein += 1;
-    if (!nucleotideAlphabet.has(ch)) nonNucleotide += 1;
-  }
-
-  if (
-    strongProtein >= FASTA_STRONG_PROTEIN_MIN_COUNT
-    || strongProtein / Math.max(1, sample.length) >= FASTA_STRONG_PROTEIN_MIN_RATIO
-  ) return 'protein';
-  if (nonNucleotide > 0) return 'protein';
-  return 'nucleotide';
+  return detectMoleculeType(sample) === 'protein' ? 'protein' : 'nucleotide';
 }
 
 /** Returns the effective category of the current session's records. */
 function getLoadedCategory(records: SeqRecord[]): 'nucleotide' | 'protein' {
-  return records.some(r => r.moleculeType === 'protein') ? 'protein' : 'nucleotide';
+  return isProteinSession(records) ? 'protein' : 'nucleotide';
 }
 
 /** Subset of app state that the project-restore handler needs to write back. */

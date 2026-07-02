@@ -27,14 +27,14 @@ describe('detectMoleculeType', () => {
   it('classifies a sequence with U (and no protein chars) as rna', () => {
     expect(detectMoleculeType('ACGU')).toBe('rna');
   });
-  it('classifies a sequence with a protein-only char as protein', () => {
-    expect(detectMoleculeType('ACGTM')).toBe('protein'); // M is protein-only
+  it('classifies a sequence with a protein-only residue as protein', () => {
+    expect(detectMoleculeType('ACGTL')).toBe('protein'); // L never occurs in the nucleotide alphabet
   });
   it('prioritises protein over rna when both signals present', () => {
-    expect(detectMoleculeType('ACGUM')).toBe('protein');
+    expect(detectMoleculeType('ACGUL')).toBe('protein'); // L (protein) wins over U (rna)
   });
   it('is case-insensitive', () => {
-    expect(detectMoleculeType('mkv')).toBe('protein');
+    expect(detectMoleculeType('mkle')).toBe('protein'); // lowercase L/E are protein-only
   });
   it('treats an empty sequence as dna', () => {
     expect(detectMoleculeType('')).toBe('dna');
@@ -42,8 +42,12 @@ describe('detectMoleculeType', () => {
   it('treats ambiguous nucleotide codes (N) as dna', () => {
     expect(detectMoleculeType('ACGTN')).toBe('dna');
   });
-  it('classifies excluded/ambiguous codes (B/J/O/X/Z) as dna', () => {
-    expect(detectMoleculeType('ACGTX')).toBe('dna');
+  it('classifies IUPAC nucleotide ambiguity codes as dna', () => {
+    expect(detectMoleculeType('ACGTRYSWKMBDHVN')).toBe('dna');
+  });
+  it('classifies protein-only ambiguity codes (X/J/O/Z) as protein', () => {
+    expect(detectMoleculeType('ACGTX')).toBe('protein');
+    expect(detectMoleculeType('ACGTZ')).toBe('protein');
   });
   it('detects rna from lowercase u', () => {
     expect(detectMoleculeType('acgu')).toBe('rna');

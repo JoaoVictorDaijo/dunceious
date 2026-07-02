@@ -20,6 +20,25 @@
 export { transposeCoordinates, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
 export { clipInterval, clipSegments, splitWrapAround } from './intervals';
+export {
+  reverseComplement,
+  translateSequence,
+  extractCodingSequence,
+  detectEarlyStop,
+  PROTEIN_ONLY_RESIDUES,
+  detectMoleculeType,
+  classifyLocusMoleculeType,
+  removeGapsWithMap,
+  mapUngappedRangeToAligned,
+  getOriginalPos,
+  isProteinSession,
+} from './sequence';
+
+// Alias exposing the deduped implementation from the domain barrel, so the
+// search code's `import { getNonGapSegments } from '@/src/domain/bio'` (Phase C:
+// exact.ts, fuzzy.ts, workers/handlers/search.ts, runInlineSearch.ts,
+// protocol.test.ts) keeps resolving after services/searchLogic.ts is deleted.
+export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
   FeatureSegment,
   BioFeature,
