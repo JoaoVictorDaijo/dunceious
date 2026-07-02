@@ -18,7 +18,7 @@
  */
 
 import { processTransposition, calculateConsensus } from '../../src/domain/bio/index';
-import { parseGenBank } from '../genbank/index';
+import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '../../src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse } from '../../src/workers/protocol';
 import { parseFasta } from '../parsers/fasta';

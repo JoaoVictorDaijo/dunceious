@@ -22,7 +22,7 @@
  * combining the outputs of the individual sub-parsers.
  */
 
-import type { SeqRecord } from '../../src/domain/bio/types';
+import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseHeader } from './headerParser';
 import { parseFeatures } from './featureParser';
 

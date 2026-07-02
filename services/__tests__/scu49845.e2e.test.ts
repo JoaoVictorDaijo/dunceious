@@ -33,7 +33,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseGenBank } from '../genbank/index';
+import { parseGenBank } from '@/src/core/genbank/index';
 import { exportToGenBank } from '../bioUtils';
 import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
