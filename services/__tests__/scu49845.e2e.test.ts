@@ -36,7 +36,7 @@ import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { processTransposition } from '../../src/domain/bio/index';
-import { degenerateToRegex } from '../searchLogic';
+import { degenerateToRegex } from '@/src/core/search/query';
 import type { SeqRecord, BioFeature } from '../../types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -17,12 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {
-  SearchResult,
-  degenerateToRegex,
-  reverseComplement,
-  getNonGapSegments,
-} from '../searchLogic';
+import { degenerateToRegex } from '@/src/core/search/query';
+import { SearchResult, reverseComplement, getNonGapSegments } from '@/src/domain/bio';
 import type { SearchableRecord } from '../../src/workers/protocol';
 
 /**

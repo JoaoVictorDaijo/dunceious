@@ -18,39 +18,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  degenerateToRegex,
-  reverseComplement,
-  getNonGapSegments,
-  smithWaterman,
-  removeGapsWithMap,
-  mapUngappedRangeToAligned,
-} from '../searchLogic';
-
-// ---------------------------------------------------------------------------
-// reverseComplement
-// ---------------------------------------------------------------------------
-
-describe('reverseComplement', () => {
-  it('reverse-complements a simple DNA sequence', () => {
-    expect(reverseComplement('ATCG')).toBe('CGAT');
-  });
-
-  it('handles N (any base)', () => {
-    expect(reverseComplement('N')).toBe('N');
-  });
-
-  it('handles gap characters', () => {
-    // 'A-T' reversed = ['T','-','A']; complement: T→A, -→-, A→T → 'A-T'
-    // (self-complementary palindrome with gap)
-    expect(reverseComplement('A-T')).toBe('A-T');
-  });
-
-  it('is its own inverse', () => {
-    const seq = 'AATTCCGG';
-    expect(reverseComplement(reverseComplement(seq))).toBe(seq);
-  });
-});
+import { degenerateToRegex } from '../query';
+import { smithWaterman } from '../align';
+import { reverseComplement } from '@/src/domain/bio';
 
 // ---------------------------------------------------------------------------
 // degenerateToRegex (exact / IUPAC mode)
@@ -87,36 +57,6 @@ describe('degenerateToRegex', () => {
   it('returns a non-matching regex for an empty query', () => {
     const re = degenerateToRegex('');
     expect(re.test('ACGT')).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getNonGapSegments
-// ---------------------------------------------------------------------------
-
-describe('getNonGapSegments', () => {
-  it('returns one segment for a gap-free region', () => {
-    expect(getNonGapSegments('ACGTACGT', 0, 4)).toEqual([{ start: 0, end: 4 }]);
-  });
-
-  it('splits around internal gaps', () => {
-    // 'AC--GT': positions 0-6; slice [0,6) → [0,2) and [4,6)
-    expect(getNonGapSegments('AC--GT', 0, 6)).toEqual([
-      { start: 0, end: 2 },
-      { start: 4, end: 6 },
-    ]);
-  });
-
-  it('returns empty array when the slice is all gaps', () => {
-    expect(getNonGapSegments('----', 0, 4)).toEqual([]);
-  });
-
-  it('respects the start offset', () => {
-    // 'XXXXAC--GT'; slice [4,10) → segments with start offset 4
-    expect(getNonGapSegments('XXXXAC--GT', 4, 10)).toEqual([
-      { start: 4, end: 6 },
-      { start: 8, end: 10 },
-    ]);
   });
 });
 
@@ -220,68 +160,6 @@ describe('smithWaterman – fuzzy search smoke tests', () => {
     const max = Math.max(...scores);
     const min = Math.min(...scores);
     expect(max).toBeGreaterThan(min);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// removeGapsWithMap
-// ---------------------------------------------------------------------------
-
-describe('removeGapsWithMap', () => {
-  it('returns the sequence unchanged with an identity map when gap-free', () => {
-    expect(removeGapsWithMap('ACGT')).toEqual({ ungapped: 'ACGT', map: [0, 1, 2, 3] });
-  });
-
-  it('strips gaps and maps each kept base to its original index', () => {
-    // 'A-C--G' → kept A(0) C(2) G(5)
-    expect(removeGapsWithMap('A-C--G')).toEqual({ ungapped: 'ACG', map: [0, 2, 5] });
-  });
-
-  it('returns empty ungapped and empty map for an all-gap sequence', () => {
-    expect(removeGapsWithMap('----')).toEqual({ ungapped: '', map: [] });
-  });
-
-  it('returns empty results for an empty string', () => {
-    expect(removeGapsWithMap('')).toEqual({ ungapped: '', map: [] });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// mapUngappedRangeToAligned
-// ---------------------------------------------------------------------------
-
-describe('mapUngappedRangeToAligned', () => {
-  // ungapped indices 0,1,2,3 → aligned positions 0,2,4,6
-  const map = [0, 2, 4, 6];
-
-  it('returns {0,0} for an empty map', () => {
-    expect(mapUngappedRangeToAligned([], 0, 4)).toEqual({ start: 0, end: 0 });
-  });
-
-  it('maps an in-range half-open ungapped range to aligned coordinates', () => {
-    // start=1,end=3 → alignedStart=map[1]=2, alignedEnd=map[2]+1=5
-    expect(mapUngappedRangeToAligned(map, 1, 3)).toEqual({ start: 2, end: 5 });
-  });
-
-  it('clamps a negative start up to 0', () => {
-    // start=-5→0, end=2 → alignedStart=map[0]=0, alignedEnd=map[1]+1=3
-    expect(mapUngappedRangeToAligned(map, -5, 2)).toEqual({ start: 0, end: 3 });
-  });
-
-  it('clamps an out-of-range start/end to the last index', () => {
-    // start=10→3, end=20→4 → alignedStart=map[3]=6, alignedEnd=map[3]+1=7
-    expect(mapUngappedRangeToAligned(map, 10, 20)).toEqual({ start: 6, end: 7 });
-  });
-
-  it('handles a single-element map', () => {
-    expect(mapUngappedRangeToAligned([5], 0, 1)).toEqual({ start: 5, end: 6 });
-  });
-
-  it('keeps a non-empty aligned span for a degenerate range (start >= end)', () => {
-    // safeEndExclusive is floored to safeStart+1, so an inverted/zero-width
-    // request still yields a single-position aligned span.
-    expect(mapUngappedRangeToAligned(map, 2, 2)).toEqual({ start: 4, end: 5 });
-    expect(mapUngappedRangeToAligned(map, 3, 1)).toEqual({ start: 6, end: 7 });
   });
 });
 

@@ -18,60 +18,6 @@
  */
 
 /**
- * Pure search-logic functions shared between the search web worker and tests.
- * No DOM / worker globals are used here.
- */
-
-export type { SearchResult } from '../src/domain/bio/types';
-
-// Sequence primitives now live in the domain layer; re-exported here so existing
-// `services/*` importers keep resolving until Phase C normalizes the paths.
-export {
-  reverseComplement,
-  removeGapsWithMap,
-  mapUngappedRangeToAligned,
-  buildAlignedSegments as getNonGapSegments,
-} from '../src/domain/bio';
-
-const IUPAC_MAP: Record<string, string> = {
-  'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
-  'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-  'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-  'H': '[ACT]', 'V': '[ACG]', 'N': '[ACGT]',
-};
-
-const PROTEIN_IUPAC_MAP: Record<string, string> = {
-  // Standard 20 amino acids
-  'A': 'A', 'C': 'C', 'D': 'D', 'E': 'E', 'F': 'F',
-  'G': 'G', 'H': 'H', 'I': 'I', 'K': 'K', 'L': 'L',
-  'M': 'M', 'N': 'N', 'P': 'P', 'Q': 'Q', 'R': 'R',
-  'S': 'S', 'T': 'T', 'V': 'V', 'W': 'W', 'Y': 'Y',
-  // IUPAC ambiguity codes
-  'B': '[DN]',   // Asp or Asn
-  'Z': '[EQ]',   // Glu or Gln
-  'J': '[IL]',   // Ile or Leu
-  'X': '[ACDEFGHIKLMNPQRSTVWY]',  // Any amino acid
-  'U': 'U',      // Selenocysteine
-  'O': 'O',      // Pyrrolysine
-};
-
-export function degenerateToRegex(
-  query: string,
-  moleculeType: 'nucleotide' | 'protein' = 'nucleotide',
-): RegExp {
-  if (!query) return /$.^/;
-  const map = moleculeType === 'protein' ? PROTEIN_IUPAC_MAP : IUPAC_MAP;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = escaped
-    .toUpperCase()
-    .split('')
-    .map(char => map[char] || char)
-    // Allow optional alignment gaps between residues
-    .join('-*');
-  return new RegExp(pattern, 'gi');
-}
-
-/**
  * Optimized Smith-Waterman local alignment with affine gap (Gotoh's algorithm).
  * Uses TypedArrays for memory efficiency and performance.
  */

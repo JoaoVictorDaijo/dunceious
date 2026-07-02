@@ -17,14 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {
-  SearchResult,
-  reverseComplement,
-  getNonGapSegments,
-  removeGapsWithMap,
-  mapUngappedRangeToAligned,
-  smithWaterman,
-} from '../searchLogic';
+import { smithWaterman } from '@/src/core/search/align';
+import { SearchResult, reverseComplement, getNonGapSegments, removeGapsWithMap, mapUngappedRangeToAligned } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '../../src/workers/protocol';
 import { runExactSearch } from './exact';
 
