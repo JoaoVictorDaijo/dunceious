@@ -25,7 +25,7 @@
  * (indented 21 spaces) that do not start with '/'.
  */
 
-import type { BioFeature } from '../../src/domain/bio/types';
+import type { BioFeature } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { parseQualifiers } from './qualifierParser';
 

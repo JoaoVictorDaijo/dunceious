@@ -24,7 +24,7 @@
  * measurements do not inherit state from previous replicates.
  */
 
-import { parseGenBank } from '../services/genbank/index';
+import { parseGenBank } from '../src/core/genbank/index';
 import { makeMultiRecord } from './syntheticGenbank';
 
 type BenchmarkSample = {

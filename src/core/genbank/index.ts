@@ -24,7 +24,7 @@
  * from `services/genbankParser` (or this index) continues to work unchanged.
  */
 
-import type { SeqRecord } from '../../src/domain/bio/types';
+import type { SeqRecord } from '@/src/domain/bio/types';
 import { splitRecords } from './recordSplitter';
 import { toSeqRecord } from './toSeqRecord';
 

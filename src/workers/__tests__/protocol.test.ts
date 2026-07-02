@@ -39,7 +39,7 @@ import type {
   SearchWorkerResponse,
 } from '../protocol';
 import { processTransposition, calculateConsensus } from '../../domain/bio/index';
-import { parseGenBank } from '../../../services/genbank/index';
+import { parseGenBank } from '@/src/core/genbank/index';
 import { degenerateToRegex, reverseComplement, getNonGapSegments, smithWaterman } from '../../../services/searchLogic';
 import type { SeqRecord } from '../../domain/bio/types';
 

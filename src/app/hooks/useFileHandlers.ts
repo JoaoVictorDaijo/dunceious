@@ -24,9 +24,9 @@ import {
   exportToFasta,
   downloadBlob,
   exportToGff,
-  exportToGenBank,
   sliceRecordsBySelection,
 } from '@/services/bioUtils';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
 import type { BioWorkerRequest } from '@/src/workers/protocol';
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;

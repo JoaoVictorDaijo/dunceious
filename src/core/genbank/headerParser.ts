@@ -23,7 +23,7 @@
  * SOURCE fallback for the display name.
  */
 
-import { classifyLocusMoleculeType } from '../../src/domain/bio';
+import { classifyLocusMoleculeType } from '@/src/domain/bio';
 
 export interface HeaderData {
   /** LOCUS identifier (accession) */

@@ -45,6 +45,7 @@ export default defineConfig(() => {
         all: true,
         include: [
           "services/**",
+          "src/core/**",
           "src/app/recordRemoval.ts",
           "src/app/logic/**",
           "src/domain/**",
@@ -57,15 +58,15 @@ export default defineConfig(() => {
         ],
         reporter: ["text", "text-summary", "json-summary"],
         // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 98.3 / branches 90.0 / functions 97.6 / statements 96.6 as of Phase B,
-        // after domain/bio/sequence.ts consolidated the sequence primitives) so
+        // 98.3 / branches 90.0 / functions 97.6 / statements 96.6 as of Phase C
+        // PR1, after relocating the genbank read+write parsers into src/core) so
         // normal v8 jitter and hard-to-hit defensive branches don't break CI.
-        // Raise (never lower); the ~4pt buffer holds.
+        // Raise (never lower); the ~3pt buffer holds.
         thresholds: {
-          lines: 94,
-          branches: 86,
-          functions: 93,
-          statements: 92,
+          lines: 95,
+          branches: 87,
+          functions: 94,
+          statements: 93,
         },
       },
     },

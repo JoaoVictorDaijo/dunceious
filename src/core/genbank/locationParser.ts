@@ -41,7 +41,7 @@
  *   so that callers can detect circularity by checking `start > end`.
  */
 
-import type { FeatureSegment } from '../../src/domain/bio/types';
+import type { FeatureSegment } from '@/src/domain/bio/types';
 
 export interface LocationData {
   segments: FeatureSegment[];
