@@ -18,8 +18,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { clipAndRebaseInterval, sliceRecordsBySelection } from '../bioUtils';
-import type { SeqRecord, BioFeature } from '../../types';
+import { clipAndRebaseInterval, sliceRecordsBySelection } from '../intervals';
+import type { SeqRecord, BioFeature } from '../types';
 
 // ---------------------------------------------------------------------------
 // clipAndRebaseInterval – half-open [start, end) boundary semantics

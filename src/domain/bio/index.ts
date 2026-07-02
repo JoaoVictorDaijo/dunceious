@@ -19,7 +19,7 @@
 
 export { transposeCoordinates, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
-export { clipInterval, clipSegments, splitWrapAround } from './intervals';
+export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
   reverseComplement,
   translateSequence,
