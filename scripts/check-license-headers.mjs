@@ -29,7 +29,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { extname, basename } from 'node:path';
+import { extname, basename, resolve, relative } from 'node:path';
 
 const MARKER = 'GNU Affero General Public License';
 
@@ -79,11 +79,33 @@ function insertionIndex(lines, ext) {
   return 0;
 }
 
-const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean);
-const fix = process.argv.includes('--fix');
+// No path args -> scan every tracked file (CI / full sweep).
+// Path args     -> only those files, restricted to inside the repo.
+// --hook        -> read the PostToolUse JSON on stdin and fix the file it names
+//                  (may be untracked, so `git ls-files` can't see it). Reading
+//                  stdin here avoids any dependency on jq, which isn't always installed.
+const rawArgs = process.argv.slice(2);
+const hookMode = rawArgs.includes('--hook');
+const fix = hookMode || rawArgs.includes('--fix');
+let pathArgs = rawArgs.filter((a) => a !== '--fix' && a !== '--hook');
+
+if (hookMode) {
+  let fp = '';
+  try { fp = JSON.parse(readFileSync(0, 'utf8'))?.tool_input?.file_path || ''; } catch { /* not a hook payload */ }
+  if (!fp) process.exit(0);
+  pathArgs = [fp];
+}
+
+const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const files = pathArgs.length
+  ? pathArgs
+      .map((p) => resolve(p))
+      .filter((abs) => abs === repoRoot || abs.startsWith(repoRoot + '/'))
+      .map((abs) => relative(repoRoot, abs))
+  : execFileSync('git', ['ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean);
 const offenders = [];
 
-for (const file of tracked) {
+for (const file of files) {
   const style = styleFor(file);
   if (!style) continue; // not a covered type
   let content;
@@ -103,11 +125,11 @@ for (const file of tracked) {
 }
 
 if (fix) {
-  console.log(
-    offenders.length
-      ? `Added AGPL header to ${offenders.length} file(s):\n` + offenders.map((f) => '  ' + f).join('\n')
-      : 'All covered files already carry the AGPL header.',
-  );
+  if (offenders.length) {
+    console.log(`Added AGPL header to ${offenders.length} file(s):\n` + offenders.map((f) => '  ' + f).join('\n'));
+  } else if (!hookMode) {
+    console.log('All covered files already carry the AGPL header.');
+  }
 } else if (offenders.length) {
   console.error(
     `Missing AGPL license header in ${offenders.length} file(s):\n` +
@@ -116,5 +138,5 @@ if (fix) {
   );
   process.exit(1);
 } else {
-  console.log(`License-header check passed: all ${tracked.filter(styleFor).length} covered files carry the AGPL header.`);
+  console.log(`License-header check passed: all ${files.filter(styleFor).length} covered files carry the AGPL header.`);
 }
