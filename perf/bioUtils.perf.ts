@@ -36,8 +36,8 @@ import { describe, it, expect } from 'vitest';
 import {
   translateSequence,
   sliceRecordsBySelection,
-  exportToGenBank,
 } from '../services/bioUtils';
+import { exportToGenBank } from '../src/core/genbank/serialize';
 import type { SeqRecord, BioFeature } from '../types';
 import { bench, GC_AVAILABLE } from './perfUtils';
 

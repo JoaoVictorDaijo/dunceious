@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
-import { exportToGenBank } from '../bioUtils';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { processTransposition } from '../../src/domain/bio/index';
 import { degenerateToRegex } from '../searchLogic';
 import type { SeqRecord, BioFeature } from '../../types';
