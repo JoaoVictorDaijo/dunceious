@@ -1,8 +1,15 @@
 # Dunceious Architecture Overview
 
-> Current version: **v3.4 (Modular Workspace)**
+> **This is the canonical architecture reference (the north star).** The codebase is
+> mid-restructure toward a single layered `src/` tree. Sections tagged **🎯 Target** describe
+> the destination the restructure is converging on; notes tagged **📍 Current** describe
+> what exists today and will be reconciled/removed as phases land. The full phase plan is in
+> `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md`. **Phase E** does the
+> final accuracy pass (verifying the doc against the moved code and dropping the 🎯/📍 markers)
+> and flips the ESLint enforcement — Phase 0 owns everything else in this document.
 
-This document outlines the high-level architecture of the Dunceious bioinformatics platform.
+This document outlines the high-level architecture of the Dunceious client-side genome-viewer
+SPA (React 19 + TypeScript, Vite, Web Workers, d3, react-window).
 
 ## 1. Core Principles
 
@@ -11,67 +18,96 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 - **Typed Worker Contracts**: All messages crossing the main-thread ↔ worker boundary are defined as discriminated-union types in `src/workers/protocol.ts`. There is no `any` usage on worker message paths.
 - **Shared Domain Logic**: Pure business logic (coordinate transposition, consensus calculation) lives in `src/domain/bio/`. Workers import from this shared module—no algorithm is duplicated.
 - **Layered Visualization**: The genome viewer uses a multi-layered approach (Annotations → Tracks → Sequence) to handle high-density data.
+- **Layered under `src/` (🎯 Target)**: code is grouped by technical role into four layers — `domain ← core ← workers/handlers ← app` — and imports only ever point **down** the stack. See §2.
+- **Single canonical source of truth**: architecture rules live only in this document; `AGENTS.md` and the `dunceious-architecture` Claude skill are thin doorways that link here, never copies. Model types have one home (`src/domain/bio/types.ts`); wire contracts have one home (`src/workers/protocol.ts`).
 
 ---
 
 ## 2. Folder Structure
 
+### 🎯 Target — the layered `src/` tree (destination of the restructure)
+
+All source lives under `src/`, grouped by technical role into four layers. Imports only ever
+point **down** this stack:
+
 ```
-/
-├── components/           # Root-level rendering components (GenomeViewer)
-├── services/             # Shared services consumed by workers & app
-│   ├── genbank/          # Modular GenBank parser
-│   │   ├── recordSplitter.ts
-│   │   ├── headerParser.ts
-│   │   ├── locationParser.ts
-│   │   ├── qualifierParser.ts
-│   │   ├── featureParser.ts
-│   │   ├── toSeqRecord.ts
-│   │   └── index.ts      ← canonical entry point
-│   ├── bioUtils.ts       # Export/import/slice utilities
-│   └── searchLogic.ts    # Pure search functions (exact, IUPAC, Smith-Waterman)
-├── src/
-│   ├── app/
-│   │   ├── App.tsx       # Composition root – wires hooks, renders layout
-│   │   ├── components/   # Presentational app-scoped UI components
-│   │   │   ├── DatabaseHubPanel.tsx
-│   │   │   ├── FeatureEditorModal.tsx
-│   │   │   ├── ProcessingOverlay.tsx
-│   │   │   ├── RecordDetailsModal.tsx
-│   │   │   ├── SearchPanel.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── StatusBar.tsx
-│   │   │   ├── TopNav.tsx
-│   │   │   └── index.ts
-│   │   └── hooks/        # Custom hooks – state and logic extraction
-│   │       ├── useAppLogger.ts      # Activity log state
-│   │       ├── useBioWorker.ts      # Worker lifecycle, records & alignment state
-│   │       ├── useFeatureManager.ts # Feature CRUD and search-to-annotation bridge
-│   │       ├── useFileHandlers.ts   # File upload & export handlers
-│   │       ├── useSearchWorker.ts   # Search worker bridge, isProteinSession
-│   │       └── index.ts
-│   ├── domain/
-│   │   └── bio/          # Pure domain logic (no DOM/worker globals)
-│   │       ├── coordinate.ts   # transposeCoordinates, processTransposition
-│   │       ├── consensus.ts    # calculateConsensus
-│   │       ├── intervals.ts    # interval utilities
-│   │       ├── types.ts        # SeqRecord, BioFeature, … (canonical types)
-│   │       └── index.ts        # barrel export
-│   └── workers/
-│       ├── protocol.ts         # Worker message contracts
-│       ├── bioWorker.ts        # Parsing & transposition worker
-│       ├── searchWorker.ts     # Sequence search worker
-│       └── __tests__/
-│           └── protocol.test.ts
-└── types.ts              # Root-level type re-exports (legacy path)
+domain  ←  core  ←  workers/handlers  ←  app
 ```
 
-### Extension Rules
+```
+src/
+├── domain/bio/          # Pure biology model + algorithms. Imports NOTHING outside domain.
+│   ├── types.ts         # Canonical types (+ coordinate-convention docs)
+│   ├── coordinate.ts    # transposition, aligned-segment building
+│   ├── consensus.ts
+│   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
+│   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
+│   │                    #   detection, gap↔ungapped mapping, sessionMoleculeType
+│   └── index.ts         # barrel
+│
+├── core/                # Pure format/search logic (was root services/). Imports domain only.
+│   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
+│   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
+│   └── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│
+├── workers/             # Thin shells + typed contracts + worker bodies.
+│   ├── protocol.ts      # message contracts (may reference domain types)
+│   ├── bio.worker.ts / search.worker.ts    # thin shells
+│   └── handlers/
+│       ├── bio.ts       # handleBioMessage — orchestrates core + domain
+│       └── search.ts    # runSearch + collectSeededFuzzyHits
+│
+└── app/                 # The React application. May import everything below it.
+    ├── main.tsx + index.css   # entry (moved from root; index.html updated)
+    ├── App.tsx          # composition root
+    ├── logic/           # pure reducers/view-model (+ recordRemoval, runInlineSearch)
+    ├── hooks/
+    ├── components/      # modals, panels, nav, sidebar
+    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts
+    └── lib/download.ts  # downloadBlob (the one DOM-coupled fn, kept out of core)
+```
 
-- **New domain algorithms**: add to `src/domain/bio/` and export from `index.ts`. No DOM imports.
-- **New worker**: create `src/workers/<name>Worker.ts`, add request/response types to `src/workers/protocol.ts`, wire in `App.tsx`.
-- **New component**: create under `src/app/components/` if app-scoped, or `components/` if it needs to be shared with legacy paths.
-- **New service**: add to `services/` when it is shared between workers and the app; keep free of React imports.
+Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `perf/`,
+`scripts/`, `.github/`. In the target, root `components/`, `services/`, and `types.ts` no
+longer exist.
+
+### Layer import rules (the contract)
+
+1. `src/domain/**` imports **only** `domain`. No DOM, React, core, workers, or app.
+2. `src/core/**` imports `domain` **only**. Never workers, app, React, or DOM.
+3. `src/workers/**` imports `core` + `domain` + its own `protocol`.
+4. `src/app/**` may import anything below it. All React + DOM + browser I/O lives here.
+5. **One canonical home per type:** model types in `domain/bio/types.ts`; wire contracts in
+   `workers/protocol.ts` (referencing domain types). No duplicate `SearchResult` /
+   `SearchOptions` / FASTA-record shapes.
+
+These boundaries will be **enforced by an import-boundary ESLint rule added in Phase E**
+(alongside flipping the `max-lines` guard to `error`). Until then they are a convention.
+
+### 📍 Current — layout during migration
+
+Until the restructure completes, some source still lives at the repo root and under a root
+`services/` directory (a legacy name — it holds pure functions, not I/O clients):
+
+- `components/GenomeViewer.tsx` — the rendering engine (→ `src/app/viewer/`, decomposed, in Phase D).
+- `services/` — pure format/search logic + helpers (`genbank/`, `parsers/`, `search/`,
+  `bio/handleBioMessage.ts`, `searchLogic.ts`, `bioUtils.ts`, `idHelpers.ts`,
+  `moleculeType.ts`); becomes `src/core/` + `src/workers/handlers/` in Phase C.
+- `types.ts`, `index.tsx`, `index.css` at root — folded into `src/app/` in Phase C
+  (`index.html`'s `/index.tsx` entry is repointed then).
+- `src/app/`, `src/domain/bio/`, `src/workers/` already exist and anchor the target.
+
+Per-phase migration status is in §10.
+
+### Extension rules — where does new code go?
+
+- **New domain algorithm** → `src/domain/bio/<file>.ts`; export from `index.ts`. Imports nothing outside `domain`.
+- **New file-format parser / search primitive** → `src/core/formats/` or `src/core/search/`; imports `domain` only; wire it into a `src/workers/handlers/*` body.
+- **New worker message type** → add request/response to `src/workers/protocol.ts` (reference domain types), handle the branch in `src/workers/handlers/{bio,search}.ts`, dispatch from the relevant `src/app/hooks/*` hook.
+- **New UI component** → `src/app/components/` (or `src/app/viewer/` if it belongs to the genome viewer); may import anything below it.
+
+Full worked examples: `.claude/skills/dunceious-architecture/references/where-does-x-go.md`.
+`AGENTS.md` and `.claude/skills/dunceious-architecture/` are doorways into this document.
 
 ---
 
@@ -95,6 +131,8 @@ All messages are typed as discriminated unions:
 5. Add a case in the typed `onmessage` handler in `App.tsx`.
 6. Add integration tests in `src/workers/__tests__/protocol.test.ts`.
 
+> **🎯 Target:** the branch logic lives in the pure handler (`src/workers/handlers/bio.ts` / `search.ts`), not in the worker's `onmessage` — the worker shell is a one-line `postMessage(handler(e.data))`. Dispatch from the relevant `src/app/hooks/*` hook. See §2 and the skill's `where-does-x-go.md`.
+
 ---
 
 ## 4. Data Processing Pipeline
@@ -103,7 +141,7 @@ All messages are typed as discriminated unions:
 
 - **GenBank Parser**: Delegates to `services/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
 - **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
-  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `uniquifyId()` in `useBioWorker`.
+  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/logic/bioResponse.ts`).
   - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every ID in the file must match an existing workspace record exactly, and all sequences must have equal length; any mismatch is rejected with an error log entry. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
 - **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
@@ -198,24 +236,27 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 
 ---
 
-## 10. Refactor Roadmap
+## 10. Restructure Status
 
-All planned modularisation phases (0–6) are **complete** and merged into `main`.
+The 2024–2026 modularisation (Phases 0–6, PRs #7–#14) established `src/app/`, `src/domain/bio/`,
+`src/workers/`, the modular GenBank parser, worker contracts, and `strictNullChecks`. A
+**follow-on architecture restructure** is now in flight to unify the remaining root code
+(`components/`, `services/`, `types.ts`) into the layered `src/` tree in §2 and to enforce the
+layer boundaries. It does **not** claim the structure is finished; the tracking table below is
+the source of truth for what has moved.
 
-| Phase | PR  | Status     | Description                                                                                       |
-| ----- | --- | ---------- | ------------------------------------------------------------------------------------------------- |
-| 0     | #7  | ✅ Merged  | ESLint + architectural size guards, smoke tests, PR template                                      |
-| 1     | #8  | ✅ Merged  | Normalize layout — `src/app/`, `src/domain/`, `src/workers/`                                      |
-| 2     | #9  | ✅ Merged  | Extract 8 UI components from `App.tsx` (1820 → 655 lines)                                         |
-| 2-fix | #10 | ✅ Applied | Post-Phase-2 verification: lint fixes, ESLint `varsIgnorePattern`; deliverables merged via PR #15 |
-| 3     | #12 | ✅ Merged  | Extract `src/domain/bio/` — coordinate, consensus, intervals                                      |
-| 4     | #13 | ✅ Merged  | Modularise GenBank parser into `services/genbank/` submodules                                     |
-| 5+6   | #14 | ✅ Merged  | Worker contracts (`protocol.ts`), `strictNullChecks`, remove shims                                |
+| Phase | Scope | Status |
+| ----- | ----- | ------ |
+| 0 | Architecture skill + `AGENTS.md` + this reconcile (the north star) | 🎯 in progress |
+| A | Dead-code deletion, type-dedup, `clipInterval` name-collision fix — no new modules | planned |
+| B | `src/domain/bio/sequence.ts` — consolidate sequence primitives | planned |
+| C | `services/` → `src/core/`; worker bodies → `src/workers/handlers/`; split `bioUtils`; DOM/presentation → `app/`; kill `types.ts` shim | planned |
+| D | `GenomeViewer` → `src/app/viewer/` decomposed (`layout.ts` + `tracks/` + `Minimap` + hooks) | planned |
+| E | High-value JSDoc + comment-policy fixes; **final `ARCHITECTURE.md` accuracy pass** (verify the moved code, drop the 🎯/📍 markers); flip ESLint size guard to `error` + add the import-boundary rule | planned |
 
-> **PR #10** was opened as a post-Phase-2 verification pass but was superseded
-> by later phase PRs before it could be merged. Its structural deliverables
-> (ESLint `varsIgnorePattern`) were applied directly to `main` during the
-> Phase 0–6 audit (PR #15).
+See `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md` for the full per-phase
+plans. **Ownership:** Phase 0 owns this document's content (the target description); Phase E owns
+the final verification + ESLint enforcement, so the two never overwrite each other.
 
 ---
 
