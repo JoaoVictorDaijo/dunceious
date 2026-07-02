@@ -24,7 +24,6 @@ import {
   getAminoAcidColor,
   getFeatureColor,
   getOriginalPos,
-  exportToFasta,
   exportToGff,
   downloadBlob,
 } from '../bioUtils';
@@ -140,34 +139,6 @@ describe('exportToGff', () => {
     })]);
     // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
     expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
-  });
-});
-
-describe('exportToFasta', () => {
-  it('wraps a single record at 60 characters per line', () => {
-    expect(exportToFasta([record({ sequence: 'A'.repeat(70) })]))
-      .toBe('>REC1\n' + 'A'.repeat(60) + '\n' + 'A'.repeat(10));
-  });
-
-  it('emits a plain header and unwrapped sequence for a short record', () => {
-    expect(exportToFasta([record()])).toBe('>REC1\nATGCAAATAG');
-  });
-
-  it('slices to [start, end) and stamps the slice header when both are given', () => {
-    // 'ATGCAAATAG'.substring(2, 5) → 'GCA'
-    expect(exportToFasta([record()], 2, 5)).toBe('>REC1 [Slice: 2-5]\nGCA');
-  });
-
-  it('prefers alignedSequence over sequence when present', () => {
-    expect(exportToFasta([record({ alignedSequence: 'XXXX' })])).toBe('>REC1\nXXXX');
-  });
-
-  it('joins multiple records with a blank line', () => {
-    const out = exportToFasta([
-      record({ id: 'A', sequence: 'AAA' }),
-      record({ id: 'B', sequence: 'CCC' }),
-    ]);
-    expect(out).toBe('>A\nAAA\n\n>B\nCCC');
   });
 });
 

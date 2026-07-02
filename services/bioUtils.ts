@@ -120,17 +120,6 @@ export const getFeatureColor = (type: string, customColors?: Record<string, stri
   return colors[type] || '#94a3b8';
 };
 
-export const exportToFasta = (records: SeqRecord[], start?: number, end?: number): string => {
-  return records.map(r => {
-    const seq = r.alignedSequence || r.sequence;
-    const finalSeq = (start !== undefined && end !== undefined) 
-      ? seq.substring(Math.max(0, start), Math.min(seq.length, end)) 
-      : seq;
-    const formattedSeq = finalSeq.match(/.{1,60}/g)?.join('\n') || '';
-    return `>${r.id}${start !== undefined ? ` [Slice: ${start}-${end}]` : ''}\n${formattedSeq}`;
-  }).join('\n\n');
-};
-
 export const exportToGff = (records: SeqRecord[]): string => {
   let gff = "##gff-version 3\n";
   records.forEach(r => {

@@ -21,7 +21,7 @@ import { processTransposition, calculateConsensus } from '../../src/domain/bio/i
 import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '../../src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse } from '../../src/workers/protocol';
-import { parseFasta } from '../parsers/fasta';
+import { parseFasta } from '@/src/core/formats/fasta';
 import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '../parsers/annotations';
 
 /** Pure router for bio-worker messages: maps a request to its response. */
