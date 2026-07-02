@@ -24,6 +24,15 @@
 
 export type { SearchResult } from '../src/domain/bio/types';
 
+// Sequence primitives now live in the domain layer; re-exported here so existing
+// `services/*` importers keep resolving until Phase C normalizes the paths.
+export {
+  reverseComplement,
+  removeGapsWithMap,
+  mapUngappedRangeToAligned,
+  buildAlignedSegments as getNonGapSegments,
+} from '../src/domain/bio';
+
 const IUPAC_MAP: Record<string, string> = {
   'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
   'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
@@ -60,67 +69,6 @@ export function degenerateToRegex(
     // Allow optional alignment gaps between residues
     .join('-*');
   return new RegExp(pattern, 'gi');
-}
-
-export function reverseComplement(seq: string): string {
-  const complement: Record<string, string> = {
-    'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
-    'R': 'Y', 'Y': 'R', 'S': 'S', 'W': 'W', 'K': 'M',
-    'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B',
-    'a': 't', 't': 'a', 'c': 'g', 'g': 'c', 'n': 'n',
-    '-': '-',
-  };
-  return seq.split('').reverse().map(base => complement[base] || base).join('');
-}
-
-export function getNonGapSegments(
-  seq: string,
-  start: number,
-  end: number,
-): { start: number; end: number }[] {
-  const sub = seq.substring(start, end);
-  const segments: { start: number; end: number }[] = [];
-  let currentStart = -1;
-  for (let i = 0; i < sub.length; i++) {
-    if (sub[i] !== '-') {
-      if (currentStart === -1) currentStart = i;
-    } else {
-      if (currentStart !== -1) {
-        segments.push({ start: start + currentStart, end: start + i });
-        currentStart = -1;
-      }
-    }
-  }
-  if (currentStart !== -1) {
-    segments.push({ start: start + currentStart, end: start + sub.length });
-  }
-  return segments;
-}
-
-export function removeGapsWithMap(seq: string): { ungapped: string; map: number[] } {
-  const chars: string[] = [];
-  const map: number[] = [];
-  for (let i = 0; i < seq.length; i++) {
-    if (seq[i] !== '-') {
-      chars.push(seq[i]);
-      map.push(i);
-    }
-  }
-  return { ungapped: chars.join(''), map };
-}
-
-export function mapUngappedRangeToAligned(
-  map: number[],
-  start: number,
-  end: number,
-): { start: number; end: number } {
-  if (map.length === 0) return { start: 0, end: 0 };
-  const safeStart = Math.max(0, Math.min(start, map.length - 1));
-  const safeEndExclusive = Math.max(safeStart + 1, Math.min(end, map.length));
-
-  const alignedStart = map[safeStart] ?? 0;
-  const alignedEnd = (map[safeEndExclusive - 1] ?? alignedStart) + 1;
-  return { start: alignedStart, end: alignedEnd };
 }
 
 /**
