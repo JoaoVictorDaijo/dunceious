@@ -53,6 +53,24 @@ const AA_ROW_HEIGHT = 18;
 const ANNOT_ROW_HEIGHT = 14;
 const RULER_HEIGHT = 25;
 
+/** Feature types rendered as translated coding sequences (CDS/ORF, case variants). */
+const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
+
+/**
+ * Maps each CDS/ORF feature's `${start}-${end}-${strand}` key to whether its
+ * coding sequence has an internal (early) stop codon — a "broken" protein.
+ */
+const computeBrokenFeatureMap = (features: BioFeature[], seq: string): Map<string, boolean> => {
+  const map = new Map<string, boolean>();
+  features
+    .filter(f => CDS_ORF_TYPES.includes(f.type))
+    .forEach(f => {
+      const { codingSeq } = extractCodingSequence(f, seq);
+      map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
+    });
+  return map;
+};
+
 const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLinear<number, number>; scrollX: number; sidebarWidth: number; onJump: (pos: number) => void }> = ({ width, height, xScale, scrollX, sidebarWidth, onJump }) => {
   const gRef = useRef<SVGGElement>(null);
   
@@ -147,17 +165,10 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   // Keyed by `${start}-${end}-${strand}` to avoid re-running on unrelated re-renders.
-  const brokenFeatureMap = useMemo(() => {
-    const map = new Map<string, boolean>();
-    if (!showTranslation) return map;
-    features
-      .filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
-      .forEach(f => {
-        const { codingSeq } = extractCodingSequence(f, seq);
-        map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
-      });
-    return map;
-  }, [features, seq, showTranslation]);
+  const brokenFeatureMap = useMemo(
+    () => (showTranslation ? computeBrokenFeatureMap(features, seq) : new Map<string, boolean>()),
+    [features, seq, showTranslation],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -295,7 +306,7 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // 2. Render Translation (CDS/ORF annotation features only)
     if (showTranslation && zoomLevel > 5) {
-      features.filter(f => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type)).forEach(f => {
+      features.filter(f => CDS_ORF_TYPES.includes(f.type)).forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
 
@@ -639,16 +650,10 @@ const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
   const effectiveTranslation = showTranslation && l.record.moleculeType !== 'protein';
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
-  const brokenFeatureMap = useMemo(() => {
-    const map = new Map<string, boolean>();
-    l.record.features
-      .filter((f: BioFeature) => ['CDS', 'ORF', 'orf', 'cds'].includes(f.type))
-      .forEach((f: BioFeature) => {
-        const { codingSeq } = extractCodingSequence(f, seq);
-        map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
-      });
-    return map;
-  }, [l.record.features, seq]);
+  const brokenFeatureMap = useMemo(
+    () => computeBrokenFeatureMap(l.record.features, seq),
+    [l.record.features, seq],
+  );
 
   return (
     <div 
