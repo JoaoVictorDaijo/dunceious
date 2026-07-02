@@ -21,12 +21,12 @@ import { Dispatch, SetStateAction, useState } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { detectMoleculeType, classifyLocusMoleculeType, isProteinSession } from '@/src/domain/bio';
 import {
-  downloadBlob,
   sliceRecordsBySelection,
 } from '@/services/bioUtils';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { exportToGff } from '@/src/core/formats/annotations';
+import { downloadBlob } from '@/src/app/lib/download';
 import type { BioWorkerRequest } from '@/src/workers/protocol';
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;

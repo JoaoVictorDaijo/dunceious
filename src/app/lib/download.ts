@@ -17,25 +17,14 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
-import {
-  getOriginalPos,
-} from '../bioUtils';
-
-describe('getOriginalPos', () => {
-  it('is the identity for a gap-free sequence', () => {
-    expect(getOriginalPos('ACGT', 4)).toBe(4);
-    expect(getOriginalPos('ACGT', 0)).toBe(0);
-  });
-
-  it('discounts leading and internal gaps before the position', () => {
-    // '--AC' up to pos 4 → 2 real bases
-    expect(getOriginalPos('--AC', 4)).toBe(2);
-    // 'A-C-G' up to pos 5 → A,C,G = 3
-    expect(getOriginalPos('A-C-G', 5)).toBe(3);
-  });
-
-  it('clamps a position past the end of the aligned sequence', () => {
-    expect(getOriginalPos('ACGT', 100)).toBe(4);
-  });
-});
+export const downloadBlob = (content: string, filename: string, mimeType: string) => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
