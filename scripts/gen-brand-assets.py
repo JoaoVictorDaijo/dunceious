@@ -3,80 +3,64 @@
 Regenerate Dunceious brand assets into public/.
 
 Outputs:
-  public/favicon.svg          rounded slate tile + sky DNA double-helix (primary, scalable)
+  public/favicon.svg          rounded slate tile + sky fa-dna helix (primary, scalable)
   public/favicon-32.png       32x32 PNG fallback (older browsers)
   public/apple-touch-icon.png 180x180 full-bleed PNG (iOS home screen)
   public/og-image.png         1200x630 social preview card
 
-Requires: python3 + cairosvg (pip install cairosvg). Palette + motif derive from the app
-(sky-500 helix on slate-950; feature-track accents = emerald/amber/rose/indigo).
+The DNA mark is the Font Awesome Free 6.4.0 "dna" (fa-dna) glyph
+(Icons: CC BY 4.0 - https://fontawesome.com/license/free), the same icon used
+throughout the app UI, rendered in the app's sky gradient on slate.
+
+Requires: python3 + cairosvg (pip install cairosvg).
 Run:  python3 scripts/gen-brand-assets.py
 """
-import math, os, subprocess, tempfile
+import os, subprocess, tempfile
 
 ROOT   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC = os.path.join(ROOT, "public")
 os.makedirs(PUBLIC, exist_ok=True)
 
-VOID, VOID2, SKY, SKY_HI, SKY_LO = "#020617", "#0b1220", "#0ea5e9", "#38bdf8", "#0284c7"
+VOID, SKY, SKY_HI, SKY_LO = "#020617", "#0ea5e9", "#38bdf8", "#0284c7"
 INK, MUTE, FAINT, RULE = "#f8fafc", "#94a3b8", "#1e293b", "#334155"
 EMER, AMBER, ROSE, INDIGO = "#10b981", "#f59e0b", "#f43f5e", "#6366f1"
 
+# Approved favicon gradient: bright sky at top easing to sky-500 at the base
+# (keeps the lower helix legible against the near-black tile).
+GRAD_TOP, GRAD_BOT = "#38bdf8", "#0ea5e9"
+FA_ATTR = "Font Awesome Free 6.4.0 fa-dna glyph, CC BY 4.0 - https://fontawesome.com/license/free"
 
-def helix(cx, y0, y1, amp, period, phase, step=1.0):
-    pts, y = [], y0
-    while y <= y1 + 1e-3:
-        pts.append((cx + amp * math.sin((y - y0) / period * 2 * math.pi + phase), y))
-        y += step
-    return "M %.2f %.2f " % pts[0] + " ".join("L %.2f %.2f" % p for p in pts[1:])
+# fa-dna solid glyph, viewBox 0 0 448 512
+DNA = ("M416 0c17.7 0 32 14.3 32 32c0 59.8-30.3 107.5-69.4 146.6c-28 28-62.5 53.5-97.3 77.4l-2.5 1.7c-11.9 8.1-23.8 "
+       "16.1-35.5 23.9l0 0 0 0 0 0-1.6 1c-6 4-11.9 7.9-17.8 11.9c-20.9 14-40.8 27.7-59.3 41.5H283.3c-9.8-7.4-20.1-14.7"
+       "-30.7-22.1l7-4.7 3-2c15.1-10.1 30.9-20.6 46.7-31.6c25 18.1 48.9 37.3 69.4 57.7C417.7 372.5 448 420.2 448 480c0 "
+       "17.7-14.3 32-32 32s-32-14.3-32-32H64c0 17.7-14.3 32-32 32s-32-14.3-32-32c0-59.8 30.3-107.5 69.4-146.6c28-28 62.5"
+       "-53.5 97.3-77.4c-34.8-23.9-69.3-49.3-97.3-77.4C30.3 139.5 0 91.8 0 32C0 14.3 14.3 0 32 0S64 14.3 64 32H384c0-17.7 "
+       "14.3-32 32-32zM338.6 384H109.4c-10.1 10.6-18.6 21.3-25.5 32H364.1c-6.8-10.7-15.3-21.4-25.5-32zM109.4 128H338.6c10.1"
+       "-10.7 18.6-21.3 25.5-32H83.9c6.8 10.7 15.3 21.3 25.5 32zm55.4 48c18.4 13.8 38.4 27.5 59.3 41.5c20.9-14 40.8-27.7 "
+       "59.3-41.5H164.7z")
 
 
-def rungs(cx, y0, amp, period, count, ybound):
-    out, k = [], 0
-    while len(out) < count:
-        y = y0 + period * (0.25 + 0.5 * k)
-        if y > ybound:
-            break
-        a = (y - y0) / period * 2 * math.pi
-        out.append((cx + amp * math.sin(a), cx + amp * math.sin(a + math.pi), y))
-        k += 1
-    return out
+def dna_group(fill, cx, cy, height):
+    """fa-dna glyph centered on (cx, cy) at the given rendered height (px)."""
+    s = height / 512.0
+    w, h = 448 * s, 512 * s
+    return (f'<g transform="translate({cx-w/2:.2f},{cy-h/2:.2f}) scale({s:.5f})">'
+            f'<path d="{DNA}" fill="{fill}"/></g>')
 
 
 def favicon(full_bleed=False):
-    cx, y0, y1, amp, period = 32, 10, 54, 12.5, 22.0
-    sa = helix(cx, y0, y1, amp, period, 0.0)
-    sb = helix(cx, y0, y1, amp, period, math.pi)
-    cols = [EMER, AMBER, ROSE, SKY_HI]
-    rsvg = "".join(
-        f'<line x1="{a:.2f}" y1="{y:.2f}" x2="{b:.2f}" y2="{y:.2f}" stroke="{cols[i%4]}" '
-        f'stroke-width="4.4" stroke-linecap="round" opacity="0.95"/>'
-        for i, (a, b, y) in enumerate(rungs(cx, y0, amp, period, 4, y1)))
     tile = ('<rect width="64" height="64" fill="url(#bg)"/>' if full_bleed else
             f'<rect x="1" y="1" width="62" height="62" rx="15" fill="url(#bg)" '
-            f'stroke="{SKY}" stroke-opacity="0.28" stroke-width="1.5"/>')
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+            f'stroke="{SKY}" stroke-opacity="0.22" stroke-width="1.5"/>')
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><!-- {FA_ATTR} -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{VOID2}"/><stop offset="1" stop-color="{VOID}"/></linearGradient>
-    <linearGradient id="sa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{SKY_HI}"/><stop offset="1" stop-color="{SKY}"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="{VOID}"/></linearGradient>
+    <linearGradient id="dna" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{GRAD_TOP}"/><stop offset="1" stop-color="{GRAD_BOT}"/></linearGradient>
   </defs>
   {tile}
-  {rsvg}
-  <path d="{sb}" fill="none" stroke="{SKY_LO}" stroke-width="5.2" stroke-linecap="round"/>
-  <path d="{sa}" fill="none" stroke="url(#sa)" stroke-width="5.6" stroke-linecap="round"/>
+  {dna_group("url(#dna)", 32, 32, 40)}
 </svg>'''
-
-
-def helix_mark(w=46, h=46):
-    cx, y0, y1, amp, period = w / 2, 6, h - 6, 8.5, (h - 12) / 1.9
-    sa = helix(cx, y0, y1, amp, period, 0.0)
-    sb = helix(cx, y0, y1, amp, period, math.pi)
-    cols = [EMER, AMBER, ROSE, SKY_HI]
-    rsvg = "".join(
-        f'<line x1="{a:.2f}" y1="{y:.2f}" x2="{b:.2f}" y2="{y:.2f}" stroke="{cols[i%4]}" stroke-width="3.2" stroke-linecap="round"/>'
-        for i, (a, b, y) in enumerate(rungs(cx, y0, amp, period, 4, y1)))
-    return (f'<path d="{sb}" fill="none" stroke="{SKY_LO}" stroke-width="4.0" stroke-linecap="round"/>{rsvg}'
-            f'<path d="{sa}" fill="none" stroke="{SKY_HI}" stroke-width="4.3" stroke-linecap="round"/>')
 
 
 def og():
@@ -107,18 +91,19 @@ def og():
     bc = {"A": EMER, "T": ROSE, "G": AMBER, "C": SKY_HI}
     nuc = f'<text x="{ML}" y="574" font-family="JetBrains Mono" font-size="26" letter-spacing="1.6">' + \
           "".join(f'<tspan fill="{bc[b]}">{b}</tspan>' for b in seq) + "</text>"
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}"><!-- {FA_ATTR} -->
   <defs>
     <radialGradient id="glow" cx="26%" cy="46%" r="60%"><stop offset="0" stop-color="{SKY}" stop-opacity="0.16"/><stop offset="1" stop-color="{SKY}" stop-opacity="0"/></radialGradient>
     <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{VOID}" stop-opacity="0"/><stop offset="0.85" stop-color="{VOID}" stop-opacity="1"/></linearGradient>
+    <linearGradient id="dnamark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{GRAD_TOP}"/><stop offset="1" stop-color="{GRAD_BOT}"/></linearGradient>
   </defs>
   <rect width="{W}" height="{H}" fill="{VOID}"/>
   <g>{grid}</g>
   <rect width="{W}" height="{H}" fill="url(#glow)"/>
-  <g transform="translate({ML},50)">{helix_mark()}</g>
-  <text x="{ML+58}" y="82" fill="{INK}" font-family="JetBrains Mono" font-weight="800" font-size="27">DUNCEIOUS</text>
+  {dna_group("url(#dnamark)", ML+18, 71, 46)}
+  <text x="{ML+52}" y="82" fill="{INK}" font-family="JetBrains Mono" font-weight="800" font-size="27">DUNCEIOUS</text>
   <rect x="{W-80-232}" y="52" width="232" height="38" rx="19" fill="none" stroke="{SKY}" stroke-opacity="0.5"/>
-  <text x="{W-80-116}" y="77" fill="{SKY_HI}" font-family="JetBrains Mono" font-size="15" letter-spacing="1.5" text-anchor="middle">NOTHING&#160;UPLOADED</text>
+  <text x="{W-80-116}" y="77" fill="{SKY_HI}" font-family="JetBrains Mono" font-size="15" letter-spacing="1.5" text-anchor="middle">NOTHING&#160;IS&#160;STORED</text>
   <text x="{ML}" y="212" fill="{SKY_HI}" font-family="JetBrains Mono" font-weight="500" font-size="21" letter-spacing="7">BROWSER-NATIVE&#160;GENOMICS</text>
   <text x="{ML-4}" y="316" fill="{INK}" font-family="JetBrains Mono" font-weight="800" font-size="108">DUNCEIOUS</text>
   <text x="{ML}" y="372" fill="#cbd5e1" font-family="JetBrains Mono" font-weight="500" font-size="34">Intelligence is Overpriced<tspan fill="{SKY}">.</tspan></text>
