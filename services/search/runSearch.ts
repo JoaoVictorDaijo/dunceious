@@ -17,90 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { smithWaterman } from '@/src/core/search/align';
-import { SearchResult, reverseComplement, getNonGapSegments, removeGapsWithMap, mapUngappedRangeToAligned } from '@/src/domain/bio';
+import { SearchResult, reverseComplement, getNonGapSegments } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '../../src/workers/protocol';
-import { runExactSearch } from './exact';
-
-export function collectSeededFuzzyHits(
-  queryUpper: string,
-  seq: string,
-  recordId: string,
-  strand: 1 | -1,
-  minScore: number,
-): SearchResult[] {
-  const { ungapped, map } = removeGapsWithMap(seq);
-  if (!ungapped) return [];
-
-  const queryLen = queryUpper.length;
-  const seedLen = Math.max(2, Math.min(6, Math.floor(queryLen / 4) || 2));
-  if (queryLen < seedLen) {
-    return smithWaterman(queryUpper, ungapped, 2, -1, -3, -1, minScore).map(m => {
-      const aligned = mapUngappedRangeToAligned(map, m.start, m.end);
-      return {
-        start: aligned.start,
-        end: aligned.end,
-        sequence: seq.substring(aligned.start, aligned.end),
-        recordId,
-        strand,
-        score: m.score,
-        segments: getNonGapSegments(seq, aligned.start, aligned.end),
-      };
-    });
-  }
-
-  const flank = Math.max(12, queryLen);
-  const candidateWindows: Array<{ start: number; end: number }> = [];
-  const seenWindows = new Set<string>();
-
-  for (let offset = 0; offset <= queryLen - seedLen; offset++) {
-    const seed = queryUpper.substring(offset, offset + seedLen);
-    let pos = ungapped.indexOf(seed);
-    while (pos !== -1) {
-      const windowStart = Math.max(0, pos - flank);
-      const windowEnd = Math.min(ungapped.length, pos + seedLen + flank);
-      const key = `${windowStart}:${windowEnd}`;
-      if (!seenWindows.has(key)) {
-        seenWindows.add(key);
-        candidateWindows.push({ start: windowStart, end: windowEnd });
-      }
-      pos = ungapped.indexOf(seed, pos + 1);
-      if (candidateWindows.length >= 256) break;
-    }
-    if (candidateWindows.length >= 256) break;
-  }
-
-  if (candidateWindows.length === 0) {
-    // No exact seed hit: fall back to a full ungapped local alignment so we
-    // still return something instead of appearing broken.
-    candidateWindows.push({ start: 0, end: ungapped.length });
-  }
-
-  const hits: SearchResult[] = [];
-  const seenHits = new Set<string>();
-
-  for (const window of candidateWindows) {
-    const windowSeq = ungapped.substring(window.start, window.end);
-    const alignments = smithWaterman(queryUpper, windowSeq, 2, -1, -3, -1, minScore);
-    for (const alignment of alignments) {
-      const aligned = mapUngappedRangeToAligned(map, window.start + alignment.start, window.start + alignment.end);
-      const key = `${recordId}:${strand}:${aligned.start}:${aligned.end}`;
-      if (seenHits.has(key)) continue;
-      seenHits.add(key);
-      hits.push({
-        start: aligned.start,
-        end: aligned.end,
-        sequence: seq.substring(aligned.start, aligned.end),
-        recordId,
-        strand,
-        score: alignment.score,
-        segments: getNonGapSegments(seq, aligned.start, aligned.end),
-      });
-    }
-  }
-
-  return hits;
-}
+import { runExactSearch } from '@/src/core/search/exact';
+import { collectSeededFuzzyHits } from '@/src/core/search/fuzzy';
 
 /** Pure search-worker body: maps a search request to its response. */
 export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {

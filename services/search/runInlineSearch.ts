@@ -20,7 +20,7 @@
 import { smithWaterman } from '@/src/core/search/align';
 import { SearchResult, reverseComplement, getNonGapSegments, removeGapsWithMap, mapUngappedRangeToAligned } from '@/src/domain/bio';
 import type { SearchWorkerRequest } from '../../src/workers/protocol';
-import { runExactSearch } from './exact';
+import { runExactSearch } from '@/src/core/search/exact';
 
 /**
  * Synchronous inline search fallback (extracted from useSearchWorker).
