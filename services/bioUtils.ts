@@ -19,6 +19,7 @@
 
 
 import { SeqRecord } from '../types';
+import { splitWrapAround } from '../src/domain/bio/intervals';
 
 const GENETIC_CODE: Record<string, string> = {
   'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
@@ -66,14 +67,8 @@ export function extractCodingSequence(
 
   if (feature.segments && feature.segments.length > 0) {
     segments = feature.segments;
-  } else if (feature.start > feature.end) {
-    // Circular wrap-around without explicit segments: split at origin
-    segments = [
-      { start: feature.start, end: seqLen },
-      { start: 0, end: feature.end },
-    ];
   } else {
-    segments = [{ start: feature.start, end: feature.end }];
+    segments = splitWrapAround(feature.start, feature.end, seqLen);
   }
 
   let codingSeq = '';

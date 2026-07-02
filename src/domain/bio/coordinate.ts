@@ -19,6 +19,7 @@
 
 
 import type { BioFeature, FeatureSegment, SeqRecord } from "./types";
+import { splitWrapAround } from "./intervals";
 
 /**
  * Transposes a raw-sequence position to the corresponding index in an
@@ -101,17 +102,11 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
       const newSegments: FeatureSegment[] = [];
 
       for (const seg of originalSegments) {
-        const isWrap = seg.start > seg.end;
-        const parts: Array<{ s: number; e: number }> = isWrap
-          ? [
-              { s: seg.start, e: record.sequence.length },
-              { s: 0, e: seg.end },
-            ]
-          : [{ s: seg.start, e: seg.end }];
+        const parts = splitWrapAround(seg.start, seg.end, record.sequence.length);
 
         for (const part of parts) {
-          const alignedStart = transposeCoordinates(part.s, alignedSeq);
-          const alignedEnd = transposeCoordinates(part.e, alignedSeq);
+          const alignedStart = transposeCoordinates(part.start, alignedSeq);
+          const alignedEnd = transposeCoordinates(part.end, alignedSeq);
           newSegments.push(
             ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd),
           );
