@@ -27,21 +27,17 @@ export default tseslint.config(
   {
     rules: {
       // -----------------------------------------------------------------------
-      // Architectural size constraints — Phase 0 safety nets.
-      // Files / functions that already violate these limits are flagged as
-      // warnings so CI stays green while future refactor phases bring them
-      // under control.  The hard-error level (600 / 120) will be activated
-      // once Phase 2-3 refactoring is complete.
-      //
-      //   warn  -> file > 400 lines  (skipBlanks + skipComments)
-      //   error -> file > 600 lines  (not yet active -- see above)
+      // Architectural size constraints.
+      // `max-lines` errors at 600 (skipBlankLines + skipComments) — the hard
+      // file ceiling for the layered structure. `max-lines-per-function` stays a
+      // warning: React component/render bodies and the `smithWaterman` kernel
+      // legitimately exceed a hard function-line cap, so the file-level ceiling
+      // is the active hard guard.
       // -----------------------------------------------------------------------
       'max-lines': [
-        'warn',
-        { max: 400, skipBlankLines: true, skipComments: true },
+        'error',
+        { max: 600, skipBlankLines: true, skipComments: true },
       ],
-      //   warn  -> function > 80 lines
-      //   error -> function > 120 lines  (not yet active)
       'max-lines-per-function': [
         'warn',
         { max: 80, skipBlankLines: true, skipComments: true },
