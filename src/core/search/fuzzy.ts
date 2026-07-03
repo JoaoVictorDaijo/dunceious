@@ -21,6 +21,17 @@ import { smithWaterman } from '@/src/core/search/align';
 import { removeGapsWithMap, mapUngappedRangeToAligned, getNonGapSegments } from '@/src/domain/bio';
 import type { SearchResult } from '@/src/domain/bio/types';
 
+/**
+ * Seeded fuzzy search of one strand of one record: finds short exact seeds of
+ * the query, runs `smithWaterman` only inside gap-mapped candidate windows
+ * around each seed, and returns de-duplicated hits in aligned-space `[start,
+ * end)` coordinates tagged with `recordId`/`strand`.
+ *
+ * Seed length scales with the query (2–6). The candidate-window set is capped at
+ * 256; when no seed matches, it falls back to a single full-length ungapped
+ * window so the search never silently returns nothing. `minScore` is forwarded
+ * to `smithWaterman`.
+ */
 export function collectSeededFuzzyHits(
   queryUpper: string,
   seq: string,
