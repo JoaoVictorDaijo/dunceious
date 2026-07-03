@@ -26,6 +26,7 @@ import { detectEarlyStop, extractCodingSequence, translateSequence } from '@/src
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { AA_ROW_HEIGHT, ANNOT_ROW_HEIGHT, NT_ROW_HEIGHT, RULER_HEIGHT } from './constants';
 import { computeRecordLayouts, type RecordLayout } from './layout';
+import { ConservationTrack } from './tracks/ConservationTrack';
 
 interface Props {
   records: SeqRecord[];
@@ -370,70 +371,6 @@ interface RowData {
   quantValueRanges: Record<string, { min: number, max: number }>;
   showTracks: boolean;
 }
-
-const ConservationTrack: React.FC<{
-  scores: number[];
-  viewportWidth: number;
-  height: number;
-  xScale: d3.ScaleLinear<number, number>;
-  scrollX: number;
-}> = memo(({ scores, viewportWidth, height, xScale, scrollX }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = viewportWidth * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, viewportWidth, height);
-
-    const [minBP, maxBP] = xScale.domain();
-    const vStart = Math.max(0, Math.floor(xScale.invert(scrollX)) - 5);
-    const vEnd = Math.min(scores.length, Math.ceil(xScale.invert(scrollX + viewportWidth)) + 5);
-
-    ctx.beginPath();
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 1.5;
-    ctx.lineJoin = 'round';
-
-    let first = true;
-    for (let j = vStart; j < vEnd; j++) {
-      const score = scores[j] || 0;
-      const x = xScale(j) - scrollX;
-      const y = height - (score * (height - 10)) - 5;
-
-      if (x > viewportWidth) break;
-      if (x < 0 && !first) {
-        ctx.lineTo(x, y);
-        continue;
-      }
-
-      if (first) {
-        ctx.moveTo(x, y);
-        first = false;
-      } else {
-        ctx.lineTo(x, y);
-      }
-    }
-    ctx.stroke();
-
-    // Fill area under the line
-    ctx.lineTo(xScale(vEnd - 1) - scrollX, height);
-    ctx.lineTo(xScale(vStart) - scrollX, height);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.1)';
-    ctx.fill();
-
-  }, [scores, viewportWidth, height, xScale, scrollX]);
-
-  return <canvas ref={canvasRef} style={{ width: viewportWidth, height: height }} />;
-});
 
 const TRACK_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
