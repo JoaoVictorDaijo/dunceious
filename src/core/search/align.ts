@@ -18,8 +18,17 @@
  */
 
 /**
- * Optimized Smith-Waterman local alignment with affine gap (Gotoh's algorithm).
- * Uses TypedArrays for memory efficiency and performance.
+ * Local alignment (Smith-Waterman with affine gaps, Gotoh) of `query` against
+ * `target`, using `Int32Array` matrices.
+ *
+ * Scoring (points; defaults): `matchScore = 2`, `mismatchPenalty = -1`,
+ * `gapOpen = -3`, `gapExtend = -1`. `minScore` (default 5) is the inclusive
+ * threshold below which no hits are returned. Hits use 0-based half-open
+ * `[start, end)` coordinates in `target` space.
+ *
+ * For very large targets (matrix > 600k cells) it falls back to a fast,
+ * time-bounded ungapped scan. Either path returns at most 20 non-overlapping
+ * hits, best-score first.
  */
 export function smithWaterman(
   query: string,

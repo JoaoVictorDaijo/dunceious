@@ -39,6 +39,15 @@ const PROTEIN_IUPAC_MAP: Record<string, string> = {
   'O': 'O',      // Pyrrolysine
 };
 
+/**
+ * Compiles a degenerate (IUPAC) query into a search regex.
+ *
+ * - An empty query returns a **never-match** regex (`/$.^/`).
+ * - `moleculeType` selects the ambiguity map: nucleotide IUPAC codes
+ *   (`N`→`[ACGT]`, `R`→`[AG]`, …) or protein codes (`B`→`[DN]`, `X`→any AA, …).
+ * - Residues are joined with `-*` so matches tolerate alignment gaps between
+ *   them; the regex is **global + case-insensitive** (`gi`).
+ */
 export function degenerateToRegex(
   query: string,
   moleculeType: 'nucleotide' | 'protein' = 'nucleotide',
