@@ -24,9 +24,8 @@ import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
 /**
  * Exact / IUPAC-degenerate regex search over the given records.
  *
- * Shared verbatim between the search worker (`runSearch`) and the inline
- * fallback (`runInlineSearch`); the exact *matching loops* were byte-identical
- * in both callers — they differed only in how `seq` was derived before being
+ * Shared by the search worker (`runSearch`) and the inline fallback
+ * (`runInlineSearch`); they differ only in how `seq` is derived before it is
  * passed in. Forward matches use the raw index; reverse matches are remapped
  * onto forward coordinates as `start = L - rcEnd`, `end = L - rcStart`.
  * Proteins skip the reverse strand. Overlapping matches are found via
