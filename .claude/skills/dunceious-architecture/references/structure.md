@@ -1,7 +1,7 @@
-# Target folder structure (quick reference)
+# Folder structure (quick reference)
 
 > Extract of `ARCHITECTURE.md` §2. **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md).
-> If this drifts, `ARCHITECTURE.md` wins. See §10 there for what has actually moved yet.
+> If this drifts, `ARCHITECTURE.md` wins. See §10 there for the restructure phase history.
 
 All source lives under `src/`, in four layers. Imports point only **down** the stack:
 `domain ← core ← workers/handlers ← app`.
@@ -48,5 +48,5 @@ src/
 | `workers` | Typed `protocol` + thin worker shells + `handlers/` bodies that orchestrate `core` + `domain` | `core`, `domain`, own `protocol` |
 | `app` | React UI, hooks, pure view-logic, the decomposed viewer, and all browser I/O | anything below it |
 
-Root keeps only configs, `index.html`, `docs/`, `bench/`, `perf/`, `scripts/`, `.github/`. In
-the target, root `components/`, `services/`, and `types.ts` are gone.
+Root keeps only configs, `index.html`, `docs/`, `bench/`, `perf/`, `scripts/`, `.github/`. Root
+`components/`, `services/`, and `types.ts` are gone.

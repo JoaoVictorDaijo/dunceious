@@ -10,7 +10,7 @@ is a thin doorway — it summarizes and links; it never restates the rules in fu
 here disagrees with `ARCHITECTURE.md`, **`ARCHITECTURE.md` wins.**
 
 Dunceious is a client-side genome-viewer SPA (React 19 + TypeScript, Vite, Web Workers, d3,
-react-window). Source is being unified under `src/` into four layers; imports only point **down**:
+react-window). Source is organized under `src/` into four layers; imports only point **down**:
 
 ```
 domain  ←  core  ←  workers/handlers  ←  app
@@ -21,13 +21,9 @@ domain  ←  core  ←  workers/handlers  ←  app
 - **`src/workers`** — typed `protocol` + thin worker shells + `handlers/` bodies; import `core` + `domain`.
 - **`src/app`** — the React app; may import anything below it. All React/DOM/browser I/O lives here.
 
-> **Migration note:** the tree is mid-restructure. Some code still lives at the repo root
-> (`components/GenomeViewer.tsx`, `services/`, `types.ts`). `ARCHITECTURE.md` marks 🎯 target
-> vs 📍 current and §10 tracks per-phase status.
-
 ## Quick answers
 
-- **The target tree + per-layer purpose** → [`references/structure.md`](references/structure.md)
+- **The layer tree + per-layer purpose** → [`references/structure.md`](references/structure.md)
 - **The import rules + one-canonical-type-home** → [`references/import-rules.md`](references/import-rules.md)
 - **"Where does X go?" (parser / worker message / UI component / domain algorithm), with worked examples** → [`references/where-does-x-go.md`](references/where-does-x-go.md)
 - **Everything, in depth** → [`ARCHITECTURE.md`](../../../ARCHITECTURE.md)

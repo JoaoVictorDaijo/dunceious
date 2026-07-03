@@ -16,11 +16,11 @@ domain  ←  core  ←  workers/handlers  ←  app
 | `src/workers/**` | `core`, `domain`, own `protocol` | `app`, React, DOM |
 | `src/app/**` | anything below it | — (top layer; owns all React + DOM + browser I/O) |
 
-**Why:** today's root `services/*` depends on the worker `protocol` (a pure-logic → worker
-inversion) and a single bio operation crosses the root↔`src` boundary three times. Relocating
-worker bodies into `src/workers/handlers/` and `services/` into `src/core/` removes the
-inversion. These boundaries become **ESLint-enforced in Phase E** (import-boundary rule +
-`max-lines` flipped to `error`); until then they are a reviewed convention.
+**Why:** the pre-restructure root `services/*` depended on the worker `protocol` (a pure-logic →
+worker inversion), and a single bio operation crossed the root↔`src` boundary three times. Moving
+the worker bodies into `src/workers/handlers/` and `services/` into `src/core/` removed the
+inversion. These boundaries are **ESLint-enforced** (an import-boundary `no-restricted-imports`
+rule plus `max-lines` at `error`).
 
 ## One canonical home per type
 

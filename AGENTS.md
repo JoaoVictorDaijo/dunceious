@@ -6,7 +6,7 @@ read it before moving code. Claude Code users also have the `dunceious-architect
 `.claude/skills/`, which links to the same document.
 
 Dunceious is a client-side genome-viewer SPA (React 19 + TypeScript, Vite, Web Workers, d3,
-react-window). Source is being unified under `src/` into four layers.
+react-window). Source is organized under `src/` into four layers.
 
 ## Layer rules (the contract)
 
@@ -22,11 +22,8 @@ domain  ←  core  ←  workers/handlers  ←  app
 - **`src/app/**`** — the React app; may import anything below it. All React/DOM/browser I/O lives here.
 
 One canonical home per type: model types in `src/domain/bio/types.ts`; worker wire contracts in
-`src/workers/protocol.ts`. Never add a duplicate type. Full rules, the target tree, and worked
+`src/workers/protocol.ts`. Never add a duplicate type. Full rules, the layer tree, and worked
 "where does X go" examples are in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
-
-> The tree is mid-restructure; some code still lives at the repo root (`components/`,
-> `services/`, `types.ts`). `ARCHITECTURE.md` marks 🎯 target vs 📍 current and §10 tracks status.
 
 ## License headers (required, enforced)
 
