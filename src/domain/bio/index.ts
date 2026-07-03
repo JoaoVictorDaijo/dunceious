@@ -19,16 +19,30 @@
 
 export { transposeCoordinates, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
-export { clipInterval, clipSegments, splitWrapAround } from './intervals';
+export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
+export {
+  reverseComplement,
+  translateSequence,
+  extractCodingSequence,
+  detectEarlyStop,
+  PROTEIN_ONLY_RESIDUES,
+  detectMoleculeType,
+  classifyLocusMoleculeType,
+  removeGapsWithMap,
+  mapUngappedRangeToAligned,
+  getOriginalPos,
+  isProteinSession,
+} from './sequence';
+
+// Expose the deduped `buildAlignedSegments` under the name the search code
+// imports it by (`getNonGapSegments` from '@/src/domain/bio').
+export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
   FeatureSegment,
   BioFeature,
   QuantitativeTrack,
   SeqRecord,
-  WorkflowStep,
-  AlignmentMode,
-  AlignmentParams,
   SearchResult,
+  SearchableRecord,
   SelectionArea,
-  ProjectState,
 } from './types';

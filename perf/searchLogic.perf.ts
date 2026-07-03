@@ -33,7 +33,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { reverseComplement, smithWaterman, degenerateToRegex } from '../services/searchLogic';
+import { smithWaterman } from '../src/core/search/align';
+import { degenerateToRegex } from '../src/core/search/query';
+import { reverseComplement } from '../src/domain/bio';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 // ---------------------------------------------------------------------------

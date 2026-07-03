@@ -20,7 +20,7 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
-import { getFeatureColor } from '@/services/bioUtils';
+import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureLength } from '@/src/app/logic/viewModel';
 
 export type FlatItem =

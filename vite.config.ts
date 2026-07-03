@@ -44,8 +44,10 @@ export default defineConfig(() => {
         provider: "v8" as const,
         all: true,
         include: [
-          "services/**",
+          "src/core/**",
+          "src/workers/handlers/**",
           "src/app/recordRemoval.ts",
+          "src/app/viewer/layout.ts",
           "src/app/logic/**",
           "src/domain/**",
         ],
@@ -57,15 +59,15 @@ export default defineConfig(() => {
         ],
         reporter: ["text", "text-summary", "json-summary"],
         // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 98.3 / branches 89.4 / functions 97.5 / statements 96.5 as of Phase 2A
-        // PR2, after the app-state extraction added src/app/logic/** to scope) so
+        // 98.3 / branches 90.0 / functions 97.6 / statements 96.6 as of Phase C
+        // PR1, after relocating the genbank read+write parsers into src/core) so
         // normal v8 jitter and hard-to-hit defensive branches don't break CI.
-        // Raise (never lower); the ~4pt buffer here already holds for PR2.
+        // Raise (never lower); the ~3pt buffer holds.
         thresholds: {
-          lines: 94,
-          branches: 85,
-          functions: 93,
-          statements: 92,
+          lines: 95,
+          branches: 87,
+          functions: 94,
+          statements: 93,
         },
       },
     },

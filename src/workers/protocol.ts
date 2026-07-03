@@ -34,6 +34,7 @@ import type {
   BioFeature,
   QuantitativeTrack,
   SearchResult,
+  SearchableRecord,
 } from '../domain/bio/types';
 
 // ---------------------------------------------------------------------------
@@ -85,9 +86,12 @@ export interface ParseGenBankSuccessResponse {
   records: SeqRecord[];
 }
 
+/** The record shape carried in a FASTA_SUCCESS response's alignedData. */
+export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>;
+
 export interface ParseFastaSuccessResponse {
   type: 'FASTA_SUCCESS';
-  alignedData: Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>[];
+  alignedData: FastaAlignedRecord[];
   asAlignment?: boolean;
 }
 
@@ -113,12 +117,7 @@ export type BioWorkerResponse =
 // Search Worker — Requests (main → worker)
 // ---------------------------------------------------------------------------
 
-/** Minimal record projection sent to the search worker. */
-export interface SearchableRecord {
-  id: string;
-  sequence: string;
-  alignedSequence?: string;
-}
+export type { SearchableRecord } from '../domain/bio/types';
 
 export interface SearchOptions {
   minScore: number;

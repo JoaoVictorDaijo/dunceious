@@ -19,8 +19,8 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import { getFeatureColor } from '@/services/bioUtils';
-import { getOriginalPos } from '@/services/bioUtils';
+import { getFeatureColor } from '@/src/app/viewer/colors';
+import { getOriginalPos } from '@/src/domain/bio';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 
 export interface SidebarProps {

@@ -1,8 +1,13 @@
 # Dunceious Architecture Overview
 
-> Current version: **v3.4 (Modular Workspace)**
+> **This is the canonical architecture reference (the north star).** All source lives under a
+> single layered `src/` tree — `domain ← core ← workers/handlers ← app`, imports pointing only
+> **down** the stack. The rationale and phase-by-phase history of the restructure that produced
+> it are in `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md`. Phase 0 owns
+> the architectural description here; the layer boundaries are enforced by ESLint (§2).
 
-This document outlines the high-level architecture of the Dunceious bioinformatics platform.
+This document outlines the high-level architecture of the Dunceious client-side genome-viewer
+SPA (React 19 + TypeScript, Vite, Web Workers, d3, react-window).
 
 ## 1. Core Principles
 
@@ -11,67 +16,81 @@ This document outlines the high-level architecture of the Dunceious bioinformati
 - **Typed Worker Contracts**: All messages crossing the main-thread ↔ worker boundary are defined as discriminated-union types in `src/workers/protocol.ts`. There is no `any` usage on worker message paths.
 - **Shared Domain Logic**: Pure business logic (coordinate transposition, consensus calculation) lives in `src/domain/bio/`. Workers import from this shared module—no algorithm is duplicated.
 - **Layered Visualization**: The genome viewer uses a multi-layered approach (Annotations → Tracks → Sequence) to handle high-density data.
+- **Layered under `src/`**: code is grouped by technical role into four layers — `domain ← core ← workers/handlers ← app` — and imports only ever point **down** the stack. See §2.
+- **Single canonical source of truth**: architecture rules live only in this document; `AGENTS.md` and the `dunceious-architecture` Claude skill are thin doorways that link here, never copies. Model types have one home (`src/domain/bio/types.ts`); wire contracts have one home (`src/workers/protocol.ts`).
 
 ---
 
 ## 2. Folder Structure
 
+### The layered `src/` tree
+
+All source lives under `src/`, grouped by technical role into four layers. Imports only ever
+point **down** this stack:
+
 ```
-/
-├── components/           # Root-level rendering components (GenomeViewer)
-├── services/             # Shared services consumed by workers & app
-│   ├── genbank/          # Modular GenBank parser
-│   │   ├── recordSplitter.ts
-│   │   ├── headerParser.ts
-│   │   ├── locationParser.ts
-│   │   ├── qualifierParser.ts
-│   │   ├── featureParser.ts
-│   │   ├── toSeqRecord.ts
-│   │   └── index.ts      ← canonical entry point
-│   ├── bioUtils.ts       # Export/import/slice utilities
-│   └── searchLogic.ts    # Pure search functions (exact, IUPAC, Smith-Waterman)
-├── src/
-│   ├── app/
-│   │   ├── App.tsx       # Composition root – wires hooks, renders layout
-│   │   ├── components/   # Presentational app-scoped UI components
-│   │   │   ├── DatabaseHubPanel.tsx
-│   │   │   ├── FeatureEditorModal.tsx
-│   │   │   ├── ProcessingOverlay.tsx
-│   │   │   ├── RecordDetailsModal.tsx
-│   │   │   ├── SearchPanel.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── StatusBar.tsx
-│   │   │   ├── TopNav.tsx
-│   │   │   └── index.ts
-│   │   └── hooks/        # Custom hooks – state and logic extraction
-│   │       ├── useAppLogger.ts      # Activity log state
-│   │       ├── useBioWorker.ts      # Worker lifecycle, records & alignment state
-│   │       ├── useFeatureManager.ts # Feature CRUD and search-to-annotation bridge
-│   │       ├── useFileHandlers.ts   # File upload & export handlers
-│   │       ├── useSearchWorker.ts   # Search worker bridge, isProteinSession
-│   │       └── index.ts
-│   ├── domain/
-│   │   └── bio/          # Pure domain logic (no DOM/worker globals)
-│   │       ├── coordinate.ts   # transposeCoordinates, processTransposition
-│   │       ├── consensus.ts    # calculateConsensus
-│   │       ├── intervals.ts    # interval utilities
-│   │       ├── types.ts        # SeqRecord, BioFeature, … (canonical types)
-│   │       └── index.ts        # barrel export
-│   └── workers/
-│       ├── protocol.ts         # Worker message contracts
-│       ├── bioWorker.ts        # Parsing & transposition worker
-│       ├── searchWorker.ts     # Sequence search worker
-│       └── __tests__/
-│           └── protocol.test.ts
-└── types.ts              # Root-level type re-exports (legacy path)
+domain  ←  core  ←  workers/handlers  ←  app
 ```
 
-### Extension Rules
+```
+src/
+├── domain/bio/          # Pure biology model + algorithms. Imports NOTHING outside domain.
+│   ├── types.ts         # Canonical types (+ coordinate-convention docs)
+│   ├── coordinate.ts    # transposition, aligned-segment building
+│   ├── consensus.ts
+│   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
+│   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
+│   │                    #   detection, gap↔ungapped mapping, isProteinSession
+│   └── index.ts         # barrel
+│
+├── core/                # Pure format/search logic (was root services/). Imports domain only.
+│   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
+│   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
+│   └── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│
+├── workers/             # Thin shells + typed contracts + worker bodies.
+│   ├── protocol.ts      # message contracts (may reference domain types)
+│   ├── bio.worker.ts / search.worker.ts    # thin shells
+│   └── handlers/
+│       ├── bio.ts       # handleBioMessage — orchestrates core + domain
+│       └── search.ts    # runSearch + collectSeededFuzzyHits
+│
+└── app/                 # The React application. May import everything below it.
+    ├── main.tsx + index.css   # entry (moved from root; index.html updated)
+    ├── App.tsx          # composition root
+    ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
+    ├── logic/           # pure reducers/view-model (+ runInlineSearch)
+    ├── hooks/
+    ├── components/      # modals, panels, nav, sidebar
+    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts
+    └── lib/download.ts  # downloadBlob (the one DOM-coupled fn, kept out of core)
+```
 
-- **New domain algorithms**: add to `src/domain/bio/` and export from `index.ts`. No DOM imports.
-- **New worker**: create `src/workers/<name>Worker.ts`, add request/response types to `src/workers/protocol.ts`, wire in `App.tsx`.
-- **New component**: create under `src/app/components/` if app-scoped, or `components/` if it needs to be shared with legacy paths.
-- **New service**: add to `services/` when it is shared between workers and the app; keep free of React imports.
+Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `perf/`,
+`scripts/`, `.github/`. Root `components/`, `services/`, and `types.ts` no longer exist.
+
+### Layer import rules (the contract)
+
+1. `src/domain/**` imports **only** `domain`. No DOM, React, core, workers, or app.
+2. `src/core/**` imports `domain` **only**. Never workers, app, React, or DOM.
+3. `src/workers/**` imports `core` + `domain` + its own `protocol`.
+4. `src/app/**` may import anything below it. All React + DOM + browser I/O lives here.
+5. **One canonical home per type:** model types in `domain/bio/types.ts`; wire contracts in
+   `workers/protocol.ts` (referencing domain types). No duplicate `SearchResult` /
+   `SearchOptions` / FASTA-record shapes.
+
+These boundaries are **enforced by an import-boundary ESLint rule** (`no-restricted-imports`,
+per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 600 lines.
+
+### Extension rules — where does new code go?
+
+- **New domain algorithm** → `src/domain/bio/<file>.ts`; export from `index.ts`. Imports nothing outside `domain`.
+- **New file-format parser / search primitive** → `src/core/formats/` or `src/core/search/`; imports `domain` only; wire it into a `src/workers/handlers/*` body.
+- **New worker message type** → add request/response to `src/workers/protocol.ts` (reference domain types), handle the branch in `src/workers/handlers/{bio,search}.ts`, dispatch from the relevant `src/app/hooks/*` hook.
+- **New UI component** → `src/app/components/` (or `src/app/viewer/` if it belongs to the genome viewer); may import anything below it.
+
+Full worked examples: `.claude/skills/dunceious-architecture/references/where-does-x-go.md`.
+`AGENTS.md` and `.claude/skills/dunceious-architecture/` are doorways into this document.
 
 ---
 
@@ -95,15 +114,17 @@ All messages are typed as discriminated unions:
 5. Add a case in the typed `onmessage` handler in `App.tsx`.
 6. Add integration tests in `src/workers/__tests__/protocol.test.ts`.
 
+> The branch logic lives in the pure handler (`src/workers/handlers/bio.ts` / `search.ts`), not in the worker's `onmessage` — the worker shell is a one-line `postMessage(handler(e.data))`. Dispatch from the relevant `src/app/hooks/*` hook. See §2 and the skill's `where-does-x-go.md`.
+
 ---
 
 ## 4. Data Processing Pipeline
 
-### Ingestion (`src/workers/bioWorker.ts`)
+### Ingestion (`src/workers/handlers/bio.ts`)
 
-- **GenBank Parser**: Delegates to `services/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
+- **GenBank Parser**: Delegates to `src/core/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
 - **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
-  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `uniquifyId()` in `useBioWorker`.
+  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/logic/idHelpers.ts`).
   - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every ID in the file must match an existing workspace record exactly, and all sequences must have equal length; any mismatch is rejected with an error log entry. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
 - **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
@@ -114,16 +135,16 @@ All messages are typed as discriminated unions:
 ### Consensus (`src/domain/bio/consensus.ts`)
 
 - Generates a master consensus sequence across all aligned records to identify conservation.
-- Imported directly by `bioWorker.ts` (no duplication).
+- Imported directly by `src/workers/handlers/bio.ts` (no duplication).
 
-### Search (`src/workers/searchWorker.ts`)
+### Search (`src/workers/handlers/search.ts`)
 
-- **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `services/searchLogic.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
+- **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `src/core/search/query.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
   - **Nucleotide** (`IUPAC_MAP`): standard degenerate codes — `R`=[AG], `Y`=[CT], `S`=[GC], `W`=[AT], `K`=[GT], `M`=[AC], `B`=[CGT], `D`=[AGT], `H`=[ACT], `V`=[ACG], `N`=[ACGT].
   - **Protein** (`PROTEIN_IUPAC_MAP`): all 20 standard amino acids plus ambiguity codes — `B`=[DN], `Z`=[EQ], `J`=[IL], `X`=[all 20 AAs], `U` (selenocysteine), `O` (pyrrolysine).
 - **Reverse-complement search**: Performed automatically for nucleotide sessions (forward + reverse strands). Suppressed entirely for protein sessions where strand orientation is not applicable.
 - **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`.
-- **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `services/searchLogic.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
+- **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `src/core/search/align.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
 
 ---
 
@@ -156,7 +177,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `FeatureEditorModal` – annotation editor (supports circular features)
 - `DatabaseHubPanel` – records and features table with export actions
 
-### `components/GenomeViewer.tsx` (Rendering Engine)
+### `src/app/viewer/GenomeViewer.tsx` (Rendering Engine)
 
 - **Virtualization**: `react-window` row-virtualized list.
 - **Feature Packing**: Non-overlapping annotation rows (greedy interval packing).
@@ -198,24 +219,26 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 
 ---
 
-## 10. Refactor Roadmap
+## 10. Restructure Status
 
-All planned modularisation phases (0–6) are **complete** and merged into `main`.
+The 2024–2026 modularisation (Phases 0–6, PRs #7–#14) established `src/app/`, `src/domain/bio/`,
+`src/workers/`, the modular GenBank parser, worker contracts, and `strictNullChecks`. A
+**follow-on architecture restructure** (Phases 0 and A–E) then unified the remaining root code
+(`components/`, `services/`, `types.ts`) into the layered `src/` tree in §2 and added the layer
+enforcement. That restructure is complete; the table below records what each phase delivered.
 
-| Phase | PR  | Status     | Description                                                                                       |
-| ----- | --- | ---------- | ------------------------------------------------------------------------------------------------- |
-| 0     | #7  | ✅ Merged  | ESLint + architectural size guards, smoke tests, PR template                                      |
-| 1     | #8  | ✅ Merged  | Normalize layout — `src/app/`, `src/domain/`, `src/workers/`                                      |
-| 2     | #9  | ✅ Merged  | Extract 8 UI components from `App.tsx` (1820 → 655 lines)                                         |
-| 2-fix | #10 | ✅ Applied | Post-Phase-2 verification: lint fixes, ESLint `varsIgnorePattern`; deliverables merged via PR #15 |
-| 3     | #12 | ✅ Merged  | Extract `src/domain/bio/` — coordinate, consensus, intervals                                      |
-| 4     | #13 | ✅ Merged  | Modularise GenBank parser into `services/genbank/` submodules                                     |
-| 5+6   | #14 | ✅ Merged  | Worker contracts (`protocol.ts`), `strictNullChecks`, remove shims                                |
+| Phase | Scope | Status |
+| ----- | ----- | ------ |
+| 0 | Architecture skill + `AGENTS.md` + this document (the north star) | done |
+| A | Dead-code deletion, type-dedup, `clipInterval` name-collision fix — no new modules | done |
+| B | `src/domain/bio/sequence.ts` — consolidate sequence primitives | done |
+| C | `services/` → `src/core/`; worker bodies → `src/workers/handlers/`; split `bioUtils`; DOM/presentation → `app/`; kill `types.ts` shim | done |
+| D | `GenomeViewer` → `src/app/viewer/` decomposed (`layout.ts` + `tracks/` + `Minimap` + hooks) | done |
+| E | High-value JSDoc + comment-policy fixes; **final `ARCHITECTURE.md` accuracy pass** (verify the moved code, drop the 🎯/📍 markers); flip ESLint size guard to `error` + add the import-boundary rule | done |
 
-> **PR #10** was opened as a post-Phase-2 verification pass but was superseded
-> by later phase PRs before it could be merged. Its structural deliverables
-> (ESLint `varsIgnorePattern`) were applied directly to `main` during the
-> Phase 0–6 audit (PR #15).
+See `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md` for the full per-phase
+plans. **Ownership:** Phase 0 owns this document's architectural description; Phase E owns the
+final verification + ESLint enforcement, so the two never overwrite each other.
 
 ---
 

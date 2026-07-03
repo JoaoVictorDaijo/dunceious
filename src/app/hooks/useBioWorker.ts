@@ -53,7 +53,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     bioWorkerRef.current = new Worker(
-      new URL('@/src/workers/bioWorker.ts', import.meta.url),
+      new URL('@/src/workers/bio.worker.ts', import.meta.url),
       { type: 'module' },
     );
 

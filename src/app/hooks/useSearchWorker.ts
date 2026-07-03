@@ -19,9 +19,10 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord } from '@/src/workers/protocol';
+import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
+import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
-import { runInlineSearch } from '@/services/search/runInlineSearch';
+import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
   filteredResults as computeFilteredResults,
   groupedSearchResults as computeGroupedSearchResults,
@@ -29,11 +30,7 @@ import {
   getSequenceContext as computeSequenceContext,
 } from '@/src/app/logic/searchState';
 
-export interface SearchOptions {
-  minScore: number;
-  strand: 'fwd' | 'rev' | 'both';
-  maxResults: number;
-}
+export type { SearchOptions };
 
 export interface UseSearchWorkerReturn {
   searchQuery: string;
@@ -102,7 +99,7 @@ export function useSearchWorker(
   const [maxScoreFound, setMaxScoreFound] = useState(0);
 
   const isProteinSession = useMemo(
-    () => records.some(r => r.moleculeType === 'protein'),
+    () => computeIsProteinSession(records),
     [records],
   );
 
@@ -189,7 +186,7 @@ export function useSearchWorker(
     isMountedRef.current = true;
 
     searchWorkerRef.current = new Worker(
-      new URL('@/src/workers/searchWorker.ts', import.meta.url),
+      new URL('@/src/workers/search.worker.ts', import.meta.url),
       { type: 'module' },
     );
 

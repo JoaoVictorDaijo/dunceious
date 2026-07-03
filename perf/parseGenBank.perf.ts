@@ -46,7 +46,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseGenBank } from '../services/genbank/index';
+import { parseGenBank } from '../src/core/genbank/index';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

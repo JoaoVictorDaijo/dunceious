@@ -18,7 +18,7 @@
  */
 
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
-import { getOriginalPos } from '@/services/bioUtils';
+import { getOriginalPos } from '@/src/domain/bio';
 import type { FlatItem } from '../components/DatabaseHubPanel';
 
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
