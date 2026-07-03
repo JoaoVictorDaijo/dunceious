@@ -17,12 +17,23 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
 
 export default defineConfig(() => {
+  // Single source of truth for the app version: read from package.json and
+  // injected as the `__APP_VERSION__` global so every UI/provenance string reads
+  // one value. Applies to the build and (via this shared config) the tests.
+  // Bump with `npm version`.
+  const pkg = JSON.parse(
+    readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
+  ) as { version: string };
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     server: {
       port: 3000,
       host: "0.0.0.0",
