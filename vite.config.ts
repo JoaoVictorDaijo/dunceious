@@ -47,6 +47,7 @@ export default defineConfig(() => {
           "src/core/**",
           "src/workers/handlers/**",
           "src/app/recordRemoval.ts",
+          "src/app/viewer/layout.ts",
           "src/app/logic/**",
           "src/domain/**",
         ],

@@ -18,7 +18,7 @@
  */
 
 
-import GenomeViewer from '@/components/GenomeViewer';
+import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useEffect, useMemo, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
