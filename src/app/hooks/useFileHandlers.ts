@@ -275,7 +275,7 @@ export function useFileHandlers(
       records: sliceRecordsBySelection(records, start, end),
       featureColors,
       selectionRange: { start, end },
-      version: '3.4',
+      version: __APP_VERSION__,
       exportedAt: new Date().toISOString(),
     };
     downloadBlob(
@@ -327,7 +327,7 @@ export function useFileHandlers(
       showAnnotations: viewportState.showAnnotations,
       showTranslation: viewportState.showTranslation,
       showConservation: viewportState.showConservation,
-      version: '3.4',
+      version: __APP_VERSION__,
     };
     downloadBlob(JSON.stringify(project, null, 2), `${safeName || 'dunceious_project'}.json`, 'application/json');
     addLog('Project JSON exported.');
