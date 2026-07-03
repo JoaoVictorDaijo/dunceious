@@ -19,6 +19,19 @@
 
 import type { SeqRecord } from '@/src/domain/bio/types';
 
+/**
+ * Serializes records to GenBank flat-file text.
+ *
+ * Reconstructs 1-based coordinates from the 0-based half-open model for FEATURES
+ * locations (`f.start + 1..f.end`), preferring a preserved `locationString`
+ * (keeps partial/join syntax). The DEFINITION line is stamped with the
+ * ` Exported by Dunceious.` marker, stripping any pre-existing copy first so
+ * repeated exports don't accumulate duplicates. The LOCUS line differs by
+ * molecule type: protein records use the `aa` unit and omit the molecule-type
+ * field; others use `bp`/`DNA`. Metadata keys prefixed with `_` are internal and
+ * omitted as qualifiers. ORIGIN lowercases the sequence, 60 chars/line grouped
+ * by 10 with a 1-based position gutter.
+ */
 export const exportToGenBank = (records: SeqRecord[]): string => {
   return records.map(r => {
     const escapeQualifierValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');

@@ -57,6 +57,14 @@ export const parseFasta = (content: string): FastaRecord[] => {
   return results;
 };
 
+/**
+ * Serializes records to FASTA, using `alignedSequence || sequence`.
+ *
+ * When both `start` and `end` are given, emits only the half-open slice
+ * `[start, end)` (clamped to the sequence bounds) and annotates the header with
+ * a `[Slice: start-end]` tag; otherwise the full sequence. Wrapped at 60
+ * chars/line.
+ */
 export const exportToFasta = (records: SeqRecord[], start?: number, end?: number): string => {
   return records.map(r => {
     const seq = r.alignedSequence || r.sequence;
