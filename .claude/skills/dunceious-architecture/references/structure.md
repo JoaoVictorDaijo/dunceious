@@ -14,7 +14,7 @@ src/
 │   ├── consensus.ts
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
 │   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
-│   │                    #   detection, gap↔ungapped mapping, sessionMoleculeType
+│   │                    #   detection, gap↔ungapped mapping, isProteinSession
 │   └── index.ts         # barrel
 │
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
@@ -32,7 +32,8 @@ src/
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
     ├── App.tsx          # composition root
-    ├── logic/           # pure reducers/view-model (+ recordRemoval, runInlineSearch)
+    ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
+    ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
     ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts

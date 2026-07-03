@@ -69,17 +69,17 @@ export default tseslint.config(
     },
   },
   // --- Layer import boundaries: domain ← core ← workers/handlers ← app ---
-  // A layer may import its own layer and layers below it, never above.
-  // Cross-layer imports use the `@/` alias (normalized in Phase C), so matching
-  // the specifier string is sufficient. Tests are exempt.
+  // A layer may import its own layer and layers below it, never above. Upward
+  // cross-layer imports are matched by import-specifier string, covering both the
+  // `@/…` alias form and relative (`../`) traversals. Tests are exempt.
   {
     files: ['src/domain/**/*.{ts,tsx}'],
     ignores: ['**/__tests__/**', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [
-        { group: ['@/src/core/*', '@/src/core/**', '@/core/*', '@/core/**', '**/src/core/**',
-                  '@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**',
-                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**'],
+        { group: ['@/src/core/*', '@/src/core/**', '@/core/*', '@/core/**', '**/src/core/**', '**/core/**',
+                  '@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**', '**/workers/**',
+                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
           message: 'Layer rule: domain may import only domain (not core/workers/app).' },
       ] }],
     },
@@ -89,8 +89,8 @@ export default tseslint.config(
     ignores: ['**/__tests__/**', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [
-        { group: ['@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**',
-                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**'],
+        { group: ['@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**', '**/workers/**',
+                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
           message: 'Layer rule: core may import only domain + core (not workers/app).' },
       ] }],
     },
@@ -100,7 +100,7 @@ export default tseslint.config(
     ignores: ['**/__tests__/**', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [
-        { group: ['@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**'],
+        { group: ['@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
           message: 'Layer rule: workers may import domain + core + workers (not app).' },
       ] }],
     },
