@@ -18,7 +18,6 @@
  */
 
 
-import * as d3 from 'd3';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
@@ -29,6 +28,8 @@ import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
 import { Minimap } from './Minimap';
 import { useViewport } from './useViewport';
+import { useSelectionDrag } from './useSelectionDrag';
+import { SelectionOverlay } from './SelectionOverlay';
 
 interface Props {
   records: SeqRecord[];
@@ -75,8 +76,6 @@ const GenomeViewer: React.FC<Props> = ({
   showConservation,
   showTracks
 }) => {
-  const [dragSelection, setDragSelection] = useState<SelectionArea | null>(null);
-  const [dragCursorPos, setDragCursorPos] = useState<{ x: number, y: number } | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number, y: number, content: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, recordId: string, feature?: BioFeature } | null>(null);
   const quantValueRanges = useMemo(() => {
@@ -132,6 +131,8 @@ const GenomeViewer: React.FC<Props> = ({
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
   } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete });
+
+  const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
   const handleContextMenu = useCallback((e: React.MouseEvent, recordId: string, feature?: BioFeature) => {
     e.preventDefault();
@@ -216,227 +217,6 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation, conservationScores, quantValueRanges, showTracks
   ]);
 
-  // Selection Overlay (Global)
-  const renderSelectionOverlay = () => {
-    const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
-    const elements: (React.ReactElement | null)[] = [];
-
-    // Vertical Cursor Line
-    if (mousePos) {
-      elements.push(
-        <div 
-          key="cursor-line" 
-          className="absolute top-0 w-px h-full bg-slate-400/30 pointer-events-none z-40"
-          style={{ left: mousePos.x }}
-        >
-          <div className="absolute top-0 left-2 bg-slate-800 text-white text-[8px] font-mono px-1 rounded shadow-sm whitespace-nowrap">
-            {(mousePos.bp + 1).toLocaleString()} bp
-          </div>
-        </div>
-      );
-    }
-    
-    if (persistentSelection && persistentSelection.recordIds.length === records.length) {
-      const s = xScale(persistentSelection.start) - scrollX;
-      const e = xScale(persistentSelection.end) - scrollX;
-      const isWrap = persistentSelection.start > persistentSelection.end;
-
-      const renderHandle = (pos: number, type: 'start' | 'end') => {
-        const x = xScale(pos) - scrollX + SIDEBAR_WIDTH;
-        if (x < SIDEBAR_WIDTH || x > dimensions.width) return null;
-        return (
-          <div 
-            key={`handle-${type}`}
-            className="absolute top-0 w-3 h-full -ml-1.5 cursor-ew-resize z-50 group"
-            style={{ left: x }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              const startX = e.clientX;
-              const initialPos = pos;
-              
-              const onMouseMove = (moveEvent: MouseEvent) => {
-                const dx = moveEvent.clientX - startX;
-                const bpDelta = Math.round(dx / zoomLevel);
-                const newPos = Math.max(0, Math.min(alignmentLength, initialPos + bpDelta));
-                onSelectionChange({ ...persistentSelection, [type]: newPos });
-              };
-              
-              const onMouseUp = () => {
-                window.removeEventListener('mousemove', onMouseMove);
-                window.removeEventListener('mouseup', onMouseUp);
-              };
-              
-              window.addEventListener('mousemove', onMouseMove);
-              window.addEventListener('mouseup', onMouseUp);
-            }}
-          >
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-8 bg-sky-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"></div>
-          </div>
-        );
-      };
-
-      if (!isWrap) {
-        elements.push(
-          <div key="persistent" className="absolute top-0 pointer-events-none border-x-2 border-sky-400 border-dashed bg-sky-400/5 z-20 shadow-[0_0_15px_rgba(56,189,248,0.1)] animate-selection-pulse" style={{ left: s + SIDEBAR_WIDTH, width: Math.max(2, e - s), height: '100%' }}>
-             <div className="absolute top-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-             <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-          </div>
-        );
-        elements.push(renderHandle(persistentSelection.start, 'start'));
-        elements.push(renderHandle(persistentSelection.end, 'end'));
-      } else {
-        // Wrap around case
-        const s1 = xScale(persistentSelection.start) - scrollX;
-        const e1 = xScale(alignmentLength) - scrollX;
-        const s2 = xScale(0) - scrollX;
-        const e2 = xScale(persistentSelection.end) - scrollX;
-        
-        elements.push(
-          <React.Fragment key="persistent-wrap">
-            <div className="absolute top-0 pointer-events-none border-l-2 border-sky-400 border-dashed bg-sky-400/5 z-20" style={{ left: s1 + SIDEBAR_WIDTH, width: Math.max(0, e1 - s1), height: '100%' }}>
-              <div className="absolute top-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-            </div>
-            <div className="absolute top-0 pointer-events-none border-r-2 border-sky-400 border-dashed bg-sky-400/5 z-20" style={{ left: s2 + SIDEBAR_WIDTH, width: Math.max(0, e2 - s2), height: '100%' }}>
-              <div className="absolute top-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-400/50"></div>
-            </div>
-          </React.Fragment>
-        );
-        elements.push(renderHandle(persistentSelection.start, 'start'));
-        elements.push(renderHandle(persistentSelection.end, 'end'));
-      }
-    }
-
-    if (dragSelection) {
-      const isCircular = dragSelection.start > dragSelection.end;
-      const s = xScale(isCircular ? dragSelection.end : dragSelection.start) - scrollX;
-      const e = xScale(isCircular ? dragSelection.start : dragSelection.end) - scrollX;
-      
-      // For drag selection, we usually just show the linear range being dragged
-      // unless we want to support circular dragging which is more complex.
-      // For now, let's just ensure it renders correctly.
-      const left = xScale(Math.min(dragSelection.start, dragSelection.end)) - scrollX;
-      const width = Math.max(2, xScale(Math.max(dragSelection.start, dragSelection.end)) - xScale(Math.min(dragSelection.start, dragSelection.end)));
-
-      elements.push(
-        <React.Fragment key="drag-group">
-          <div key="drag" className="absolute top-0 pointer-events-none border-x-2 border-emerald-400 bg-emerald-400/15 z-20" style={{ left: left + SIDEBAR_WIDTH, width, height: '100%' }} />
-          {dragCursorPos && (
-            <div 
-              className="fixed pointer-events-none z-[110] bg-emerald-600 text-white text-[9px] font-black px-3 py-1.5 rounded-lg shadow-xl border border-emerald-400/50 animate-in fade-in zoom-in-95 duration-100"
-              style={{ left: dragCursorPos.x + 15, top: dragCursorPos.y - 40 }}
-            >
-              <div className="flex items-center gap-2">
-                <i className="fas fa-arrows-left-right text-[8px] opacity-70"></i>
-                <span>{Math.min(dragSelection.start, dragSelection.end).toLocaleString()}</span>
-                <span className="opacity-50">→</span>
-                <span>{Math.max(dragSelection.start, dragSelection.end).toLocaleString()}</span>
-                <span className="ml-1 opacity-70">({Math.abs(dragSelection.end - dragSelection.start).toLocaleString()} bp)</span>
-              </div>
-            </div>
-          )}
-        </React.Fragment>
-      );
-    }
-
-    return elements;
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
-    const rect = e.currentTarget.getBoundingClientRect();
-    
-    const getPosFromEvent = (ev: MouseEvent | React.MouseEvent) => {
-      const x = ev.clientX - rect.left + horizontalScrollRef.current!.scrollLeft - SIDEBAR_WIDTH;
-      return Math.max(0, Math.min(alignmentLength, Math.floor(xScale.invert(x))));
-    };
-
-    if (dragMode === 'pan') {
-      const startX = e.clientX;
-      const startScrollLeft = horizontalScrollRef.current!.scrollLeft;
-      const startY = e.clientY;
-      const startScrollTop = listRef.current ? (listRef.current as any)._outerRef.scrollTop : 0;
-
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const dx = moveEvent.clientX - startX;
-        const dy = moveEvent.clientY - startY;
-        if (horizontalScrollRef.current) {
-          horizontalScrollRef.current.scrollLeft = startScrollLeft - dx;
-        }
-        if (listRef.current) {
-          listRef.current.scrollTo(startScrollTop - dy);
-        }
-      };
-
-      const onMouseUp = () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-      };
-
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      return;
-    }
-
-    if (dragMode !== 'select') return;
-    
-    const clickedPos = getPosFromEvent(e);
-
-    if (e.shiftKey && activeSelection) {
-      // Extend selection
-      const newStart = activeSelection.start;
-      onSelectionChange({ ...activeSelection, start: newStart, end: clickedPos });
-      return;
-    }
-
-    setDragSelection({ start: clickedPos, end: clickedPos, recordIds: records.map(r => r.id) });
-    setDragCursorPos({ x: e.clientX, y: e.clientY });
-
-    let animationFrameId: number;
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const moveBase = getPosFromEvent(moveEvent);
-      setDragSelection(prev => prev ? { ...prev, end: moveBase } : null);
-      setDragCursorPos({ x: moveEvent.clientX, y: moveEvent.clientY });
-
-      // Auto-scroll logic
-      const threshold = 50;
-      const scrollSpeed = 15;
-      const leftDist = moveEvent.clientX - rect.left - SIDEBAR_WIDTH;
-      const rightDist = rect.right - moveEvent.clientX;
-
-      cancelAnimationFrame(animationFrameId);
-      const scroll = () => {
-        if (leftDist < threshold && horizontalScrollRef.current!.scrollLeft > 0) {
-          horizontalScrollRef.current!.scrollLeft -= scrollSpeed;
-          animationFrameId = requestAnimationFrame(scroll);
-        } else if (rightDist < threshold) {
-          horizontalScrollRef.current!.scrollLeft += scrollSpeed;
-          animationFrameId = requestAnimationFrame(scroll);
-        }
-      };
-      animationFrameId = requestAnimationFrame(scroll);
-    };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      cancelAnimationFrame(animationFrameId);
-      setDragCursorPos(null);
-      
-      setDragSelection(prev => {
-        if (prev && Math.abs(prev.end - prev.start) > 0) {
-          // Move side effect out of functional update
-          setTimeout(() => onSelectionChange(prev), 0);
-        }
-        return null;
-      });
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
-
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
@@ -518,7 +298,13 @@ const GenomeViewer: React.FC<Props> = ({
         </div>
 
         {/* Selection Overlays */}
-        {renderSelectionOverlay()}
+        <SelectionOverlay
+          records={records} alignmentLength={alignmentLength} chartWidth={chartWidth}
+          scrollX={scrollX} zoomLevel={zoomLevel} containerWidth={dimensions.width}
+          mousePos={mousePos} persistentSelection={persistentSelection}
+          dragSelection={dragSelection} dragCursorPos={dragCursorPos}
+          onSelectionChange={onSelectionChange}
+        />
 
         {contextMenu && (
           <div 
