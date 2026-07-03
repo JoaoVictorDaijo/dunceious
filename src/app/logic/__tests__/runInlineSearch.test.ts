@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { runInlineSearch } from '../runInlineSearch';
-import type { SearchWorkerRequest } from '../../../src/workers/protocol';
+import type { SearchWorkerRequest } from '@/src/workers/protocol';
 
 function req(
   overrides: Partial<SearchWorkerRequest> & Pick<SearchWorkerRequest, 'searchQuery' | 'records' | 'mode'>,

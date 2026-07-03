@@ -22,7 +22,7 @@ import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
-import { runInlineSearch } from '@/services/search/runInlineSearch';
+import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
   filteredResults as computeFilteredResults,
   groupedSearchResults as computeGroupedSearchResults,

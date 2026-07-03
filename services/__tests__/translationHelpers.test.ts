@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractCodingSequence, detectEarlyStop, translateSequence } from '../bioUtils';
+import { extractCodingSequence, detectEarlyStop, translateSequence } from '@/src/domain/bio';
 
 // ---------------------------------------------------------------------------
 // extractCodingSequence

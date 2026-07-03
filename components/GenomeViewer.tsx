@@ -21,7 +21,8 @@
 import * as d3 from 'd3';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
-import { detectEarlyStop, extractCodingSequence, getAminoAcidColor, getFeatureColor, getNucleotideColor, translateSequence } from '../services/bioUtils';
+import { getAminoAcidColor, getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
+import { detectEarlyStop, extractCodingSequence, translateSequence } from '@/src/domain/bio';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '../types';
 
 interface Props {
