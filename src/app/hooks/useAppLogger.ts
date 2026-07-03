@@ -30,7 +30,7 @@ export function useAppLogger(): {
   addLog: (msg: string) => void;
 } {
   const [logs, setLogs] = useState<string[]>([
-    'Dunceious Pro v3.3 [Unified Workspace] initialized. Ready for research.',
+    `Dunceious Pro v${__APP_VERSION__} [Unified Workspace] initialized. Ready for research.`,
   ]);
 
   const addLog = (msg: string) =>
