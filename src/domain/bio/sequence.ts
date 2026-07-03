@@ -195,6 +195,11 @@ export const classifyLocusMoleculeType = (locusLine: string): 'dna' | 'rna' | 'p
 // Gap ↔ ungapped coordinate mapping
 // ---------------------------------------------------------------------------
 
+/**
+ * Strips alignment gaps ('-') from a sequence, returning the ungapped string
+ * plus `map`, where `map[i]` is the aligned-space index of the i-th ungapped
+ * residue. Inverse of `mapUngappedRangeToAligned`.
+ */
 export function removeGapsWithMap(seq: string): { ungapped: string; map: number[] } {
   const chars: string[] = [];
   const map: number[] = [];
@@ -207,6 +212,12 @@ export function removeGapsWithMap(seq: string): { ungapped: string; map: number[
   return { ungapped: chars.join(''), map };
 }
 
+/**
+ * Maps an ungapped-space half-open range `[start, end)` back to aligned-space
+ * coordinates using a `map` from `removeGapsWithMap`. `start`/`end` are clamped
+ * into range; the aligned end is exclusive (last mapped index + 1). Returns
+ * `{ start: 0, end: 0 }` for an empty map.
+ */
 export function mapUngappedRangeToAligned(
   map: number[],
   start: number,
