@@ -1,13 +1,30 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/guard-generated-files.mjs",
+            "statusMessage": "Generated-asset guard"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
             "command": "node scripts/check-license-headers.mjs --hook 2>/dev/null || true",
             "statusMessage": "AGPL header check"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/lint-changed.mjs",
+            "statusMessage": "ESLint (errors) on changed file"
           }
         ]
       }
