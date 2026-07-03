@@ -23,7 +23,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
 import { getAminoAcidColor, getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { detectEarlyStop, extractCodingSequence, translateSequence } from '@/src/domain/bio';
-import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '../types';
+import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 
 interface Props {
   records: SeqRecord[];

@@ -18,7 +18,7 @@
  */
 
 import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
-import { makeUniqueId } from '@/services/idHelpers';
+import { makeUniqueId } from '@/src/app/logic/idHelpers';
 import type { FastaAlignedRecord } from '@/src/workers/protocol';
 
 /** Accession precedence: trimmed incoming accession > incoming id (unless 'Unknown') > uniqueId. */

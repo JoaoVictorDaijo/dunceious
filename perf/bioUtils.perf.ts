@@ -38,7 +38,7 @@ import {
   sliceRecordsBySelection,
 } from '../src/domain/bio';
 import { exportToGenBank } from '../src/core/genbank/serialize';
-import type { SeqRecord, BioFeature } from '../types';
+import type { SeqRecord, BioFeature } from '../src/domain/bio/types';
 import { bench, GC_AVAILABLE } from './perfUtils';
 
 // ---------------------------------------------------------------------------

@@ -22,8 +22,8 @@ import {
   transposeCoordinates,
   processTransposition,
   calculateConsensus,
-} from '../../src/domain/bio/index';
-import type { SeqRecord } from '../../types';
+} from '../index';
+import type { SeqRecord } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helper

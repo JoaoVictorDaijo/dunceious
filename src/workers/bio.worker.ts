@@ -17,21 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// Thin worker shell — all logic lives in ./handlers/bio.ts.
+import { handleBioMessage } from './handlers/bio';
+import type { BioWorkerRequest } from './protocol';
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import App from './src/app/App';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+self.onmessage = (e: MessageEvent<BioWorkerRequest>) => {
+  self.postMessage(handleBioMessage(e.data));
+};

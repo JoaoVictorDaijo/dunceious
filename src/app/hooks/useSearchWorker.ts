@@ -186,7 +186,7 @@ export function useSearchWorker(
     isMountedRef.current = true;
 
     searchWorkerRef.current = new Worker(
-      new URL('@/src/workers/searchWorker.ts', import.meta.url),
+      new URL('@/src/workers/search.worker.ts', import.meta.url),
       { type: 'module' },
     );
 

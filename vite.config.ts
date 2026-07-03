@@ -44,7 +44,6 @@ export default defineConfig(() => {
         provider: "v8" as const,
         all: true,
         include: [
-          "services/**",
           "src/core/**",
           "src/workers/handlers/**",
           "src/app/recordRemoval.ts",
