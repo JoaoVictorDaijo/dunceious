@@ -34,10 +34,8 @@ export {
   isProteinSession,
 } from './sequence';
 
-// Alias exposing the deduped implementation from the domain barrel, so the
-// search code's `import { getNonGapSegments } from '@/src/domain/bio'` (Phase C:
-// exact.ts, fuzzy.ts, workers/handlers/search.ts, runInlineSearch.ts,
-// protocol.test.ts) keeps resolving after services/searchLogic.ts is deleted.
+// Expose the deduped `buildAlignedSegments` under the name the search code
+// imports it by (`getNonGapSegments` from '@/src/domain/bio').
 export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
   FeatureSegment,

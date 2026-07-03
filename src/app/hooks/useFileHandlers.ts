@@ -107,8 +107,8 @@ export interface UseFileHandlersReturn {
 /**
  * Provides all file-upload and data-export handlers.
  *
- * Upload handlers delegate parsing to the bioWorker; export helpers use
- * the pure service functions from `@/services/bioUtils`.
+ * Upload handlers delegate parsing to the bio worker; export helpers use
+ * the pure serializers in `@/src/core` (`formats`/`genbank`).
  *
  * @param bioWorkerRef   - Ref to the active bioWorker instance.
  * @param records        - Current active records (read-only).

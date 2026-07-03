@@ -18,7 +18,7 @@
  */
 
 /**
- * Unit tests for the translation helper functions added to services/bioUtils.ts:
+ * Unit tests for the translation helper functions in `@/src/domain/bio/sequence`:
  *   - extractCodingSequence  (multi-segment, circular wrap-around, strand handling)
  *   - detectEarlyStop        (early vs terminal stop codon)
  */
