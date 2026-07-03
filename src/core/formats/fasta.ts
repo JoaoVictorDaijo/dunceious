@@ -17,8 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature } from '../../src/domain/bio/types';
-import { detectMoleculeType } from '../moleculeType';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import { detectMoleculeType } from '@/src/domain/bio';
 
 /** Minimal FASTA record (subset of SeqRecord). */
 export interface FastaRecord {
@@ -55,4 +55,15 @@ export const parseFasta = (content: string): FastaRecord[] => {
     results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq) });
   }
   return results;
+};
+
+export const exportToFasta = (records: SeqRecord[], start?: number, end?: number): string => {
+  return records.map(r => {
+    const seq = r.alignedSequence || r.sequence;
+    const finalSeq = (start !== undefined && end !== undefined) 
+      ? seq.substring(Math.max(0, start), Math.min(seq.length, end)) 
+      : seq;
+    const formattedSeq = finalSeq.match(/.{1,60}/g)?.join('\n') || '';
+    return `>${r.id}${start !== undefined ? ` [Slice: ${start}-${end}]` : ''}\n${formattedSeq}`;
+  }).join('\n\n');
 };

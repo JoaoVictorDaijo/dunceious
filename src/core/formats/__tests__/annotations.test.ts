@@ -18,7 +18,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseBED, parseGFF3, parseBedGraph } from '../annotations';
+import type { SeqRecord } from '@/src/domain/bio/types';
+import { parseBED, parseGFF3, parseBedGraph, exportToGff } from '../annotations';
 
 describe('parseBED', () => {
   it('parses a track grouped by chromosome with score from column 5', () => {
@@ -95,5 +96,28 @@ describe('parseBedGraph', () => {
     const out = parseBedGraph('chr1\t0\t5\t1\nchr1\t5\t9\t2', 'f.bedgraph');
     expect(out.chr1).toHaveLength(1);
     expect(out.chr1[0].data).toHaveLength(2);
+  });
+});
+
+function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
+  return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
+}
+
+describe('exportToGff', () => {
+  it('emits the version header and a tab-delimited feature line with 1-based start', () => {
+    const gff = exportToGff([record({
+      features: [{ type: 'CDS', name: 'my gene', start: 9, end: 20, strand: 1 }],
+    })]);
+    expect(gff.startsWith('##gff-version 3\n')).toBe(true);
+    // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
+    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=my_gene;Name=my gene');
+  });
+
+  it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
+    const gff = exportToGff([record({
+      features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
+    })]);
+    // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
+    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
   });
 });

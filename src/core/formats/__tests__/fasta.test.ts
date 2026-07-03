@@ -18,7 +18,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseFasta } from '../fasta';
+import type { SeqRecord } from '@/src/domain/bio/types';
+import { parseFasta, exportToFasta } from '../fasta';
 
 describe('parseFasta', () => {
   it('parses a single record and takes the id from the first whitespace token', () => {
@@ -49,5 +50,37 @@ describe('parseFasta', () => {
 
   it('skips blank and whitespace-only sequence lines', () => {
     expect(parseFasta('>s\nAC\n\n  \nGT')[0].sequence).toBe('ACGT');
+  });
+});
+
+function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
+  return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
+}
+
+describe('exportToFasta', () => {
+  it('wraps a single record at 60 characters per line', () => {
+    expect(exportToFasta([record({ sequence: 'A'.repeat(70) })]))
+      .toBe('>REC1\n' + 'A'.repeat(60) + '\n' + 'A'.repeat(10));
+  });
+
+  it('emits a plain header and unwrapped sequence for a short record', () => {
+    expect(exportToFasta([record()])).toBe('>REC1\nATGCAAATAG');
+  });
+
+  it('slices to [start, end) and stamps the slice header when both are given', () => {
+    // 'ATGCAAATAG'.substring(2, 5) → 'GCA'
+    expect(exportToFasta([record()], 2, 5)).toBe('>REC1 [Slice: 2-5]\nGCA');
+  });
+
+  it('prefers alignedSequence over sequence when present', () => {
+    expect(exportToFasta([record({ alignedSequence: 'XXXX' })])).toBe('>REC1\nXXXX');
+  });
+
+  it('joins multiple records with a blank line', () => {
+    const out = exportToFasta([
+      record({ id: 'A', sequence: 'AAA' }),
+      record({ id: 'B', sequence: 'CCC' }),
+    ]);
+    expect(out).toBe('>A\nAAA\n\n>B\nCCC');
   });
 });
