@@ -1,7 +1,7 @@
-# Target folder structure (quick reference)
+# Folder structure (quick reference)
 
 > Extract of `ARCHITECTURE.md` §2. **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md).
-> If this drifts, `ARCHITECTURE.md` wins. See §10 there for what has actually moved yet.
+> If this drifts, `ARCHITECTURE.md` wins. See §10 there for the restructure phase history.
 
 All source lives under `src/`, in four layers. Imports point only **down** the stack:
 `domain ← core ← workers/handlers ← app`.
@@ -14,7 +14,7 @@ src/
 │   ├── consensus.ts
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
 │   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
-│   │                    #   detection, gap↔ungapped mapping, sessionMoleculeType
+│   │                    #   detection, gap↔ungapped mapping, isProteinSession
 │   └── index.ts         # barrel
 │
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
@@ -32,7 +32,8 @@ src/
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
     ├── App.tsx          # composition root
-    ├── logic/           # pure reducers/view-model (+ recordRemoval, runInlineSearch)
+    ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
+    ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
     ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts
@@ -48,5 +49,5 @@ src/
 | `workers` | Typed `protocol` + thin worker shells + `handlers/` bodies that orchestrate `core` + `domain` | `core`, `domain`, own `protocol` |
 | `app` | React UI, hooks, pure view-logic, the decomposed viewer, and all browser I/O | anything below it |
 
-Root keeps only configs, `index.html`, `docs/`, `bench/`, `perf/`, `scripts/`, `.github/`. In
-the target, root `components/`, `services/`, and `types.ts` are gone.
+Root keeps only configs, `index.html`, `docs/`, `bench/`, `perf/`, `scripts/`, `.github/`. Root
+`components/`, `services/`, and `types.ts` are gone.

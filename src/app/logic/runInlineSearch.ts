@@ -24,7 +24,7 @@ import type { SearchWorkerRequest } from '@/src/workers/protocol';
 import { runExactSearch } from '@/src/core/search/exact';
 
 /**
- * Synchronous inline search fallback (extracted from useSearchWorker).
+ * Synchronous inline search fallback used when the Web Worker is unavailable.
  *
  * Exact/IUPAC mode delegates to the shared `runExactSearch`, which has no time
  * budget of its own. Fuzzy mode runs Smith-Waterman over the WHOLE ungapped

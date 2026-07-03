@@ -22,8 +22,8 @@ import type { BioFeature } from '@/src/domain/bio/types';
 /**
  * The sequence slice a record/feature detail view should display.
  *
- * Extracted verbatim from RecordDetailsModal's inline `getDisplaySeq`. With no
- * feature the whole sequence is shown. A normal feature (`start <= end`) shows
+ * With no feature the whole sequence is shown. A normal feature (`start <= end`)
+ * shows
  * `substring(start, end)`. A circular wrap-around feature (`start > end`, which
  * crosses the origin) shows the tail then the head: `substring(start) +
  * substring(0, end)`. Pure string math; the clipboard/log side-effects stay in
@@ -40,8 +40,8 @@ export function getDisplaySeq(
 }
 
 /**
- * The displayed length (in bp) of a feature, matching DatabaseHubPanel's inline
- * calc. Priority: (1) if it has segments, the sum of each segment's |end-start|;
+ * The displayed length (in bp) of a feature. Priority: (1) if it has segments,
+ * the sum of each segment's |end-start|;
  * (2) a circular wrap-around (`start > end`) on a known-length sequence spans
  * `(seqLen - start) + end`; (3) otherwise the simple `|end - start|`. If the
  * feature wraps but the owning record's length is unknown (`seqLen` undefined),
@@ -64,8 +64,8 @@ export function featureLength(
 }
 
 /**
- * Fuzzy-match score as a whole-number percentage of the best score found,
- * matching SearchPanel's inline calc. Guards divide-by-zero: when
+ * Fuzzy-match score as a whole-number percentage of the best score found.
+ * Guards divide-by-zero: when
  * `maxScoreFound <= 0` returns 0. Otherwise `round((score / maxScoreFound) * 100)`.
  * The `%` suffix and the `match.score` truthiness guard stay in the component.
  */
@@ -74,8 +74,7 @@ export function scorePercent(score: number, maxScoreFound: number): number {
 }
 
 /**
- * Alignment-related derived state for the App shell, combining the three inline
- * `useMemo` derivations verbatim:
+ * Alignment-related derived state for the App shell, deriving:
  *  - `isAlignmentLoaded`: >= 2 records AND all (aligned-or-raw) lengths equal.
  *  - `alignmentLength`: max (aligned-or-raw) length; 0 for no records.
  *  - `sessionMoleculeType`: null for no records, else 'protein'/'nucleotide'
@@ -102,7 +101,7 @@ export function deriveAlignmentState(
 
 /**
  * The patch produced by editing a feature's start or end coordinate in
- * FeatureEditorModal, extracted verbatim from its two `onChange` handlers.
+ * FeatureEditorModal.
  *
  * The edited field is set to `parseInt(rawValue)`. When the feature has 0 or 1
  * segment, its `segments` is rebuilt to a single `[{ start, end }]` reflecting

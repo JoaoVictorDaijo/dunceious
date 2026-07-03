@@ -19,10 +19,19 @@
 
 import type { SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 
+/** Returns a new records array with `recordId` removed; the input is not mutated. */
 export function removeRecordFromProject(records: SeqRecord[], recordId: string): SeqRecord[] {
   return records.filter(record => record.id !== recordId);
 }
 
+/**
+ * Recomputes the active selection after a record is removed.
+ *
+ * Returns `null` when there is no active selection, or when dropping this record
+ * empties the selection's `recordIds`. Returns the SAME selection reference
+ * unchanged when the record was not part of it. Otherwise returns a new
+ * selection with the record removed from `recordIds`.
+ */
 export function updateSelectionAfterRecordRemoval(
   activeSelection: SelectionArea | null,
   recordId: string,
@@ -36,6 +45,15 @@ export function updateSelectionAfterRecordRemoval(
   return { ...activeSelection, recordIds };
 }
 
+/**
+ * Purges search state that referenced a removed record.
+ *
+ * Drops selected-search indices whose result belongs to `recordId`. Resets
+ * `currentSearchIdx` to `-1` when it is out of range (`< 0` or `>=
+ * filteredResults.length`) OR points at a result on the removed record;
+ * otherwise it is kept. `filteredResults` must be the post-removal results the
+ * indices refer to.
+ */
 export function sanitizeSearchStateAfterRecordRemoval(
   filteredResults: SearchResult[],
   currentSearchIdx: number,

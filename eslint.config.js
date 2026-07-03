@@ -27,21 +27,17 @@ export default tseslint.config(
   {
     rules: {
       // -----------------------------------------------------------------------
-      // Architectural size constraints — Phase 0 safety nets.
-      // Files / functions that already violate these limits are flagged as
-      // warnings so CI stays green while future refactor phases bring them
-      // under control.  The hard-error level (600 / 120) will be activated
-      // once Phase 2-3 refactoring is complete.
-      //
-      //   warn  -> file > 400 lines  (skipBlanks + skipComments)
-      //   error -> file > 600 lines  (not yet active -- see above)
+      // Architectural size constraints.
+      // `max-lines` errors at 600 (skipBlankLines + skipComments) — the hard
+      // file ceiling for the layered structure. `max-lines-per-function` stays a
+      // warning: React component/render bodies and the `smithWaterman` kernel
+      // legitimately exceed a hard function-line cap, so the file-level ceiling
+      // is the active hard guard.
       // -----------------------------------------------------------------------
       'max-lines': [
-        'warn',
-        { max: 400, skipBlankLines: true, skipComments: true },
+        'error',
+        { max: 600, skipBlankLines: true, skipComments: true },
       ],
-      //   warn  -> function > 80 lines
-      //   error -> function > 120 lines  (not yet active)
       'max-lines-per-function': [
         'warn',
         { max: 80, skipBlankLines: true, skipComments: true },
@@ -70,6 +66,43 @@ export default tseslint.config(
       globals: {
         ...globals.node,
       },
+    },
+  },
+  // --- Layer import boundaries: domain ← core ← workers/handlers ← app ---
+  // A layer may import its own layer and layers below it, never above. Upward
+  // cross-layer imports are matched by import-specifier string, covering both the
+  // `@/…` alias form and relative (`../`) traversals. Tests are exempt.
+  {
+    files: ['src/domain/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/core/*', '@/src/core/**', '@/core/*', '@/core/**', '**/src/core/**', '**/core/**',
+                  '@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**', '**/workers/**',
+                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
+          message: 'Layer rule: domain may import only domain (not core/workers/app).' },
+      ] }],
+    },
+  },
+  {
+    files: ['src/core/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/workers/*', '@/src/workers/**', '@/workers/*', '@/workers/**', '**/src/workers/**', '**/workers/**',
+                  '@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
+          message: 'Layer rule: core may import only domain + core (not workers/app).' },
+      ] }],
+    },
+  },
+  {
+    files: ['src/workers/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
+          message: 'Layer rule: workers may import domain + core + workers (not app).' },
+      ] }],
     },
   },
   {
