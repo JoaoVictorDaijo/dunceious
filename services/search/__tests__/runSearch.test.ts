@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runSearch, collectSeededFuzzyHits } from '../runSearch';
+import { runSearch } from '../runSearch';
 import type { SearchWorkerRequest } from '../../../src/workers/protocol';
 
 function req(overrides: Partial<SearchWorkerRequest> & Pick<SearchWorkerRequest, 'searchQuery' | 'records' | 'mode'>): SearchWorkerRequest {
@@ -90,22 +90,6 @@ describe('runSearch — fuzzy mode', () => {
     expect(res.results.length).toBeGreaterThan(0);
     expect(res.results[0].score).toBeGreaterThanOrEqual(res.results[res.results.length - 1].score ?? 0);
     expect(res.results[0].recordId).toBe('r1');
-  });
-});
-
-describe('collectSeededFuzzyHits', () => {
-  it('returns [] for an all-gap sequence', () => {
-    expect(collectSeededFuzzyHits('ACGT', '----', 'r1', 1, 5)).toEqual([]);
-  });
-  it('finds the query region in an ungapped sequence with the given recordId/strand', () => {
-    const hits = collectSeededFuzzyHits('ACGTACGT', 'TTTACGTACGTTTT', 'r1', 1, 5);
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits.every(h => h.recordId === 'r1' && h.strand === 1)).toBe(true);
-  });
-  it('uses the full-sequence Smith-Waterman fallback for a query shorter than the seed length', () => {
-    const hits = collectSeededFuzzyHits('A', 'AAAA', 'r1', 1, 2);
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits.every(h => h.recordId === 'r1' && h.strand === 1)).toBe(true);
   });
 });
 

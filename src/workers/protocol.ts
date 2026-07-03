@@ -34,6 +34,7 @@ import type {
   BioFeature,
   QuantitativeTrack,
   SearchResult,
+  SearchableRecord,
 } from '../domain/bio/types';
 
 // ---------------------------------------------------------------------------
@@ -116,12 +117,7 @@ export type BioWorkerResponse =
 // Search Worker — Requests (main → worker)
 // ---------------------------------------------------------------------------
 
-/** Minimal record projection sent to the search worker. */
-export interface SearchableRecord {
-  id: string;
-  sequence: string;
-  alignedSequence?: string;
-}
+export type { SearchableRecord } from '../domain/bio/types';
 
 export interface SearchOptions {
   minScore: number;

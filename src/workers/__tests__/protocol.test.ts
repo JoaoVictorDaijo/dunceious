@@ -40,7 +40,9 @@ import type {
 } from '../protocol';
 import { processTransposition, calculateConsensus } from '../../domain/bio/index';
 import { parseGenBank } from '@/src/core/genbank/index';
-import { degenerateToRegex, reverseComplement, getNonGapSegments, smithWaterman } from '../../../services/searchLogic';
+import { degenerateToRegex } from '@/src/core/search/query';
+import { smithWaterman } from '@/src/core/search/align';
+import { reverseComplement, getNonGapSegments } from '@/src/domain/bio';
 import type { SeqRecord } from '../../domain/bio/types';
 
 // ---------------------------------------------------------------------------

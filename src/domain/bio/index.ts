@@ -45,5 +45,6 @@ export type {
   QuantitativeTrack,
   SeqRecord,
   SearchResult,
+  SearchableRecord,
   SelectionArea,
 } from './types';

@@ -35,15 +35,15 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
-import { processTransposition } from '../../src/domain/bio/index';
-import { degenerateToRegex } from '../searchLogic';
-import type { SeqRecord, BioFeature } from '../../types';
+import { processTransposition } from '@/src/domain/bio';
+import { degenerateToRegex } from '@/src/core/search/query';
+import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 let SCU49845_CONTENT: string;
 
 try {
-  SCU49845_CONTENT = readFileSync(resolve(__dirname, '../../SCU49845.gb'), 'utf-8');
+  SCU49845_CONTENT = readFileSync(resolve(__dirname, '../../../SCU49845.gb'), 'utf-8');
 } catch {
   SCU49845_CONTENT = '';
 }

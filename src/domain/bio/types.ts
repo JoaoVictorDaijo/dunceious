@@ -69,6 +69,13 @@ export interface SearchResult {
   segments?: FeatureSegment[];
 }
 
+/** Minimal record projection sent to the search worker. */
+export interface SearchableRecord {
+  id: string;
+  sequence: string;
+  alignedSequence?: string;
+}
+
 export interface SelectionArea {
   start: number;
   end: number;
