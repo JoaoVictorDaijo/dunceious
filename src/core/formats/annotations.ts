@@ -25,7 +25,15 @@ export interface AnnotationTrack extends QuantitativeTrack {
 }
 
 /**
- * Parses BED content.
+ * Parses BED into per-chromosome interval tracks.
+ *
+ * BED is 0-based half-open: col2 chromStart (inclusive) and col3 chromEnd
+ * (exclusive) are used verbatim as `[start, end)` — no ±1 adjustment. Score is
+ * read from column index 4 (the BED `score`/5th field) via `parseFloat`; a
+ * missing/NaN score defaults to **0** (contrast bedGraph, which skips NaN). The
+ * `name` column is ignored. Rows with < 3 columns or NaN coords are skipped, as
+ * are `#`/`track`/`browser` header lines. One 'interval' track is reused per
+ * (chrom, filename).
  */
 export const parseBED = (content: string, filename: string): Record<string, AnnotationTrack[]> => {
   const lines = content.split('\n');
@@ -66,7 +74,14 @@ export const parseBED = (content: string, filename: string): Record<string, Anno
 };
 
 /**
- * Parses GFF3 content.
+ * Parses GFF3 into per-seqid `BioFeature[]`.
+ *
+ * GFF3 is 1-based, fully closed; converted to the app's 0-based half-open model
+ * by `start = col4 - 1` and `end = col5` (a 1-based inclusive end equals a
+ * 0-based exclusive end, so col5 is used unchanged). strand col7 `-`→ -1 else 1.
+ * Name resolves from attribute `Name`, else `ID`, else `${type}_${start + 1}`.
+ * A `.` score (col6) is omitted from metadata; other scores are kept as strings.
+ * Attribute values are URL-decoded. Rows with < 9 tab-separated columns skipped.
  */
 export const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
   const lines = content.split('\n');
@@ -126,7 +141,12 @@ export const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
 };
 
 /**
- * Parses BedGraph content.
+ * Parses bedGraph into per-chromosome 'line' tracks.
+ *
+ * Coordinates are 0-based half-open (col2 start inclusive, col3 end exclusive),
+ * used verbatim. The value (column index 3, the 4th field) is `parseFloat`d;
+ * unlike BED, a **NaN value skips the row** (no default-to-0). Rows with < 4
+ * columns are skipped; `#`/`track`/`browser` header lines ignored.
  */
 export const parseBedGraph = (content: string, filename: string): Record<string, AnnotationTrack[]> => {
   const lines = content.split('\n');
@@ -165,6 +185,12 @@ export const parseBedGraph = (content: string, filename: string): Record<string,
   return results;
 };
 
+/**
+ * Serializes records' features to GFF3. Converts the app's 0-based half-open
+ * coords back to GFF3's 1-based fully-closed convention: `start = f.start + 1`,
+ * `end = f.end` (unchanged). strand 1 → `+`, -1 → `-`; the source column is
+ * stamped `Dunceious`; `ID`/`Name` derive from `f.name` (spaces → `_` in `ID`).
+ */
 export const exportToGff = (records: SeqRecord[]): string => {
   let gff = "##gff-version 3\n";
   records.forEach(r => {
