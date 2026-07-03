@@ -20,8 +20,8 @@
 /**
  * Public API for the modular GenBank parser.
  *
- * Re-exports the primary parsing function so that downstream code importing
- * from `services/genbankParser` (or this index) continues to work unchanged.
+ * Re-exports the primary parsing function for downstream code that imports
+ * from this module.
  */
 
 import type { SeqRecord } from '@/src/domain/bio/types';

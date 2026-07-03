@@ -181,8 +181,7 @@ export const detectMoleculeType = (seq: string): 'dna' | 'rna' | 'protein' => {
  * Classifies a GenBank LOCUS line by its molecule-type/unit field.
  *
  * Protein records use "aa" (amino acids); RNA molecule tokens contain "rna"
- * (mRNA, rRNA, tRNA, ncRNA…); everything else is DNA. Reproduces the exact
- * logic previously inlined in `services/genbank/headerParser.ts`.
+ * (mRNA, rRNA, tRNA, ncRNA…); everything else is DNA.
  */
 export const classifyLocusMoleculeType = (locusLine: string): 'dna' | 'rna' | 'protein' => {
   const lower = locusLine.toLowerCase();
