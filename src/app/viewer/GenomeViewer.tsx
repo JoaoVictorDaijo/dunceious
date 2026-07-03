@@ -24,6 +24,8 @@ import { ListChildComponentProps, VariableSizeList } from 'react-window';
 import { getAminoAcidColor, getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { detectEarlyStop, extractCodingSequence, translateSequence } from '@/src/domain/bio';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
+import { AA_ROW_HEIGHT, ANNOT_ROW_HEIGHT, NT_ROW_HEIGHT, RULER_HEIGHT } from './constants';
+import { computeRecordLayouts, type RecordLayout } from './layout';
 
 interface Props {
   records: SeqRecord[];
@@ -47,12 +49,6 @@ interface Props {
   showConservation: boolean;
   showTracks: boolean;
 }
-
-const SIDEBAR_WIDTH = 120;
-const NT_ROW_HEIGHT = 22;
-const AA_ROW_HEIGHT = 18;
-const ANNOT_ROW_HEIGHT = 14;
-const RULER_HEIGHT = 25;
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
@@ -353,7 +349,7 @@ const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 });
 
 interface RowData {
-  recordLayouts: any[];
+  recordLayouts: RecordLayout[];
   alignmentLength: number;
   scrollX: number;
   zoomLevel: number;
@@ -1280,102 +1276,10 @@ const GenomeViewer: React.FC<Props> = ({
     return () => observer.disconnect();
   }, []);
 
-  const recordLayouts = useMemo(() => {
-    return records.map(record => {
-      // 1. Feature Packing (Annotations)
-      const rows: { start: number, end: number }[][] = [];
-      const sortedFeatures = [...record.features].sort((a, b) => a.start - b.start);
-      
-      const placements = sortedFeatures.map(feat => {
-        const genomeLength = record.sequence.length;
-        const featIntervals = feat.start > feat.end 
-          ? [{ start: feat.start, end: genomeLength }, { start: 0, end: feat.end }]
-          : [{ start: feat.start, end: feat.end }];
-        
-        let rowIdx = 0;
-        const buffer = 10;
-        
-        while (rowIdx < rows.length) {
-          const row = rows[rowIdx];
-          const hasOverlap = row.some(interval => 
-            featIntervals.some(fi => 
-              fi.start < interval.end + buffer && interval.start < fi.end + buffer
-            )
-          );
-          if (!hasOverlap) break;
-          rowIdx++;
-        }
-        
-        if (rowIdx === rows.length) {
-          rows.push([]);
-        }
-        
-        rows[rowIdx].push(...featIntervals);
-        return { feature: feat, row: rowIdx };
-      });
-
-      const featRowsCount = showAnnotations ? rows.length : 0;
-      const annotHeight = featRowsCount * (ANNOT_ROW_HEIGHT + 6);
-      
-      // 2. Track Packing & Height Calculation
-      const tracks = record.tracks || [];
-      const trackSpacing = 12;
-      let totalQuantHeight = 0;
-      
-      const trackLayouts = tracks.map(track => {
-        let height = 80; // Default height for line tracks
-        let packedRows: any[][] = [];
-        
-        if (track.kind === 'interval') {
-          // Pack intervals to determine required height
-          const sortedData = [...track.data].sort((a, b) => a.start - b.start);
-          sortedData.forEach(interval => {
-            let placed = false;
-            for (let i = 0; i < packedRows.length; i++) {
-              const lastInRow = packedRows[i][packedRows[i].length - 1];
-              if (interval.start >= lastInRow.end + 1) {
-                packedRows[i].push(interval);
-                placed = true;
-                break;
-              }
-            }
-            if (!placed) {
-              packedRows.push([interval]);
-            }
-          });
-          
-          // Calculate height based on rows (min 12px per row + padding)
-          const rowHeight = 16;
-          height = Math.max(80, packedRows.length * rowHeight + 10);
-        }
-        
-        const top = totalQuantHeight;
-        if (showTracks) {
-          totalQuantHeight += height + trackSpacing;
-        }
-        
-        return { ...track, height, top, packedRows };
-      });
-
-      const quantHeight = showTracks ? totalQuantHeight : 0;
-      const topPadding = (featRowsCount > 0 || quantHeight > 0) ? 24 : 0;
-      const effectiveTranslation = showTranslation && record.moleculeType !== 'protein';
-      const seqBaseY = annotHeight + quantHeight + topPadding + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0);
-      const height = seqBaseY + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) + NT_ROW_HEIGHT + 20;
-
-      return { 
-        id: record.id, 
-        record, 
-        placements, 
-        annotHeight,
-        quantHeight,
-        topPadding,
-        height,
-        seqBaseY,
-        trackLayouts
-      };
-    });
-  }, [records, showAnnotations, showTranslation, showTracks]);
+  const recordLayouts = useMemo(
+    () => computeRecordLayouts(records, { showAnnotations, showTranslation, showTracks }),
+    [records, showAnnotations, showTranslation, showTracks],
+  );
 
   useEffect(() => {
     if (listRef.current) {
