@@ -71,9 +71,10 @@ export function useViewport(params: UseViewportParams) {
         const mouseX = mouseBp * prev - currentScroll;
         const newScroll = mouseBp * clamped - mouseX;
         
-        // We can't set scrollLeft directly here because it might trigger a render loop
-        // if not careful, but since it's a ref it's usually fine.
-        // However, it's better to do it in a useEffect or after state update.
+        // Defer to a later task so React first commits the new zoom level: chartWidth
+        // scales with zoomLevel, so the scroll container only reaches `newScroll` once
+        // the wider content has rendered. Setting scrollLeft synchronously here would
+        // clamp it to the old (smaller) width and lose the zoom-to-cursor anchor.
         setTimeout(() => {
           if (horizontalScrollRef.current) {
             horizontalScrollRef.current.scrollLeft = newScroll;
