@@ -31,6 +31,33 @@ import { useViewport } from './useViewport';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
 
+/**
+ * GenomeViewer — virtualized, canvas-backed alignment/genome browser.
+ *
+ * Coordinate model: positions are 0-based half-open bp indices into a record's
+ * `alignedSequence ?? sequence`. `alignmentLength` is the max aligned length
+ * across records; the x-axis maps [0, alignmentLength] → px via a d3 linear
+ * scale. A feature/selection with `start > end` denotes a circular wrap,
+ * rendered as two segments: [start, len] and [0, end].
+ *
+ * Zoom/scroll model: `zoomLevel` is px-per-bp, clamped to [fitZoom, 150];
+ * `fitZoom` fits the whole alignment in the viewport;
+ * `chartWidth = alignmentLength * zoomLevel`. Horizontal position is driven by
+ * a native scroll container (`horizontalScrollRef`) whose `scrollLeft` mirrors
+ * `scrollX`; vertical scrolling is react-window (`VariableSizeList`, per-row
+ * heights from the layout engine).
+ *
+ * Composition: pure layout (`layout.ts`) → per-row render (`Row` + canvas
+ * `tracks/`) → viewport controls (`useViewport`) + drag/pan (`useSelectionDrag`)
+ * + `Minimap` + `SelectionOverlay`. This container owns the record-derived
+ * memos (`alignmentLength`, `quantValueRanges`, `conservationScores`,
+ * `searchResultsByRecord`, `recordLayouts`, `itemData`) and wires the pieces.
+ *
+ * Props: see the `Props` interface below — records + consensus to render,
+ * display toggles (annotations/translation/conservation/tracks), the
+ * `dragMode`, the controlled `activeSelection`/`onSelectionChange`, search
+ * state, and record-action callbacks.
+ */
 interface Props {
   records: SeqRecord[];
   consensus: string;
