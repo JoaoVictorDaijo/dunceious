@@ -18,8 +18,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runSearch } from '../runSearch';
-import type { SearchWorkerRequest } from '../../../src/workers/protocol';
+import { runSearch } from '../search';
+import type { SearchWorkerRequest } from '@/src/workers/protocol';
 
 function req(overrides: Partial<SearchWorkerRequest> & Pick<SearchWorkerRequest, 'searchQuery' | 'records' | 'mode'>): SearchWorkerRequest {
   return {

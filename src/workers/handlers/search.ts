@@ -17,8 +17,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { SearchResult, reverseComplement, getNonGapSegments } from '@/src/domain/bio';
-import type { SearchWorkerRequest, SearchWorkerResponse } from '../../src/workers/protocol';
+import { reverseComplement, getNonGapSegments } from '@/src/domain/bio';
+import type { SearchResult } from '@/src/domain/bio/types';
+import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
 import { runExactSearch } from '@/src/core/search/exact';
 import { collectSeededFuzzyHits } from '@/src/core/search/fuzzy';
 

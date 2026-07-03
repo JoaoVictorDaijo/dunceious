@@ -17,10 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { processTransposition, calculateConsensus } from '../../src/domain/bio/index';
+import { processTransposition, calculateConsensus } from '@/src/domain/bio';
 import { parseGenBank } from '@/src/core/genbank/index';
-import type { BioFeature } from '../../src/domain/bio/types';
-import type { BioWorkerRequest, BioWorkerResponse } from '../../src/workers/protocol';
+import type { BioFeature } from '@/src/domain/bio/types';
+import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 import { parseFasta } from '@/src/core/formats/fasta';
 import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/core/formats/annotations';
 

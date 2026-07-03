@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { handleBioMessage } from '../handleBioMessage';
+import { handleBioMessage } from '../bio';
 
 describe('handleBioMessage — PARSE_FASTA', () => {
   it('returns FASTA_SUCCESS with parsed records and echoes asAlignment', () => {

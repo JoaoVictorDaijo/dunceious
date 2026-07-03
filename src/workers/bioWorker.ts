@@ -18,8 +18,8 @@
  */
 
 // bioWorker.ts
-// Thin worker shell — all logic lives in services/bio/handleBioMessage.ts.
-import { handleBioMessage } from '../../services/bio/handleBioMessage';
+// Thin worker shell — all logic lives in ./handlers/bio.ts.
+import { handleBioMessage } from './handlers/bio';
 import type { BioWorkerRequest } from './protocol';
 
 self.onmessage = (e: MessageEvent<BioWorkerRequest>) => {

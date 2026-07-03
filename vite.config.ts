@@ -46,6 +46,7 @@ export default defineConfig(() => {
         include: [
           "services/**",
           "src/core/**",
+          "src/workers/handlers/**",
           "src/app/recordRemoval.ts",
           "src/app/logic/**",
           "src/domain/**",
