@@ -19,7 +19,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getOriginalPos } from '@/src/domain/bio';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 
@@ -32,8 +31,6 @@ export interface SidebarProps {
   onSetActiveSelection: (sel: SelectionArea | null) => void;
   alignmentLength: number;
   onSetJumpTo: (pos: number) => void;
-  featureColors: Record<string, string>;
-  onSetFeatureColors: (colors: Record<string, string>) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -70,7 +67,7 @@ export interface SidebarProps {
 
 /**
  * Left sidebar containing selection inspector, record navigator, navigation,
- * feature-colour settings, ingestion controls, sequence search, and log terminal.
+ * ingestion controls, sequence search, and log terminal.
  */
 const Sidebar: React.FC<SidebarProps> = ({
   open,
@@ -81,8 +78,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetActiveSelection,
   alignmentLength,
   onSetJumpTo,
-  featureColors,
-  onSetFeatureColors,
   onFileUpload,
   onAlignmentUpload,
   onAnnotationUpload,
@@ -317,36 +312,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="flex justify-between"><span>Center</span> <span className="text-emerald-500">C</span></div>
               </div>
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* Feature colours */}
-      {activeTab === 'features' && (
-        <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase text-amber-500 tracking-widest mb-4 flex items-center justify-between">
-            Feature Colors <i className="fas fa-palette text-[10px]"></i>
-          </h3>
-          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 space-y-3">
-            <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar-pro">
-              {['gene', 'CDS', 'mRNA', 'tRNA', 'rRNA', 'exon', 'intron', 'promoter', 'regulatory', 'misc_feature', 'primer', 'origin'].map(type => (
-                <div key={type} className="flex items-center justify-between bg-black/20 p-2 rounded-lg border border-slate-800/50 group">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{type}</span>
-                  <input
-                    type="color"
-                    value={featureColors[type] || getFeatureColor(type)}
-                    onChange={e => onSetFeatureColors({ ...featureColors, [type]: e.target.value })}
-                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer"
-                  />
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => onSetFeatureColors({})}
-              className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-black uppercase text-slate-400 transition-all mt-2"
-            >
-              Reset to Defaults
-            </button>
           </div>
         </section>
       )}

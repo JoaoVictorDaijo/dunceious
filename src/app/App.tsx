@@ -27,6 +27,7 @@ import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
+import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -51,7 +52,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const App: React.FC = () => {
-  const CLEAR_CONFIRM_PREF_KEY = 'dunceious.skipClearAllConfirmation';
   // ── Logger ────────────────────────────────────────────────────────────────
   const { logs, addLog } = useAppLogger();
 
@@ -74,10 +74,7 @@ const App: React.FC = () => {
   const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
   const [jumpTo, setJumpTo] = useState<number | null>(null);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
-  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(CLEAR_CONFIRM_PREF_KEY) === '1';
-  });
+  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -208,6 +205,11 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [records.length]);
 
+  const handleSetSkipClearAllConfirmation = (value: boolean) => {
+    writeSkipClearAllConfirmation(value);
+    setSkipClearAllConfirmation(value);
+  };
+
   const handleClearAll = () => {
     if (records.length === 0) return;
     if (!skipClearAllConfirmation) {
@@ -219,7 +221,7 @@ const App: React.FC = () => {
       const normalized = choice.trim().toUpperCase();
       if (normalized !== 'CLEAR' && normalized !== 'CLEAR ALWAYS') return;
       if (normalized === 'CLEAR ALWAYS') {
-        window.localStorage.setItem(CLEAR_CONFIRM_PREF_KEY, '1');
+        writeSkipClearAllConfirmation(true);
         setSkipClearAllConfirmation(true);
       }
     }
@@ -271,6 +273,10 @@ const App: React.FC = () => {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        featureColors={featureColors}
+        onSetFeatureColors={setFeatureColors}
+        skipClearAllConfirmation={skipClearAllConfirmation}
+        onSetSkipClearAllConfirmation={handleSetSkipClearAllConfirmation}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
@@ -298,8 +304,6 @@ const App: React.FC = () => {
           onSetActiveSelection={setActiveSelection}
           alignmentLength={alignmentLength}
           onSetJumpTo={setJumpTo}
-          featureColors={featureColors}
-          onSetFeatureColors={setFeatureColors}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
           onAnnotationUpload={handleAnnotationUpload}
