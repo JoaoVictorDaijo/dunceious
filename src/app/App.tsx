@@ -28,6 +28,7 @@ import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
+import { ENV_LAYERS, resolveEnvAccent, envEdgeGradient } from './logic/environment';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -195,6 +196,8 @@ const App: React.FC = () => {
     [records, isProteinSession],
   );
 
+  const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
+
   useEffect(() => {
     if (records.length === 0) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -298,6 +301,7 @@ const App: React.FC = () => {
         <Sidebar
           open={sidebarOpen}
           activeTab={activeTab}
+          envAccent={envAccent}
           records={records}
           transposedRecords={transposedRecords}
           activeSelection={activeSelection}
@@ -338,25 +342,6 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
-          {/* Ambient session-type corner gradients — atmospheric lighting cue */}
-          <div
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
-              sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              background:
-                'radial-gradient(ellipse 60% 45% at 100% 0%, rgba(56, 189, 248, 0.18), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 100%, rgba(14, 165, 233, 0.10), transparent 65%)',
-            }}
-          />
-          <div
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
-              sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              background:
-                'radial-gradient(ellipse 60% 45% at 100% 0%, rgba(139, 92, 246, 0.18), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 100%, rgba(99, 102, 241, 0.10), transparent 65%)',
-            }}
-          />
           {records.length === 0 ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
@@ -421,12 +406,15 @@ const App: React.FC = () => {
       </div>
 
       <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-        <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-t from-sky-500/40 via-sky-500/10 to-transparent ${
-          sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-        }`} />
-        <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-t from-violet-500/40 via-violet-500/10 to-transparent ${
-          sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-        }`} />
+        {ENV_LAYERS.map(layer => (
+          <div
+            key={layer.key}
+            className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${
+              envAccent === layer.key ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{ background: envEdgeGradient(layer.rgb, 'to top') }}
+          />
+        ))}
       </div>
 
       <StatusBar sessionMoleculeType={sessionMoleculeType} />

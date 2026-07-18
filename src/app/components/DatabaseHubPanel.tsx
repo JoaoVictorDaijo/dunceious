@@ -122,10 +122,10 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
               type="checkbox"
               checked={isVisible}
               onChange={() => onToggleRecordVisibility(item.recordId)}
-              className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+              className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
             />
             <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-sky-600">
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">
                 {record?.name || item.recordId}
                 {record?.isCircular && (
                   <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-black border border-amber-200">CIRCULAR</span>
@@ -204,7 +204,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
     const { recordId, feature: f } = item;
     const isSelected = isFeatureInSelection(f);
     return (
-      <div style={style} className={`border-b border-slate-100 hover:bg-slate-50 transition-all group flex items-center px-8 ${isSelected ? 'bg-sky-50' : ''}`}>
+      <div style={style} className={`border-b border-slate-100 hover:bg-slate-50 transition-all group flex items-center px-8 ${isSelected ? 'bg-amber-50' : ''}`}>
         <div className="w-[15%] shrink-0">
           <div className="flex items-center gap-3">
             <span
@@ -224,7 +224,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
         </div>
         <div className="w-[35%] shrink-0 px-4">
           <div className="flex flex-col gap-0.5">
-            <span className="font-black text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">{f.name}</span>
+            <span className="font-black text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}</span>
             {f.metadata?.product && <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{f.metadata.product}</span>}
           </div>
         </div>
@@ -245,7 +245,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
           <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onViewFeatureDetails(recordId, f)}
-              className="text-slate-400 hover:text-sky-600 p-2.5 rounded-xl hover:bg-sky-50 transition-all"
+              className="text-slate-400 hover:text-amber-600 p-2.5 rounded-xl hover:bg-amber-50 transition-all"
               title="View Details"
             >
               <i className="fas fa-eye"></i>
@@ -271,7 +271,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
                 onFocusItem(recordId, focusStart, focusEnd);
                 addLog(`Jump to ${f.name}`);
               }}
-              className="text-[10px] font-black uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-sky-600 hover:text-white hover:border-sky-500 transition-all tracking-widest shadow-sm"
+              className="text-[10px] font-black uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 transition-all tracking-widest shadow-sm"
             >
               Focus
             </button>
@@ -282,11 +282,11 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
   }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem]);
 
   return (
-    <div className="flex-1 p-6 flex flex-col min-h-0 bg-slate-50/30 overflow-hidden">
+    <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
       <div className="flex justify-between items-end mb-6">
         <div>
           <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900">Database Hub</h2>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">
+          <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.3em] mt-1">
             {records.length} Sequences • {allFeaturesCount} Annotations
           </p>
         </div>
@@ -296,14 +296,14 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
             <input
               type="text"
               placeholder="Global search..."
-              className="bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-2.5 text-xs w-[280px] outline-none focus:border-sky-500 shadow-sm transition-all font-bold text-slate-900"
+              className="bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-2.5 text-xs w-[280px] outline-none focus:border-amber-500 shadow-sm transition-all font-bold text-slate-900"
               value={featureSearch}
               onChange={e => onFeatureSearchChange(e.target.value)}
             />
           </div>
           <button
             onClick={onStartNewFeature}
-            className="bg-sky-600 hover:bg-sky-500 text-white px-5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-plus mr-1.5"></i> Add Feature
           </button>

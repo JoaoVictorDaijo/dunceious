@@ -20,6 +20,7 @@
 import React from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
+import { ENV_LAYERS, resolveEnvAccent, envAccentColor, envEdgeGradient } from '@/src/app/logic/environment';
 
 export interface TopNavProps {
   sidebarOpen: boolean;
@@ -75,7 +76,9 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleConservation,
   isAlignmentLoaded,
   sessionMoleculeType,
-}) => (
+}) => {
+  const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
+  return (
   <>
   <nav className="h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-50">
     <div className="flex items-center gap-6">
@@ -87,7 +90,10 @@ const TopNav: React.FC<TopNavProps> = ({
       </button>
       <div className="flex flex-col">
         <div className="flex items-center gap-3">
-          <i className="fas fa-helix text-sky-500 text-xl animate-spin-slow"></i>
+          <i
+            className="fas fa-helix text-xl animate-spin-slow transition-colors duration-700 motion-reduce:transition-none"
+            style={{ color: envAccentColor(envAccent) ?? '#0ea5e9' }}
+          ></i>
           <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
         <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
@@ -203,14 +209,18 @@ const TopNav: React.FC<TopNavProps> = ({
     </div>
   </nav>
   <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-sky-500/40 via-sky-500/10 to-transparent ${
-      sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-    }`} />
-    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-violet-500/40 via-violet-500/10 to-transparent ${
-      sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-    }`} />
+    {ENV_LAYERS.map(layer => (
+      <div
+        key={layer.key}
+        className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${
+          envAccent === layer.key ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{ background: envEdgeGradient(layer.rgb, 'to bottom') }}
+      />
+    ))}
   </div>
   </>
-);
+  );
+};
 
 export default TopNav;

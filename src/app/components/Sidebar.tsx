@@ -20,11 +20,13 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
+import { EnvAccentKey, envAccentColor } from '@/src/app/logic/environment';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 
 export interface SidebarProps {
   open: boolean;
   activeTab: 'alignment' | 'features';
+  envAccent: EnvAccentKey;
   records: SeqRecord[];
   transposedRecords: SeqRecord[];
   activeSelection: SelectionArea | null;
@@ -72,6 +74,7 @@ export interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({
   open,
   activeTab,
+  envAccent,
   records,
   transposedRecords,
   activeSelection,
@@ -113,6 +116,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
+
+  // The sidebar's brand-accent section labels re-tint with the workspace mode.
+  const accentColor = envAccentColor(envAccent) ?? '#0ea5e9';
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -156,8 +162,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Selection Inspector */}
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase text-sky-500 tracking-widest mb-4 flex items-center justify-between">
-            Selection Inspector <i className="fas fa-vector-square text-sky-600"></i>
+          <h3 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center justify-between transition-colors duration-700 motion-reduce:transition-none" style={{ color: accentColor }}>
+            Selection Inspector <i className="fas fa-vector-square"></i>
           </h3>
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-4 space-y-4">
             <div className="flex justify-between items-center">
@@ -234,7 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Record Navigator */}
       {activeTab === 'alignment' && records.length > 0 && (
         <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase text-sky-500 tracking-widest mb-4 flex items-center justify-between">
+          <h3 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center justify-between transition-colors duration-700 motion-reduce:transition-none" style={{ color: accentColor }}>
             Record Navigator <i className="fas fa-list-ul text-[10px]"></i>
           </h3>
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
