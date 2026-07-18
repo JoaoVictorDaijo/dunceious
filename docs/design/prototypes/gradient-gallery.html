@@ -1,0 +1,502 @@
+<title>Environment Accent Study — Dunceious</title>
+
+<style>
+/* ============================================================
+   TOKENS
+   Frame tokens (--bg, --ink, --panel, --line) are theme-aware.
+   Environment tokens (--env / --env2 / --env3) are mode-aware and
+   registered with @property so a mode flip *interpolates* the hue.
+   Specimen tiles (--spec) stay dark in both themes on purpose:
+   these are dark-first techniques, shown like slides on a bench.
+   ============================================================ */
+@property --env  { syntax: "<color>"; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: "<color>"; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: "<color>"; inherits: true; initial-value: #6366f1; }
+
+:root {
+  /* dark-first frame defaults */
+  --bg: #070b14;
+  --bg-2: #0b1220;
+  --panel: #0e1626;
+  --ink: #e6edf6;
+  --muted: #93a2b8;
+  --faint: #5b6b83;
+  --line: rgba(148,163,184,.14);
+  --line-strong: rgba(148,163,184,.26);
+  --spec: #080d17;          /* specimen tile base — always dark */
+  --spec-line: rgba(148,163,184,.10);
+  --radius: 16px;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Environment families. Default (no attr) = viewport. */
+:root, :root[data-env="viewport"] { --env: #0ea5e9; --env2: #22d3ee; --env3: #6366f1; }
+:root[data-env="hub"]            { --env: #f59e0b; --env2: #fbbf24; --env3: #f97316; }
+
+/* The one line that animates the whole page's hue on a mode flip. */
+:root { transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease; }
+
+/* Theme awareness: light overrides only the frame tokens. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #eef2f8; --bg-2: #e6ecf5; --panel: #ffffff;
+    --ink: #16202f; --muted: #536178; --faint: #8391a8;
+    --line: rgba(30,41,59,.12); --line-strong: rgba(30,41,59,.22);
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef2f8; --bg-2: #e6ecf5; --panel: #ffffff;
+  --ink: #16202f; --muted: #536178; --faint: #8391a8;
+  --line: rgba(30,41,59,.12); --line-strong: rgba(30,41,59,.22);
+}
+:root[data-theme="dark"] {
+  --bg: #070b14; --bg-2: #0b1220; --panel: #0e1626;
+  --ink: #e6edf6; --muted: #93a2b8; --faint: #5b6b83;
+  --line: rgba(148,163,184,.14); --line-strong: rgba(148,163,184,.26);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background 400ms ease, color 400ms ease;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* ---- shared type ---- */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .70rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 650; letter-spacing: -.015em; }
+a { color: var(--env); }
+
+/* ============================================================
+   STICKY CHROME BAR — holds the single global mode switch
+   ============================================================ */
+header.chrome {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+}
+.chrome-in { display: flex; align-items: center; gap: 16px; height: 60px; }
+.mark { font-family: var(--mono); font-size: .82rem; letter-spacing: .04em; color: var(--ink); font-weight: 600; }
+.mark b { color: var(--env); transition: color 650ms ease; }
+.mark span { color: var(--faint); }
+.chrome-spacer { flex: 1; }
+
+/* segmented switch */
+.switch {
+  display: inline-flex; padding: 4px; gap: 4px;
+  background: var(--bg-2); border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+.switch button {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: .74rem; letter-spacing: .04em;
+  color: var(--muted); background: transparent;
+  border: 0; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  transition: color 200ms ease, background 200ms ease;
+}
+.switch button .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.switch button[data-env="viewport"] .dot { color: #0ea5e9; background: #0ea5e9; }
+.switch button[data-env="hub"] .dot { color: #f59e0b; background: #f59e0b; }
+.switch button.is-on { color: var(--ink); background: color-mix(in srgb, var(--env) 22%, var(--panel)); }
+.switch button:focus-visible { outline: 2px solid var(--env); outline-offset: 2px; }
+
+/* ============================================================
+   HERO — the thesis: a live faux-viewer that re-tints on flip
+   ============================================================ */
+.hero { padding: 68px 0 40px; }
+.hero h1 { font-size: clamp(2.2rem, 5.2vw, 3.7rem); line-height: 1.02; margin: 14px 0 18px; max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--env); transition: color 650ms ease; }
+.lede { color: var(--muted); font-size: 1.06rem; max-width: 60ch; margin: 0 0 30px; }
+
+.stage {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line-strong); border-radius: 22px;
+  background: var(--spec);
+  min-height: clamp(300px, 44vh, 420px);
+  isolation: isolate;
+}
+/* hero environment = light sources + aurora + grain, drifting */
+.stage::before {
+  content: ""; position: absolute; inset: -20%; z-index: 0;
+  background:
+    radial-gradient(46% 60% at 16% 8%,  color-mix(in srgb, var(--env2) 62%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 88% 22%, color-mix(in srgb, var(--env)  52%, transparent), transparent 62%),
+    radial-gradient(64% 80% at 72% 108%, color-mix(in srgb, var(--env3) 46%, transparent), transparent 66%);
+  filter: blur(22px) saturate(1.25);
+  animation: drift 34s ease-in-out infinite alternate;
+}
+.stage::after {  /* grain */
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background-image: var(--grain); opacity: .22; mix-blend-mode: overlay;
+}
+/* faux viewer UI floating on the environment */
+.viewer { position: relative; z-index: 1; padding: 18px; height: 100%; display: flex; flex-direction: column; gap: 14px; }
+.viewer-bar { display: flex; align-items: center; gap: 10px; }
+.pill {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px; color: var(--ink);
+  background: color-mix(in srgb, var(--env) 26%, rgba(8,13,23,.6));
+  border: 1px solid color-mix(in srgb, var(--env) 45%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--env) 40%, transparent);
+}
+.viewer-bar .grow { flex: 1; }
+.chip { width: 44px; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.viewer-body { flex: 1; display: grid; grid-template-columns: 52px 1fr; gap: 14px; }
+.rail { display: flex; flex-direction: column; gap: 9px; padding-top: 4px; }
+.rail i { height: 8px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.rail i:nth-child(2){ background: color-mix(in srgb, var(--env) 55%, transparent); }
+.track {
+  border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  background:
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--env2) 30%, transparent) 0 2px,
+      transparent 2px 9px),
+    color-mix(in srgb, #04070d 55%, transparent);
+  position: relative;
+}
+.track::after {
+  content: ""; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--env) 80%, white 5%), transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--env) 70%, transparent);
+}
+
+/* ============================================================
+   INTRO — flat vs organic, plain-English
+   ============================================================ */
+section { padding: 56px 0; border-top: 1px solid var(--line); }
+.section-head { max-width: 62ch; margin-bottom: 28px; }
+.section-head h2 { font-size: clamp(1.5rem, 3.2vw, 2.1rem); margin: 10px 0 12px; }
+.section-head p { color: var(--muted); margin: 0; }
+
+.ab { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.ab .tile { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.ab .demo { min-height: 0; height: 170px; }
+.ab .cap { padding: 12px 16px 16px; }
+.ab .cap b { display: block; font-size: .95rem; }
+.ab .cap span { color: var(--muted); font-size: .84rem; }
+.flat { background: linear-gradient(180deg, color-mix(in srgb, var(--env) 55%, transparent), transparent 30%), var(--spec); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 26px; }
+.legend div { font-size: .9rem; color: var(--muted); position: relative; padding-left: 18px; }
+.legend div::before { content: ""; position: absolute; left: 0; top: .55em; width: 9px; height: 9px; border-radius: 50%; background: var(--env); box-shadow: 0 0 10px var(--env); }
+
+/* ============================================================
+   TECHNIQUE BANDS
+   ============================================================ */
+.tech { display: grid; gap: 18px; }
+.tech-head { display: flex; align-items: baseline; gap: 14px; }
+.tech-num { font-family: var(--mono); font-size: .8rem; color: var(--env); transition: color 650ms ease; }
+.tech-head h3 { font-size: clamp(1.25rem, 2.6vw, 1.65rem); }
+.tech-head .kind { font-family: var(--mono); font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-left: auto; }
+
+.demo {
+  position: relative; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--spec);
+  min-height: clamp(260px, 34vh, 360px);
+}
+.demo .layer { position: absolute; inset: -25%; z-index: 0; }
+.demo .grain { position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background-image: var(--grain); opacity: .2; mix-blend-mode: overlay; }
+.demo .badge {
+  position: absolute; left: 14px; bottom: 12px; z-index: 4;
+  font-family: var(--mono); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); background: color-mix(in srgb, #04070d 62%, transparent);
+  border: 1px solid var(--spec-line); padding: 5px 9px; border-radius: 7px;
+}
+
+/* 01 layered light sources */
+.t-light .layer {
+  background:
+    radial-gradient(48% 62% at 18% 12%, color-mix(in srgb, var(--env2) 58%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 84% 24%, color-mix(in srgb, var(--env)  46%, transparent), transparent 62%),
+    radial-gradient(66% 82% at 68% 106%, color-mix(in srgb, var(--env3) 40%, transparent), transparent 66%);
+}
+/* 02 mesh / blob */
+.t-mesh .layer {
+  filter: saturate(1.3);
+  background:
+    radial-gradient(38% 46% at 28% 30%, color-mix(in srgb, var(--env2) 72%, transparent), transparent 55%),
+    radial-gradient(42% 52% at 70% 38%, color-mix(in srgb, var(--env)  62%, transparent), transparent 55%),
+    radial-gradient(46% 56% at 46% 76%, color-mix(in srgb, var(--env3) 55%, transparent), transparent 55%),
+    radial-gradient(34% 42% at 86% 82%, color-mix(in srgb, var(--env2) 50%, transparent), transparent 55%);
+  animation: mesh 26s ease-in-out infinite alternate;
+}
+/* 03 conic sheen */
+.t-conic .layer {
+  inset: -60%;
+  background: conic-gradient(from 210deg at 50% 50%,
+    var(--env3), var(--env), var(--env2), color-mix(in srgb, var(--env) 60%, transparent), var(--env3));
+  filter: blur(46px) saturate(1.3);
+  animation: spin 48s linear infinite;
+}
+.t-conic::after { /* vignette to concentrate sheen at the rim */
+  content: ""; position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(closest-side, transparent 34%, var(--spec) 82%);
+}
+/* 04 aurora bands */
+.t-aurora .layer {
+  mix-blend-mode: screen; filter: blur(48px) saturate(1.35);
+  background:
+    radial-gradient(58% 40% at 22% 30%, var(--env2), transparent 70%),
+    radial-gradient(68% 44% at 74% 52%, var(--env),  transparent 72%),
+    radial-gradient(50% 34% at 52% 82%, var(--env3), transparent 70%);
+  animation: aurora 30s ease-in-out infinite alternate;
+}
+/* 05 grain over gradient — left half raw, right half grained */
+.t-grain .layer {
+  background:
+    radial-gradient(60% 80% at 30% 10%, color-mix(in srgb, var(--env2) 55%, transparent), transparent 62%),
+    radial-gradient(60% 80% at 78% 100%, color-mix(in srgb, var(--env3) 45%, transparent), transparent 64%);
+}
+.t-grain .split { position: absolute; inset: 0; z-index: 3; left: 50%;
+  background-image: var(--grain); opacity: .5; mix-blend-mode: overlay;
+  border-left: 1px dashed var(--spec-line); }
+.t-grain .tag { position: absolute; z-index: 4; top: 12px; font-family: var(--mono);
+  font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.t-grain .tag.l { left: 16px; } .t-grain .tag.r { right: 16px; }
+/* 06 glow bloom */
+.t-bloom .layer {
+  background:
+    radial-gradient(30% 40% at 50% 46%, color-mix(in srgb, var(--env2) 95%, white 6%), transparent 55%),
+    radial-gradient(52% 62% at 50% 46%, color-mix(in srgb, var(--env)  40%, transparent), transparent 62%);
+  animation: bloom 7s ease-in-out infinite;
+}
+.t-bloom .btn { /* the UI element the bloom lives behind */
+  position: absolute; z-index: 2; left: 50%; top: 46%; transform: translate(-50%,-50%);
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .06em; color: var(--ink);
+  padding: 10px 18px; border-radius: 11px;
+  background: color-mix(in srgb, var(--env) 30%, rgba(6,10,18,.72));
+  border: 1px solid color-mix(in srgb, var(--env) 55%, transparent);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--env) 55%, transparent);
+}
+/* 07 ambient drift — same light sources, but you can see them move */
+.t-drift .layer {
+  background:
+    radial-gradient(44% 58% at 20% 20%, color-mix(in srgb, var(--env2) 60%, transparent), transparent 60%),
+    radial-gradient(50% 64% at 82% 74%, color-mix(in srgb, var(--env)  50%, transparent), transparent 62%),
+    radial-gradient(60% 74% at 50% 120%, color-mix(in srgb, var(--env3) 42%, transparent), transparent 66%);
+  animation: drift 20s ease-in-out infinite alternate;
+}
+
+/* meta row under each demo */
+.meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.meta > div { background: var(--panel); padding: 16px 18px; }
+.meta .k { font-family: var(--mono); font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 0 0 7px; }
+.meta .v { margin: 0; font-size: .92rem; color: var(--ink); }
+.meta .v.map { font-family: var(--mono); font-size: .82rem; color: var(--muted); line-height: 1.5; }
+.meta .v.map b { color: var(--env); font-weight: 600; transition: color 650ms ease; }
+
+footer { padding: 44px 0 72px; color: var(--faint); font-size: .82rem; border-top: 1px solid var(--line); }
+footer .mono { font-family: var(--mono); }
+
+/* ---- motion ---- */
+@keyframes drift  { from { transform: translate(-2%, -1%) scale(1.02); } to { transform: translate(3%, 2%) scale(1.08); } }
+@keyframes mesh   { from { transform: translate(-3%, -2%) rotate(-2deg); } to { transform: translate(4%, 3%) rotate(3deg); } }
+@keyframes aurora { from { transform: translate(-4%, 0) skewX(-3deg); } to { transform: translate(5%, -2%) skewX(4deg); } }
+@keyframes spin   { to { transform: rotate(360deg); } }
+@keyframes bloom  { 0%,100% { opacity: .78; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+
+@media (max-width: 720px) {
+  .ab, .meta { grid-template-columns: 1fr; }
+  .chrome-in { gap: 8px; }
+  .mark span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+  :root { transition: none; }
+  html { scroll-behavior: auto; }
+}
+</style>
+
+<header class="chrome">
+  <div class="wrap chrome-in">
+    <div class="mark"><b>Dunceious</b> <span>/ environment accent</span></div>
+    <div class="chrome-spacer"></div>
+    <div class="switch" role="group" aria-label="Environment mode">
+      <button type="button" data-env="viewport" aria-pressed="true"><span class="dot"></span>Viewport</button>
+      <button type="button" data-env="hub" aria-pressed="false"><span class="dot"></span>Hub</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <p class="eyebrow">Design reference · gradient vocabulary for the mode switcher</p>
+    <h1>Make the chrome feel like a <em>place</em>, not a colored edge.</h1>
+    <p class="lede">
+      Right now each mode paints one flat gradient strip along the workspace edge. It reads as
+      a status light. The examples below are the same idea done the way Arc, Stripe, and Linear do it —
+      so the sky nucleotide view, the violet protein view, and the amber Database Hub each feel like a
+      room you have walked into. <strong>Flip the switch up top</strong> and watch every panel change
+      environment together — that is your mode switch, felt.
+    </p>
+    <div class="stage" aria-label="Live preview of a genome viewer bathed in the current environment">
+      <div class="viewer">
+        <div class="viewer-bar">
+          <span class="pill" data-env-label data-viewport="Nucleotide" data-hub="Database Hub">Nucleotide</span>
+          <span class="chip"></span><span class="chip"></span>
+          <span class="grow"></span>
+          <span class="chip"></span>
+        </div>
+        <div class="viewer-body">
+          <div class="rail"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="track"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTRO: flat vs organic -->
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">The gap</p>
+      <h2>What "organic" actually means</h2>
+      <p>A flat strip is one straight line of color, the same everywhere. Organic light does five small
+        things at once — and any one of them already helps.</p>
+    </div>
+    <div class="ab">
+      <div class="tile">
+        <div class="demo flat"></div>
+        <div class="cap"><b>Now — flat linear strip</b><span>One gradient, one direction, hard to love. It sits on top of the UI instead of lighting it.</span></div>
+      </div>
+      <div class="tile">
+        <div class="demo t-light"><div class="layer"></div><div class="grain"></div></div>
+        <div class="cap"><b>Organic — layered light</b><span>Several soft sources, off-center, in one color family, with a whisper of grain. It feels lit.</span></div>
+      </div>
+    </div>
+    <div class="legend">
+      <div>More than one light source</div>
+      <div>Off-center, never symmetrical</div>
+      <div>Hue drifts within one family</div>
+      <div>A trace of grain, so it reads as material</div>
+      <div>Motion so slow you feel it, not see it</div>
+    </div>
+  </section>
+
+  <!-- TECHNIQUE SECTIONS -->
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">The toolkit · read top to bottom</p>
+      <h2>Seven ways to build the light</h2>
+      <p>Each technique layers onto the one before it — start with soft light sources, end with barely-there
+        motion. Every panel is live and re-tints when you flip Viewport / Hub.</p>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">01</span><h3>Layered light sources</h3><span class="kind">radial gradients</span></div>
+      <div class="demo t-light"><div class="layer"></div><div class="grain"></div><span class="badge">3 soft radials · off-center</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Vercel's "light itself" hero glows · Linear's launch pages · Raycast wallpapers</p></div>
+        <div><p class="k">Feeling</p><p class="v">A room lit from a couple of directions, not a spotlight.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">Two or three <b>sky</b> sources bleed in from the viewport corners; swap the family to <b>amber</b> in the Hub.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">02</span><h3>Mesh &amp; blob gradients</h3><span class="kind">stacked radials</span></div>
+      <div class="demo t-mesh"><div class="layer"></div><div class="grain"></div><span class="badge">4 overlapping blobs · drifting</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Stripe's animated hero · Spotify's per-track adaptive backdrops · most "mesh gradient" tools</p></div>
+        <div><p class="k">Feeling</p><p class="v">Ink dropped in water — color dissolving into color, no seams.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">A slow <b>sky</b> mesh behind the sequence track; in the Hub the same mesh runs <b>amber</b>-gold.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">03</span><h3>Conic sheen</h3><span class="kind">conic-gradient</span></div>
+      <div class="demo t-conic"><div class="layer"></div><div class="grain"></div><span class="badge">angular sweep · softened + vignetted</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Holographic product UI · loading arcs and rings · "iridescent" brand marks</p></div>
+        <div><p class="k">Feeling</p><p class="v">Light bending around a point — a faint oil-slick sheen.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">A <b>sky</b> halo behind the active molecule so it looks lit from within; rotate it into <b>amber</b> for the Hub.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">04</span><h3>Aurora bands</h3><span class="kind">blurred + screen blend</span></div>
+      <div class="demo t-aurora"><div class="layer"></div><div class="grain"></div><span class="badge">heavy blur · additive light</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Linear · the whole "Aurora UI" dark-SaaS trend · countless premium heroes</p></div>
+        <div><p class="k">Feeling</p><p class="v">Northern lights breathing behind the content.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">Two <b>sky</b> bands drift along the top edge of the workspace; the Hub runs warm <b>amber</b> bands instead.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">05</span><h3>Noise &amp; grain</h3><span class="kind">SVG feTurbulence</span></div>
+      <div class="demo t-grain"><div class="layer"></div><div class="split"></div><span class="tag l">raw</span><span class="tag r">+ grain</span><span class="badge">same gradient, split down the middle</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Apple product pages · the "grainy gradients" technique · most gradients that don't look cheap</p></div>
+        <div><p class="k">Feeling</p><p class="v">Film grain — warm and tactile instead of plasticky. Kills the banding, too.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">A ~3% grain over the whole chrome, both modes, so <b>sky</b> and <b>amber</b> read as material, not gloss.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">06</span><h3>Glow bloom</h3><span class="kind">concentrated radial</span></div>
+      <div class="demo t-bloom"><div class="layer"></div><span class="btn" data-env-label data-viewport="Nucleotide" data-hub="Database Hub">Nucleotide</span><div class="grain"></div><span class="badge">one source · lit from within</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">Vercel's inner-glow cards · Raycast · product-launch key art</p></div>
+        <div><p class="k">Feeling</p><p class="v">One thing on screen is glowing from the inside.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">A bloom behind the active mode indicator — <b>sky</b> now, <b>amber</b> in the Hub — so the current mode literally lights up.</p></div>
+      </div>
+    </div>
+
+    <div class="tech">
+      <div class="tech-head"><span class="tech-num">07</span><h3>Slow ambient drift</h3><span class="kind">very slow keyframes</span></div>
+      <div class="demo t-drift"><div class="layer"></div><div class="grain"></div><span class="badge">20s loop · you feel it, not see it</span></div>
+      <div class="meta">
+        <div><p class="k">Used by</p><p class="v">macOS dynamic wallpapers (time-of-day) · Stripe's living mesh · Apple ambient scenes</p></div>
+        <div><p class="k">Feeling</p><p class="v">Alive but calm. Nothing demands attention; the room just breathes.</p></div>
+        <div><p class="k">Dunceious mapping</p><p class="v map">Everything above, animated at 20–60s. Idle in <b>sky</b>, idle in <b>amber</b> — the chrome is never quite still.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="wrap">
+    <p>Pick the ones that feel right and we'll wire them into the real <span class="mono">environment.ts</span> accent system — sky for nucleotide, violet for protein, amber for the Database Hub. Every panel here is live CSS/SVG; nothing is a screenshot.</p>
+  </footer>
+</main>
+
+<script>
+  const root = document.documentElement;
+  const sw = document.querySelector(".switch");
+
+  function setEnv(env) {
+    root.setAttribute("data-env", env);
+    sw.querySelectorAll("button").forEach((b) => {
+      const on = b.dataset.env === env;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    document.querySelectorAll("[data-env-label]").forEach((el) => {
+      el.textContent = env === "hub" ? el.dataset.hub : el.dataset.viewport;
+    });
+  }
+
+  sw.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) setEnv(b.dataset.env);
+  });
+
+  setEnv("viewport");
+</script>

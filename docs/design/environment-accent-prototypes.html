@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<!--
+  Dunceious
+
+  This file is part of Dunceious.
+
+  Dunceious is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Dunceious is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dunceious — Environment Accent Prototypes</title>
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg:#070b14;--panel:#0e1626;--ink:#e6edf6;--muted:#93a2b8;--faint:#5b6b83;
+    --line:rgba(148,163,184,.16);--accent:#0ea5e9;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#eef2f8;--panel:#fff;--ink:#16202f;--muted:#536178;--faint:#8391a8;--line:rgba(30,41,59,.14)}
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       display:flex;flex-direction:column;overflow:hidden}
+  header{border-bottom:1px solid var(--line);padding:14px 20px 0;flex:none}
+  .titlerow{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  h1{margin:0;font-size:1.05rem;font-weight:650;letter-spacing:-.01em}
+  h1 b{color:var(--accent)}
+  .meta{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tabs button{font-family:var(--mono);font-size:.72rem;color:var(--muted);background:transparent;
+    border:1px solid var(--line);border-bottom:none;cursor:pointer;padding:9px 14px;
+    border-radius:9px 9px 0 0;transition:.18s;position:relative;top:1px}
+  .tabs button:hover{color:var(--ink)}
+  .tabs button.on{color:var(--ink);background:var(--panel);border-color:var(--line);
+    box-shadow:inset 0 2px 0 var(--accent)}
+  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .blurb{padding:11px 20px;font-size:.84rem;color:var(--muted);border-bottom:1px solid var(--line);
+    background:var(--panel);flex:none;line-height:1.5}
+  .stage{flex:1;min-height:0;position:relative;background:var(--panel)}
+  .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:none;background:transparent}
+  .stage iframe.on{display:block}
+  footer{flex:none;padding:8px 20px;border-top:1px solid var(--line);font-family:var(--mono);
+    font-size:.6rem;letter-spacing:.1em;color:var(--faint);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titlerow">
+    <h1><b>Dunceious</b> — Environment Accent Prototypes</h1>
+    <span class="meta">Interactive · offline · no account required</span>
+  </div>
+  <div class="tabs" id="tabs" role="tablist">
+    <button type="button" role="tab" data-target="frame-styles" class="on" aria-selected="true">Header + Footer Styles</button>
+    <button type="button" role="tab" data-target="in-context" aria-selected="false">Frame vs Data (A/B/C)</button>
+    <button type="button" role="tab" data-target="gallery" aria-selected="false">Technique Reference</button>
+  </div>
+</header>
+
+<div class="blurb" id="blurb">The current direction. Three session types (no file / nucleotide / protein) x two modes x nine header-and-footer treatments. The gradient is confined to the header and footer bars; the toolbar and every data surface stay flat.</div>
+
+<div class="stage" id="stage">
+  <iframe id="frame-styles" title="Header + Footer Styles" class="on" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><meta charset=&quot;UTF-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>Session × Mode × Style — Dunceious environment accent</title><style>*{box-sizing:border-box}body{margin:0}</style></head><body>
+
+<style>
+/* ============================================================
+   DUNCEIOUS — HEADER/FOOTER GRADIENT STYLES  ·  SESSION AXIS
+   ------------------------------------------------------------
+   THE GOVERNING RULE, ENFORCED STRUCTURALLY:
+   the environment gradient renders ONLY through the two .hf-env
+   layers that live inside .nav (header) and .status (footer).
+   Nothing else in the app carries an atmospheric background:
+     · .ruler  (toolbar/minimap band) — FLAT, no wash
+     · .canvas / .seqtrack / .seqtrack-aa / .table-card — pure white
+     · .mode-hub — flat cream, no field
+   The only accent permitted to meet the white working surface is
+   the pre-existing thin .edge-strip (and its .hub-edge twin).
+
+   Each style is activated by [data-hfstyle=&quot;KEY&quot;] on the app root
+   and every selector below is scoped under that key.
+
+   THE THREE-ATTRIBUTE STATE MODEL (new in this round):
+     data-tab  = alignment | features            INPUT  → layout, mode pill
+     data-mol  = none | nucleotide | protein     INPUT  → body content
+     data-env  = resolveEnvAccent(tab, mol)      DERIVED → accent ONLY
+   data-env is an OUTPUT. It cannot drive layout, because two
+   different tabs both resolve to &quot;none&quot; — see the resolver below.
+   ============================================================ */
+
+/* @property token machinery: a state flip interpolates the env
+   tokens across the whole frame in ~650ms — calm at rest, rich
+   on the switch. Every style below reads ONLY these tokens.
+
+   TRAP (verified): a registered custom property that is invalid at
+   computed-value time does NOT fall back to the cascade — it falls
+   back to the initial-value below. Never eyeball a token block;
+   read back getComputedStyle(app).getPropertyValue('--env'). */
+@property --env  { syntax: &quot;<color>&quot;; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #0d9488; } /* was #6366f1 — see SKY PROPOSAL below */
+
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, sans-serif;
+  --mono: ui-monospace, &quot;SF Mono&quot;, &quot;JetBrains Mono&quot;, &quot;Cascadia Code&quot;, Menlo, Consolas, monospace;
+  /* page chrome (area AROUND the app) — theme-aware */
+  --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626;
+  /* fixed app surfaces — the frame commits to one world on purpose */
+  --nav: #0f172a; --nav-2: #0b1120; --canvas: #ffffff; --canvas-2: #eef2f7;
+  --cream: #fffdf7; --cream-2: #f6f0e4;
+  --ink-mute: #8ea0ba; --canvas-ink: #334155; --canvas-mute: #64748b;
+  --grain: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);
+}
+
+/* ============================================================
+   ENVIRONMENT TOKEN FAMILIES
+   ------------------------------------------------------------
+   Roles are what the nine styles actually bind to, so every family
+   must fill the same three slots:
+     --env   primary  — the floor wash, solid icon/label colour
+     --env2  bright   — hot cores, lit rails, the near-white end
+     --env3  depth    — spectral tails, far beams, counter-seams
+
+   Slot parity across families (OKLCH L / hue):
+     env    violet .71/293  sky .68/237  amber .77/ 70  neutral —/218
+     env2   violet .83/306  sky .80/212  amber .84/ 84
+     env3   violet .59/323  sky .60/185  amber .70/ 48
+   ============================================================ */
+
+/* ---- NEUTRAL (no session) ----------------------------------
+   Not &quot;grey&quot; picked by eye — LUMINANCE-MATCHED to the coloured
+   families, so every INTEGRATION TAME below still holds without
+   re-measurement:
+     slot     sky     amber   violet  | neutral   (relative luminance Y)
+     --env    0.328   0.441   0.197   | 0.324   #929ba8
+     --env2   0.519   0.584    —      | 0.512   #b8bec7
+     --env3   0.187   0.324    —      | 0.179   #6e7684
+   Each neutral sits at or BELOW the brightest family in its slot,
+   so no style can push chrome text below a ratio it already
+   survives — and ABOVE violet, so it is never the faintest thing
+   in the set. ~9–12% saturation on a ~218° hue: enough cool cast
+   to read as the chrome's own material catching light. Pure #999
+   goes muddy-warm against #0f172a by simultaneous contrast, and
+   that muddiness is exactly what makes a neutral look like a bug. */
+:root { --ns-1: #929ba8; --ns-2: #b8bec7; --ns-3: #6e7684; }
+
+/* ---- NUCLEOTIDE — sky -------------------------------------
+   ┌──────────────────────────────────────────────────────────┐
+   │ ⚑ PROPOSED CHANGE TO THE EXISTING SKY TOKENS — NOT YET   │
+   │   SIGNED OFF. --env3 was #6366f1 (indigo).               │
+   │                                                          │
+   │   Measured in OKLCH, indigo sits at hue 277.1 and the    │
+   │   protein anchor at 292.7 — a 15.6° gap, TIGHTER than    │
+   │   the steps inside a single family (sky's own env→env3   │
+   │   step is 39.8°). --env3 is not a bit-player: it is the  │
+   │   38% right-hand pool in layered-light, the far beam in  │
+   │   light-shaft and a 52% curtain in aurora. Left alone,   │
+   │   nucleotide chrome renders a prominent violet pool while│
+   │   protein's floor wash is also violet, and the two modes │
+   │   are not reliably distinguishable.                      │
+   │                                                          │
+   │   #0d9488 (teal-600) takes the worst cross-family gap    │
+   │   from 16.4° to 56.2° and leaves nucleotide a pure       │
+   │   teal→cyan→blue fan with no purple anywhere in it.      │
+   │                                                          │
+   │   TO REVERT: set --env3 back to #6366f1 here AND in the  │
+   │   @property initial-value above — and accept that this   │
+   │   reinstates the collision.                              │
+   │   CONSERVATIVE ALTERNATIVE: #3b82f6 (blue-500), gap      │
+   │   33.7° — half the margin, but okC .188 is a closer      │
+   │   match to the indigo it replaces than teal-600's .104,  │
+   │   so use it if the depth pool reads dull.                │
+   └──────────────────────────────────────────────────────────┘ */
+:root,
+[data-env=&quot;nucleotide&quot;] { --env: #0ea5e9; --env2: #22d3ee; --env3: #0d9488; }
+
+/* ---- PROTEIN — violet → orchid → magenta -------------------
+   A one-sided fan: every member sits at hue >= 293, so no part of
+   this family can ever drift back toward sky. violet-400 /
+   purple-300 / fuchsia-600.
+
+   --env is #a78bfa, NOT the brief's #8b5cf6. #8b5cf6 measures
+   4.22:1 on the #0f172a chrome — it fails WCAG AA for normal-size
+   text, and that exact hex is ENV_LAYERS.hex, which the app paints
+   onto 0.52–0.8rem status text and section labels. #a78bfa gives
+   6.56:1, landing almost exactly on sky's 6.44:1, at the same hue
+   (293.5 vs 292.7) one Tailwind step lighter. */
+[data-env=&quot;protein&quot;]    { --env: #a78bfa; --env2: #d8b4fe; --env3: #c026d3; }
+
+/* ---- HUB — amber, unchanged -------------------------------- */
+[data-env=&quot;hub&quot;]        { --env: #f59e0b; --env2: #fbbf24; --env3: #f97316; }
+
+/* ---- NONE — the neutral family ----------------------------- */
+[data-env=&quot;none&quot;]       { --env: var(--ns-1); --env2: var(--ns-2); --env3: var(--ns-3); }
+
+/* The 650ms interpolation. Also on :root so the demo page's own
+   chrome (control pills, caption rule) follows the same accent. */
+:root, .app { transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease; }
+
+/* ============================================================
+   OPTIONAL — additive-light trim, NOT a violet-specific fix.
+   aurora and conic are the only pure screen-blend styles, where
+   luminance alone drives presence. Budget vs amber:
+     amber 1.00x   sky(revised) 0.80x   violet 0.78x
+   Violet is at PARITY with sky; the outlier is amber, ~25% hot in
+   both. So do NOT bump violet — that would make protein the
+   loudest of the three. If the set ever needs levelling, trim
+   amber instead:
+   ============================================================ */
+/*
+.app[data-hfstyle=&quot;aurora&quot;][data-env=&quot;hub&quot;] .hf-env         { opacity: .62; }
+.app[data-hfstyle=&quot;aurora&quot;][data-env=&quot;hub&quot;] .status .hf-env { opacity: .45; }
+.app[data-hfstyle=&quot;conic&quot;][data-env=&quot;hub&quot;]  .hf-env         { opacity: .30; }
+.app[data-hfstyle=&quot;conic&quot;][data-env=&quot;hub&quot;]  .status .hf-env { opacity: .24; }
+*/
+
+@media (prefers-color-scheme: light) {
+  :root { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+}
+:root[data-theme=&quot;light&quot;] { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+:root[data-theme=&quot;dark&quot;]  { --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--sans);
+  -webkit-font-smoothing: antialiased; transition: background 350ms ease, color 350ms ease; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 22px; }
+h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 6px; letter-spacing: -.015em; font-weight: 650; }
+.sub { color: var(--page-muted); margin: 0 0 14px; max-width: 82ch; font-size: .95rem; }
+.eyebrow { font-family: var(--mono); font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: var(--page-muted); margin: 0 0 8px; }
+.mono { font-family: var(--mono); }
+
+/* the five real states, spelled out above the frame */
+.matrix { margin: 0 0 20px; padding: 12px 14px; border: 1px solid var(--page-line); border-radius: 10px;
+  background: var(--page-panel); font-family: var(--mono); font-size: .72rem; line-height: 1.75; color: var(--page-muted); }
+.matrix b { color: var(--page-ink); font-weight: 600; }
+.matrix .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;
+  vertical-align: baseline; box-shadow: 0 0 7px currentColor; background: currentColor; }
+.matrix .sw.nuc { color: #0ea5e9; } .matrix .sw.prot { color: #a78bfa; }
+.matrix .sw.hub { color: #f59e0b; } .matrix .sw.non { color: #929ba8; }
+.matrix .lead { display: block; color: var(--page-ink); margin-bottom: 4px; }
+
+/* ---------- control bar ---------- */
+.controls { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--page-bg) 86%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--page-line); }
+.controls-in { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 12px 22px; max-width: 1200px; margin: 0 auto; }
+.ctl-label { font-family: var(--mono); font-size: .6rem; letter-spacing: .16em; text-transform: uppercase; color: var(--page-muted); margin-right: -10px; }
+.ctl-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; transition: opacity .3s ease; }
+/* the No-session control only bites while the session is empty */
+.ctl-group.muted { opacity: .4; }
+.seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--page-panel); border: 1px solid var(--page-line); border-radius: 999px; }
+.seg button { font-family: var(--mono); font-size: .72rem; color: var(--page-muted); background: transparent; border: 0; cursor: pointer;
+  padding: 6px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; transition: color .2s, background .2s; }
+.seg button .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.seg button .glyph { font-size: 13px; line-height: 1; opacity: .85; }
+/* Session dots carry the real family anchors. Mode buttons get glyphs, not
+   dots — with a session axis in play, &quot;Viewport&quot; no longer has a fixed colour. */
+.seg button[data-mol=&quot;none&quot;] .dot       { color: #929ba8; background: #929ba8; }
+.seg button[data-mol=&quot;nucleotide&quot;] .dot { color: #0ea5e9; background: #0ea5e9; }
+.seg button[data-mol=&quot;protein&quot;] .dot    { color: #a78bfa; background: #a78bfa; }
+.seg button.on { color: var(--page-ink); background: color-mix(in srgb, var(--env) 24%, var(--page-panel)); }
+.presets { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font-family: var(--mono); font-size: .68rem; color: var(--page-muted); background: var(--page-panel);
+  border: 1px solid var(--page-line); cursor: pointer; padding: 7px 12px; border-radius: 9px; transition: .18s; position: relative; }
+.presets button:hover { color: var(--page-ink); }
+.presets button.on { color: var(--page-ink); border-color: color-mix(in srgb, var(--env) 60%, transparent);
+  background: color-mix(in srgb, var(--env) 16%, var(--page-panel)); }
+.presets button .rec { position: absolute; top: -8px; right: -6px; font-size: .5rem; letter-spacing: .1em;
+  background: #10b981; color: #04120c; padding: 1px 5px; border-radius: 6px; }
+.seg button:focus-visible, .presets button:focus-visible { outline: 2px solid var(--env); outline-offset: 2px; }
+
+/* ============================================================
+   APP FRAME — constant baseline chrome, identical in every style
+   ============================================================ */
+.app { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid rgba(0,0,0,.5);
+  box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); aspect-ratio: 16 / 9; min-height: 480px;
+  display: grid; grid-template-rows: 58px 1fr 30px; background: var(--nav); }
+
+/* ---- THE CONTAINMENT LAYER --------------------------------
+   .hf-env exists in exactly two places: inside .nav and inside
+   .status. It is absolutely positioned with z-index:auto — it
+   deliberately does NOT form a stacking context, so styles that
+   use mix-blend-mode:screen composite against the bar's own
+   #0f172a background (that is where the additive glow comes
+   from). overflow:hidden on the bar AND on the layer clips every
+   treatment to the strip. All chrome content sits at z-index:2.
+
+   NEVER wrap this in a stacking context (filter / transform /
+   isolation / will-change on it or any ancestor) — that silently
+   kills the additive glow in aurora, conic and mesh-grain.
+   opacity on .hf-env ITSELF is safe, which is what Flat uses.  */
+.hf-env { position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  transition: opacity 650ms ease; }
+
+/* ---- TOP NAV ---- */
+.nav { position: relative; background: var(--nav); display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  z-index: 3; border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden; }
+.nav > *:not(.hf-env) { position: relative; z-index: 2; }
+.iconbtn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: var(--nav-2);
+  color: var(--ink-mute); display: grid; place-items: center; font-size: 13px; cursor: default; flex: none; }
+.hamb { display: flex; flex-direction: column; gap: 3px; }
+.hamb i { width: 13px; height: 2px; background: currentColor; border-radius: 2px; }
+.wordmark { display: flex; flex-direction: column; line-height: 1; }
+.wordmark b { font-style: italic; font-weight: 800; letter-spacing: .06em; color: #fff; font-size: .92rem; }
+.wordmark b::before { content: &quot;⬡&quot;; color: var(--env); margin-right: 5px; font-style: normal; transition: color .65s; }
+.wordmark span { font-family: var(--mono); font-size: .5rem; letter-spacing: .1em; color: var(--ink-mute); margin-top: 3px; }
+
+.modesw { display: flex; background: var(--nav-2); border: 1px solid rgba(148,163,184,.16); border-radius: 9px; overflow: hidden; margin-left: 4px; }
+.mcell { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: default; position: relative; overflow: hidden; }
+.mcell + .mcell { border-left: 1px solid rgba(148,163,184,.14); }
+.mcell .g { font-size: 15px; color: var(--ink-mute); position: relative; z-index: 2; }
+.mcell .t { display: flex; flex-direction: column; line-height: 1.15; position: relative; z-index: 2; }
+.mcell .t small { font-family: var(--mono); font-size: .5rem; letter-spacing: .12em; color: var(--ink-mute); }
+.mcell .t b { font-size: .72rem; color: var(--ink-mute); font-weight: 650; }
+
+/* ---- LAYOUT / PILL FOLLOW THE TAB, ACCENT FOLLOWS data-env ----
+   REQUIRED, not cosmetic. These four rules used to key off
+   [data-env=&quot;viewport&quot;] / [data-env=&quot;hub&quot;]. The moment data-env
+   can be &quot;none&quot;, NEITHER matches — both body layouts would render
+   stacked and neither mode pill would look active. data-env is a
+   derived output; it has thrown away the input the layout needs. */
+.app[data-tab=&quot;alignment&quot;] .mcell.view,
+.app[data-tab=&quot;features&quot;]  .mcell.manage      { background: color-mix(in srgb, var(--env) 20%, var(--nav-2)); }
+.app[data-tab=&quot;alignment&quot;] .mcell.view .t b,
+.app[data-tab=&quot;features&quot;]  .mcell.manage .t b { color: #fff; }
+.app[data-tab=&quot;alignment&quot;] .mcell.view .g,
+.app[data-tab=&quot;features&quot;]  .mcell.manage .g   { color: var(--env); }
+/* the active-pill bloom is a chrome accent clipped to the pill, inside the nav. */
+.pill-bloom { position: absolute; inset: -8px; z-index: 0; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--env) 65%, transparent), transparent); filter: blur(8px); }
+/* Excluded from A · Clean rather than overridden by a later rule: the &quot;on&quot; selector
+   outranks any gate short of repeating its whole specificity. Clean is the true
+   zero-gradient baseline, so its active pill keeps only its flat tint. */
+.app[data-tab=&quot;alignment&quot;]:not([data-hfstyle=&quot;clean&quot;]) .mcell.view .pill-bloom,
+.app[data-tab=&quot;features&quot;]:not([data-hfstyle=&quot;clean&quot;]) .mcell.manage .pill-bloom { opacity: 1; }
+
+.tools { display: flex; gap: 6px; }
+.tools .iconbtn.act { color: #fff; border-color: rgba(148,163,184,.4); background: #1c2740; }
+.spacer { flex: 1; }
+.toggles { display: flex; gap: 6px; }
+.tgl { font-family: var(--mono); font-size: .56rem; letter-spacing: .08em; padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; background: transparent; transition: opacity .3s ease; }
+.tgl.cyan { color: #22d3ee; } .tgl.violet { color: #a78bfa; } .tgl.green { color: #34d399; } .tgl.gray { color: #475569; border-style: dashed; }
+/* TRANSLATION is meaningless on an already-translated sequence; every track
+   toggle is meaningless with nothing loaded. */
+.app[data-mol=&quot;protein&quot;] .tgl.green,
+.app[data-mol=&quot;none&quot;] .toggles .tgl { opacity: .35; }
+
+/* ---- BODY holds one of two mode layouts ---- */
+.body { position: relative; z-index: 1; overflow: hidden; }
+.app[data-tab=&quot;alignment&quot;] .mode-hub      { display: none; }
+.app[data-tab=&quot;alignment&quot;] .mode-viewport { display: grid; }
+.app[data-tab=&quot;features&quot;]  .mode-viewport { display: none; }
+.app[data-tab=&quot;features&quot;]  .mode-hub      { display: block; }
+
+/* ===== VIEWPORT MODE ===== */
+.mode-viewport { height: 100%; display: grid; grid-template-rows: 52px 1fr; }
+/* THE RULER/TOOLBAR BAND IS FLAT. No .hf-env, no wash, ever — it
+   keeps only the minimap-region accent tint and the coords. */
+.ruler { position: relative; background: var(--nav-2); border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 14px; }
+.minimap { display: flex; align-items: center; gap: 10px; }
+.mmtrack { position: relative; flex: 1; height: 20px; border-radius: 5px; background: #0a1120; border: 1px solid rgba(148,163,184,.14); overflow: hidden; }
+.mmtrack::after { content: &quot;&quot;; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(148,163,184,.16) 0 1px, transparent 1px 46px); }
+.mmregion { position: absolute; inset: 0 auto 0 0; width: 33%; background: color-mix(in srgb, var(--env) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--env) 70%, transparent); border-radius: 4px; transition: background .65s, border-color .65s; }
+.mmnums { display: flex; font-family: var(--mono); font-size: .5rem; color: var(--ink-mute); flex: 1; justify-content: space-between; }
+.mmctl { display: flex; gap: 5px; align-items: center; }
+.mmctl input { width: 78px; height: 22px; background: #0a1120; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; color: var(--ink-mute); font-family: var(--mono); font-size: .58rem; padding: 0 7px; }
+.mmctl .b { font-family: var(--mono); font-size: .58rem; color: var(--ink-mute); background: #131d33; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; padding: 3px 8px; min-width: 22px; text-align: center; }
+.coords { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .52rem; color: var(--ink-mute); padding: 0 150px 0 90px; }
+/* no session → the toolbar does not pretend to a coordinate space */
+.ruler-empty { font-family: var(--mono); font-size: .52rem; letter-spacing: .18em;
+  color: var(--ink-mute); opacity: .55; text-align: center; }
+.app[data-mol=&quot;none&quot;] .mmregion { display: none; }
+.app[data-mol=&quot;none&quot;] .mmctl input,
+.app[data-mol=&quot;none&quot;] .mmctl .b { opacity: .45; }
+
+.canvas-wrap { position: relative; padding: 0; }
+/* the WHITE data surface — always clean, in every style */
+.canvas { position: relative; background: var(--canvas); border-radius: 6px; overflow: hidden; height: 100%; }
+/* the ONLY thing allowed to touch the white: a thin accent edge strip */
+.edge-strip { position: absolute; left: 0; right: 0; height: 20px; z-index: 5; pointer-events: none; }
+.edge-strip.top { top: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 46%, transparent),
+  color-mix(in srgb, var(--env) 11%, transparent) 55%, transparent); }
+.edge-strip.bottom { bottom: 0; background: linear-gradient(to top, color-mix(in srgb, var(--env) 40%, transparent),
+  color-mix(in srgb, var(--env) 10%, transparent) 55%, transparent); }
+
+.ws-inner { position: relative; z-index: 2; height: 100%; display: grid; grid-template-columns: 90px 1fr; }
+.gutter { border-right: 1px solid var(--canvas-2); display: flex; flex-direction: column; padding: 26px 8px 8px; gap: 12px; }
+.gutter .lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .1em; color: var(--canvas-mute); }
+.gutter .rec2 { font-family: var(--mono); font-size: .58rem; color: #0f172a; background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; text-align: center; }
+.main { padding: 8px 16px; display: flex; flex-direction: column; gap: 9px; overflow: hidden; }
+.section-lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .14em; color: var(--canvas-mute); margin-top: 4px; }
+.annot-bar { height: 22px; border-radius: 5px; background: linear-gradient(180deg, #eef2f7, #e2e8f0); border: 1px solid #dbe2ea; }
+.feat { height: 20px; border-radius: 5px; display: flex; align-items: center; padding: 0 8px; font-family: var(--mono); font-size: .52rem; letter-spacing: .06em; }
+.feat.pink { width: 34%; border: 1.5px solid #ec4899; color: #be185d; background: rgba(236,72,153,.08); }
+.feat.cyan { width: 42%; margin-left: 56%; border: 1.5px solid #06b6d4; color: #0e7490; background: rgba(6,182,212,.08); }
+.feat.violet { width: 42%; margin-left: 56%; border: 1.5px solid #8b5cf6; color: #6d28d9; background: rgba(139,92,246,.08); }
+.seqtrack { height: 46px; border-radius: 5px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  background: repeating-linear-gradient(90deg, #22c55e 0 3px, #f97316 3px 6px, #ef4444 6px 9px, #3b82f6 9px 12px); }
+.frame-lanes { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.lane { height: 14px; border-radius: 4px; background: #eef2f7; border: 1px solid #e2e8f0; }
+
+/* ===== HUB MODE — backdrop stays FLAT cream, no field, no grain ===== */
+.mode-hub { position: relative; height: 100%; background: var(--cream); overflow: auto; padding: 22px; }
+/* thin accent strip at the nav→cream boundary (the cream twin of .edge-strip) */
+.hub-edge { position: absolute; top: 0; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 42%, transparent), transparent); }
+
+/* the WHITE table card — always clean, floats on the flat cream */
+.table-card { position: relative; z-index: 3; background: #fff; border: 1px solid #ece3d0; border-radius: 12px;
+  box-shadow: 0 18px 40px -18px rgba(120,80,10,.35), 0 2px 8px rgba(0,0,0,.06); padding: 14px 16px; max-width: 1040px; margin: 0 auto; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 12px; }
+.card-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+.card-title b { font-size: .95rem; color: #1f2937; letter-spacing: .02em; }
+.card-title small { font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; color: var(--env); font-weight: 600; }
+.searchwrap { position: relative; }
+.searchwrap::before { content: &quot;⌕&quot;; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; }
+.search { height: 28px; width: 190px; border: 1px solid #e2e0d6; border-radius: 7px; background: #fbf9f4; padding: 0 10px 0 26px; font-size: .72rem; color: #475569; }
+.search:disabled { background: #f8f7f3; color: #b6bfcc; }
+.btn { font-family: var(--mono); font-size: .58rem; letter-spacing: .05em; border-radius: 7px; padding: 7px 10px; border: 1px solid transparent; cursor: default; }
+.btn.amber { background: var(--env); color: #3a2600; font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--env) 40%, transparent); transition: background .65s; }
+.btn.dark { background: #1e293b; color: #cbd5e1; }
+.btn.red { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+/* affordances that are visible but honestly inert with nothing loaded */
+.btn.ghost { background: #fbf9f4; color: #94a3b8; border-color: #ece3d0; }
+.btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+
+table.db { width: 100%; border-collapse: collapse; font-size: .68rem; }
+table.db th { text-align: left; font-family: var(--mono); font-size: .54rem; letter-spacing: .1em; color: #94a3b8; font-weight: 600;
+  padding: 7px 8px; border-bottom: 1px solid #eee6d6; }
+table.db td { padding: 8px; border-bottom: 1px solid #f2ece0; color: #374151; vertical-align: middle; }
+table.db td.num, table.db th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+table.db td.loc { font-family: var(--mono); color: #475569; font-variant-numeric: tabular-nums; }
+.parent { background: color-mix(in srgb, var(--env) 14%, #fff); transition: background .65s; }
+.parent td { border-bottom-color: color-mix(in srgb, var(--env) 24%, #f2ece0); }
+.pname { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.pname .cb { width: 13px; height: 13px; border: 1.5px solid var(--env); border-radius: 3px; background: color-mix(in srgb, var(--env) 30%, #fff); flex: none; }
+.pname b { color: #1f2937; font-size: .78rem; }
+.pname i { font-style: italic; color: #6b7280; font-weight: 400; }
+.pname .cnt { font-family: var(--mono); font-size: .52rem; color: var(--env); font-weight: 600; }
+.typepill { font-family: var(--mono); font-size: .54rem; letter-spacing: .04em; padding: 3px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; white-space: nowrap; }
+.typepill .s { font-weight: 700; }
+.typepill .s.plus { color: #2563eb; } .typepill .s.minus { color: #dc2626; }
+.acts { color: #cbd5e1; font-size: .8rem; white-space: nowrap; }
+.acts .t { color: #f0a4a4; }
+
+/* ---- STATUS BAR ---- */
+.status { position: relative; background: var(--nav); border-top: 1px solid rgba(0,0,0,.4); display: flex; align-items: center;
+  justify-content: space-between; padding: 0 14px; font-family: var(--mono); font-size: .54rem; letter-spacing: .06em; color: var(--ink-mute); z-index: 3; overflow: hidden; }
+.status > *:not(.hf-env) { position: relative; z-index: 2; }
+.status .diamond { color: var(--env); transition: color .65s; }
+.status b { color: var(--env); font-weight: 600; transition: color .65s; }
+
+/* ---- caption ---- */
+.caption { margin-top: 14px; padding: 13px 16px; border: 1px solid var(--page-line); border-radius: 10px; background: var(--page-panel);
+  font-size: .9rem; color: var(--page-ink); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.caption .n { font-family: var(--mono); font-size: .72rem; color: var(--env); flex: none; font-weight: 600; letter-spacing: .06em; }
+.caption .body-txt { flex: 1 1 24ch; min-width: 0; }
+.caption .flat { display: block; margin-top: 6px; color: var(--page-muted); font-size: .78rem; }
+.caption .state { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--page-line);
+  font-family: var(--mono); font-size: .74rem; line-height: 1.65; color: var(--page-ink); }
+.caption .state b { color: var(--env); font-weight: 600; }
+.caption .state em { font-style: normal; color: var(--page-muted); }
+.footnote { color: var(--page-muted); font-size: .8rem; margin-top: 12px; max-width: 84ch; }
+
+@media (max-width: 820px) {
+  .app { aspect-ratio: auto; min-height: 0; }
+  .mode-viewport { grid-template-rows: auto 340px; }
+  .mode-hub { min-height: 340px; }
+  .wordmark span, .mcell .t small, .toggles, .coords { display: none; }
+  .dropzone { width: 92%; padding: 14px 16px 16px; }
+  .dz-glyph { height: clamp(60px, 12vh, 92px); }
+}
+
+/* ============================================================
+   ── SESSION CONTENT SWITCH ───────────────────────────────────
+   One .sess element per session per slot. Everything hides by
+   default; the active session's blocks are restored with the
+   display mode their container needs (the containers are flex /
+   grid, so `block` alone is not enough).
+   ============================================================ */
+.sess { display: none; }
+.app[data-mol=&quot;nucleotide&quot;] .sess-nuc,
+.app[data-mol=&quot;protein&quot;]    .sess-prot,
+.app[data-mol=&quot;none&quot;]       .sess-none { display: block; }
+.app[data-mol=&quot;nucleotide&quot;] .ruler .sess-nuc,
+.app[data-mol=&quot;protein&quot;]    .ruler .sess-prot,
+.app[data-mol=&quot;none&quot;]       .ruler .sess-none { display: flex; flex-direction: column; gap: 6px; }
+.app[data-mol=&quot;nucleotide&quot;] .gutter .sess-nuc,
+.app[data-mol=&quot;protein&quot;]    .gutter .sess-prot { display: flex; flex-direction: column; gap: 12px; }
+.app[data-mol=&quot;nucleotide&quot;] .main .sess-nuc,
+.app[data-mol=&quot;protein&quot;]    .main .sess-prot { display: flex; flex-direction: column; gap: 9px; }
+.app[data-mol=&quot;none&quot;] .ws-inner { display: none; }
+.app[data-mol=&quot;none&quot;] .canvas > .sess-none { display: grid; }
+
+/* ---- (a) NO-FILE VIEWPORT — a dropzone on clean white -------
+   No wash, no accent: the surface stays pure --canvas and the
+   primary button is SLATE, not var(--env). With no session there
+   is no accent to spend. */
+.empty-canvas { position: absolute; inset: 0; place-items: center; padding: 20px;
+  background: var(--canvas); z-index: 2; }
+.dropzone { width: min(430px, 80%); border: 1.5px dashed #cbd5e1; border-radius: 14px;
+  background: #fcfdfe; padding: 20px 26px 22px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; }
+.dz-glyph { width: auto; height: clamp(84px, 18vh, 132px); color: #dbe4ee; flex: none; margin-bottom: 10px; }
+.dz-glyph path, .dz-glyph line { stroke: currentColor; fill: none; stroke-linecap: round; }
+.dz-glyph path { stroke-width: 5; }
+.dz-glyph line { stroke-width: 3.5; }
+.dz-title { font-size: .9rem; font-weight: 650; color: #334155; letter-spacing: .01em; }
+.dz-sub { margin: 5px 0 0; font-size: .72rem; line-height: 1.5; color: var(--canvas-mute); max-width: 34ch; }
+.dz-btn { margin-top: 14px; font-family: var(--mono); font-size: .62rem; letter-spacing: .1em;
+  font-weight: 600; background: #1e293b; color: #f1f5f9; border: 0; border-radius: 8px;
+  padding: 9px 18px; cursor: pointer; box-shadow: 0 2px 10px rgba(15,23,42,.22); }
+.dz-formats { margin-top: 12px; display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.dz-formats span { font-family: var(--mono); font-size: .52rem; letter-spacing: .09em; color: #94a3b8;
+  border: 1px solid #e2e8f0; border-radius: 5px; padding: 3px 7px; background: #fff; }
+
+/* ---- (b) NO-FILE HUB — empty card on the same flat cream ---- */
+.db-empty { border-top: 1px solid #eee6d6; padding: 30px 16px 26px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; }
+.db-empty .ico { font-size: 2.6rem; color: #e6dcc6; line-height: 1; margin-bottom: 6px; }
+.db-empty b { font-size: .82rem; color: #475569; font-weight: 650; }
+.db-empty p { margin: 6px 0 0; font-size: .7rem; line-height: 1.5; color: #94a3b8; max-width: 42ch; }
+.db-empty .btnrow { margin-top: 16px; justify-content: center; }
+
+/* ---- (c) PROTEIN — 20-colour residue palette ----------------
+   Taylor's scheme, toned for a white canvas (raw Taylor is neon
+   and glares next to the ACGT track). Hue topology preserved, so
+   chemically similar residues still share a colour neighbourhood.
+   Swap this one block to change schemes. */
+:root {
+  --aa-A:#a3c93a; --aa-R:#2b4bd6; --aa-N:#a83ce0; --aa-D:#e03131; --aa-C:#e6c72e;
+  --aa-Q:#d63aad; --aa-E:#e0316b; --aa-G:#e8912b; --aa-H:#2b7fe0; --aa-I:#6fc22e;
+  --aa-L:#4fbd2e; --aa-K:#6b3ce0; --aa-M:#35b84a; --aa-F:#23b874; --aa-P:#e0b02b;
+  --aa-S:#e05a2b; --aa-T:#e0762b; --aa-W:#2bb0d6; --aa-Y:#23bda8; --aa-V:#8cc42e;
+}
+/* 24-residue motif (all 20 residues appear) at 6px each. 6px against the
+   nucleotide track's 3px is honest: a residue spans three bases. */
+.seqtrack-aa { height: 46px; border-radius: 5px; border: 1px solid #cbd5e1;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  background: repeating-linear-gradient(90deg,
+    var(--aa-M) 0 6px,      var(--aa-K) 6px 12px,   var(--aa-V) 12px 18px,  var(--aa-L) 18px 24px,
+    var(--aa-S) 24px 30px,  var(--aa-T) 30px 36px,  var(--aa-A) 36px 42px,  var(--aa-G) 42px 48px,
+    var(--aa-I) 48px 54px,  var(--aa-R) 54px 60px,  var(--aa-E) 60px 66px,  var(--aa-D) 66px 72px,
+    var(--aa-F) 72px 78px,  var(--aa-Y) 78px 84px,  var(--aa-W) 84px 90px,  var(--aa-Q) 90px 96px,
+    var(--aa-N) 96px 102px, var(--aa-H) 102px 108px,var(--aa-P) 108px 114px,var(--aa-C) 114px 120px,
+    var(--aa-L) 120px 126px,var(--aa-V) 126px 132px,var(--aa-G) 132px 138px,var(--aa-K) 138px 144px); }
+.aa-key { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 12px;
+  font-family: var(--mono); font-size: .5rem; letter-spacing: .06em; color: var(--canvas-mute); }
+.aa-key b { color: #475569; letter-spacing: .14em; font-weight: 650; }
+.aa-key i { font-style: normal; display: inline-flex; align-items: center; gap: 4px; }
+.aa-key i::before { content: &quot;&quot;; width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+/* ONLY groups that are genuinely contiguous in this palette get a swatch.
+   Taylor is a continuous hue wheel, so &quot;polar&quot; and &quot;aromatic&quot; are NOT single
+   colour regions — claiming them would be false. */
+.aa-key i.hyd { color: #4fbd2e; }  /* A I L M V -> all green/lime  */
+.aa-key i.bas { color: #2b4bd6; }  /* K R H     -> all blue/violet */
+.aa-key i.aci { color: #e03131; }  /* D E       -> both red        */
+.aa-key i span { color: var(--canvas-mute); }
+
+/* ---- (c) PROTEIN LANES — replacing the six reading frames ---
+   F1/F2/F3/R1/R2/R3 do not exist for an already-translated
+   sequence with no reverse strand. These two do. */
+.prot-lanes { display: flex; flex-direction: column; gap: 7px; margin-top: 2px; }
+/* Kyte–Doolittle style: blue = hydrophilic, orange = hydrophobic, centre axis.
+   The two orange plateaus read as buried / transmembrane runs. */
+.lane-hydro { position: relative; height: 18px; border-radius: 4px; border: 1px solid #e2e8f0;
+  overflow: hidden;
+  background: linear-gradient(90deg, #2b7fe0 0%, #93c5fd 5%, #eef2f7 11%, #f7d08a 17%,
+    #e8912b 23%, #f7d08a 29%, #eef2f7 35%, #93c5fd 42%, #2b7fe0 49%, #93c5fd 55%,
+    #eef2f7 61%, #f7d08a 67%, #e8912b 73%, #f7d08a 78%, #eef2f7 84%, #93c5fd 91%, #2b7fe0 100%); }
+.lane-hydro::after { content: &quot;&quot;; position: absolute; left: 0; right: 0; top: 50%;
+  height: 1px; background: rgba(15,23,42,.16); }
+/* secondary structure as discrete elements, standard glyphs */
+.lane-ss { height: 18px; display: flex; align-items: center; border-radius: 4px; }
+.lane-ss .ss { flex: 0 0 auto; }
+.lane-ss .coil   { height: 2px; background: #cbd5e1; }
+.lane-ss .helix  { height: 14px; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #e0316b 0 4px, #f7a8c4 4px 8px); }
+.lane-ss .strand { height: 12px; background: #e0b02b;
+  clip-path: polygon(0 26%, 72% 26%, 72% 0, 100% 50%, 72% 100%, 72% 74%, 0 74%); }
+
+/* ---- PROTEIN ANNOTATION FEATURES ---------------------------
+   Kept off sky / violet / amber so an env accent is never
+   confused with a data colour. */
+.feat.teal  { width: 38%; border: 1.5px solid #0d9488; color: #0f766e; background: rgba(13,148,136,.08); }
+.feat.rose  { width: 26%; margin-left: 44%; border: 1.5px solid #e11d48; color: #be123c; background: rgba(225,29,72,.08); }
+.feat.slate { width: 14%; margin-left: 70%; border: 1.5px solid #64748b; color: #475569; background: rgba(100,116,139,.08); }
+
+/* ============================================================
+   ── NO-SESSION CHROME ('none') ───────────────────────────────
+   The state resolveEnvAccent() returns when moleculeType === null
+   — in BOTH tabs, because the null check runs before the hub
+   check. Two options, toggled on the app root:
+
+     [data-nosession=&quot;flat&quot;]     the .hf-env layers render nothing
+     [data-nosession=&quot;neutral&quot;]  they render in the neutral family
+
+   Both share the ONE neutral token family declared at the top, so
+   the only variable between the options is whether the gradient
+   paints. Everything else — helix mark, mode pill, minimap region,
+   edge strips, status diamond — goes neutral in both.
+
+   RECOMMENDED: neutral (the shipped default here). Flat discards
+   the frame's craft at exactly the moment a first-time user forms
+   an impression, and it is not more &quot;faithful&quot;: the code's 'none'
+   means &quot;keeps its default&quot;, which never mandated a bare bar.
+   Neutral also makes loading a file a real event — a saturation
+   bloom rather than a gradient appearing out of nothing.
+   ============================================================ */
+
+/* ---- OPTION 1 · FLAT ---------------------------------------
+   opacity (not display:none) so loading a file FADES the gradient
+   in over the same 650ms the tokens interpolate. Specificity
+   (0,4,0) deliberately outranks every per-style opacity, incl.
+   [data-hfstyle=&quot;aurora&quot;] .status .hf-env at (0,3,0). */
+.app[data-nosession=&quot;flat&quot;][data-env=&quot;none&quot;] .hf-env { opacity: 0; }
+
+/* ---- OPTION 2 · NEUTRAL ------------------------------------
+   Nothing to declare: the selected style paints exactly as
+   designed, through the neutral tokens. Shape, motion, mask and
+   craft all survive; only the hue is gone. Deliberately NOT damped
+   further — the faintest styles already mix at 6–9%, and dimming
+   them is what would make the neutral read as a rendering fault. */
+
+/* ---- NEUTRAL-STATE POLISH ---------------------------------- */
+.app[data-env=&quot;none&quot;] .btn.amber { color: #1e293b; }          /* was #3a2600 brown-on-amber */
+.app[data-env=&quot;none&quot;] .typepill .s.plus,
+.app[data-env=&quot;none&quot;] .typepill .s.minus { color: #64748b; }  /* strand ± signs stay data-neutral */
+
+/* ============================================================
+   ===============  A · CLEAN  (flat baseline)  ===============
+   No header/footer wash at all: the .hf-env layers render
+   nothing. What remains is the constant chrome — the tinted
+   wordmark hex, the active mode pill, the minimap region, the
+   status diamond — plus the thin .edge-strip at the boundary.
+   ============================================================ */
+[data-hfstyle=&quot;clean&quot;] .hf-env { background: none; }
+
+
+/* ============================================================
+   ── LAYERED LIGHT ────────────────────────────────────────────
+   Two off-center light pools bleed in from the bar's OUTER
+   corners, over a soft floor of the primary hue. The header is
+   lit from the TOP corners and the footer from the BOTTOM
+   corners, so the two bars bracket the workspace with light
+   hugging the outer edge of the frame instead of glaring inward.
+
+   Every light core is placed outside the bar (negative / >100% y),
+   so only the soft shoulder crosses the glass: nothing crops, and
+   peak alpha never lands under the chrome text. Pools screen
+   against one another (background-blend-mode, not mix-blend-mode)
+   so overlaps add light rather than muddying — which also makes
+   the treatment immune to any stacking context around .hf-env.
+   ============================================================ */
+
+[data-hfstyle=&quot;layered-light&quot;] .hf-env {
+  background-repeat: no-repeat;
+  background-blend-mode: screen;
+  background-position: 0 0, 0 0, 0 0;
+  animation: layered-light-drift 54s ease-in-out infinite;
+}
+
+/* HEADER (~58px) — broad warm pool low-left, tighter cool pool higher right,
+   and a wide floor of the primary hue rising from just under the bar. */
+[data-hfstyle=&quot;layered-light&quot;] .nav .hf-env {
+  background-image:
+    radial-gradient(64% 165% at 13% -30%,
+      color-mix(in srgb, var(--env2) 46%, transparent) 0%,
+      color-mix(in srgb, var(--env2) 15%, transparent) 40%,
+      transparent 70%),
+    radial-gradient(52% 140% at 88% -6%,
+      color-mix(in srgb, var(--env3) 38%, transparent) 0%,
+      color-mix(in srgb, var(--env3) 12%, transparent) 44%,
+      transparent 74%),
+    radial-gradient(96% 130% at 52% 145%,
+      color-mix(in srgb, var(--env) 22%, transparent) 0%,
+      transparent 66%);
+}
+
+/* FOOTER (~30px) — the header recipe is too tall for a 30px bar, so this is a
+   mirrored, quieter echo: pools enter from the BOTTOM corners, ~35% weaker,
+   with the primary reduced to a faint spill from the workspace above. */
+[data-hfstyle=&quot;layered-light&quot;] .status .hf-env {
+  background-image:
+    radial-gradient(58% 150% at 15% 132%,
+      color-mix(in srgb, var(--env2) 30%, transparent) 0%,
+      color-mix(in srgb, var(--env2) 10%, transparent) 46%,
+      transparent 76%),
+    radial-gradient(50% 135% at 87% 122%,
+      color-mix(in srgb, var(--env3) 26%, transparent) 0%,
+      color-mix(in srgb, var(--env3) 9%, transparent) 48%,
+      transparent 78%),
+    radial-gradient(88% 120% at 50% -40%,
+      color-mix(in srgb, var(--env) 14%, transparent) 0%,
+      transparent 70%);
+}
+
+/* Sub-perceptual counter-drift: the pools ease against each other by a few px
+   across nearly a minute, so the bar is never quite static but never moves. */
+@keyframes layered-light-drift {
+  0%, 100% { background-position: 0 0, 0 0, 0 0; }
+  50%      { background-position: 9px 2px, -8px 3px, 0 -3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;layered-light&quot;] .hf-env { animation: none; }
+}
+
+
+/* ============================================================
+   ── AURORA BANDS ─────────────────────────────────────────────
+   Narrow luminous curtains standing along the bar's lower
+   &quot;horizon&quot;. mix-blend-mode:screen is load-bearing — over #0f172a
+   the colour adds as light and the transparent gaps between
+   curtains contribute nothing, so most of the bar stays flat dark
+   and chrome text keeps its contrast. A vertical mask pools the
+   glow toward the lower edge, holding the text rows in the calm
+   upper zone.
+   ============================================================ */
+/* INTEGRATION TAME: measured at the real 58px bar, the recipe's 0.92 opacity
+   and its gentle mask ramp put ~0.11 luminance under the 0.5rem muted tagline
+   (#8ea0ba) — 2.46:1, well below the 6.7:1 the flat baseline gives it. Opacity
+   drops to 0.72 and the mask ramp is pushed later/steeper so the hot zone lives
+   in the bottom quarter, below every text row. Banding is unaffected. */
+[data-hfstyle=&quot;aurora&quot;] .hf-env {
+  opacity: 0.72;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.10) 0%,
+    rgba(0, 0, 0, 0.24) 38%,
+    rgba(0, 0, 0, 0.62) 74%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.10) 0%,
+    rgba(0, 0, 0, 0.24) 38%,
+    rgba(0, 0, 0, 0.62) 74%,
+    #000 100%
+  );
+}
+
+/* Both curtain fields overhang the bar horizontally (-25%) so the drift never
+   exposes an edge, and hang below it (-40%) so the ellipse centres sit near
+   the bar's lower edge — the &quot;horizon&quot;. */
+[data-hfstyle=&quot;aurora&quot;] .hf-env::before,
+[data-hfstyle=&quot;aurora&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: -15% -25% -40%;
+  will-change: transform;
+}
+
+/* Foreground curtains. Narrow radii (~17%) plus early falloff stops keep these
+   reading as separate bands of light instead of merging into one flat wash. */
+[data-hfstyle=&quot;aurora&quot;] .hf-env::before {
+  background:
+    radial-gradient(18% 95%  at  8% 66%, color-mix(in srgb, var(--env2) 78%, transparent), transparent 62%),
+    radial-gradient(19% 100% at 27% 70%, color-mix(in srgb, var(--env)  76%, transparent), transparent 64%),
+    radial-gradient(17% 92%  at 46% 63%, color-mix(in srgb, var(--env3) 68%, transparent), transparent 62%),
+    radial-gradient(18% 98%  at 66% 70%, color-mix(in srgb, var(--env2) 70%, transparent), transparent 64%),
+    radial-gradient(16% 90%  at 86% 65%, color-mix(in srgb, var(--env)  66%, transparent), transparent 62%);
+  filter: blur(15px) saturate(1.75);
+  animation: aurora-drift 34s ease-in-out infinite alternate;
+}
+
+/* Depth field: broader, softer, dimmer, drifting the other way. The
+   counter-drift is what stops the two layers reading as one sliding sheet. */
+[data-hfstyle=&quot;aurora&quot;] .hf-env::after {
+  background:
+    radial-gradient(24% 110% at 17% 74%, color-mix(in srgb, var(--env3) 52%, transparent), transparent 68%),
+    radial-gradient(22% 105% at 57% 76%, color-mix(in srgb, var(--env)  48%, transparent), transparent 68%),
+    radial-gradient(20% 100% at 92% 74%, color-mix(in srgb, var(--env3) 42%, transparent), transparent 68%);
+  filter: blur(22px) saturate(1.5);
+  opacity: 0.66;
+  animation: aurora-drift-slow 52s ease-in-out infinite alternate;
+}
+
+/* Footer echo (30px): half the height needs proportionally TIGHTER blur, not
+   the same blur — a 22px radius on a 30px bar smears into fog and loses the
+   banding entirely. Lower opacity and a shorter mask ramp keep it quiet. */
+[data-hfstyle=&quot;aurora&quot;] .status .hf-env {
+  opacity: 0.52;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.10) 0%,
+    rgba(0, 0, 0, 0.42) 48%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.10) 0%,
+    rgba(0, 0, 0, 0.42) 48%,
+    #000 100%
+  );
+}
+[data-hfstyle=&quot;aurora&quot;] .status .hf-env::before { filter: blur(10px) saturate(1.55); }
+[data-hfstyle=&quot;aurora&quot;] .status .hf-env::after  { filter: blur(15px) saturate(1.4); opacity: 0.5; }
+
+/* ±3–4% travel over 34s/52s: near-imperceptible at rest. */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(-3%, 0, 0) skewX(-4deg); }
+  100% { transform: translate3d( 3%, 0, 0) skewX( 4deg); }
+}
+@keyframes aurora-drift-slow {
+  0%   { transform: translate3d( 4%, 0, 0) skewX( 3deg); }
+  100% { transform: translate3d(-4%, 0, 0) skewX(-3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;aurora&quot;] .hf-env::before,
+  [data-hfstyle=&quot;aurora&quot;] .hf-env::after { animation: none; }
+}
+
+
+/* ============================================================
+   ── LIGHT BEAM ───────────────────────────────────────────────
+   A single crisp bar of light laid across the strip, brightest
+   off-centre, falling to the edges. Seated at ~78% of the header
+   height — below the vertically-centred wordmark, mode pill and
+   tools — so the 2px hot line never crosses text.
+   ============================================================ */
+/* INTEGRATION TAME: the recipe seats the beam at 78% (y≈45 of 58px) with a 30px
+   haze and a 22px outer bloom — measured, that bloom still reached the muted
+   tagline at y≈37 and held it to 3.17:1. Beam and haze drop to 84% and the
+   bloom tightens to 16px, which clears the tagline without touching the
+   filament's crispness. */
+[data-hfstyle=&quot;beam&quot;] .hf-env {
+  /* ambient haze hugging the beam: wide, thin, off-centre-left,
+     seated in the lower third so text above it stays clean */
+  background:
+    radial-gradient(120% 24px at 42% 84%,
+      color-mix(in srgb, var(--env2) 32%, transparent) 0%,
+      color-mix(in srgb, var(--env)  18%, transparent) 42%,
+      transparent 80%);
+}
+
+/* the beam itself: a crisp light-guide filament — spectral tails
+   (--env3) sweeping through a near-white hot core (--env2) */
+[data-hfstyle=&quot;beam&quot;] .hf-env::before {
+  content: &quot;&quot;;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 84%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--env3) 45%, transparent) 14%,
+    color-mix(in srgb, var(--env)  68%, transparent) 30%,
+    color-mix(in srgb, var(--env2) 92%, white)       42%,
+    color-mix(in srgb, var(--env)  55%, transparent) 60%,
+    color-mix(in srgb, var(--env3) 30%, transparent) 82%,
+    transparent 100%);
+  box-shadow:
+    0 0 9px 0    color-mix(in srgb, var(--env2) 42%, transparent),
+    0 0 16px 1px color-mix(in srgb, var(--env)  18%, transparent);
+}
+
+/* a slow specular glint gliding along the beam — the only motion at rest */
+[data-hfstyle=&quot;beam&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  top: 84%;
+  left: 42%;
+  width: 96px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  filter: blur(1px);
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--env2) 70%, white)        0%,
+    color-mix(in srgb, var(--env2) 26%, transparent) 46%,
+    transparent 100%);
+  animation: beam-glide 20s ease-in-out infinite alternate;
+}
+
+@keyframes beam-glide {
+  from { left: 33%; }
+  to   { left: 61%; }
+}
+
+/* Footer echo: quieter, thinner — and RE-SEATED. INTEGRATION TAME: the recipe's
+   `top: 60%` lands at y≈18 of a 30px bar, i.e. straight through the 0.54rem
+   muted status text (measured 2.19:1 for #8ea0ba, and only 2.49:1 for white).
+   Dropping the beam to 88% (y≈26) with a halved halo puts the whole filament
+   below the text baseline; the ambient haze follows it down and dims to match. */
+[data-hfstyle=&quot;beam&quot;] .status .hf-env {
+  background:
+    radial-gradient(130% 13px at 42% 92%,
+      color-mix(in srgb, var(--env2) 22%, transparent) 0%,
+      color-mix(in srgb, var(--env)  12%, transparent) 46%,
+      transparent 84%);
+}
+[data-hfstyle=&quot;beam&quot;] .status .hf-env::before {
+  top: 88%;
+  height: 1.5px;
+  box-shadow:
+    0 0 5px 0   color-mix(in srgb, var(--env2) 34%, transparent),
+    0 0 11px 0  color-mix(in srgb, var(--env)  14%, transparent);
+}
+[data-hfstyle=&quot;beam&quot;] .status .hf-env::after { top: 88%; width: 60px; height: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;beam&quot;] .hf-env::after { animation: none; left: 42%; }
+}
+
+
+/* ============================================================
+   ── CONIC SHEEN ──────────────────────────────────────────────
+   A faint oil-slick iridescence breathing beneath the chrome.
+   The conic's origin sits ABOVE the bar so the pinwheel hub never
+   enters the strip — only a smooth wedge crosses it — and a
+   radial mask feathers both far ends into a clean letterbox.
+   ============================================================ */
+@property --conic-angle { syntax: &quot;<angle>&quot;; inherits: false; initial-value: 0deg; }
+
+/* INTEGRATION TAME: at 0.5 this was the brightest style in the set — 6.58:1 for
+   the white wordmark and 2.47:1 for the muted tagline. 0.36 keeps the oil-slick
+   character (it is a low-luminance mid-tone effect either way) while restoring
+   the wordmark to ~9:1. */
+[data-hfstyle=&quot;conic&quot;] .hf-env {
+  mix-blend-mode: screen;
+  opacity: .32;
+  -webkit-mask-image: radial-gradient(120% 140% at 50% 50%, #000 45%, transparent 100%);
+          mask-image: radial-gradient(120% 140% at 50% 50%, #000 45%, transparent 100%);
+}
+
+[data-hfstyle=&quot;conic&quot;] .hf-env::before {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: -24px -40px;
+  background: conic-gradient(from var(--conic-angle, 0deg) at 50% -140%,
+    var(--env3), var(--env), var(--env2), var(--env3),
+    var(--env), var(--env2), var(--env3));
+  filter: blur(30px) saturate(1.2);
+  animation: conic-sheen-drift 120s linear infinite;
+  will-change: background;
+}
+
+/* Footer: shorter (~30px) and quieter — a calmer echo of the header. The
+   origin is pushed further up and the blur relaxed so the 30px strip reads
+   as a single soft tint rather than visible bands. */
+[data-hfstyle=&quot;conic&quot;] .status .hf-env {
+  opacity: .28;
+  -webkit-mask-image: radial-gradient(120% 185% at 50% 50%, #000 50%, transparent 100%);
+          mask-image: radial-gradient(120% 185% at 50% 50%, #000 50%, transparent 100%);
+}
+[data-hfstyle=&quot;conic&quot;] .status .hf-env::before {
+  inset: -14px -40px;
+  background: conic-gradient(from var(--conic-angle, 0deg) at 50% -230%,
+    var(--env3), var(--env), var(--env2), var(--env3),
+    var(--env), var(--env2), var(--env3));
+  filter: blur(20px) saturate(1.2);
+  animation-duration: 150s;
+}
+
+/* Angular drift via an animatable custom angle keeps the layer bar-thin
+   instead of a viewport-scale rotating square. Without @property support the
+   var() fallback holds it at 0deg and it renders as a static sheen. */
+@keyframes conic-sheen-drift { from { --conic-angle: 0deg; } to { --conic-angle: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;conic&quot;] .hf-env::before { animation: none; }
+}
+
+
+/* ============================================================
+   ── MESH + GRAIN ─────────────────────────────────────────────
+   A mini mesh of in-family radial washes anchored to the strip
+   EDGES, screened over the dark bar for additive glow, then
+   sealed with a STATIC feTurbulence grain (var(--grain), reused
+   verbatim from the frame) at overlay to kill banding.
+   ============================================================ */
+
+/* --- Layer 1: the mesh -----------------------------------------------------
+   Three overlapping elliptical washes whose centres sit PAST the edges, so a
+   thin wide strip only shows their inner arcs — no cropped centred blob.
+   Oversized (inset:-25%) so the slow drift never reveals a hard edge. */
+[data-hfstyle=&quot;mesh-grain&quot;] .hf-env::before {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(58% 190% at 6% 128%,
+      color-mix(in srgb, var(--env2) 60%, transparent) 0%, transparent 60%),
+    radial-gradient(52% 175% at 92% -34%,
+      color-mix(in srgb, var(--env) 52%, transparent) 0%, transparent 62%),
+    radial-gradient(40% 150% at 63% 132%,
+      color-mix(in srgb, var(--env3) 42%, transparent) 0%, transparent 58%);
+  mix-blend-mode: screen;
+  will-change: transform;
+  animation: mesh-grain-drift 52s ease-in-out infinite alternate;
+}
+
+/* --- Layer 2: the grain ----------------------------------------------------
+   Filmic luminance texture (~20%) that dissolves the gradient banding.
+   Static on purpose — moving grain reads as video noise. */
+[data-hfstyle=&quot;mesh-grain&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: 0;
+  background: var(--grain);
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+  opacity: 0.2;
+}
+
+/* Near-imperceptible chamber shimmer: ~1.4% drift under a fixed scale. */
+@keyframes mesh-grain-drift {
+  from { transform: translate3d(-1.2%, 0.6%, 0) scale(1.05); }
+  to   { transform: translate3d( 1.4%, -0.8%, 0) scale(1.07); }
+}
+
+/* Footer echo (30px): the header's tall ellipses barely register in a 30px
+   strip, so the footer gets its own flattened TWO-blob mesh hugging the top
+   seam, dialled down, with lighter grain and a slower drift. */
+[data-hfstyle=&quot;mesh-grain&quot;] .status .hf-env::before {
+  inset: -60% -25%;
+  background:
+    radial-gradient(70% 320% at 10% 0%,
+      color-mix(in srgb, var(--env2) 32%, transparent) 0%, transparent 64%),
+    radial-gradient(64% 300% at 90% 100%,
+      color-mix(in srgb, var(--env) 28%, transparent) 0%, transparent 66%);
+  animation-duration: 64s;
+}
+[data-hfstyle=&quot;mesh-grain&quot;] .status .hf-env::after { opacity: 0.14; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;mesh-grain&quot;] .hf-env::before { animation: none; }
+}
+
+
+/* ============================================================
+   ── UNDERGLOW RAIL ───────────────────────────────────────────
+   A crisp lit hairline along the bar's INNER edge (header:
+   bottom, footer: top), blooming softly inward, fed by one
+   concentrated corner light source. The bloom is confined to the
+   inner quarter, so the vertical centre where the wordmark, mode
+   pill and status text sit stays dark.
+   ============================================================ */
+[data-hfstyle=&quot;underglow-rail&quot;] .hf-env::before,
+[data-hfstyle=&quot;underglow-rail&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ---- HEADER (.nav) — rail on the bottom (inner) edge ---- */
+
+/* soft upward bloom rising off the rail, confined to the inner quarter */
+[data-hfstyle=&quot;underglow-rail&quot;] .nav .hf-env {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--env) 22%, transparent) 0%,
+    color-mix(in srgb, var(--env) 7%, transparent) 24%,
+    transparent 54%
+  );
+}
+
+/* the single concentrated corner light source, bottom-left, blooming up/in */
+[data-hfstyle=&quot;underglow-rail&quot;] .nav .hf-env::before {
+  background: radial-gradient(
+    130% 190% at 0% 100%,
+    color-mix(in srgb, var(--env2) 52%, transparent) 0%,
+    color-mix(in srgb, var(--env3) 24%, transparent) 20%,
+    transparent 44%
+  );
+  mix-blend-mode: screen;
+  animation: underglow-rail-breath 9s ease-in-out infinite alternate;
+}
+
+/* the crisp lit rail — steady, with edge-lit falloff along its length */
+[data-hfstyle=&quot;underglow-rail&quot;] .nav .hf-env::after {
+  top: auto;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--env2) 95%, transparent) 0%,
+    color-mix(in srgb, var(--env) 68%, transparent) 42%,
+    color-mix(in srgb, var(--env) 40%, transparent) 100%
+  );
+  box-shadow:
+    0 0 5px color-mix(in srgb, var(--env2) 60%, transparent),
+    0 0 13px color-mix(in srgb, var(--env) 30%, transparent);
+}
+
+/* ---- FOOTER (.status) — quieter, thinner echo; rail on the top edge ---- */
+[data-hfstyle=&quot;underglow-rail&quot;] .status .hf-env {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--env) 16%, transparent) 0%,
+    color-mix(in srgb, var(--env) 5%, transparent) 30%,
+    transparent 58%
+  );
+}
+[data-hfstyle=&quot;underglow-rail&quot;] .status .hf-env::before {
+  background: radial-gradient(
+    120% 200% at 0% 0%,
+    color-mix(in srgb, var(--env2) 40%, transparent) 0%,
+    color-mix(in srgb, var(--env3) 16%, transparent) 22%,
+    transparent 46%
+  );
+  mix-blend-mode: screen;
+  animation: underglow-rail-breath 9s ease-in-out infinite alternate;
+}
+[data-hfstyle=&quot;underglow-rail&quot;] .status .hf-env::after {
+  bottom: auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--env2) 86%, transparent) 0%,
+    color-mix(in srgb, var(--env) 55%, transparent) 45%,
+    color-mix(in srgb, var(--env) 30%, transparent) 100%
+  );
+  box-shadow:
+    0 0 4px color-mix(in srgb, var(--env2) 48%, transparent),
+    0 0 9px color-mix(in srgb, var(--env) 22%, transparent);
+}
+
+/* near-imperceptible breath of the corner source only */
+@keyframes underglow-rail-breath {
+  from { opacity: 0.8; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;underglow-rail&quot;] .hf-env::before { animation: none; }
+}
+
+
+/* ============================================================
+   ── PRISM SHAFTS ─────────────────────────────────────────────
+   Angled volumetric beams raking across the dark bar like
+   sunlight through a slit blind. In a thin wide strip they read
+   as a few soft diagonal streaks crossing the letterbox — no
+   blobs, nothing to crop.
+   ============================================================ */
+[data-hfstyle=&quot;light-shaft&quot;] .hf-env {
+  /* faint diagonal seat-glow that grounds the beams in depth */
+  background-image: linear-gradient(
+    112deg,
+    color-mix(in srgb, var(--env) 9%, transparent),
+    transparent 46%,
+    color-mix(in srgb, var(--env3) 8%, transparent)
+  );
+}
+
+/* shared beam-carrier geometry: wider than the bar so drift never reveals an edge */
+[data-hfstyle=&quot;light-shaft&quot;] .hf-env::before,
+[data-hfstyle=&quot;light-shaft&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -16%;
+  width: 132%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+/* NEAR layer — brighter, tighter beams (env core + env2 flanks).
+   INTEGRATION TAME: peak alphas pulled 30/36/22 → 22/26/16; at the recipe's
+   values the leftmost beam crossed the muted tagline at 2.92:1. The beams read
+   identically — they are additive over near-black, so a third off the alpha
+   costs very little presence and buys the tagline back to ~3.6:1. */
+[data-hfstyle=&quot;light-shaft&quot;] .hf-env::before {
+  background-image:
+    linear-gradient(107deg,
+      transparent 12%,
+      color-mix(in srgb, var(--env2) 22%, transparent) 20%,
+      transparent 31%),
+    linear-gradient(107deg,
+      transparent 41%,
+      color-mix(in srgb, var(--env) 26%, transparent) 49%,
+      color-mix(in srgb, var(--env) 26%, transparent) 51%,
+      transparent 61%),
+    linear-gradient(107deg,
+      transparent 73%,
+      color-mix(in srgb, var(--env2) 16%, transparent) 81%,
+      transparent 91%);
+  animation: light-shaft-drift-near 30s ease-in-out infinite alternate;
+}
+
+/* FAR layer — softer, deeper beams at a slightly different angle for a
+   prismatic split (env3 + env), lower opacity for atmospheric distance */
+[data-hfstyle=&quot;light-shaft&quot;] .hf-env::after {
+  background-image:
+    linear-gradient(112deg,
+      transparent 20%,
+      color-mix(in srgb, var(--env3) 26%, transparent) 33%,
+      transparent 49%),
+    linear-gradient(112deg,
+      transparent 56%,
+      color-mix(in srgb, var(--env) 18%, transparent) 67%,
+      transparent 83%);
+  opacity: 0.85;
+  animation: light-shaft-drift-far 46s ease-in-out infinite alternate;
+}
+
+@keyframes light-shaft-drift-near {
+  from { transform: translate3d(-1.5%, 0, 0); }
+  to   { transform: translate3d(2.5%, 0, 0); }
+}
+@keyframes light-shaft-drift-far {
+  from { transform: translate3d(1.5%, 0, 0); }
+  to   { transform: translate3d(-2%, 0, 0); }
+}
+
+/* FOOTER — quieter, thinner echo tuned for the ~30px bar */
+[data-hfstyle=&quot;light-shaft&quot;] .status .hf-env {
+  background-image: linear-gradient(
+    112deg,
+    color-mix(in srgb, var(--env) 7%, transparent),
+    transparent 50%,
+    color-mix(in srgb, var(--env3) 6%, transparent)
+  );
+}
+[data-hfstyle=&quot;light-shaft&quot;] .status .hf-env::before { opacity: 0.6; }
+[data-hfstyle=&quot;light-shaft&quot;] .status .hf-env::after  { opacity: 0.42; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;light-shaft&quot;] .hf-env::before,
+  [data-hfstyle=&quot;light-shaft&quot;] .hf-env::after { animation: none; transform: none; }
+}
+
+
+/* ============================================================
+   ── DUOTONE DRIFT ────────────────────────────────────────────
+   The minimal end: a refined env → env2 ramp (with a whisper of
+   env3) laid across the dark chrome, that VERY slowly pans its
+   seam and rebalances its hue so it is never quite static.
+   One recipe, two knobs: --dd-gain (intensity) and --dd-amp
+   (drift amplitude); the footer just dials both down.
+   ============================================================ */
+[data-hfstyle=&quot;duotone-drift&quot;] .hf-env {
+  --dd-gain: 1;
+  --dd-amp: 1;
+  /* Static duotone base — also the resting state under reduced-motion.
+     Blooms at the two edges, stays quiet through the text-bearing centre. */
+  background: linear-gradient(
+    93deg,
+    color-mix(in oklab, var(--env)  calc(17% * var(--dd-gain)), transparent)   0%,
+    color-mix(in oklab, var(--env)  calc(6%  * var(--dd-gain)), transparent)  40%,
+    color-mix(in oklab, var(--env2) calc(7%  * var(--dd-gain)), transparent)  66%,
+    color-mix(in oklab, var(--env2) calc(16% * var(--dd-gain)), transparent) 100%
+  );
+}
+
+/* Two oversized accent layers, screen-added over the navy for a soft glow.
+   Oversized + centred so the sideways drift never exposes a bar edge. */
+[data-hfstyle=&quot;duotone-drift&quot;] .hf-env::before,
+[data-hfstyle=&quot;duotone-drift&quot;] .hf-env::after {
+  content: &quot;&quot;;
+  position: absolute;
+  inset: -24% -22%;
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+/* Primary ramp: env at the left easing into env2 — its seam glides sideways.
+   INTEGRATION TAME: the left pool sits directly behind the wordmark, so the
+   recipe's 22%/30% stack measured 2.79:1 on the muted tagline. The base ramp
+   and this layer are each dialled ~25% down; the edge-pooling read is intact. */
+[data-hfstyle=&quot;duotone-drift&quot;] .hf-env::before {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--env)  calc(22% * var(--dd-gain)), transparent),
+    color-mix(in oklab, var(--env2) calc(14% * var(--dd-gain)), transparent) 76%,
+    transparent
+  );
+  animation: duotone-drift-pan 34s ease-in-out infinite alternate;
+}
+
+/* Counter ramp: a faint env3 seam + env2 from the right, on a slightly
+   different angle. Its slow opacity breath rebalances the hue. */
+[data-hfstyle=&quot;duotone-drift&quot;] .hf-env::after {
+  background: linear-gradient(
+    86deg,
+    transparent,
+    color-mix(in oklab, var(--env3) calc(14% * var(--dd-gain)), transparent) 32%,
+    color-mix(in oklab, var(--env2) calc(24% * var(--dd-gain)), transparent) 100%
+  );
+  opacity: calc(0.5 * var(--dd-gain));
+  animation: duotone-drift-breathe 41s ease-in-out infinite alternate;
+}
+
+@keyframes duotone-drift-pan {
+  from { transform: translate3d(calc(-3.6% * var(--dd-amp)), 0, 0); }
+  to   { transform: translate3d(calc( 3.6% * var(--dd-amp)), 0, 0); }
+}
+@keyframes duotone-drift-breathe {
+  from { transform: translate3d(calc( 2.4% * var(--dd-amp)), 0, 0);
+         opacity: calc(0.30 * var(--dd-gain)); }
+  to   { transform: translate3d(calc(-2.4% * var(--dd-amp)), 0, 0);
+         opacity: calc(0.60 * var(--dd-gain)); }
+}
+
+/* Footer echo: identical recipe, just quieter and calmer for the ~30px strip.
+   Only the two knobs change — colours, angles and layers are inherited. */
+[data-hfstyle=&quot;duotone-drift&quot;] .status .hf-env { --dd-gain: 0.6; --dd-amp: 0.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hfstyle=&quot;duotone-drift&quot;] .hf-env::before,
+  [data-hfstyle=&quot;duotone-drift&quot;] .hf-env::after { animation: none; transform: none; }
+}
+
+
+/* ============================================================
+   GLOBAL REDUCED-MOTION GATE
+   Kills every animation (including the ones driven by registered
+   custom properties) AND the 650ms --env token interpolation, so
+   a state flip becomes an instant re-tint. It also collapses the
+   Flat↔loaded opacity fade into an instant swap — intended, and
+   consistent with every other style. Each style's own block above
+   keeps its resting composition intentional.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+</style>
+
+<div class=&quot;controls&quot;>
+  <div class=&quot;controls-in&quot;>
+    <span class=&quot;ctl-label&quot;>Session</span>
+    <div class=&quot;seg&quot; id=&quot;sessSeg&quot; role=&quot;group&quot; aria-label=&quot;Loaded molecule&quot;>
+      <button type=&quot;button&quot; data-mol=&quot;none&quot; class=&quot;on&quot; aria-pressed=&quot;true&quot;><span class=&quot;dot&quot;></span>No file</button>
+      <button type=&quot;button&quot; data-mol=&quot;nucleotide&quot; aria-pressed=&quot;false&quot;><span class=&quot;dot&quot;></span>Nucleotide</button>
+      <button type=&quot;button&quot; data-mol=&quot;protein&quot; aria-pressed=&quot;false&quot;><span class=&quot;dot&quot;></span>Protein</button>
+    </div>
+    <span class=&quot;ctl-label&quot;>Mode</span>
+    <div class=&quot;seg&quot; id=&quot;modeSeg&quot; role=&quot;group&quot; aria-label=&quot;Active tab&quot;>
+      <button type=&quot;button&quot; data-mode=&quot;viewport&quot; class=&quot;on&quot; aria-pressed=&quot;true&quot;><span class=&quot;glyph&quot;>⊕</span>Viewport</button>
+      <button type=&quot;button&quot; data-mode=&quot;hub&quot; aria-pressed=&quot;false&quot;><span class=&quot;glyph&quot;>▦</span>Hub</button>
+    </div>
+    <span class=&quot;ctl-group&quot; id=&quot;nsGroup&quot;>
+      <span class=&quot;ctl-label&quot;>No-session chrome</span>
+      <div class=&quot;seg&quot; id=&quot;nsSeg&quot; role=&quot;group&quot; aria-label=&quot;No-session chrome option&quot;>
+        <button type=&quot;button&quot; data-ns=&quot;flat&quot; aria-pressed=&quot;false&quot;>1 · Flat</button>
+        <button type=&quot;button&quot; data-ns=&quot;neutral&quot; class=&quot;on&quot; aria-pressed=&quot;true&quot;>2 · Neutral</button>
+      </div>
+    </span>
+    <span class=&quot;ctl-label&quot;>Style</span>
+    <div class=&quot;presets&quot; id=&quot;styleSeg&quot; role=&quot;group&quot; aria-label=&quot;Header and footer gradient style&quot;>
+      <button type=&quot;button&quot; data-hfstyle=&quot;clean&quot;>A · Clean</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;layered-light&quot; class=&quot;on&quot;>Layered Light<span class=&quot;rec&quot;>DEF</span></button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;aurora&quot;>Aurora Bands</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;beam&quot;>Light Beam</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;conic&quot;>Conic Sheen</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;mesh-grain&quot;>Mesh + Grain</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;underglow-rail&quot;>Underglow Rail</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;light-shaft&quot;>Prism Shafts</button>
+      <button type=&quot;button&quot; data-hfstyle=&quot;duotone-drift&quot;>Duotone Drift</button>
+    </div>
+  </div>
+</div>
+
+<main class=&quot;wrap&quot;>
+  <p class=&quot;eyebrow&quot;>Round 5 · session × mode × style</p>
+  <h1>The accent is derived, not chosen. Gradient only in header + footer.</h1>
+  <p class=&quot;sub&quot;>Two axes now drive the chrome. <strong>Session</strong> is what is loaded
+    (<code class=&quot;mono&quot;>moleculeType</code>); <strong>Mode</strong> is which tab is open
+    (<code class=&quot;mono&quot;>activeTab</code>). The accent is neither — it is
+    <code class=&quot;mono&quot;>resolveEnvAccent(activeTab, moleculeType)</code>, and the
+    <strong>null check runs first</strong>: with no file loaded the accent is
+    <code class=&quot;mono&quot;>'none'</code> in <em>both</em> tabs, so the Database Hub does
+    <em>not</em> go amber on an empty session. Everything still renders through exactly two elements — a
+    <code class=&quot;mono&quot;>.hf-env</code> layer inside the dark nav and another inside the dark status bar, both clipped by
+    <code class=&quot;mono&quot;>overflow:hidden</code>. The ruler/toolbar band, the white viewport canvas, both sequence tracks, the
+    white Hub table card and the cream Hub backdrop carry no wash in any style.</p>
+
+  <div class=&quot;matrix&quot;>
+    <span class=&quot;lead&quot;>THE FIVE REAL STATES — <code class=&quot;mono&quot;>data-env</code> is an output, never a choice:</span>
+    1 · no file &amp;nbsp;+ Viewport → <span class=&quot;sw non&quot;></span><b>none</b> &amp;nbsp;<em>neutral chrome, no accent</em><br>
+    2 · no file &amp;nbsp;+ Hub &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ <span class=&quot;sw non&quot;></span><b>none</b> &amp;nbsp;<em>still no accent — null wins over the hub check</em><br>
+    3 · nucleotide + Viewport → <span class=&quot;sw nuc&quot;></span><b>nucleotide</b> &amp;nbsp;<em>sky</em><br>
+    4 · protein &amp;nbsp;+ Viewport → <span class=&quot;sw prot&quot;></span><b>protein</b> &amp;nbsp;<em>violet</em><br>
+    5 · either &amp;nbsp;&amp;nbsp;+ Hub &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ <span class=&quot;sw hub&quot;></span><b>hub</b> &amp;nbsp;<em>amber, whichever molecule is loaded</em>
+  </div>
+
+  <div class=&quot;app&quot; data-tab=&quot;alignment&quot; data-mol=&quot;none&quot; data-env=&quot;none&quot; data-nosession=&quot;neutral&quot; data-hfstyle=&quot;layered-light&quot; id=&quot;app&quot;>
+    <!-- TOP NAV — carries .hf-env (one of only two) -->
+    <div class=&quot;nav&quot;>
+      <div class=&quot;hf-env&quot;></div>
+      <button class=&quot;iconbtn hamb&quot; aria-label=&quot;Menu&quot;><i></i><i></i><i></i></button>
+      <div class=&quot;wordmark&quot;><b>DUNCEIOUS</b><span>BECAUSE INTELLIGENCE IS OVERPRICED.</span></div>
+      <div class=&quot;modesw&quot;>
+        <div class=&quot;mcell view&quot;><span class=&quot;pill-bloom&quot;></span><span class=&quot;g&quot;>⊕</span><span class=&quot;t&quot;><small>VIEW</small><b>VISUAL VIEWPORT</b></span></div>
+        <div class=&quot;mcell manage&quot;><span class=&quot;pill-bloom&quot;></span><span class=&quot;g&quot;>▦</span><span class=&quot;t&quot;><small>MANAGE</small><b>DATABASE HUB</b></span></div>
+      </div>
+      <div class=&quot;tools&quot;><button class=&quot;iconbtn act&quot; title=&quot;Pan&quot;>✋</button><button class=&quot;iconbtn&quot; title=&quot;Select&quot;>⌖</button></div>
+      <div class=&quot;spacer&quot;></div>
+      <div class=&quot;toggles&quot;>
+        <span class=&quot;tgl cyan&quot;>ANNOTATIONS</span><span class=&quot;tgl violet&quot;>TRACKS</span>
+        <span class=&quot;tgl green&quot;>TRANSLATION</span><span class=&quot;tgl gray&quot;>CONSERVATION</span>
+      </div>
+      <button class=&quot;iconbtn&quot; title=&quot;Settings&quot; style=&quot;border-radius:50%&quot;>⚙</button>
+    </div>
+
+    <!-- BODY: one of two layouts — NO .hf-env anywhere below this line -->
+    <div class=&quot;body&quot;>
+
+      <!-- VIEWPORT LAYOUT -->
+      <div class=&quot;mode-viewport&quot;>
+        <div class=&quot;ruler&quot;>
+          <div class=&quot;minimap&quot;>
+            <div class=&quot;mmtrack&quot;><div class=&quot;mmregion&quot;></div></div>
+            <div class=&quot;mmctl&quot;><input type=&quot;text&quot; placeholder=&quot;Go to…&quot; aria-label=&quot;Go to position&quot;><span class=&quot;b&quot;>FIT</span><span class=&quot;b&quot;>+</span><span class=&quot;b&quot;>−</span></div>
+          </div>
+          <div class=&quot;sess sess-nuc&quot;>
+            <div class=&quot;mmnums&quot;><span>200</span><span>400</span><span>600</span><span>800</span><span>1,000</span><span>2,000</span><span>3,000</span><span>4,000</span><span>5,000</span></div>
+            <div class=&quot;coords&quot;><span>0</span><span>500</span><span>1,000</span></div>
+          </div>
+          <div class=&quot;sess sess-prot&quot;>
+            <div class=&quot;mmnums&quot;><span>25</span><span>50</span><span>75</span><span>100</span><span>125</span><span>150</span><span>175</span><span>200</span><span>245</span></div>
+            <div class=&quot;coords&quot;><span>1</span><span>120</span><span>245</span></div>
+          </div>
+          <div class=&quot;sess sess-none&quot;>
+            <div class=&quot;ruler-empty&quot;>NO SEQUENCE LOADED</div>
+          </div>
+        </div>
+        <div class=&quot;canvas-wrap&quot;>
+          <!-- the WHITE data surface — pure --canvas in all three sessions -->
+          <div class=&quot;canvas&quot;>
+            <div class=&quot;edge-strip top&quot;></div>
+            <div class=&quot;edge-strip bottom&quot;></div>
+
+            <!-- (1) NO-FILE VIEWPORT — dropzone, no accent spent -->
+            <div class=&quot;sess sess-none empty-canvas&quot;>
+              <div class=&quot;dropzone&quot;>
+                <svg class=&quot;dz-glyph&quot; viewBox=&quot;0 0 132 184&quot; aria-hidden=&quot;true&quot;>
+                  <path d=&quot;M110 14 C110 40 22 40 22 66 C22 92 110 92 110 118 C110 144 22 144 22 170&quot;/>
+                  <path d=&quot;M22 14 C22 40 110 40 110 66 C110 92 22 92 22 118 C22 144 110 144 110 170&quot;/>
+                  <g>
+                    <line x1=&quot;22&quot; y1=&quot;14&quot;  x2=&quot;110&quot; y2=&quot;14&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;27&quot;  x2=&quot;97&quot;  y2=&quot;27&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;53&quot;  x2=&quot;97&quot;  y2=&quot;53&quot;/>
+                    <line x1=&quot;22&quot; y1=&quot;66&quot;  x2=&quot;110&quot; y2=&quot;66&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;79&quot;  x2=&quot;97&quot;  y2=&quot;79&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;105&quot; x2=&quot;97&quot;  y2=&quot;105&quot;/>
+                    <line x1=&quot;22&quot; y1=&quot;118&quot; x2=&quot;110&quot; y2=&quot;118&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;131&quot; x2=&quot;97&quot;  y2=&quot;131&quot;/>
+                    <line x1=&quot;35&quot; y1=&quot;157&quot; x2=&quot;97&quot;  y2=&quot;157&quot;/>
+                    <line x1=&quot;22&quot; y1=&quot;170&quot; x2=&quot;110&quot; y2=&quot;170&quot;/>
+                  </g>
+                </svg>
+                <div class=&quot;dz-title&quot;>No project loaded</div>
+                <p class=&quot;dz-sub&quot;>Drop a sequence file anywhere in this window, or load one from disk to begin.</p>
+                <button type=&quot;button&quot; class=&quot;dz-btn&quot;>LOAD PROJECT</button>
+                <div class=&quot;dz-formats&quot;><span>FASTA</span><span>GENBANK</span><span>GFF3</span></div>
+              </div>
+            </div>
+
+            <div class=&quot;ws-inner&quot;>
+              <div class=&quot;gutter&quot;>
+                <div class=&quot;sess sess-nuc&quot;>
+                  <span class=&quot;lbl&quot;>ANNOT</span><span class=&quot;lbl&quot;>SEQUENCE</span>
+                  <span class=&quot;lbl&quot;>F1</span><span class=&quot;lbl&quot;>F2</span><span class=&quot;lbl&quot;>F3</span>
+                  <span class=&quot;rec2&quot;>SCU49845</span>
+                  <span class=&quot;lbl&quot;>R1</span><span class=&quot;lbl&quot;>R2</span><span class=&quot;lbl&quot;>R3</span>
+                </div>
+                <!-- protein: no reading frames, so 5 labels not 8 -->
+                <div class=&quot;sess sess-prot&quot;>
+                  <span class=&quot;lbl&quot;>ANNOT</span><span class=&quot;lbl&quot;>RESIDUES</span>
+                  <span class=&quot;rec2&quot;>REV7P</span>
+                  <span class=&quot;lbl&quot;>HYDROPATHY</span><span class=&quot;lbl&quot;>STRUCTURE</span>
+                </div>
+              </div>
+              <div class=&quot;main&quot;>
+                <!-- (3) NUCLEOTIDE — unchanged from the previous round -->
+                <div class=&quot;sess sess-nuc&quot;>
+                  <span class=&quot;section-lbl&quot;>ANNOTATIONS</span>
+                  <div class=&quot;annot-bar&quot;></div>
+                  <div class=&quot;feat pink&quot;>CDS · rev</div>
+                  <div class=&quot;feat cyan&quot;>gene SCU49845</div>
+                  <div class=&quot;feat violet&quot;>mRNA</div>
+                  <span class=&quot;section-lbl&quot;>SEQUENCE</span>
+                  <div class=&quot;seqtrack&quot;></div>
+                  <div class=&quot;frame-lanes&quot;><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div></div>
+                </div>
+
+                <!-- (4) PROTEIN — residue track + hydropathy/structure lanes -->
+                <div class=&quot;sess sess-prot&quot;>
+                  <span class=&quot;section-lbl&quot;>ANNOTATIONS</span>
+                  <div class=&quot;annot-bar&quot;></div>
+                  <div class=&quot;feat teal&quot;>DOMAIN · HORMA</div>
+                  <div class=&quot;feat rose&quot;>MOTIF · nuclear export</div>
+                  <div class=&quot;feat slate&quot;>SITE · Rev1 binding</div>
+                  <span class=&quot;section-lbl&quot;>RESIDUES · 245 AA</span>
+                  <div class=&quot;seqtrack-aa&quot;></div>
+                  <div class=&quot;aa-key&quot;>
+                    <b>TAYLOR</b><span>ONE HUE PER RESIDUE ·</span>
+                    <i class=&quot;hyd&quot;><span>HYDROPHOBIC</span></i><i class=&quot;bas&quot;><span>BASIC</span></i>
+                    <i class=&quot;aci&quot;><span>ACIDIC</span></i>
+                  </div>
+                  <!-- reading frames replaced by hydropathy + secondary structure -->
+                  <div class=&quot;prot-lanes&quot;>
+                    <div class=&quot;lane-hydro&quot;></div>
+                    <div class=&quot;lane-ss&quot;>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:8%&quot;></span><span class=&quot;ss helix&quot;  style=&quot;width:14%&quot;></span>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:6%&quot;></span><span class=&quot;ss strand&quot; style=&quot;width:9%&quot;></span>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:5%&quot;></span><span class=&quot;ss strand&quot; style=&quot;width:8%&quot;></span>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:7%&quot;></span><span class=&quot;ss helix&quot;  style=&quot;width:18%&quot;></span>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:6%&quot;></span><span class=&quot;ss strand&quot; style=&quot;width:10%&quot;></span>
+                      <span class=&quot;ss coil&quot;   style=&quot;width:9%&quot;></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUB LAYOUT — flat cream, no field, no grain -->
+      <div class=&quot;mode-hub&quot;>
+        <div class=&quot;hub-edge&quot;></div>
+
+        <!-- (2) NO-FILE HUB — same white card, same flat cream, honestly inert -->
+        <div class=&quot;sess sess-none table-card&quot;>
+          <div class=&quot;card-head&quot;>
+            <div class=&quot;card-title&quot;><b>DATABASE HUB</b><small>0 SEQUENCES · 0 ANNOTATIONS</small></div>
+            <div class=&quot;searchwrap&quot;><input class=&quot;search&quot; type=&quot;text&quot; placeholder=&quot;Search features…&quot; aria-label=&quot;Global search&quot; disabled></div>
+            <span class=&quot;btn ghost&quot;>+ ADD FEATURE</span>
+            <span class=&quot;btn ghost&quot;>SAVE PROJECT</span>
+          </div>
+          <div class=&quot;db-empty&quot;>
+            <div class=&quot;ico&quot;>▦</div>
+            <b>No sequences loaded</b>
+            <p>Import a FASTA, GenBank or GFF3 file and its records will be listed here with every annotation they carry.</p>
+            <div class=&quot;btnrow&quot;>
+              <span class=&quot;btn dark&quot;>IMPORT FASTA</span><span class=&quot;btn dark&quot;>IMPORT GENBANK</span><span class=&quot;btn dark&quot;>IMPORT GFF3</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- (5) POPULATED HUB — shown for nucleotide AND protein; accent is amber either way -->
+        <div class=&quot;sess sess-nuc sess-prot table-card&quot;>
+          <div class=&quot;card-head&quot;>
+            <div class=&quot;card-title&quot;><b>DATABASE HUB</b><small>1 SEQUENCES · 6 ANNOTATIONS</small></div>
+            <div class=&quot;searchwrap&quot;><input class=&quot;search&quot; type=&quot;text&quot; placeholder=&quot;Search features…&quot; aria-label=&quot;Global search&quot;></div>
+            <button class=&quot;btn amber&quot;>+ ADD FEATURE</button>
+            <div class=&quot;btnrow&quot;>
+              <span class=&quot;btn dark&quot;>FASTA</span><span class=&quot;btn dark&quot;>GENBANK</span><span class=&quot;btn dark&quot;>GFF3</span><span class=&quot;btn dark&quot;>SAVE PROJECT</span>
+              <span class=&quot;btn red&quot;>CLEAR ALL</span>
+            </div>
+          </div>
+          <table class=&quot;db&quot;>
+            <thead><tr><th>TYPE / STRAND</th><th>DESCRIPTOR</th><th>LOCATION</th><th class=&quot;num&quot;>LENGTH (BP)</th><th>ACTIONS</th></tr></thead>
+            <tbody>
+              <tr class=&quot;parent&quot;><td colspan=&quot;4&quot;><div class=&quot;pname&quot;><span class=&quot;cb&quot;></span><b>SCU49845</b><i>Saccharomyces cerevisiae TCP1-beta gene…</i><span class=&quot;cnt&quot;>(6 ANNOTATIONS)</span></div></td><td class=&quot;acts&quot;><span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>source</span></td><td>—</td><td class=&quot;loc&quot;>1..5028</td><td class=&quot;num&quot;>5,028</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s plus&quot;>+</span></span></td><td>TCP1-beta</td><td class=&quot;loc&quot;>&amp;lt;1..206</td><td class=&quot;num&quot;>206</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>GENE <span class=&quot;s plus&quot;>+</span></span></td><td>AXL2</td><td class=&quot;loc&quot;>687..3158</td><td class=&quot;num&quot;>2,472</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s plus&quot;>+</span></span></td><td>Axl2p</td><td class=&quot;loc&quot;>687..3158</td><td class=&quot;num&quot;>2,472</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>GENE <span class=&quot;s minus&quot;>−</span></span></td><td>REV7</td><td class=&quot;loc&quot;>complement(3300..4037)</td><td class=&quot;num&quot;>738</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s minus&quot;>−</span></span></td><td>Rev7p</td><td class=&quot;loc&quot;>complement(3300..4037)</td><td class=&quot;num&quot;>738</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STATUS BAR — carries the second (and last) .hf-env -->
+    <div class=&quot;status&quot;>
+      <div class=&quot;hf-env&quot;></div>
+      <span>DUNCEIOUS V3.4.0 · AGPL-3.0-OR-LATER · SOURCE CODE</span>
+      <span><span class=&quot;diamond&quot;>◇</span> <b data-env-label>NO</b> SESSION · BUILT FOR SCIENCE · © 2026</span>
+    </div>
+  </div>
+
+  <div class=&quot;caption&quot;>
+    <span class=&quot;n&quot; id=&quot;capName&quot;>LAYERED LIGHT</span>
+    <span class=&quot;body-txt&quot;>
+      <span id=&quot;capFeel&quot;></span>
+      <span class=&quot;state&quot; id=&quot;capState&quot;></span>
+      <span class=&quot;flat&quot; id=&quot;capFlat&quot;></span>
+    </span>
+  </div>
+  <p class=&quot;footnote&quot;>Draft fidelity — layout is schematic, and the protein content (residue strip, hydropathy, secondary
+    structure) is an illustrative motif, not Rev7p's real sequence. In every style the gradient is confined to the two
+    <code class=&quot;mono&quot;>.hf-env</code> layers inside the dark nav and status bar; the toolbar/ruler band, the white canvas,
+    both sequence tracks, the white Hub table card and the cream Hub backdrop are flat in all nine.
+    <strong>One open decision is baked into this file:</strong> nucleotide's <code class=&quot;mono&quot;>--env3</code> is shown as
+    <code class=&quot;mono&quot;>#0d9488</code> (teal-600) instead of the existing <code class=&quot;mono&quot;>#6366f1</code> (indigo), because
+    indigo sits 15.6° from the protein anchor in OKLCH and makes nucleotide and protein chrome hard to tell apart. It is
+    marked as a proposal in the CSS and is one line to revert. The frame stays dark-chrome-over-working-surface in both page
+    themes — that pairing is the product.</p>
+</main>
+
+<script>
+  const app = document.getElementById(&quot;app&quot;);
+  const root = document.documentElement;
+  const sessSeg = document.getElementById(&quot;sessSeg&quot;);
+  const modeSeg = document.getElementById(&quot;modeSeg&quot;);
+  const nsSeg = document.getElementById(&quot;nsSeg&quot;);
+  const nsGroup = document.getElementById(&quot;nsGroup&quot;);
+  const styleSeg = document.getElementById(&quot;styleSeg&quot;);
+  const capName = document.getElementById(&quot;capName&quot;);
+  const capFeel = document.getElementById(&quot;capFeel&quot;);
+  const capState = document.getElementById(&quot;capState&quot;);
+  const capFlat = document.getElementById(&quot;capFlat&quot;);
+
+  /* ---------------------------------------------------------------
+     EXACT mirror of src/app/logic/environment.ts. The null check runs
+     FIRST, so no-file wins over the hub check on both tabs. If that
+     file changes, change this — the prototype must not invent its own
+     resolution.
+     --------------------------------------------------------------- */
+  function resolveEnvAccent(activeTab, moleculeType) {
+    if (moleculeType === null) return &quot;none&quot;;
+    if (activeTab === &quot;features&quot;) return &quot;hub&quot;;
+    return moleculeType;
+  }
+
+  let ACTIVE_TAB = &quot;alignment&quot;;   // 'alignment' | 'features'
+  let MOLECULE = null;            // 'nucleotide' | 'protein' | null
+
+  /* The status word keys off the RESOLVED accent, so the label and the
+     chrome colour can never disagree — there is only one lookup. */
+  const SESSION_WORD = {
+    none: &quot;NO&quot;,
+    nucleotide: &quot;NUCLEOTIDE&quot;,
+    protein: &quot;PROTEIN&quot;,
+    hub: &quot;DATABASE HUB&quot;
+  };
+
+  const ENV_NOTE = {
+    none: &quot;no accent at all. resolveEnvAccent tests for a null moleculeType BEFORE it tests the tab, so an empty session keeps neutral chrome in the Database Hub too — the Hub does not go amber until something is actually loaded.&quot;,
+    nucleotide: &quot;sky (#0ea5e9 · #22d3ee · #0d9488). The viewport shows the molecule's own colour.&quot;,
+    protein: &quot;violet (#a78bfa · #d8b4fe · #c026d3). The viewport shows the molecule's own colour; the family fans one-sided into magenta so it can never drift back toward sky.&quot;,
+    hub: &quot;amber (#f59e0b · #fbbf24 · #f97316). In the Database Hub the task is what matters, so the accent reads amber whichever molecule is loaded.&quot;
+  };
+
+  const SESSION_LABEL = { none: &quot;No file&quot;, nucleotide: &quot;Nucleotide&quot;, protein: &quot;Protein&quot; };
+  const TAB_LABEL = { alignment: &quot;Viewport&quot;, features: &quot;Hub&quot; };
+
+  function stateIndex(tab, mol) {
+    if (mol === null) return tab === &quot;features&quot; ? 2 : 1;
+    if (tab === &quot;features&quot;) return 5;
+    return mol === &quot;nucleotide&quot; ? 3 : 4;
+  }
+
+  const FLAT_DEFAULT =
+    &quot;Confirmed flat: the toolbar/ruler band, the white viewport canvas, both sequence tracks, the white Hub table card and the cream Hub backdrop carry no wash — only the two .hf-env layers paint, and overflow:hidden clips them to the bars.&quot;;
+
+  const STYLES = {
+    &quot;clean&quot;: {
+      name: &quot;A · CLEAN&quot;,
+      feel: &quot;The flat baseline — a thin accent edge strip at the chrome→canvas boundary plus tinted chrome accents (wordmark hex, active mode pill, minimap region, status diamond). The .hf-env layers render nothing at all.&quot;,
+      flat: &quot;Nothing washes anywhere: both header and footer bars are flat #0f172a, every data surface and the toolbar are untouched, and the active mode pill carries only its flat tint — no bloom. This is the true zero-gradient baseline.&quot;
+    },
+    &quot;layered-light&quot;: {
+      name: &quot;LAYERED LIGHT&quot;,
+      feel: &quot;Calm instrument light — as if two soft lamps sit just outside the frame, spilling colour along the outer edge of the chrome without ever glaring into the workspace. Every light core is positioned outside the bar, so only the soft shoulder crosses the glass; the footer is a mirrored echo lit from the bottom corners at ~35% strength.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;aurora&quot;: {
+      name: &quot;AURORA BANDS&quot;,
+      feel: &quot;Cold light seen from a long way off — five narrow luminous curtains standing along the bar's lower horizon, screened over the navy with genuine dark gaps between them. A vertical mask pools the glow below the text baseline; the 30px footer re-runs the field at 0.66 opacity with tighter blur so the banding survives the shorter strip.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;beam&quot;: {
+      name: &quot;LIGHT BEAM&quot;,
+      feel: &quot;A precise bar of light laid along the instrument — a 2px hot core with spectral tails, seated at 78% of the header height so it rides below the wordmark, mode pill and tools. One slow specular glint drifts along it. The footer is a thinner 1.5px echo seated mid-bar.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;conic&quot;: {
+      name: &quot;CONIC SHEEN&quot;,
+      feel: &quot;A faint oil-slick shimmer breathing beneath the chrome — instrument-grade iridescence. The conic's origin sits above the bar so its pinwheel hub never enters the strip; a radial mask feathers both far ends. The footer runs quieter and flatter, a single soft tint rather than visible bands.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;mesh-grain&quot;: {
+      name: &quot;MESH + GRAIN&quot;,
+      feel: &quot;A dark instrument panel with a faint aurora bleeding in from the corners — warm chamber in the Hub, cold light table in the Viewport — sealed under a fine static film grain so the bar feels like coated glass. The footer drops to two flatter washes hugging the top seam with lighter grain.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;underglow-rail&quot;: {
+      name: &quot;UNDERGLOW RAIL&quot;,
+      feel: &quot;A lit instrument rail glows along the bar's inner edge — header bottom, footer top — fed from one bright corner source that breathes almost imperceptibly. The bloom is confined to the inner quarter, so the vertical centre where the text sits stays dark. The footer rail is a 1px, fainter echo.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;light-shaft&quot;: {
+      name: &quot;PRISM SHAFTS&quot;,
+      feel: &quot;Angled volumetric beams rake across the dark bar like sunlight through a slit blind — a near layer and a far layer at slightly different angles, counter-drifting for parallax. In a letterbox strip they read as diagonal streaks, never blobs. The footer drops both layers to a quiet 0.6 / 0.42.&quot;,
+      flat: FLAT_DEFAULT
+    },
+    &quot;duotone-drift&quot;: {
+      name: &quot;DUOTONE DRIFT&quot;,
+      feel: &quot;A calm two-hue tide across the chrome — the accent pools at each edge and the seam drifts so slowly you feel it more than see it. The minimal end of the set: the 'better flat'. The footer runs the identical recipe at 0.6 gain and half drift amplitude.&quot;,
+      flat: FLAT_DEFAULT
+    }
+  };
+
+  function renderState() {
+    const env = resolveEnvAccent(ACTIVE_TAB, MOLECULE);
+    const molKey = MOLECULE === null ? &quot;none&quot; : MOLECULE;
+    const n = stateIndex(ACTIVE_TAB, MOLECULE);
+    const nsNote = env === &quot;none&quot;
+      ? &quot; No-session chrome is set to &quot; + (app.getAttribute(&quot;data-nosession&quot;) === &quot;flat&quot;
+          ? &quot;FLAT — the .hf-env layers are held at opacity 0, so both bars are bare #0f172a. Loading a file fades the gradient in over the same 650ms the tokens interpolate.&quot;
+          : &quot;NEUTRAL (recommended) — the selected style still paints, through a luminance-matched grey family. Shape, motion and mask all survive; only the hue is gone, so loading a file blooms grey → sky / violet / amber.&quot;)
+      : &quot;&quot;;
+    capState.innerHTML = &quot;&quot;;
+    const head = document.createElement(&quot;b&quot;);
+    head.textContent = &quot;STATE &quot; + n + &quot;/5 · &quot; + SESSION_LABEL[molKey] + &quot; + &quot; + TAB_LABEL[ACTIVE_TAB] +
+      &quot; → data-env=\&quot;&quot; + env + &quot;\&quot;&quot;;
+    const rest = document.createElement(&quot;em&quot;);
+    rest.textContent = &quot; — &quot; + ENV_NOTE[env] + nsNote;
+    capState.appendChild(head);
+    capState.appendChild(rest);
+  }
+
+  /* Accent is DERIVED, never set directly. data-tab drives layout and the
+     active mode pill; data-mol drives body content; data-env drives accent
+     and nothing else. */
+  function applyEnv() {
+    const env = resolveEnvAccent(ACTIVE_TAB, MOLECULE);
+    app.setAttribute(&quot;data-tab&quot;, ACTIVE_TAB);
+    app.setAttribute(&quot;data-mol&quot;, MOLECULE === null ? &quot;none&quot; : MOLECULE);
+    app.setAttribute(&quot;data-env&quot;, env);
+    /* the demo page's own chrome (control pills, caption rule) follows the
+       same accent; every app-functional selector is .app-scoped so this is
+       token-only and cannot leak layout rules onto the page. */
+    root.setAttribute(&quot;data-env&quot;, env);
+    document.querySelectorAll(&quot;[data-env-label]&quot;).forEach(el => {
+      el.textContent = SESSION_WORD[env];
+    });
+    nsGroup.classList.toggle(&quot;muted&quot;, env !== &quot;none&quot;);
+    renderState();
+  }
+
+  function setSession(mol) {
+    MOLECULE = mol === &quot;none&quot; ? null : mol;
+    sessSeg.querySelectorAll(&quot;button&quot;).forEach(b => {
+      const on = b.dataset.mol === mol;
+      b.classList.toggle(&quot;on&quot;, on);
+      b.setAttribute(&quot;aria-pressed&quot;, String(on));
+    });
+    applyEnv();
+  }
+
+  /* The Mode segment drives the TAB only — it can no longer set the accent. */
+  function setMode(mode) {
+    ACTIVE_TAB = mode === &quot;hub&quot; ? &quot;features&quot; : &quot;alignment&quot;;
+    modeSeg.querySelectorAll(&quot;button&quot;).forEach(b => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle(&quot;on&quot;, on);
+      b.setAttribute(&quot;aria-pressed&quot;, String(on));
+    });
+    applyEnv();
+  }
+
+  function setNoSession(opt) {
+    app.setAttribute(&quot;data-nosession&quot;, opt);
+    nsSeg.querySelectorAll(&quot;button&quot;).forEach(b => {
+      const on = b.dataset.ns === opt;
+      b.classList.toggle(&quot;on&quot;, on);
+      b.setAttribute(&quot;aria-pressed&quot;, String(on));
+    });
+    renderState();
+  }
+
+  function setStyle(key) {
+    const s = STYLES[key];
+    if (!s) return;
+    app.setAttribute(&quot;data-hfstyle&quot;, key);
+    styleSeg.querySelectorAll(&quot;button&quot;).forEach(b => b.classList.toggle(&quot;on&quot;, b.dataset.hfstyle === key));
+    capName.textContent = s.name;
+    capFeel.textContent = s.feel;
+    capFlat.textContent = s.flat;
+  }
+
+  sessSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setSession(b.dataset.mol); });
+  modeSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setMode(b.dataset.mode); });
+  nsSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setNoSession(b.dataset.ns); });
+  styleSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setStyle(b.dataset.hfstyle); });
+
+  /* Boot: MOLECULE starts null, so the page opens in state 1 — no session,
+     Viewport, no accent — which is what a first-time user actually sees. */
+  setNoSession(&quot;neutral&quot;);
+  setSession(&quot;none&quot;);
+  setMode(&quot;viewport&quot;);
+  setStyle(&quot;layered-light&quot;);
+</script>
+</body></html>"></iframe>
+  <iframe id="in-context" title="Frame vs Data (A/B/C)" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><meta charset=&quot;UTF-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>Environment Accent — chrome-confined, in the real Dunceious frame</title><style>*{box-sizing:border-box}body{margin:0}</style></head><body>
+
+<style>
+/* ============================================================
+   @property token machinery: a Mode flip interpolates --env
+   across the whole frame in ~650ms. Calm at rest, rich on switch.
+   THE RULE: the accent lives in the FRAME (dark chrome + the
+   non-data cream/matte backdrop). It NEVER washes the white
+   viewport canvas or the white Hub table card. Only a thin
+   accent EDGE STRIP is allowed to touch the white boundary.
+   ============================================================ */
+@property --env  { syntax: &quot;<color>&quot;; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #6366f1; }
+
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, sans-serif;
+  --mono: ui-monospace, &quot;SF Mono&quot;, &quot;JetBrains Mono&quot;, &quot;Cascadia Code&quot;, Menlo, Consolas, monospace;
+  /* page chrome (area AROUND the app) — theme-aware */
+  --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626;
+  /* fixed app surfaces — the frame commits to one world on purpose */
+  --nav: #0f172a; --nav-2: #0b1120; --canvas: #ffffff; --canvas-2: #eef2f7;
+  --cream: #fffdf7; --cream-2: #f6f0e4;
+  --ink-mute: #8ea0ba; --canvas-ink: #334155; --canvas-mute: #64748b;
+  --grain: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);
+}
+:root, [data-env=&quot;viewport&quot;] { --env: #0ea5e9; --env2: #22d3ee; --env3: #6366f1; }
+[data-env=&quot;hub&quot;]            { --env: #f59e0b; --env2: #fbbf24; --env3: #f97316; }
+.app { transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease; }
+
+@media (prefers-color-scheme: light) {
+  :root { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+}
+:root[data-theme=&quot;light&quot;] { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+:root[data-theme=&quot;dark&quot;]  { --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--sans);
+  -webkit-font-smoothing: antialiased; transition: background 350ms ease, color 350ms ease; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 22px; }
+h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 6px; letter-spacing: -.015em; font-weight: 650; }
+.sub { color: var(--page-muted); margin: 0 0 20px; max-width: 78ch; font-size: .95rem; }
+.eyebrow { font-family: var(--mono); font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: var(--page-muted); margin: 0 0 8px; }
+.mono { font-family: var(--mono); }
+
+/* ---------- control bar ---------- */
+.controls { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--page-bg) 86%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--page-line); }
+.controls-in { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 12px 22px; max-width: 1200px; margin: 0 auto; }
+.ctl-label { font-family: var(--mono); font-size: .6rem; letter-spacing: .16em; text-transform: uppercase; color: var(--page-muted); margin-right: -10px; }
+.seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--page-panel); border: 1px solid var(--page-line); border-radius: 999px; }
+.seg button { font-family: var(--mono); font-size: .72rem; color: var(--page-muted); background: transparent; border: 0; cursor: pointer;
+  padding: 6px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; transition: color .2s, background .2s; }
+.seg button .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.seg button[data-env=&quot;viewport&quot;] .dot { color: #0ea5e9; background: #0ea5e9; }
+.seg button[data-env=&quot;hub&quot;] .dot { color: #f59e0b; background: #f59e0b; }
+.seg button.on { color: var(--page-ink); background: color-mix(in srgb, var(--env) 24%, var(--page-panel)); }
+.presets { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font-family: var(--mono); font-size: .68rem; color: var(--page-muted); background: var(--page-panel);
+  border: 1px solid var(--page-line); cursor: pointer; padding: 7px 12px; border-radius: 9px; transition: .18s; position: relative; }
+.presets button:hover { color: var(--page-ink); }
+.presets button.on { color: var(--page-ink); border-color: color-mix(in srgb, var(--env) 60%, transparent);
+  background: color-mix(in srgb, var(--env) 16%, var(--page-panel)); }
+.presets button .rec { position: absolute; top: -8px; right: -6px; font-size: .5rem; letter-spacing: .1em;
+  background: #10b981; color: #04120c; padding: 1px 5px; border-radius: 6px; }
+.seg button:focus-visible, .presets button:focus-visible { outline: 2px solid var(--env); outline-offset: 2px; }
+
+/* ============================================================
+   APP FRAME
+   ============================================================ */
+.app { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid rgba(0,0,0,.5);
+  box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); aspect-ratio: 16 / 9; min-height: 480px;
+  display: grid; grid-template-rows: 58px 1fr 30px; background: var(--nav); }
+
+/* ---- shared chrome env layer (dark surfaces) — presets B &amp; C ---- */
+.chrome-env { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease;
+  background:
+    radial-gradient(62% 190% at 16% 0%,  color-mix(in srgb, var(--env2) 44%, transparent), transparent 60%),
+    radial-gradient(52% 170% at 84% 0%,  color-mix(in srgb, var(--env)  34%, transparent), transparent 62%),
+    radial-gradient(74% 210% at 56% 130%, color-mix(in srgb, var(--env3) 26%, transparent), transparent 66%); }
+[data-preset=&quot;b&quot;] .chrome-env, [data-preset=&quot;c&quot;] .chrome-env { opacity: 1; }
+
+/* ---- TOP NAV (constant baseline across every preset) ---- */
+.nav { position: relative; background: var(--nav); display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  z-index: 3; border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden; }
+.nav > *:not(.chrome-env) { position: relative; z-index: 2; }
+.iconbtn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: var(--nav-2);
+  color: var(--ink-mute); display: grid; place-items: center; font-size: 13px; cursor: default; flex: none; }
+.hamb { display: flex; flex-direction: column; gap: 3px; }
+.hamb i { width: 13px; height: 2px; background: currentColor; border-radius: 2px; }
+.wordmark { display: flex; flex-direction: column; line-height: 1; }
+.wordmark b { font-style: italic; font-weight: 800; letter-spacing: .06em; color: #fff; font-size: .92rem; }
+.wordmark b::before { content: &quot;⬡&quot;; color: var(--env); margin-right: 5px; font-style: normal; transition: color .65s; }
+.wordmark span { font-family: var(--mono); font-size: .5rem; letter-spacing: .1em; color: var(--ink-mute); margin-top: 3px; }
+
+.modesw { display: flex; background: var(--nav-2); border: 1px solid rgba(148,163,184,.16); border-radius: 9px; overflow: hidden; margin-left: 4px; }
+.mcell { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: default; position: relative; overflow: hidden; }
+.mcell + .mcell { border-left: 1px solid rgba(148,163,184,.14); }
+.mcell .g { font-size: 15px; color: var(--ink-mute); position: relative; z-index: 2; }
+.mcell .t { display: flex; flex-direction: column; line-height: 1.15; position: relative; z-index: 2; }
+.mcell .t small { font-family: var(--mono); font-size: .5rem; letter-spacing: .12em; color: var(--ink-mute); }
+.mcell .t b { font-size: .72rem; color: var(--ink-mute); font-weight: 650; }
+[data-env=&quot;viewport&quot;] .mcell.view, [data-env=&quot;hub&quot;] .mcell.manage { background: color-mix(in srgb, var(--env) 20%, var(--nav-2)); }
+[data-env=&quot;viewport&quot;] .mcell.view .t b, [data-env=&quot;hub&quot;] .mcell.manage .t b { color: #fff; }
+[data-env=&quot;viewport&quot;] .mcell.view .g, [data-env=&quot;hub&quot;] .mcell.manage .g { color: var(--env); }
+.pill-bloom { position: absolute; inset: -8px; z-index: 0; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--env) 65%, transparent), transparent); filter: blur(8px); }
+[data-env=&quot;viewport&quot;][data-preset=&quot;b&quot;] .mcell.view .pill-bloom, [data-env=&quot;viewport&quot;][data-preset=&quot;c&quot;] .mcell.view .pill-bloom,
+[data-env=&quot;hub&quot;][data-preset=&quot;b&quot;] .mcell.manage .pill-bloom, [data-env=&quot;hub&quot;][data-preset=&quot;c&quot;] .mcell.manage .pill-bloom { opacity: 1; }
+
+.tools { display: flex; gap: 6px; }
+.tools .iconbtn.act { color: #fff; border-color: rgba(148,163,184,.4); background: #1c2740; }
+.spacer { flex: 1; }
+.toggles { display: flex; gap: 6px; }
+.tgl { font-family: var(--mono); font-size: .56rem; letter-spacing: .08em; padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; background: transparent; }
+.tgl.cyan { color: #22d3ee; } .tgl.violet { color: #a78bfa; } .tgl.green { color: #34d399; } .tgl.gray { color: #475569; border-style: dashed; }
+
+/* ---- BODY holds one of two mode layouts ---- */
+.body { position: relative; z-index: 1; overflow: hidden; }
+[data-env=&quot;viewport&quot;] .mode-hub { display: none; }
+[data-env=&quot;hub&quot;] .mode-viewport { display: none; }
+
+/* ===== VIEWPORT MODE ===== */
+.mode-viewport { height: 100%; display: grid; grid-template-rows: 52px 1fr; }
+.ruler { position: relative; background: var(--nav-2); border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 14px; }
+.ruler > *:not(.chrome-env) { position: relative; z-index: 2; }
+.minimap { display: flex; align-items: center; gap: 10px; }
+.mmtrack { position: relative; flex: 1; height: 20px; border-radius: 5px; background: #0a1120; border: 1px solid rgba(148,163,184,.14); overflow: hidden; }
+.mmtrack::after { content: &quot;&quot;; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(148,163,184,.16) 0 1px, transparent 1px 46px); }
+.mmregion { position: absolute; inset: 0 auto 0 0; width: 33%; background: color-mix(in srgb, var(--env) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--env) 70%, transparent); border-radius: 4px; transition: background .65s, border-color .65s; }
+.mmnums { display: flex; font-family: var(--mono); font-size: .5rem; color: var(--ink-mute); flex: 1; justify-content: space-between; }
+.mmctl { display: flex; gap: 5px; align-items: center; }
+.mmctl input { width: 78px; height: 22px; background: #0a1120; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; color: var(--ink-mute); font-family: var(--mono); font-size: .58rem; padding: 0 7px; }
+.mmctl .b { font-family: var(--mono); font-size: .58rem; color: var(--ink-mute); background: #131d33; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; padding: 3px 8px; min-width: 22px; text-align: center; }
+.coords { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .52rem; color: var(--ink-mute); padding: 0 150px 0 90px; }
+
+.canvas-wrap { position: relative; padding: 0; transition: padding .5s ease; }
+/* preset C: a slim matte frame around the clean canvas + an edge-bloom from the nav */
+.vp-matte { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .6s; pointer-events: none;
+  background:
+    radial-gradient(120% 55% at 50% -25%, color-mix(in srgb, var(--env) 42%, transparent), transparent 55%),
+    radial-gradient(60% 120% at 0% 50%, color-mix(in srgb, var(--env2) 24%, transparent), transparent 60%),
+    radial-gradient(60% 120% at 100% 50%, color-mix(in srgb, var(--env3) 22%, transparent), transparent 60%); }
+[data-preset=&quot;c&quot;] .canvas-wrap { padding: 12px; }
+[data-preset=&quot;c&quot;] .vp-matte { opacity: 1; }
+
+/* the WHITE data surface — always clean */
+.canvas { position: relative; background: var(--canvas); border-radius: 6px; overflow: hidden; height: 100%; }
+/* the ONLY thing allowed to touch the white: a thin accent edge strip at the boundary */
+.edge-strip { position: absolute; left: 0; right: 0; height: 20px; z-index: 5; pointer-events: none; }
+.edge-strip.top { top: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 46%, transparent),
+  color-mix(in srgb, var(--env) 11%, transparent) 55%, transparent); }
+.edge-strip.bottom { bottom: 0; background: linear-gradient(to top, color-mix(in srgb, var(--env) 40%, transparent),
+  color-mix(in srgb, var(--env) 10%, transparent) 55%, transparent); }
+
+.ws-inner { position: relative; z-index: 2; height: 100%; display: grid; grid-template-columns: 90px 1fr; }
+.gutter { border-right: 1px solid var(--canvas-2); display: flex; flex-direction: column; padding: 26px 8px 8px; gap: 12px; }
+.gutter .lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .1em; color: var(--canvas-mute); }
+.gutter .rec2 { font-family: var(--mono); font-size: .58rem; color: #0f172a; background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; text-align: center; }
+.main { padding: 8px 16px; display: flex; flex-direction: column; gap: 9px; overflow: hidden; }
+.section-lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .14em; color: var(--canvas-mute); margin-top: 4px; }
+.annot-bar { height: 22px; border-radius: 5px; background: linear-gradient(180deg, #eef2f7, #e2e8f0); border: 1px solid #dbe2ea; }
+.feat { height: 20px; border-radius: 5px; display: flex; align-items: center; padding: 0 8px; font-family: var(--mono); font-size: .52rem; letter-spacing: .06em; }
+.feat.pink { width: 34%; border: 1.5px solid #ec4899; color: #be185d; background: rgba(236,72,153,.08); }
+.feat.cyan { width: 42%; margin-left: 56%; border: 1.5px solid #06b6d4; color: #0e7490; background: rgba(6,182,212,.08); }
+.feat.violet { width: 42%; margin-left: 56%; border: 1.5px solid #8b5cf6; color: #6d28d9; background: rgba(139,92,246,.08); }
+.seqtrack { height: 46px; border-radius: 5px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  background: repeating-linear-gradient(90deg, #22c55e 0 3px, #f97316 3px 6px, #ef4444 6px 9px, #3b82f6 9px 12px); }
+.frame-lanes { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.lane { height: 14px; border-radius: 4px; background: #eef2f7; border: 1px solid #e2e8f0; }
+
+/* ===== HUB MODE ===== */
+.mode-hub { position: relative; height: 100%; background: var(--cream); overflow: auto; padding: 22px; }
+.hub-field { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .6s; pointer-events: none;
+  background:
+    radial-gradient(46% 60% at 10% 16%, color-mix(in srgb, var(--env) 32%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 92% 88%, color-mix(in srgb, var(--env2) 28%, transparent), transparent 62%),
+    radial-gradient(64% 66% at 62% 112%, color-mix(in srgb, var(--env3) 22%, transparent), transparent 64%); }
+.hub-grain { position: absolute; inset: 0; z-index: 1; opacity: 0; pointer-events: none; background-image: var(--grain); mix-blend-mode: multiply; transition: opacity .6s; }
+[data-preset=&quot;c&quot;] .hub-field { opacity: 1; }
+[data-preset=&quot;c&quot;] .hub-grain { opacity: .45; }
+/* thin accent strip at the nav→cream boundary */
+.hub-edge { position: absolute; top: 0; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 42%, transparent), transparent); }
+
+/* the WHITE table card — always clean, floats on the cream */
+.table-card { position: relative; z-index: 3; background: #fff; border: 1px solid #ece3d0; border-radius: 12px;
+  box-shadow: 0 18px 40px -18px rgba(120,80,10,.35), 0 2px 8px rgba(0,0,0,.06); padding: 14px 16px; max-width: 1040px; margin: 0 auto; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 12px; }
+.card-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+.card-title b { font-size: .95rem; color: #1f2937; letter-spacing: .02em; }
+.card-title small { font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; color: var(--env); font-weight: 600; }
+.searchwrap { position: relative; }
+.searchwrap::before { content: &quot;⌕&quot;; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; }
+.search { height: 28px; width: 190px; border: 1px solid #e2e0d6; border-radius: 7px; background: #fbf9f4; padding: 0 10px 0 26px; font-size: .72rem; color: #475569; }
+.btn { font-family: var(--mono); font-size: .58rem; letter-spacing: .05em; border-radius: 7px; padding: 7px 10px; border: 1px solid transparent; cursor: default; }
+.btn.amber { background: var(--env); color: #3a2600; font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--env) 40%, transparent); transition: background .65s; }
+.btn.dark { background: #1e293b; color: #cbd5e1; }
+.btn.red { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+
+table.db { width: 100%; border-collapse: collapse; font-size: .68rem; }
+table.db th { text-align: left; font-family: var(--mono); font-size: .54rem; letter-spacing: .1em; color: #94a3b8; font-weight: 600;
+  padding: 7px 8px; border-bottom: 1px solid #eee6d6; }
+table.db td { padding: 8px; border-bottom: 1px solid #f2ece0; color: #374151; vertical-align: middle; }
+table.db td.num, table.db th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+table.db td.loc { font-family: var(--mono); color: #475569; font-variant-numeric: tabular-nums; }
+.parent { background: color-mix(in srgb, var(--env) 14%, #fff); transition: background .65s; }
+.parent td { border-bottom-color: color-mix(in srgb, var(--env) 24%, #f2ece0); }
+.pname { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.pname .cb { width: 13px; height: 13px; border: 1.5px solid var(--env); border-radius: 3px; background: color-mix(in srgb, var(--env) 30%, #fff); flex: none; }
+.pname b { color: #1f2937; font-size: .78rem; }
+.pname i { font-style: italic; color: #6b7280; font-weight: 400; }
+.pname .cnt { font-family: var(--mono); font-size: .52rem; color: var(--env); font-weight: 600; }
+.typepill { font-family: var(--mono); font-size: .54rem; letter-spacing: .04em; padding: 3px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; white-space: nowrap; }
+.typepill .s { font-weight: 700; }
+.typepill .s.plus { color: #2563eb; } .typepill .s.minus { color: #dc2626; }
+.acts { color: #cbd5e1; font-size: .8rem; white-space: nowrap; }
+.acts .t { color: #f0a4a4; }
+
+/* ---- STATUS BAR (constant baseline) ---- */
+.status { position: relative; background: var(--nav); border-top: 1px solid rgba(0,0,0,.4); display: flex; align-items: center;
+  justify-content: space-between; padding: 0 14px; font-family: var(--mono); font-size: .54rem; letter-spacing: .06em; color: var(--ink-mute); z-index: 3; overflow: hidden; }
+.status > span { position: relative; z-index: 2; }
+.status .diamond { color: var(--env); transition: color .65s; }
+.status b { color: var(--env); font-weight: 600; transition: color .65s; }
+
+/* ---- caption ---- */
+.caption { margin-top: 14px; padding: 13px 16px; border: 1px solid var(--page-line); border-radius: 10px; background: var(--page-panel);
+  font-size: .9rem; color: var(--page-ink); display: flex; gap: 12px; align-items: baseline; }
+.caption .n { font-family: var(--mono); font-size: .72rem; color: var(--env); flex: none; font-weight: 600; }
+.footnote { color: var(--page-muted); font-size: .8rem; margin-top: 12px; max-width: 82ch; }
+
+@media (max-width: 820px) {
+  .app { aspect-ratio: auto; min-height: 0; }
+  .mode-viewport { grid-template-rows: auto 320px; }
+  .mode-hub { min-height: 340px; }
+  .wordmark span, .mcell .t small, .toggles, .coords { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class=&quot;controls&quot;>
+  <div class=&quot;controls-in&quot;>
+    <span class=&quot;ctl-label&quot;>Mode</span>
+    <div class=&quot;seg&quot; id=&quot;modeSeg&quot; role=&quot;group&quot; aria-label=&quot;Environment mode&quot;>
+      <button type=&quot;button&quot; data-env=&quot;viewport&quot; class=&quot;on&quot; aria-pressed=&quot;true&quot;><span class=&quot;dot&quot;></span>Viewport</button>
+      <button type=&quot;button&quot; data-env=&quot;hub&quot; aria-pressed=&quot;false&quot;><span class=&quot;dot&quot;></span>Hub</button>
+    </div>
+    <span class=&quot;ctl-label&quot;>Treatment</span>
+    <div class=&quot;presets&quot; id=&quot;presetSeg&quot; role=&quot;group&quot; aria-label=&quot;Accent treatment&quot;>
+      <button type=&quot;button&quot; data-preset=&quot;a&quot;>A · Clean Instrument</button>
+      <button type=&quot;button&quot; data-preset=&quot;b&quot; class=&quot;on&quot;>B · Lit Chrome<span class=&quot;rec&quot;>REC</span></button>
+      <button type=&quot;button&quot; data-preset=&quot;c&quot;>C · Atmospheric</button>
+    </div>
+  </div>
+</div>
+
+<main class=&quot;wrap&quot;>
+  <p class=&quot;eyebrow&quot;>Round 3 · the accent, confined to the frame</p>
+  <h1>The rule: light up the frame, never the data.</h1>
+  <p class=&quot;sub&quot;>The white viewport canvas and the white Hub table card are working surfaces — nothing washes over them. The
+    environment lives in the dark chrome and the non-data backdrop, and the only thing touching the white is a thin accent
+    edge strip. Flip <strong>Mode</strong> to re-tint; pick a <strong>Treatment</strong> to compare three chrome-confined
+    designs. The nice chrome styling stays constant in all three.</p>
+
+  <div class=&quot;app&quot; data-env=&quot;viewport&quot; data-preset=&quot;b&quot; id=&quot;app&quot;>
+    <!-- TOP NAV -->
+    <div class=&quot;nav&quot;>
+      <div class=&quot;chrome-env&quot;></div>
+      <button class=&quot;iconbtn hamb&quot; aria-label=&quot;Menu&quot;><i></i><i></i><i></i></button>
+      <div class=&quot;wordmark&quot;><b>DUNCEIOUS</b><span>BECAUSE INTELLIGENCE IS OVERPRICED.</span></div>
+      <div class=&quot;modesw&quot;>
+        <div class=&quot;mcell view&quot;><span class=&quot;pill-bloom&quot;></span><span class=&quot;g&quot;>⊕</span><span class=&quot;t&quot;><small>VIEW</small><b>VISUAL VIEWPORT</b></span></div>
+        <div class=&quot;mcell manage&quot;><span class=&quot;pill-bloom&quot;></span><span class=&quot;g&quot;>▦</span><span class=&quot;t&quot;><small>MANAGE</small><b>DATABASE HUB</b></span></div>
+      </div>
+      <div class=&quot;tools&quot;><button class=&quot;iconbtn act&quot; title=&quot;Pan&quot;>✋</button><button class=&quot;iconbtn&quot; title=&quot;Select&quot;>⌖</button></div>
+      <div class=&quot;spacer&quot;></div>
+      <div class=&quot;toggles&quot;>
+        <span class=&quot;tgl cyan&quot;>ANNOTATIONS</span><span class=&quot;tgl violet&quot;>TRACKS</span>
+        <span class=&quot;tgl green&quot;>TRANSLATION</span><span class=&quot;tgl gray&quot;>CONSERVATION</span>
+      </div>
+      <button class=&quot;iconbtn&quot; title=&quot;Settings&quot; style=&quot;border-radius:50%&quot;>⚙</button>
+    </div>
+
+    <!-- BODY: one of two layouts -->
+    <div class=&quot;body&quot;>
+
+      <!-- VIEWPORT LAYOUT -->
+      <div class=&quot;mode-viewport&quot;>
+        <div class=&quot;ruler&quot;>
+          <div class=&quot;chrome-env&quot;></div>
+          <div class=&quot;minimap&quot;>
+            <div class=&quot;mmtrack&quot;><div class=&quot;mmregion&quot;></div></div>
+            <div class=&quot;mmctl&quot;><input type=&quot;text&quot; placeholder=&quot;Go to…&quot; aria-label=&quot;Go to position&quot;><span class=&quot;b&quot;>FIT</span><span class=&quot;b&quot;>+</span><span class=&quot;b&quot;>−</span></div>
+          </div>
+          <div class=&quot;mmnums&quot;><span>200</span><span>400</span><span>600</span><span>800</span><span>1,000</span><span>2,000</span><span>3,000</span><span>4,000</span><span>5,000</span></div>
+          <div class=&quot;coords&quot;><span>0</span><span>500</span><span>1,000</span></div>
+        </div>
+        <div class=&quot;canvas-wrap&quot;>
+          <div class=&quot;vp-matte&quot;></div>
+          <div class=&quot;canvas&quot;>
+            <div class=&quot;edge-strip top&quot;></div>
+            <div class=&quot;edge-strip bottom&quot;></div>
+            <div class=&quot;ws-inner&quot;>
+              <div class=&quot;gutter&quot;>
+                <span class=&quot;lbl&quot;>ANNOT</span><span class=&quot;lbl&quot;>SEQUENCE</span>
+                <span class=&quot;lbl&quot;>F1</span><span class=&quot;lbl&quot;>F2</span><span class=&quot;lbl&quot;>F3</span>
+                <span class=&quot;rec2&quot;>SCU49845</span>
+                <span class=&quot;lbl&quot;>R1</span><span class=&quot;lbl&quot;>R2</span><span class=&quot;lbl&quot;>R3</span>
+              </div>
+              <div class=&quot;main&quot;>
+                <span class=&quot;section-lbl&quot;>ANNOTATIONS</span>
+                <div class=&quot;annot-bar&quot;></div>
+                <div class=&quot;feat pink&quot;>CDS · rev</div>
+                <div class=&quot;feat cyan&quot;>gene SCU49845</div>
+                <div class=&quot;feat violet&quot;>mRNA</div>
+                <span class=&quot;section-lbl&quot;>SEQUENCE</span>
+                <div class=&quot;seqtrack&quot;></div>
+                <div class=&quot;frame-lanes&quot;><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div><div class=&quot;lane&quot;></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUB LAYOUT -->
+      <div class=&quot;mode-hub&quot;>
+        <div class=&quot;hub-field&quot;></div>
+        <div class=&quot;hub-grain&quot;></div>
+        <div class=&quot;hub-edge&quot;></div>
+        <div class=&quot;table-card&quot;>
+          <div class=&quot;card-head&quot;>
+            <div class=&quot;card-title&quot;><b>DATABASE HUB</b><small>1 SEQUENCES · 6 ANNOTATIONS</small></div>
+            <div class=&quot;searchwrap&quot;><input class=&quot;search&quot; type=&quot;text&quot; placeholder=&quot;Search features…&quot; aria-label=&quot;Global search&quot;></div>
+            <button class=&quot;btn amber&quot;>+ ADD FEATURE</button>
+            <div class=&quot;btnrow&quot;>
+              <span class=&quot;btn dark&quot;>FASTA</span><span class=&quot;btn dark&quot;>GENBANK</span><span class=&quot;btn dark&quot;>GFF3</span><span class=&quot;btn dark&quot;>SAVE PROJECT</span>
+              <span class=&quot;btn red&quot;>CLEAR ALL</span>
+            </div>
+          </div>
+          <table class=&quot;db&quot;>
+            <thead><tr><th>TYPE / STRAND</th><th>DESCRIPTOR</th><th>LOCATION</th><th class=&quot;num&quot;>LENGTH (BP)</th><th>ACTIONS</th></tr></thead>
+            <tbody>
+              <tr class=&quot;parent&quot;><td colspan=&quot;4&quot;><div class=&quot;pname&quot;><span class=&quot;cb&quot;></span><b>SCU49845</b><i>Saccharomyces cerevisiae TCP1-beta gene…</i><span class=&quot;cnt&quot;>(6 ANNOTATIONS)</span></div></td><td class=&quot;acts&quot;><span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>source</span></td><td>—</td><td class=&quot;loc&quot;>1..5028</td><td class=&quot;num&quot;>5,028</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s plus&quot;>+</span></span></td><td>TCP1-beta</td><td class=&quot;loc&quot;>&amp;lt;1..206</td><td class=&quot;num&quot;>206</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>GENE <span class=&quot;s plus&quot;>+</span></span></td><td>AXL2</td><td class=&quot;loc&quot;>687..3158</td><td class=&quot;num&quot;>2,472</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s plus&quot;>+</span></span></td><td>Axl2p</td><td class=&quot;loc&quot;>687..3158</td><td class=&quot;num&quot;>2,472</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>GENE <span class=&quot;s minus&quot;>−</span></span></td><td>REV7</td><td class=&quot;loc&quot;>complement(3300..4037)</td><td class=&quot;num&quot;>738</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+              <tr><td><span class=&quot;typepill&quot;>CDS <span class=&quot;s minus&quot;>−</span></span></td><td>Rev7p</td><td class=&quot;loc&quot;>complement(3300..4037)</td><td class=&quot;num&quot;>738</td><td class=&quot;acts&quot;>✎ <span class=&quot;t&quot;>🗑</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class=&quot;status&quot;>
+      <div class=&quot;chrome-env&quot;></div>
+      <span>DUNCEIOUS V3.4.0 · AGPL-3.0-OR-LATER · SOURCE CODE</span>
+      <span><span class=&quot;diamond&quot;>◇</span> <b data-env-label data-viewport=&quot;NUCLEOTIDE&quot; data-hub=&quot;DATABASE HUB&quot;>NUCLEOTIDE</b> SESSION · BUILT FOR SCIENCE · © 2026</span>
+    </div>
+  </div>
+
+  <div class=&quot;caption&quot;><span class=&quot;n&quot; id=&quot;capNum&quot;>B</span><span id=&quot;capText&quot;></span></div>
+  <p class=&quot;footnote&quot;>Draft fidelity — layout is schematic. In every treatment the white viewport canvas and white Hub table
+    card stay pure; the accent only ever lives in the dark chrome, the cream/matte backdrop, and the thin boundary strip.
+    The frame stays dark-chrome-over-working-surface in both page themes — that pairing is the product.</p>
+</main>
+
+<script>
+  const app = document.getElementById(&quot;app&quot;);
+  const modeSeg = document.getElementById(&quot;modeSeg&quot;);
+  const presetSeg = document.getElementById(&quot;presetSeg&quot;);
+  const capNum = document.getElementById(&quot;capNum&quot;);
+  const capText = document.getElementById(&quot;capText&quot;);
+
+  const CAPS = {
+    a: [&quot;A&quot;, &quot;Clean Instrument — one accent edge strip at the chrome→canvas boundary, plus tinted chrome accents (mark, active mode pill, minimap region, status diamond). No atmospheric wash. The data surfaces stay pure white.&quot;],
+    b: [&quot;B&quot;, &quot;Lit Chrome (recommended) — the dark nav, ruler and status carry a layered-light environment and a bloom sits behind the active mode pill. The white canvas and table card stay pristine; the 'place' feeling lives entirely in the frame.&quot;],
+    c: [&quot;C&quot;, &quot;Atmospheric — Lit Chrome, plus the non-data backdrop glows: in Hub the cream around the table gets a soft amber field and faint grain; in Viewport a matte frame glows and an edge-bloom spills from the nav. It stops before the data — white surfaces stay clean.&quot;]
+  };
+
+  function setEnv(env) {
+    app.setAttribute(&quot;data-env&quot;, env);
+    modeSeg.querySelectorAll(&quot;button&quot;).forEach(b => {
+      const on = b.dataset.env === env;
+      b.classList.toggle(&quot;on&quot;, on);
+      b.setAttribute(&quot;aria-pressed&quot;, String(on));
+    });
+    document.querySelectorAll(&quot;[data-env-label]&quot;).forEach(el => {
+      el.textContent = env === &quot;hub&quot; ? el.dataset.hub : el.dataset.viewport;
+    });
+  }
+  function setPreset(p) {
+    app.setAttribute(&quot;data-preset&quot;, p);
+    presetSeg.querySelectorAll(&quot;button&quot;).forEach(b => b.classList.toggle(&quot;on&quot;, b.dataset.preset === p));
+    const [n, txt] = CAPS[p];
+    capNum.textContent = n;
+    capText.textContent = txt;
+  }
+
+  modeSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setEnv(b.dataset.env); });
+  presetSeg.addEventListener(&quot;click&quot;, e => { const b = e.target.closest(&quot;button&quot;); if (b) setPreset(b.dataset.preset); });
+
+  setEnv(&quot;viewport&quot;);
+  setPreset(&quot;b&quot;);
+</script>
+</body></html>"></iframe>
+  <iframe id="gallery" title="Technique Reference" srcdoc="<!DOCTYPE html><html lang=&quot;en&quot;><head><meta charset=&quot;UTF-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><title>Environment Accent Study — Dunceious</title><style>*{box-sizing:border-box}body{margin:0}</style></head><body>
+
+<style>
+/* ============================================================
+   TOKENS
+   Frame tokens (--bg, --ink, --panel, --line) are theme-aware.
+   Environment tokens (--env / --env2 / --env3) are mode-aware and
+   registered with @property so a mode flip *interpolates* the hue.
+   Specimen tiles (--spec) stay dark in both themes on purpose:
+   these are dark-first techniques, shown like slides on a bench.
+   ============================================================ */
+@property --env  { syntax: &quot;<color>&quot;; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: &quot;<color>&quot;; inherits: true; initial-value: #6366f1; }
+
+:root {
+  /* dark-first frame defaults */
+  --bg: #070b14;
+  --bg-2: #0b1220;
+  --panel: #0e1626;
+  --ink: #e6edf6;
+  --muted: #93a2b8;
+  --faint: #5b6b83;
+  --line: rgba(148,163,184,.14);
+  --line-strong: rgba(148,163,184,.26);
+  --spec: #080d17;          /* specimen tile base — always dark */
+  --spec-line: rgba(148,163,184,.10);
+  --radius: 16px;
+  --sans: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, sans-serif;
+  --mono: ui-monospace, &quot;SF Mono&quot;, &quot;JetBrains Mono&quot;, &quot;Cascadia Code&quot;, Menlo, Consolas, monospace;
+  --grain: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E&quot;);
+}
+
+/* Environment families. Default (no attr) = viewport. */
+:root, :root[data-env=&quot;viewport&quot;] { --env: #0ea5e9; --env2: #22d3ee; --env3: #6366f1; }
+:root[data-env=&quot;hub&quot;]            { --env: #f59e0b; --env2: #fbbf24; --env3: #f97316; }
+
+/* The one line that animates the whole page's hue on a mode flip. */
+:root { transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease; }
+
+/* Theme awareness: light overrides only the frame tokens. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #eef2f8; --bg-2: #e6ecf5; --panel: #ffffff;
+    --ink: #16202f; --muted: #536178; --faint: #8391a8;
+    --line: rgba(30,41,59,.12); --line-strong: rgba(30,41,59,.22);
+  }
+}
+:root[data-theme=&quot;light&quot;] {
+  --bg: #eef2f8; --bg-2: #e6ecf5; --panel: #ffffff;
+  --ink: #16202f; --muted: #536178; --faint: #8391a8;
+  --line: rgba(30,41,59,.12); --line-strong: rgba(30,41,59,.22);
+}
+:root[data-theme=&quot;dark&quot;] {
+  --bg: #070b14; --bg-2: #0b1220; --panel: #0e1626;
+  --ink: #e6edf6; --muted: #93a2b8; --faint: #5b6b83;
+  --line: rgba(148,163,184,.14); --line-strong: rgba(148,163,184,.26);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background 400ms ease, color 400ms ease;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* ---- shared type ---- */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .70rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; font-weight: 650; letter-spacing: -.015em; }
+a { color: var(--env); }
+
+/* ============================================================
+   STICKY CHROME BAR — holds the single global mode switch
+   ============================================================ */
+header.chrome {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+}
+.chrome-in { display: flex; align-items: center; gap: 16px; height: 60px; }
+.mark { font-family: var(--mono); font-size: .82rem; letter-spacing: .04em; color: var(--ink); font-weight: 600; }
+.mark b { color: var(--env); transition: color 650ms ease; }
+.mark span { color: var(--faint); }
+.chrome-spacer { flex: 1; }
+
+/* segmented switch */
+.switch {
+  display: inline-flex; padding: 4px; gap: 4px;
+  background: var(--bg-2); border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+.switch button {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: .74rem; letter-spacing: .04em;
+  color: var(--muted); background: transparent;
+  border: 0; cursor: pointer; padding: 7px 14px; border-radius: 999px;
+  transition: color 200ms ease, background 200ms ease;
+}
+.switch button .dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.switch button[data-env=&quot;viewport&quot;] .dot { color: #0ea5e9; background: #0ea5e9; }
+.switch button[data-env=&quot;hub&quot;] .dot { color: #f59e0b; background: #f59e0b; }
+.switch button.is-on { color: var(--ink); background: color-mix(in srgb, var(--env) 22%, var(--panel)); }
+.switch button:focus-visible { outline: 2px solid var(--env); outline-offset: 2px; }
+
+/* ============================================================
+   HERO — the thesis: a live faux-viewer that re-tints on flip
+   ============================================================ */
+.hero { padding: 68px 0 40px; }
+.hero h1 { font-size: clamp(2.2rem, 5.2vw, 3.7rem); line-height: 1.02; margin: 14px 0 18px; max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--env); transition: color 650ms ease; }
+.lede { color: var(--muted); font-size: 1.06rem; max-width: 60ch; margin: 0 0 30px; }
+
+.stage {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line-strong); border-radius: 22px;
+  background: var(--spec);
+  min-height: clamp(300px, 44vh, 420px);
+  isolation: isolate;
+}
+/* hero environment = light sources + aurora + grain, drifting */
+.stage::before {
+  content: &quot;&quot;; position: absolute; inset: -20%; z-index: 0;
+  background:
+    radial-gradient(46% 60% at 16% 8%,  color-mix(in srgb, var(--env2) 62%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 88% 22%, color-mix(in srgb, var(--env)  52%, transparent), transparent 62%),
+    radial-gradient(64% 80% at 72% 108%, color-mix(in srgb, var(--env3) 46%, transparent), transparent 66%);
+  filter: blur(22px) saturate(1.25);
+  animation: drift 34s ease-in-out infinite alternate;
+}
+.stage::after {  /* grain */
+  content: &quot;&quot;; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background-image: var(--grain); opacity: .22; mix-blend-mode: overlay;
+}
+/* faux viewer UI floating on the environment */
+.viewer { position: relative; z-index: 1; padding: 18px; height: 100%; display: flex; flex-direction: column; gap: 14px; }
+.viewer-bar { display: flex; align-items: center; gap: 10px; }
+.pill {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px; color: var(--ink);
+  background: color-mix(in srgb, var(--env) 26%, rgba(8,13,23,.6));
+  border: 1px solid color-mix(in srgb, var(--env) 45%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--env) 40%, transparent);
+}
+.viewer-bar .grow { flex: 1; }
+.chip { width: 44px; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.viewer-body { flex: 1; display: grid; grid-template-columns: 52px 1fr; gap: 14px; }
+.rail { display: flex; flex-direction: column; gap: 9px; padding-top: 4px; }
+.rail i { height: 8px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.rail i:nth-child(2){ background: color-mix(in srgb, var(--env) 55%, transparent); }
+.track {
+  border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  background:
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--env2) 30%, transparent) 0 2px,
+      transparent 2px 9px),
+    color-mix(in srgb, #04070d 55%, transparent);
+  position: relative;
+}
+.track::after {
+  content: &quot;&quot;; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--env) 80%, white 5%), transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--env) 70%, transparent);
+}
+
+/* ============================================================
+   INTRO — flat vs organic, plain-English
+   ============================================================ */
+section { padding: 56px 0; border-top: 1px solid var(--line); }
+.section-head { max-width: 62ch; margin-bottom: 28px; }
+.section-head h2 { font-size: clamp(1.5rem, 3.2vw, 2.1rem); margin: 10px 0 12px; }
+.section-head p { color: var(--muted); margin: 0; }
+
+.ab { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.ab .tile { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.ab .demo { min-height: 0; height: 170px; }
+.ab .cap { padding: 12px 16px 16px; }
+.ab .cap b { display: block; font-size: .95rem; }
+.ab .cap span { color: var(--muted); font-size: .84rem; }
+.flat { background: linear-gradient(180deg, color-mix(in srgb, var(--env) 55%, transparent), transparent 30%), var(--spec); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 26px; }
+.legend div { font-size: .9rem; color: var(--muted); position: relative; padding-left: 18px; }
+.legend div::before { content: &quot;&quot;; position: absolute; left: 0; top: .55em; width: 9px; height: 9px; border-radius: 50%; background: var(--env); box-shadow: 0 0 10px var(--env); }
+
+/* ============================================================
+   TECHNIQUE BANDS
+   ============================================================ */
+.tech { display: grid; gap: 18px; }
+.tech-head { display: flex; align-items: baseline; gap: 14px; }
+.tech-num { font-family: var(--mono); font-size: .8rem; color: var(--env); transition: color 650ms ease; }
+.tech-head h3 { font-size: clamp(1.25rem, 2.6vw, 1.65rem); }
+.tech-head .kind { font-family: var(--mono); font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-left: auto; }
+
+.demo {
+  position: relative; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--spec);
+  min-height: clamp(260px, 34vh, 360px);
+}
+.demo .layer { position: absolute; inset: -25%; z-index: 0; }
+.demo .grain { position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background-image: var(--grain); opacity: .2; mix-blend-mode: overlay; }
+.demo .badge {
+  position: absolute; left: 14px; bottom: 12px; z-index: 4;
+  font-family: var(--mono); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); background: color-mix(in srgb, #04070d 62%, transparent);
+  border: 1px solid var(--spec-line); padding: 5px 9px; border-radius: 7px;
+}
+
+/* 01 layered light sources */
+.t-light .layer {
+  background:
+    radial-gradient(48% 62% at 18% 12%, color-mix(in srgb, var(--env2) 58%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 84% 24%, color-mix(in srgb, var(--env)  46%, transparent), transparent 62%),
+    radial-gradient(66% 82% at 68% 106%, color-mix(in srgb, var(--env3) 40%, transparent), transparent 66%);
+}
+/* 02 mesh / blob */
+.t-mesh .layer {
+  filter: saturate(1.3);
+  background:
+    radial-gradient(38% 46% at 28% 30%, color-mix(in srgb, var(--env2) 72%, transparent), transparent 55%),
+    radial-gradient(42% 52% at 70% 38%, color-mix(in srgb, var(--env)  62%, transparent), transparent 55%),
+    radial-gradient(46% 56% at 46% 76%, color-mix(in srgb, var(--env3) 55%, transparent), transparent 55%),
+    radial-gradient(34% 42% at 86% 82%, color-mix(in srgb, var(--env2) 50%, transparent), transparent 55%);
+  animation: mesh 26s ease-in-out infinite alternate;
+}
+/* 03 conic sheen */
+.t-conic .layer {
+  inset: -60%;
+  background: conic-gradient(from 210deg at 50% 50%,
+    var(--env3), var(--env), var(--env2), color-mix(in srgb, var(--env) 60%, transparent), var(--env3));
+  filter: blur(46px) saturate(1.3);
+  animation: spin 48s linear infinite;
+}
+.t-conic::after { /* vignette to concentrate sheen at the rim */
+  content: &quot;&quot;; position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(closest-side, transparent 34%, var(--spec) 82%);
+}
+/* 04 aurora bands */
+.t-aurora .layer {
+  mix-blend-mode: screen; filter: blur(48px) saturate(1.35);
+  background:
+    radial-gradient(58% 40% at 22% 30%, var(--env2), transparent 70%),
+    radial-gradient(68% 44% at 74% 52%, var(--env),  transparent 72%),
+    radial-gradient(50% 34% at 52% 82%, var(--env3), transparent 70%);
+  animation: aurora 30s ease-in-out infinite alternate;
+}
+/* 05 grain over gradient — left half raw, right half grained */
+.t-grain .layer {
+  background:
+    radial-gradient(60% 80% at 30% 10%, color-mix(in srgb, var(--env2) 55%, transparent), transparent 62%),
+    radial-gradient(60% 80% at 78% 100%, color-mix(in srgb, var(--env3) 45%, transparent), transparent 64%);
+}
+.t-grain .split { position: absolute; inset: 0; z-index: 3; left: 50%;
+  background-image: var(--grain); opacity: .5; mix-blend-mode: overlay;
+  border-left: 1px dashed var(--spec-line); }
+.t-grain .tag { position: absolute; z-index: 4; top: 12px; font-family: var(--mono);
+  font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.t-grain .tag.l { left: 16px; } .t-grain .tag.r { right: 16px; }
+/* 06 glow bloom */
+.t-bloom .layer {
+  background:
+    radial-gradient(30% 40% at 50% 46%, color-mix(in srgb, var(--env2) 95%, white 6%), transparent 55%),
+    radial-gradient(52% 62% at 50% 46%, color-mix(in srgb, var(--env)  40%, transparent), transparent 62%);
+  animation: bloom 7s ease-in-out infinite;
+}
+.t-bloom .btn { /* the UI element the bloom lives behind */
+  position: absolute; z-index: 2; left: 50%; top: 46%; transform: translate(-50%,-50%);
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .06em; color: var(--ink);
+  padding: 10px 18px; border-radius: 11px;
+  background: color-mix(in srgb, var(--env) 30%, rgba(6,10,18,.72));
+  border: 1px solid color-mix(in srgb, var(--env) 55%, transparent);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--env) 55%, transparent);
+}
+/* 07 ambient drift — same light sources, but you can see them move */
+.t-drift .layer {
+  background:
+    radial-gradient(44% 58% at 20% 20%, color-mix(in srgb, var(--env2) 60%, transparent), transparent 60%),
+    radial-gradient(50% 64% at 82% 74%, color-mix(in srgb, var(--env)  50%, transparent), transparent 62%),
+    radial-gradient(60% 74% at 50% 120%, color-mix(in srgb, var(--env3) 42%, transparent), transparent 66%);
+  animation: drift 20s ease-in-out infinite alternate;
+}
+
+/* meta row under each demo */
+.meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.meta > div { background: var(--panel); padding: 16px 18px; }
+.meta .k { font-family: var(--mono); font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin: 0 0 7px; }
+.meta .v { margin: 0; font-size: .92rem; color: var(--ink); }
+.meta .v.map { font-family: var(--mono); font-size: .82rem; color: var(--muted); line-height: 1.5; }
+.meta .v.map b { color: var(--env); font-weight: 600; transition: color 650ms ease; }
+
+footer { padding: 44px 0 72px; color: var(--faint); font-size: .82rem; border-top: 1px solid var(--line); }
+footer .mono { font-family: var(--mono); }
+
+/* ---- motion ---- */
+@keyframes drift  { from { transform: translate(-2%, -1%) scale(1.02); } to { transform: translate(3%, 2%) scale(1.08); } }
+@keyframes mesh   { from { transform: translate(-3%, -2%) rotate(-2deg); } to { transform: translate(4%, 3%) rotate(3deg); } }
+@keyframes aurora { from { transform: translate(-4%, 0) skewX(-3deg); } to { transform: translate(5%, -2%) skewX(4deg); } }
+@keyframes spin   { to { transform: rotate(360deg); } }
+@keyframes bloom  { 0%,100% { opacity: .78; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+
+@media (max-width: 720px) {
+  .ab, .meta { grid-template-columns: 1fr; }
+  .chrome-in { gap: 8px; }
+  .mark span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+  :root { transition: none; }
+  html { scroll-behavior: auto; }
+}
+</style>
+
+<header class=&quot;chrome&quot;>
+  <div class=&quot;wrap chrome-in&quot;>
+    <div class=&quot;mark&quot;><b>Dunceious</b> <span>/ environment accent</span></div>
+    <div class=&quot;chrome-spacer&quot;></div>
+    <div class=&quot;switch&quot; role=&quot;group&quot; aria-label=&quot;Environment mode&quot;>
+      <button type=&quot;button&quot; data-env=&quot;viewport&quot; aria-pressed=&quot;true&quot;><span class=&quot;dot&quot;></span>Viewport</button>
+      <button type=&quot;button&quot; data-env=&quot;hub&quot; aria-pressed=&quot;false&quot;><span class=&quot;dot&quot;></span>Hub</button>
+    </div>
+  </div>
+</header>
+
+<main class=&quot;wrap&quot;>
+
+  <!-- HERO -->
+  <div class=&quot;hero&quot;>
+    <p class=&quot;eyebrow&quot;>Design reference · gradient vocabulary for the mode switcher</p>
+    <h1>Make the chrome feel like a <em>place</em>, not a colored edge.</h1>
+    <p class=&quot;lede&quot;>
+      Right now each mode paints one flat gradient strip along the workspace edge. It reads as
+      a status light. The examples below are the same idea done the way Arc, Stripe, and Linear do it —
+      so the sky nucleotide view, the violet protein view, and the amber Database Hub each feel like a
+      room you have walked into. <strong>Flip the switch up top</strong> and watch every panel change
+      environment together — that is your mode switch, felt.
+    </p>
+    <div class=&quot;stage&quot; aria-label=&quot;Live preview of a genome viewer bathed in the current environment&quot;>
+      <div class=&quot;viewer&quot;>
+        <div class=&quot;viewer-bar&quot;>
+          <span class=&quot;pill&quot; data-env-label data-viewport=&quot;Nucleotide&quot; data-hub=&quot;Database Hub&quot;>Nucleotide</span>
+          <span class=&quot;chip&quot;></span><span class=&quot;chip&quot;></span>
+          <span class=&quot;grow&quot;></span>
+          <span class=&quot;chip&quot;></span>
+        </div>
+        <div class=&quot;viewer-body&quot;>
+          <div class=&quot;rail&quot;><i></i><i></i><i></i><i></i><i></i></div>
+          <div class=&quot;track&quot;></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTRO: flat vs organic -->
+  <section>
+    <div class=&quot;section-head&quot;>
+      <p class=&quot;eyebrow&quot;>The gap</p>
+      <h2>What &quot;organic&quot; actually means</h2>
+      <p>A flat strip is one straight line of color, the same everywhere. Organic light does five small
+        things at once — and any one of them already helps.</p>
+    </div>
+    <div class=&quot;ab&quot;>
+      <div class=&quot;tile&quot;>
+        <div class=&quot;demo flat&quot;></div>
+        <div class=&quot;cap&quot;><b>Now — flat linear strip</b><span>One gradient, one direction, hard to love. It sits on top of the UI instead of lighting it.</span></div>
+      </div>
+      <div class=&quot;tile&quot;>
+        <div class=&quot;demo t-light&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div></div>
+        <div class=&quot;cap&quot;><b>Organic — layered light</b><span>Several soft sources, off-center, in one color family, with a whisper of grain. It feels lit.</span></div>
+      </div>
+    </div>
+    <div class=&quot;legend&quot;>
+      <div>More than one light source</div>
+      <div>Off-center, never symmetrical</div>
+      <div>Hue drifts within one family</div>
+      <div>A trace of grain, so it reads as material</div>
+      <div>Motion so slow you feel it, not see it</div>
+    </div>
+  </section>
+
+  <!-- TECHNIQUE SECTIONS -->
+  <section>
+    <div class=&quot;section-head&quot;>
+      <p class=&quot;eyebrow&quot;>The toolkit · read top to bottom</p>
+      <h2>Seven ways to build the light</h2>
+      <p>Each technique layers onto the one before it — start with soft light sources, end with barely-there
+        motion. Every panel is live and re-tints when you flip Viewport / Hub.</p>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>01</span><h3>Layered light sources</h3><span class=&quot;kind&quot;>radial gradients</span></div>
+      <div class=&quot;demo t-light&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>3 soft radials · off-center</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Vercel's &quot;light itself&quot; hero glows · Linear's launch pages · Raycast wallpapers</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>A room lit from a couple of directions, not a spotlight.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>Two or three <b>sky</b> sources bleed in from the viewport corners; swap the family to <b>amber</b> in the Hub.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>02</span><h3>Mesh &amp;amp; blob gradients</h3><span class=&quot;kind&quot;>stacked radials</span></div>
+      <div class=&quot;demo t-mesh&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>4 overlapping blobs · drifting</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Stripe's animated hero · Spotify's per-track adaptive backdrops · most &quot;mesh gradient&quot; tools</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>Ink dropped in water — color dissolving into color, no seams.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>A slow <b>sky</b> mesh behind the sequence track; in the Hub the same mesh runs <b>amber</b>-gold.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>03</span><h3>Conic sheen</h3><span class=&quot;kind&quot;>conic-gradient</span></div>
+      <div class=&quot;demo t-conic&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>angular sweep · softened + vignetted</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Holographic product UI · loading arcs and rings · &quot;iridescent&quot; brand marks</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>Light bending around a point — a faint oil-slick sheen.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>A <b>sky</b> halo behind the active molecule so it looks lit from within; rotate it into <b>amber</b> for the Hub.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>04</span><h3>Aurora bands</h3><span class=&quot;kind&quot;>blurred + screen blend</span></div>
+      <div class=&quot;demo t-aurora&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>heavy blur · additive light</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Linear · the whole &quot;Aurora UI&quot; dark-SaaS trend · countless premium heroes</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>Northern lights breathing behind the content.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>Two <b>sky</b> bands drift along the top edge of the workspace; the Hub runs warm <b>amber</b> bands instead.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>05</span><h3>Noise &amp;amp; grain</h3><span class=&quot;kind&quot;>SVG feTurbulence</span></div>
+      <div class=&quot;demo t-grain&quot;><div class=&quot;layer&quot;></div><div class=&quot;split&quot;></div><span class=&quot;tag l&quot;>raw</span><span class=&quot;tag r&quot;>+ grain</span><span class=&quot;badge&quot;>same gradient, split down the middle</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Apple product pages · the &quot;grainy gradients&quot; technique · most gradients that don't look cheap</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>Film grain — warm and tactile instead of plasticky. Kills the banding, too.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>A ~3% grain over the whole chrome, both modes, so <b>sky</b> and <b>amber</b> read as material, not gloss.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>06</span><h3>Glow bloom</h3><span class=&quot;kind&quot;>concentrated radial</span></div>
+      <div class=&quot;demo t-bloom&quot;><div class=&quot;layer&quot;></div><span class=&quot;btn&quot; data-env-label data-viewport=&quot;Nucleotide&quot; data-hub=&quot;Database Hub&quot;>Nucleotide</span><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>one source · lit from within</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>Vercel's inner-glow cards · Raycast · product-launch key art</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>One thing on screen is glowing from the inside.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>A bloom behind the active mode indicator — <b>sky</b> now, <b>amber</b> in the Hub — so the current mode literally lights up.</p></div>
+      </div>
+    </div>
+
+    <div class=&quot;tech&quot;>
+      <div class=&quot;tech-head&quot;><span class=&quot;tech-num&quot;>07</span><h3>Slow ambient drift</h3><span class=&quot;kind&quot;>very slow keyframes</span></div>
+      <div class=&quot;demo t-drift&quot;><div class=&quot;layer&quot;></div><div class=&quot;grain&quot;></div><span class=&quot;badge&quot;>20s loop · you feel it, not see it</span></div>
+      <div class=&quot;meta&quot;>
+        <div><p class=&quot;k&quot;>Used by</p><p class=&quot;v&quot;>macOS dynamic wallpapers (time-of-day) · Stripe's living mesh · Apple ambient scenes</p></div>
+        <div><p class=&quot;k&quot;>Feeling</p><p class=&quot;v&quot;>Alive but calm. Nothing demands attention; the room just breathes.</p></div>
+        <div><p class=&quot;k&quot;>Dunceious mapping</p><p class=&quot;v map&quot;>Everything above, animated at 20–60s. Idle in <b>sky</b>, idle in <b>amber</b> — the chrome is never quite still.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class=&quot;wrap&quot;>
+    <p>Pick the ones that feel right and we'll wire them into the real <span class=&quot;mono&quot;>environment.ts</span> accent system — sky for nucleotide, violet for protein, amber for the Database Hub. Every panel here is live CSS/SVG; nothing is a screenshot.</p>
+  </footer>
+</main>
+
+<script>
+  const root = document.documentElement;
+  const sw = document.querySelector(&quot;.switch&quot;);
+
+  function setEnv(env) {
+    root.setAttribute(&quot;data-env&quot;, env);
+    sw.querySelectorAll(&quot;button&quot;).forEach((b) => {
+      const on = b.dataset.env === env;
+      b.classList.toggle(&quot;is-on&quot;, on);
+      b.setAttribute(&quot;aria-pressed&quot;, String(on));
+    });
+    document.querySelectorAll(&quot;[data-env-label]&quot;).forEach((el) => {
+      el.textContent = env === &quot;hub&quot; ? el.dataset.hub : el.dataset.viewport;
+    });
+  }
+
+  sw.addEventListener(&quot;click&quot;, (e) => {
+    const b = e.target.closest(&quot;button&quot;);
+    if (b) setEnv(b.dataset.env);
+  });
+
+  setEnv(&quot;viewport&quot;);
+</script>
+</body></html>"></iframe>
+</div>
+
+<footer>
+  <span>Design prototypes · draft fidelity · AGPL-3.0-or-later</span>
+  <span>Each panel is live HTML/CSS — every control works</span>
+</footer>
+
+<script>
+  var BLURBS = {"frame-styles":"The current direction. Three session types (no file / nucleotide / protein) x two modes x nine header-and-footer treatments. The gradient is confined to the header and footer bars; the toolbar and every data surface stay flat.","in-context":"The round that established the governing rule: three chrome-confined treatments (Clean Instrument, Lit Chrome, Atmospheric) on both the Viewport and the Database Hub.","gallery":"The vocabulary: seven gradient techniques recreated live, each with the products that use it (Arc, Stripe, Linear, Vercel, Apple). Not the Dunceious layout — the reference library behind it."};
+  var tabs = document.getElementById('tabs');
+  var blurb = document.getElementById('blurb');
+  tabs.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    var id = b.dataset.target;
+    tabs.querySelectorAll('button').forEach(function (x) {
+      var on = x === b;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-selected', String(on));
+    });
+    document.querySelectorAll('.stage iframe').forEach(function (f) {
+      f.classList.toggle('on', f.id === id);
+    });
+    blurb.textContent = BLURBS[id];
+  });
+</script>
+
+</body>
+</html>
