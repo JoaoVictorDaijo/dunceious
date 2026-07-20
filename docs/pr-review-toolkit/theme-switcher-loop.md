@@ -14,7 +14,13 @@ session runs on Fable. Findings reference **round # + headline** (not shas).
 |---|---------|----------|----------|--------|----------|------|
 | 1 | localStorage access unguarded against throws (getItem/setItem can throw SecurityError/QuotaExceeded → white-screen on mount / failed theme-set) | Important (finders: Critical) | `theme.ts:87-97`; pre-existing twin `clearConfirmationPref.ts` | ✅ `788ce16` | auto-fix | try/catch + throwing-storage unit tests in both files (2 in theme.test, 1 in clearConfirmation.test) |
 | 2 | Theme radiogroup: no roving tabindex / arrow-key nav — advertises `role=radiogroup` but is 7 tab stops and arrows are inert | Minor (a11y) | `OptionsPanel.tsx:164-179` | ✅ `788ce16` | auto-fix (roving tabindex + Arrow/Home/End, with wrap) | Playwright: tabindex roving `[0,-1×6]`, ArrowDown/End/wrap/Home all move+select ✓ (unit test gated on #3) |
-| 3 | Theme→root DOM wiring has zero automated guard (no jsdom/RTL tier; node test env) — same blind-spot class that let the popover-clip bug ship | Important (test-coverage) | `App.tsx` root attrs/vars; no test file | open | **needs human decision** (stand up jsdom+RTL infra?) | — |
+| 3 | Theme→root DOM wiring has zero automated guard (no jsdom/RTL tier; node test env) — same blind-spot class that let the popover-clip bug ship | Important (test-coverage) | `App.tsx` root attrs/vars; no test file | **accepted** (won't-fix) | Human decision: keep node-only test posture; wiring is Playwright-verified manually (Task 6) | manual Playwright pass (not CI) |
+
+**Finding 3 rationale (human-accepted):** the project deliberately runs vitest in `node` env with no
+jsdom/RTL/component tier (see the `dunceious-playwright-cli` convention — Playwright is the local,
+manual visual/DOM verifier). The theme→DOM wiring and the radiogroup keyboard model are both verified
+by the Task 6 / fix-verification Playwright passes; standing up a component-test tier for one feature is
+disproportionate. Coverage for this class lives in the manual Playwright pass, by design.
 
 **Refuted (6, for the record):** a duplicate localStorage-crash framing (pre-existing preempts it), a vacuous-coverage restatement, the "no-bleed invariant untested", "reduced-motion untested", "palette-contrast untested", and a "newly on the render path" claim — all refuted as speculative-future or pre-existing-not-a-regression by ≥2/3 skeptics.
 
