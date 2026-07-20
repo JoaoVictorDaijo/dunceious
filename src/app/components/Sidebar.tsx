@@ -20,13 +20,11 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
-import { EnvAccentKey, envAccentColor } from '@/src/app/logic/environment';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 
 export interface SidebarProps {
   open: boolean;
   activeTab: 'alignment' | 'features';
-  envAccent: EnvAccentKey;
   records: SeqRecord[];
   transposedRecords: SeqRecord[];
   activeSelection: SelectionArea | null;
@@ -74,7 +72,6 @@ export interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({
   open,
   activeTab,
-  envAccent,
   records,
   transposedRecords,
   activeSelection,
@@ -118,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const widthRef = useRef(320);
 
   // The sidebar's brand-accent section labels re-tint with the workspace mode.
-  const accentColor = envAccentColor(envAccent) ?? '#0ea5e9';
+  const accentColor = 'var(--env)';
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

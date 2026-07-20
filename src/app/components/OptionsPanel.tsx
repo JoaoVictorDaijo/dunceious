@@ -19,6 +19,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import { THEMES, type ThemeKey } from '@/src/app/logic/theme';
 
 const FEATURE_TYPES = [
   'gene', 'CDS', 'mRNA', 'tRNA', 'rRNA', 'exon',
@@ -30,6 +31,8 @@ export interface OptionsPanelProps {
   onSetFeatureColors: (colors: Record<string, string>) => void;
   skipClearAllConfirmation: boolean;
   onSetSkipClearAllConfirmation: (value: boolean) => void;
+  themeKey: ThemeKey;
+  onSetThemeKey: (key: ThemeKey) => void;
 }
 
 // Thin classic cog, stroke-based on purpose: a refined settings glyph rather than a filled control.
@@ -53,11 +56,37 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
   onSetFeatureColors,
   skipClearAllConfirmation,
   onSetSkipClearAllConfirmation,
+  themeKey,
+  onSetThemeKey,
 }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const themeRadioRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // WAI-ARIA radiogroup keyboard model: arrows/Home/End move focus AND selection,
+  // wrapping at the ends. Paired with roving tabindex (only the checked radio is
+  // tabbable) so the group is a single tab stop, as role="radiogroup" advertises.
+  const handleThemeKeyNav = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = THEMES.length - 1;
+    let next: number;
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowDown': next = index === last ? 0 : index + 1; break;
+      case 'ArrowLeft': case 'ArrowUp': next = index === 0 ? last : index - 1; break;
+      case 'Home': next = 0; break;
+      case 'End': next = last; break;
+      default: return;
+    }
+    // Stop as well as prevent: the viewer's global window keydown handler
+    // (useViewport) claims these same Arrow/Home/End keys to pan the genome, and
+    // it doesn't check defaultPrevented — so without stopPropagation a theme
+    // keystroke would also scroll the viewport behind the popover.
+    e.preventDefault();
+    e.stopPropagation();
+    onSetThemeKey(THEMES[next].key);
+    themeRadioRefs.current[next]?.focus();
+  };
 
   // Restore focus to the gear when closing via keyboard/close-button so the tab
   // order continues from the trigger; click-away closes without stealing focus.
@@ -151,6 +180,31 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             >
               Reset to Defaults
             </button>
+          </div>
+
+          {/* Theme — the chrome accent style (per browser) */}
+          <div className="px-5 py-4 border-b border-slate-800">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-3">Theme</span>
+            <div role="radiogroup" aria-label="Chrome theme" className="grid grid-cols-2 gap-2">
+              {THEMES.map((t, i) => (
+                <button
+                  key={t.key}
+                  ref={el => { themeRadioRefs.current[i] = el; }}
+                  role="radio"
+                  aria-checked={themeKey === t.key}
+                  tabIndex={themeKey === t.key ? 0 : -1}
+                  onClick={() => onSetThemeKey(t.key)}
+                  onKeyDown={e => handleThemeKeyNav(e, i)}
+                  className={`text-left px-3 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-tight transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+                    themeKey === t.key
+                      ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                      : 'bg-black/20 border-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Workspace preferences */}

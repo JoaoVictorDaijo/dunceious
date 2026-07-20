@@ -22,15 +22,27 @@
 const KEY = 'dunceious.skipClearAllConfirmation';
 const ENABLED = '1';
 
-/** Whether the user has opted out of the Clear-All confirmation prompt (persisted per browser). */
+/**
+ * Whether the user has opted out of the Clear-All confirmation prompt (persisted per browser).
+ * `localStorage` access is wrapped because it throws (not returns null) when storage is
+ * blocked, and this runs during App's first render — an unguarded throw would fail the mount.
+ */
 export const readSkipClearAllConfirmation = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return window.localStorage.getItem(KEY) === ENABLED;
+  try {
+    return window.localStorage.getItem(KEY) === ENABLED;
+  } catch {
+    return false;
+  }
 };
 
-/** Persist the skip-confirmation preference; removing the key restores the prompt. */
+/** Persist the skip-confirmation preference; removing the key restores the prompt. Best-effort. */
 export const writeSkipClearAllConfirmation = (value: boolean): void => {
   if (typeof window === 'undefined') return;
-  if (value) window.localStorage.setItem(KEY, ENABLED);
-  else window.localStorage.removeItem(KEY);
+  try {
+    if (value) window.localStorage.setItem(KEY, ENABLED);
+    else window.localStorage.removeItem(KEY);
+  } catch {
+    /* storage blocked or full — preference is not persisted this session */
+  }
 };
