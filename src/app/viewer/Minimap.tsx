@@ -78,7 +78,7 @@ export const Minimap: React.FC<MinimapProps> = ({
         const step = Math.max(1, Math.floor(alignmentLength / 1000));
 
         // Background track
-        ctx.fillStyle = '#f1f5f9';
+        ctx.fillStyle = '#0d1424';
         ctx.beginPath();
         ctx.roundRect(0, 2, width, 20, 2);
         ctx.fill();
@@ -171,7 +171,7 @@ export const Minimap: React.FC<MinimapProps> = ({
       .attr('width', width)
       .attr('height', 18)
       .attr('y', 22)
-      .attr('fill', '#f8fafc')
+      .attr('fill', '#0f1a2e')
       .attr('opacity', 0.8);
 
     // Ticks (Explicit Ruler)
@@ -180,12 +180,12 @@ export const Minimap: React.FC<MinimapProps> = ({
       .attr('transform', 'translate(0, 24)')
       .call(axis)
       .selectAll('text')
-      .attr('fill', '#475569')
+      .attr('fill', '#8ea0ba')
       .style('font-size', '9px')
       .style('font-weight', '900');
-    
-    miniSvg.selectAll('.domain').attr('stroke', '#94a3b8').attr('stroke-width', 1.5);
-    miniSvg.selectAll('.tick line').attr('stroke', '#94a3b8');
+
+    miniSvg.selectAll('.domain').attr('stroke', 'rgba(148,163,184,0.4)').attr('stroke-width', 1.5);
+    miniSvg.selectAll('.tick line').attr('stroke', 'rgba(148,163,184,0.3)');
 
     // Brush Implementation
     const brush = d3.brushX()
@@ -242,11 +242,11 @@ export const Minimap: React.FC<MinimapProps> = ({
 
   return (
     <div className="flex-1 flex flex-col justify-center min-w-0">
-      <div ref={minimapWrapperRef} className="relative bg-white rounded-md border border-slate-200 shadow-inner p-0.5 h-[45px] overflow-hidden">
+      <div ref={minimapWrapperRef} className="relative bg-[#0a1120] rounded-md border border-slate-400/15 p-0.5 h-[45px] overflow-hidden">
         <canvas ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
         <svg ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
-          <span className="text-[7px] font-mono text-slate-300 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
+          <span className="text-[7px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
         </div>
       </div>
     </div>

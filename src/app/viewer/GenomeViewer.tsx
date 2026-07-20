@@ -248,7 +248,7 @@ const GenomeViewer: React.FC<Props> = ({
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
       {/* 1. COMPACT TOOLBAR & GLOBAL OVERVIEW */}
-      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-slate-50 border-b border-slate-200 px-3 flex items-center gap-3 z-20 min-w-0 shadow-sm">
+      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-[#0b1120] border-b border-black/40 px-3 flex items-center gap-3 z-20 min-w-0">
         
         {/* MINIMAP SECTION */}
         <Minimap
@@ -269,13 +269,13 @@ const GenomeViewer: React.FC<Props> = ({
 
         {/* CONTROLS SECTION */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
+          <div className="flex items-center bg-[#0a1120] rounded-md border border-slate-400/20 p-0.5">
             <div className="relative flex items-center">
-              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-slate-400"></i>
-              <input 
-                type="text" 
-                placeholder="Go to..." 
-                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-slate-700 outline-none focus:ring-1 focus:ring-sky-500 rounded"
+              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-slate-500"></i>
+              <input
+                type="text"
+                placeholder="Go to..."
+                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-slate-200 placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-sky-500 rounded"
                 value={gotoPos}
                 onChange={e => setGotoPos(e.target.value)}
                 onKeyDown={e => {
@@ -288,7 +288,7 @@ const GenomeViewer: React.FC<Props> = ({
             </div>
           </div>
           {activeSelection && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-sky-50 rounded-lg border border-sky-100 text-[9px] font-black text-sky-700 uppercase tracking-tight">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-sky-500/10 rounded-lg border border-sky-400/20 text-[9px] font-black text-sky-300 uppercase tracking-tight">
               <i className="fas fa-vector-square text-[10px] opacity-50"></i>
               <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
               <span className="opacity-30">|</span>
@@ -300,19 +300,19 @@ const GenomeViewer: React.FC<Props> = ({
               ).toLocaleString()} bp</span>
             </div>
           )}
-          <div className="flex bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
-            <button onClick={handleFit} className="px-2 py-1 rounded hover:bg-slate-50 text-[8px] font-black uppercase text-slate-500 transition-all hover:text-sky-600">Fit</button>
+          <div className="flex bg-[#0a1120] rounded-md border border-slate-400/20 p-0.5">
+            <button onClick={handleFit} className="px-2 py-1 rounded hover:bg-white/5 text-[8px] font-black uppercase text-slate-400 transition-all hover:text-sky-300">Fit</button>
             {activeSelection && (
-              <div className="flex gap-0.5 ml-0.5 pl-0.5 border-l border-slate-100">
-                <button onClick={handleCenterOnSelection} className="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 text-[8px] font-black uppercase text-sky-600" title="Center on Selection">Center</button>
-                <button onClick={handleZoomToSelection} className="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 text-[8px] font-black uppercase text-sky-600">Zoom Sel</button>
-                <button onClick={onExportFasta} className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center"><i className="fas fa-download text-[8px]"></i></button>
+              <div className="flex gap-0.5 ml-0.5 pl-0.5 border-l border-white/10">
+                <button onClick={handleCenterOnSelection} className="px-2 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 text-[8px] font-black uppercase text-sky-300" title="Center on Selection">Center</button>
+                <button onClick={handleZoomToSelection} className="px-2 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 text-[8px] font-black uppercase text-sky-300">Zoom Sel</button>
+                <button onClick={onExportFasta} className="w-6 h-6 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 flex items-center justify-center"><i className="fas fa-download text-[8px]"></i></button>
               </div>
             )}
           </div>
-          <div className="flex bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
-            <button onClick={() => handleZoom(1)} className="w-6 h-6 rounded hover:bg-slate-50 text-slate-500 flex items-center justify-center hover:text-sky-600"><i className="fas fa-plus text-[9px]"></i></button>
-            <button onClick={() => handleZoom(-1)} className="w-6 h-6 rounded hover:bg-slate-50 text-slate-500 flex items-center justify-center hover:text-sky-600"><i className="fas fa-minus text-[9px]"></i></button>
+          <div className="flex bg-[#0a1120] rounded-md border border-slate-400/20 p-0.5">
+            <button onClick={() => handleZoom(1)} className="w-6 h-6 rounded hover:bg-white/5 text-slate-400 flex items-center justify-center hover:text-sky-300"><i className="fas fa-plus text-[9px]"></i></button>
+            <button onClick={() => handleZoom(-1)} className="w-6 h-6 rounded hover:bg-white/5 text-slate-400 flex items-center justify-center hover:text-sky-300"><i className="fas fa-minus text-[9px]"></i></button>
           </div>
         </div>
       </div>
