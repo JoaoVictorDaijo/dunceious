@@ -37,3 +37,16 @@ disproportionate. Coverage for this class lives in the manual Playwright pass, b
 | R2-2 | New keyboard-nav logic has no automated test (propagation blind spot needs integration tier) | Minor | `OptionsPanel.tsx`; no component test | accepted (won't-fix) | Same class as accepted #3 (node-only test posture); one skeptic ruled it not-a-defect (parasitic on R2-1). Fix is Playwright-verified. | manual Playwright (not CI) |
 
 **Round 2 delta:** 1 new Important (fixed & verified), 1 Minor (accepted, derivative), 0 refuted. localStorage guard (R1-1) and roving-tabindex model (R1-2) independently re-confirmed correct by the round-2 lenses. **No Critical/Important survive.**
+
+## Convergence
+
+IAR converged after **round 2** (human stop-decision: no Critical/Important survive; the sole
+round-2 fix is a Playwright-verified one-line `stopPropagation`). Opened as
+**[PR #72](https://github.com/JoaoVictorDaijo/dunceious/pull/72)** → `feat/env-accent-design`.
+
+- **Fixed & verified (4):** R1-1 localStorage crash-safety, R1-2 radiogroup keyboard model,
+  R2-1 arrow-key↔viewer-scroll collision (all with tests/Playwright); plus the earlier
+  popover-clip fix caught in-loop before IAR.
+- **Accepted / won't-fix (2, documented):** R1-3 / R2-2 — no DOM/component test tier
+  (node-only posture; Playwright-verified manually).
+- **Refuted by skeptics (6):** speculative-future or pre-existing-not-a-regression.
