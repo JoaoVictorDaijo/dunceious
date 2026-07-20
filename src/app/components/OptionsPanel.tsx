@@ -78,7 +78,12 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
       case 'End': next = last; break;
       default: return;
     }
+    // Stop as well as prevent: the viewer's global window keydown handler
+    // (useViewport) claims these same Arrow/Home/End keys to pan the genome, and
+    // it doesn't check defaultPrevented — so without stopPropagation a theme
+    // keystroke would also scroll the viewport behind the popover.
     e.preventDefault();
+    e.stopPropagation();
     onSetThemeKey(THEMES[next].key);
     themeRadioRefs.current[next]?.focus();
   };
