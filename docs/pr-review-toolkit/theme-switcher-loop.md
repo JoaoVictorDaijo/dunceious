@@ -25,3 +25,15 @@ disproportionate. Coverage for this class lives in the manual Playwright pass, b
 **Refuted (6, for the record):** a duplicate localStorage-crash framing (pre-existing preempts it), a vacuous-coverage restatement, the "no-bleed invariant untested", "reduced-motion untested", "palette-contrast untested", and a "newly on the render path" claim — all refuted as speculative-future or pre-existing-not-a-regression by ≥2/3 skeptics.
 
 **Round 1 delta:** 3 distinct confirmed (2 Important, 1 Minor), 6 refuted, 0 surviving Critical.
+
+## Round 2 (verify the fix delta)
+
+- **Reviewers:** 3 finder lenses (localstorage-fix correctness, keyboard-nav correctness, regression sweep) + 3 skeptics/finding. 9 agents, 0 errors.
+- **Confirmed 2, refuted 0.** Round 2 caught a **regression the round-1 keyboard fix introduced.**
+
+| # | Finding | Severity | Location | Fixed? | Decision | Test |
+|---|---------|----------|----------|--------|----------|------|
+| R2-1 | Radiogroup Arrow/Home/End keys leaked to the viewer's global `window` keydown handler (missing `stopPropagation`) → arrowing themes also panned/jumped the genome behind the popover | Important | `OptionsPanel.tsx` `handleThemeKeyNav` ↔ `useViewport.ts:202-248` | ✅ `bcbbc05` | auto-fix (`e.stopPropagation()` for handled keys) | Playwright: theme nav leaves viewer `scrollLeft=0` (ArrowRight/End), and viewer's own arrows still scroll (100px) ✓ |
+| R2-2 | New keyboard-nav logic has no automated test (propagation blind spot needs integration tier) | Minor | `OptionsPanel.tsx`; no component test | accepted (won't-fix) | Same class as accepted #3 (node-only test posture); one skeptic ruled it not-a-defect (parasitic on R2-1). Fix is Playwright-verified. | manual Playwright (not CI) |
+
+**Round 2 delta:** 1 new Important (fixed & verified), 1 Minor (accepted, derivative), 0 refuted. localStorage guard (R1-1) and roving-tabindex model (R1-2) independently re-confirmed correct by the round-2 lenses. **No Critical/Important survive.**
