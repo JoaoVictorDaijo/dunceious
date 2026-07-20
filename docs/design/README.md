@@ -107,6 +107,13 @@ Both are **live in the prototype** and marked in-file with revert instructions.
 
 ### 4. Rework the first-pass implementation
 
+**Resolved** on `feat/theme-switcher`. Outcome refined the notes below: `resolveEnvAccent` was
+kept, but `ENV_LAYERS` and the colour helpers moved to the theme registry (`src/app/logic/theme.ts`)
+so tokens have one home; the Hub's amber backdrop stayed; and the workspace edge strips were
+**deleted** (not merely replaced) — the accent now renders only through the header/footer `.hf-env`
+layers. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. Original notes kept for
+the record:
+
 The env-accent code on this branch predates the prototypes. It holds up better than expected —
 but one part is superseded:
 
