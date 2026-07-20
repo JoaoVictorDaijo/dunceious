@@ -43,7 +43,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 let SCU49845_CONTENT: string;
 
 try {
-  SCU49845_CONTENT = readFileSync(resolve(__dirname, '../../../SCU49845.gb'), 'utf-8');
+  SCU49845_CONTENT = readFileSync(resolve(__dirname, 'fixtures/SCU49845.gb'), 'utf-8');
 } catch {
   SCU49845_CONTENT = '';
 }
