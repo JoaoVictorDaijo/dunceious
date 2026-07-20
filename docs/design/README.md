@@ -29,7 +29,7 @@ accent may only touch:
 
 - the dark chrome — the top nav (header) and status bar (footer);
 - the non-data backdrop — the Hub's cream area around the table card;
-- a thin accent **edge strip** at the chrome-to-canvas boundary.
+- ~~a thin accent **edge strip** at the chrome-to-canvas boundary.~~ **Revoked** — the accent renders only inside the header/footer chrome and the Hub backdrop; no edge strip bleeds onto the canvas.
 
 The toolbar / ruler band stays flat. In the current prototype this is enforced structurally:
 every gradient renders through exactly two `.hf-env` layers, one inside `.nav` and one inside
@@ -55,6 +55,11 @@ this up who assumes "Hub always means amber" will paint amber chrome on an empty
 
 ### 1. Theme options in settings — don't force a single style
 
+**Resolved.** The theme switcher shipped on `feat/theme-switcher`: a seven-style shortlist
+with `clean` as the default, both palette retunes applied (see item 3), and the edge bleed
+removed. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. The investigation
+notes below are kept for the record.
+
 We do not have to pick one treatment and discard the rest. The nine styles are all driven by
 the same two `.hf-env` layers and the same `--env` tokens, so exposing them as a user setting
 is plausibly cheap — the switch is one attribute on the app root.
@@ -75,12 +80,19 @@ is plausibly cheap — the switch is one attribute on the app root.
 
 ### 2. Keep `A · Clean` as a supported option
 
+**Resolved.** `clean` ships as one of the seven styles and is the default (see item 1 and
+`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
+
 The flat baseline — accent edge strip plus tinted chrome accents, no wash — is a legitimate
 choice, not just a control. It is the calmest option and the cheapest to render. If the theme
 switch above happens, `A · Clean` should be one of the choices (and is a good candidate for
 the default).
 
 ### 3. Palette changes awaiting sign-off
+
+**Resolved.** Both retunes shipped on `feat/theme-switcher` — sky `--env3` → `#0d9488` (teal)
+and protein `--env` → `#a78bfa` — applied across the seven-style shortlist (see item 1 and
+`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
 
 Both are **live in the prototype** and marked in-file with revert instructions.
 
@@ -94,6 +106,13 @@ Both are **live in the prototype** and marked in-file with revert instructions.
   `#a78bfa` gives 6.56:1, matching sky's 6.44:1.
 
 ### 4. Rework the first-pass implementation
+
+**Resolved** on `feat/theme-switcher`. Outcome refined the notes below: `resolveEnvAccent` was
+kept, but `ENV_LAYERS` and the colour helpers moved to the theme registry (`src/app/logic/theme.ts`)
+so tokens have one home; the Hub's amber backdrop stayed; and the workspace edge strips were
+**deleted** (not merely replaced) — the accent now renders only through the header/footer `.hf-env`
+layers. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. Original notes kept for
+the record:
 
 The env-accent code on this branch predates the prototypes. It holds up better than expected —
 but one part is superseded:

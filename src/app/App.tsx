@@ -28,7 +28,8 @@ import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
-import { ENV_LAYERS, resolveEnvAccent, envEdgeGradient } from './logic/environment';
+import { resolveEnvAccent } from './logic/environment';
+import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -76,6 +77,7 @@ const App: React.FC = () => {
   const [jumpTo, setJumpTo] = useState<number | null>(null);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
   const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
+  const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -197,6 +199,7 @@ const App: React.FC = () => {
   );
 
   const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
+  const themeStyle = resolveThemeVars(getTheme(themeKey), envAccent) as React.CSSProperties;
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -211,6 +214,11 @@ const App: React.FC = () => {
   const handleSetSkipClearAllConfirmation = (value: boolean) => {
     writeSkipClearAllConfirmation(value);
     setSkipClearAllConfirmation(value);
+  };
+
+  const handleSetThemeKey = (key: ThemeKey) => {
+    writeThemePref(key);
+    setThemeKey(key);
   };
 
   const handleClearAll = () => {
@@ -234,7 +242,12 @@ const App: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none">
+    <div
+      className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
+      data-theme={themeKey}
+      data-env={envAccent}
+      style={themeStyle}
+    >
       <ProcessingOverlay isProcessing={isProcessing} />
 
       {viewingRecordDetails && (
@@ -280,6 +293,8 @@ const App: React.FC = () => {
         onSetFeatureColors={setFeatureColors}
         skipClearAllConfirmation={skipClearAllConfirmation}
         onSetSkipClearAllConfirmation={handleSetSkipClearAllConfirmation}
+        themeKey={themeKey}
+        onSetThemeKey={handleSetThemeKey}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
@@ -301,7 +316,6 @@ const App: React.FC = () => {
         <Sidebar
           open={sidebarOpen}
           activeTab={activeTab}
-          envAccent={envAccent}
           records={records}
           transposedRecords={transposedRecords}
           activeSelection={activeSelection}
@@ -403,18 +417,6 @@ const App: React.FC = () => {
             </div>
           )}
         </main>
-      </div>
-
-      <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-        {ENV_LAYERS.map(layer => (
-          <div
-            key={layer.key}
-            className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${
-              envAccent === layer.key ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{ background: envEdgeGradient(layer.rgb, 'to top') }}
-          />
-        ))}
       </div>
 
       <StatusBar sessionMoleculeType={sessionMoleculeType} />

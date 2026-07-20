@@ -70,4 +70,11 @@ describe('clearConfirmationPref', () => {
     expect(() => writeSkipClearAllConfirmation(true)).not.toThrow();
     expect(readSkipClearAllConfirmation()).toBe(false);
   });
+
+  it('falls back to the safe default when localStorage access throws (blocked storage)', () => {
+    const denied = () => { throw new DOMException('denied', 'SecurityError'); };
+    vi.stubGlobal('window', { localStorage: { getItem: denied, setItem: denied, removeItem: denied } });
+    expect(readSkipClearAllConfirmation()).toBe(false);
+    expect(() => writeSkipClearAllConfirmation(true)).not.toThrow();
+  });
 });

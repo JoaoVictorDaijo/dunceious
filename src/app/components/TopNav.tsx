@@ -20,7 +20,7 @@
 import React from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
-import { ENV_LAYERS, resolveEnvAccent, envAccentColor, envEdgeGradient } from '@/src/app/logic/environment';
+import type { ThemeKey } from '@/src/app/logic/theme';
 
 export interface TopNavProps {
   sidebarOpen: boolean;
@@ -31,6 +31,8 @@ export interface TopNavProps {
   onSetFeatureColors: (colors: Record<string, string>) => void;
   skipClearAllConfirmation: boolean;
   onSetSkipClearAllConfirmation: (value: boolean) => void;
+  themeKey: ThemeKey;
+  onSetThemeKey: (key: ThemeKey) => void;
   /** Show the alignment-specific toolbar buttons (true when records are loaded in alignment view) */
   showAlignmentControls: boolean;
   dragMode: 'pan' | 'select';
@@ -61,6 +63,8 @@ const TopNav: React.FC<TopNavProps> = ({
   onSetFeatureColors,
   skipClearAllConfirmation,
   onSetSkipClearAllConfirmation,
+  themeKey,
+  onSetThemeKey,
   showAlignmentControls,
   dragMode,
   onDragModeChange,
@@ -77,10 +81,10 @@ const TopNav: React.FC<TopNavProps> = ({
   isAlignmentLoaded,
   sessionMoleculeType,
 }) => {
-  const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
   return (
-  <>
-  <nav className="h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-50">
+  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50">
+    <div className="hf-env" aria-hidden="true" />
+    <div className="relative z-[1] h-full flex items-center justify-between px-6">
     <div className="flex items-center gap-6">
       <button
         onClick={onToggleSidebar}
@@ -92,7 +96,7 @@ const TopNav: React.FC<TopNavProps> = ({
         <div className="flex items-center gap-3">
           <i
             className="fas fa-helix text-xl animate-spin-slow transition-colors duration-700 motion-reduce:transition-none"
-            style={{ color: envAccentColor(envAccent) ?? '#0ea5e9' }}
+            style={{ color: 'var(--env)' }}
           ></i>
           <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
@@ -205,21 +209,12 @@ const TopNav: React.FC<TopNavProps> = ({
         onSetFeatureColors={onSetFeatureColors}
         skipClearAllConfirmation={skipClearAllConfirmation}
         onSetSkipClearAllConfirmation={onSetSkipClearAllConfirmation}
+        themeKey={themeKey}
+        onSetThemeKey={onSetThemeKey}
       />
     </div>
+    </div>
   </nav>
-  <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-    {ENV_LAYERS.map(layer => (
-      <div
-        key={layer.key}
-        className={`absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none ${
-          envAccent === layer.key ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{ background: envEdgeGradient(layer.rgb, 'to bottom') }}
-      />
-    ))}
-  </div>
-  </>
   );
 };
 
