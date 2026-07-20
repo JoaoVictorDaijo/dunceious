@@ -17,8 +17,9 @@ redistributed freely.
 | `influenza-a-pr8-8segments.gb` | [NC_002016–NC_002023](https://www.ncbi.nlm.nih.gov/nuccore/NC_002023.1) | 8 records, ~14 kb | Eight segments in one file — demonstrates the Database Hub's multi-sequence list. Includes spliced (`join`) CDS for M2/NS2. |
 | `human-mitochondrion-NC_012920.gb` | [NC_012920](https://www.ncbi.nlm.nih.gov/nuccore/NC_012920.1) | 16,569 bp, circular | The Cambridge Reference Sequence — 37 densely packed genes (13 CDS, 22 tRNA, 2 rRNA) plus the D-loop. |
 
-> **Note on the mitochondrial file:** vertebrate mitochondria use a
-> [non-standard genetic code](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi#SG2).
-> Dunceious translates with the standard code, so zooming into a mitochondrial
-> CDS shows spurious early-stop markers in the translation track. The other
-> files use the standard code and translate cleanly.
+> **Genetic codes:** Dunceious honours each CDS's `/transl_table`, so the
+> vertebrate-mitochondrial file
+> ([table 2](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi#SG2) —
+> TGA = Trp, ATA = Met) translates cleanly with no spurious early-stop markers,
+> as do the standard-code files. Alternative start codons are shown as their
+> literal residue rather than forced to Met.

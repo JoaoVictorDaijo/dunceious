@@ -123,10 +123,10 @@ describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
 
   it('does not flag any valid standard-code CDS as a broken protein', () => {
     // The inverse of the mitochondrial mistranslation bug: a correctly
-    // annotated, in-frame CDS must never trip the early-stop detector.
-    // Restricted to single-segment codon_start=1 CDS so neither the ignored
-    // /codon_start offset nor the mixed-strand trans-splice defect contaminates
-    // this guard (both tracked separately).
+    // annotated, in-frame standard-code CDS must never trip the early-stop
+    // detector. Restricted to single-segment codon_start=1 CDS — a clean subset
+    // free of RNA-edited internal stops; the trans-spliced and non-standard-code
+    // paths have their own dedicated assertions.
     const cds = record.features.filter(
       f =>
         f.type === 'CDS' &&
@@ -139,6 +139,27 @@ describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
       return detectEarlyStop(codingSeq);
     });
     expect(broken).toHaveLength(0);
+  });
+
+  it('parses the trans-spliced rps12 CDS with per-segment strands and translates it correctly', () => {
+    // rps12 is trans-spliced across strands: join(complement(...),...,...).
+    // The forward segment must NOT be reverse-complemented with the whole feature.
+    const mixed = record.features.filter(
+      f =>
+        f.type === 'CDS' &&
+        (f.segments ?? []).some(s => s.strand === -1) &&
+        (f.segments ?? []).some(s => s.strand === 1),
+    );
+    expect(mixed.length).toBeGreaterThan(0);
+    for (const f of mixed) {
+      const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
+      const { codingSeq } = extractCodingSequence(f, record.sequence);
+      expect(detectEarlyStop(codingSeq, table), f.name).toBe(false);
+      if (f.translation) {
+        const computed = translateSequence(codingSeq, table).replace(/_+$/, '');
+        expect(computed, f.name).toBe(f.translation);
+      }
+    }
   });
 });
 
@@ -223,5 +244,63 @@ describe('examples/sars-cov-2-NC_045512.gb', () => {
     // The re-read keeps the concatenated ORF in frame.
     const { codingSeq } = extractCodingSequence(orf1ab!, record.sequence);
     expect(codingSeq.length % 3).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Human mitochondrion — NC_012920.1
+// Non-standard genetic code (vertebrate mitochondrial, transl_table=2).
+// ---------------------------------------------------------------------------
+
+describe('examples/human-mitochondrion-NC_012920.gb', () => {
+  const content = loadExample('human-mitochondrion-NC_012920.gb');
+  if (!content) {
+    it.skip('fixture file not found', () => {});
+    return;
+  }
+
+  let record: SeqRecord;
+  beforeAll(() => {
+    record = parseGenBank(content)[0];
+  });
+
+  it('annotates all 13 CDS with the vertebrate mitochondrial code (transl_table=2)', () => {
+    const cds = record.features.filter(f => f.type === 'CDS');
+    expect(cds).toHaveLength(13);
+    for (const f of cds) expect(f.metadata?.transl_table).toBe('2');
+  });
+
+  it('flags no CDS as broken under its own genetic code', () => {
+    const cds = record.features.filter(f => f.type === 'CDS');
+    // Under the STANDARD code every mitochondrial TGA (Trp) reads as a stop —
+    // the pre-fix behaviour that painted these CDS with spurious early stops.
+    const brokenStandard = cds.filter(
+      f => detectEarlyStop(extractCodingSequence(f, record.sequence).codingSeq, 1),
+    );
+    expect(brokenStandard.length).toBeGreaterThan(0);
+    // Under the annotated /transl_table, none are broken.
+    for (const f of cds) {
+      const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
+      const { codingSeq } = extractCodingSequence(f, record.sequence);
+      expect(detectEarlyStop(codingSeq, table), f.name).toBe(false);
+    }
+  });
+
+  it('recomputes CDS proteins with table 2 to match the stored /translation (bar alternative starts)', () => {
+    const cds = record.features.filter(f => f.type === 'CDS' && f.translation);
+    let matched = 0;
+    for (const f of cds) {
+      const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
+      const { codingSeq } = extractCodingSequence(f, record.sequence);
+      const computed = translateSequence(codingSeq, table).replace(/_+$/, '');
+      if (computed === f.translation) {
+        matched++;
+        continue;
+      }
+      // The only tolerated difference is the initiator residue: an alternative
+      // start codon (e.g. ATT) is annotated as Met but translates literally.
+      expect(computed.slice(1), f.name).toBe(f.translation!.slice(1));
+    }
+    expect(matched).toBeGreaterThanOrEqual(12);
   });
 });
