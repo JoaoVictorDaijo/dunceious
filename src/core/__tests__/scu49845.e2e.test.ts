@@ -36,6 +36,7 @@ import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { processTransposition } from '@/src/domain/bio';
+import { extractCodingSequence, translateSequence } from '@/src/domain/bio/sequence';
 import { degenerateToRegex } from '@/src/core/search/query';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
@@ -195,6 +196,36 @@ describe('SCU49845.gb – /translation qualifiers', () => {
     const cds = record.features.find(f => f.type === 'CDS' && f.start === 686);
     // If line-joining left spaces the translation would contain ' '
     expect(cds!.translation).not.toMatch(/\s/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Computed translation must reproduce the stored /translation — the frame-
+// correctness guard. TCP1-beta is a partial 5' CDS with /codon_start=3, so
+// translating from offset 0 yields the wrong frame; this fails unless the
+// reading-frame phase is honored.
+// ---------------------------------------------------------------------------
+
+describe('SCU49845.gb – computed translation honours /codon_start', () => {
+  let record: SeqRecord;
+
+  beforeAll(() => {
+    [record] = parseGenBank(SCU49845_CONTENT);
+  });
+
+  it('TCP1-beta CDS is annotated with the codon_start=3 trigger', () => {
+    const cds = record.features.find(f => f.name === 'TCP1-beta');
+    expect(cds!.metadata?.codon_start).toBe('3');
+  });
+
+  it('recomputes every CDS from the genome to match its stored /translation', () => {
+    const cdsFeatures = record.features.filter(f => f.type === 'CDS' && f.translation);
+    expect(cdsFeatures).toHaveLength(3);
+    for (const cds of cdsFeatures) {
+      const { codingSeq } = extractCodingSequence(cds, record.sequence);
+      const computed = translateSequence(codingSeq).replace(/_+$/, '');
+      expect(computed, cds.name).toBe(cds.translation);
+    }
   });
 });
 

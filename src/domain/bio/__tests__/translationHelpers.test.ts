@@ -86,6 +86,55 @@ describe('extractCodingSequence – reverse strand', () => {
   });
 });
 
+describe('extractCodingSequence – mixed-strand (trans-splice)', () => {
+  it('orients each segment by its own strand without reverse-complementing the whole feature', () => {
+    // join(complement(0..3), 6..9) over ATGAAACCC:
+    //   segment 0 (minus): RC of seq[0:3]='ATG' → 'CAT'
+    //   segment 1 (plus):  seq[6:9]='CCC'
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      {
+        strand: 1,
+        start: 0,
+        end: 9,
+        segments: [
+          { start: 0, end: 3, strand: -1 },
+          { start: 6, end: 9, strand: 1 },
+        ],
+      },
+      'ATGAAACCC'
+    );
+    expect(codingSeq).toBe('CATCCC');
+    expect(alignedIndices).toEqual([2, 1, 0, 6, 7, 8]);
+  });
+});
+
+describe('extractCodingSequence – codon_start (reading-frame phase)', () => {
+  it('drops leading bases per /codon_start on the forward strand', () => {
+    const seq = 'CATGCCCGAG'; // codon_start=2 ⇒ translation begins at index 1
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: 1, start: 0, end: 10, metadata: { codon_start: '2' } },
+      seq
+    );
+    expect(codingSeq).toBe('ATGCCCGAG');
+    expect(alignedIndices).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('defaults to frame 1 when codon_start is absent', () => {
+    const { codingSeq } = extractCodingSequence({ strand: 1, start: 0, end: 10 }, 'CATGCCCGAG');
+    expect(codingSeq).toBe('CATGCCCGAG');
+  });
+
+  it('applies codon_start after reverse-complementing a minus-strand feature', () => {
+    // RC of ATGCCC = GGGCAT; codon_start=3 drops the leading 2 bases ⇒ GCAT
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: -1, start: 0, end: 6, metadata: { codon_start: '3' } },
+      'ATGCCC'
+    );
+    expect(codingSeq).toBe('GCAT');
+    expect(alignedIndices).toEqual([3, 2, 1, 0]);
+  });
+});
+
 describe('extractCodingSequence – circular wrap-around (start > end)', () => {
   // Genome of length 10: 'CCCATGAAAG'
   // A circular CDS that wraps origin: positions 8..10 then 0..3 (i.e. start=8, end=3)

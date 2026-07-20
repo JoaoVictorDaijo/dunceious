@@ -52,25 +52,75 @@ export interface LocationData {
   end: number;
 }
 
+/** Splits a join/order element list on commas that are not inside nested parens. */
+function splitTopLevelCommas(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of list) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/** Parses a single coordinate element (`n..m`, `n^m`, or `n`) to a half-open range. */
+function parseCoord(el: string): { start: number; end: number } {
+  const pair = el.match(/(\d+)(?:\.\.|\^)(\d+)/);
+  if (pair) return { start: parseInt(pair[1]) - 1, end: parseInt(pair[2]) };
+  const single = el.match(/(\d+)/);
+  if (single) {
+    const val = parseInt(single[1]);
+    return { start: val - 1, end: val };
+  }
+  return { start: 0, end: 0 };
+}
+
 export function parseLocation(loc: string): LocationData {
   // Strip fuzzy indicators (<, >) and whitespace
   const cleanLoc = loc.replace(/[<>\s]/g, '');
 
-  const isComplement = cleanLoc.includes('complement');
-  const strand: 1 | -1 = isComplement ? -1 : 1;
+  // An outer complement(...) wrapping the whole location reverse-complements it,
+  // flipping the strand of every inner segment.
+  const outer = cleanLoc.match(/^complement\((.*)\)$/);
+  const outerComplement = outer !== null;
+  const body = outer ? outer[1] : cleanLoc;
 
-  const segments: FeatureSegment[] = [];
+  // join(...) / order(...) element list, else a single element.
+  const listMatch = body.match(/^(?:join|order)\((.*)\)$/);
+  const elements = listMatch ? splitTopLevelCommas(listMatch[1]) : [body];
 
-  // Match coord pairs (n..m or n^m) or single positions
-  const pairRe = /(\d+)(?:\.\.|\^)(\d+)|(\d+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = pairRe.exec(cleanLoc)) !== null) {
-    if (match[1] !== undefined && match[2] !== undefined) {
-      segments.push({ start: parseInt(match[1]) - 1, end: parseInt(match[2]) });
-    } else if (match[3] !== undefined) {
-      const val = parseInt(match[3]);
-      segments.push({ start: val - 1, end: val });
-    }
+  const parsed = elements.map(el => {
+    const inner = el.match(/^complement\((.*)\)$/);
+    const elementStrand: 1 | -1 = inner ? -1 : 1;
+    const effective: 1 | -1 =
+      outerComplement ? (elementStrand === 1 ? -1 : 1) : elementStrand;
+    return { ...parseCoord(inner ? inner[1] : el), strand: effective };
+  });
+
+  const strands = parsed.map(p => p.strand);
+  const mixedStrand = strands.some(s => s !== strands[0]);
+
+  let segments: FeatureSegment[];
+  let strand: 1 | -1;
+
+  if (mixedStrand) {
+    // Preserve each segment's own strand; the parent strand is the majority
+    // (ties resolve to +1). extractCodingSequence orients each segment itself.
+    segments = parsed.map(p => ({ start: p.start, end: p.end, strand: p.strand }));
+    strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
+  } else {
+    // Uniform strand: keep the historical shape (no per-segment strand); the
+    // whole coding sequence is reverse-complemented downstream when strand = -1.
+    segments = parsed.map(p => ({ start: p.start, end: p.end }));
+    strand = strands[0] ?? 1;
   }
 
   let start = 0;
