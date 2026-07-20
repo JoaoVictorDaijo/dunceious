@@ -1,0 +1,232 @@
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/* ============================================================
+   ENVIRONMENT ACCENT — header/footer gradient styles.
+   The accent renders ONLY through the two .hf-env layers inside
+   .app-nav (header) and .app-status (footer). Every rule reads the
+   --env / --env2 / --env3 custom properties, which React sets on
+   .app-root from the active theme's palette for the resolved env.
+   Ported from docs/design/prototypes/gradient-frame-styles.html.
+   ============================================================ */
+
+@property --env  { syntax: "<color>"; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: "<color>"; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: "<color>"; inherits: true; initial-value: #0d9488; }
+@property --conic-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+.app-root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease;
+}
+
+/* The containment layer. Absolutely positioned, NON-stacking-context on purpose
+   so screen-blend styles composite against the bar's own dark background.
+   Never wrap it in a filter/transform/isolation ancestor. */
+.hf-env { position: absolute; inset: 0; overflow: hidden; pointer-events: none; transition: opacity 650ms ease; }
+
+/* ── A · CLEAN — no wash; only the constant tinted chrome accents ── */
+[data-theme="clean"] .hf-env { background: none; }
+
+/* ── LAYERED LIGHT ── */
+[data-theme="layered-light"] .hf-env {
+  background-repeat: no-repeat;
+  background-blend-mode: screen;
+  background-position: 0 0, 0 0, 0 0;
+  animation: layered-light-drift 54s ease-in-out infinite;
+}
+[data-theme="layered-light"] .app-nav .hf-env {
+  background-image:
+    radial-gradient(64% 165% at 13% -30%, color-mix(in srgb, var(--env2) 46%, transparent) 0%, color-mix(in srgb, var(--env2) 15%, transparent) 40%, transparent 70%),
+    radial-gradient(52% 140% at 88% -6%, color-mix(in srgb, var(--env3) 38%, transparent) 0%, color-mix(in srgb, var(--env3) 12%, transparent) 44%, transparent 74%),
+    radial-gradient(96% 130% at 52% 145%, color-mix(in srgb, var(--env) 22%, transparent) 0%, transparent 66%);
+}
+[data-theme="layered-light"] .app-status .hf-env {
+  background-image:
+    radial-gradient(58% 150% at 15% 132%, color-mix(in srgb, var(--env2) 30%, transparent) 0%, color-mix(in srgb, var(--env2) 10%, transparent) 46%, transparent 76%),
+    radial-gradient(50% 135% at 87% 122%, color-mix(in srgb, var(--env3) 26%, transparent) 0%, color-mix(in srgb, var(--env3) 9%, transparent) 48%, transparent 78%),
+    radial-gradient(88% 120% at 50% -40%, color-mix(in srgb, var(--env) 14%, transparent) 0%, transparent 70%);
+}
+@keyframes layered-light-drift {
+  0%, 100% { background-position: 0 0, 0 0, 0 0; }
+  50%      { background-position: 9px 2px, -8px 3px, 0 -3px; }
+}
+@media (prefers-reduced-motion: reduce) { [data-theme="layered-light"] .hf-env { animation: none; } }
+
+/* ── AURORA BANDS ── */
+[data-theme="aurora"] .hf-env {
+  opacity: 0.72;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.24) 38%, rgba(0,0,0,0.62) 74%, #000 100%);
+          mask-image: linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.24) 38%, rgba(0,0,0,0.62) 74%, #000 100%);
+}
+[data-theme="aurora"] .hf-env::before,
+[data-theme="aurora"] .hf-env::after { content: ""; position: absolute; inset: -15% -25% -40%; will-change: transform; }
+[data-theme="aurora"] .hf-env::before {
+  background:
+    radial-gradient(18% 95%  at  8% 66%, color-mix(in srgb, var(--env2) 78%, transparent), transparent 62%),
+    radial-gradient(19% 100% at 27% 70%, color-mix(in srgb, var(--env)  76%, transparent), transparent 64%),
+    radial-gradient(17% 92%  at 46% 63%, color-mix(in srgb, var(--env3) 68%, transparent), transparent 62%),
+    radial-gradient(18% 98%  at 66% 70%, color-mix(in srgb, var(--env2) 70%, transparent), transparent 64%),
+    radial-gradient(16% 90%  at 86% 65%, color-mix(in srgb, var(--env)  66%, transparent), transparent 62%);
+  filter: blur(15px) saturate(1.75);
+  animation: aurora-drift 34s ease-in-out infinite alternate;
+}
+[data-theme="aurora"] .hf-env::after {
+  background:
+    radial-gradient(24% 110% at 17% 74%, color-mix(in srgb, var(--env3) 52%, transparent), transparent 68%),
+    radial-gradient(22% 105% at 57% 76%, color-mix(in srgb, var(--env)  48%, transparent), transparent 68%),
+    radial-gradient(20% 100% at 92% 74%, color-mix(in srgb, var(--env3) 42%, transparent), transparent 68%);
+  filter: blur(22px) saturate(1.5);
+  opacity: 0.66;
+  animation: aurora-drift-slow 52s ease-in-out infinite alternate;
+}
+[data-theme="aurora"] .app-status .hf-env {
+  opacity: 0.52;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.42) 48%, #000 100%);
+          mask-image: linear-gradient(to bottom, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.42) 48%, #000 100%);
+}
+[data-theme="aurora"] .app-status .hf-env::before { filter: blur(10px) saturate(1.55); }
+[data-theme="aurora"] .app-status .hf-env::after  { filter: blur(15px) saturate(1.4); opacity: 0.5; }
+@keyframes aurora-drift      { 0% { transform: translate3d(-3%,0,0) skewX(-4deg); } 100% { transform: translate3d(3%,0,0) skewX(4deg); } }
+@keyframes aurora-drift-slow { 0% { transform: translate3d(4%,0,0) skewX(3deg); } 100% { transform: translate3d(-4%,0,0) skewX(-3deg); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="aurora"] .hf-env::before, [data-theme="aurora"] .hf-env::after { animation: none; }
+}
+
+/* ── CONIC SHEEN ── */
+[data-theme="conic"] .hf-env {
+  mix-blend-mode: screen;
+  opacity: .32;
+  -webkit-mask-image: radial-gradient(120% 140% at 50% 50%, #000 45%, transparent 100%);
+          mask-image: radial-gradient(120% 140% at 50% 50%, #000 45%, transparent 100%);
+}
+[data-theme="conic"] .hf-env::before {
+  content: ""; position: absolute; inset: -24px -40px;
+  background: conic-gradient(from var(--conic-angle, 0deg) at 50% -140%, var(--env3), var(--env), var(--env2), var(--env3), var(--env), var(--env2), var(--env3));
+  filter: blur(30px) saturate(1.2);
+  animation: conic-sheen-drift 120s linear infinite;
+  will-change: background;
+}
+[data-theme="conic"] .app-status .hf-env {
+  opacity: .28;
+  -webkit-mask-image: radial-gradient(120% 185% at 50% 50%, #000 50%, transparent 100%);
+          mask-image: radial-gradient(120% 185% at 50% 50%, #000 50%, transparent 100%);
+}
+[data-theme="conic"] .app-status .hf-env::before {
+  inset: -14px -40px;
+  background: conic-gradient(from var(--conic-angle, 0deg) at 50% -230%, var(--env3), var(--env), var(--env2), var(--env3), var(--env), var(--env2), var(--env3));
+  filter: blur(20px) saturate(1.2);
+  animation-duration: 150s;
+}
+@keyframes conic-sheen-drift { from { --conic-angle: 0deg; } to { --conic-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { [data-theme="conic"] .hf-env::before { animation: none; } }
+
+/* ── PRISM SHAFTS (light-shaft) ── */
+[data-theme="light-shaft"] .hf-env {
+  background-image: linear-gradient(112deg, color-mix(in srgb, var(--env) 9%, transparent), transparent 46%, color-mix(in srgb, var(--env3) 8%, transparent));
+}
+[data-theme="light-shaft"] .hf-env::before,
+[data-theme="light-shaft"] .hf-env::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -16%; width: 132%;
+  pointer-events: none; mix-blend-mode: screen; will-change: transform;
+}
+[data-theme="light-shaft"] .hf-env::before {
+  background-image:
+    linear-gradient(107deg, transparent 12%, color-mix(in srgb, var(--env2) 22%, transparent) 20%, transparent 31%),
+    linear-gradient(107deg, transparent 41%, color-mix(in srgb, var(--env) 26%, transparent) 49%, color-mix(in srgb, var(--env) 26%, transparent) 51%, transparent 61%),
+    linear-gradient(107deg, transparent 73%, color-mix(in srgb, var(--env2) 16%, transparent) 81%, transparent 91%);
+  animation: light-shaft-drift-near 30s ease-in-out infinite alternate;
+}
+[data-theme="light-shaft"] .hf-env::after {
+  background-image:
+    linear-gradient(112deg, transparent 20%, color-mix(in srgb, var(--env3) 26%, transparent) 33%, transparent 49%),
+    linear-gradient(112deg, transparent 56%, color-mix(in srgb, var(--env) 18%, transparent) 67%, transparent 83%);
+  opacity: 0.85;
+  animation: light-shaft-drift-far 46s ease-in-out infinite alternate;
+}
+@keyframes light-shaft-drift-near { from { transform: translate3d(-1.5%,0,0); } to { transform: translate3d(2.5%,0,0); } }
+@keyframes light-shaft-drift-far  { from { transform: translate3d(1.5%,0,0); }  to { transform: translate3d(-2%,0,0); } }
+[data-theme="light-shaft"] .app-status .hf-env {
+  background-image: linear-gradient(112deg, color-mix(in srgb, var(--env) 7%, transparent), transparent 50%, color-mix(in srgb, var(--env3) 6%, transparent));
+}
+[data-theme="light-shaft"] .app-status .hf-env::before { opacity: 0.6; }
+[data-theme="light-shaft"] .app-status .hf-env::after  { opacity: 0.42; }
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="light-shaft"] .hf-env::before, [data-theme="light-shaft"] .hf-env::after { animation: none; transform: none; }
+}
+
+/* ── DUOTONE DRIFT ── */
+[data-theme="duotone-drift"] .hf-env {
+  --dd-gain: 1; --dd-amp: 1;
+  background: linear-gradient(93deg,
+    color-mix(in oklab, var(--env)  calc(17% * var(--dd-gain)), transparent)   0%,
+    color-mix(in oklab, var(--env)  calc(6%  * var(--dd-gain)), transparent)  40%,
+    color-mix(in oklab, var(--env2) calc(7%  * var(--dd-gain)), transparent)  66%,
+    color-mix(in oklab, var(--env2) calc(16% * var(--dd-gain)), transparent) 100%);
+}
+[data-theme="duotone-drift"] .hf-env::before,
+[data-theme="duotone-drift"] .hf-env::after { content: ""; position: absolute; inset: -24% -22%; mix-blend-mode: screen; will-change: transform, opacity; }
+[data-theme="duotone-drift"] .hf-env::before {
+  background: linear-gradient(90deg, color-mix(in oklab, var(--env) calc(22% * var(--dd-gain)), transparent), color-mix(in oklab, var(--env2) calc(14% * var(--dd-gain)), transparent) 76%, transparent);
+  animation: duotone-drift-pan 34s ease-in-out infinite alternate;
+}
+[data-theme="duotone-drift"] .hf-env::after {
+  background: linear-gradient(86deg, transparent, color-mix(in oklab, var(--env3) calc(14% * var(--dd-gain)), transparent) 32%, color-mix(in oklab, var(--env2) calc(24% * var(--dd-gain)), transparent) 100%);
+  opacity: calc(0.5 * var(--dd-gain));
+  animation: duotone-drift-breathe 41s ease-in-out infinite alternate;
+}
+@keyframes duotone-drift-pan { from { transform: translate3d(calc(-3.6% * var(--dd-amp)),0,0); } to { transform: translate3d(calc(3.6% * var(--dd-amp)),0,0); } }
+@keyframes duotone-drift-breathe {
+  from { transform: translate3d(calc(2.4% * var(--dd-amp)),0,0);  opacity: calc(0.30 * var(--dd-gain)); }
+  to   { transform: translate3d(calc(-2.4% * var(--dd-amp)),0,0); opacity: calc(0.60 * var(--dd-gain)); }
+}
+[data-theme="duotone-drift"] .app-status .hf-env { --dd-gain: 0.6; --dd-amp: 0.5; }
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="duotone-drift"] .hf-env::before, [data-theme="duotone-drift"] .hf-env::after { animation: none; transform: none; }
+}
+
+/* ── MESH + GRAIN ── */
+[data-theme="mesh-grain"] .hf-env::before {
+  content: ""; position: absolute; inset: -25%;
+  background:
+    radial-gradient(58% 190% at 6% 128%, color-mix(in srgb, var(--env2) 60%, transparent) 0%, transparent 60%),
+    radial-gradient(52% 175% at 92% -34%, color-mix(in srgb, var(--env) 52%, transparent) 0%, transparent 62%),
+    radial-gradient(40% 150% at 63% 132%, color-mix(in srgb, var(--env3) 42%, transparent) 0%, transparent 58%);
+  mix-blend-mode: screen; will-change: transform;
+  animation: mesh-grain-drift 52s ease-in-out infinite alternate;
+}
+[data-theme="mesh-grain"] .hf-env::after {
+  content: ""; position: absolute; inset: 0;
+  background: var(--grain); background-size: 160px 160px;
+  mix-blend-mode: overlay; opacity: 0.2;
+}
+@keyframes mesh-grain-drift { from { transform: translate3d(-1.2%, 0.6%, 0) scale(1.05); } to { transform: translate3d(1.4%, -0.8%, 0) scale(1.07); } }
+[data-theme="mesh-grain"] .app-status .hf-env::before {
+  inset: -60% -25%;
+  background:
+    radial-gradient(70% 320% at 10% 0%, color-mix(in srgb, var(--env2) 32%, transparent) 0%, transparent 64%),
+    radial-gradient(64% 300% at 90% 100%, color-mix(in srgb, var(--env) 28%, transparent) 0%, transparent 66%);
+  animation-duration: 64s;
+}
+[data-theme="mesh-grain"] .app-status .hf-env::after { opacity: 0.14; }
+@media (prefers-reduced-motion: reduce) { [data-theme="mesh-grain"] .hf-env::before { animation: none; } }
+
+/* ── Reduced motion: also snap the token re-tint instead of interpolating. ── */
+@media (prefers-reduced-motion: reduce) { .app-root { transition: none; } }
