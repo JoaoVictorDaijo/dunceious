@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { extractCodingSequence, translateSequence, detectEarlyStop } from '@/src/domain/bio/sequence';
+import { processTransposition } from '@/src/domain/bio';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -159,6 +160,26 @@ describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
         const computed = translateSequence(codingSeq, table).replace(/_+$/, '');
         expect(computed, f.name).toBe(f.translation);
       }
+    }
+  });
+
+  it('keeps the trans-spliced rps12 CDS correct after alignment transposition', () => {
+    // Per-segment strand must survive processTransposition (identity alignment),
+    // else the aligned-view extractor takes the whole-feature revcomp path.
+    const [transposed] = processTransposition([{ ...record, alignedSequence: record.sequence }]);
+    const seq = transposed.alignedSequence!;
+    const mixed = transposed.features.filter(
+      f =>
+        f.type === 'CDS' &&
+        f.translation &&
+        (f.segments ?? []).some(s => s.strand === -1) &&
+        (f.segments ?? []).some(s => s.strand === 1),
+    );
+    expect(mixed.length).toBeGreaterThan(0);
+    for (const f of mixed) {
+      const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
+      const computed = translateSequence(extractCodingSequence(f, seq).codingSeq, table).replace(/_+$/, '');
+      expect(computed, f.name).toBe(f.translation);
     }
   });
 });

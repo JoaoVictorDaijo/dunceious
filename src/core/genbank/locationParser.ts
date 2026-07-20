@@ -97,8 +97,10 @@ export function parseLocation(loc: string): LocationData {
   const listMatch = body.match(/^(?:join|order)\((.*)\)$/);
   const elements = listMatch ? splitTopLevelCommas(listMatch[1]) : [body];
 
+  let anyInnerComplement = false;
   const parsed = elements.map(el => {
     const inner = el.match(/^complement\((.*)\)$/);
+    if (inner) anyInnerComplement = true;
     const elementStrand: 1 | -1 = inner ? -1 : 1;
     const effective: 1 | -1 =
       outerComplement ? (elementStrand === 1 ? -1 : 1) : elementStrand;
@@ -108,17 +110,25 @@ export function parseLocation(loc: string): LocationData {
   const strands = parsed.map(p => p.strand);
   const mixedStrand = strands.some(s => s !== strands[0]);
 
+  // Per-segment orientation (each segment reverse-complemented on its own, in
+  // join order) is required whenever the strands differ, OR when the
+  // complements are inner — join(complement(a),complement(b)) means
+  // rc(a) then rc(b), which the whole-feature path would reverse. An OUTER
+  // complement(join(...)) is the historical uniform case and stays whole-feature.
+  const usePerSegment = mixedStrand || (anyInnerComplement && !outerComplement);
+
   let segments: FeatureSegment[];
   let strand: 1 | -1;
 
-  if (mixedStrand) {
+  if (usePerSegment) {
     // Preserve each segment's own strand; the parent strand is the majority
     // (ties resolve to +1). extractCodingSequence orients each segment itself.
     segments = parsed.map(p => ({ start: p.start, end: p.end, strand: p.strand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
   } else {
-    // Uniform strand: keep the historical shape (no per-segment strand); the
-    // whole coding sequence is reverse-complemented downstream when strand = -1.
+    // Uniform strand with no inner complement: keep the historical shape (no
+    // per-segment strand); the whole coding sequence is reverse-complemented
+    // downstream when strand = -1.
     segments = parsed.map(p => ({ start: p.start, end: p.end }));
     strand = strands[0] ?? 1;
   }

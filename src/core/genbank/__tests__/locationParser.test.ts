@@ -182,4 +182,15 @@ describe('parseLocation – mixed-strand trans-splice', () => {
     expect(r.segments[0]).toEqual({ start: 9, end: 20 });
     expect(r.segments[1]).toEqual({ start: 29, end: 40 });
   });
+
+  it('assigns per-segment strand for an all-inner-complement join, preserving join order', () => {
+    // join(complement(1..3),complement(7..9)) = revcomp(1..3) then revcomp(7..9),
+    // NOT the reversed order the whole-feature complement path would produce.
+    const r = parseLocation('join(complement(1..3),complement(7..9))');
+    expect(r.segments).toEqual([
+      { start: 0, end: 3, strand: -1 },
+      { start: 6, end: 9, strand: -1 },
+    ]);
+    expect(r.strand).toBe(-1);
+  });
 });
