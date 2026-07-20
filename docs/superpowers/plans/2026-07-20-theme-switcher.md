@@ -616,12 +616,14 @@ Change the outer return: the component currently returns a fragment `<>` wrappin
 
 ```tsx
   return (
-  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50 overflow-hidden">
+  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50">
     <div className="hf-env" aria-hidden="true" />
     <div className="relative z-[1] h-full flex items-center justify-between px-6">
 ```
 
 …then keep the existing inner content unchanged EXCEPT the helix color, and close with `</div></nav>` instead of `</nav></>` plus the deleted strip.
+
+> **Do NOT put `overflow-hidden` on `.app-nav`.** The Options popover renders inline (no portal) as an `absolute top-full` child inside the nav's containing block; an ancestor `overflow-hidden` would geometrically clip the whole popover (the theme picker included) regardless of `z-index`. The gradient stays contained without it — `.hf-env` is `position:absolute; inset:0` and self-clips its washes via its own `overflow:hidden` in `themes.css`. (The footer `.app-status` keeps `overflow-hidden` safely: it has no outward-opening menu.)
 
 Helix (lines 93–96): replace the inline color with the CSS var:
 
@@ -864,6 +866,7 @@ Using the Playwright CLI, capture the chrome for at least these states and eyeba
 
 Confirm by inspection:
 1. **No bleed:** no accent wash touches the white viewport canvas or the Hub table card — the gradient is contained to the header and footer bars only. (This is the regression the user reported; it must be gone.)
+1b. **Options popover reachable:** click the gear and confirm the *entire* popover renders unclipped — the Theme picker, Feature Colors, and the Workspace toggle all visible below the nav. (Guards the `overflow-hidden`-clips-the-popover regression, which has no unit coverage since the project has no DOM test infra.)
 2. **Screen-blend presence:** aurora's curtains are actually visible in the header/footer over the `bg-slate-900/95` nav. If they are invisible, the nav's `backdrop-blur` is suppressing the blend — fix by giving `.app-nav`/`.app-status` an explicit opaque background layer behind `.hf-env` (e.g. drop the `/95` alpha to solid `#0f172a` on those two bars) and re-verify. Record the outcome.
 3. **Reduced motion:** with the OS "reduce motion" setting on, animations stop and the theme switch re-tints instantly (no 650ms interpolation), while each style keeps its static resting composition.
 4. **Persistence:** choose a non-default theme, reload — it persists.
