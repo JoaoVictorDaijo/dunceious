@@ -58,10 +58,10 @@ export default tseslint.config(
     },
   },
   {
-    // Plain Node.js scripts in the bench/ and scripts/ directories are not
+    // Plain Node.js scripts in the bench/, scripts/ and docs/ directories are not
     // TypeScript and need access to the full set of Node.js globals (process,
     // console, URL, Buffer, etc.).
-    files: ['bench/**/*.mjs', 'scripts/**/*.mjs'],
+    files: ['bench/**/*.mjs', 'scripts/**/*.mjs', 'docs/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,

@@ -161,3 +161,36 @@ describe('parseLocation – circular wrap-around join', () => {
     expect(r.segments).toHaveLength(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mixed-strand trans-splice: a join whose segments live on different strands
+// (e.g. Arabidopsis rps12). Each segment must carry its own strand.
+// ---------------------------------------------------------------------------
+
+describe('parseLocation – mixed-strand trans-splice', () => {
+  it('assigns per-segment strand for join(complement(a),b,c)', () => {
+    const r = parseLocation('join(complement(69611..69724),139856..140087,140625..140650)');
+    expect(r.segments).toHaveLength(3);
+    expect(r.segments[0]).toEqual({ start: 69610, end: 69724, strand: -1 });
+    expect(r.segments[1]).toEqual({ start: 139855, end: 140087, strand: 1 });
+    expect(r.segments[2]).toEqual({ start: 140624, end: 140650, strand: 1 });
+  });
+
+  it('leaves uniform complement(join(...)) without per-segment strand (unchanged shape)', () => {
+    const r = parseLocation('complement(join(10..20,30..40))');
+    expect(r.strand).toBe(-1);
+    expect(r.segments[0]).toEqual({ start: 9, end: 20 });
+    expect(r.segments[1]).toEqual({ start: 29, end: 40 });
+  });
+
+  it('assigns per-segment strand for an all-inner-complement join, preserving join order', () => {
+    // join(complement(1..3),complement(7..9)) = revcomp(1..3) then revcomp(7..9),
+    // NOT the reversed order the whole-feature complement path would produce.
+    const r = parseLocation('join(complement(1..3),complement(7..9))');
+    expect(r.segments).toEqual([
+      { start: 0, end: 3, strand: -1 },
+      { start: 6, end: 9, strand: -1 },
+    ]);
+    expect(r.strand).toBe(-1);
+  });
+});

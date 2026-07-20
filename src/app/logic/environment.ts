@@ -17,22 +17,19 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+export type EnvAccentKey = 'nucleotide' | 'protein' | 'hub' | 'none';
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import './themes.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import App from './App';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+/**
+ * The active environment accent. With no molecule there is no environment, so the
+ * Database Hub does NOT go amber on an empty session — the null check runs first.
+ * In the Hub the accent reads `hub`; in the viewport it reads the molecule's own
+ * environment. Colour values for each key live in the theme registry (theme.ts).
+ */
+export const resolveEnvAccent = (
+  activeTab: 'alignment' | 'features',
+  moleculeType: 'nucleotide' | 'protein' | null,
+): EnvAccentKey => {
+  if (moleculeType === null) return 'none';
+  if (activeTab === 'features') return 'hub';
+  return moleculeType;
+};

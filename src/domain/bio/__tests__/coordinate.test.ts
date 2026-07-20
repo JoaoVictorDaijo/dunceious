@@ -108,6 +108,13 @@ describe('buildAlignedSegments', () => {
       { start: 2, end: 3 },
     ]);
   });
+
+  it('stamps the supplied per-segment strand onto every rebuilt segment', () => {
+    expect(buildAlignedSegments('AC--GT', 0, 6, -1)).toEqual([
+      { start: 0, end: 2, strand: -1 },
+      { start: 4, end: 6, strand: -1 },
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -138,6 +145,16 @@ describe('processTransposition', () => {
     const [result] = processTransposition([record]);
     expect(result.features[0].start).toBe(0);
     expect(result.features[0].end).toBe(4);
+  });
+
+  it('preserves per-segment strand through a gapless transposition (trans-spliced CDS)', () => {
+    const record = makeRecord('r1', 'ATGAAACCC', 'ATGAAACCC');
+    record.features = [{
+      type: 'CDS', name: 'x', start: 0, end: 9, strand: 1,
+      segments: [{ start: 0, end: 3, strand: -1 }, { start: 6, end: 9, strand: 1 }],
+    }];
+    const [result] = processTransposition([record]);
+    expect(result.features[0].segments!.map(s => s.strand)).toEqual([-1, 1]);
   });
 
   it('splits a feature into sub-segments around internal gaps', () => {

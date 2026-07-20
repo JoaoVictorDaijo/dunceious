@@ -27,6 +27,9 @@ import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
+import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
+import { resolveEnvAccent } from './logic/environment';
+import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -51,7 +54,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const App: React.FC = () => {
-  const CLEAR_CONFIRM_PREF_KEY = 'dunceious.skipClearAllConfirmation';
   // ── Logger ────────────────────────────────────────────────────────────────
   const { logs, addLog } = useAppLogger();
 
@@ -74,10 +76,8 @@ const App: React.FC = () => {
   const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
   const [jumpTo, setJumpTo] = useState<number | null>(null);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
-  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(CLEAR_CONFIRM_PREF_KEY) === '1';
-  });
+  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
+  const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -198,6 +198,9 @@ const App: React.FC = () => {
     [records, isProteinSession],
   );
 
+  const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
+  const themeStyle = resolveThemeVars(getTheme(themeKey), envAccent) as React.CSSProperties;
+
   useEffect(() => {
     if (records.length === 0) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -207,6 +210,16 @@ const App: React.FC = () => {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [records.length]);
+
+  const handleSetSkipClearAllConfirmation = (value: boolean) => {
+    writeSkipClearAllConfirmation(value);
+    setSkipClearAllConfirmation(value);
+  };
+
+  const handleSetThemeKey = (key: ThemeKey) => {
+    writeThemePref(key);
+    setThemeKey(key);
+  };
 
   const handleClearAll = () => {
     if (records.length === 0) return;
@@ -219,7 +232,7 @@ const App: React.FC = () => {
       const normalized = choice.trim().toUpperCase();
       if (normalized !== 'CLEAR' && normalized !== 'CLEAR ALWAYS') return;
       if (normalized === 'CLEAR ALWAYS') {
-        window.localStorage.setItem(CLEAR_CONFIRM_PREF_KEY, '1');
+        writeSkipClearAllConfirmation(true);
         setSkipClearAllConfirmation(true);
       }
     }
@@ -229,7 +242,12 @@ const App: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none">
+    <div
+      className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
+      data-theme={themeKey}
+      data-env={envAccent}
+      style={themeStyle}
+    >
       <ProcessingOverlay isProcessing={isProcessing} />
 
       {viewingRecordDetails && (
@@ -271,6 +289,12 @@ const App: React.FC = () => {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        featureColors={featureColors}
+        onSetFeatureColors={setFeatureColors}
+        skipClearAllConfirmation={skipClearAllConfirmation}
+        onSetSkipClearAllConfirmation={handleSetSkipClearAllConfirmation}
+        themeKey={themeKey}
+        onSetThemeKey={handleSetThemeKey}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
@@ -298,8 +322,6 @@ const App: React.FC = () => {
           onSetActiveSelection={setActiveSelection}
           alignmentLength={alignmentLength}
           onSetJumpTo={setJumpTo}
-          featureColors={featureColors}
-          onSetFeatureColors={setFeatureColors}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
           onAnnotationUpload={handleAnnotationUpload}
@@ -334,25 +356,6 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
-          {/* Ambient session-type corner gradients — atmospheric lighting cue */}
-          <div
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
-              sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              background:
-                'radial-gradient(ellipse 60% 45% at 100% 0%, rgba(56, 189, 248, 0.18), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 100%, rgba(14, 165, 233, 0.10), transparent 65%)',
-            }}
-          />
-          <div
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-700 ${
-              sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              background:
-                'radial-gradient(ellipse 60% 45% at 100% 0%, rgba(139, 92, 246, 0.18), transparent 65%), radial-gradient(ellipse 50% 40% at 0% 100%, rgba(99, 102, 241, 0.10), transparent 65%)',
-            }}
-          />
           {records.length === 0 ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
@@ -414,15 +417,6 @@ const App: React.FC = () => {
             </div>
           )}
         </main>
-      </div>
-
-      <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-        <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-t from-sky-500/40 via-sky-500/10 to-transparent ${
-          sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-        }`} />
-        <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-t from-violet-500/40 via-violet-500/10 to-transparent ${
-          sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-        }`} />
       </div>
 
       <StatusBar sessionMoleculeType={sessionMoleculeType} />

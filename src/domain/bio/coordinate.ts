@@ -56,9 +56,13 @@ export const buildAlignedSegments = (
   alignedSeq: string,
   alignedStart: number,
   alignedEnd: number,
+  strand?: 1 | -1,
 ): FeatureSegment[] => {
   const segments: FeatureSegment[] = [];
   let currentStart: number | null = null;
+
+  const push = (start: number, end: number) =>
+    segments.push(strand !== undefined ? { start, end, strand } : { start, end });
 
   for (let i = alignedStart; i < alignedEnd; i++) {
     if (alignedSeq[i] !== "-") {
@@ -67,14 +71,14 @@ export const buildAlignedSegments = (
       }
     } else {
       if (currentStart !== null) {
-        segments.push({ start: currentStart, end: i });
+        push(currentStart, i);
         currentStart = null;
       }
     }
   }
 
   if (currentStart !== null) {
-    segments.push({ start: currentStart, end: alignedEnd });
+    push(currentStart, alignedEnd);
   }
 
   return segments;
@@ -108,7 +112,7 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
           const alignedStart = transposeCoordinates(part.start, alignedSeq);
           const alignedEnd = transposeCoordinates(part.end, alignedSeq);
           newSegments.push(
-            ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd),
+            ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd, seg.strand),
           );
         }
       }

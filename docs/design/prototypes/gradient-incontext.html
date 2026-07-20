@@ -1,0 +1,431 @@
+<!--
+  Dunceious
+
+  This file is part of Dunceious.
+
+  Dunceious is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Dunceious is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<title>Environment Accent — chrome-confined, in the real Dunceious frame</title>
+
+<style>
+/* ============================================================
+   @property token machinery: a Mode flip interpolates --env
+   across the whole frame in ~650ms. Calm at rest, rich on switch.
+   THE RULE: the accent lives in the FRAME (dark chrome + the
+   non-data cream/matte backdrop). It NEVER washes the white
+   viewport canvas or the white Hub table card. Only a thin
+   accent EDGE STRIP is allowed to touch the white boundary.
+   ============================================================ */
+@property --env  { syntax: "<color>"; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: "<color>"; inherits: true; initial-value: #22d3ee; }
+@property --env3 { syntax: "<color>"; inherits: true; initial-value: #6366f1; }
+
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  /* page chrome (area AROUND the app) — theme-aware */
+  --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626;
+  /* fixed app surfaces — the frame commits to one world on purpose */
+  --nav: #0f172a; --nav-2: #0b1120; --canvas: #ffffff; --canvas-2: #eef2f7;
+  --cream: #fffdf7; --cream-2: #f6f0e4;
+  --ink-mute: #8ea0ba; --canvas-ink: #334155; --canvas-mute: #64748b;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root, [data-env="viewport"] { --env: #0ea5e9; --env2: #22d3ee; --env3: #6366f1; }
+[data-env="hub"]            { --env: #f59e0b; --env2: #fbbf24; --env3: #f97316; }
+.app { transition: --env 650ms ease, --env2 650ms ease, --env3 650ms ease; }
+
+@media (prefers-color-scheme: light) {
+  :root { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+}
+:root[data-theme="light"] { --page-bg: #eef2f8; --page-ink: #16202f; --page-muted: #536178; --page-line: rgba(30,41,59,.14); --page-panel: #ffffff; }
+:root[data-theme="dark"]  { --page-bg: #0a0f1a; --page-ink: #e6edf6; --page-muted: #93a2b8; --page-line: rgba(148,163,184,.16); --page-panel: #0e1626; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--sans);
+  -webkit-font-smoothing: antialiased; transition: background 350ms ease, color 350ms ease; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 22px; }
+h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 6px; letter-spacing: -.015em; font-weight: 650; }
+.sub { color: var(--page-muted); margin: 0 0 20px; max-width: 78ch; font-size: .95rem; }
+.eyebrow { font-family: var(--mono); font-size: .66rem; letter-spacing: .2em; text-transform: uppercase; color: var(--page-muted); margin: 0 0 8px; }
+.mono { font-family: var(--mono); }
+
+/* ---------- control bar ---------- */
+.controls { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--page-bg) 86%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--page-line); }
+.controls-in { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 12px 22px; max-width: 1200px; margin: 0 auto; }
+.ctl-label { font-family: var(--mono); font-size: .6rem; letter-spacing: .16em; text-transform: uppercase; color: var(--page-muted); margin-right: -10px; }
+.seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--page-panel); border: 1px solid var(--page-line); border-radius: 999px; }
+.seg button { font-family: var(--mono); font-size: .72rem; color: var(--page-muted); background: transparent; border: 0; cursor: pointer;
+  padding: 6px 13px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; transition: color .2s, background .2s; }
+.seg button .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.seg button[data-env="viewport"] .dot { color: #0ea5e9; background: #0ea5e9; }
+.seg button[data-env="hub"] .dot { color: #f59e0b; background: #f59e0b; }
+.seg button.on { color: var(--page-ink); background: color-mix(in srgb, var(--env) 24%, var(--page-panel)); }
+.presets { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.presets button { font-family: var(--mono); font-size: .68rem; color: var(--page-muted); background: var(--page-panel);
+  border: 1px solid var(--page-line); cursor: pointer; padding: 7px 12px; border-radius: 9px; transition: .18s; position: relative; }
+.presets button:hover { color: var(--page-ink); }
+.presets button.on { color: var(--page-ink); border-color: color-mix(in srgb, var(--env) 60%, transparent);
+  background: color-mix(in srgb, var(--env) 16%, var(--page-panel)); }
+.presets button .rec { position: absolute; top: -8px; right: -6px; font-size: .5rem; letter-spacing: .1em;
+  background: #10b981; color: #04120c; padding: 1px 5px; border-radius: 6px; }
+.seg button:focus-visible, .presets button:focus-visible { outline: 2px solid var(--env); outline-offset: 2px; }
+
+/* ============================================================
+   APP FRAME
+   ============================================================ */
+.app { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid rgba(0,0,0,.5);
+  box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); aspect-ratio: 16 / 9; min-height: 480px;
+  display: grid; grid-template-rows: 58px 1fr 30px; background: var(--nav); }
+
+/* ---- shared chrome env layer (dark surfaces) — presets B & C ---- */
+.chrome-env { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease;
+  background:
+    radial-gradient(62% 190% at 16% 0%,  color-mix(in srgb, var(--env2) 44%, transparent), transparent 60%),
+    radial-gradient(52% 170% at 84% 0%,  color-mix(in srgb, var(--env)  34%, transparent), transparent 62%),
+    radial-gradient(74% 210% at 56% 130%, color-mix(in srgb, var(--env3) 26%, transparent), transparent 66%); }
+[data-preset="b"] .chrome-env, [data-preset="c"] .chrome-env { opacity: 1; }
+
+/* ---- TOP NAV (constant baseline across every preset) ---- */
+.nav { position: relative; background: var(--nav); display: flex; align-items: center; gap: 14px; padding: 0 14px;
+  z-index: 3; border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden; }
+.nav > *:not(.chrome-env) { position: relative; z-index: 2; }
+.iconbtn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: var(--nav-2);
+  color: var(--ink-mute); display: grid; place-items: center; font-size: 13px; cursor: default; flex: none; }
+.hamb { display: flex; flex-direction: column; gap: 3px; }
+.hamb i { width: 13px; height: 2px; background: currentColor; border-radius: 2px; }
+.wordmark { display: flex; flex-direction: column; line-height: 1; }
+.wordmark b { font-style: italic; font-weight: 800; letter-spacing: .06em; color: #fff; font-size: .92rem; }
+.wordmark b::before { content: "⬡"; color: var(--env); margin-right: 5px; font-style: normal; transition: color .65s; }
+.wordmark span { font-family: var(--mono); font-size: .5rem; letter-spacing: .1em; color: var(--ink-mute); margin-top: 3px; }
+
+.modesw { display: flex; background: var(--nav-2); border: 1px solid rgba(148,163,184,.16); border-radius: 9px; overflow: hidden; margin-left: 4px; }
+.mcell { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: default; position: relative; overflow: hidden; }
+.mcell + .mcell { border-left: 1px solid rgba(148,163,184,.14); }
+.mcell .g { font-size: 15px; color: var(--ink-mute); position: relative; z-index: 2; }
+.mcell .t { display: flex; flex-direction: column; line-height: 1.15; position: relative; z-index: 2; }
+.mcell .t small { font-family: var(--mono); font-size: .5rem; letter-spacing: .12em; color: var(--ink-mute); }
+.mcell .t b { font-size: .72rem; color: var(--ink-mute); font-weight: 650; }
+[data-env="viewport"] .mcell.view, [data-env="hub"] .mcell.manage { background: color-mix(in srgb, var(--env) 20%, var(--nav-2)); }
+[data-env="viewport"] .mcell.view .t b, [data-env="hub"] .mcell.manage .t b { color: #fff; }
+[data-env="viewport"] .mcell.view .g, [data-env="hub"] .mcell.manage .g { color: var(--env); }
+.pill-bloom { position: absolute; inset: -8px; z-index: 0; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--env) 65%, transparent), transparent); filter: blur(8px); }
+[data-env="viewport"][data-preset="b"] .mcell.view .pill-bloom, [data-env="viewport"][data-preset="c"] .mcell.view .pill-bloom,
+[data-env="hub"][data-preset="b"] .mcell.manage .pill-bloom, [data-env="hub"][data-preset="c"] .mcell.manage .pill-bloom { opacity: 1; }
+
+.tools { display: flex; gap: 6px; }
+.tools .iconbtn.act { color: #fff; border-color: rgba(148,163,184,.4); background: #1c2740; }
+.spacer { flex: 1; }
+.toggles { display: flex; gap: 6px; }
+.tgl { font-family: var(--mono); font-size: .56rem; letter-spacing: .08em; padding: 5px 9px; border-radius: 999px; border: 1px solid currentColor; background: transparent; }
+.tgl.cyan { color: #22d3ee; } .tgl.violet { color: #a78bfa; } .tgl.green { color: #34d399; } .tgl.gray { color: #475569; border-style: dashed; }
+
+/* ---- BODY holds one of two mode layouts ---- */
+.body { position: relative; z-index: 1; overflow: hidden; }
+[data-env="viewport"] .mode-hub { display: none; }
+[data-env="hub"] .mode-viewport { display: none; }
+
+/* ===== VIEWPORT MODE ===== */
+.mode-viewport { height: 100%; display: grid; grid-template-rows: 52px 1fr; }
+.ruler { position: relative; background: var(--nav-2); border-bottom: 1px solid rgba(0,0,0,.4); overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 6px 14px; }
+.ruler > *:not(.chrome-env) { position: relative; z-index: 2; }
+.minimap { display: flex; align-items: center; gap: 10px; }
+.mmtrack { position: relative; flex: 1; height: 20px; border-radius: 5px; background: #0a1120; border: 1px solid rgba(148,163,184,.14); overflow: hidden; }
+.mmtrack::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(148,163,184,.16) 0 1px, transparent 1px 46px); }
+.mmregion { position: absolute; inset: 0 auto 0 0; width: 33%; background: color-mix(in srgb, var(--env) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--env) 70%, transparent); border-radius: 4px; transition: background .65s, border-color .65s; }
+.mmnums { display: flex; font-family: var(--mono); font-size: .5rem; color: var(--ink-mute); flex: 1; justify-content: space-between; }
+.mmctl { display: flex; gap: 5px; align-items: center; }
+.mmctl input { width: 78px; height: 22px; background: #0a1120; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; color: var(--ink-mute); font-family: var(--mono); font-size: .58rem; padding: 0 7px; }
+.mmctl .b { font-family: var(--mono); font-size: .58rem; color: var(--ink-mute); background: #131d33; border: 1px solid rgba(148,163,184,.18); border-radius: 5px; padding: 3px 8px; min-width: 22px; text-align: center; }
+.coords { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .52rem; color: var(--ink-mute); padding: 0 150px 0 90px; }
+
+.canvas-wrap { position: relative; padding: 0; transition: padding .5s ease; }
+/* preset C: a slim matte frame around the clean canvas + an edge-bloom from the nav */
+.vp-matte { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .6s; pointer-events: none;
+  background:
+    radial-gradient(120% 55% at 50% -25%, color-mix(in srgb, var(--env) 42%, transparent), transparent 55%),
+    radial-gradient(60% 120% at 0% 50%, color-mix(in srgb, var(--env2) 24%, transparent), transparent 60%),
+    radial-gradient(60% 120% at 100% 50%, color-mix(in srgb, var(--env3) 22%, transparent), transparent 60%); }
+[data-preset="c"] .canvas-wrap { padding: 12px; }
+[data-preset="c"] .vp-matte { opacity: 1; }
+
+/* the WHITE data surface — always clean */
+.canvas { position: relative; background: var(--canvas); border-radius: 6px; overflow: hidden; height: 100%; }
+/* the ONLY thing allowed to touch the white: a thin accent edge strip at the boundary */
+.edge-strip { position: absolute; left: 0; right: 0; height: 20px; z-index: 5; pointer-events: none; }
+.edge-strip.top { top: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 46%, transparent),
+  color-mix(in srgb, var(--env) 11%, transparent) 55%, transparent); }
+.edge-strip.bottom { bottom: 0; background: linear-gradient(to top, color-mix(in srgb, var(--env) 40%, transparent),
+  color-mix(in srgb, var(--env) 10%, transparent) 55%, transparent); }
+
+.ws-inner { position: relative; z-index: 2; height: 100%; display: grid; grid-template-columns: 90px 1fr; }
+.gutter { border-right: 1px solid var(--canvas-2); display: flex; flex-direction: column; padding: 26px 8px 8px; gap: 12px; }
+.gutter .lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .1em; color: var(--canvas-mute); }
+.gutter .rec2 { font-family: var(--mono); font-size: .58rem; color: #0f172a; background: #fff; border: 1px solid #cbd5e1; border-radius: 5px; padding: 4px 6px; text-align: center; }
+.main { padding: 8px 16px; display: flex; flex-direction: column; gap: 9px; overflow: hidden; }
+.section-lbl { font-family: var(--mono); font-size: .56rem; letter-spacing: .14em; color: var(--canvas-mute); margin-top: 4px; }
+.annot-bar { height: 22px; border-radius: 5px; background: linear-gradient(180deg, #eef2f7, #e2e8f0); border: 1px solid #dbe2ea; }
+.feat { height: 20px; border-radius: 5px; display: flex; align-items: center; padding: 0 8px; font-family: var(--mono); font-size: .52rem; letter-spacing: .06em; }
+.feat.pink { width: 34%; border: 1.5px solid #ec4899; color: #be185d; background: rgba(236,72,153,.08); }
+.feat.cyan { width: 42%; margin-left: 56%; border: 1.5px solid #06b6d4; color: #0e7490; background: rgba(6,182,212,.08); }
+.feat.violet { width: 42%; margin-left: 56%; border: 1.5px solid #8b5cf6; color: #6d28d9; background: rgba(139,92,246,.08); }
+.seqtrack { height: 46px; border-radius: 5px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  background: repeating-linear-gradient(90deg, #22c55e 0 3px, #f97316 3px 6px, #ef4444 6px 9px, #3b82f6 9px 12px); }
+.frame-lanes { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.lane { height: 14px; border-radius: 4px; background: #eef2f7; border: 1px solid #e2e8f0; }
+
+/* ===== HUB MODE ===== */
+.mode-hub { position: relative; height: 100%; background: var(--cream); overflow: auto; padding: 22px; }
+.hub-field { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity .6s; pointer-events: none;
+  background:
+    radial-gradient(46% 60% at 10% 16%, color-mix(in srgb, var(--env) 32%, transparent), transparent 60%),
+    radial-gradient(52% 66% at 92% 88%, color-mix(in srgb, var(--env2) 28%, transparent), transparent 62%),
+    radial-gradient(64% 66% at 62% 112%, color-mix(in srgb, var(--env3) 22%, transparent), transparent 64%); }
+.hub-grain { position: absolute; inset: 0; z-index: 1; opacity: 0; pointer-events: none; background-image: var(--grain); mix-blend-mode: multiply; transition: opacity .6s; }
+[data-preset="c"] .hub-field { opacity: 1; }
+[data-preset="c"] .hub-grain { opacity: .45; }
+/* thin accent strip at the nav→cream boundary */
+.hub-edge { position: absolute; top: 0; left: 0; right: 0; height: 18px; z-index: 2; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--env) 42%, transparent), transparent); }
+
+/* the WHITE table card — always clean, floats on the cream */
+.table-card { position: relative; z-index: 3; background: #fff; border: 1px solid #ece3d0; border-radius: 12px;
+  box-shadow: 0 18px 40px -18px rgba(120,80,10,.35), 0 2px 8px rgba(0,0,0,.06); padding: 14px 16px; max-width: 1040px; margin: 0 auto; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-bottom: 12px; }
+.card-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+.card-title b { font-size: .95rem; color: #1f2937; letter-spacing: .02em; }
+.card-title small { font-family: var(--mono); font-size: .58rem; letter-spacing: .08em; color: var(--env); font-weight: 600; }
+.searchwrap { position: relative; }
+.searchwrap::before { content: "⌕"; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; }
+.search { height: 28px; width: 190px; border: 1px solid #e2e0d6; border-radius: 7px; background: #fbf9f4; padding: 0 10px 0 26px; font-size: .72rem; color: #475569; }
+.btn { font-family: var(--mono); font-size: .58rem; letter-spacing: .05em; border-radius: 7px; padding: 7px 10px; border: 1px solid transparent; cursor: default; }
+.btn.amber { background: var(--env); color: #3a2600; font-weight: 600; box-shadow: 0 2px 8px color-mix(in srgb, var(--env) 40%, transparent); transition: background .65s; }
+.btn.dark { background: #1e293b; color: #cbd5e1; }
+.btn.red { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.btnrow { display: flex; gap: 6px; flex-wrap: wrap; }
+
+table.db { width: 100%; border-collapse: collapse; font-size: .68rem; }
+table.db th { text-align: left; font-family: var(--mono); font-size: .54rem; letter-spacing: .1em; color: #94a3b8; font-weight: 600;
+  padding: 7px 8px; border-bottom: 1px solid #eee6d6; }
+table.db td { padding: 8px; border-bottom: 1px solid #f2ece0; color: #374151; vertical-align: middle; }
+table.db td.num, table.db th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+table.db td.loc { font-family: var(--mono); color: #475569; font-variant-numeric: tabular-nums; }
+.parent { background: color-mix(in srgb, var(--env) 14%, #fff); transition: background .65s; }
+.parent td { border-bottom-color: color-mix(in srgb, var(--env) 24%, #f2ece0); }
+.pname { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.pname .cb { width: 13px; height: 13px; border: 1.5px solid var(--env); border-radius: 3px; background: color-mix(in srgb, var(--env) 30%, #fff); flex: none; }
+.pname b { color: #1f2937; font-size: .78rem; }
+.pname i { font-style: italic; color: #6b7280; font-weight: 400; }
+.pname .cnt { font-family: var(--mono); font-size: .52rem; color: var(--env); font-weight: 600; }
+.typepill { font-family: var(--mono); font-size: .54rem; letter-spacing: .04em; padding: 3px 7px; border-radius: 5px; background: #f1f5f9; color: #475569; white-space: nowrap; }
+.typepill .s { font-weight: 700; }
+.typepill .s.plus { color: #2563eb; } .typepill .s.minus { color: #dc2626; }
+.acts { color: #cbd5e1; font-size: .8rem; white-space: nowrap; }
+.acts .t { color: #f0a4a4; }
+
+/* ---- STATUS BAR (constant baseline) ---- */
+.status { position: relative; background: var(--nav); border-top: 1px solid rgba(0,0,0,.4); display: flex; align-items: center;
+  justify-content: space-between; padding: 0 14px; font-family: var(--mono); font-size: .54rem; letter-spacing: .06em; color: var(--ink-mute); z-index: 3; overflow: hidden; }
+.status > span { position: relative; z-index: 2; }
+.status .diamond { color: var(--env); transition: color .65s; }
+.status b { color: var(--env); font-weight: 600; transition: color .65s; }
+
+/* ---- caption ---- */
+.caption { margin-top: 14px; padding: 13px 16px; border: 1px solid var(--page-line); border-radius: 10px; background: var(--page-panel);
+  font-size: .9rem; color: var(--page-ink); display: flex; gap: 12px; align-items: baseline; }
+.caption .n { font-family: var(--mono); font-size: .72rem; color: var(--env); flex: none; font-weight: 600; }
+.footnote { color: var(--page-muted); font-size: .8rem; margin-top: 12px; max-width: 82ch; }
+
+@media (max-width: 820px) {
+  .app { aspect-ratio: auto; min-height: 0; }
+  .mode-viewport { grid-template-rows: auto 320px; }
+  .mode-hub { min-height: 340px; }
+  .wordmark span, .mcell .t small, .toggles, .coords { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="controls">
+  <div class="controls-in">
+    <span class="ctl-label">Mode</span>
+    <div class="seg" id="modeSeg" role="group" aria-label="Environment mode">
+      <button type="button" data-env="viewport" class="on" aria-pressed="true"><span class="dot"></span>Viewport</button>
+      <button type="button" data-env="hub" aria-pressed="false"><span class="dot"></span>Hub</button>
+    </div>
+    <span class="ctl-label">Treatment</span>
+    <div class="presets" id="presetSeg" role="group" aria-label="Accent treatment">
+      <button type="button" data-preset="a">A · Clean Instrument</button>
+      <button type="button" data-preset="b" class="on">B · Lit Chrome<span class="rec">REC</span></button>
+      <button type="button" data-preset="c">C · Atmospheric</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <p class="eyebrow">Round 3 · the accent, confined to the frame</p>
+  <h1>The rule: light up the frame, never the data.</h1>
+  <p class="sub">The white viewport canvas and the white Hub table card are working surfaces — nothing washes over them. The
+    environment lives in the dark chrome and the non-data backdrop, and the only thing touching the white is a thin accent
+    edge strip. Flip <strong>Mode</strong> to re-tint; pick a <strong>Treatment</strong> to compare three chrome-confined
+    designs. The nice chrome styling stays constant in all three.</p>
+
+  <div class="app" data-env="viewport" data-preset="b" id="app">
+    <!-- TOP NAV -->
+    <div class="nav">
+      <div class="chrome-env"></div>
+      <button class="iconbtn hamb" aria-label="Menu"><i></i><i></i><i></i></button>
+      <div class="wordmark"><b>DUNCEIOUS</b><span>BECAUSE INTELLIGENCE IS OVERPRICED.</span></div>
+      <div class="modesw">
+        <div class="mcell view"><span class="pill-bloom"></span><span class="g">⊕</span><span class="t"><small>VIEW</small><b>VISUAL VIEWPORT</b></span></div>
+        <div class="mcell manage"><span class="pill-bloom"></span><span class="g">▦</span><span class="t"><small>MANAGE</small><b>DATABASE HUB</b></span></div>
+      </div>
+      <div class="tools"><button class="iconbtn act" title="Pan">✋</button><button class="iconbtn" title="Select">⌖</button></div>
+      <div class="spacer"></div>
+      <div class="toggles">
+        <span class="tgl cyan">ANNOTATIONS</span><span class="tgl violet">TRACKS</span>
+        <span class="tgl green">TRANSLATION</span><span class="tgl gray">CONSERVATION</span>
+      </div>
+      <button class="iconbtn" title="Settings" style="border-radius:50%">⚙</button>
+    </div>
+
+    <!-- BODY: one of two layouts -->
+    <div class="body">
+
+      <!-- VIEWPORT LAYOUT -->
+      <div class="mode-viewport">
+        <div class="ruler">
+          <div class="chrome-env"></div>
+          <div class="minimap">
+            <div class="mmtrack"><div class="mmregion"></div></div>
+            <div class="mmctl"><input type="text" placeholder="Go to…" aria-label="Go to position"><span class="b">FIT</span><span class="b">+</span><span class="b">−</span></div>
+          </div>
+          <div class="mmnums"><span>200</span><span>400</span><span>600</span><span>800</span><span>1,000</span><span>2,000</span><span>3,000</span><span>4,000</span><span>5,000</span></div>
+          <div class="coords"><span>0</span><span>500</span><span>1,000</span></div>
+        </div>
+        <div class="canvas-wrap">
+          <div class="vp-matte"></div>
+          <div class="canvas">
+            <div class="edge-strip top"></div>
+            <div class="edge-strip bottom"></div>
+            <div class="ws-inner">
+              <div class="gutter">
+                <span class="lbl">ANNOT</span><span class="lbl">SEQUENCE</span>
+                <span class="lbl">F1</span><span class="lbl">F2</span><span class="lbl">F3</span>
+                <span class="rec2">SCU49845</span>
+                <span class="lbl">R1</span><span class="lbl">R2</span><span class="lbl">R3</span>
+              </div>
+              <div class="main">
+                <span class="section-lbl">ANNOTATIONS</span>
+                <div class="annot-bar"></div>
+                <div class="feat pink">CDS · rev</div>
+                <div class="feat cyan">gene SCU49845</div>
+                <div class="feat violet">mRNA</div>
+                <span class="section-lbl">SEQUENCE</span>
+                <div class="seqtrack"></div>
+                <div class="frame-lanes"><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HUB LAYOUT -->
+      <div class="mode-hub">
+        <div class="hub-field"></div>
+        <div class="hub-grain"></div>
+        <div class="hub-edge"></div>
+        <div class="table-card">
+          <div class="card-head">
+            <div class="card-title"><b>DATABASE HUB</b><small>1 SEQUENCES · 6 ANNOTATIONS</small></div>
+            <div class="searchwrap"><input class="search" type="text" placeholder="Search features…" aria-label="Global search"></div>
+            <button class="btn amber">+ ADD FEATURE</button>
+            <div class="btnrow">
+              <span class="btn dark">FASTA</span><span class="btn dark">GENBANK</span><span class="btn dark">GFF3</span><span class="btn dark">SAVE PROJECT</span>
+              <span class="btn red">CLEAR ALL</span>
+            </div>
+          </div>
+          <table class="db">
+            <thead><tr><th>TYPE / STRAND</th><th>DESCRIPTOR</th><th>LOCATION</th><th class="num">LENGTH (BP)</th><th>ACTIONS</th></tr></thead>
+            <tbody>
+              <tr class="parent"><td colspan="4"><div class="pname"><span class="cb"></span><b>SCU49845</b><i>Saccharomyces cerevisiae TCP1-beta gene…</i><span class="cnt">(6 ANNOTATIONS)</span></div></td><td class="acts"><span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">source</span></td><td>—</td><td class="loc">1..5028</td><td class="num">5,028</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">CDS <span class="s plus">+</span></span></td><td>TCP1-beta</td><td class="loc">&lt;1..206</td><td class="num">206</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">GENE <span class="s plus">+</span></span></td><td>AXL2</td><td class="loc">687..3158</td><td class="num">2,472</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">CDS <span class="s plus">+</span></span></td><td>Axl2p</td><td class="loc">687..3158</td><td class="num">2,472</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">GENE <span class="s minus">−</span></span></td><td>REV7</td><td class="loc">complement(3300..4037)</td><td class="num">738</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+              <tr><td><span class="typepill">CDS <span class="s minus">−</span></span></td><td>Rev7p</td><td class="loc">complement(3300..4037)</td><td class="num">738</td><td class="acts">✎ <span class="t">🗑</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status">
+      <div class="chrome-env"></div>
+      <span>DUNCEIOUS V3.4.0 · AGPL-3.0-OR-LATER · SOURCE CODE</span>
+      <span><span class="diamond">◇</span> <b data-env-label data-viewport="NUCLEOTIDE" data-hub="DATABASE HUB">NUCLEOTIDE</b> SESSION · BUILT FOR SCIENCE · © 2026</span>
+    </div>
+  </div>
+
+  <div class="caption"><span class="n" id="capNum">B</span><span id="capText"></span></div>
+  <p class="footnote">Draft fidelity — layout is schematic. In every treatment the white viewport canvas and white Hub table
+    card stay pure; the accent only ever lives in the dark chrome, the cream/matte backdrop, and the thin boundary strip.
+    The frame stays dark-chrome-over-working-surface in both page themes — that pairing is the product.</p>
+</main>
+
+<script>
+  const app = document.getElementById("app");
+  const modeSeg = document.getElementById("modeSeg");
+  const presetSeg = document.getElementById("presetSeg");
+  const capNum = document.getElementById("capNum");
+  const capText = document.getElementById("capText");
+
+  const CAPS = {
+    a: ["A", "Clean Instrument — one accent edge strip at the chrome→canvas boundary, plus tinted chrome accents (mark, active mode pill, minimap region, status diamond). No atmospheric wash. The data surfaces stay pure white."],
+    b: ["B", "Lit Chrome (recommended) — the dark nav, ruler and status carry a layered-light environment and a bloom sits behind the active mode pill. The white canvas and table card stay pristine; the 'place' feeling lives entirely in the frame."],
+    c: ["C", "Atmospheric — Lit Chrome, plus the non-data backdrop glows: in Hub the cream around the table gets a soft amber field and faint grain; in Viewport a matte frame glows and an edge-bloom spills from the nav. It stops before the data — white surfaces stay clean."]
+  };
+
+  function setEnv(env) {
+    app.setAttribute("data-env", env);
+    modeSeg.querySelectorAll("button").forEach(b => {
+      const on = b.dataset.env === env;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    document.querySelectorAll("[data-env-label]").forEach(el => {
+      el.textContent = env === "hub" ? el.dataset.hub : el.dataset.viewport;
+    });
+  }
+  function setPreset(p) {
+    app.setAttribute("data-preset", p);
+    presetSeg.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.preset === p));
+    const [n, txt] = CAPS[p];
+    capNum.textContent = n;
+    capText.textContent = txt;
+  }
+
+  modeSeg.addEventListener("click", e => { const b = e.target.closest("button"); if (b) setEnv(b.dataset.env); });
+  presetSeg.addEventListener("click", e => { const b = e.target.closest("button"); if (b) setPreset(b.dataset.preset); });
+
+  setEnv("viewport");
+  setPreset("b");
+</script>

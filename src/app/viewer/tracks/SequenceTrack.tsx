@@ -195,6 +195,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       features.filter(f => CDS_ORF_TYPES.includes(f.type)).forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
+        const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
         const frame = f.strand === 1 ? (f.start % 3) : (f.end % 3);
         const aaY = f.strand === 1
@@ -208,7 +209,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         ctx.textBaseline = 'middle';
 
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
-          const aa = translateSequence(codingSeq.substring(j, j + 3));
+          const aa = translateSequence(codingSeq.substring(j, j + 3), translTable);
           const startIdx = alignedIndices[j];
           const endIdx = alignedIndices[j + 2];
 

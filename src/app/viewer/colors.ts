@@ -20,7 +20,7 @@
 export const getNucleotideColor = (char: string): string => {
   const c = char.toUpperCase();
   if (c === 'A') return '#22c55e'; // Emerald
-  if (c === 'T') return '#f43f5e'; // Rose
+  if (c === 'T' || c === 'U') return '#f43f5e'; // Rose (U is the RNA analogue of T)
   if (c === 'C') return '#3b82f6'; // Blue
   if (c === 'G') return '#eab308'; // Amber
   if (c === '-') return '#64748b'; // Slate (Gap)
@@ -101,6 +101,8 @@ export const getFeatureColor = (type: string, customColors?: Record<string, stri
     'promoter': '#fbbf24',  // Amber
     'regulatory': '#f43f5e',// Rose
     'misc_feature': '#a855f7', // Purple
+    'mat_peptide': '#0891b2', // Cyan – cleaved mature-peptide product
+    'stem_loop': '#a16207',   // Yellow-brown – RNA secondary structure
     'primer': '#ef4444',    // Red
     'origin': '#84cc16',    // Lime
     'quantitative_data': '#6366f1' // Indigo
