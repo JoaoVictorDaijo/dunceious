@@ -82,7 +82,7 @@ const TopNav: React.FC<TopNavProps> = ({
   sessionMoleculeType,
 }) => {
   return (
-  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50 overflow-hidden">
+  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50">
     <div className="hf-env" aria-hidden="true" />
     <div className="relative z-[1] h-full flex items-center justify-between px-6">
     <div className="flex items-center gap-6">
