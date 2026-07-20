@@ -33,7 +33,8 @@ export const computeBrokenFeatureMap = (features: BioFeature[], seq: string): Ma
     .filter(f => CDS_ORF_TYPES.includes(f.type))
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
-      map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq));
+      const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
+      map.set(`${f.start}-${f.end}-${f.strand}`, detectEarlyStop(codingSeq, translTable));
     });
   return map;
 };

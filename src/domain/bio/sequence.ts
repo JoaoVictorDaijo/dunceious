@@ -36,10 +36,10 @@ import { splitWrapAround } from './intervals';
 /** Reverse-complements a nucleotide string, preserving case and gap ('-') characters. */
 export function reverseComplement(seq: string): string {
   const complement: Record<string, string> = {
-    'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
+    'A': 'T', 'T': 'A', 'U': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
     'R': 'Y', 'Y': 'R', 'S': 'S', 'W': 'W', 'K': 'M',
     'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B',
-    'a': 't', 't': 'a', 'c': 'g', 'g': 'c', 'n': 'n',
+    'a': 't', 't': 'a', 'u': 'a', 'c': 'g', 'g': 'c', 'n': 'n',
     '-': '-',
   };
   return seq.split('').reverse().map(base => complement[base] || base).join('');
@@ -49,7 +49,8 @@ export function reverseComplement(seq: string): string {
 // Translation
 // ---------------------------------------------------------------------------
 
-const GENETIC_CODE: Record<string, string> = {
+/** NCBI translation table 1 — the Standard Code. `_` marks a stop codon. */
+const STANDARD_CODE: Record<string, string> = {
   'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
   'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K', 'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
   'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L', 'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
@@ -60,11 +61,38 @@ const GENETIC_CODE: Record<string, string> = {
   'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_', 'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
 };
 
-export const translateSequence = (seq: string): string => {
+/**
+ * Per-table codon reassignments relative to {@link STANDARD_CODE}, keyed by NCBI
+ * `transl_table` id. Only internal-codon differences are modeled (alternative
+ * start codons are handled via the annotated `/translation` and `/codon_start`,
+ * not here). Tables 1 and 11 use the standard code for internal codons.
+ */
+const CODE_OVERRIDES: Record<number, Record<string, string>> = {
+  2: { 'AGA': '_', 'AGG': '_', 'ATA': 'M', 'TGA': 'W' }, // Vertebrate Mitochondrial
+  3: { 'ATA': 'M', 'CTA': 'T', 'CTC': 'T', 'CTG': 'T', 'CTT': 'T', 'TGA': 'W' }, // Yeast Mitochondrial
+  4: { 'TGA': 'W' }, // Mold/Protozoan/Coelenterate Mitochondrial + Mycoplasma/Spiroplasma
+  5: { 'AGA': 'S', 'AGG': 'S', 'ATA': 'M', 'TGA': 'W' }, // Invertebrate Mitochondrial
+};
+
+const codeTable = (translTable: number): Record<string, string> => {
+  const overrides = CODE_OVERRIDES[translTable];
+  return overrides ? { ...STANDARD_CODE, ...overrides } : STANDARD_CODE;
+};
+
+/**
+ * Translates a nucleotide string codon-by-codon.
+ *
+ * @param seq         Coding sequence (5'→3', translation-ready).
+ * @param translTable NCBI genetic-code id (default 1, the Standard Code).
+ *                    Unknown ids fall back to the standard code.
+ * @returns Amino-acid string; `_` for stop codons, `?` for unresolvable codons.
+ */
+export const translateSequence = (seq: string, translTable = 1): string => {
+  const table = codeTable(translTable);
   let protein = "";
   for (let i = 0; i < seq.length - 2; i += 3) {
     const tCodon = seq.substring(i, i + 3).toUpperCase();
-    protein += GENETIC_CODE[tCodon] || '?';
+    protein += table[tCodon] || '?';
   }
   return protein;
 };
@@ -77,7 +105,12 @@ export const translateSequence = (seq: string): string => {
  * and `alignedIndices` is reversed so that codon position `i` maps to the
  * correct genomic coordinate.
  *
- * @param feature  A BioFeature-like object with strand, start, end, and optional segments.
+ * The GenBank `/codon_start` qualifier (1, 2, or 3) is honored last, against
+ * the fully-oriented coding sequence: the leading `codon_start - 1` bases (and
+ * their `alignedIndices`) are dropped so translation begins in the right frame.
+ * Absent or invalid values default to frame 1 (no offset).
+ *
+ * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
  * @param seq      The raw genome sequence (no gap characters expected, but '-' is tolerated).
  * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
  */
@@ -86,12 +119,13 @@ export function extractCodingSequence(
     strand: 1 | -1;
     start: number;
     end: number;
-    segments?: { start: number; end: number }[];
+    segments?: { start: number; end: number; strand?: 1 | -1 }[];
+    metadata?: Record<string, any>;
   },
   seq: string
 ): { codingSeq: string; alignedIndices: number[] } {
   const seqLen = seq.length;
-  let segments: { start: number; end: number }[];
+  let segments: { start: number; end: number; strand?: 1 | -1 }[];
 
   if (feature.segments && feature.segments.length > 0) {
     segments = feature.segments;
@@ -102,19 +136,50 @@ export function extractCodingSequence(
   let codingSeq = '';
   const alignedIndices: number[] = [];
 
-  segments.forEach(seg => {
-    for (let j = seg.start; j < seg.end; j++) {
-      const char = seq[j];
-      if (char && char !== '-') {
-        codingSeq += char;
-        alignedIndices.push(j);
-      }
-    }
-  });
+  // Mixed-strand (trans-spliced) features carry a per-segment strand: orient
+  // each segment individually, in join order, with no whole-feature flip.
+  const perSegmentStrand = segments.some(s => s.strand !== undefined);
 
-  if (feature.strand === -1) {
-    codingSeq = reverseComplement(codingSeq);
-    alignedIndices.reverse();
+  if (perSegmentStrand) {
+    segments.forEach(seg => {
+      let segSeq = '';
+      const segIndices: number[] = [];
+      for (let j = seg.start; j < seg.end; j++) {
+        const char = seq[j];
+        if (char && char !== '-') {
+          segSeq += char;
+          segIndices.push(j);
+        }
+      }
+      if (seg.strand === -1) {
+        segSeq = reverseComplement(segSeq);
+        segIndices.reverse();
+      }
+      codingSeq += segSeq;
+      alignedIndices.push(...segIndices);
+    });
+  } else {
+    segments.forEach(seg => {
+      for (let j = seg.start; j < seg.end; j++) {
+        const char = seq[j];
+        if (char && char !== '-') {
+          codingSeq += char;
+          alignedIndices.push(j);
+        }
+      }
+    });
+
+    if (feature.strand === -1) {
+      codingSeq = reverseComplement(codingSeq);
+      alignedIndices.reverse();
+    }
+  }
+
+  const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);
+  const offset = Number.isFinite(codonStart) && codonStart > 1 ? codonStart - 1 : 0;
+  if (offset > 0) {
+    codingSeq = codingSeq.slice(offset);
+    alignedIndices.splice(0, offset);
   }
 
   return { codingSeq, alignedIndices };
@@ -127,14 +192,18 @@ export function extractCodingSequence(
  * A CDS that ends normally with a stop codon is NOT considered broken;
  * only an internal stop codon before the last position is flagged.
  *
- * @param codingSeq  Nucleotide string in translation-ready order (already
- *                   reverse-complemented for minus-strand features).
+ * @param codingSeq   Nucleotide string in translation-ready order (already
+ *                    reverse-complemented for minus-strand features).
+ * @param translTable NCBI genetic-code id (default 1). A codon that is a stop
+ *                    under one code may be a sense codon under another (e.g.
+ *                    TGA is Trp under the mitochondrial codes), so the table
+ *                    must match the feature's `/transl_table`.
  */
-export function detectEarlyStop(codingSeq: string): boolean {
+export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   const fullCodons = Math.floor(codingSeq.length / 3);
   // Examine every codon except the last one
   for (let i = 0; i < fullCodons - 1; i++) {
-    if (translateSequence(codingSeq.substring(i * 3, i * 3 + 3)) === '_') {
+    if (translateSequence(codingSeq.substring(i * 3, i * 3 + 3), translTable) === '_') {
       return true;
     }
   }
