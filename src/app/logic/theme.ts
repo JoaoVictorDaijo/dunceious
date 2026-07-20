@@ -83,15 +83,28 @@ export const resolveThemeVars = (
 
 const STORAGE_KEY = 'dunceious.theme';
 
-/** The persisted theme key for this browser, or the default when unset/unknown. */
+/**
+ * The persisted theme key for this browser, or the default when unset/unknown.
+ * `localStorage` access is wrapped because it throws (not returns null) when storage
+ * is blocked — sandboxed iframe, disabled site data, some private modes — and this
+ * runs during App's first render, so an unguarded throw would fail the mount.
+ */
 export const readThemePref = (): ThemeKey => {
   if (typeof window === 'undefined') return DEFAULT_THEME_KEY;
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return isThemeKey(stored) ? stored : DEFAULT_THEME_KEY;
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return isThemeKey(stored) ? stored : DEFAULT_THEME_KEY;
+  } catch {
+    return DEFAULT_THEME_KEY;
+  }
 };
 
-/** Persist the chosen theme key (per browser). */
+/** Persist the chosen theme key (per browser); best-effort — a blocked/full store is a no-op. */
 export const writeThemePref = (key: ThemeKey): void => {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, key);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, key);
+  } catch {
+    /* storage blocked or full — the theme still applies for this session */
+  }
 };

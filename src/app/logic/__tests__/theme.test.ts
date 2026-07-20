@@ -118,4 +118,16 @@ describe('theme persistence', () => {
     expect(() => writeThemePref('conic')).not.toThrow();
     expect(readThemePref()).toBe('clean');
   });
+
+  it('falls back to the default when localStorage access throws (blocked storage)', () => {
+    const denied = () => { throw new DOMException('denied', 'SecurityError'); };
+    vi.stubGlobal('window', { localStorage: { getItem: denied, setItem: denied, removeItem: denied } });
+    expect(readThemePref()).toBe('clean');
+  });
+
+  it('write is a no-op (does not throw) when localStorage access throws', () => {
+    const denied = () => { throw new DOMException('denied', 'SecurityError'); };
+    vi.stubGlobal('window', { localStorage: { getItem: denied, setItem: denied, removeItem: denied } });
+    expect(() => writeThemePref('aurora')).not.toThrow();
+  });
 });
