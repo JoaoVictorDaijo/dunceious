@@ -220,6 +220,16 @@ describe('parseLocation – mixed-strand trans-splice', () => {
     expect(r.segments[2]).toEqual({ start: 140624, end: 140650, strand: 1 });
   });
 
+  it('gives the mixed-strand join a linear envelope (per-segment path)', () => {
+    // The usePerSegment path computes the same envelope; a scattered mixed-strand
+    // join must not wrap. firstStart 69610 < lastEnd 140650, so linear regardless
+    // of the base-1 guard.
+    const r = parseLocation('join(complement(69611..69724),139856..140087,140625..140650)');
+    expect(r.start).toBeLessThan(r.end);
+    expect(r.start).toBe(69610);
+    expect(r.end).toBe(140650);
+  });
+
   it('leaves uniform complement(join(...)) without per-segment strand (unchanged shape)', () => {
     const r = parseLocation('complement(join(10..20,30..40))');
     expect(r.strand).toBe(-1);

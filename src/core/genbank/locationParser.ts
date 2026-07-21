@@ -44,10 +44,14 @@
  *   so that callers can detect circularity by checking `start > end`; a
  *   scattered join gets the ordinary linear envelope (min start … max end).
  *
- *   Accepted limitation: without the genome length, a genuine origin wrap whose
- *   low part does not begin at base 1 (base 1 falling inside an intron) is
- *   indistinguishable from a scattered join and is treated as linear. This is
- *   near-impossible in real annotations and affects glyph layout only.
+ *   Accepted limitation: the origin start is necessary but not sufficient, so
+ *   the check errs in both directions (both need the genome length, which this
+ *   parser lacks, to resolve, and both are glyph-layout only):
+ *     - false linear: a genuine wrap whose low part does not begin at base 1
+ *       (base 1 inside an intron) is treated as linear;
+ *     - false wrap: a scattered join that happens to include a segment at base 1
+ *       is still flagged as a wrap (pre-existing; unchanged by this check).
+ *   Both are near-impossible in real annotations.
  */
 
 import type { FeatureSegment } from '@/src/domain/bio/types';
