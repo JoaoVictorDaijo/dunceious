@@ -246,6 +246,11 @@ export function translateFeature(
  * `transl_except` recoding (e.g. a selenocysteine TGA read as a stop under the
  * base code). A trailing stop is tolerated as normal termination. Falls back to
  * {@link detectEarlyStop} on `codingSeq` when `/translation` is absent.
+ *
+ * The stored translation is trusted as-is: a stale/edited one that truncates
+ * before a real internal stop is not flagged. Standard GenBank stays covered —
+ * a real internal stop is written `*` (caught here) and pseudogenes omit
+ * `/translation` (recomputed via the fallback).
  */
 export function isFeatureBroken(
   feature: { translation?: string },
