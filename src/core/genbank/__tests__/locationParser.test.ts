@@ -163,6 +163,50 @@ describe('parseLocation – circular wrap-around join', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Scattered / trans-spliced join is NOT an origin-crossing wrap.
+// A descending join (firstStart > lastEnd) only wraps the origin when it is
+// *contiguous* around it, which requires a segment at base 1 (0-based 0). A
+// trans-splice assembles parts from distant loci, none at the origin, so its
+// envelope must be the linear bounding box — not a start > end wrap (issue #69).
+// ---------------------------------------------------------------------------
+
+describe('parseLocation – scattered / trans-spliced join is not a wrap', () => {
+  it('real Arabidopsis rps12 CDS resolves to a linear bounding box', () => {
+    // complement(join(97999..98024,98562..98793,69611..69724)): descending
+    // (firstStart 97998 > lastEnd 69724) but no part touches base 1.
+    const r = parseLocation('complement(join(97999..98024,98562..98793,69611..69724))');
+    expect(r.start).toBeLessThan(r.end);
+    expect(r.start).toBe(69610);
+    expect(r.end).toBe(98793);
+    expect(r.segments).toHaveLength(3);
+  });
+
+  it('rps12 gene (two scattered parts) resolves to a linear bounding box', () => {
+    const r = parseLocation('complement(join(97999..98793,69611..69724))');
+    expect(r.start).toBeLessThan(r.end);
+    expect(r.start).toBe(69610);
+    expect(r.end).toBe(98793);
+  });
+
+  it('minimal descending two-part join not touching base 1 is linear', () => {
+    // firstStart 4999 > lastEnd 3100, but minStart 2999 ≠ 0 → linear box.
+    const r = parseLocation('join(5000..5100,3000..3100)');
+    expect(r.start).toBe(2999);
+    expect(r.end).toBe(5100);
+  });
+
+  it('treats an origin wrap whose low part misses base 1 as linear (accepted limitation)', () => {
+    // join(5500..6000,50..300) on a circular molecule is a genuine origin wrap
+    // whose low exon starts at base 50 (base 1 falls in an intron). parseLocation
+    // has no genome length, so it cannot distinguish this from a scattered join
+    // and deliberately treats it as linear. Pinned so the blind spot is explicit.
+    const r = parseLocation('join(5500..6000,50..300)');
+    expect(r.start).toBe(49);
+    expect(r.end).toBe(6000);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Mixed-strand trans-splice: a join whose segments live on different strands
 // (e.g. Arabidopsis rps12). Each segment must carry its own strand.
 // ---------------------------------------------------------------------------
