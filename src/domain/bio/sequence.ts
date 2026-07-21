@@ -210,6 +210,53 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
+/**
+ * Amino-acid string for a feature's coding sequence, preferring the authoritative
+ * `/translation` qualifier over recomputation where present — one residue per
+ * codon, aligned to the codons of `codingSeq` (hence to
+ * {@link extractCodingSequence}'s `alignedIndices`).
+ *
+ * `/translation` is right where codon-by-codon recomputation is not: an
+ * alternative start codon shows as its annotated initiator (Met) rather than the
+ * literal residue, and `transl_except` recodings (selenocysteine `U`, pyrrolysine
+ * `O`) are preserved. It omits the terminal stop and uses `X` for ambiguity, so
+ * any codon at or beyond its length — the terminal stop, or a tail past a length
+ * mismatch — falls back to the computed residue.
+ */
+export function translateFeature(
+  feature: { translation?: string },
+  codingSeq: string,
+  translTable = 1,
+): string {
+  const computed = translateSequence(codingSeq, translTable);
+  const stored = feature.translation;
+  if (!stored) return computed;
+  let protein = '';
+  for (let i = 0; i < computed.length; i++) {
+    protein += i < stored.length ? stored[i] : computed[i];
+  }
+  return protein;
+}
+
+/**
+ * Whether a feature's protein carries an internal (early) stop — a "broken" CDS.
+ *
+ * Prefers the authoritative `/translation`: an annotated protein with no internal
+ * stop is not broken, which avoids the false positive recomputation raises for a
+ * `transl_except` recoding (e.g. a selenocysteine TGA read as a stop under the
+ * base code). A trailing stop is tolerated as normal termination. Falls back to
+ * {@link detectEarlyStop} on `codingSeq` when `/translation` is absent.
+ */
+export function isFeatureBroken(
+  feature: { translation?: string },
+  codingSeq: string,
+  translTable = 1,
+): boolean {
+  const stored = feature.translation;
+  if (stored) return /[_*]/.test(stored.slice(0, -1));
+  return detectEarlyStop(codingSeq, translTable);
+}
+
 // ---------------------------------------------------------------------------
 // Molecule-type detection  (canonical — IUPAC-aware alphabet)
 // ---------------------------------------------------------------------------
