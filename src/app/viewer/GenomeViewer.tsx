@@ -259,7 +259,7 @@ const GenomeViewer: React.FC<Props> = ({
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
       {/* 1. COMPACT TOOLBAR & GLOBAL OVERVIEW */}
-      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-[#1b2b4d] border-b border-[#060b18] px-3 flex items-center gap-3 z-20 min-w-0" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 14px -8px rgba(2,6,23,0.55)' }}>
+      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-[#1b2b4d] border-b border-[#060b18] px-3 flex items-center gap-3 z-20 min-w-0" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         
         {/* MINIMAP SECTION */}
         <Minimap
@@ -334,7 +334,7 @@ const GenomeViewer: React.FC<Props> = ({
       {/* 2. MAIN VISUAL VIEWPORT */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative bg-[#f6f8fc]">
         {/* STICKY TOP RULER */}
-        <div className="h-[25px] flex-none bg-white/95 backdrop-blur-md border-b border-slate-200 z-30 shadow-sm flex items-end overflow-hidden min-w-0">
+        <div className="h-[25px] flex-none bg-[#f6f8fc] border-b border-slate-200/70 z-30 flex items-end overflow-hidden min-w-0">
           <Ruler width={dimensions.width} height={RULER_HEIGHT} xScale={xScaleGlobal} scrollX={scrollX} sidebarWidth={SIDEBAR_WIDTH} onJump={handleGoto} />
         </div>
 
