@@ -180,9 +180,10 @@ export const Minimap: React.FC<MinimapProps> = ({
       .attr('transform', 'translate(0, 24)')
       .call(axis)
       .selectAll('text')
-      .attr('fill', '#8ea0ba')
-      .style('font-size', '9px')
-      .style('font-weight', '900');
+      .attr('fill', '#8093b6')
+      .style('font-size', '8px')
+      .style('font-weight', '500')
+      .style('letter-spacing', '0.06em');
 
     miniSvg.selectAll('.domain').attr('stroke', 'rgba(148,163,184,0.4)').attr('stroke-width', 1.5);
     miniSvg.selectAll('.tick line').attr('stroke', 'rgba(148,163,184,0.3)');
@@ -242,7 +243,7 @@ export const Minimap: React.FC<MinimapProps> = ({
 
   return (
     <div className="flex-1 flex flex-col justify-center min-w-0">
-      <div ref={minimapWrapperRef} className="relative bg-[#0a1120] rounded-md border border-slate-400/15 p-0.5 h-[45px] overflow-hidden">
+      <div ref={minimapWrapperRef} className="relative bg-[#12203c] rounded-md border border-black/20 p-0.5 h-[45px] overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
         <canvas ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
         <svg ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
