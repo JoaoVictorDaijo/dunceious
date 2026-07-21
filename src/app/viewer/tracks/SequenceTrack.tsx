@@ -21,9 +21,9 @@ import * as d3 from 'd3';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { extractCodingSequence, translateSequence } from '@/src/domain/bio';
+import { extractCodingSequence, translateFeature } from '@/src/domain/bio';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, translationFrame } from '../cds';
 
 export interface SequenceTrackProps {
   seq: string;
@@ -197,19 +197,23 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
-        const frame = f.strand === 1 ? (f.start % 3) : (f.end % 3);
+        const frame = translationFrame(f);
         const aaY = f.strand === 1
           ? y - AA_ROW_HEIGHT * (3 - frame)
           : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
+        // Prefer the annotated /translation (alt-start Met, transl_except recoding)
+        // over recomputation; one residue per codon, aligned to `alignedIndices`.
+        const protein = translateFeature(f, codingSeq, translTable);
+
         ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
-          const aa = translateSequence(codingSeq.substring(j, j + 3), translTable);
+          const aa = protein[j / 3] ?? '?';
           const startIdx = alignedIndices[j];
           const endIdx = alignedIndices[j + 2];
 
@@ -221,7 +225,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           if (aX + aW < 0 || aX > viewportWidth) continue;
 
           // An early stop is a stop codon that is NOT the last codon in the sequence
-          const isEarlyStop = isBroken && aa === '_' && j < codingSeq.length - 3;
+          const isEarlyStop = isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
 
           ctx.globalAlpha = 0.9;
           ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;

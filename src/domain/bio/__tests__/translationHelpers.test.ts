@@ -21,10 +21,18 @@
  * Unit tests for the translation helper functions in `@/src/domain/bio/sequence`:
  *   - extractCodingSequence  (multi-segment, circular wrap-around, strand handling)
  *   - detectEarlyStop        (early vs terminal stop codon)
+ *   - translateFeature       (prefer stored /translation over recomputation)
+ *   - isFeatureBroken        (prefer stored /translation for broken detection)
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractCodingSequence, detectEarlyStop, translateSequence } from '../sequence';
+import {
+  extractCodingSequence,
+  detectEarlyStop,
+  translateSequence,
+  translateFeature,
+  isFeatureBroken,
+} from '../sequence';
 
 // ---------------------------------------------------------------------------
 // extractCodingSequence
@@ -241,5 +249,56 @@ describe('detectEarlyStop', () => {
     const protein = translateSequence(seq);
     expect(protein).toBe('M_E');
     expect(detectEarlyStop(seq)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// translateFeature — prefer stored /translation over recomputation
+// ---------------------------------------------------------------------------
+
+describe('translateFeature', () => {
+  it('recomputes when /translation is absent', () => {
+    expect(translateFeature({}, 'ATGCCCGAG')).toBe('MPE');
+  });
+
+  it('shows the annotated initiator (Met) for an alternative start codon', () => {
+    // ATT is Ile when translated literally, but the CDS annotates it as the Met start.
+    expect(translateFeature({ translation: 'MPE' }, 'ATTCCCGAG')).toBe('MPE');
+    expect(translateSequence('ATTCCCGAG')).toBe('IPE'); // what recomputation would give
+  });
+
+  it('falls back to the computed terminal stop that /translation omits', () => {
+    // /translation omits the trailing stop, so codon 2 (TAA) has no stored residue.
+    expect(translateFeature({ translation: 'MP' }, 'ATGCCCTAA')).toBe('MP_');
+  });
+
+  it('preserves transl_except recoding (selenocysteine) from /translation', () => {
+    // Internal TGA is a stop under the standard code but recoded to U by /transl_except.
+    expect(translateFeature({ translation: 'MUP' }, 'ATGTGACCC')).toBe('MUP');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isFeatureBroken — prefer stored /translation for broken detection
+// ---------------------------------------------------------------------------
+
+describe('isFeatureBroken', () => {
+  it('recomputes an early stop when /translation is absent', () => {
+    expect(isFeatureBroken({}, 'ATGTAGGAG')).toBe(true); // M _ E
+    expect(isFeatureBroken({}, 'ATGCCCGAG')).toBe(false); // M P E
+  });
+
+  it('is not broken when the stored /translation has no internal stop', () => {
+    // Recomputing this selenocysteine CDS would read the internal TGA as an early stop.
+    expect(detectEarlyStop('ATGTGACCC')).toBe(true);
+    expect(isFeatureBroken({ translation: 'MUP' }, 'ATGTGACCC')).toBe(false);
+  });
+
+  it('is broken when the stored /translation carries an internal stop', () => {
+    expect(isFeatureBroken({ translation: 'M*P' }, 'ATGTGACCC')).toBe(true);
+  });
+
+  it('tolerates a trailing stop in /translation as normal termination', () => {
+    expect(isFeatureBroken({ translation: 'MP*' }, 'ATGCCCTAA')).toBe(false);
   });
 });

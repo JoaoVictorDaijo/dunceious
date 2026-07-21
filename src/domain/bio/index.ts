@@ -25,6 +25,8 @@ export {
   translateSequence,
   extractCodingSequence,
   detectEarlyStop,
+  translateFeature,
+  isFeatureBroken,
   PROTEIN_ONLY_RESIDUES,
   detectMoleculeType,
   classifyLocusMoleculeType,
