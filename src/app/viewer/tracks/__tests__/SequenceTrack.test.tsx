@@ -57,6 +57,8 @@ describe('SequenceTrack translation glyphs', () => {
   it('does not draw "!" for a valid CDS', () => {
     render(<SequenceTrack {...props('ATGCCCGAG')} />);
     expect(recorder.texts()).not.toContain('!');
-    expect(recorder.texts()).toContain('M'); // ATG start codon → Met proves translation ran
+    // Per-codon AA letters, not just the start residue: M(ATG) P(CCC) E(GAG). Pins
+    // the draw loop's codon→residue mapping so an internal sense-codon mislabel fails.
+    expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'P', 'E']));
   });
 });

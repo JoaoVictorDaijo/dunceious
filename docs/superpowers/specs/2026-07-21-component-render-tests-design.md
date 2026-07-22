@@ -60,14 +60,16 @@ outside every coverage `include` glob, so it is never measured). It provides:
   the hook from the imported helper binds it to each importing test file.
 - **`installCanvasRecorder()`** — replaces `HTMLCanvasElement.prototype.getContext`
   with a stub returning a recording 2D context. It records `fillText` /
-  `fillRect` / `strokeRect` calls and accepts (ignores) all settable props
+  `fillRect` calls and accepts (ignores) all settable props
   (`fillStyle`, `globalAlpha`, `font`, `textAlign`, `textBaseline`, …) and the
   other methods `SequenceTrack` calls (`scale`, `save`, `restore`, `clearRect`,
   …). A permissive default keeps any unexpected member from throwing. Exposes
-  `texts()` → the ordered `fillText` strings (and `fillRects()` if needed). It
-  **resets its log per test** and **restores the original `getContext`** on
-  cleanup. It doubles as a silence for jsdom's "Not implemented: getContext"
-  noise when `Row` mounts its inner `SequenceTrack` canvas.
+  `texts()` → the ordered `fillText` strings (and `fillRects()`). Each call
+  returns a **fresh recorder** (so canvas tests install it in `beforeEach`); the
+  `getContext` patch is **not restored between tests within a file** and does not
+  leak across files (vitest isolates test files). It doubles as a silence for
+  jsdom's "Not implemented: getContext" noise when `Row` mounts its inner
+  `SequenceTrack` canvas.
 - **`stubResizeObserver()`** — jsdom lacks `ResizeObserver`; `DatabaseHubPanel`
   constructs one. A no-op stub suffices (the panel defaults `listHeight` to 600).
 

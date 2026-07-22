@@ -41,8 +41,10 @@ export interface CanvasRecorder {
  * Replace HTMLCanvasElement.prototype.getContext with a recording 2D context.
  * Records fillText / fillRect; every other method is a no-op and every property
  * assignment (fillStyle, font, …) is ignored, so the draw calls these tests
- * exercise cannot throw. Call once per test (returns a fresh recorder). Vitest
- * isolates test files, so the prototype patch does not leak across files.
+ * exercise cannot throw. Call in each canvas test's beforeEach: the returned
+ * recorder is fresh per call, and the getContext patch persists within a file
+ * until the next install (it is not restored between tests) — vitest isolates
+ * test files, so it never leaks across files.
  */
 export function installCanvasRecorder(): CanvasRecorder {
   const texts: string[] = [];
