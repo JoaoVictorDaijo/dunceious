@@ -70,3 +70,30 @@ jobs:
       - name: Build
         if: ${{ !cancelled() }}
         run: npm run build
+
+  # Promotions to main must carry a version bump (see CLAUDE.md > Versioning
+  # & releases). Runs only on develop -> main PRs; never nags develop PRs.
+  version-guard:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+
+      - name: Fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch --no-tags --depth=1 origin "$BASE_REF"
+
+      - name: Require a version bump vs main
+        run: |
+          git show FETCH_HEAD:package.json > /tmp/base-package.json
+          base_ver=$(node -p "require('/tmp/base-package.json').version")
+          head_ver=$(node -p "require('./package.json').version")
+          echo "main package.json: $base_ver"
+          echo "PR   package.json: $head_ver"
+          if [ "$head_ver" = "$base_ver" ]; then
+            echo "::error::Version $head_ver is unchanged from main. Bump package.json (npm run version:{patch,minor,major}) and update CHANGELOG.md before promoting — see CLAUDE.md > Versioning & releases."
+            exit 1
+          fi
+          echo "Version bumped $base_ver -> $head_ver"
