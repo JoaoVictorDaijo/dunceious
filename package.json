@@ -1,7 +1,7 @@
 {
   "name": "genedunceious",
   "private": true,
-  "version": "3.4.0",
+  "version": "2.4.2",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -15,7 +15,10 @@
     "test:coverage": "vitest run --coverage",
     "bench": "node bench/runBench.mjs",
     "plot": "node bench/visualize.mjs",
-    "perf": "node --expose-gc node_modules/.bin/vitest run --config perf/vitest.config.ts"
+    "perf": "node --expose-gc node_modules/.bin/vitest run --config perf/vitest.config.ts",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "6.4.0",
