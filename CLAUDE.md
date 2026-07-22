@@ -34,10 +34,16 @@ When you create **any** new covered file, add the header (or run `--fix`) before
 Dunceious follows **SemVer**. The single source of truth is `package.json`
 `version`, injected at build time as `__APP_VERSION__` (see `vite.config.ts`) and
 surfaced in the StatusBar, the logger banner, and every exported file's
-provenance stamp — so the number ships to users. History was reconstructed on
-2026-07-21 (see `CHANGELOG.md`); two anchors are load-bearing: **`1.0.0`** = the
-import of the already-working app, **`2.0.0`** = the layered-architecture rewrite.
-The old `3.4.0` was arbitrary and has been discarded.
+provenance stamp — so the number reaches users once it is deployed. History was
+reconstructed on 2026-07-21 (see `CHANGELOG.md`); two anchors are load-bearing:
+**`1.0.0`** = the import of the already-working app, **`2.0.0`** = the
+layered-architecture rewrite. The old `3.4.0` was arbitrary and has been
+discarded.
+
+**Production still serves `3.4.0`.** `main` (what Cloudflare Pages deploys) has
+diverged from `develop` and has not been promoted, so the factual line reaches
+users only at the first `develop` → `main` promotion — a deliberate one-time
+*downgrade* (`3.4.0` → the current `2.x`) off the discarded number.
 
 **Bump rules** (highest-precedence change since the last release wins):
 
@@ -48,6 +54,11 @@ The old `3.4.0` was arbitrary and has been discarded.
 | `fix`, `perf` | patch |
 | `docs`, `test`, `refactor`, `chore`, `style`, `ci`, `build` | none |
 
+**Promotion floor.** The table picks *how much* to bump; at a `develop` → `main`
+promotion the floor is **at least a patch** — a deploy is a new live state, so no
+promotion is version-less. A promotion carrying only `none`-type changes still
+takes a patch. `version-guard` in CI enforces a strict increase.
+
 **Cadence:** bump **once per `develop` → `main` promotion** — that is when
 Cloudflare Pages actually deploys, so the version means "what is live." Do not
 bump per feature-PR into `develop`.
@@ -55,8 +66,8 @@ bump per feature-PR into `develop`.
 **Release checklist** (run at every `develop` → `main` promotion):
 
 ```
-1. Decide the bump from commits since the last tag:
-     git log $(git describe --tags --abbrev=0)..develop --no-merges --format='%s'
+1. Decide the bump from commits since the last release tag:
+     git log "$(git tag --list 'v*' --sort=-v:refname | head -1)"..develop --no-merges --format='%s'
 2. On develop, bump package.json + lock (no tag):
      npm run version:minor      # or version:patch / version:major
    Commit: chore(release): vX.Y.Z  — and add the entry to CHANGELOG.md
@@ -67,5 +78,9 @@ bump per feature-PR into `develop`.
 5. Verify the deployed StatusBar shows vX.Y.Z and a fresh export carries it.
 ```
 
-Tags are annotated `vX.Y.Z`, created **only** on `main` promotion commits (never
-per develop-PR) so a tag always means "this was deployed."
+Going forward, tags are annotated `vX.Y.Z`, created **only** on `main` promotion
+commits, so a tag means "this was deployed." **The reconstructed backfill is the
+exception:** `v1.0.0`–`v2.4.1` sit on the *develop-line* commits where each wave
+landed (main is behind and diverged), so they mark **reconstructed development
+milestones**, not deployments — only `v1.0.0`–`v2.0.1` are also reachable from
+`main`. The deploy-means-tag rule binds from the first real promotion onward.

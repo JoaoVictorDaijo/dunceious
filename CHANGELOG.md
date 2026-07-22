@@ -4,19 +4,28 @@ All notable changes to Dunceious. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
-> **Reconstructed history.** Versions up to and including `2.4.2` were
-> reconstructed from git history on 2026-07-21 — the repo had shipped with no
-> tags and an arbitrary `package.json` version (`3.4.0`) that no release ever
-> earned. Dates and groupings are approximate; two anchors are deliberate:
-> **`1.0.0`** marks the import of the already-working app from its original
-> environment, and **`2.0.0`** marks the layered-architecture rewrite. See
-> `CLAUDE.md` → *Versioning & releases* for the going-forward process.
+> **Reconstructed history.** Versions `1.0.0`–`2.4.1` were reconstructed from git
+> history on 2026-07-21 — the repo had shipped with no tags and an arbitrary
+> `package.json` version (`3.4.0`) that no release ever earned. Dates, groupings,
+> and bump *magnitudes* are approximate and predate — so are not bound by — the
+> going-forward bump table in `CLAUDE.md`. Two anchors are deliberate: **`1.0.0`**
+> marks the import of the already-working app from its original environment, and
+> **`2.0.0`** marks the layered-architecture rewrite. See `CLAUDE.md` →
+> *Versioning & releases* for the going-forward process.
 
-## [2.4.2] — 2026-07-21
+## [Unreleased] — becomes `2.4.2` at the next promotion
+
+Staged on `develop`; not yet promoted to `main` or tagged.
+
 ### Added
 - Component/canvas render-test harness (jsdom + Testing Library + a canvas-2D
   recorder), with SequenceTrack early-stop glyph, Row join/wrap-connector, and
   DatabaseHubPanel coverage (#68, #82).
+
+### Changed
+- Versioning: reconstructed the SemVer history, added this changelog, a
+  `CLAUDE.md` release process, `npm run version:*` scripts, and a `version-guard`
+  CI check (#83).
 
 ## [2.4.1] — 2026-07-21
 ### Fixed

@@ -80,20 +80,38 @@ jobs:
       - name: Checkout PR head
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Fetch base branch
         env:
           BASE_REF: ${{ github.base_ref }}
         run: git fetch --no-tags --depth=1 origin "$BASE_REF"
 
-      - name: Require a version bump vs main
+      # A promotion must STRICTLY INCREASE the version (a real bump, not merely a
+      # change): catches both a forgotten bump and a downgrade/typo. Version
+      # strings come from package.json (base = main, head = this PR) and are only
+      # ever passed to node as argv or logged JSON-quoted, so a crafted value
+      # can't inject a workflow command.
+      - name: Require a version increase vs main
         run: |
           git show FETCH_HEAD:package.json > /tmp/base-package.json
-          base_ver=$(node -p "require('/tmp/base-package.json').version")
-          head_ver=$(node -p "require('./package.json').version")
-          echo "main package.json: $base_ver"
-          echo "PR   package.json: $head_ver"
-          if [ "$head_ver" = "$base_ver" ]; then
-            echo "::error::Version $head_ver is unchanged from main. Bump package.json (npm run version:{patch,minor,major}) and update CHANGELOG.md before promoting — see CLAUDE.md > Versioning & releases."
-            exit 1
-          fi
-          echo "Version bumped $base_ver -> $head_ver"
+          node -e '
+            const fs = require("node:fs");
+            const ver = p => JSON.parse(fs.readFileSync(p, "utf8")).version;
+            const base = ver("/tmp/base-package.json");
+            const head = ver("./package.json");
+            console.log(`main: ${JSON.stringify(base)}  PR: ${JSON.stringify(head)}`);
+            // One-time exception: main still carries the discarded, fabricated
+            // 3.4.0; the first corrective promotion intentionally lowers it to
+            // the factual 2.x line. Self-removing once main no longer reads 3.4.0.
+            if (base === "3.4.0") { console.log("Corrective promotion off discarded 3.4.0 — increase check waived."); process.exit(0); }
+            const parse = v => String(v).split("-")[0].split(".").map(Number);
+            const [a, b] = [parse(head), parse(base)];
+            const cmp = a.map((x, i) => x - (b[i] || 0)).find(d => d !== 0) || 0;
+            if (cmp > 0) { console.log("Version increased."); process.exit(0); }
+            console.log("::error::Version must strictly increase on a develop->main promotion. Bump package.json (npm run version:{patch,minor,major}) and update CHANGELOG.md — see CLAUDE.md > Versioning & releases.");
+            process.exit(1);
+          '
