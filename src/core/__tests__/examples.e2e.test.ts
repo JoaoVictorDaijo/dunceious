@@ -182,6 +182,23 @@ describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
       expect(computed, f.name).toBe(f.translation);
     }
   });
+
+  it('gives the uniform-strand trans-spliced rps12 copy a linear envelope, not an origin wrap', () => {
+    // rps12 copy 1 is annotated as complement(join(...)) with scattered parts on
+    // one strand. Its descending order once tripped the origin-wrap heuristic,
+    // painting an ~85 kb false wrap; the envelope must be the linear bounding box.
+    const forms = [
+      'complement(join(97999..98024,98562..98793,69611..69724))', // CDS
+      'complement(join(97999..98793,69611..69724))',              // gene
+    ];
+    for (const loc of forms) {
+      const f = record.features.find(feat => feat.locationString === loc);
+      expect(f, loc).toBeDefined();
+      expect(f!.start, loc).toBeLessThan(f!.end);
+      expect(f!.start, loc).toBe(69610);
+      expect(f!.end, loc).toBe(98793);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
