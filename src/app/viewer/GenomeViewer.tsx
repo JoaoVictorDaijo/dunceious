@@ -462,7 +462,7 @@ const GenomeViewer: React.FC<Props> = ({
               itemSize={index => recordLayouts[index].height}
               width={dimensions.width}
               itemData={itemData}
-              className="custom-scrollbar-pro overflow-x-hidden"
+              className="custom-scrollbar-pro scrollbar-on-light overflow-x-hidden"
               style={{ overflowX: 'hidden' }}
             >
               {Row}
@@ -493,7 +493,7 @@ const GenomeViewer: React.FC<Props> = ({
         {/* CUSTOM HORIZONTAL SCROLLBAR */}
         <div 
           ref={horizontalScrollRef}
-          className="h-[16px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro"
+          className="h-[16px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro scrollbar-on-light"
           onScroll={handleHorizontalScroll}
           style={{ width: dimensions.width - SIDEBAR_WIDTH, marginLeft: SIDEBAR_WIDTH }}
         >
@@ -517,11 +517,6 @@ const GenomeViewer: React.FC<Props> = ({
       )}
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar-pro::-webkit-scrollbar { width: 14px; height: 14px; }
-        .custom-scrollbar-pro::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar-pro::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 4px solid #f1f5f9; }
-        .custom-scrollbar-pro::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
         .brush .selection {
           fill: #0ea5e9;
           fill-opacity: 0.2;

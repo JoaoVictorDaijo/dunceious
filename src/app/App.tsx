@@ -425,7 +425,6 @@ const App: React.FC = () => {
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin-slow { animation: spin-slow 12s linear infinite; }
         .tracking-tightest { tracking-letter: -0.05em; }
-        .seq-scroll { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
         .seq-scroll::-webkit-scrollbar { height: 3px; }
         .seq-scroll::-webkit-scrollbar-track { background: transparent; }
         .seq-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); border-radius: 9999px; }

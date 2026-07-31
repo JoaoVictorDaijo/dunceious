@@ -345,7 +345,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
             width="100%"
             itemCount={flattenedFeatures.length}
             itemSize={getHubRowHeight}
-            className="custom-scrollbar-pro"
+            className="custom-scrollbar-pro scrollbar-on-light"
           >
             {HubRow}
           </VariableSizeList>
