@@ -493,7 +493,7 @@ const GenomeViewer: React.FC<Props> = ({
         {/* CUSTOM HORIZONTAL SCROLLBAR */}
         <div 
           ref={horizontalScrollRef}
-          className="h-[16px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro scrollbar-on-light"
+          className="h-[12px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro scrollbar-on-light"
           onScroll={handleHorizontalScroll}
           style={{ width: dimensions.width - SIDEBAR_WIDTH, marginLeft: SIDEBAR_WIDTH }}
         >

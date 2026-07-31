@@ -63,7 +63,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
     onChange({ ...editing, feature: { ...feature, ...patch } });
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in zoom-in duration-200 my-auto">
         <h3 className="text-xl font-black uppercase tracking-tighter mb-8 flex items-center gap-4 text-white">
           <i className="fas fa-microchip text-amber-500"></i>
