@@ -386,7 +386,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-3 flex items-center justify-between">
           Log Terminal <i className="fas fa-terminal text-[8px]"></i>
         </h3>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[9px] text-slate-500 overflow-y-auto border border-slate-800 shadow-inner">
+        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[9px] text-slate-500 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
           {logs.map((log, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
               <span className="text-emerald-500 font-black">#</span>

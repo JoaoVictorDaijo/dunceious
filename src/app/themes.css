@@ -230,3 +230,74 @@
 
 /* ── Reduced motion: also snap the token re-tint instead of interpolating. ── */
 @media (prefers-reduced-motion: reduce) { .app-root { transition: none; } }
+
+/* ============================================================
+   SCROLLBARS — "Groove": a recessed rail carrying a raised pill.
+   Global rather than component-scoped: consumers render while the
+   viewer is unmounted.
+
+   Chromium discards every ::-webkit-scrollbar rule for an element
+   that also sets the standard `scrollbar-width`, so the standard
+   properties stay quarantined in the @supports block at the end.
+   Sizes are literal: custom properties do not resolve reliably
+   inside scrollbar pseudo-elements.
+   ============================================================ */
+
+.custom-scrollbar-pro::-webkit-scrollbar { width: 12px; height: 12px; }
+.custom-scrollbar-pro::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+.custom-scrollbar-pro::-webkit-scrollbar-corner { background: transparent; }
+
+.custom-scrollbar-pro::-webkit-scrollbar-track {
+  margin: 2px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.11), inset 0 1px 3px rgba(0, 0, 0, 0.26);
+}
+
+.custom-scrollbar-pro::-webkit-scrollbar-thumb {
+  border: 2px solid transparent; /* gap between pill and rail; pill = width - 2x this */
+  background-clip: padding-box;
+  border-radius: 9999px;
+  background-color: rgba(148, 163, 184, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.custom-scrollbar-pro::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.66);
+}
+
+/* Light grounds. Compound so it wins on specificity rather than source order;
+   geometry still comes from the base class. */
+.custom-scrollbar-pro.scrollbar-on-light::-webkit-scrollbar-track {
+  background-color: rgba(15, 23, 42, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.11), inset 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.custom-scrollbar-pro.scrollbar-on-light::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.42);
+}
+
+.custom-scrollbar-pro.scrollbar-on-light::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(71, 85, 105, 0.62);
+}
+
+/* Sequence context strips — a hairline, deliberately lighter than Groove, but
+   wide enough to grab. */
+.seq-scroll::-webkit-scrollbar { height: 6px; }
+.seq-scroll::-webkit-scrollbar-track { background: transparent; }
+.seq-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+.seq-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(148, 163, 184, 0.5); }
+
+@supports not selector(::-webkit-scrollbar) {
+  .custom-scrollbar-pro {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.46) rgba(255, 255, 255, 0.05);
+  }
+  .scrollbar-on-light {
+    scrollbar-color: rgba(71, 85, 105, 0.42) rgba(15, 23, 42, 0.05);
+  }
+  .seq-scroll { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.25) transparent; }
+}
