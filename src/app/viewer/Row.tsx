@@ -313,27 +313,16 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 for (let idx = 0; idx < f.segments.length - 1; idx++) {
                   const s1 = f.segments[idx];
                   const s2 = f.segments[idx + 1];
-                  
-                  // Normal connection
-                  if (s1.end <= s2.start) {
-                    const x1 = xScale(s1.end) - scrollX;
-                    const x2 = xScale(s2.start) - scrollX;
-                    if (x2 > 0 && x1 < viewportWidth) {
-                      connectingLines.push(
-                        <line 
-                          key={`line-${idx}`}
-                          x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
-                          stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
-                        />
-                      );
-                    }
-                  } else {
-                    // Wrap around connection (e.g. end of genome to start of genome)
+
+                  // parseLocation sets a descending envelope only for a vetted origin
+                  // wrap, so trust it over pair order: a scattered join descends too.
+                  if (isWrap && s1.end > s2.start) {
+                    // Wrap around connection (end of genome to start of genome)
                     const x1 = xScale(s1.end) - scrollX;
                     const xEnd = xScale(alignmentLength) - scrollX;
                     const xStart = xScale(0) - scrollX;
                     const x2 = xScale(s2.start) - scrollX;
-                    
+
                     if (xEnd > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
@@ -348,6 +337,20 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                         <line 
                           key={`line-wrap-2-${idx}`}
                           x1={Math.max(0, xStart)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
+                          stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
+                        />
+                      );
+                    }
+                  } else {
+                    const gapStart = Math.min(s1.end, s2.end);
+                    const gapEnd = Math.max(s1.start, s2.start);
+                    const x1 = xScale(gapStart) - scrollX;
+                    const x2 = xScale(gapEnd) - scrollX;
+                    if (x2 > 0 && x1 < viewportWidth) {
+                      connectingLines.push(
+                        <line 
+                          key={`line-${idx}`}
+                          x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
                         />
                       );

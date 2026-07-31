@@ -77,6 +77,9 @@ describe('Row feature drawing', () => {
     ]));
     expect(glyphs(container)).toHaveLength(2);     // one rect per segment
     expect(connectors(container)).toHaveLength(1); // one dashed connector
+
+    const [line] = Array.from(connectors(container));
+    expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${10 * ZOOM}`, `${20 * ZOOM}`]);
   });
 
   it('draws the two-part wrap connector for an origin-spanning join', () => {
@@ -94,5 +97,19 @@ describe('Row feature drawing', () => {
     ]));
     expect(glyphs(container)).toHaveLength(2);     // p1 + p2 two-part draw
     expect(connectors(container)).toHaveLength(0);
+  });
+
+  // rps12 shape: segments descend, but no segment starts at the origin, so
+  // parseLocation gives it a linear envelope — descent alone must not draw a wrap.
+  it('draws one connector across the gap of a descending join', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'ts', start: 10, end: 90, strand: 1,
+        segments: [{ start: 70, end: 90 }, { start: 10, end: 30 }] },
+    ]));
+    expect(glyphs(container)).toHaveLength(2);
+    expect(connectors(container)).toHaveLength(1);
+
+    const [line] = Array.from(connectors(container));
+    expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${30 * ZOOM}`, `${70 * ZOOM}`]);
   });
 });
