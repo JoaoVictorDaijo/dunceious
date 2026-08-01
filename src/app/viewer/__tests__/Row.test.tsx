@@ -105,6 +105,18 @@ describe('Row feature drawing', () => {
     expect(connectors(container)).toHaveLength(0);
   });
 
+  // The pre-origin part belongs to this record, so it ends at the record's own
+  // sequence — not at the alignment width, which is the widest loaded record.
+  it('ends a non-segmented wrap at the record, not the alignment width', () => {
+    const { container } = renderRow(
+      rec([{ type: 'gene', name: 'aw', start: 90, end: 10, strand: 1 }]),
+      { alignmentLength: LEN * 2, viewportWidth: LEN * 2 * ZOOM + 40 },
+    );
+    const [p1] = Array.from(glyphs(container));
+    expect(Math.round(Number(p1.getAttribute('x')) + Number(p1.getAttribute('width'))))
+      .toBe(LEN * ZOOM);
+  });
+
   // rps12 shape: segments descend, but no segment starts at the origin, so
   // parseLocation gives it a linear envelope — descent alone must not draw a wrap.
   it('draws one connector across the gap of a descending join', () => {
