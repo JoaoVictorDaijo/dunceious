@@ -137,14 +137,18 @@ describe('Row feature drawing', () => {
     expect(connectors(container)).toHaveLength(3);
   });
 
-  // Crossing the origin inside an intron: no segment starts at base 1, so
-  // parseLocation cannot mark the envelope as wrapping and the first segment
-  // reaching the sequence end is the only remaining evidence of the crossing.
+  // Crossing the origin inside an intron. The envelope is linear, so the first
+  // segment ending on the last base is the only evidence of the crossing.
   it('wraps a linear-envelope feature whose first segment reaches the sequence end', () => {
     const { container } = renderRow(rec([
-      { type: 'gene', name: 'oi', start: 5, end: 100, strand: 1,
-        segments: [{ start: 58, end: 100 }, { start: 5, end: 30 }] },
+      { type: 'gene', name: 'oi', start: 5, end: LEN, strand: 1,
+        segments: [{ start: 58, end: LEN }, { start: 5, end: 30 }] },
     ]));
-    expect(connectors(container)).toHaveLength(2);
+    // Rounded: xScale renders bp 58 as 463.99999999999994, which no exact
+    // string or float comparison against 58 * ZOOM would ever match.
+    const spans = Array.from(connectors(container))
+      .map(l => [l.getAttribute('x1'), l.getAttribute('x2')].map(v => Math.round(Number(v))));
+    expect(spans).toContainEqual([0, 5 * ZOOM]);
+    expect(spans).not.toContainEqual([30 * ZOOM, 58 * ZOOM]);
   });
 });
