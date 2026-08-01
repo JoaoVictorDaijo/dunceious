@@ -304,8 +304,6 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               };
 
               if (f.segments && f.segments.length > 0) {
-                const firstSeg = f.segments[0];
-                const lastSeg = f.segments[f.segments.length - 1];
                 const lineY = y + ANNOT_ROW_HEIGHT / 2;
                 
                 // Draw connecting lines between segments

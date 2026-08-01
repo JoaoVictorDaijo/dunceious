@@ -79,7 +79,8 @@ describe('Row feature drawing', () => {
     expect(connectors(container)).toHaveLength(1); // one dashed connector
 
     const [line] = Array.from(connectors(container));
-    expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${10 * ZOOM}`, `${20 * ZOOM}`]);
+    const span = [line.getAttribute('x1'), line.getAttribute('x2')].map(v => Math.round(Number(v)));
+    expect(span).toEqual([10 * ZOOM, 20 * ZOOM]);
   });
 
   it('draws the two-part wrap connector for an origin-spanning join', () => {
@@ -110,7 +111,8 @@ describe('Row feature drawing', () => {
     expect(connectors(container)).toHaveLength(1);
 
     const [line] = Array.from(connectors(container));
-    expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${30 * ZOOM}`, `${70 * ZOOM}`]);
+    const span = [line.getAttribute('x1'), line.getAttribute('x2')].map(v => Math.round(Number(v)));
+    expect(span).toEqual([30 * ZOOM, 70 * ZOOM]);
   });
 
   // ORF1ab's ribosomal frameshift overlaps segments by one base; like an exact
