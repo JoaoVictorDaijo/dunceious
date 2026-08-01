@@ -244,7 +244,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 if (f.end < vStart || f.start > vEnd) return null;
               } else {
                 // Wrapped feature: visible if [start, len] or [0, end] overlaps [vStart, vEnd]
-                const part1Visible = f.start <= vEnd && alignmentLength >= vStart;
+                const part1Visible = f.start <= vEnd && seq.length >= vStart;
                 const part2Visible = 0 <= vEnd && f.end >= vStart;
                 if (!part1Visible && !part2Visible) return null;
               }
@@ -368,7 +368,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               if (isWrap) {
                 return (
                   <React.Fragment key={i}>
-                    {renderPart(f.start, alignmentLength, 'p1')}
+                    {renderPart(f.start, seq.length, 'p1')}
                     {renderPart(0, f.end, 'p2')}
                   </React.Fragment>
                 );
