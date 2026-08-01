@@ -13,14 +13,34 @@ All notable changes to Dunceious. Format loosely follows
 > **`2.0.0`** marks the layered-architecture rewrite. See `CLAUDE.md` →
 > *Versioning & releases* for the going-forward process.
 
-## [Unreleased] — becomes `2.4.2` at the next promotion
+## [Unreleased] — becomes `2.5.0` at the next promotion
 
-Staged on `develop`; not yet promoted to `main` or tagged.
+Staged on `develop`; not yet promoted to `main` or tagged. Production still
+serves `2.0.1`. A minor: the scrollbar restyle is the highest-precedence change
+since `v2.4.1`.
 
 ### Added
+- **Groove scrollbar** — a 12px recessed rail carrying an 8px raised pill,
+  replacing a hardcoded light-grey bar that rendered bright against the dark
+  chrome. Surface-aware, with a companion class for the light viewport (#85).
 - Component/canvas render-test harness (jsdom + Testing Library + a canvas-2D
   recorder), with SequenceTrack early-stop glyph, Row join/wrap-connector, and
   DatabaseHubPanel coverage (#68, #82).
+
+### Fixed
+- Out-of-order joins no longer render a fabricated origin crossing. The wrap is
+  gated on real evidence of one — a wrapping envelope, or a segment reaching the
+  sequence end — and the ordinary connector spans the true gap in either
+  direction, drawing nothing where segments abut or overlap. Arabidopsis rps12
+  and SARS-CoV-2 ORF1ab/RdRp stop drawing a false wrap; the human-mito D-loop
+  wrap is preserved (#80, #87).
+- A circular feature's pre-origin part ends at its own record rather than the
+  alignment width, so it no longer overdraws into empty canvas when a shorter
+  record sits beside a longer one (#86, #88).
+- Scrollbar styling reached the Database Hub at all: the rules lived in the
+  viewer's inline `<style>`, which unmounts in Hub mode. Standard
+  `scrollbar-width` is now quarantined behind `@supports`, since Chromium
+  discards every `::-webkit-scrollbar` rule for an element that sets it (#85).
 
 ### Changed
 - Versioning: reconstructed the SemVer history, added this changelog, a
