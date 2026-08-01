@@ -297,12 +297,15 @@ to:
 Update the comment above the gate to:
 
 ```tsx
-                  // Join elements carry no positional guarantee, so pair order alone
-                  // cannot mean an origin crossing: trans-spliced, frameshift and
-                  // minus-strand joins all descend without one. A wrapping envelope
-                  // proves a crossing; so does a block reaching the sequence end,
-                  // which parseLocation cannot express when no segment starts at base 1.
+                  // parseLocation sets a descending envelope only for a vetted origin
+                  // wrap, so trust it over pair order: a scattered join descends too.
+                  // It cannot mark a crossing when no segment starts at base 1, so a
+                  // block reaching the sequence end is evidence of one as well.
 ```
+
+Do not describe frameshift or minus-strand joins as descending — a frameshift join
+ascends with an overlap, and `complement(join(10..20,30..40))` ascends (see
+`locationParser.test.ts:233-238`). Only the scattered/trans-spliced shape descends.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 

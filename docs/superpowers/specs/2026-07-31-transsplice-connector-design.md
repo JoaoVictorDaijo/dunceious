@@ -51,7 +51,8 @@ connector order-agnostic. The branch count does not change.
 ```ts
 // A genuine origin crossing is the only case that draws two parts.
 if ((f.start > f.end || s1.end >= seq.length) && s1.end > s2.start) {
-  // unchanged two-part wrap draw
+  // two-part wrap draw, terminating at the record's own end
+  const xEnd = xScale(seq.length) - scrollX;
 } else {
   const gapStart = Math.min(s1.end, s2.end);
   const gapEnd   = Math.max(s1.start, s2.start);
@@ -84,6 +85,16 @@ Residual: a linear-envelope feature whose first-listed segment ends exactly at
 the genome end **and** descends would still be treated as a wrap. That
 coincidence is the signature of an origin crossing, so treating it as one is the
 right default.
+
+### The wrap terminates at the record, not the chart
+
+The wrap's first half previously ran to `alignmentLength`, which is the maximum
+across all loaded records. For any record shorter than the longest, that painted
+a dashed line from the record's last base across empty canvas to the chart edge.
+The gate above fires precisely when `s1.end === seq.length`, which made the
+mismatch newly reachable, so the draw now ends at `seq.length` — the record's own
+origin. The non-segmented wrap path (`renderPart(f.start, alignmentLength, 'p1')`)
+still has the old behaviour and needs its own fix; it is filed separately.
 
 `Math.min`/`Math.max` collapse both orders into one span, so no third branch is
 needed. For an ascending pair the expression reduces to today's
