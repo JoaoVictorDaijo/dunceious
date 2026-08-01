@@ -112,4 +112,15 @@ describe('Row feature drawing', () => {
     const [line] = Array.from(connectors(container));
     expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${30 * ZOOM}`, `${70 * ZOOM}`]);
   });
+
+  it.each([
+    ['overlapping by one base', [{ start: 0, end: 50 }, { start: 49, end: 80 }]],
+    ['exactly abutting', [{ start: 0, end: 50 }, { start: 50, end: 80 }]],
+  ])('draws no connector between segments %s', (_label, segments) => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'fs', start: 0, end: 80, strand: 1, segments },
+    ]));
+    expect(glyphs(container)).toHaveLength(2);
+    expect(connectors(container)).toHaveLength(0);
+  });
 });

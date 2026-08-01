@@ -346,7 +346,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     const gapEnd = Math.max(s1.start, s2.start);
                     const x1 = xScale(gapStart) - scrollX;
                     const x2 = xScale(gapEnd) - scrollX;
-                    if (x2 > 0 && x1 < viewportWidth) {
+                    if (gapEnd > gapStart && x2 > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
                           key={`line-${idx}`}
