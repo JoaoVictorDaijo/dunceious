@@ -313,11 +313,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   const s2 = f.segments[idx + 1];
 
                   // parseLocation sets a descending envelope only for a vetted origin
-                  // wrap, so trust it over pair order: a scattered join descends too. It
-                  // cannot see the crossings its header calls "false linear", which
-                  // reach the sequence end.
+                  // wrap, and it cannot see the crossings its header calls "false
+                  // linear", which reach the sequence end. Either says the FEATURE
+                  // crosses; s1.end > s2.start picks the one PAIR that does.
                   if ((isWrap || s1.end >= seq.length) && s1.end > s2.start) {
-                    // Wrap around connection (end of genome to start of genome)
                     const x1 = xScale(s1.end) - scrollX;
                     const xEnd = xScale(seq.length) - scrollX;
                     const xStart = xScale(0) - scrollX;
