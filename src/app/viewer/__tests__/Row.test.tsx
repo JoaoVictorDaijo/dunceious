@@ -73,8 +73,14 @@ const glyphs = (c: HTMLElement) => c.querySelectorAll('rect[rx="4"]');
 const spanOf = (line: Element) =>
   [line.getAttribute('x1'), line.getAttribute('x2')].map(v => Math.round(Number(v)));
 
+const spanOfRect = (rect: Element) => {
+  const x = Number(rect.getAttribute('x'));
+  return [x, x + Number(rect.getAttribute('width'))].map(v => Math.round(v));
+};
+
+beforeEach(() => { installCanvasRecorder(); }); // silence inner-canvas getContext noise
+
 describe('Row feature drawing', () => {
-  beforeEach(() => { installCanvasRecorder(); }); // silence inner-canvas getContext noise
 
   it('draws one connector between the two parts of a normal join feature', () => {
     const { container } = renderRow(rec([
@@ -105,18 +111,19 @@ describe('Row feature drawing', () => {
     expect(connectors(container)).toHaveLength(0);
   });
 
-  // The pre-origin part belongs to this record, so it ends at the record's own
-  // sequence — not at the alignment width, which is the widest loaded record.
   it('ends a non-segmented wrap at the record, not the alignment width', () => {
     const { container } = renderRow(
       rec([{ type: 'gene', name: 'aw', start: 90, end: 10, strand: 1 }]),
       { alignmentLength: LEN * 2, viewportWidth: LEN * 2 * ZOOM + 40 },
     );
-    const [p1] = Array.from(glyphs(container));
-    expect(Math.round(Number(p1.getAttribute('x')) + Number(p1.getAttribute('width'))))
-      .toBe(LEN * ZOOM);
-  });
+    expect(glyphs(container)).toHaveLength(2);
 
+    const [p1] = Array.from(glyphs(container));
+    expect(spanOfRect(p1)).toEqual([90 * ZOOM, LEN * ZOOM]);
+  });
+});
+
+describe('Row segment connectors', () => {
   // rps12 shape: segments descend, but no segment starts at the origin, so
   // parseLocation gives it a linear envelope — descent alone must not draw a wrap.
   it('draws one connector across the gap of a descending join', () => {
