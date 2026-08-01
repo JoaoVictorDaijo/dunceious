@@ -113,6 +113,8 @@ describe('Row feature drawing', () => {
     expect([line.getAttribute('x1'), line.getAttribute('x2')]).toEqual([`${30 * ZOOM}`, `${70 * ZOOM}`]);
   });
 
+  // ORF1ab's ribosomal frameshift overlaps segments by one base; like an exact
+  // abutment, there is no gap to bridge.
   it.each([
     ['overlapping by one base', [{ start: 0, end: 50 }, { start: 49, end: 80 }]],
     ['exactly abutting', [{ start: 0, end: 50 }, { start: 50, end: 80 }]],
@@ -122,5 +124,16 @@ describe('Row feature drawing', () => {
     ]));
     expect(glyphs(container)).toHaveLength(2);
     expect(connectors(container)).toHaveLength(0);
+  });
+
+  // A circular feature with an ordinary intron before the origin: the interior
+  // pair is a normal gap, only the crossing pair is a wrap.
+  it('wraps only the crossing pair of a multi-segment circular feature', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'w3', start: 80, end: 20, strand: 1,
+        segments: [{ start: 80, end: 90 }, { start: 92, end: 95 }, { start: 5, end: 20 }] },
+    ]));
+    // 1 ordinary + 2 wrap halves
+    expect(connectors(container)).toHaveLength(3);
   });
 });
