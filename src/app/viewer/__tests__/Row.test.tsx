@@ -31,13 +31,13 @@ function rec(features: BioFeature[]): SeqRecord {
   return { id: 'r', name: 'r', sequence: 'A'.repeat(LEN), features } as SeqRecord;
 }
 
-function rowData(record: SeqRecord): RowData {
+function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
   const [layout] = computeRecordLayouts([record], {
     showAnnotations: true,
     showTranslation: false,
     showTracks: false,
   });
-  return {
+  const base: RowData = {
     recordLayouts: [layout],
     alignmentLength: LEN,
     scrollX: 0,
@@ -58,14 +58,20 @@ function rowData(record: SeqRecord): RowData {
     quantValueRanges: {},
     showTracks: false,
   };
+  return { ...base, ...overrides };
 }
 
-function renderRow(record: SeqRecord) {
-  return render(<Row index={0} style={{}} data={rowData(record)} />);
+function renderRow(record: SeqRecord, overrides: Partial<RowData> = {}) {
+  return render(<Row index={0} style={{}} data={rowData(record, overrides)} />);
 }
 
 const connectors = (c: HTMLElement) => c.querySelectorAll('line[stroke-dasharray="2,1"]');
 const glyphs = (c: HTMLElement) => c.querySelectorAll('rect[rx="4"]');
+
+// xScale interpolates in floating point, so a bp can land a hair off its exact
+// pixel and match neither a string nor a float comparison; round before comparing.
+const spanOf = (line: Element) =>
+  [line.getAttribute('x1'), line.getAttribute('x2')].map(v => Math.round(Number(v)));
 
 describe('Row feature drawing', () => {
   beforeEach(() => { installCanvasRecorder(); }); // silence inner-canvas getContext noise
@@ -77,6 +83,9 @@ describe('Row feature drawing', () => {
     ]));
     expect(glyphs(container)).toHaveLength(2);     // one rect per segment
     expect(connectors(container)).toHaveLength(1); // one dashed connector
+
+    const [line] = Array.from(connectors(container));
+    expect(spanOf(line)).toEqual([10 * ZOOM, 20 * ZOOM]);
   });
 
   it('draws the two-part wrap connector for an origin-spanning join', () => {
@@ -94,5 +103,73 @@ describe('Row feature drawing', () => {
     ]));
     expect(glyphs(container)).toHaveLength(2);     // p1 + p2 two-part draw
     expect(connectors(container)).toHaveLength(0);
+  });
+
+  // rps12 shape: segments descend, but no segment starts at the origin, so
+  // parseLocation gives it a linear envelope — descent alone must not draw a wrap.
+  it('draws one connector across the gap of a descending join', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'ts', start: 10, end: 90, strand: 1,
+        segments: [{ start: 70, end: 90 }, { start: 10, end: 30 }] },
+    ]));
+    expect(glyphs(container)).toHaveLength(2);
+    expect(connectors(container)).toHaveLength(1);
+
+    const [line] = Array.from(connectors(container));
+    expect(spanOf(line)).toEqual([30 * ZOOM, 70 * ZOOM]);
+  });
+
+  // ORF1ab's ribosomal frameshift overlaps segments by one base; like an exact
+  // abutment, there is no gap to bridge.
+  it.each([
+    ['overlapping by one base', [{ start: 0, end: 50 }, { start: 49, end: 80 }]],
+    ['exactly abutting', [{ start: 0, end: 50 }, { start: 50, end: 80 }]],
+  ])('draws no connector between segments %s', (_label, segments) => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'fs', start: 0, end: 80, strand: 1, segments },
+    ]));
+    expect(glyphs(container)).toHaveLength(2);
+    expect(connectors(container)).toHaveLength(0);
+  });
+
+  // A circular feature with an ordinary intron before the origin: the interior
+  // pair is a normal gap, only the crossing pair is a wrap.
+  it('wraps only the crossing pair of a multi-segment circular feature', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'w3', start: 80, end: 20, strand: 1,
+        segments: [{ start: 80, end: 90 }, { start: 92, end: 95 }, { start: 5, end: 20 }] },
+    ]));
+    expect(glyphs(container)).toHaveLength(3); // one rect per segment
+    // A bare count of 3 also fits wrapping the interior pair instead, so pin
+    // each span: the interior gap stays ordinary, only the last pair wraps.
+    const spans = Array.from(connectors(container)).map(spanOf);
+    expect(spans).toHaveLength(3);
+    expect(spans).toContainEqual([90 * ZOOM, 92 * ZOOM]);
+    expect(spans).toContainEqual([95 * ZOOM, LEN * ZOOM]);
+    expect(spans).toContainEqual([0, 5 * ZOOM]);
+  });
+
+  // Crossing the origin inside an intron. The envelope is linear, so the first
+  // segment ending on the last base is the only evidence of the crossing.
+  it('wraps a linear-envelope feature whose first segment reaches the sequence end', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'oi', start: 5, end: LEN, strand: 1,
+        segments: [{ start: 58, end: LEN }, { start: 5, end: 30 }] },
+    ]));
+    const spans = Array.from(connectors(container)).map(spanOf);
+    expect(spans).toContainEqual([0, 5 * ZOOM]);
+    expect(spans).not.toContainEqual([30 * ZOOM, 58 * ZOOM]);
+  });
+
+  // A record shorter than the alignment it sits in: the origin the wrap runs to
+  // is the record's own last base, so the half must stop there, not at the
+  // alignment width it shares with longer records.
+  it("draws the wrap to the record's own end, not the alignment width", () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'aw', start: 80, end: 20, strand: 1,
+        segments: [{ start: 80, end: 95 }, { start: 5, end: 20 }] },
+    ]), { alignmentLength: LEN * 2, viewportWidth: LEN * 2 * ZOOM + 40 });
+    const spans = Array.from(connectors(container)).map(spanOf);
+    expect(spans).toContainEqual([95 * ZOOM, LEN * ZOOM]);
   });
 });
