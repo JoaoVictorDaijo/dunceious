@@ -316,7 +316,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
                   // parseLocation sets a descending envelope only for a vetted origin
                   // wrap, so trust it over pair order: a scattered join descends too.
-                  if (isWrap && s1.end > s2.start) {
+                  // It cannot mark a crossing when no segment starts at base 1, so a
+                  // block reaching the sequence end is evidence of one as well.
+                  if ((isWrap || s1.end >= seq.length) && s1.end > s2.start) {
                     // Wrap around connection (end of genome to start of genome)
                     const x1 = xScale(s1.end) - scrollX;
                     const xEnd = xScale(alignmentLength) - scrollX;

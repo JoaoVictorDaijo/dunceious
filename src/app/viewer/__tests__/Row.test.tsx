@@ -136,4 +136,15 @@ describe('Row feature drawing', () => {
     // 1 ordinary + 2 wrap halves
     expect(connectors(container)).toHaveLength(3);
   });
+
+  // Crossing the origin inside an intron: no segment starts at base 1, so
+  // parseLocation cannot mark the envelope as wrapping and the first segment
+  // reaching the sequence end is the only remaining evidence of the crossing.
+  it('wraps a linear-envelope feature whose first segment reaches the sequence end', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'oi', start: 5, end: 100, strand: 1,
+        segments: [{ start: 58, end: 100 }, { start: 5, end: 30 }] },
+    ]));
+    expect(connectors(container)).toHaveLength(2);
+  });
 });
