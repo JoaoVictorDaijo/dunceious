@@ -44,6 +44,23 @@ export const transposeCoordinates = (
   return alignedSeq.length;
 };
 
+function createCoordinateLookup(alignedSeq: string): (position: number) => number {
+  const boundaries = new Uint32Array(alignedSeq.length + 1);
+  let ungappedLength = 0;
+
+  // A boundary precedes any following gaps; position zero also precedes leading gaps.
+  for (let i = 0; i < alignedSeq.length; i++) {
+    if (alignedSeq[i] !== "-") {
+      boundaries[++ungappedLength] = i + 1;
+    }
+  }
+
+  return (position) =>
+    Number.isInteger(position) && position >= 0 && position <= ungappedLength
+      ? boundaries[position]
+      : alignedSeq.length;
+}
+
 /**
  * Given two aligned positions `alignedStart` (inclusive) and `alignedEnd`
  * (exclusive) in an aligned sequence, returns the non-gap sub-segments
@@ -94,8 +111,10 @@ export const buildAlignedSegments = (
 export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
   return records.map((record) => {
     if (!record.alignedSequence) return record;
+    if (record.features.length === 0) return { ...record, features: [] };
 
     const alignedSeq = record.alignedSequence;
+    const transpose = createCoordinateLookup(alignedSeq);
 
     const transposedFeatures: BioFeature[] = record.features.map((feat) => {
       const originalSegments: FeatureSegment[] =
@@ -109,16 +128,16 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
         const parts = splitWrapAround(seg.start, seg.end, record.sequence.length);
 
         for (const part of parts) {
-          const alignedStart = transposeCoordinates(part.start, alignedSeq);
-          const alignedEnd = transposeCoordinates(part.end, alignedSeq);
+          const alignedStart = transpose(part.start);
+          const alignedEnd = transpose(part.end);
           newSegments.push(
             ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd, seg.strand),
           );
         }
       }
 
-      const newStart = transposeCoordinates(feat.start, alignedSeq);
-      const newEnd = transposeCoordinates(feat.end, alignedSeq);
+      const newStart = transpose(feat.start);
+      const newEnd = transpose(feat.end);
 
       return { ...feat, start: newStart, end: newEnd, segments: newSegments };
     });
