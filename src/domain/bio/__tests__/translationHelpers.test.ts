@@ -21,10 +21,18 @@
  * Unit tests for the translation helper functions in `@/src/domain/bio/sequence`:
  *   - extractCodingSequence  (multi-segment, circular wrap-around, strand handling)
  *   - detectEarlyStop        (early vs terminal stop codon)
+ *   - translateFeature       (prefer stored /translation over recomputation)
+ *   - isFeatureBroken        (prefer stored /translation for broken detection)
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractCodingSequence, detectEarlyStop, translateSequence } from '../sequence';
+import {
+  extractCodingSequence,
+  detectEarlyStop,
+  translateSequence,
+  translateFeature,
+  isFeatureBroken,
+} from '../sequence';
 
 // ---------------------------------------------------------------------------
 // extractCodingSequence
@@ -83,6 +91,55 @@ describe('extractCodingSequence – reverse strand', () => {
     );
     // alignedIndices before reverse: [0,1,2,3,4,5], after reverse: [5,4,3,2,1,0]
     expect(alignedIndices).toEqual([5, 4, 3, 2, 1, 0]);
+  });
+});
+
+describe('extractCodingSequence – mixed-strand (trans-splice)', () => {
+  it('orients each segment by its own strand without reverse-complementing the whole feature', () => {
+    // join(complement(0..3), 6..9) over ATGAAACCC:
+    //   segment 0 (minus): RC of seq[0:3]='ATG' → 'CAT'
+    //   segment 1 (plus):  seq[6:9]='CCC'
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      {
+        strand: 1,
+        start: 0,
+        end: 9,
+        segments: [
+          { start: 0, end: 3, strand: -1 },
+          { start: 6, end: 9, strand: 1 },
+        ],
+      },
+      'ATGAAACCC'
+    );
+    expect(codingSeq).toBe('CATCCC');
+    expect(alignedIndices).toEqual([2, 1, 0, 6, 7, 8]);
+  });
+});
+
+describe('extractCodingSequence – codon_start (reading-frame phase)', () => {
+  it('drops leading bases per /codon_start on the forward strand', () => {
+    const seq = 'CATGCCCGAG'; // codon_start=2 ⇒ translation begins at index 1
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: 1, start: 0, end: 10, metadata: { codon_start: '2' } },
+      seq
+    );
+    expect(codingSeq).toBe('ATGCCCGAG');
+    expect(alignedIndices).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('defaults to frame 1 when codon_start is absent', () => {
+    const { codingSeq } = extractCodingSequence({ strand: 1, start: 0, end: 10 }, 'CATGCCCGAG');
+    expect(codingSeq).toBe('CATGCCCGAG');
+  });
+
+  it('applies codon_start after reverse-complementing a minus-strand feature', () => {
+    // RC of ATGCCC = GGGCAT; codon_start=3 drops the leading 2 bases ⇒ GCAT
+    const { codingSeq, alignedIndices } = extractCodingSequence(
+      { strand: -1, start: 0, end: 6, metadata: { codon_start: '3' } },
+      'ATGCCC'
+    );
+    expect(codingSeq).toBe('GCAT');
+    expect(alignedIndices).toEqual([3, 2, 1, 0]);
   });
 });
 
@@ -192,5 +249,56 @@ describe('detectEarlyStop', () => {
     const protein = translateSequence(seq);
     expect(protein).toBe('M_E');
     expect(detectEarlyStop(seq)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// translateFeature — prefer stored /translation over recomputation
+// ---------------------------------------------------------------------------
+
+describe('translateFeature', () => {
+  it('recomputes when /translation is absent', () => {
+    expect(translateFeature({}, 'ATGCCCGAG')).toBe('MPE');
+  });
+
+  it('shows the annotated initiator (Met) for an alternative start codon', () => {
+    // ATT is Ile when translated literally, but the CDS annotates it as the Met start.
+    expect(translateFeature({ translation: 'MPE' }, 'ATTCCCGAG')).toBe('MPE');
+    expect(translateSequence('ATTCCCGAG')).toBe('IPE'); // what recomputation would give
+  });
+
+  it('falls back to the computed terminal stop that /translation omits', () => {
+    // /translation omits the trailing stop, so codon 2 (TAA) has no stored residue.
+    expect(translateFeature({ translation: 'MP' }, 'ATGCCCTAA')).toBe('MP_');
+  });
+
+  it('preserves transl_except recoding (selenocysteine) from /translation', () => {
+    // Internal TGA is a stop under the standard code but recoded to U by /transl_except.
+    expect(translateFeature({ translation: 'MUP' }, 'ATGTGACCC')).toBe('MUP');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isFeatureBroken — prefer stored /translation for broken detection
+// ---------------------------------------------------------------------------
+
+describe('isFeatureBroken', () => {
+  it('recomputes an early stop when /translation is absent', () => {
+    expect(isFeatureBroken({}, 'ATGTAGGAG')).toBe(true); // M _ E
+    expect(isFeatureBroken({}, 'ATGCCCGAG')).toBe(false); // M P E
+  });
+
+  it('is not broken when the stored /translation has no internal stop', () => {
+    // Recomputing this selenocysteine CDS would read the internal TGA as an early stop.
+    expect(detectEarlyStop('ATGTGACCC')).toBe(true);
+    expect(isFeatureBroken({ translation: 'MUP' }, 'ATGTGACCC')).toBe(false);
+  });
+
+  it('is broken when the stored /translation carries an internal stop', () => {
+    expect(isFeatureBroken({ translation: 'M*P' }, 'ATGTGACCC')).toBe(true);
+  });
+
+  it('tolerates a trailing stop in /translation as normal termination', () => {
+    expect(isFeatureBroken({ translation: 'MP*' }, 'ATGCCCTAA')).toBe(false);
   });
 });

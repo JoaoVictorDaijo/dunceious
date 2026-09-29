@@ -71,9 +71,10 @@ export const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLi
       }
 
       g.selectAll('text')
-        .attr('fill', '#475569')
+        .attr('fill', '#64748b')
         .style('font-size', '9px')
-        .style('font-weight', '900')
+        .style('font-weight', '500')
+        .style('letter-spacing', '0.06em')
         .style('font-family', 'JetBrains Mono, monospace');
       
       g.selectAll('.domain').attr('stroke', '#94a3b8').attr('stroke-width', 1.5);

@@ -155,6 +155,15 @@ describe('sliceRecordsBySelection – feature rebasing', () => {
     const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
     expect(result.features).toHaveLength(0);
   });
+
+  it('preserves per-segment strand of a trans-spliced feature through clipping', () => {
+    const feature: BioFeature = {
+      type: 'CDS', name: 'f1', start: 12, end: 18, strand: 1,
+      segments: [{ start: 12, end: 14, strand: -1 }, { start: 16, end: 18, strand: 1 }],
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    expect(result.features[0].segments!.map(s => s.strand)).toEqual([-1, 1]);
+  });
 });
 
 // ---------------------------------------------------------------------------

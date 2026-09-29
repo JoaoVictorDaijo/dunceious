@@ -12,6 +12,7 @@ Console output only — no artifacts, not a CI gate.
 | `bioUtils.perf.ts` | `services/bioUtils` — translateSequence, sliceRecordsBySelection, exportToGenBank |
 | `parseGenBank.perf.ts` | `services/genbank` — parseGenBank |
 | `grid2d.perf.ts` | `src/domain/bio` — transposeCoordinates, buildAlignedSegments, processTransposition, clipSegments, calculateConsensus |
+| `coordinateTransposition.perf.ts` | `src/domain/bio/coordinate` — complete 154,478-base chloroplast transposition, 259 features, p95 below 100 ms |
 
 ## Run
 

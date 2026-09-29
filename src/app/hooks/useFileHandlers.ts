@@ -24,7 +24,7 @@ import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { exportToGff } from '@/src/core/formats/annotations';
 import { downloadBlob } from '@/src/app/lib/download';
-import type { BioWorkerRequest } from '@/src/workers/protocol';
+import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;
 const FASTA_SAMPLE_MAX_LENGTH = 1200;
@@ -151,15 +151,23 @@ export function useFileHandlers(
 
   // ── Upload handlers ───────────────────────────────────────────────────────
 
+  // Shared plumbing: read a file, dispatch to the worker, and always settle the
+  // processing flag on failure (unreadable file, absent worker) so the
+  // ProcessingOverlay can never hang. See logic/upload.ts.
+  const workerDeps: WorkerUploadDeps = {
+    readText: readFileAsText,
+    postToWorker: request => postToWorker(bioWorkerRef.current, request),
+    setProcessing: setIsProcessing,
+    addLog,
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+    const files = takeFiles(e.target);
+    if (files.length === 0) return;
     setIsProcessing(true);
     addLog(`Ingesting batch: ${files.length} file(s).`);
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const content = ev.target?.result as string;
+    files.forEach(file =>
+      dispatchFile(file, content => {
         const isFasta = content.trimStart().startsWith('>');
         if (records.length > 0) {
           const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
@@ -170,26 +178,20 @@ export function useFileHandlers(
               `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
             );
             setIsProcessing(false);
-            return;
+            return null;
           }
         }
-        const request: BioWorkerRequest = isFasta
-          ? { type: 'PARSE_FASTA', content }
-          : { type: 'PARSE_GENBANK', content };
-        bioWorkerRef.current?.postMessage(request);
-      };
-      reader.readAsText(file);
-    });
+        return isFasta ? { type: 'PARSE_FASTA', content } : { type: 'PARSE_GENBANK', content };
+      }, workerDeps),
+    );
   };
 
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const [file] = takeFiles(e.target);
     if (!file || records.length === 0) return;
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const content = ev.target?.result as string;
+    dispatchFile(file, content => {
       const incoming = sniffFastaCategory(content);
       const loaded = getLoadedCategory(records);
       if (incoming !== loaded) {
@@ -198,60 +200,55 @@ export function useFileHandlers(
           `Cannot import ${incoming === 'protein' ? 'peptide' : 'nucleotide'} alignment "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
         );
         setIsProcessing(false);
-        return;
+        return null;
       }
-      const request: BioWorkerRequest = { type: 'PARSE_FASTA', content, asAlignment: true };
-      bioWorkerRef.current?.postMessage(request);
-    };
-    reader.readAsText(file);
+      return { type: 'PARSE_FASTA', content, asAlignment: true };
+    }, workerDeps);
   };
 
   const handleAnnotationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || records.length === 0) return;
+    const files = takeFiles(e.target);
+    if (files.length === 0 || records.length === 0) return;
     setIsProcessing(true);
     addLog(`Importing annotations from ${files.length} files...`);
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const request: BioWorkerRequest = {
-          type: 'PARSE_ANNOTATIONS',
-          filename: file.name,
-          content: ev.target?.result as string,
-        };
-        bioWorkerRef.current?.postMessage(request);
-      };
-      reader.readAsText(file);
-    });
+    files.forEach(file =>
+      dispatchFile(
+        file,
+        content => ({ type: 'PARSE_ANNOTATIONS', filename: file.name, content }),
+        workerDeps,
+      ),
+    );
   };
 
   const handleProjectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const [file] = takeFiles(e.target);
     if (!file) return;
     setIsProcessing(true);
     addLog(`Loading project: ${file.name}`);
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const project = JSON.parse(ev.target?.result as string) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (project.records)
-          setRecords(project.records.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-            ...r,
-            visible: r.visible !== undefined ? r.visible : true,
-          })));
-        if (project.featureColors) setFeatureColors(project.featureColors);
-        if (project.activeSelection) setActiveSelection(project.activeSelection);
-        if (project.showAnnotations !== undefined) setShowAnnotations(project.showAnnotations);
-        if (project.showTranslation !== undefined) setShowTranslation(project.showTranslation);
-        if (project.showConservation !== undefined) setShowConservation(project.showConservation);
-        if (typeof project.name === 'string' && project.name.trim()) setProjectName(project.name.trim());
-        addLog('Project loaded successfully.');
-      } catch (err) {
-        addLog(`Error loading project: ${err}`);
-      }
-      setIsProcessing(false);
-    };
-    reader.readAsText(file);
+    readFileAsText(file)
+      .then(text => {
+        try {
+          const project = JSON.parse(text) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (project.records)
+            setRecords(project.records.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+              ...r,
+              visible: r.visible !== undefined ? r.visible : true,
+            })));
+          if (project.featureColors) setFeatureColors(project.featureColors);
+          if (project.activeSelection) setActiveSelection(project.activeSelection);
+          if (project.showAnnotations !== undefined) setShowAnnotations(project.showAnnotations);
+          if (project.showTranslation !== undefined) setShowTranslation(project.showTranslation);
+          if (project.showConservation !== undefined) setShowConservation(project.showConservation);
+          if (typeof project.name === 'string' && project.name.trim()) setProjectName(project.name.trim());
+          addLog('Project loaded successfully.');
+        } catch (err) {
+          addLog(`Error loading project: ${err}`);
+        }
+      })
+      .catch(err => {
+        addLog(`Could not read project file "${file.name}": ${err instanceof Error ? err.message : String(err)}`);
+      })
+      .finally(() => setIsProcessing(false));
   };
 
   // ── Export helpers ────────────────────────────────────────────────────────

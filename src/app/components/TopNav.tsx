@@ -19,12 +19,20 @@
 
 import React from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
+import OptionsPanel from './OptionsPanel';
+import type { ThemeKey } from '@/src/app/logic/theme';
 
 export interface TopNavProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   activeTab: 'alignment' | 'features';
   onTabChange: (tab: 'alignment' | 'features') => void;
+  featureColors: Record<string, string>;
+  onSetFeatureColors: (colors: Record<string, string>) => void;
+  skipClearAllConfirmation: boolean;
+  onSetSkipClearAllConfirmation: (value: boolean) => void;
+  themeKey: ThemeKey;
+  onSetThemeKey: (key: ThemeKey) => void;
   /** Show the alignment-specific toolbar buttons (true when records are loaded in alignment view) */
   showAlignmentControls: boolean;
   dragMode: 'pan' | 'select';
@@ -51,6 +59,12 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleSidebar,
   activeTab,
   onTabChange,
+  featureColors,
+  onSetFeatureColors,
+  skipClearAllConfirmation,
+  onSetSkipClearAllConfirmation,
+  themeKey,
+  onSetThemeKey,
   showAlignmentControls,
   dragMode,
   onDragModeChange,
@@ -66,9 +80,11 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleConservation,
   isAlignmentLoaded,
   sessionMoleculeType,
-}) => (
-  <>
-  <nav className="h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-50">
+}) => {
+  return (
+  <nav className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md shrink-0 z-50">
+    <div className="hf-env" aria-hidden="true" />
+    <div className="relative z-[1] h-full flex items-center justify-between px-6">
     <div className="flex items-center gap-6">
       <button
         onClick={onToggleSidebar}
@@ -78,7 +94,10 @@ const TopNav: React.FC<TopNavProps> = ({
       </button>
       <div className="flex flex-col">
         <div className="flex items-center gap-3">
-          <i className="fas fa-helix text-sky-500 text-xl animate-spin-slow"></i>
+          <i
+            className="fas fa-helix text-xl animate-spin-slow transition-colors duration-700 motion-reduce:transition-none"
+            style={{ color: 'var(--env)' }}
+          ></i>
           <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
         <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
@@ -88,19 +107,36 @@ const TopNav: React.FC<TopNavProps> = ({
     </div>
 
     <div className="flex items-center gap-4">
-      {/* Tab toggle */}
-      <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-xl mr-4">
+      {/* Mode switcher — two workspaces, not two views: each mode carries its own
+          icon, verb, and accent (sky = look, amber = manage) */}
+      <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-xl mr-4 gap-1">
         <button
           onClick={() => onTabChange('alignment')}
-          className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'alignment' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+          aria-pressed={activeTab === 'alignment'}
+          title="Visual Viewport — look at the molecule"
+          className={`group flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${activeTab === 'alignment' ? 'bg-sky-600 shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
-          Visual Viewport
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'alignment' ? 'bg-white/15 text-white' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
+            <i className="fas fa-crosshairs"></i>
+          </span>
+          <span className="flex flex-col items-start leading-none">
+            <span className={`text-[7px] font-black uppercase tracking-[0.28em] ${activeTab === 'alignment' ? 'text-sky-100' : 'text-slate-400'}`}>View</span>
+            <span className={`text-[10px] font-black uppercase tracking-tight mt-0.5 ${activeTab === 'alignment' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Visual Viewport</span>
+          </span>
         </button>
         <button
           onClick={() => onTabChange('features')}
-          className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${activeTab === 'features' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+          aria-pressed={activeTab === 'features'}
+          title="Database Hub — manage records & data"
+          className={`group flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${activeTab === 'features' ? 'bg-amber-500 shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
-          Database Hub
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'features' ? 'bg-slate-950/15 text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
+            <i className="fas fa-table-list"></i>
+          </span>
+          <span className="flex flex-col items-start leading-none">
+            <span className={`text-[7px] font-black uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
+            <span className={`text-[10px] font-black uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Database Hub</span>
+          </span>
         </button>
       </div>
 
@@ -167,17 +203,19 @@ const TopNav: React.FC<TopNavProps> = ({
           </div>
         </div>
       )}
+
+      <OptionsPanel
+        featureColors={featureColors}
+        onSetFeatureColors={onSetFeatureColors}
+        skipClearAllConfirmation={skipClearAllConfirmation}
+        onSetSkipClearAllConfirmation={onSetSkipClearAllConfirmation}
+        themeKey={themeKey}
+        onSetThemeKey={onSetThemeKey}
+      />
+    </div>
     </div>
   </nav>
-  <div className="relative shrink-0 h-3 pointer-events-none overflow-hidden">
-    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-sky-500/40 via-sky-500/10 to-transparent ${
-      sessionMoleculeType === 'nucleotide' ? 'opacity-100' : 'opacity-0'
-    }`} />
-    <div className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-b from-violet-500/40 via-violet-500/10 to-transparent ${
-      sessionMoleculeType === 'protein' ? 'opacity-100' : 'opacity-0'
-    }`} />
-  </div>
-  </>
-);
+  );
+};
 
 export default TopNav;

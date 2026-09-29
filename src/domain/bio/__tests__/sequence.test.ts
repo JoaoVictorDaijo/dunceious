@@ -46,6 +46,11 @@ describe('reverseComplement', () => {
   it('is its own inverse', () => {
     expect(reverseComplement(reverseComplement('AATTCCGG'))).toBe('AATTCCGG');
   });
+  it('complements RNA uracil to adenine (U pairs like T)', () => {
+    expect(reverseComplement('AUGC')).toBe('GCAT');
+    expect(reverseComplement('U')).toBe('A');
+    expect(reverseComplement('u')).toBe('a');
+  });
 });
 
 describe('translateSequence', () => {
@@ -57,6 +62,18 @@ describe('translateSequence', () => {
   });
   it('emits ? for an unknown codon', () => {
     expect(translateSequence('ATGNNN')).toBe('M?');
+  });
+  it('uses the vertebrate-mitochondrial code (table 2) when requested', () => {
+    // Table 2 reassigns TGA→Trp, ATA→Met, AGA/AGG→Stop.
+    expect(translateSequence('TGA', 2)).toBe('W');
+    expect(translateSequence('ATA', 2)).toBe('M');
+    expect(translateSequence('AGA', 2)).toBe('_');
+    expect(translateSequence('AGG', 2)).toBe('_');
+  });
+  it('leaves the standard code (table 1) unchanged and treats table 11 as standard', () => {
+    expect(translateSequence('TGA')).toBe('_');
+    expect(translateSequence('ATA')).toBe('I');
+    expect(translateSequence('TGA', 11)).toBe('_'); // plastid/bacterial: standard internal codons
   });
 });
 
@@ -100,6 +117,11 @@ describe('detectEarlyStop', () => {
   });
   it('is true for an internal stop before the last codon', () => {
     expect(detectEarlyStop('ATGTAGGAG')).toBe(true);
+  });
+  it('honours the genetic-code table when detecting internal stops', () => {
+    // TGG TGA AAA: internal TGA is a stop under the standard code but Trp under table 2.
+    expect(detectEarlyStop('TGGTGAAAA')).toBe(true);
+    expect(detectEarlyStop('TGGTGAAAA', 2)).toBe(false);
   });
 });
 

@@ -108,11 +108,65 @@ describe('buildAlignedSegments', () => {
       { start: 2, end: 3 },
     ]);
   });
+
+  it('stamps the supplied per-segment strand onto every rebuilt segment', () => {
+    expect(buildAlignedSegments('AC--GT', 0, 6, -1)).toEqual([
+      { start: 0, end: 2, strand: -1 },
+      { start: 4, end: 6, strand: -1 },
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------
 // processTransposition
 // ---------------------------------------------------------------------------
+
+describe('processTransposition coordinate boundaries', () => {
+  it.each([
+    [0, 0], [1, 3], [2, 4], [3, 7], [4, 8],
+    [5, 10], [-1, 10], [0.5, 10], [NaN, 10], [Infinity, 10],
+  ])('maps boundary %s to %s across leading, internal and trailing gaps', (position, expected) => {
+    const record = makeRecord('gapped', 'ACGT', '--AC--GT--');
+    record.features = [{ type: 'gene', name: 'boundary', start: position, end: position, strand: 1 }];
+    const [result] = processTransposition([record]);
+    expect(result.features[0]).toMatchObject({ start: expected, end: expected });
+  });
+
+  it('maps zero and out-of-range boundaries in an all-gap alignment', () => {
+    const record = makeRecord('gaps', 'AC', '----');
+    record.features = [{ type: 'gene', name: 'g', start: 0, end: 2, strand: 1 }];
+    expect(processTransposition([record])[0].features[0]).toMatchObject({
+      start: 0, end: 4, segments: [],
+    });
+  });
+
+  it('preserves wrap order and mixed segment strands through gaps', () => {
+    const record = makeRecord('circular', 'ACGT', '--AC--GT--');
+    record.features = [{
+      type: 'CDS', name: 'mixed', start: 3, end: 1, strand: -1,
+      segments: [{ start: 3, end: 1, strand: -1 }, { start: 1, end: 2, strand: 1 }],
+    }];
+    expect(processTransposition([record])[0].features[0]).toMatchObject({
+      start: 7, end: 3,
+      segments: [
+        { start: 7, end: 8, strand: -1 },
+        { start: 2, end: 3, strand: -1 },
+        { start: 3, end: 4, strand: 1 },
+      ],
+    });
+    expect(record.features[0].segments).toEqual([
+      { start: 3, end: 1, strand: -1 }, { start: 1, end: 2, strand: 1 },
+    ]);
+  });
+
+  it('recomputes boundaries when the same record receives a different alignment', () => {
+    const record = makeRecord('same-id', 'ACGT', '--ACGT');
+    record.features = [{ type: 'gene', name: 'g', start: 1, end: 2, strand: 1 }];
+    expect(processTransposition([record])[0].features[0]).toMatchObject({ start: 3, end: 4 });
+    expect(processTransposition([{ ...record, alignedSequence: 'A-CGT' }])[0].features[0])
+      .toMatchObject({ start: 1, end: 3 });
+  });
+});
 
 describe('processTransposition', () => {
   it('returns record unchanged when alignedSequence is absent', () => {
@@ -138,6 +192,16 @@ describe('processTransposition', () => {
     const [result] = processTransposition([record]);
     expect(result.features[0].start).toBe(0);
     expect(result.features[0].end).toBe(4);
+  });
+
+  it('preserves per-segment strand through a gapless transposition (trans-spliced CDS)', () => {
+    const record = makeRecord('r1', 'ATGAAACCC', 'ATGAAACCC');
+    record.features = [{
+      type: 'CDS', name: 'x', start: 0, end: 9, strand: 1,
+      segments: [{ start: 0, end: 3, strand: -1 }, { start: 6, end: 9, strand: 1 }],
+    }];
+    const [result] = processTransposition([record]);
+    expect(result.features[0].segments!.map(s => s.strand)).toEqual([-1, 1]);
   });
 
   it('splits a feature into sub-segments around internal gaps', () => {

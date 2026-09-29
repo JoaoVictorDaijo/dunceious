@@ -282,7 +282,7 @@ describe('parseGenBank – scaling with number of records', () => {
 // ---------------------------------------------------------------------------
 
 describe('parseGenBank – SCU49845.gb real-world fixture', () => {
-  const SCU49845_CONTENT = readFileSync(resolve(__dirname, '../SCU49845.gb'), 'utf-8');
+  const SCU49845_CONTENT = readFileSync(resolve(__dirname, '../src/core/__tests__/fixtures/SCU49845.gb'), 'utf-8');
 
   it('parses SCU49845.gb with stable median parse time < 2000 ms (p95)', () => {
     // Correctness smoke-check.

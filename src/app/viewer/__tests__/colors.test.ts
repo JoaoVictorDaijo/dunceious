@@ -28,6 +28,11 @@ describe('getNucleotideColor', () => {
     expect(getNucleotideColor('g')).toBe('#eab308');
   });
 
+  it('colours RNA uracil like thymine (its DNA analogue)', () => {
+    expect(getNucleotideColor('U')).toBe('#f43f5e');
+    expect(getNucleotideColor('u')).toBe('#f43f5e');
+  });
+
   it('returns the gap colour for "-"', () => {
     expect(getNucleotideColor('-')).toBe('#64748b');
   });
@@ -86,6 +91,11 @@ describe('getFeatureColor', () => {
 
   it('falls through to the built-in map when the override lacks the type', () => {
     expect(getFeatureColor('gene', { CDS: '#123456' })).toBe('#0ea5e9');
+  });
+
+  it('maps mat_peptide and stem_loop to distinct colours (not the fallback)', () => {
+    expect(getFeatureColor('mat_peptide')).toBe('#0891b2');
+    expect(getFeatureColor('stem_loop')).toBe('#a16207');
   });
 
   it('returns the fallback colour for an unknown feature type', () => {

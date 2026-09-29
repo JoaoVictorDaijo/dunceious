@@ -244,11 +244,22 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation, conservationScores, quantValueRanges, showTracks
   ]);
 
+  // Segmented-inset toolbar (design direction B): two surface levels — recessed
+  // track/fields vs raised segments. Sky = interactive, emerald = export.
+  const segTrack = "flex items-stretch gap-[3px] bg-[#12203c] rounded-lg p-[3px]";
+  const trackShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.2)' };
+  const segBtn = "px-2 py-1 rounded-md text-[8px] font-black uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
+  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
+  const segExport = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-emerald-400 border border-white/10 hover:bg-[#35497a] hover:text-emerald-300 transition-colors";
+  const raisedShadow = { boxShadow: '0 1px 1.5px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' };
+  const segField = "bg-[#0f1c37] border border-white/[0.07] rounded-md";
+  const fieldShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)' };
+
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
       {/* 1. COMPACT TOOLBAR & GLOBAL OVERVIEW */}
-      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-slate-50 border-b border-slate-200 px-3 flex items-center gap-3 z-20 min-w-0 shadow-sm">
+      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-[#1b2b4d] border-b border-[#060b18] px-3 flex items-center gap-3 z-20 min-w-0" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
         
         {/* MINIMAP SECTION */}
         <Minimap
@@ -269,13 +280,14 @@ const GenomeViewer: React.FC<Props> = ({
 
         {/* CONTROLS SECTION */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
+          {/* Go to — recessed field */}
+          <div className={`flex items-center ${segField}`} style={fieldShadow}>
             <div className="relative flex items-center">
-              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-slate-400"></i>
-              <input 
-                type="text" 
-                placeholder="Go to..." 
-                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-slate-700 outline-none focus:ring-1 focus:ring-sky-500 rounded"
+              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-[#7c8bb0]"></i>
+              <input
+                type="text"
+                placeholder="Go to..."
+                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-sky-500 rounded"
                 value={gotoPos}
                 onChange={e => setGotoPos(e.target.value)}
                 onKeyDown={e => {
@@ -288,39 +300,41 @@ const GenomeViewer: React.FC<Props> = ({
             </div>
           </div>
           {activeSelection && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-sky-50 rounded-lg border border-sky-100 text-[9px] font-black text-sky-700 uppercase tracking-tight">
-              <i className="fas fa-vector-square text-[10px] opacity-50"></i>
-              <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
-              <span className="opacity-30">|</span>
-              {/* For circular wrap-around selections (start > end), compute length
-                  as (seqLength - start) + end to avoid a negative/wrong value. */}
-              <span>{(activeSelection.start <= activeSelection.end
-                ? activeSelection.end - activeSelection.start
-                : (alignmentLength - activeSelection.start) + activeSelection.end
-              ).toLocaleString()} bp</span>
-            </div>
-          )}
-          <div className="flex bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
-            <button onClick={handleFit} className="px-2 py-1 rounded hover:bg-slate-50 text-[8px] font-black uppercase text-slate-500 transition-all hover:text-sky-600">Fit</button>
-            {activeSelection && (
-              <div className="flex gap-0.5 ml-0.5 pl-0.5 border-l border-slate-100">
-                <button onClick={handleCenterOnSelection} className="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 text-[8px] font-black uppercase text-sky-600" title="Center on Selection">Center</button>
-                <button onClick={handleZoomToSelection} className="px-2 py-1 rounded bg-sky-50 hover:bg-sky-100 text-[8px] font-black uppercase text-sky-600">Zoom Sel</button>
-                <button onClick={onExportFasta} className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center"><i className="fas fa-download text-[8px]"></i></button>
+            <>
+              {/* Readout — twin of the Go-to field, tied to the selection by a sky left-rule */}
+              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[9px] font-black text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
+                <i className="fas fa-vector-square text-[10px] text-sky-400/70"></i>
+                <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
+                <span className="text-[#8ea2c9]">|</span>
+                {/* For circular wrap-around selections (start > end), compute length
+                    as (seqLength - start) + end to avoid a negative/wrong value. */}
+                <span className="text-[#8ea2c9]">{(activeSelection.start <= activeSelection.end
+                  ? activeSelection.end - activeSelection.start
+                  : (alignmentLength - activeSelection.start) + activeSelection.end
+                ).toLocaleString()} bp</span>
               </div>
-            )}
-          </div>
-          <div className="flex bg-white rounded-md border border-slate-200 shadow-sm p-0.5">
-            <button onClick={() => handleZoom(1)} className="w-6 h-6 rounded hover:bg-slate-50 text-slate-500 flex items-center justify-center hover:text-sky-600"><i className="fas fa-plus text-[9px]"></i></button>
-            <button onClick={() => handleZoom(-1)} className="w-6 h-6 rounded hover:bg-slate-50 text-slate-500 flex items-center justify-center hover:text-sky-600"><i className="fas fa-minus text-[9px]"></i></button>
+              {/* Selection actions — segmented track + emerald export */}
+              <div className={segTrack} style={trackShadow}>
+                <button onClick={handleCenterOnSelection} className={segBtn} style={raisedShadow} title="Center on Selection">Center</button>
+                <button onClick={handleZoomToSelection} className={segBtn} style={raisedShadow}>Zoom Sel</button>
+              </div>
+              <button onClick={onExportFasta} className={segExport} style={raisedShadow} title="Export selection as FASTA"><i className="fas fa-download text-[8px]"></i></button>
+            </>
+          )}
+          {/* Fit — raised segment */}
+          <button onClick={handleFit} className={segBtn} style={raisedShadow}>Fit</button>
+          {/* Zoom — segmented track */}
+          <div className={segTrack} style={trackShadow}>
+            <button onClick={() => handleZoom(1)} className={segIcon} style={raisedShadow}><i className="fas fa-plus text-[9px]"></i></button>
+            <button onClick={() => handleZoom(-1)} className={segIcon} style={raisedShadow}><i className="fas fa-minus text-[9px]"></i></button>
           </div>
         </div>
       </div>
 
       {/* 2. MAIN VISUAL VIEWPORT */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative bg-slate-50">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 relative bg-[#f6f8fc]">
         {/* STICKY TOP RULER */}
-        <div className="h-[25px] flex-none bg-white/95 backdrop-blur-md border-b border-slate-200 z-30 shadow-sm flex items-end overflow-hidden min-w-0">
+        <div className="h-[25px] flex-none bg-[#f6f8fc] border-b border-slate-200/70 z-30 flex items-end overflow-hidden min-w-0">
           <Ruler width={dimensions.width} height={RULER_HEIGHT} xScale={xScaleGlobal} scrollX={scrollX} sidebarWidth={SIDEBAR_WIDTH} onJump={handleGoto} />
         </div>
 
@@ -448,7 +462,7 @@ const GenomeViewer: React.FC<Props> = ({
               itemSize={index => recordLayouts[index].height}
               width={dimensions.width}
               itemData={itemData}
-              className="custom-scrollbar-pro overflow-x-hidden"
+              className="custom-scrollbar-pro scrollbar-on-light overflow-x-hidden"
               style={{ overflowX: 'hidden' }}
             >
               {Row}
@@ -479,7 +493,7 @@ const GenomeViewer: React.FC<Props> = ({
         {/* CUSTOM HORIZONTAL SCROLLBAR */}
         <div 
           ref={horizontalScrollRef}
-          className="h-[16px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro"
+          className="h-[12px] bg-slate-100 border-t border-slate-200 overflow-x-auto overflow-y-hidden custom-scrollbar-pro scrollbar-on-light"
           onScroll={handleHorizontalScroll}
           style={{ width: dimensions.width - SIDEBAR_WIDTH, marginLeft: SIDEBAR_WIDTH }}
         >
@@ -503,11 +517,6 @@ const GenomeViewer: React.FC<Props> = ({
       )}
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar-pro::-webkit-scrollbar { width: 14px; height: 14px; }
-        .custom-scrollbar-pro::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar-pro::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; border: 4px solid #f1f5f9; }
-        .custom-scrollbar-pro::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
         .brush .selection {
           fill: #0ea5e9;
           fill-opacity: 0.2;

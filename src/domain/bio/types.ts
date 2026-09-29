@@ -25,6 +25,12 @@
 export interface FeatureSegment {
   start: number; // 0-based, inclusive
   end: number;   // 0-based, exclusive (half-open)
+  /**
+   * Per-segment strand, set only for mixed-strand (trans-spliced) joins whose
+   * segments lie on different strands. Absent for uniform-strand features,
+   * which carry a single strand on the parent feature.
+   */
+  strand?: 1 | -1;
 }
 
 /**

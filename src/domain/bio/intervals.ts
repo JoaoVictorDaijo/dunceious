@@ -123,7 +123,10 @@ function clipFeature(
   const clipped = clipAndRebaseInterval(feature.start, feature.end, selStart, selEnd);
   if (!clipped) return null;
   const newSegments = feature.segments
-    ?.map(s => clipAndRebaseInterval(s.start, s.end, selStart, selEnd))
+    ?.map(s => {
+      const clippedSeg = clipAndRebaseInterval(s.start, s.end, selStart, selEnd);
+      return clippedSeg && s.strand !== undefined ? { ...clippedSeg, strand: s.strand } : clippedSeg;
+    })
     .filter((s): s is FeatureSegment => s !== null);
   return {
     ...feature,

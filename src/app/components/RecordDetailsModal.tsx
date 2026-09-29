@@ -91,7 +91,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro space-y-6">
+        <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro scrollbar-on-light space-y-6">
           {/* Metadata grid */}
           {feature ? (
             <div className="grid grid-cols-2 gap-6">
