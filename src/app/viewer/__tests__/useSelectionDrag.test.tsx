@@ -18,11 +18,12 @@
  */
 
 // @vitest-environment jsdom
-import React, { StrictMode, useState } from 'react';
+import React, { StrictMode, useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import type { SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { useSelectionDrag } from '../useSelectionDrag';
+import { VariableSizeList } from 'react-window';
 
 const records: SeqRecord[] = [
   { id: 'first', name: 'first', sequence: 'A'.repeat(1000), features: [] },
@@ -155,5 +156,37 @@ describe('selection dragging', () => {
     h.up(600);
     expect(h.scroll.scrollLeft).toBe(0);
     expect(h.commits).toHaveLength(0);
+  });
+});
+
+
+describe('vertical pan with the virtualized record list', () => {
+  it.each([[130, 170], [70, 230]])('moves the list to %i-pixel pointer position and stops on release', (pointerY, expectedTop) => {
+    const outerRef = React.createRef<HTMLDivElement>();
+    function Harness() {
+      const listRef = useRef<VariableSizeList>(null);
+      const horizontalScrollRef = useRef<HTMLDivElement>(null);
+      const { handleMouseDown } = useSelectionDrag({
+        dragMode: 'pan', activeSelection: null, onSelectionChange: () => {},
+        records, alignmentLength: 1000, chartWidth: 1000,
+        horizontalScrollRef, listRef,
+      });
+      return <div role="region" aria-label="Genome" onMouseDown={handleMouseDown}>
+        <div ref={horizontalScrollRef} />
+        <VariableSizeList ref={listRef} outerRef={outerRef} height={100} width={400}
+          itemCount={records.length} itemSize={() => 500} initialScrollOffset={200}>
+          {({ index, style }) => <div style={style}>{records[index].name}</div>}
+        </VariableSizeList>
+      </div>;
+    }
+    render(<Harness />);
+    const viewport = screen.getByRole('region', { name: 'Genome' });
+    expect(outerRef.current!.scrollTop).toBe(200);
+    fireEvent.mouseDown(viewport, { clientX: 300, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 300, clientY: pointerY });
+    expect(outerRef.current!.scrollTop).toBe(expectedTop);
+    fireEvent.mouseUp(window, { clientX: 300, clientY: pointerY });
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 10 });
+    expect(outerRef.current!.scrollTop).toBe(expectedTop);
   });
 });
