@@ -13,16 +13,37 @@ All notable changes to Dunceious. Format loosely follows
 > **`2.0.0`** marks the layered-architecture rewrite. See `CLAUDE.md` →
 > *Versioning & releases* for the going-forward process.
 
-## [Unreleased] — becomes `2.4.2` at the next promotion
+## [Unreleased]
 
-Staged on `develop`; not yet promoted to `main` or tagged.
+## [2.5.0] — 2026-09-29
+
+Promotes the accumulated `develop` changes from production `2.0.1`, including
+the UI, theme and biology changes documented in `2.1.0`–`2.4.1` below.
 
 ### Added
+- Groove scrollbar: a surface-aware 12px recessed rail and 8px raised pill,
+  including the Database Hub; isolate standard `scrollbar-width` rules so they
+  do not override Chromium's custom scrollbar styling (#85).
 - Component/canvas render-test harness (jsdom + Testing Library + a canvas-2D
   recorder), with SequenceTrack early-stop glyph, Row join/wrap-connector, and
   DatabaseHubPanel coverage (#68, #82).
 
+### Fixed
+- Out-of-order feature joins connect across their actual gap instead of showing
+  a false origin crossing; preserve genuine circular wraps and omit connectors
+  between abutting or overlapping segments (#80, #87).
+- Circular features end at their own record length rather than the alignment
+  width when displayed beside a longer record (#86, #88).
+- Drag selection remains linear in either direction and tracks autoscroll;
+  horizontal and vertical panning do not create unintended selections (#90).
+
 ### Changed
+- Index alignment coordinates once per record to avoid repeated sequence scans
+  during feature transposition. Add a performance guard using the complete
+  chloroplast genome and preserve coordinate/gap/strand behavior (#92).
+- Update dependencies within their existing major versions, including React 19
+  and Font Awesome 6; resolve all 13 advisories present in the update baseline
+  (#91).
 - Versioning: reconstructed the SemVer history, added this changelog, a
   `CLAUDE.md` release process, `npm run version:*` scripts, and a `version-guard`
   CI check (#83).

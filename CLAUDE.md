@@ -40,10 +40,10 @@ reconstructed on 2026-07-21 (see `CHANGELOG.md`); two anchors are load-bearing:
 layered-architecture rewrite. The old `3.4.0` was arbitrary and has been
 discarded.
 
-**Production still serves `3.4.0`.** `main` (what Cloudflare Pages deploys) has
-diverged from `develop` and has not been promoted, so the factual line reaches
-users only at the first `develop` → `main` promotion — a deliberate one-time
-*downgrade* (`3.4.0` → the current `2.x`) off the discarded number.
+**Cloudflare Pages deploys `main`.** Read `main`'s `package.json` for the
+production version and verify the deployed StatusBar after each promotion.
+The historical `3.4.0` was corrected to `2.0.1` before the `2.5.0` promotion;
+future promotions must strictly increase the version on `main`.
 
 **Bump rules** (highest-precedence change since the last release wins):
 
