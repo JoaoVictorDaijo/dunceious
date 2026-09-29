@@ -18,7 +18,7 @@
  */
 
 import * as d3 from 'd3';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { VariableSizeList } from 'react-window';
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { SIDEBAR_WIDTH } from './constants';
@@ -34,12 +34,44 @@ export interface UseSelectionDragParams {
   listRef: React.RefObject<VariableSizeList | null>;
 }
 
+function startPan(e: React.MouseEvent, { horizontalScrollRef, listRef }: UseSelectionDragParams) {
+  const startX = e.clientX;
+  const startScrollLeft = horizontalScrollRef.current!.scrollLeft;
+  const startY = e.clientY;
+  const startScrollTop = listRef.current ? (listRef.current as any)._outerRef.scrollTop : 0;
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    const dx = moveEvent.clientX - startX;
+    const dy = moveEvent.clientY - startY;
+    if (horizontalScrollRef.current) {
+      horizontalScrollRef.current.scrollLeft = startScrollLeft - dx;
+    }
+    if (listRef.current) {
+      listRef.current.scrollTo(startScrollTop - dy);
+    }
+  };
+
+  const onMouseUp = () => {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  };
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  return onMouseUp;
+}
+
 export function useSelectionDrag(p: UseSelectionDragParams) {
-  const { dragMode, activeSelection, onSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef } = p;
+  const { dragMode, activeSelection, onSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef } = p;
   const [dragSelection, setDragSelection] = useState<SelectionArea | null>(null);
   const [dragCursorPos, setDragCursorPos] = useState<{ x: number, y: number } | null>(null);
 
+  const cancelDragRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => cancelDragRef.current?.(), []);
+
   const handleMouseDown = (e: React.MouseEvent) => {
+    cancelDragRef.current?.();
     const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
     const rect = e.currentTarget.getBoundingClientRect();
     
@@ -49,29 +81,7 @@ export function useSelectionDrag(p: UseSelectionDragParams) {
     };
 
     if (dragMode === 'pan') {
-      const startX = e.clientX;
-      const startScrollLeft = horizontalScrollRef.current!.scrollLeft;
-      const startY = e.clientY;
-      const startScrollTop = listRef.current ? (listRef.current as any)._outerRef.scrollTop : 0;
-
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        const dx = moveEvent.clientX - startX;
-        const dy = moveEvent.clientY - startY;
-        if (horizontalScrollRef.current) {
-          horizontalScrollRef.current.scrollLeft = startScrollLeft - dx;
-        }
-        if (listRef.current) {
-          listRef.current.scrollTo(startScrollTop - dy);
-        }
-      };
-
-      const onMouseUp = () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-      };
-
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
+      cancelDragRef.current = startPan(e, p);
       return;
     }
 
@@ -86,16 +96,21 @@ export function useSelectionDrag(p: UseSelectionDragParams) {
       return;
     }
 
-    setDragSelection({ start: clickedPos, end: clickedPos, recordIds: records.map(r => r.id) });
+    const recordIds = records.map(r => r.id);
+    // Only a new drag is linear. Existing circular selections keep their
+    // directed endpoints when edited through Shift or the overlay handles.
+    const selectionAt = (ev: MouseEvent | React.MouseEvent): SelectionArea => {
+      const pos = getPosFromEvent(ev);
+      return { start: Math.min(clickedPos, pos), end: Math.max(clickedPos, pos), recordIds };
+    };
+    setDragSelection(selectionAt(e));
     setDragCursorPos({ x: e.clientX, y: e.clientY });
 
-    let animationFrameId: number;
+    let animationFrameId = 0;
     const onMouseMove = (moveEvent: MouseEvent) => {
-      const moveBase = getPosFromEvent(moveEvent);
-      setDragSelection(prev => prev ? { ...prev, end: moveBase } : null);
+      setDragSelection(selectionAt(moveEvent));
       setDragCursorPos({ x: moveEvent.clientX, y: moveEvent.clientY });
 
-      // Auto-scroll logic
       const threshold = 50;
       const scrollSpeed = 15;
       const leftDist = moveEvent.clientX - rect.left - SIDEBAR_WIDTH;
@@ -103,32 +118,39 @@ export function useSelectionDrag(p: UseSelectionDragParams) {
 
       cancelAnimationFrame(animationFrameId);
       const scroll = () => {
-        if (leftDist < threshold && horizontalScrollRef.current!.scrollLeft > 0) {
-          horizontalScrollRef.current!.scrollLeft -= scrollSpeed;
-          animationFrameId = requestAnimationFrame(scroll);
+        const scroller = horizontalScrollRef.current;
+        if (!scroller) return;
+        const before = scroller.scrollLeft;
+        if (leftDist < threshold && before > 0) {
+          scroller.scrollLeft -= scrollSpeed;
         } else if (rightDist < threshold) {
-          horizontalScrollRef.current!.scrollLeft += scrollSpeed;
+          scroller.scrollLeft += scrollSpeed;
+        }
+        // The browser clamps scrollLeft at its bounds. Stop there, and keep
+        // the endpoint under the stationary cursor after each actual scroll.
+        if (scroller.scrollLeft !== before) {
+          setDragSelection(selectionAt(moveEvent));
           animationFrameId = requestAnimationFrame(scroll);
         }
       };
       animationFrameId = requestAnimationFrame(scroll);
     };
 
-    const onMouseUp = () => {
+    const cancelDrag = () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       cancelAnimationFrame(animationFrameId);
+      cancelDragRef.current = null;
       setDragCursorPos(null);
-      
-      setDragSelection(prev => {
-        if (prev && Math.abs(prev.end - prev.start) > 0) {
-          // Move side effect out of functional update
-          setTimeout(() => onSelectionChange(prev), 0);
-        }
-        return null;
-      });
+      setDragSelection(null);
+    };
+    const onMouseUp = (upEvent: MouseEvent) => {
+      const selection = selectionAt(upEvent);
+      cancelDrag();
+      if (selection.start !== selection.end) onSelectionChange(selection);
     };
 
+    cancelDragRef.current = cancelDrag;
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   };
