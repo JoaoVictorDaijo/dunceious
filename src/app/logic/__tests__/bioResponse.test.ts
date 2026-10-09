@@ -25,6 +25,8 @@ import {
   applyFastaResponse,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
+import { exportToFasta } from '@/src/core/formats/fasta';
+import { handleBioMessage } from '@/src/workers/handlers/bio';
 
 const rec = (o: Partial<SeqRecord> & { id: string }): SeqRecord => ({
   name: o.id, sequence: '', features: [], ...o,
@@ -181,6 +183,34 @@ describe('applyFastaResponse', () => {
     const res = applyFastaResponse(prev, [fa('a', 'ACGT'), fa('b', 'ACGTA')], true);
     expect(res.kind).toBe('reject-length');
     if (res.kind === 'reject-length') expect(res.lengths).toEqual([4, 5]);
+  });
+
+  describe('record IDs that contain spaces', () => {
+    // Batch dedup names a second "seq1" as "seq1 (1)", so a session can hold IDs with spaces.
+    const parsedAlignment = (content: string) => {
+      const res = handleBioMessage({ type: 'PARSE_FASTA', content, asAlignment: true });
+      if (res.type !== 'FASTA_SUCCESS') throw new Error(`unexpected ${res.type}`);
+      return res.alignedData;
+    };
+    const session = [rec({ id: 'seq1', sequence: 'ACGT' }), rec({ id: 'seq1 (1)', sequence: 'ACGA' })];
+
+    it('overlays a FASTA exported from the same session', () => {
+      const exported = exportToFasta(session.map((r, i) => ({ ...r, sequence: i ? 'AC-GA' : 'ACGT-' })));
+      const res = applyFastaResponse(session, parsedAlignment(exported), true);
+      expect(res.kind).toBe('overlay');
+      expect(res.next.map(r => r.alignedSequence)).toEqual(['ACGT-', 'AC-GA']);
+    });
+
+    it('keeps the parser-only header out of batch-ingested records', () => {
+      const res = applyFastaResponse([], parsedAlignment('>seq1 reference strain\nACGT\n'), false);
+      expect(res.next[0]).not.toHaveProperty('header');
+    });
+
+    it('matches the longest header prefix that names a record, ignoring a trailing description', () => {
+      const res = applyFastaResponse(session, parsedAlignment('>seq1 (1) from MAFFT\nAC-GA\n>seq1 reference strain\nACGT-\n'), true);
+      expect(res.kind).toBe('overlay');
+      expect(res.next.map(r => r.alignedSequence)).toEqual(['ACGT-', 'AC-GA']);
+    });
   });
 
   it('rejects with kind reject-empty when every aligned sequence is empty (uniform length 0)', () => {
