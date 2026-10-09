@@ -21,7 +21,8 @@
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import AnnotationHubPanel from './components/AnnotationHubPanel';
+import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
+import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
@@ -68,6 +69,14 @@ const App: React.FC = () => {
   // ── Layout ────────────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
+  // The hub row a Focus jump left from: the viewport offers the way back while
+  // `showHubReturn` holds, and the hub keeps marking the row after returning.
+  const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
+  const [showHubReturn, setShowHubReturn] = useState(false);
+  const changeTab = (tab: 'alignment' | 'features') => {
+    if (tab === 'features') setShowHubReturn(false);
+    setActiveTab(tab);
+  };
 
   // ── Modals ────────────────────────────────────────────────────────────────
   const [viewingRecordDetails, setViewingRecordDetails] = useState<SeqRecord | null>(null);
@@ -300,7 +309,7 @@ const App: React.FC = () => {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={changeTab}
         featureColors={featureColors}
         onSetFeatureColors={setFeatureColors}
         skipClearAllConfirmation={skipClearAllConfirmation}
@@ -359,7 +368,7 @@ const App: React.FC = () => {
           selectedSearchIndices={selectedSearchIndices}
           onSetSelectedIndices={setSelectedSearchIndices}
           maxScoreFound={maxScoreFound}
-          onSetActiveTab={setActiveTab}
+          onSetActiveTab={changeTab}
           onRemoveRecord={handleRemoveRecord}
           onToggleRecordSelection={toggleRecordSelection}
           onJoinAllInRecord={joinAllInRecord}
@@ -378,6 +387,13 @@ const App: React.FC = () => {
             </div>
           ) : (
             <div className="relative z-10 flex-1 flex flex-col min-h-0 min-w-0 bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-800/50">
+              {activeTab === 'alignment' && showHubReturn && hubFocus && (
+                <HubReturnPill
+                  label={hubFocus.label}
+                  onReturn={() => changeTab('features')}
+                  onDismiss={() => setShowHubReturn(false)}
+                />
+              )}
               {activeTab === 'alignment' ? (
                 <GenomeViewer
                   records={transposedRecords}
@@ -416,10 +432,13 @@ const App: React.FC = () => {
                   onViewFeatureDetails={handleViewDetails}
                   onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
                   onRemoveFeature={removeFeature}
-                  onFocusItem={(recordId, start, end) => {
+                  onFocusItem={(recordId, start, end, origin) => {
+                    setHubFocus(origin);
+                    setShowHubReturn(true);
                     setActiveTab('alignment');
                     setActiveSelection({ start, end, recordIds: [recordId] });
                   }}
+                  lastFocusedKey={hubFocus?.key ?? null}
                   onExportAllFasta={exportAllFasta}
                   onExportGenBank={exportGenBankFile}
                   onExportGff={exportGffFile}

@@ -41,9 +41,17 @@ export default {
       },
       keyframes: {
         'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
+        // A returned-to hub row: a warm pulse that settles into its resting tint.
+        'row-return': {
+          '0%': { backgroundColor: 'rgb(253 230 138 / 0.9)' },
+          '35%': { backgroundColor: 'rgb(254 243 199 / 0.9)' },
+          '60%': { backgroundColor: 'rgb(253 230 138 / 0.7)' },
+          '100%': { backgroundColor: 'rgb(255 251 235 / 0)' },
+        },
       },
       animation: {
         'spin-slow': 'spin-slow 12s linear infinite',
+        'row-return': 'row-return 1.6s ease-out both',
       },
     },
   },

@@ -18,8 +18,8 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { fireEvent, render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import AnnotationHubPanel, { type AnnotationHubPanelProps } from '@/src/app/components/AnnotationHubPanel';
 import { buildFlattenedFeatures } from '@/src/app/logic/featureManager';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -77,5 +77,19 @@ describe('AnnotationHubPanel', () => {
   it('renders a CIRCULAR badge for a circular record', () => {
     render(<AnnotationHubPanel {...panelProps()} />);
     expect(screen.getByText('CIRCULAR')).toBeTruthy();
+  });
+
+  it('hands Focus the row it came from', () => {
+    const onFocusItem = vi.fn();
+    render(<AnnotationHubPanel {...panelProps()} onFocusItem={onFocusItem} />);
+    fireEvent.click(screen.getAllByText('Focus')[2]);
+    expect(onFocusItem).toHaveBeenCalledWith('lin', 20, 30, { key: 'lin:feature:1', label: 'g3' });
+  });
+
+  it('marks only the last focused row when returning', () => {
+    render(<AnnotationHubPanel {...panelProps()} lastFocusedKey="lin:feature:1" />);
+    const tags = screen.getAllByText('Last focused');
+    expect(tags).toHaveLength(1);
+    expect(tags[0].closest('span.font-bold')?.textContent).toContain('g3');
   });
 });

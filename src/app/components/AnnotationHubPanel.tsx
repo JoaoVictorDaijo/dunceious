@@ -29,6 +29,22 @@ export type FlatItem =
   | { type: 'track'; recordId: string; track: any }
   | { type: 'feature'; recordId: string; feature: BioFeature & { index: number } };
 
+/** Stable identity of a hub row across tab switches, used to find it again after Focus. */
+export function hubRowKey(item: FlatItem): string {
+  if (item.type === 'header') return `${item.recordId}:record`;
+  if (item.type === 'track') return `${item.recordId}:track:${item.track.name}`;
+  return `${item.recordId}:feature:${item.feature.index}`;
+}
+
+/** Where a Focus jump left from, so the viewport can offer the way back. */
+export interface HubFocusOrigin {
+  key: string;
+  label: string;
+}
+
+/** How long a returned-to row glows before settling to its "last focused" marker. */
+const RETURN_FLASH_MS = 1600;
+
 export interface AnnotationHubPanelProps {
   records: SeqRecord[];
   flattenedFeatures: FlatItem[];
@@ -43,7 +59,9 @@ export interface AnnotationHubPanelProps {
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
   onRemoveFeature: (recordId: string, featureIndex: number) => void;
-  onFocusItem: (recordId: string, start: number, end: number) => void;
+  onFocusItem: (recordId: string, start: number, end: number, origin: HubFocusOrigin) => void;
+  /** The row the last Focus jump came from: scrolled into view and marked on mount. */
+  lastFocusedKey?: string | null;
   onExportAllFasta: () => void;
   onExportGenBank: () => void;
   onExportGff: () => void;
@@ -71,6 +89,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
   onEditFeature,
   onRemoveFeature,
   onFocusItem,
+  lastFocusedKey = null,
   onExportAllFasta,
   onExportGenBank,
   onExportGff,
@@ -81,6 +100,17 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
   const hubListRef = useRef<VariableSizeList>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(600);
+  const [flashKey, setFlashKey] = useState<string | null>(lastFocusedKey);
+
+  // Coming back from a Focus jump: bring the origin row to the middle of the list
+  // and let it glow once. Runs on mount only — the hub remounts on every return.
+  useEffect(() => {
+    if (!lastFocusedKey) return;
+    const index = flattenedFeatures.findIndex(item => hubRowKey(item) === lastFocusedKey);
+    if (index >= 0) hubListRef.current?.scrollToItem(index, 'center');
+    const timer = setTimeout(() => setFlashKey(null), RETURN_FLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const el = listContainerRef.current;
@@ -157,12 +187,27 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
       );
     }
 
+    const rowKey = hubRowKey(item);
+    const isLastFocused = rowKey === lastFocusedKey;
+    // An accent bar plus tag marks the origin row; the glow plays only right after returning.
+    const returnMark = isLastFocused
+      ? `relative shadow-[inset_3px_0_0_0_#f59e0b] ${flashKey === rowKey ? 'animate-row-return motion-reduce:animate-none' : ''}`
+      : '';
+    const lastFocusedTag = isLastFocused && (
+      <span
+        className="ml-2 align-middle inline-flex items-center gap-1 px-1.5 py-px rounded bg-amber-100 text-amber-700 text-[8px] font-semibold uppercase tracking-wider animate-in fade-in duration-300"
+        data-tip="You last focused this row in the viewport"
+      >
+        <i className="fas fa-location-crosshairs text-[7px]"></i> Last focused
+      </span>
+    );
+
     if (item.type === 'track') {
       const { recordId, track: t } = item;
       const start = Math.min(...t.data.map((d: any) => d.start));
       const end = Math.max(...t.data.map((d: any) => d.end));
       return (
-        <div style={style} className="border-b border-slate-100 hover:bg-indigo-50/30 transition-all group flex items-center px-8">
+        <div style={style} className={`border-b border-slate-100 hover:bg-indigo-50/30 transition-all group flex items-center px-8 ${returnMark}`}>
           <div className="w-[15%] shrink-0">
             <div className="flex items-center gap-3">
               <span className="px-3 py-1 rounded-md text-[9px] font-semibold uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
@@ -171,7 +216,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           </div>
           <div className="w-[35%] shrink-0 px-4">
             <div className="flex flex-col gap-0.5">
-              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}</span>
+              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}{lastFocusedTag}</span>
               <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{t.data.length} data points</span>
             </div>
           </div>
@@ -194,7 +239,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                 <i className="fas fa-info-circle"></i>
               </button>
               <button
-                onClick={() => onFocusItem(recordId, start, end)}
+                onClick={() => onFocusItem(recordId, start, end, { key: rowKey, label: t.name })}
                 data-tip="Open this track's span in the viewport"
                 className="text-[10px] font-semibold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
               >
@@ -209,7 +254,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
     const { recordId, feature: f } = item;
     const isSelected = isFeatureInSelection(f);
     return (
-      <div style={style} className={`border-b border-slate-100 hover:bg-slate-50 transition-all group flex items-center px-8 ${isSelected ? 'bg-amber-50' : ''}`}>
+      <div style={style} className={`border-b border-slate-100 hover:bg-slate-50 transition-all group flex items-center px-8 ${isSelected ? 'bg-amber-50' : ''} ${returnMark}`}>
         <div className="w-[15%] shrink-0">
           <div className="flex items-center gap-3">
             <span
@@ -229,7 +274,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         </div>
         <div className="w-[35%] shrink-0 px-4">
           <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}</span>
+            <span className="font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}{lastFocusedTag}</span>
             {f.metadata?.product && <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{f.metadata.product}</span>}
           </div>
         </div>
@@ -276,7 +321,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
               onClick={() => {
                 const focusStart = f.segments && f.segments.length > 0 ? f.segments[0].start : f.start;
                 const focusEnd = f.segments && f.segments.length > 0 ? f.segments[0].end : f.end;
-                onFocusItem(recordId, focusStart, focusEnd);
+                onFocusItem(recordId, focusStart, focusEnd, { key: rowKey, label: f.name });
                 addLog(`Jump to ${f.name}`);
               }}
               data-tip="Open this annotation in the viewport, selected"
@@ -288,7 +333,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         </div>
       </div>
     );
-  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem]);
+  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
 
   return (
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
