@@ -74,7 +74,7 @@ export function groupFeaturesBySearch(
         const inType = f.type.toLowerCase().includes(search);
         const inDef = r.definition?.toLowerCase().includes(search);
         const inMeta = f.metadata
-          ? Object.values(f.metadata).some(v => v.toLowerCase().includes(search))
+          ? Object.entries(f.metadata).some(([k, v]) => !k.startsWith('_') && v.toLowerCase().includes(search))
           : false;
         return inName || inType || inDef || inMeta;
       });

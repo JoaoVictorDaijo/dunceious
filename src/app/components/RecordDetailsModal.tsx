@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { annotationDirection } from '@/src/app/viewer/annotationPresentation';
+import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getDisplaySeq } from '@/src/app/logic/viewModel';
@@ -29,6 +29,8 @@ export interface RecordDetailsModalProps {
   onFocusFeature: (recordId: string, start: number, end: number) => void;
   onExportRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
+  /** Switch the annotation's bases on or off in the viewer. */
+  onSetShowBases?: (show: boolean) => void;
 }
 
 /**
@@ -42,7 +44,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onFocusFeature,
   onExportRecord,
   onCopyLog,
+  onSetShowBases,
 }) => {
+  const showBases = feature ? showsAnnotationBases(feature) : false;
   const displaySeq = getDisplaySeq(record.sequence, feature);
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
 
@@ -120,6 +124,26 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {(feature.end - feature.start).toLocaleString()} bp
                 </p>
               </div>
+              {onSetShowBases && (
+                <div className="col-span-2 flex items-center justify-between gap-4 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block">Show sequence in viewer</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      Draw this annotation's {record.moleculeType === 'protein' ? 'residues' : 'bases'} inside its box when zoomed in.
+                    </span>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={showBases}
+                    aria-label="Show sequence in viewer"
+                    data-tip={showBases ? 'Hide the sequence inside this annotation' : 'Show the sequence inside this annotation'}
+                    onClick={() => onSetShowBases(!showBases)}
+                    className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${showBases ? 'bg-sky-500' : 'bg-slate-300'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${showBases ? 'translate-x-5' : ''}`}></span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-6">
@@ -209,7 +233,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
             <div className="space-y-3 pt-4 border-t border-slate-100">
               <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
-                {Object.entries(feature?.metadata || record.metadata || {}).map(([key, value]) => (
+                {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{key}</span>
                     <span className="text-[11px] font-bold text-slate-700 max-w-[300px] truncate" data-tip={String(value)}>

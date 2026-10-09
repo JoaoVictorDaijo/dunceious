@@ -21,7 +21,7 @@ import React from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { ANNOT_ROW_HEIGHT, MONO_STACK } from './constants';
-import { annotationBase, annotationDirection, fitAnnotationText } from './annotationPresentation';
+import { annotationBase, annotationDirection, fitAnnotationText, showsAnnotationBases } from './annotationPresentation';
 
 interface Props {
   feature: BioFeature;
@@ -51,7 +51,7 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
   const first = Math.max(start, 0, Math.floor((scrollX + left) / zoom));
   const last = Math.min(end, sequence.length, Math.ceil((scrollX + right) / zoom));
   const bases: React.ReactElement[] = [];
-  if (zoom > 12) {
+  if (zoom > 12 && showsAnnotationBases(feature)) {
     for (let pos = first; pos < last; pos++) {
       bases.push(<text key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={37} textAnchor="middle">
         {annotationBase(sequence[pos], direction, moleculeType)}

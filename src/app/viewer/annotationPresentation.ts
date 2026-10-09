@@ -44,3 +44,21 @@ export function fitAnnotationText(text: string, width: number, charWidth: number
   if (capacity < 2) return '';
   return text.length <= capacity ? text : text.slice(0, capacity - 1) + '…';
 }
+
+/**
+ * Internal metadata flag: the viewer draws an annotation's bases inside its box
+ * only when the user switched them on in the annotation details. Internal (`_`)
+ * keys are never exported as qualifiers, but do travel with project files.
+ */
+export const SHOW_BASES_KEY = '_showBases';
+
+export const showsAnnotationBases = (feature: BioFeature): boolean => feature.metadata?.[SHOW_BASES_KEY] === '1';
+
+/** The feature with its bases switched on or off; off removes the flag entirely. */
+export function withAnnotationBases(feature: BioFeature, show: boolean): BioFeature {
+  const metadata = { ...feature.metadata };
+  if (show) metadata[SHOW_BASES_KEY] = '1';
+  else delete metadata[SHOW_BASES_KEY];
+  return { ...feature, metadata };
+}
+

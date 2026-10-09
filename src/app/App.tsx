@@ -38,6 +38,7 @@ import {
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
+import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
 import {
     useAppLogger,
@@ -182,9 +183,33 @@ const App: React.FC = () => {
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  // Details can open from the hub (a copy carrying `index`) or the viewer (the
+  // aligned copy, same order as the record's features), so resolve by position.
+  const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
+  const featureIndexOf = (recordId: string, feature: BioFeature): number => {
+    const hubIndex = (feature as BioFeature & { index?: number }).index;
+    if (typeof hubIndex === 'number') return hubIndex;
+    const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
+    return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
+  };
+
   const handleViewDetails = (recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
-    if (record) { setViewingRecordDetails(record); setViewingFeatureDetails(feature || null); }
+    if (!record) return;
+    setViewingRecordDetails(record);
+    setViewingFeatureDetails(feature || null);
+    setViewingFeatureIndex(feature ? featureIndexOf(recordId, feature) : -1);
+  };
+
+  const handleSetShowBases = (show: boolean) => {
+    const recordId = viewingRecordDetails?.id;
+    const index = viewingFeatureIndex;
+    if (!recordId || index < 0) return;
+    setRecords(prev => prev.map(r => r.id !== recordId ? r : {
+      ...r,
+      features: r.features.map((f, i) => (i === index ? withAnnotationBases(f, show) : f)),
+    }));
+    setViewingFeatureDetails(current => (current ? withAnnotationBases(current, show) : current));
   };
 
   const handleRemoveRecord = (recordId: string) => {
@@ -264,6 +289,7 @@ const App: React.FC = () => {
           }}
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
+          onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
         />
       )}
 

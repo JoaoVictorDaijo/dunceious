@@ -23,13 +23,19 @@ import { render } from '@/src/app/testing/renderHarness';
 import { AnnotationText } from '../AnnotationText';
 import type { BioFeature } from '@/src/domain/bio/types';
 
-const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1 };
+// Bases are opt-in per annotation; these tests exercise drawing them, so switch them on.
+const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1, metadata: { _showBases: '1' } };
 function show(overrides: Partial<Parameters<typeof AnnotationText>[0]> = {}) {
   return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} {...overrides} /></svg>);
 }
 const bases = (container: HTMLElement) => [...container.querySelectorAll('[data-annotation-base]')].map(t => t.textContent).join('');
 
 describe('annotation bases at genomic screen coordinates', () => {
+  it('hides the bases unless the annotation opted in', () => {
+    const { container } = show({ feature: { ...feature, metadata: {} } });
+    expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
+    expect(bases(container)).toBe('');
+  });
   it('renders the name, forward direction and the complete annotated region', () => {
     const { container } = show();
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
@@ -51,7 +57,7 @@ describe('annotation bases at genomic screen coordinates', () => {
     expect(bases(container)).toBe('TTGCAT');
   });
   it.each(['.', '?'])('does not invent direction for GFF %s', raw => {
-    const { container } = show({ feature: { ...feature, metadata: { _gffStrand: raw } }, zoom: 60 });
+    const { container } = show({ feature: { ...feature, metadata: { _showBases: '1', _gffStrand: raw } }, zoom: 60 });
     expect(bases(container)).toBe('AACGTA');
     expect(container.textContent).not.toMatch(/[35]′|Forward|Reverse/);
     expect(container.textContent).toContain(raw === '.' ? 'Unstranded' : 'Unknown');
