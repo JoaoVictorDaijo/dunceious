@@ -24,7 +24,7 @@ import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, frameShift, translateFeature, type FrameShift } from '@/src/domain/bio';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, type TranslationLanes } from '../cds';
 import { frameshiftLabel } from '../annotationPresentation';
 
 export interface SequenceTrackProps {
@@ -37,6 +37,7 @@ export interface SequenceTrackProps {
   scrollX: number;
   showTranslation: boolean;
   features: BioFeature[];
+  translationLanes: TranslationLanes;
   conservationScores?: number[];
   showConservation?: boolean;
   searchResults: SearchResult[];
@@ -77,15 +78,16 @@ function drawFrameshiftStep(ctx: CanvasRenderingContext2D, prev: CodonBox, next:
 }
 
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
-  seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features,
+  seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const forwardRef = useRef<HTMLCanvasElement>(null);
   const reverseRef = useRef<HTMLCanvasElement>(null);
   const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM && moleculeType !== 'protein';
-  const bandHeight = AA_ROW_HEIGHT * 3;
-  const bandTop = y - (translationVisible ? bandHeight : 0);
+  const forwardHeight = AA_ROW_HEIGHT * translationLanes.forward;
+  const reverseHeight = AA_ROW_HEIGHT * translationLanes.reverse;
+  const bandTop = y - (translationVisible ? forwardHeight : 0);
 
 
   // Frames and frameshifts are read in biological bases, so an alignment gap
@@ -114,8 +116,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     if (!ctx) return;
 
     // Retain hidden band pixels for the CSS closing fade; only visible bands redraw.
-    const forwardCtx = translationVisible ? prepareCanvas(forwardRef.current, bandHeight) : null;
-    const reverseCtx = translationVisible ? prepareCanvas(reverseRef.current, bandHeight) : null;
+    const forwardCtx = translationVisible ? prepareCanvas(forwardRef.current, forwardHeight) : null;
+    const reverseCtx = translationVisible ? prepareCanvas(reverseRef.current, reverseHeight) : null;
     const seqY = 0;
     const isProtein = moleculeType === 'protein';
     const getResidueColor = isProtein ? getAminoAcidColor : getNucleotideColor;
@@ -152,11 +154,11 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     });
 
     // 0. Render Search Highlights (Background & Borders)
-    const fullTrackH = (translationVisible ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT;
+    const fullTrackH = (translationVisible ? forwardHeight + reverseHeight : 0) + NT_ROW_HEIGHT;
     const highlightLayers = [
-      { ctx, highlightY: translationVisible ? -bandHeight : 0 },
+      { ctx, highlightY: translationVisible ? -forwardHeight : 0 },
       { ctx: forwardCtx, highlightY: 0 },
-      { ctx: reverseCtx, highlightY: -bandHeight - NT_ROW_HEIGHT },
+      { ctx: reverseCtx, highlightY: -forwardHeight - NT_ROW_HEIGHT },
     ];
     searchResults.forEach(r => {
       const isActive = r === activeResult;
@@ -251,7 +253,10 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
         const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
-        if (!ctx) return;
+        const lanes = translationLanes.laneOf.get(f);
+        if (!ctx || !lanes) return;
+        // Lane 0 hugs the nucleotide row: the bottom of the forward band, the top of the reverse one.
+        const laneY = (lane: number) => AA_ROW_HEIGHT * (f.strand === 1 ? translationLanes.forward - 1 - lane : lane);
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
@@ -277,7 +282,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
           // Each codon sits in the row of its own frame, so a ribosomal frameshift
           // inside a join steps rows exactly where translation changes frame.
-          const aaY = AA_ROW_HEIGHT * codonFrame(firstBase, f.strand);
+          const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
           const lastIdx = originalPositions ? originalPositions[endIdx] : endIdx;
           const box: CodonBox = { left: aX, right: aX + aW, midY: aaY + AA_ROW_HEIGHT / 2, lastIdx };
 
@@ -300,7 +305,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, bandHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
@@ -312,10 +317,10 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} className="translation-band" aria-hidden={!translationVisible}
-        style={{ ...canvasStyle, height: bandHeight, opacity: translationVisible ? 1 : 0,
+        style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${bandTop + (translationVisible ? 0 : 3)}px)` }} />
       <canvas ref={reverseRef} className="translation-band" aria-hidden={!translationVisible}
-        style={{ ...canvasStyle, height: bandHeight, opacity: translationVisible ? 1 : 0,
+        style={{ ...canvasStyle, height: reverseHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${y + NT_ROW_HEIGHT}px)` }} />
     </>}
   </>;
