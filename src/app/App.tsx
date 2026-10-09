@@ -30,6 +30,7 @@ import AlignRemoteModal from './components/AlignRemoteModal';
 import AlignmentJobPill from './components/AlignmentJobPill';
 import { useRemoteAlignment } from './hooks/useRemoteAlignment';
 import RecordDetailsModal from './components/RecordDetailsModal';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
@@ -94,6 +95,16 @@ const App: React.FC = () => {
     searchSelectionRef.current = selection;
     setActiveTab('alignment');
     setActiveSelection(selection);
+  };
+  // `focusedRegion` names the selection while it stands; `pendingFocus` asks the
+  // viewport to frame it once and is cleared when handled, so a remount does not replay it.
+  const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
+  const focusOn = (target: FocusTarget) => {
+    setActiveTab('alignment');
+    setActiveSelection({ start: target.start, end: target.end, recordIds: [target.recordId] });
+    setFocusedRegion(target);
+    setPendingFocus(target);
   };
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
@@ -293,10 +304,7 @@ const App: React.FC = () => {
           record={viewingRecordDetails}
           feature={viewingFeatureDetails}
           onClose={() => { setViewingRecordDetails(null); setViewingFeatureDetails(null); }}
-          onFocusFeature={(recordId, start, end) => {
-            setActiveTab('alignment');
-            setActiveSelection({ start, end, recordIds: [recordId] });
-          }}
+          onFocusFeature={focusOn}
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
           onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
@@ -455,6 +463,9 @@ const App: React.FC = () => {
                     selectedSearchIndices={selectedSearchIndices}
                     customColors={featureColors}
                     jumpTo={jumpTo}
+                    focusRequest={pendingFocus}
+                    onFocusComplete={() => setPendingFocus(null)}
+                    focusedRegion={focusedRegion}
                     onJumpComplete={() => setJumpTo(null)}
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
@@ -477,11 +488,10 @@ const App: React.FC = () => {
                     onViewFeatureDetails={handleViewDetails}
                     onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
                     onRemoveFeature={removeFeature}
-                    onFocusItem={(recordId, start, end, origin) => {
+                    onFocusItem={(target, origin) => {
                       setHubFocus(origin);
                       setShowHubReturn(true);
-                      setActiveTab('alignment');
-                      setActiveSelection({ start, end, recordIds: [recordId] });
+                      focusOn(target);
                     }}
                     lastFocusedKey={hubFocus?.key ?? null}
                     onExportAllFasta={exportAllFasta}

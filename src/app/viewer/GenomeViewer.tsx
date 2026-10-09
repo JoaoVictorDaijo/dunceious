@@ -19,6 +19,7 @@
 
 
 import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
+import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
@@ -81,6 +82,11 @@ interface Props {
   customColors?: Record<string, string>;
   jumpTo?: number | null;
   onJumpComplete?: () => void;
+  /** A region to fly to and frame once; `onFocusComplete` reports it handled. */
+  focusRequest?: FocusTarget | null;
+  onFocusComplete?: () => void;
+  /** The last focused annotation, labelled while the selection is still exactly that region. */
+  focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
 }
@@ -105,6 +111,9 @@ const GenomeViewer: React.FC<Props> = ({
   customColors,
   jumpTo,
   onJumpComplete,
+  focusRequest = null,
+  onFocusComplete,
+  focusedRegion = null,
   showConservation,
   showTracks
 }) => {
@@ -162,7 +171,7 @@ const GenomeViewer: React.FC<Props> = ({
     viewportWidth, chartWidth, fitZoom, xScaleGlobal,
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
-  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete });
+  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete, focusRequest, onFocusComplete });
 
   const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange: handleSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
@@ -223,6 +232,9 @@ const GenomeViewer: React.FC<Props> = ({
     }
   }, [recordLayouts]);
 
+  // Shown once the flight has landed, and only until the selection is edited away from the region.
+  const focusLabel = !focusRequest && isFocusedSelection(focusedRegion, activeSelection) ? focusedRegion : null;
+
   // Main Tracks + Ruler Render (Now handled per row for virtualization)
   const itemData = useMemo<RowData>(() => ({
     recordLayouts,
@@ -245,13 +257,14 @@ const GenomeViewer: React.FC<Props> = ({
     conservationScores,
     quantValueRanges,
     showTracks,
-    basesOpenness
+    basesOpenness,
+    focusedRegion: focusLabel
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness
+    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed
