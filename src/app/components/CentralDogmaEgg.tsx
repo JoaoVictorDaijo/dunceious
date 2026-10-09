@@ -247,7 +247,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
       <div className="mt-8 min-h-[150px] text-center max-w-xl">
       {elapsed >= FINALE_AT && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
-          <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">Gene expressed</h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">DUNCEIOUS expressed</h2>
           <p className="mt-3 text-[13px] text-slate-400 leading-relaxed">
             Nine codons, one very small protein. Two of them are stop codons the cell reads anyway:
             <span className="text-amber-400"> U</span> is selenocysteine (UGA) and

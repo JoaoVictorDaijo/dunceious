@@ -113,7 +113,8 @@ const TopNav: React.FC<TopNavProps> = ({
       </button>
       <div className="flex flex-col">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
+          {/* Indented past the slogan on purpose: the original offset is part of the wordmark. */}
+          <span className="ml-3 text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
         <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-slate-400 italic leading-none mt-1">
           Because geniality is overpriced.

@@ -62,6 +62,8 @@
 .app-nav::after { bottom: -1px; box-shadow: 0 0 10px 0 color-mix(in srgb, var(--env) 45%, transparent); }
 .app-status::before { top: 0; opacity: calc(var(--hairline) * 0.7); }
 [data-env="none"] .app-nav, [data-env="none"] .app-status { --hairline: 0.35; }
+/* Clean means no seam at all in the header. */
+.app-nav[data-theme="clean"]::after { display: none; }
 /* Picker miniatures clip at their edge, so draw the seam inside them. */
 .theme-preview.app-nav::after { bottom: 0; box-shadow: none; }
 

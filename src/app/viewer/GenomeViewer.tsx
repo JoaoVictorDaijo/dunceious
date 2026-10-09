@@ -523,7 +523,7 @@ const GenomeViewer: React.FC<Props> = ({
       <style dangerouslySetInnerHTML={{ __html: `
         .brush .selection {
           fill: #0ea5e9;
-          fill-opacity: 0.2;
+          fill-opacity: 0.07;
           stroke: #0ea5e9;
           stroke-width: 2px;
           stroke-dasharray: 4,2;
@@ -531,7 +531,7 @@ const GenomeViewer: React.FC<Props> = ({
         }
         .brush .selection:active {
           cursor: grabbing;
-          fill-opacity: 0.3;
+          fill-opacity: 0.14;
         }
         .brush .handle {
           fill: #0ea5e9;
