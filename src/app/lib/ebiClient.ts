@@ -34,6 +34,19 @@ export interface EbiClient {
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const SUBMIT_TIMEOUT_MS = 120_000;
+const HTML_SUMMARY_LENGTH = 120;
+
+/**
+ * User-facing text for a body EBI did not mean as data. EBI's own errors are XML with a
+ * `<description>`; a proxy, gateway or captive portal answers with an HTML page instead,
+ * which is cut down to its title or visible text so markup never reaches the user.
+ */
+export function describeEbiBody(body: string): string {
+  if (!/<(?:!doctype\s+html|html|head|body)\b/i.test(body) || /<description\b/i.test(body)) return parseEbiError(body);
+  const title = body.match(/<title\b[^>]*>([^<]*)</i)?.[1].trim();
+  const text = title || body.replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]*>/g, ' ');
+  return text.replace(/\s+/g, ' ').trim().slice(0, HTML_SUMMARY_LENGTH) || 'an HTML page with no message';
+}
 
 export function createEbiClient(fetcher: typeof fetch = fetch): EbiClient {
   async function request(engine: EngineId, path: string, signal: AbortSignal, params?: Record<string, string>): Promise<EbiResponse> {
@@ -52,7 +65,7 @@ export function createEbiClient(fetcher: typeof fetch = fetch): EbiClient {
       });
       const data = await response.text();
       if (response.ok) return { kind: 'ok', data };
-      const detail = parseEbiError(data);
+      const detail = describeEbiBody(data);
       if (response.status === 400) return { kind: 'rejected', status: 400, detail };
       const retryAfter = response.headers.get('Retry-After');
       const seconds = retryAfter !== null && /^\d+(?:\.\d+)?$/.test(retryAfter.trim()) ? Number(retryAfter) : undefined;

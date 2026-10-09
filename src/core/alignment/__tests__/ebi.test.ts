@@ -19,6 +19,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ALIGNMENT_ENGINES, DEFAULT_ENGINE, buildSubmission, checkEngineLimits, parseEbiError, parseJobStatus, parseResultTypes, pickResultTypes, remapAlignment } from '../ebi';
+import { preflightAlignment } from '../preflight';
 
 const records = [{ id: 'real-a', sequence: 'A-C' }, { id: 'real-b', sequence: 'AGC' }];
 
@@ -91,5 +92,37 @@ describe('EBI contract', () => {
     const result = remapAlignment(fasta, buildSubmission(records));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain(reason);
+  });
+
+  it.each(['', '<html><body>Gateway timeout</body></html>', '<types><type><label>Alignment</label></type></types>'])('finds no usable result type in a malformed listing: %j', xml => {
+    expect(pickResultTypes(parseResultTypes(xml))).toEqual([]);
+  });
+
+  it('trims and decodes result type identifiers', () => {
+    expect(parseResultTypes('<identifier> aln-fasta\n</identifier><identifier>a&amp;b</identifier>')).toEqual(['aln-fasta', 'a&b']);
+  });
+});
+
+// EBI's echo of RNA and protein residues is unmeasured; these pin how the round-trip
+// check treats a residue EBI might rewrite, which would surface as invalid-result.
+describe('EBI round-trip assumptions', () => {
+  function submit(input: { id: string; sequence: string; moleculeType: 'rna' | 'protein' }[]) {
+    const preflight = preflightAlignment(input, 'mafft');
+    if (!preflight.ok) throw new Error(preflight.issues.map(issue => issue.message).join('; '));
+    return preflight.submission;
+  }
+
+  it('accepts RNA echoed with U and rejects it if EBI answered with T', () => {
+    const submission = submit([{ id: 'r1', sequence: 'ACGU', moleculeType: 'rna' }, { id: 'r2', sequence: 'AGU', moleculeType: 'rna' }]);
+    expect(submission.fasta).toBe('>s1\nACGU\n>s2\nAGU\n');
+    expect(remapAlignment('>s1\nACGU\n>s2\nA-GU\n', submission).ok).toBe(true);
+    expect(remapAlignment('>s1\nACGT\n>s2\nA-GT\n', submission)).toEqual({ ok: false, reason: 'The returned sequence for s1 differs from the submitted sequence.' });
+  });
+
+  it('accepts protein X and rejects a returned stop that the preflight stripped before sending', () => {
+    const submission = submit([{ id: 'p1', sequence: 'MKX*', moleculeType: 'protein' }, { id: 'p2', sequence: 'MX', moleculeType: 'protein' }]);
+    expect(submission.fasta).toBe('>s1\nMKX\n>s2\nMX\n');
+    expect(remapAlignment('>s1\nMKX\n>s2\nM-X\n', submission).ok).toBe(true);
+    expect(remapAlignment('>s1\nMKX*\n>s2\nM-X-\n', submission)).toEqual({ ok: false, reason: 'The returned sequence for s1 differs from the submitted sequence.' });
   });
 });
