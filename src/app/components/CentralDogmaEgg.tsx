@@ -301,7 +301,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
             className="mt-3 text-sm text-slate-400 animate-in fade-in duration-700 fill-mode-backwards"
             style={{ animationDelay: '400ms' }}
           >
-            Made with <i className="fas fa-heart text-rose-400 mx-0.5" aria-label="love"></i> and built for science
+            Made with passion and built for science
           </p>
           <div
             className="mt-4 flex flex-wrap justify-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-backwards"

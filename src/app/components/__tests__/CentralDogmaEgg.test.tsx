@@ -54,6 +54,12 @@ describe('CentralDogmaEgg', () => {
     expect(screen.getByLabelText('Translated protein').textContent).toMatch(/^D.*U.*N.*C.*E.*I.*O.*U.*S/);
   });
 
+  it('signs the finale with passion, not a heart icon', () => {
+    const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
+    expect(screen.getByText('Made with passion and built for science')).toBeTruthy();
+    expect(container.querySelector('.fa-heart')).toBeNull();
+  });
+
   it('credits both authors on the finished frame without closing when a card is clicked', () => {
     const onClose = vi.fn();
     render(<CentralDogmaEgg replay onClose={onClose} />);
