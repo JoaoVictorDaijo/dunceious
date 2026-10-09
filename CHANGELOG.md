@@ -15,6 +15,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.6.1] — 2026-10-09
+
+### Changed
+- Update the slogan to "Because geniality is overpriced" in the app, page and
+  social titles, project metadata, README, design prototypes and social image.
+
 ## [2.6.0] — 2026-10-09
 
 ### Added
