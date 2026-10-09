@@ -37,6 +37,8 @@ Dunceious does not include a built-in aligner. The recommended workflow is:
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
 
+Annotations stay whole across alignment gaps: a gap inside a sequence never cuts an annotation into pieces, and the translation of a coding feature is unchanged. Only features that really have several parts (such as `join(...)`) are drawn as separate bars joined by a connector.
+
 ## 2. Navigation & Interaction
 
 ### 2.1 Viewport Controls

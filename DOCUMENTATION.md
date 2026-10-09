@@ -107,6 +107,8 @@ When an alignment is performed, gaps (`-`) are inserted. To keep annotations acc
 
 - Let `S` be the raw sequence and `A` be the aligned sequence.
 - For a feature at `[start, end]` in `S`, the new position in `A` is calculated by iterating through `A` and counting non-gap characters until the original indices are reached.
+- Each part of a feature becomes **one continuous bar** from its first to its last base in `A`: gaps inside the feature are spanned, never drawn as breaks, while gaps before its first or after its last base are excluded. Only genuinely multi-part features (`join(...)`, or a circular feature crossing the origin) keep one bar per part, with connectors between them.
+- Lengths, coordinates, exports and translations always use the original, ungapped coordinates; the gap columns only affect where the bar is drawn.
 
 ### 4.3 Unified Scrolling Context
 
