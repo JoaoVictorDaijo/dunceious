@@ -24,17 +24,17 @@
 
 ## About
 
-Dunceious is a high-performance, browser-based bioinformatics platform for **Multi-Sequence Alignment (MSA) visualization**, annotation management and sequence analysis. It parses GenBank and FASTA files, overlays alignments you compute with your aligner of choice, renders an interactive genome viewer with semantic zoom, and provides both exact (IUPAC degenerate codes) and fuzzy (Smith-Waterman) sequence search — all without a backend.
+Dunceious is a high-performance, browser-based bioinformatics platform for **Multi-Sequence Alignment (MSA) visualization**, annotation management and sequence analysis. It parses GenBank and FASTA files, overlays alignments you compute with your aligner of choice or run through EMBL-EBI, renders an interactive genome viewer with semantic zoom, and provides both exact (IUPAC degenerate codes) and fuzzy (Smith-Waterman) sequence search — all without a backend.
 
 For the full feature description see [`DOCUMENTATION.md`](./DOCUMENTATION.md), for usage instructions see [`USER_MANUAL.md`](./USER_MANUAL.md), and for the technical design see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Features
 
-- **GenBank & FASTA ingestion** — multi-record GenBank files (nucleotide and protein), batch FASTA upload, and automatic de-duplication of repeated IDs. Each workspace holds one molecule type (nucleotide or peptide), detected per record and enforced on every upload; RNA keeps its `U` residues.
+- **GenBank & FASTA ingestion** — multi-record GenBank files (nucleotide and protein), batch FASTA upload by picking or dropping files, and automatic de-duplication of repeated IDs. Each workspace holds one molecule type (nucleotide or peptide), detected per record and enforced on every upload; RNA keeps its `U` residues.
 - **Alignment** — two ways in, one pipeline. Upload a pre-aligned FASTA you computed yourself, or click **Align Sequences** to have [EMBL-EBI's Job Dispatcher](https://www.ebi.ac.uk/jdispatcher/) align the loaded records with MAFFT (the default), Kalign, Clustal Omega or MUSCLE, and overlay the result. The remote option is opt-in and asks for your explicit agreement first, because it sends your sequences to EMBL-EBI. Annotations are transposed into aligned coordinates and drawn as one continuous bar across gaps, and the conservation heatmap becomes available.
-- **Semantic zoom viewer** — from mismatch density at low zoom, to individual bases, to amino-acid translations (frames F1–F3) over CDS features, honouring each CDS's genetic code. Virtualized rows, sticky sequence labels, and Pan / Select interaction modes.
+- **Semantic zoom viewer** — from mismatch density at low zoom, to individual bases, to amino-acid translations over CDS features, honouring each CDS's genetic code and stepping rows at programmed ribosomal frameshifts. Annotations are drawn as thin arrow bars that can open to show their bases; **Focus** flies the view to a feature and labels it. Virtualized rows, sticky sequence labels, and Pan / Select interaction modes.
 - **Sequence search** — exact search with IUPAC degenerate codes for both nucleotide and peptide alphabets, and fuzzy Smith-Waterman local alignment (affine gaps, Gotoh) that also searches the reverse complement in nucleotide sessions. Turn hits into annotations from the results list.
-- **Annotations & tracks** — merge `.gff` / `.bed` annotations into loaded records, render BED files as quantitative line or interval tracks, create and edit features (including circular ones), and manage every record and feature in the **Annotation Hub**.
+- **Annotations & tracks** — merge `.gff` / `.bed` annotations into loaded records, render BED files as quantitative line or interval tracks, create and edit features (including circular ones) and every qualifier in the **Metadata Inspector**, and manage every record and feature in the **Annotation Hub**.
 - **Export** — FASTA (full alignment or selected region), GFF3, GenBank, a selection snapshot as JSON (0-based half-open intervals), or the whole workspace as a project JSON.
 - **Private by design** — no backend and no third-party CDNs; parsing and search run in Web Workers on your own machine. The only exception is the optional remote alignment, which sends your sequences to EMBL-EBI only after you agree to it.
 
