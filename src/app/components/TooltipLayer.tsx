@@ -128,7 +128,10 @@ const TooltipLayer: React.FC = () => {
       ref={tipRef}
       id={TOOLTIP_ID}
       role="tooltip"
-      style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999 }}
+      // `duration-150` (for the entry animation) also sets transition-duration, and
+      // the default transition-property is `all`: without this the tip would slide
+      // from its off-screen measuring spot to the anchor.
+      style={{ ...(pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999 }), transitionProperty: 'none' }}
       className={`fixed z-[2000] max-w-[260px] pointer-events-none px-2.5 py-1.5 rounded-lg bg-slate-950/95 border border-slate-700/70 shadow-xl shadow-black/40 text-[11px] leading-snug font-medium text-slate-200 normal-case tracking-normal ${
         pos ? `animate-in fade-in zoom-in-95 duration-150 ${pos.above ? 'slide-in-from-bottom-1' : 'slide-in-from-top-1'}` : 'invisible'
       }`}
