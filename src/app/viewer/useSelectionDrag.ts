@@ -17,11 +17,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
 import type { VariableSizeList } from 'react-window';
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { SIDEBAR_WIDTH } from './constants';
+import { pixelToColumn } from './coordinates';
 
 export interface UseSelectionDragParams {
   dragMode: 'pan' | 'select';
@@ -71,13 +71,13 @@ export function useSelectionDrag(p: UseSelectionDragParams) {
   useEffect(() => () => cancelDragRef.current?.(), []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0 || !horizontalScrollRef.current || alignmentLength <= 0) return;
     cancelDragRef.current?.();
-    const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
     const rect = e.currentTarget.getBoundingClientRect();
     
     const getPosFromEvent = (ev: MouseEvent | React.MouseEvent) => {
-      const x = ev.clientX - rect.left + horizontalScrollRef.current!.scrollLeft - SIDEBAR_WIDTH;
-      return Math.max(0, Math.min(alignmentLength, Math.floor(xScale.invert(x))));
+      const x = ev.clientX - rect.left - SIDEBAR_WIDTH;
+      return pixelToColumn(x, horizontalScrollRef.current!.scrollLeft, chartWidth / alignmentLength, alignmentLength);
     };
 
     if (dragMode === 'pan') {
@@ -86,6 +86,8 @@ export function useSelectionDrag(p: UseSelectionDragParams) {
     }
 
     if (dragMode !== 'select') return;
+    if (e.clientX < rect.left + SIDEBAR_WIDTH || e.clientX >= rect.right) return;
+    e.preventDefault();
     
     const clickedPos = getPosFromEvent(e);
 

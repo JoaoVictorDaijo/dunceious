@@ -34,8 +34,7 @@ export interface MinimapProps {
   searchResults: SearchResult[];
   currentSearchIdx: number;
   customColors?: Record<string, string>;
-  horizontalScrollRef: React.RefObject<HTMLDivElement | null>;
-  onZoomChange: (zoom: number) => void;
+  onZoomChange: (zoom: number, scrollLeft: number) => void;
 }
 
 export const Minimap: React.FC<MinimapProps> = ({
@@ -50,7 +49,6 @@ export const Minimap: React.FC<MinimapProps> = ({
   searchResults,
   currentSearchIdx,
   customColors,
-  horizontalScrollRef,
   onZoomChange,
 }) => {
   const minimapRef = useRef<SVGSVGElement>(null);
@@ -58,6 +56,8 @@ export const Minimap: React.FC<MinimapProps> = ({
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
   const brushRef = useRef<any>(null);
   const isBrushing = useRef(false);
+  const zoomChangeRef = useRef(onZoomChange);
+  zoomChangeRef.current = onZoomChange;
 
   // Minimap Static Parts (Ruler, Sequence, Brush Init)
   useEffect(() => {
@@ -207,10 +207,7 @@ export const Minimap: React.FC<MinimapProps> = ({
             const targetZoom = Math.min(150, Math.max(fitZoom, newZoom));
             const newScroll = x0 * targetZoom;
             
-            onZoomChange(targetZoom);
-            if (horizontalScrollRef.current) {
-              horizontalScrollRef.current.scrollLeft = newScroll;
-            }
+            zoomChangeRef.current(targetZoom, newScroll);
           }
         }
       })
