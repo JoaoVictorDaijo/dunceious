@@ -21,8 +21,11 @@
 export const MONO_STACK = '"JetBrains Mono Variable", ui-monospace, monospace';
 
 export const SIDEBAR_WIDTH = 120;
+/** Deepest zoom, in px per base. */
+export const MAX_ZOOM = 150;
 export const NT_ROW_HEIGHT = 22;
 export const AA_ROW_HEIGHT = 18;
+export const TRANSLATION_MIN_ZOOM = 5;
 /** Annotation bar height: a thin Geneious-style arrow, so dense records stay readable. */
 export const ANNOT_BAR_HEIGHT = 14;
 /** Extra lane height for an annotation whose bases are switched on (drawn under the bar). */

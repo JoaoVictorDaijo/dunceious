@@ -18,17 +18,20 @@
  */
 
 
+import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
+import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { RULER_HEIGHT, SIDEBAR_WIDTH } from './constants';
 import { computeRecordLayouts } from './layout';
-import { ANNOT_BASES_MIN_ZOOM } from './constants';
+import { ANNOT_BASES_MIN_ZOOM, TRANSLATION_MIN_ZOOM } from './constants';
 import { Ruler } from './Ruler';
 import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
 import { Minimap } from './Minimap';
 import { useViewport } from './useViewport';
+import { useBasesOpenness } from './useBasesOpenness';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
 
@@ -71,6 +74,7 @@ interface Props {
   onAddAnnotation: (recordId: string, start: number, end: number, name: string) => void;
   onExportRecord?: (recordId: string) => void;
   onViewDetails?: (recordId: string, feature?: BioFeature) => void;
+  isAlignmentLocked?: boolean;
   onRemoveRecord?: (recordId: string) => void;
   searchResults: SearchResult[];
   currentSearchIdx: number;
@@ -78,6 +82,11 @@ interface Props {
   customColors?: Record<string, string>;
   jumpTo?: number | null;
   onJumpComplete?: () => void;
+  /** A region to fly to and frame once; `onFocusComplete` reports it handled. */
+  focusRequest?: FocusTarget | null;
+  onFocusComplete?: () => void;
+  /** The last focused annotation, labelled while the selection is still exactly that region. */
+  focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
 }
@@ -95,12 +104,16 @@ const GenomeViewer: React.FC<Props> = ({
   onExportRecord,
   onViewDetails,
   onRemoveRecord,
+  isAlignmentLocked = false,
   searchResults,
   currentSearchIdx,
   selectedSearchIndices = new Set(),
   customColors,
   jumpTo,
   onJumpComplete,
+  focusRequest = null,
+  onFocusComplete,
+  focusedRegion = null,
   showConservation,
   showTracks
 }) => {
@@ -158,7 +171,7 @@ const GenomeViewer: React.FC<Props> = ({
     viewportWidth, chartWidth, fitZoom, xScaleGlobal,
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
-  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete });
+  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete, focusRequest, onFocusComplete });
 
   const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange: handleSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
@@ -206,9 +219,11 @@ const GenomeViewer: React.FC<Props> = ({
 
   // A boolean, so the layout recomputes only when zoom crosses the threshold.
   const basesVisible = zoomLevel > ANNOT_BASES_MIN_ZOOM;
+  const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM;
+  const basesOpenness = useBasesOpenness(basesVisible);
   const recordLayouts = useMemo(
-    () => computeRecordLayouts(records, { showAnnotations, showTranslation, showTracks, basesVisible }),
-    [records, showAnnotations, showTranslation, showTracks, basesVisible],
+    () => computeRecordLayouts(records, { showAnnotations, translationVisible, showTracks, basesVisible }),
+    [records, showAnnotations, translationVisible, showTracks, basesVisible],
   );
 
   useEffect(() => {
@@ -216,6 +231,9 @@ const GenomeViewer: React.FC<Props> = ({
       listRef.current.resetAfterIndex(0);
     }
   }, [recordLayouts]);
+
+  // Shown once the flight has landed, and only until the selection is edited away from the region.
+  const focusLabel = !focusRequest && isFocusedSelection(focusedRegion, activeSelection) ? focusedRegion : null;
 
   // Main Tracks + Ruler Render (Now handled per row for virtualization)
   const itemData = useMemo<RowData>(() => ({
@@ -238,13 +256,15 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation,
     conservationScores,
     quantValueRanges,
-    showTracks
+    showTracks,
+    basesOpenness,
+    focusedRegion: focusLabel
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks
+    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed
@@ -402,15 +422,16 @@ const GenomeViewer: React.FC<Props> = ({
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
             {onRemoveRecord && (
-              <button
+              <button disabled={isAlignmentLocked} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence"}
                 onClick={() => {
+                  if (isAlignmentLocked) return;
                   const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
                   if (window.confirm(`Remove sequence "${label}" from project?`)) {
-                    onRemoveRecord(contextMenu.recordId);
+                    if (!isAlignmentLocked) onRemoveRecord(contextMenu.recordId);
                   }
                   setContextMenu(null);
                 }}
-                className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
+                className="disabled:opacity-30 disabled:cursor-not-allowed w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
               >
                 <i className="fas fa-trash-alt w-4 text-center opacity-50"></i> Remove Sequence
               </button>

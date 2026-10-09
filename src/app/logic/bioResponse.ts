@@ -21,6 +21,20 @@ import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types
 import { makeUniqueId } from '@/src/app/logic/idHelpers';
 import type { FastaAlignedRecord } from '@/src/workers/protocol';
 
+/**
+ * The longest whitespace-bounded prefix of the FASTA header that names a loaded
+ * record, else the parser's first-token ID. Exported headers keep IDs such as
+ * "seq1 (1)" whole, and an external header may append a description after the ID.
+ */
+function resolveHeaderId(record: FastaAlignedRecord, currentIds: ReadonlySet<string>): string {
+  const tokens = record.header?.split(/\s+/) ?? [];
+  for (let end = tokens.length; end > 1; end--) {
+    const candidate = tokens.slice(0, end).join(' ');
+    if (currentIds.has(candidate)) return candidate;
+  }
+  return record.id;
+}
+
 /** Accession precedence: trimmed incoming accession > incoming id (unless 'Unknown') > uniqueId. */
 export function resolveAccession(
   incomingAccession: string | undefined,
@@ -108,7 +122,7 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'reject-empty' }) {
   if (!asAlignment) {
     const existingIds = prev.map(r => r.id);
-    const newRecords = alignedData.map(r => {
+    const newRecords = alignedData.map(({ header: _header, ...r }) => {
       const uniqueId = makeUniqueId(r.id, existingIds);
       existingIds.push(uniqueId);
       return {
@@ -123,6 +137,7 @@ export function applyFastaResponse(
   }
 
   const currentIds = new Set(prev.map(r => r.id));
+  alignedData = alignedData.map(d => ({ ...d, id: resolveHeaderId(d, currentIds) }));
   const uploadedIds = new Set(alignedData.map(d => d.id));
   const missing = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);
   const extra = alignedData.filter(d => !currentIds.has(d.id)).map(d => d.id);
@@ -145,4 +160,24 @@ export function applyFastaResponse(
     return { ...r, alignedSequence: match?.sequence };
   });
   return { next, kind: 'overlay', length: alignedData[0]?.sequence.length ?? 0 };
+}
+
+export function applyFastaAndLog(
+  records: SeqRecord[], alignedData: FastaAlignedRecord[], asAlignment: boolean | undefined, addLog: (message: string) => void,
+): ReturnType<typeof applyFastaResponse> {
+  const result = applyFastaResponse(records, alignedData, asAlignment);
+  switch (result.kind) {
+    case 'batch': addLog(`Batch ingestion complete: ${result.count} records added.`); break;
+    case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
+    case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
+    case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
+    case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
+    default: {
+      // Exhaustiveness guard: a new `kind` without a case is a compile error, and
+      // an unhandled kind still logs instead of dropping silently.
+      const _exhaustive: never = result;
+      addLog(`ERROR: Unhandled FASTA response kind: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+  return result;
 }

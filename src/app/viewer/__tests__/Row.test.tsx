@@ -18,9 +18,14 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, installCanvasRecorder } from '@/src/app/testing/renderHarness';
+import { fireEvent } from '@testing-library/react';
+import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
+import { TRANSLATION_MIN_ZOOM } from '../constants';
 import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
@@ -34,7 +39,7 @@ function rec(features: BioFeature[]): SeqRecord {
 function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
   const [layout] = computeRecordLayouts([record], {
     showAnnotations: true,
-    showTranslation: false,
+    translationVisible: !!overrides.showTranslation && (overrides.zoomLevel ?? ZOOM) > TRANSLATION_MIN_ZOOM,
     showTracks: false,
     basesVisible: (overrides.zoomLevel ?? ZOOM) > 12,
   });
@@ -58,6 +63,8 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     conservationScores: [],
     quantValueRanges: {},
     showTracks: false,
+    basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
+    focusedRegion: null,
   };
   return { ...base, ...overrides };
 }
@@ -253,3 +260,215 @@ describe('thin annotation bars', () => {
   });
 });
 
+
+describe('frameshift joins', () => {
+  const join: BioFeature = { type: 'CDS', name: 'j', start: 0, end: 60, strand: 1,
+    segments: [{ start: 0, end: 20 }, { start: 40, end: 60 }] };
+  const slip: BioFeature = { type: 'CDS', name: 'pp1ab', start: 0, end: 60, strand: 1,
+    segments: [{ start: 0, end: 30 }, { start: 29, end: 60 }] };
+  const names = (c: HTMLElement) => c.querySelectorAll('[data-annotation-name]');
+
+  it('paints the name once for a joined feature', () => {
+    const { container } = renderRow(rec([join]));
+    expect(names(container)).toHaveLength(1);
+  });
+
+  it('still shows the name when only a later part is in view', () => {
+    const { container } = renderRow(rec([join]), { scrollX: 30 * ZOOM, viewportWidth: 30 * ZOOM });
+    expect(names(container)).toHaveLength(1);
+  });
+
+  it('marks a −1 ribosomal slip on the bar at the shared base', () => {
+    const { container } = renderRow(rec([slip]));
+    const mark = container.querySelector('[data-frameshift]');
+    expect(mark?.getAttribute('data-frameshift')).toBe('-1');
+    expect(Math.round(Number(mark?.getAttribute('data-x')))).toBe(29 * ZOOM);
+    expect(mark?.textContent).toContain('−1');
+  });
+
+  it('does not mark a spliced join', () => {
+    const { container } = renderRow(rec([join]));
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+  });
+});
+
+describe('aligned annotation bars', () => {
+  it('draws one bar across internal gaps with gap characters inside the opened bar', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--AC--GT--',
+      features: [{ type: 'gene', name: 'gapped', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { zoomLevel: 30, setTooltip });
+    expect(glyphs(container)).toHaveLength(1);
+    expect(spanOfRect(glyphs(container)[0])).toEqual([60, 240]);
+    expect(connectors(container)).toHaveLength(0);
+    const letters = [...container.querySelectorAll('[data-annotation-base]')];
+    expect(letters.map(t => t.textContent).join('')).toBe('AC--GT');
+    expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([2, 3, 4, 5, 6, 7]);
+    fireEvent.mouseOver(glyphs(container)[0]);
+    expect(setTooltip).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('Locus: 1..4') }));
+  });
+
+  it('keeps the connector between genuine joined parts containing gaps', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--',
+      features: [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
+        segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] };
+    const { container } = renderRow(processTransposition([record])[0]);
+    expect([...glyphs(container)].map(spanOfRect)).toEqual([[2 * ZOOM, 6 * ZOOM], [9 * ZOOM, 16 * ZOOM]]);
+    expect([...connectors(container)].map(spanOf)).toEqual([[6 * ZOOM, 9 * ZOOM]]);
+  });
+});
+
+
+describe('aligned circular connectors', () => {
+  it('recognizes a joined part reaching the last real base before trailing gaps', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--ACGTACGT--',
+      features: [{ type: 'gene', name: 'origin-in-intron', start: 1, end: 8, strand: 1,
+        segments: [{ start: 6, end: 8 }, { start: 1, end: 3 }] }] };
+    const { container } = renderRow(processTransposition([record])[0]);
+    expect([...connectors(container)].map(spanOf)).toEqual([[10 * ZOOM, 12 * ZOOM], [0, 3 * ZOOM]]);
+  });
+});
+
+
+const coding: BioFeature[] = [
+  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 },
+  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1 },
+];
+
+describe('translation rows and geometry', () => {
+  it.each([4.99, 5, 5.01])('reserves only the used lanes, unlabelled, at zoom %s', (zoomLevel) => {
+    const data = rowData(rec(coding), { showTranslation: true, zoomLevel });
+    const { container } = render(<Row index={0} style={{ top: 150 }} data={data} />);
+    const visible = zoomLevel > 5;
+    const [layout] = data.recordLayouts;
+    const [collapsed] = rowData(rec(coding)).recordLayouts;
+    expect(layout.height - collapsed.height).toBe(visible ? 2 * 18 : 0);
+    expect(layout.seqBaseY - collapsed.seqBaseY).toBe(visible ? 18 : 0);
+    expect(container.textContent).not.toMatch(/[FR][123]/);
+    const name = container.querySelector<HTMLElement>('[data-tip="r"]');
+    expect(name?.style.transform).toBe(`translateY(${layout.seqBaseY + 2}px)`);
+    expect(name?.classList.contains('translation-motion')).toBe(true);
+    expect((container.firstChild as HTMLElement).style.transform).toBe('translateY(150px)');
+  });
+
+  it('reserves no translation rows for a record without coding features', () => {
+    const data = rowData(rec([]), { showTranslation: true, zoomLevel: 20 });
+    expect(data.recordLayouts[0]).toMatchObject({ translationVisible: true, seqBaseY: 0, height: 42 });
+  });
+
+  it('keeps protein labels absent even with Translation on at high zoom', () => {
+    const { container } = renderRow({ ...rec([]), moleculeType: 'protein' }, { showTranslation: true, zoomLevel: 20 });
+    expect(container.textContent).not.toMatch(/[FR][123]/);
+  });
+});
+
+
+it('keeps a record selection aligned with the full effective row height', () => {
+  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 }]);
+  const makeData = (zoomLevel: number) => rowData(record, {
+    zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
+  });
+  const { container, rerender } = render(<Row index={0} style={{}} data={makeData(5)} />);
+  const selection = () => container.querySelector('rect[data-selection-band]');
+  const collapsed = String(makeData(5).recordLayouts[0].height);
+  expect(selection()?.getAttribute('height')).toBe(collapsed);
+  rerender(<Row index={0} style={{}} data={makeData(6)} />);
+  expect(selection()?.getAttribute('height')).toBe(String(Number(collapsed) + 18));
+  rerender(<Row index={0} style={{}} data={makeData(5)} />);
+  expect(selection()?.getAttribute('height')).toBe(collapsed);
+});
+
+describe('annotation bars stay in step with scroll', () => {
+  const feature: BioFeature = { type: 'gene', name: 'tracked', start: 10, end: 60, strand: 1 };
+  const labelSvg = (c: HTMLElement) => c.querySelector('svg[aria-label]') as SVGSVGElement;
+
+  // 90 puts the feature wholly on screen, 200 partly off the left edge, 20 mid-feature.
+  it.each([0, 20, 90, 200])('aligns the label with the bar at scrollX %i', (scrollX) => {
+    const { container } = renderRow(rec([feature]), { scrollX });
+    const bar = glyphs(container)[0];
+    const barLeft = Number(bar.getAttribute('data-x'));
+    expect(Number(labelSvg(container).getAttribute('x'))).toBeCloseTo(Math.max(0, barLeft), 5);
+  });
+
+  // A CSS `d` on the bar restarts a transition on every scroll frame, so the bar
+  // trails its label; an attribute-only path moves in the frame it renders.
+  it('does not mirror the bar geometry into an inline style', () => {
+    const { container } = renderRow(rec([feature]), { scrollX: 90 });
+    const bar = glyphs(container)[0] as SVGPathElement;
+    expect(bar.getAttribute('style') ?? '').not.toMatch(/\bd\s*:/);
+  });
+});
+
+describe('annotation bar openness', () => {
+  const opted: BioFeature = { type: 'gene', name: 'o', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } };
+
+  it.each([[0, 14], [0.5, 21], [1, 28]])('sizes the bar and its label clip for openness %s', (basesOpenness, height) => {
+    const { container } = renderRow(rec([opted]), { zoomLevel: 30, basesOpenness });
+    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(height);
+    expect(glyphs(container)[0].getAttribute('d')).toMatch(new RegExp(`L120,${height / 2}L`)); // arrow tip at mid-height
+  });
+
+  it('renders the bases only while the bar is at least partly open', () => {
+    const count = (basesOpenness: number) => {
+      const { container, unmount } = renderRow(rec([opted]), { zoomLevel: 30, basesOpenness });
+      const n = container.querySelectorAll('[data-annotation-base]').length;
+      unmount();
+      return n;
+    };
+    expect(count(0)).toBe(0);
+    expect(count(0.01)).toBe(4);
+    expect(count(1)).toBe(4);
+  });
+
+  it('leaves annotations that do not show bases at the thin height', () => {
+    const { container } = renderRow(rec([{ ...opted, metadata: {} }]), { zoomLevel: 30, basesOpenness: 1 });
+    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(14);
+  });
+});
+
+describe('annotation motion CSS', () => {
+  // Bar geometry follows scroll and zoom; a transition on `d` would make it lag.
+  it('declares no transition on the path geometry property', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app/index.css'), 'utf8');
+    const transitions = css.match(/transition(-property)?\s*:[^;]*/g) ?? [];
+    expect(transitions.filter(t => /(^|[\s:,])d(\s|,|$)/.test(t.replace(/^transition(-property)?\s*:/, ' ')))).toEqual([]);
+    expect(css).not.toMatch(/\.annot-bar\b/);
+  });
+});
+
+describe('record selection and focus label', () => {
+  const selected = { start: 10, end: 30, recordIds: ['r'] };
+  const focused = { recordId: 'r', start: 10, end: 30, label: 'spike', length: 20 };
+  const edges = (c: HTMLElement) => [...c.querySelectorAll('line[data-selection-edge]')].map(spanOf);
+
+  it('outlines a record selection with an edge at each end', () => {
+    const { container } = renderRow(rec([]), { persistentSelection: selected });
+    expect(edges(container)).toEqual([[80, 80], [240, 240]]);
+  });
+
+  it('labels the focused region with its name and biological length at the region start', () => {
+    const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused });
+    expect(getByText('spike · 20 bp').style.left).toBe('80px');
+  });
+
+  it('holds the label at the view edge while the region start is scrolled away', () => {
+    const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 160 });
+    expect(getByText('spike · 20 bp').style.left).toBe('0px');
+  });
+
+  it('takes the place of the Annotations heading when it starts underneath it', () => {
+    const annotated = rec([{ type: 'gene', name: 'g', start: 40, end: 60, strand: 1 }]);
+    const near = renderRow(annotated, { persistentSelection: selected, focusedRegion: { ...focused, start: 2 } });
+    expect(near.queryByText('Annotations')).toBeNull();
+    near.unmount();
+    expect(renderRow(annotated, { persistentSelection: selected, focusedRegion: { ...focused, start: 20 } })
+      .getByText('Annotations')).toBeTruthy();
+  });
+
+  it('drops the label once the region leaves the view or belongs to another record', () => {
+    expect(renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 400 })
+      .queryByText('spike · 20 bp')).toBeNull();
+    expect(renderRow(rec([]), { persistentSelection: selected, focusedRegion: { ...focused, recordId: 'x' } })
+      .queryByText('spike · 20 bp')).toBeNull();
+  });
+});

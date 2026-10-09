@@ -20,6 +20,7 @@
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
 import { showsAnnotationBases } from './annotationPresentation';
+import { assignTranslationLanes, NO_TRANSLATION_LANES, type TranslationLanes } from './cds';
 
 /** A quantitative-track data point: a value over the half-open bp interval [start, end). */
 export type TrackDatum = { start: number; end: number; value: number };
@@ -53,6 +54,9 @@ export interface RecordLayout {
   topPadding: number;
   height: number;
   seqBaseY: number;
+  translationVisible: boolean;
+  /** Kept after translation hides so the closing fade still has its rows. */
+  translationLanes: TranslationLanes;
   trackLayouts: TrackLayout[];
 }
 
@@ -60,8 +64,20 @@ export interface LayoutOptions {
   showAnnotations: boolean;
   /** Bases are legible at this zoom: opted-in annotations open to show them. */
   basesVisible?: boolean;
-  showTranslation: boolean;
+  translationVisible: boolean;
   showTracks: boolean;
+}
+
+// Packing reads every CDS's frame (O(sequence) each); layouts rerun on every
+// display toggle, so lanes are computed once per record object.
+const translationLaneCache = new WeakMap<SeqRecord, TranslationLanes>();
+
+function translationLanesFor(record: SeqRecord, visible: boolean): TranslationLanes {
+  const cached = translationLaneCache.get(record);
+  if (cached || !visible) return cached ?? NO_TRANSLATION_LANES;
+  const lanes = assignTranslationLanes(record.features, record.alignedSequence || record.sequence, record.moleculeType);
+  translationLaneCache.set(record, lanes);
+  return lanes;
 }
 
 /**
@@ -75,7 +91,7 @@ export interface LayoutOptions {
  * Pure: no React, no DOM — unit-tested in node.
  */
 export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions): RecordLayout[] {
-  const { showAnnotations, showTranslation, showTracks, basesVisible = false } = opts;
+  const { showAnnotations, translationVisible, showTracks, basesVisible = false } = opts;
   return records.map(record => {
       // 1. Feature Packing (Annotations)
       const rows: { start: number, end: number }[][] = [];
@@ -166,9 +182,12 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
 
       const quantHeight = showTracks ? totalQuantHeight : 0;
       const topPadding = (featRowsCount > 0 || quantHeight > 0) ? 24 : 0;
-      const effectiveTranslation = showTranslation && record.moleculeType !== 'protein';
-      const seqBaseY = annotHeight + quantHeight + topPadding + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0);
-      const height = seqBaseY + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) + NT_ROW_HEIGHT + 20;
+      const effectiveTranslation = translationVisible && record.moleculeType !== 'protein';
+      const translationLanes = translationLanesFor(record, effectiveTranslation);
+      const forwardHeight = effectiveTranslation ? AA_ROW_HEIGHT * translationLanes.forward : 0;
+      const reverseHeight = effectiveTranslation ? AA_ROW_HEIGHT * translationLanes.reverse : 0;
+      const seqBaseY = annotHeight + quantHeight + topPadding + forwardHeight;
+      const height = seqBaseY + reverseHeight + NT_ROW_HEIGHT + 20;
 
       return {
         id: record.id,
@@ -181,6 +200,8 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
         topPadding,
         height,
         seqBaseY,
+        translationVisible: effectiveTranslation,
+        translationLanes,
         trackLayouts
       };
     });

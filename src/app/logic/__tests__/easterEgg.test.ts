@@ -41,6 +41,6 @@ describe('central dogma easter egg', () => {
     expect(outcomes.map(o => (o.kind === 'countdown' ? o.remaining : o.kind))).toEqual([
       'silent', 'silent', 'silent', 3, 2, 1, 'unlock',
     ]);
-    expect(tapOutcome(1, true)).toEqual({ kind: 'already' });
+    expect(tapOutcome(1, true)).toEqual({ kind: 'replay' });
   });
 });

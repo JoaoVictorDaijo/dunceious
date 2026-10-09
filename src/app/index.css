@@ -47,14 +47,45 @@
   button:active { scale: none !important; }
 }
 
-/* Annotation lanes slide and bars open when an annotation starts showing its
-   bases. `d` is a CSS property in Chromium and Firefox; Safari just snaps. */
-.annot-feature { transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1); }
-.annot-bar { transition: d 240ms cubic-bezier(0.4, 0, 0.2, 1); }
+/* Annotation lanes and translation rows slide when they open. Bar geometry is
+   never transitioned: it follows scroll and zoom, and a lag would detach the
+   bars from their labels (the opening is animated in useBasesOpenness). */
+.annot-feature, .translation-motion { transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1); }
+.translation-band {
+  transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms cubic-bezier(0.4, 0, 0.2, 1), visibility 240ms;
+}
+.translation-band[aria-hidden="true"] { visibility: hidden; }
 .annot-bases { animation: annot-bases-in 260ms ease-out 120ms both; }
 @keyframes annot-bases-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .annot-feature, .annot-bar { transition: none; }
+  .annot-feature, .translation-motion, .translation-band { transition: none; }
   .annot-bases { animation: none; }
 }
 
+/* Ingestion drop zones. "armed": files are being dragged somewhere over the
+   window, so every card that can take them says so; "over": this card is the
+   one under the cursor. Each card sets --drop-rgb to its own accent. */
+.drop-zone { transition: border-color 200ms, background-color 200ms, box-shadow 200ms; }
+.drop-zone-icon { transition: color 200ms, transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.drop-zone[data-drop="armed"] {
+  border-color: rgb(var(--drop-rgb) / 0.45);
+  animation: drop-zone-ready 1.6s ease-in-out infinite;
+}
+.drop-zone[data-drop="armed"] .drop-zone-icon { color: rgb(var(--drop-rgb) / 0.6); }
+.drop-zone[data-drop="over"] {
+  border-style: solid;
+  border-color: rgb(var(--drop-rgb));
+  background-color: rgb(var(--drop-rgb) / 0.1);
+  box-shadow: 0 0 0 4px rgb(var(--drop-rgb) / 0.15), 0 0 28px rgb(var(--drop-rgb) / 0.25);
+}
+.drop-zone[data-drop="over"] .drop-zone-icon { color: rgb(var(--drop-rgb)); transform: translateY(-4px) scale(1.12); }
+.drop-zone-release { color: rgb(var(--drop-rgb)); }
+@keyframes drop-zone-ready {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--drop-rgb) / 0); }
+  50% { box-shadow: 0 0 0 3px rgb(var(--drop-rgb) / 0.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drop-zone, .drop-zone-icon { transition: none; }
+  .drop-zone[data-drop="armed"] { animation: none; }
+  .drop-zone[data-drop="over"] .drop-zone-icon { transform: none; }
+}

@@ -22,21 +22,21 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { extractCodingSequence, translateFeature } from '@/src/domain/bio';
-import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, translationFrame } from '../cds';
+import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   seq: string;
   moleculeType?: 'dna' | 'rna' | 'protein';
   xScale: d3.ScaleLinear<number, number>;
   viewportWidth: number;
-  height: number;
   y: number;
   zoomLevel: number;
   scrollX: number;
   showTranslation: boolean;
   features: BioFeature[];
+  translationLanes: TranslationLanes;
   conservationScores?: number[];
   showConservation?: boolean;
   searchResults: SearchResult[];
@@ -45,31 +45,47 @@ export interface SequenceTrackProps {
 }
 
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
-  seq, moleculeType, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features,
+  seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const forwardRef = useRef<HTMLCanvasElement>(null);
+  const reverseRef = useRef<HTMLCanvasElement>(null);
+  const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM && moleculeType !== 'protein';
+  const forwardHeight = AA_ROW_HEIGHT * translationLanes.forward;
+  const reverseHeight = AA_ROW_HEIGHT * translationLanes.reverse;
+  const bandTop = y - (translationVisible ? forwardHeight : 0);
+
+
+  // Frames and frameshifts are read in biological bases, so an alignment gap
+  // between two codons is neither a frame change nor a skipped base.
+  const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
-    () => (showTranslation ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
-    [features, seq, moleculeType, showTranslation],
+    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
+    [features, seq, moleculeType, translationVisible],
   );
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const prepareCanvas = (canvas: HTMLCanvasElement | null, height: number) => {
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return null;
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = viewportWidth * dpr;
+      canvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, viewportWidth, height);
+      return ctx;
+    };
+    const ctx = prepareCanvas(canvasRef.current, NT_ROW_HEIGHT);
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = viewportWidth * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, viewportWidth, height);
-    
-    const seqY = y;
+    // Retain hidden band pixels for the CSS closing fade; only visible bands redraw.
+    const forwardCtx = translationVisible ? prepareCanvas(forwardRef.current, forwardHeight) : null;
+    const reverseCtx = translationVisible ? prepareCanvas(reverseRef.current, reverseHeight) : null;
+    const seqY = 0;
     const isProtein = moleculeType === 'protein';
     const getResidueColor = isProtein ? getAminoAcidColor : getNucleotideColor;
 
@@ -105,8 +121,12 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     });
 
     // 0. Render Search Highlights (Background & Borders)
-    const fullTrackH = (showTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT;
-    const highlightY = showTranslation ? y - AA_ROW_HEIGHT * 3 : y;
+    const fullTrackH = (translationVisible ? forwardHeight + reverseHeight : 0) + NT_ROW_HEIGHT;
+    const highlightLayers = [
+      { ctx, highlightY: translationVisible ? -forwardHeight : 0 },
+      { ctx: forwardCtx, highlightY: 0 },
+      { ctx: reverseCtx, highlightY: -forwardHeight - NT_ROW_HEIGHT },
+    ];
     searchResults.forEach(r => {
       const isActive = r === activeResult;
       
@@ -116,16 +136,18 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         if (x + w < 0 || x > viewportWidth) return;
 
         const baseColor = r.strand === 1 ? (isActive ? "#fbbf24" : "#fef3c7") : (isActive ? "#f472b6" : "#fce7f3");
-        ctx.save();
-        ctx.fillStyle = baseColor;
-        ctx.globalAlpha = isActive ? 0.9 : 0.5;
-        ctx.fillRect(x, highlightY, w, fullTrackH);
-
         const strokeColor = r.strand === 1 ? (isActive ? "#92400e" : "#d97706") : (isActive ? "#9d174d" : "#db2777");
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = isActive ? 2 : 1;
-        ctx.strokeRect(x, highlightY, w, fullTrackH);
-        ctx.restore();
+        for (const { ctx: layer, highlightY } of highlightLayers) {
+          if (!layer) continue;
+          layer.save();
+          layer.fillStyle = baseColor;
+          layer.globalAlpha = isActive ? 0.9 : 0.5;
+          layer.fillRect(x, highlightY, w, fullTrackH);
+          layer.strokeStyle = strokeColor;
+          layer.lineWidth = isActive ? 2 : 1;
+          layer.strokeRect(x, highlightY, w, fullTrackH);
+          layer.restore();
+        }
       };
 
       if (r.segments && r.segments.length > 0) {
@@ -191,16 +213,17 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     }
 
     // 2. Render Translation (CDS/ORF annotation features only)
-    if (showTranslation && zoomLevel > 5) {
+    if (translationVisible) {
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
-        const frame = translationFrame(f);
-        const aaY = f.strand === 1
-          ? y - AA_ROW_HEIGHT * (3 - frame)
-          : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;
+        const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
+        const lanes = translationLanes.laneOf.get(f);
+        if (!ctx || !lanes) return;
+        // Lane 0 hugs the nucleotide row: the bottom of the forward band, the top of the reverse one.
+        const laneY = (lane: number) => AA_ROW_HEIGHT * (f.strand === 1 ? translationLanes.forward - 1 - lane : lane);
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
@@ -219,8 +242,13 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           if (startIdx === undefined || endIdx === undefined) continue;
 
-          const aX = xScale(Math.min(startIdx, endIdx)) - scrollX;
-          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(Math.min(startIdx, endIdx));
+          const lo = Math.min(startIdx, endIdx);
+          const aX = xScale(lo) - scrollX;
+          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(lo);
+          const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
+          // Each codon sits in the row of its own frame, so a ribosomal frameshift
+          // inside a join steps rows exactly where translation changes frame.
+          const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
 
           if (aX + aW < 0 || aX > viewportWidth) continue;
 
@@ -231,13 +259,35 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
           ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
 
+          // The nucleotide cells' white hairline: it parts codons in a row and,
+          // where a frameshift stacks two frames, the rows themselves.
           ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+
           ctx.fillStyle = '#fff';
           ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
         }
       });
     }
-  }, [seq, xScale, viewportWidth, height, y, zoomLevel, scrollX, showTranslation, features, brokenFeatureMap, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
 
-  return <canvas ref={canvasRef} style={{ width: viewportWidth, height: height, position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} />;
+  const canvasStyle: React.CSSProperties = {
+    width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
+  };
+  const motionClass = showTranslation && moleculeType !== 'protein' ? 'translation-motion' : undefined;
+
+  return <>
+    <canvas ref={canvasRef} className={motionClass} data-sequence-band=""
+      style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
+    {moleculeType !== 'protein' && <>
+      <canvas ref={forwardRef} className="translation-band" aria-hidden={!translationVisible}
+        style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,
+          transform: `translateY(${bandTop + (translationVisible ? 0 : 3)}px)` }} />
+      <canvas ref={reverseRef} className="translation-band" aria-hidden={!translationVisible}
+        style={{ ...canvasStyle, height: reverseHeight, opacity: translationVisible ? 1 : 0,
+          transform: `translateY(${y + NT_ROW_HEIGHT}px)` }} />
+    </>}
+  </>;
 });

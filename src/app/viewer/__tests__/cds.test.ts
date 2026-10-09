@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeBrokenFeatureMap, translationFrame } from '../cds';
+import { assignTranslationLanes, computeBrokenFeatureMap, codonFrame } from '../cds';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 const cds = (over: Partial<BioFeature>): BioFeature => ({
@@ -81,29 +81,73 @@ describe('computeBrokenFeatureMap', () => {
   });
 });
 
-describe('translationFrame', () => {
-  it('is the start modulo 3 for a forward feature (codon_start=1)', () => {
-    expect(translationFrame(cds({ strand: 1, start: 0 }))).toBe(0);
-    expect(translationFrame(cds({ strand: 1, start: 1 }))).toBe(1);
-    expect(translationFrame(cds({ strand: 1, start: 5 }))).toBe(2);
+describe('codonFrame', () => {
+  it('is the first base modulo 3 on the forward strand', () => {
+    expect(codonFrame(0, 1)).toBe(0);
+    expect(codonFrame(1, 1)).toBe(1);
+    expect(codonFrame(5, 1)).toBe(2);
+    // ORF1ab after the −1 slip: CGG starts on 0-based 13467 → frame 0, not the ORF1a frame 1.
+    expect(codonFrame(13467, 1)).toBe(0);
   });
 
-  it('is the end modulo 3 for a reverse feature (codon_start=1)', () => {
-    expect(translationFrame(cds({ strand: -1, end: 6 }))).toBe(0);
-    expect(translationFrame(cds({ strand: -1, end: 7 }))).toBe(1);
+  it('keeps the exclusive-end convention on the reverse strand', () => {
+    // A reverse codon read from base 5 downwards occupies [3, 6): lane = 6 % 3.
+    expect(codonFrame(5, -1)).toBe(0);
+    expect(codonFrame(6, -1)).toBe(1);
+  });
+});
+
+
+
+describe('assignTranslationLanes', () => {
+  const seq = 'A'.repeat(60);
+
+  it('uses a single lane for one translation', () => {
+    const f = cds({ start: 4, end: 31 });
+    expect(assignTranslationLanes([f], seq)).toMatchObject({ forward: 1, reverse: 0 });
   });
 
-  it('folds /codon_start into a forward feature lane (shifts it forward)', () => {
-    expect(translationFrame(cds({ strand: 1, start: 0, metadata: { codon_start: '2' } }))).toBe(1);
-    expect(translationFrame(cds({ strand: 1, start: 0, metadata: { codon_start: '3' } }))).toBe(2);
+  it('shares a lane across reading frames when the features do not overlap', () => {
+    const a = cds({ start: 0, end: 12 });
+    const b = cds({ start: 13, end: 25 });
+    const lanes = assignTranslationLanes([a, b], seq);
+    expect(lanes.forward).toBe(1);
+    expect([lanes.laneOf.get(a)?.get(0), lanes.laneOf.get(b)?.get(1)]).toEqual([0, 0]);
   });
 
-  it('subtracts the /codon_start phase for a reverse feature (reads down from end)', () => {
-    expect(translationFrame(cds({ strand: -1, end: 6, metadata: { codon_start: '2' } }))).toBe(2);
-    expect(translationFrame(cds({ strand: -1, end: 6, metadata: { codon_start: '3' } }))).toBe(1);
+  it('shares a lane for overlapping features in the same frame', () => {
+    const ab = cds({ start: 0, end: 30 });
+    const a = cds({ start: 0, end: 15 });
+    expect(assignTranslationLanes([ab, a], seq).forward).toBe(1);
   });
 
-  it('stays in {0,1,2} when the phase pushes the reverse anchor negative', () => {
-    expect(translationFrame(cds({ strand: -1, end: 1, metadata: { codon_start: '3' } }))).toBe(2);
+  it('splits overlapping features in different frames', () => {
+    const a = cds({ start: 0, end: 30 });
+    const b = cds({ start: 10, end: 40 });
+    const lanes = assignTranslationLanes([b, a], seq);
+    expect(lanes.forward).toBe(2);
+    expect([lanes.laneOf.get(a)?.get(0), lanes.laneOf.get(b)?.get(1)]).toEqual([0, 1]);
+  });
+
+  it('gives each frame of a frameshifted join its own lane where the frames overlap', () => {
+    // -1 PRF: the second segment re-reads base 14, continuing in frame 2.
+    const pp1ab = cds({ start: 0, end: 30, segments: [{ start: 0, end: 15 }, { start: 14, end: 30 }] });
+    const lanes = assignTranslationLanes([pp1ab], seq);
+    expect(lanes.forward).toBe(2);
+    expect(Object.fromEntries(lanes.laneOf.get(pp1ab)!)).toEqual({ 0: 0, 2: 1 });
+  });
+
+  it('packs strands independently and skips non-coding and undirected features', () => {
+    const fwd = cds({ start: 0, end: 30 });
+    const rev = cds({ start: 10, end: 40, strand: -1 });
+    const gene = cds({ type: 'gene', start: 1, end: 30 });
+    const unknown = cds({ start: 11, end: 30, metadata: { _gffStrand: '?' } });
+    const lanes = assignTranslationLanes([fwd, rev, gene, unknown], seq);
+    expect(lanes).toMatchObject({ forward: 1, reverse: 1 });
+    expect(lanes.laneOf.has(gene) || lanes.laneOf.has(unknown)).toBe(false);
+  });
+
+  it('assigns no lanes in a peptide record', () => {
+    expect(assignTranslationLanes([cds({ start: 0, end: 9 })], seq, 'protein')).toMatchObject({ forward: 0, reverse: 0 });
   });
 });

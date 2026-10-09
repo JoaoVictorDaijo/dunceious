@@ -17,12 +17,14 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureLength } from '@/src/app/logic/viewModel';
+import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 
 export type FlatItem =
   | { type: 'header'; recordId: string; count: number }
@@ -55,11 +57,12 @@ export interface AnnotationHubPanelProps {
   activeSelection: SelectionArea | null;
   onStartNewFeature: () => void;
   onToggleRecordVisibility: (recordId: string) => void;
+  isAlignmentLocked?: boolean;
   onRemoveRecord: (recordId: string) => void;
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
   onRemoveFeature: (recordId: string, featureIndex: number) => void;
-  onFocusItem: (recordId: string, start: number, end: number, origin: HubFocusOrigin) => void;
+  onFocusItem: (target: FocusTarget, origin: HubFocusOrigin) => void;
   /** The row the last Focus jump came from: scrolled into view and marked on mount. */
   lastFocusedKey?: string | null;
   onExportAllFasta: () => void;
@@ -85,6 +88,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
   onStartNewFeature,
   onToggleRecordVisibility,
   onRemoveRecord,
+  isAlignmentLocked = false,
   onViewFeatureDetails,
   onEditFeature,
   onRemoveFeature,
@@ -171,14 +175,16 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
             <button
+              disabled={isAlignmentLocked}
               onClick={() => {
+                if (isAlignmentLocked) return;
                 if (window.confirm(`Remove sequence "${record?.name || item.recordId}" from project?`)) {
                   onRemoveRecord(item.recordId);
                 }
               }}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
               aria-label={`Remove ${record?.name || item.recordId}`}
-              data-tip="Remove this sequence and its annotations from the project"
+              data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence and its annotations from the project"}
             >
               <i className="fas fa-trash-alt"></i>
             </button>
@@ -239,7 +245,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                 <i className="fas fa-info-circle"></i>
               </button>
               <button
-                onClick={() => onFocusItem(recordId, start, end, { key: rowKey, label: t.name })}
+                onClick={() => onFocusItem({ recordId, start, end, label: t.name, length: end - start }, { key: rowKey, label: t.name })}
                 data-tip="Open this track's span in the viewport"
                 className="text-[10px] font-bold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
               >
@@ -311,7 +317,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
             <button
               onClick={() => onRemoveFeature(recordId, f.index)}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
               aria-label="Delete"
               data-tip="Delete this annotation"
             >
@@ -319,9 +325,9 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
             <button
               onClick={() => {
-                const focusStart = f.segments && f.segments.length > 0 ? f.segments[0].start : f.start;
-                const focusEnd = f.segments && f.segments.length > 0 ? f.segments[0].end : f.end;
-                onFocusItem(recordId, focusStart, focusEnd, { key: rowKey, label: f.name });
+                const record = records.find(r => r.id === recordId);
+                if (!record) return;
+                onFocusItem(featureFocusTarget(record, f), { key: rowKey, label: f.name });
                 addLog(`Jump to ${f.name}`);
               }}
               data-tip="Open this annotation in the viewport, selected"
@@ -333,7 +339,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         </div>
       </div>
     );
-  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
+  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, isAlignmentLocked, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
 
   return (
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
@@ -377,9 +383,10 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
           </div>
           <button
-            onClick={onClearAll}
-            data-tip="Remove every record and annotation from the workspace"
-            className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
+            disabled={isAlignmentLocked}
+            onClick={() => { if (!isAlignmentLocked) onClearAll(); }}
+            data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove every record and annotation from the workspace"}
+            className="disabled:opacity-30 disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All
           </button>

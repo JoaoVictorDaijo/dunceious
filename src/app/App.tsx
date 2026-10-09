@@ -26,7 +26,11 @@ import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
+import AlignRemoteModal from './components/AlignRemoteModal';
+import AlignmentJobPill from './components/AlignmentJobPill';
+import { useRemoteAlignment } from './hooks/useRemoteAlignment';
 import RecordDetailsModal from './components/RecordDetailsModal';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
@@ -92,6 +96,16 @@ const App: React.FC = () => {
     setActiveTab('alignment');
     setActiveSelection(selection);
   };
+  // `focusedRegion` names the selection while it stands; `pendingFocus` asks the
+  // viewport to frame it once and is cleared when handled, so a remount does not replay it.
+  const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
+  const focusOn = (target: FocusTarget) => {
+    setActiveTab('alignment');
+    setActiveSelection({ start: target.start, end: target.end, recordIds: [target.recordId] });
+    setFocusedRegion(target);
+    setPendingFocus(target);
+  };
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
@@ -103,7 +117,10 @@ const App: React.FC = () => {
     isProcessing,
     setIsProcessing,
     bioWorkerRef,
+    applyAlignmentOverlay,
   } = useBioWorker(addLog);
+
+  const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
 
   const {
     editing,
@@ -180,6 +197,7 @@ const App: React.FC = () => {
       setIsProcessing,
     },
     addLog,
+    remoteAlignment.isLocked,
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -196,9 +214,10 @@ const App: React.FC = () => {
   const handleViewDetails = (recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
+    const index = feature ? featureIndexOf(recordId, feature) : -1;
     setViewingRecordDetails(record);
-    setViewingFeatureDetails(feature || null);
-    setViewingFeatureIndex(feature ? featureIndexOf(recordId, feature) : -1);
+    setViewingFeatureDetails(record.features[index] ?? null);
+    setViewingFeatureIndex(index);
   };
 
   const handleSetShowBases = (show: boolean) => {
@@ -213,6 +232,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveRecord = (recordId: string) => {
+    if (remoteAlignment.isLocked()) return;
     const record = records.find(r => r.id === recordId);
     if (!record) return;
 
@@ -261,6 +281,7 @@ const App: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    if (remoteAlignment.isLocked()) return;
     if (records.length === 0) return;
     // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
     const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
@@ -272,21 +293,18 @@ const App: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
+      className="app-root flex flex-col h-screen bg-slate-900 text-slate-200 overflow-hidden font-sans select-none"
       data-env={envAccent}
       style={themeStyle}
     >
-      <ProcessingOverlay isProcessing={isProcessing} />
+      <ProcessingOverlay isProcessing={isProcessing && !remoteAlignment.isAlignmentLocked} />
 
       {viewingRecordDetails && (
         <RecordDetailsModal
           record={viewingRecordDetails}
           feature={viewingFeatureDetails}
           onClose={() => { setViewingRecordDetails(null); setViewingFeatureDetails(null); }}
-          onFocusFeature={(recordId, start, end) => {
-            setActiveTab('alignment');
-            setActiveSelection({ start, end, recordIds: [recordId] });
-          }}
+          onFocusFeature={focusOn}
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
           onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
@@ -313,6 +331,28 @@ const App: React.FC = () => {
           onClose={closeMismatchModal}
         />
       )}
+
+      {remoteAlignment.presentation === 'dialog' && (
+        <AlignRemoteModal
+          state={remoteAlignment.state}
+          count={records.length}
+          bytes={remoteAlignment.bytes}
+          moleculeKind={remoteAlignment.moleculeKind}
+          hasAlignment={records.some(record => !!record.alignedSequence)}
+          engineId={remoteAlignment.engineId}
+          email={remoteAlignment.email}
+          verifiedEmail={remoteAlignment.verifiedEmail}
+          verdicts={remoteAlignment.verdicts}
+          onMinimize={remoteAlignment.minimize}
+          onEngineChange={remoteAlignment.setEngineId}
+          onEmailChange={remoteAlignment.setEmail}
+          onSubmit={() => { void remoteAlignment.submit(); }}
+          onCancel={remoteAlignment.cancel}
+          onRetry={remoteAlignment.retry}
+        />
+      )}
+
+      {remoteAlignment.presentation === 'pill' && <AlignmentJobPill state={remoteAlignment.state} onOpen={remoteAlignment.open} />}
 
       <TopNav
         sidebarOpen={sidebarOpen}
@@ -352,6 +392,8 @@ const App: React.FC = () => {
           onSetJumpTo={setJumpTo}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
+          onAlignRemote={remoteAlignment.open} remoteAlignmentState={remoteAlignment.state}
+          isAlignmentLocked={remoteAlignment.isAlignmentLocked}
           onAnnotationUpload={handleAnnotationUpload}
           onProjectUpload={handleProjectUpload}
           onExportSelection={exportSelection}
@@ -385,7 +427,7 @@ const App: React.FC = () => {
           isProteinSession={isProteinSession}
         />
 
-        <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
+        <main className="flex-1 bg-slate-900 relative flex flex-col min-h-0 min-w-0 p-1.5">
           {records.length === 0 ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
@@ -421,9 +463,13 @@ const App: React.FC = () => {
                     selectedSearchIndices={selectedSearchIndices}
                     customColors={featureColors}
                     jumpTo={jumpTo}
+                    focusRequest={pendingFocus}
+                    onFocusComplete={() => setPendingFocus(null)}
+                    focusedRegion={focusedRegion}
                     onJumpComplete={() => setJumpTo(null)}
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                   />
                 ) : (
@@ -437,15 +483,15 @@ const App: React.FC = () => {
                     activeSelection={activeSelection}
                     onStartNewFeature={startNewFeature}
                     onToggleRecordVisibility={toggleRecordVisibility}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}
                     onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
                     onRemoveFeature={removeFeature}
-                    onFocusItem={(recordId, start, end, origin) => {
+                    onFocusItem={(target, origin) => {
                       setHubFocus(origin);
                       setShowHubReturn(true);
-                      setActiveTab('alignment');
-                      setActiveSelection({ start, end, recordIds: [recordId] });
+                      focusOn(target);
                     }}
                     lastFocusedKey={hubFocus?.key ?? null}
                     onExportAllFasta={exportAllFasta}
