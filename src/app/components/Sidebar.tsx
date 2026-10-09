@@ -24,6 +24,8 @@ import { getOriginalPos } from '@/src/domain/bio';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 import SectionTitle from './SectionTitle';
 import AlignmentSection from './AlignmentSection';
+import DropZone from './DropZone';
+import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
   open: boolean;
@@ -123,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   getSequenceContext,
   isProteinSession,
 }) => {
+  const fileDragActive = useFileDragActive();
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
@@ -330,33 +333,21 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Ingestion */}
       <section>
         <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
-        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Open GenBank (.gb) or FASTA files, or drop them here"} className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
-          <input type="file" multiple accept=".gb,.genbank,.fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onFileUpload} />
-          <i className="fas fa-folder-tree text-slate-700 group-hover:text-sky-500 mb-4 block text-4xl transition-colors"></i>
-          <p className="text-[10px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Drop Input Batch</p>
-          <p className="text-[8px] font-medium text-slate-500 group-hover:text-slate-400 mt-1">GB or FASTA</p>
-        </div>
+        <DropZone accent="sky" icon="fa-folder-tree" title="Drop Input Batch" hint="GB or FASTA" primary className="mb-4"
+          accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} armed={fileDragActive} disabled={isAlignmentLocked}
+          tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Open GenBank (.gb) or FASTA files, or drop them here"} />
 
-        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Overlay an alignment: a FASTA whose IDs match the loaded records"} className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
-          <input type="file" accept=".fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onAlignmentUpload} />
-          <i className="fas fa-file-import text-slate-700 group-hover:text-emerald-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Upload Pre-aligned FASTA</p>
-          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">IDs must match active records</p>
-        </div>
+        <DropZone accent="emerald" icon="fa-file-import" title="Upload Pre-aligned FASTA" hint="IDs must match active records"
+          accept=".fasta,.fa" onChange={onAlignmentUpload} armed={fileDragActive} disabled={isAlignmentLocked} unavailable={records.length === 0}
+          tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Overlay an alignment: a FASTA whose IDs match the loaded records"} />
 
-        <div data-tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mt-4 ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
-          <input type="file" multiple accept=".bed,.gff,.gff3,.bedgraph" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAnnotationUpload} />
-          <i className="fas fa-tags text-slate-700 group-hover:text-sky-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Import Annotations</p>
-          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">BED, GFF3, or BedGraph</p>
-        </div>
+        <DropZone accent="sky" icon="fa-tags" title="Import Annotations" hint="BED, GFF3, or BedGraph" className="mt-4"
+          accept=".bed,.gff,.gff3,.bedgraph" multiple onChange={onAnnotationUpload} armed={fileDragActive} unavailable={records.length === 0}
+          tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" />
 
-        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Restore a workspace saved with Save Project"} className="bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-amber-500/50 transition-all relative cursor-pointer text-center group mt-4">
-          <input type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onProjectUpload} />
-          <i className="fas fa-project-diagram text-slate-700 group-hover:text-amber-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Load Project JSON</p>
-          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">Restore entire workspace</p>
-        </div>
+        <DropZone accent="amber" icon="fa-project-diagram" title="Load Project JSON" hint="Restore entire workspace" className="mt-4"
+          accept=".json" onChange={onProjectUpload} armed={fileDragActive} disabled={isAlignmentLocked}
+          tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Restore a workspace saved with Save Project"} />
       </section>
 
       <AlignmentSection count={records.length} state={remoteAlignmentState} onOpen={onAlignRemote} />
