@@ -140,10 +140,10 @@ All messages are typed as discriminated unions:
 ### Search (`src/workers/handlers/search.ts`)
 
 - **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `src/core/search/query.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
-  - **Nucleotide** (`IUPAC_MAP`): standard degenerate codes — `R`=[AG], `Y`=[CT], `S`=[GC], `W`=[AT], `K`=[GT], `M`=[AC], `B`=[CGT], `D`=[AGT], `H`=[ACT], `V`=[ACG], `N`=[ACGT].
+  - **Nucleotide** (`IUPAC_MAP`): DNA/RNA degenerate codes — `R`=[AG], `Y`=[CTU], `S`=[GC], `W`=[ATU], `K`=[GTU], `M`=[AC], `B`=[CGTU], `D`=[AGTU], `H`=[ACTU], `V`=[ACG], `N`=[ACGTU]. Literal T and U remain distinct.
   - **Protein** (`PROTEIN_IUPAC_MAP`): all 20 standard amino acids plus ambiguity codes — `B`=[DN], `Z`=[EQ], `J`=[IL], `X`=[all 20 AAs], `U` (selenocysteine), `O` (pyrrolysine).
 - **Reverse-complement search**: Performed automatically for nucleotide sessions (forward + reverse strands). Suppressed entirely for protein sessions where strand orientation is not applicable.
-- **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`.
+- **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`. Each `SearchableRecord` also retains its optional molecule type so mixed DNA/RNA nucleotide sessions use the correct reverse complement per record. Legacy projections infer RNA from U, or honor an explicit RNA request when the record type is absent.
 - **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `src/core/search/align.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
 
 ---

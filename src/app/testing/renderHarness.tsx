@@ -35,12 +35,14 @@ export interface CanvasRecorder {
   texts(): string[];
   /** Ordered [x, y, w, h] tuples passed to ctx.fillRect. */
   fillRects(): Array<[number, number, number, number]>;
+  /** Colours used for each fillRect, in draw order. */
+  fillColors(): string[];
 }
 
 /**
  * Replace HTMLCanvasElement.prototype.getContext with a recording 2D context.
- * Records fillText / fillRect; every other method is a no-op and every property
- * assignment (fillStyle, font, …) is ignored, so the draw calls these tests
+ * Records fillText / fillRect and fillStyle; every other method is a no-op and
+ * other property assignments (font, …) are ignored, so these draw calls
  * exercise cannot throw. Call in each canvas test's beforeEach: the returned
  * recorder is fresh per call, and the getContext patch persists within a file
  * until the next install (it is not restored between tests) — vitest isolates
@@ -49,23 +51,31 @@ export interface CanvasRecorder {
 export function installCanvasRecorder(): CanvasRecorder {
   const texts: string[] = [];
   const fillRects: Array<[number, number, number, number]> = [];
+  const fillColors: string[] = [];
+  let fillStyle = '';
 
   const ctx = new Proxy(
     {
       fillText: (t: unknown) => { texts.push(String(t)); },
-      fillRect: (x: number, y: number, w: number, h: number) => { fillRects.push([x, y, w, h]); },
+      fillRect: (x: number, y: number, w: number, h: number) => {
+        fillRects.push([x, y, w, h]);
+        fillColors.push(fillStyle);
+      },
     } as Record<string, unknown>,
     {
       get(target, prop) {
         return prop in target ? target[prop as string] : () => {};
       },
-      set() { return true; },
+      set(_target, prop, value) {
+        if (prop === 'fillStyle') fillStyle = String(value);
+        return true;
+      },
     },
   );
 
   HTMLCanvasElement.prototype.getContext = (() => ctx) as unknown as HTMLCanvasElement['getContext'];
 
-  return { texts: () => texts, fillRects: () => fillRects };
+  return { texts: () => texts, fillRects: () => fillRects, fillColors: () => fillColors };
 }
 
 /** jsdom has no ResizeObserver; install a no-op so components that construct one render. */

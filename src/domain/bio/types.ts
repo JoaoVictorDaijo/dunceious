@@ -105,6 +105,8 @@ export interface SearchableRecord {
   id: string;
   sequence: string;
   alignedSequence?: string;
+  /** Preserves RNA identity even when a sequence or alignment contains no U. */
+  moleculeType?: SeqRecord['moleculeType'];
 }
 
 /** A selected window `[start, end)` (0-based half-open) spanning the listed records. */
