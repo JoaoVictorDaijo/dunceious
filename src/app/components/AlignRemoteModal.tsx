@@ -101,7 +101,7 @@ function AlignmentConfiguration(props: ConfigurationProps) {
   return (
     <>
       {consent && <p className="text-xs text-slate-400">
-        Sending to EMBL-EBI · agreed {new Date(consent.acceptedAt).toLocaleDateString()} · {' '}
+        Sending to EMBL-EBI · agreed until you leave or reload this page · {' '}
         <button type="button" onClick={onReview} className="text-[var(--env)] underline">Review</button>
       </p>}
       {commonIssues.length > 0 && <ul role="alert" className="space-y-1 text-xs text-rose-300">{commonIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}

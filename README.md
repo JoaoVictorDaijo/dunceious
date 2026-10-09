@@ -44,7 +44,7 @@ Sample GenBank / GenPept records for trying it out live in [`examples/`](./examp
 
 **Everything runs locally in your browser.** Your sequences are parsed, viewed and searched entirely on your own machine — nothing is uploaded, and nothing is stored on any server. Dunceious has no backend.
 
-**One opt-in exception: remote alignment.** If you choose **Align Sequences**, Dunceious first asks you to agree that your sequences (and a contact email) will leave your browser and be processed on EMBL-EBI's servers under its [privacy notice](https://www.ebi.ac.uk/jdispatcher/assets/html/privacy-notice.pdf) and [terms of use](https://www.ebi.ac.uk/about/terms-of-use/). Until you agree, nothing is sent; you can revoke the agreement at any time. Aligning with your own tool and uploading the pre-aligned FASTA keeps everything local.
+**One opt-in exception: remote alignment.** If you choose **Align Sequences**, Dunceious first asks you to agree that your sequences (and a contact email) will leave your browser and be processed on EMBL-EBI's servers under its [privacy notice](https://www.ebi.ac.uk/jdispatcher/assets/html/privacy-notice.pdf) and [terms of use](https://www.ebi.ac.uk/about/terms-of-use/). Until you agree, nothing is sent. The agreement lasts only while the page stays open: a refresh, a closed and reopened page, or a new tab asks again, and you can revoke it at any time. Aligning with your own tool and uploading the pre-aligned FASTA keeps everything local.
 
 You can use it two ways:
 

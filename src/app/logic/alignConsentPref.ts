@@ -17,7 +17,6 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export const ALIGN_CONSENT_VERSION = 1;
 export const ALIGN_CONSENT_COPY = {
   title: 'Your sequences will leave this browser',
   bullets: [
@@ -31,40 +30,25 @@ export const ALIGN_CONSENT_COPY = {
 };
 
 interface AlignConsent { acceptedAt: string }
-const STORAGE_KEY = 'dunceious.alignConsent';
-let sessionConsent: AlignConsent | null = null;
-let sessionOnly = false;
+
+// Consent lives only in this module's memory so that it ends with the page load:
+// a refresh, a reopened page or a new tab asks again. sessionStorage would survive
+// a refresh, so it is deliberately not used.
+let consent: AlignConsent | null = null;
+
+// Earlier versions kept the agreement in localStorage; drop it so it is neither
+// honoured nor left behind.
+const LEGACY_STORAGE_KEY = 'dunceious.alignConsent';
+try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); } catch { /* storage blocked or absent */ }
 
 export function readAlignConsent(): AlignConsent | null {
-  if (sessionOnly || typeof window === 'undefined') return sessionConsent;
-  let raw: string | null;
-  try { raw = window.localStorage.getItem(STORAGE_KEY); }
-  catch { return sessionConsent; }
-
-  try {
-    const stored = JSON.parse(raw ?? 'null') as { version?: unknown; acceptedAt?: unknown } | null;
-    sessionConsent = stored?.version === ALIGN_CONSENT_VERSION && typeof stored.acceptedAt === 'string' && Number.isFinite(Date.parse(stored.acceptedAt))
-      ? { acceptedAt: stored.acceptedAt } : null;
-  } catch { sessionConsent = null; }
-
-  return sessionConsent;
+  return consent;
 }
 
 export function writeAlignConsent(now: Date): void {
-  sessionConsent = { acceptedAt: now.toISOString() };
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: ALIGN_CONSENT_VERSION, ...sessionConsent }));
-    sessionOnly = false;
-  } catch { sessionOnly = true; }
+  consent = { acceptedAt: now.toISOString() };
 }
 
 export function clearAlignConsent(): void {
-  sessionConsent = null;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-    sessionOnly = false;
-  } catch {
-    // A failed removal must not resurrect the persisted agreement in this session.
-    sessionOnly = true;
-  }
+  consent = null;
 }

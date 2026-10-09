@@ -36,54 +36,36 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-describe('alignment consent preference', () => {
-  it('returns null when nothing is stored', () => {
+describe('alignment consent (this page load only)', () => {
+  it('starts without consent', () => {
     expect(pref.readAlignConsent()).toBeNull();
   });
-  it('reads only the current disclosure version', () => {
-    values.set(key, JSON.stringify({ version: 1, acceptedAt }));
-    expect(pref.readAlignConsent()).toEqual({ acceptedAt });
-    values.set(key, JSON.stringify({ version: 0, acceptedAt }));
-    expect(pref.readAlignConsent()).toBeNull();
-  });
-  it.each(['broken JSON', 'null', '{}', '{"version":1,"acceptedAt":false}', '{"version":1,"acceptedAt":"invalid"}'])('rejects malformed consent: %s', raw => {
-    values.set(key, raw);
-    expect(pref.readAlignConsent()).toBeNull();
-  });
-  it('writes and clears a versioned agreement', () => {
+  it('remembers an agreement for the rest of the page load and clears it on revoke', () => {
     pref.writeAlignConsent(new Date(acceptedAt));
-    expect(JSON.parse(values.get(key)!)).toEqual({ version: 1, acceptedAt });
     expect(pref.readAlignConsent()).toEqual({ acceptedAt });
     pref.clearAlignConsent();
-    expect(values.has(key)).toBe(false);
     expect(pref.readAlignConsent()).toBeNull();
   });
-  it('holds consent in memory when storage access is blocked', () => {
-    vi.stubGlobal('window', { get localStorage() { throw new Error('blocked'); } });
-    expect(pref.readAlignConsent()).toBeNull();
-    expect(() => pref.writeAlignConsent(new Date(acceptedAt))).not.toThrow();
-    expect(pref.readAlignConsent()).toEqual({ acceptedAt });
-    expect(() => pref.clearAlignConsent()).not.toThrow();
-    expect(pref.readAlignConsent()).toBeNull();
-  });
-  it('uses session consent when only writes fail', () => {
-    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('full'); });
+  it('never persists the agreement, so a refresh or reopened page asks again', async () => {
     pref.writeAlignConsent(new Date(acceptedAt));
-    expect(values.has(key)).toBe(false);
-    expect(pref.readAlignConsent()).toEqual({ acceptedAt });
-  });
-  it('does not resurrect consent when removal fails but reads succeed', () => {
-    pref.writeAlignConsent(new Date(acceptedAt));
-    vi.spyOn(window.localStorage, 'removeItem').mockImplementation(() => { throw new Error('blocked'); });
-    pref.clearAlignConsent();
-    expect(values.has(key)).toBe(true);
-    expect(pref.readAlignConsent()).toBeNull();
-  });
-  it('does not carry blocked-storage consent into a new session', async () => {
-    vi.stubGlobal('window', { get localStorage() { throw new Error('blocked'); } });
-    pref.writeAlignConsent(new Date(acceptedAt));
+    expect(values.size).toBe(0);
     vi.resetModules();
-    const nextSession = await import('../alignConsentPref');
-    expect(nextSession.readAlignConsent()).toBeNull();
+    const nextPageLoad = await import('../alignConsentPref');
+    expect(nextPageLoad.readAlignConsent()).toBeNull();
+  });
+  it('ignores and deletes an agreement persisted by an earlier version', async () => {
+    values.set(key, JSON.stringify({ version: 1, acceptedAt }));
+    vi.resetModules();
+    const nextPageLoad = await import('../alignConsentPref');
+    expect(nextPageLoad.readAlignConsent()).toBeNull();
+    expect(values.has(key)).toBe(false);
+  });
+  it('loads when storage access is blocked', async () => {
+    vi.stubGlobal('window', { get localStorage() { throw new Error('blocked'); } });
+    vi.resetModules();
+    const blocked = await import('../alignConsentPref');
+    expect(blocked.readAlignConsent()).toBeNull();
+    blocked.writeAlignConsent(new Date(acceptedAt));
+    expect(blocked.readAlignConsent()).toEqual({ acceptedAt });
   });
 });

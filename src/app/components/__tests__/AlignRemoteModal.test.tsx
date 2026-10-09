@@ -164,10 +164,9 @@ describe('data-sharing consent', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
-  it('shows the agreement date and allows review and revocation', () => {
+  it('says the agreement lasts until the page is left or reloaded, and allows review and revocation', () => {
     render(<AlignRemoteModal {...props()} />);
-    const date = new Date('2026-10-09T12:00:00.000Z').toLocaleDateString();
-    expect(screen.getByText(`Sending to EMBL-EBI · agreed ${date} ·`)).toBeTruthy();
+    expect(screen.getByText('Sending to EMBL-EBI · agreed until you leave or reload this page ·')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
     expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));

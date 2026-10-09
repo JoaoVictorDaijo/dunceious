@@ -138,10 +138,11 @@ it('refuses submission without consent, accepts after agreement, and checks revo
   expect(h.client.submit).toHaveBeenCalledOnce();
 });
 
-it('refuses submission with consent for an outdated disclosure', async () => {
+it('does not honour an agreement persisted by an earlier version', async () => {
+  clearAlignConsent();
+  window.localStorage.setItem('dunceious.alignConsent', JSON.stringify({ version: 1, acceptedAt: '2026-10-09T12:00:00.000Z' }));
   const h = harness();
   act(() => { h.result.current.open(); h.result.current.setEmail('a@b.org'); });
-  window.localStorage.setItem('dunceious.alignConsent', JSON.stringify({ version: 0, acceptedAt: '2026-10-09T12:00:00.000Z' }));
   await act(async () => h.result.current.submit());
   expect(h.client.submit).not.toHaveBeenCalled();
   expect(h.result.current.isAlignmentLocked).toBe(false);
