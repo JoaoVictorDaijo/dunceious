@@ -143,7 +143,7 @@ def og():
   <text x="{W-80-116}" y="77" fill="{SKY_HI}" font-family="JetBrains Mono" font-size="15" letter-spacing="1.5" text-anchor="middle">NOTHING&#160;IS&#160;STORED</text>
   <text x="{ML}" y="212" fill="{SKY_HI}" font-family="JetBrains Mono" font-weight="500" font-size="21" letter-spacing="7">BROWSER-NATIVE&#160;GENOMICS</text>
   <text x="{ML-4}" y="316" fill="{INK}" font-family="JetBrains Mono" font-weight="800" font-size="108">DUNCEIOUS</text>
-  <text x="{ML}" y="372" fill="#cbd5e1" font-family="JetBrains Mono" font-weight="500" font-size="34">Intelligence is Overpriced<tspan fill="{SKY}">.</tspan></text>
+  <text x="{ML}" y="372" fill="#cbd5e1" font-family="JetBrains Mono" font-weight="500" font-size="34">Geniality is Overpriced<tspan fill="{SKY}">.</tspan></text>
   <text x="{ML}" y="420" fill="{MUTE}" font-family="JetBrains Mono" font-weight="400" font-size="22">Parse, view &amp; search GenBank / FASTA locally &#8212; nothing leaves your browser.</text>
   <line x1="{x0}" y1="{ry}" x2="{x1}" y2="{ry}" stroke="{RULE}" stroke-width="2"/>
   {ticks}{labels}{blocks}{nuc}
