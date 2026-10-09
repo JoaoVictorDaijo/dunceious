@@ -380,7 +380,7 @@ const App: React.FC = () => {
 
         <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
           {records.length === 0 ? (
-            <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
               <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
               <p className="text-[10px] font-bold text-slate-500 mt-4 italic">"Spend money on Coffee and Personal, not with expensive genial software."</p>
@@ -394,59 +394,62 @@ const App: React.FC = () => {
                   onDismiss={() => setShowHubReturn(false)}
                 />
               )}
-              {activeTab === 'alignment' ? (
-                <GenomeViewer
-                  records={transposedRecords}
-                  consensus={consensus}
-                  showAnnotations={showAnnotations}
-                  showTracks={showTracks}
-                  showTranslation={showTranslation}
-                  showConservation={showConservation}
-                  dragMode={dragMode}
-                  activeSelection={activeSelection}
-                  onSelectionChange={setActiveSelection}
-                  onExportFasta={exportSelection}
-                  onAddAnnotation={addAnnotationFromSearch}
-                  searchResults={filteredResults}
-                  currentSearchIdx={currentSearchIdx}
-                  selectedSearchIndices={selectedSearchIndices}
-                  customColors={featureColors}
-                  jumpTo={jumpTo}
-                  onJumpComplete={() => setJumpTo(null)}
-                  onExportRecord={handleExportRecord}
-                  onViewDetails={handleViewDetails}
-                  onRemoveRecord={handleRemoveRecord}
-                />
-              ) : (
-                <AnnotationHubPanel
-                  records={records}
-                  flattenedFeatures={flattenedFeatures}
-                  allFeaturesCount={allFeaturesCount}
-                  featureSearch={featureSearch}
-                  onFeatureSearchChange={setFeatureSearch}
-                  featureColors={featureColors}
-                  activeSelection={activeSelection}
-                  onStartNewFeature={startNewFeature}
-                  onToggleRecordVisibility={toggleRecordVisibility}
-                  onRemoveRecord={handleRemoveRecord}
-                  onViewFeatureDetails={handleViewDetails}
-                  onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
-                  onRemoveFeature={removeFeature}
-                  onFocusItem={(recordId, start, end, origin) => {
-                    setHubFocus(origin);
-                    setShowHubReturn(true);
-                    setActiveTab('alignment');
-                    setActiveSelection({ start, end, recordIds: [recordId] });
-                  }}
-                  lastFocusedKey={hubFocus?.key ?? null}
-                  onExportAllFasta={exportAllFasta}
-                  onExportGenBank={exportGenBankFile}
-                  onExportGff={exportGffFile}
-                  onExportProjectJson={exportProjectJson}
-                  onClearAll={handleClearAll}
-                  addLog={addLog}
-                />
-              )}
+              {/* Keyed by mode so each switch replays a short fade instead of a hard cut. */}
+              <div key={activeTab} className="flex-1 flex flex-col min-h-0 min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
+                {activeTab === 'alignment' ? (
+                  <GenomeViewer
+                    records={transposedRecords}
+                    consensus={consensus}
+                    showAnnotations={showAnnotations}
+                    showTracks={showTracks}
+                    showTranslation={showTranslation}
+                    showConservation={showConservation}
+                    dragMode={dragMode}
+                    activeSelection={activeSelection}
+                    onSelectionChange={setActiveSelection}
+                    onExportFasta={exportSelection}
+                    onAddAnnotation={addAnnotationFromSearch}
+                    searchResults={filteredResults}
+                    currentSearchIdx={currentSearchIdx}
+                    selectedSearchIndices={selectedSearchIndices}
+                    customColors={featureColors}
+                    jumpTo={jumpTo}
+                    onJumpComplete={() => setJumpTo(null)}
+                    onExportRecord={handleExportRecord}
+                    onViewDetails={handleViewDetails}
+                    onRemoveRecord={handleRemoveRecord}
+                  />
+                ) : (
+                  <AnnotationHubPanel
+                    records={records}
+                    flattenedFeatures={flattenedFeatures}
+                    allFeaturesCount={allFeaturesCount}
+                    featureSearch={featureSearch}
+                    onFeatureSearchChange={setFeatureSearch}
+                    featureColors={featureColors}
+                    activeSelection={activeSelection}
+                    onStartNewFeature={startNewFeature}
+                    onToggleRecordVisibility={toggleRecordVisibility}
+                    onRemoveRecord={handleRemoveRecord}
+                    onViewFeatureDetails={handleViewDetails}
+                    onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
+                    onRemoveFeature={removeFeature}
+                    onFocusItem={(recordId, start, end, origin) => {
+                      setHubFocus(origin);
+                      setShowHubReturn(true);
+                      setActiveTab('alignment');
+                      setActiveSelection({ start, end, recordIds: [recordId] });
+                    }}
+                    lastFocusedKey={hubFocus?.key ?? null}
+                    onExportAllFasta={exportAllFasta}
+                    onExportGenBank={exportGenBankFile}
+                    onExportGff={exportGffFile}
+                    onExportProjectJson={exportProjectJson}
+                    onClearAll={handleClearAll}
+                    addLog={addLog}
+                  />
+                )}
+              </div>
             </div>
           )}
         </main>

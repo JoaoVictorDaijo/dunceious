@@ -30,3 +30,19 @@
     font-feature-settings: "cv05", "cv08", "zero";
   }
 }
+
+@layer base {
+  /* Press feedback for every button. `scale` is its own property, so it composes
+     with any transform a button already uses. */
+  button:not(:disabled):not([aria-disabled="true"]) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, scale, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  button:not(:disabled):not([aria-disabled="true"]):active { scale: 0.97; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-out { animation: none !important; }
+  button:active { scale: none !important; }
+}
