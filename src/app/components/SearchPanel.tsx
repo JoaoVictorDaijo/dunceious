@@ -318,7 +318,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                                 e.stopPropagation();
                                 onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`);
                               }}
-                              className="opacity-0 group-hover:opacity-100 transition-all text-[9px] font-black uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
+                              aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
+                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-black uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
                             >
                               <i className="fas fa-plus text-[8px]"></i> Annotate
                             </button>
