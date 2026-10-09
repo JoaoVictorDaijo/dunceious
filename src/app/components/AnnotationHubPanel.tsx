@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
@@ -55,6 +56,7 @@ export interface AnnotationHubPanelProps {
   activeSelection: SelectionArea | null;
   onStartNewFeature: () => void;
   onToggleRecordVisibility: (recordId: string) => void;
+  isAlignmentLocked?: boolean;
   onRemoveRecord: (recordId: string) => void;
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
@@ -85,6 +87,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
   onStartNewFeature,
   onToggleRecordVisibility,
   onRemoveRecord,
+  isAlignmentLocked = false,
   onViewFeatureDetails,
   onEditFeature,
   onRemoveFeature,
@@ -171,14 +174,16 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
             <button
+              disabled={isAlignmentLocked}
               onClick={() => {
+                if (isAlignmentLocked) return;
                 if (window.confirm(`Remove sequence "${record?.name || item.recordId}" from project?`)) {
                   onRemoveRecord(item.recordId);
                 }
               }}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
               aria-label={`Remove ${record?.name || item.recordId}`}
-              data-tip="Remove this sequence and its annotations from the project"
+              data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence and its annotations from the project"}
             >
               <i className="fas fa-trash-alt"></i>
             </button>
@@ -311,7 +316,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
             <button
               onClick={() => onRemoveFeature(recordId, f.index)}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
               aria-label="Delete"
               data-tip="Delete this annotation"
             >
@@ -333,7 +338,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         </div>
       </div>
     );
-  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
+  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, isAlignmentLocked, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
 
   return (
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
@@ -377,9 +382,10 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
           </div>
           <button
-            onClick={onClearAll}
-            data-tip="Remove every record and annotation from the workspace"
-            className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
+            disabled={isAlignmentLocked}
+            onClick={() => { if (!isAlignmentLocked) onClearAll(); }}
+            data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove every record and annotation from the workspace"}
+            className="disabled:opacity-30 disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All
           </button>

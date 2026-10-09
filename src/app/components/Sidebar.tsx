@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
@@ -34,6 +35,8 @@ export interface SidebarProps {
   onSetJumpTo: (pos: number) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAlignRemote?: () => void;
+  isAlignmentLocked?: boolean;
   onAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onExportSelection: () => void;
@@ -83,6 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetJumpTo,
   onFileUpload,
   onAlignmentUpload,
+  onAlignRemote,
+  isAlignmentLocked,
   onAnnotationUpload,
   onProjectUpload,
   onExportSelection,
@@ -256,14 +261,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </button>
                   <button
+                    disabled={isAlignmentLocked}
                     onClick={() => {
+                      if (isAlignmentLocked) return;
                       if (window.confirm(`Remove sequence "${r.name || r.id}" from project?`)) {
                         onRemoveRecord(r.id);
                       }
                     }}
-                    className="w-7 h-7 shrink-0 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                    className="disabled:opacity-30 disabled:cursor-not-allowed w-7 h-7 shrink-0 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
                     aria-label={`Remove ${r.id}`}
-                    data-tip="Remove this sequence from the project"
+                    data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence from the project"}
                   >
                     <i className="fas fa-trash-alt text-[10px]"></i>
                   </button>
@@ -320,19 +327,27 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Ingestion */}
       <section>
         <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
-        <div data-tip="Open GenBank (.gb) or FASTA files, or drop them here" className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
-          <input type="file" multiple accept=".gb,.genbank,.fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onFileUpload} />
+        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Open GenBank (.gb) or FASTA files, or drop them here"} className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
+          <input type="file" multiple accept=".gb,.genbank,.fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onFileUpload} />
           <i className="fas fa-folder-tree text-slate-700 group-hover:text-sky-500 mb-4 block text-4xl transition-colors"></i>
           <p className="text-[10px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Drop Input Batch</p>
           <p className="text-[8px] font-medium text-slate-500 group-hover:text-slate-400 mt-1">GB or FASTA</p>
         </div>
 
-        <div data-tip="Overlay an alignment: a FASTA whose IDs match the loaded records" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
-          <input type="file" accept=".fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAlignmentUpload} />
+        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Overlay an alignment: a FASTA whose IDs match the loaded records"} className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
+          <input type="file" accept=".fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onAlignmentUpload} />
           <i className="fas fa-file-import text-slate-700 group-hover:text-emerald-500 mb-3 block text-3xl transition-colors"></i>
           <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Upload Pre-aligned FASTA</p>
           <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">IDs must match active records</p>
         </div>
+
+        <button type="button" onClick={onAlignRemote} disabled={records.length === 0}
+          data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Send the loaded sequences to EMBL-EBI for alignment, then overlay the result"}
+          className="mt-4 w-full rounded-3xl border-2 border-dashed border-slate-800 bg-slate-900/40 p-6 text-center group motion-safe:transition-colors enabled:hover:border-[var(--env)] disabled:opacity-30 disabled:cursor-not-allowed">
+          <i aria-hidden="true" className="fas fa-wand-magic-sparkles mb-3 block text-3xl text-slate-700 group-enabled:group-hover:text-[var(--env)]" />
+          <p className="text-[9px] font-bold uppercase tracking-tight text-slate-400">{isAlignmentLocked ? 'Alignment running' : 'Align Sequences'}</p>
+          <p className="mt-1 text-[8px] font-medium text-slate-500">MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI</p>
+        </button>
 
         <div data-tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mt-4 ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
           <input type="file" multiple accept=".bed,.gff,.gff3,.bedgraph" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAnnotationUpload} />
@@ -341,8 +356,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">BED, GFF3, or BedGraph</p>
         </div>
 
-        <div data-tip="Restore a workspace saved with Save Project" className="bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-amber-500/50 transition-all relative cursor-pointer text-center group mt-4">
-          <input type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onProjectUpload} />
+        <div style={isAlignmentLocked ? { opacity: 0.35 } : undefined} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Restore a workspace saved with Save Project"} className="bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-amber-500/50 transition-all relative cursor-pointer text-center group mt-4">
+          <input type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer" disabled={isAlignmentLocked} onChange={onProjectUpload} />
           <i className="fas fa-project-diagram text-slate-700 group-hover:text-amber-500 mb-3 block text-3xl transition-colors"></i>
           <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Load Project JSON</p>
           <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">Restore entire workspace</p>
