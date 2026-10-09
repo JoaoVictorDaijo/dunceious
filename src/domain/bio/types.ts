@@ -37,7 +37,8 @@ export interface FeatureSegment {
  * A sequence annotation. All coordinates are 0-based, half-open `[start, end)`.
  *
  * Circular wrap-around: when `start > end` the feature crosses the sequence
- * origin, spanning `[start, seqLen)` then `[0, end)`.
+ * origin, spanning `[start, seqLen)` then `[0, end)`. Source records use ungapped
+ * coordinates; `processTransposition` produces separate aligned display copies.
  */
 export interface BioFeature {
   type: string;
@@ -51,7 +52,8 @@ export interface BioFeature {
   /**
    * Sub-ranges for multi-part (spliced / GenBank join) features; each half-open
    * `[start, end)`. Authoritative pieces when present; `start`/`end` above is
-   * the overall envelope.
+   * the overall envelope. In aligned display copies, each original part spans
+   * internal gaps continuously; only an origin crossing splits that part.
    */
   segments?: FeatureSegment[];
   /** Original source location text (e.g. GenBank join/complement), preserved for round-trip export. */
@@ -72,16 +74,16 @@ export interface SeqRecord {
   name: string;
   definition?: string;
   accession?: string;
-  /** Raw, ungapped residue string — the coordinate space for features when no alignment is loaded. */
+  /** Raw, ungapped residue string — always the coordinate space of source-record features. */
   sequence: string;
   moleculeType?: 'dna' | 'rna' | 'protein'; // governs reverse-strand search & translation availability
   features: BioFeature[];
   tracks?: QuantitativeTrack[];
   /**
    * Gapped multiple-alignment overlay (contains '-'): the same residues in the
-   * same order as `sequence` with alignment gaps inserted. When present, feature
-   * coordinates are transposed into this space (see `processTransposition`), and
-   * consumers read `alignedSequence || sequence`.
+   * same order as `sequence` with alignment gaps inserted. `processTransposition`
+   * creates display copies with aligned feature coordinates; source records keep
+   * biological coordinates for details, lengths, edits and annotation exports.
    */
   alignedSequence?: string;
   isCircular?: boolean; // sequence is circular; origin wrap-around allowed

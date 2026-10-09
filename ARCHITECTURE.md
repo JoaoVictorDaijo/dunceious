@@ -131,6 +131,12 @@ All messages are typed as discriminated unions:
 - **GFF3 Parser**: Merges GFF3 features into existing records, matching by sequence ID.
 - **Annotation Import**: Merges external annotation files (GFF/BED) into existing records.
 - **Transposition**: Delegates to `src/domain/bio/coordinate.ts → processTransposition`.
+  Source records retain ungapped biological coordinates. Display copies keep one
+  continuous aligned segment per original part, spanning internal gaps but excluding
+  flanking gaps; circular origin crossings split into two parts. Search highlighting
+  still uses non-gap pieces. CDS extraction skips gap columns while preserving their
+  aligned indices, and translation frames count biological bases. Details and exports
+  use source features; focus actions map their coordinates into the alignment.
 
 ### Consensus (`src/domain/bio/consensus.ts`)
 

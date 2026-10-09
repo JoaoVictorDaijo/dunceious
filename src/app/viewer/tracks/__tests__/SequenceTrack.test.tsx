@@ -111,3 +111,15 @@ describe('unknown CDS direction', () => {
     expect(recorder.texts().join('')).toBe('ATGCCCGAG');
   });
 });
+
+
+describe('aligned CDS translation', () => {
+  it('renders codons across gaps in the same biological frame', () => {
+    const recorder = installCanvasRecorder();
+    const seq = '--A-TG-AAA-TAA--';
+    render(<SequenceTrack {...props(seq)} features={[{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
+      segments: [{ start: 2, end: 14 }] }]} />);
+    expect(recorder.texts().slice(-3)).toEqual(['M', 'K', '_']);
+    expect(recorder.fillRects().slice(-3)).toEqual([[40, 46, 80, 18], [140, 46, 60, 18], [220, 46, 60, 18]]);
+  });
+});

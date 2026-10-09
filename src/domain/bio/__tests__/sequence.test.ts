@@ -23,6 +23,7 @@ import {
   translateSequence,
   extractCodingSequence,
   detectEarlyStop,
+  isFeatureBroken,
   detectMoleculeType,
   classifyLocusMoleculeType,
   removeGapsWithMap,
@@ -227,5 +228,37 @@ describe('isProteinSession', () => {
   });
   it('is false for an empty session', () => {
     expect(isProteinSession([])).toBe(false);
+  });
+});
+
+describe('translation across continuous aligned CDS parts', () => {
+  it.each([
+    { strand: 1 as const, seq: '--A-TG-AAA-TAA--', coding: 'ATGAAATAA', indices: [2, 4, 5, 7, 8, 9, 11, 12, 13] },
+    { strand: -1 as const, seq: '--T-TA-TTT-CAT--', coding: 'ATGAAATAA', indices: [13, 12, 11, 9, 8, 7, 5, 4, 2] },
+  ])('preserves translation and real-base indices on strand $strand', ({ strand, seq, coding, indices }) => {
+    const feature = { start: 2, end: 14, strand, segments: [{ start: 2, end: 14 }] };
+    const result = extractCodingSequence(feature, seq);
+    expect(result).toEqual({ codingSeq: coding, alignedIndices: indices });
+    expect(translateSequence(result.codingSeq)).toBe('MK_');
+    expect(isFeatureBroken({}, result.codingSeq)).toBe(false);
+    const raw = extractCodingSequence({ start: 0, end: 9, strand }, seq.replace(/-/g, ''));
+    expect(translateSequence(result.codingSeq)).toBe(translateSequence(raw.codingSeq));
+    expect(extractCodingSequence({ ...feature, metadata: { codon_start: '2' } }, seq)).toEqual({
+      codingSeq: 'TGAAATAA', alignedIndices: indices.slice(1),
+    });
+  });
+
+  it('skips gaps before orienting mixed-strand parts and applying codon_start', () => {
+    const result = extractCodingSequence({ start: 0, end: 12, strand: 1,
+      segments: [{ start: 0, end: 5, strand: -1 }, { start: 7, end: 12, strand: 1 }],
+      metadata: { codon_start: '2' },
+    }, 'C-A-T--A-A-A');
+    expect(result).toEqual({ codingSeq: 'TGAAA', alignedIndices: [2, 0, 7, 9, 11] });
+  });
+
+  it('still identifies an internal stop after removing gaps', () => {
+    const result = extractCodingSequence({ start: 0, end: 12, strand: 1 }, 'AT-GT-AG-GAG');
+    expect(result.codingSeq).toBe('ATGTAGGAG');
+    expect(isFeatureBroken({}, result.codingSeq)).toBe(true);
   });
 });

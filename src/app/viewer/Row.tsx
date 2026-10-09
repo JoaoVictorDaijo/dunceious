@@ -25,6 +25,7 @@ import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, showsAnnotationBases } from './annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_BASES_MIN_ZOOM, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
@@ -73,6 +74,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const vEnd = Math.min(alignmentLength, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 30);
 
   const seq = l.record.alignedSequence || l.record.sequence;
+  const lastBaseEnd = useMemo(() => {
+    let end = seq.length;
+    while (end > 0 && seq[end - 1] === '-') end--;
+    return end;
+  }, [seq]);
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 
@@ -266,11 +272,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
               const isBroken = brokenFeatureMap.get(f) ?? false;
 
-              const tooltipContent = [
+              const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || `${f.start + 1}..${f.end}`}`,
+                `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
@@ -301,7 +307,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
                       style={{ cursor: 'pointer', d: `path("${barPath}")` } as React.CSSProperties} opacity={isSelected ? 1 : 0.85}
-                      onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
+                      onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() })}
                       onMouseOut={() => setTooltip(null)}
                       onClick={(ev) => {
                         ev.stopPropagation();
@@ -337,7 +343,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   // wrap, and it cannot see the crossings its header calls "false
                   // linear", which reach the sequence end. Either says the FEATURE
                   // crosses; s1.end > s2.start picks the one PAIR that does.
-                  if ((isWrap || s1.end >= seq.length) && s1.end > s2.start) {
+                  if ((isWrap || s1.end >= lastBaseEnd) && s1.end > s2.start) {
                     const x1 = xScale(s1.end) - scrollX;
                     const xEnd = xScale(seq.length) - scrollX;
                     const xStart = xScale(0) - scrollX;
