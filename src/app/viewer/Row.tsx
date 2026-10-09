@@ -27,7 +27,7 @@ import { annotationBarPath, annotationDirection, showsAnnotationBases } from './
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
-import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_BASES_MIN_ZOOM, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -53,6 +53,8 @@ export interface RowData {
   conservationScores: number[];
   quantValueRanges: Record<string, { min: number, max: number }>;
   showTracks: boolean;
+  /** 0..1: how far opted-in annotation bars have opened to show their bases. */
+  basesOpenness: number;
 }
 
 export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
@@ -63,7 +65,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
-    showTracks
+    showTracks, basesOpenness
   } = data;
 
   const l = recordLayouts[index];
@@ -268,8 +270,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // (see .annot-feature); everything inside draws from y = 0.
               const laneY = l.laneTops[p.row] + l.topPadding;
               const y = 0;
-              const expanded = showsAnnotationBases(f) && zoomLevel > ANNOT_BASES_MIN_ZOOM;
-              const barHeight = ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
+              const openness = showsAnnotationBases(f) ? basesOpenness : 0;
+              const expanded = openness > 0;
+              const barHeight = ANNOT_BAR_HEIGHT + openness * ANNOT_BASES_HEIGHT;
               const place = (node: React.ReactNode) => (
                 <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
@@ -305,14 +308,13 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       data-annotation-part=""
                       data-x={fX}
                       data-width={Math.max(1, fW)}
-                      className="annot-bar"
                       d={barPath}
                       fill={fill} fillOpacity={isSelected ? 0.45 : 0.3}
                       strokeLinejoin="round"
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer', d: `path("${barPath}")` } as React.CSSProperties} opacity={isSelected ? 1 : 0.85}
+                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
                       onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() })}
                       onMouseOut={() => setTooltip(null)}
                       onClick={(ev) => {
@@ -330,7 +332,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       }}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
-                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel} expanded={expanded}
+                      start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
                 );

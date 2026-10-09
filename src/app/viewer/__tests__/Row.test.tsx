@@ -18,6 +18,8 @@
  */
 
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, installCanvasRecorder } from '@/src/app/testing/renderHarness';
 import { fireEvent } from '@testing-library/react';
@@ -61,6 +63,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     conservationScores: [],
     quantValueRanges: {},
     showTracks: false,
+    basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
   };
   return { ...base, ...overrides };
 }
@@ -330,4 +333,62 @@ it('keeps a record selection aligned with the full effective row height', () => 
   expect(selection()?.getAttribute('height')).toBe('150');
   rerender(<Row index={0} style={{}} data={makeData(5)} />);
   expect(selection()?.getAttribute('height')).toBe('42');
+});
+
+describe('annotation bars stay in step with scroll', () => {
+  const feature: BioFeature = { type: 'gene', name: 'tracked', start: 10, end: 60, strand: 1 };
+  const labelSvg = (c: HTMLElement) => c.querySelector('svg[aria-label]') as SVGSVGElement;
+
+  // 90 puts the feature wholly on screen, 200 partly off the left edge, 20 mid-feature.
+  it.each([0, 20, 90, 200])('aligns the label with the bar at scrollX %i', (scrollX) => {
+    const { container } = renderRow(rec([feature]), { scrollX });
+    const bar = glyphs(container)[0];
+    const barLeft = Number(bar.getAttribute('data-x'));
+    expect(Number(labelSvg(container).getAttribute('x'))).toBeCloseTo(Math.max(0, barLeft), 5);
+  });
+
+  // A CSS `d` on the bar restarts a transition on every scroll frame, so the bar
+  // trails its label; an attribute-only path moves in the frame it renders.
+  it('does not mirror the bar geometry into an inline style', () => {
+    const { container } = renderRow(rec([feature]), { scrollX: 90 });
+    const bar = glyphs(container)[0] as SVGPathElement;
+    expect(bar.getAttribute('style') ?? '').not.toMatch(/\bd\s*:/);
+  });
+});
+
+describe('annotation bar openness', () => {
+  const opted: BioFeature = { type: 'gene', name: 'o', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } };
+
+  it.each([[0, 14], [0.5, 21], [1, 28]])('sizes the bar and its label clip for openness %s', (basesOpenness, height) => {
+    const { container } = renderRow(rec([opted]), { zoomLevel: 30, basesOpenness });
+    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(height);
+    expect(glyphs(container)[0].getAttribute('d')).toMatch(new RegExp(`L120,${height / 2}L`)); // arrow tip at mid-height
+  });
+
+  it('renders the bases only while the bar is at least partly open', () => {
+    const count = (basesOpenness: number) => {
+      const { container, unmount } = renderRow(rec([opted]), { zoomLevel: 30, basesOpenness });
+      const n = container.querySelectorAll('[data-annotation-base]').length;
+      unmount();
+      return n;
+    };
+    expect(count(0)).toBe(0);
+    expect(count(0.01)).toBe(4);
+    expect(count(1)).toBe(4);
+  });
+
+  it('leaves annotations that do not show bases at the thin height', () => {
+    const { container } = renderRow(rec([{ ...opted, metadata: {} }]), { zoomLevel: 30, basesOpenness: 1 });
+    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(14);
+  });
+});
+
+describe('annotation motion CSS', () => {
+  // Bar geometry follows scroll and zoom; a transition on `d` would make it lag.
+  it('declares no transition on the path geometry property', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/app/index.css'), 'utf8');
+    const transitions = css.match(/transition(-property)?\s*:[^;]*/g) ?? [];
+    expect(transitions.filter(t => /(^|[\s:,])d(\s|,|$)/.test(t.replace(/^transition(-property)?\s*:/, ' ')))).toEqual([]);
+    expect(css).not.toMatch(/\.annot-bar\b/);
+  });
 });

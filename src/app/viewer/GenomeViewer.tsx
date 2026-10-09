@@ -30,6 +30,7 @@ import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
 import { Minimap } from './Minimap';
 import { useViewport } from './useViewport';
+import { useBasesOpenness } from './useBasesOpenness';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
 
@@ -210,6 +211,7 @@ const GenomeViewer: React.FC<Props> = ({
   // A boolean, so the layout recomputes only when zoom crosses the threshold.
   const basesVisible = zoomLevel > ANNOT_BASES_MIN_ZOOM;
   const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM;
+  const basesOpenness = useBasesOpenness(basesVisible);
   const recordLayouts = useMemo(
     () => computeRecordLayouts(records, { showAnnotations, translationVisible, showTracks, basesVisible }),
     [records, showAnnotations, translationVisible, showTracks, basesVisible],
@@ -242,13 +244,14 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation,
     conservationScores,
     quantValueRanges,
-    showTracks
+    showTracks,
+    basesOpenness
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks
+    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed

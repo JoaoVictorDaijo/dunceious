@@ -47,17 +47,17 @@
   button:active { scale: none !important; }
 }
 
-/* Annotation lanes slide and bars open when an annotation starts showing its
-   bases. `d` is a CSS property in Chromium and Firefox; Safari just snaps. */
+/* Annotation lanes and translation rows slide when they open. Bar geometry is
+   never transitioned: it follows scroll and zoom, and a lag would detach the
+   bars from their labels (the opening is animated in useBasesOpenness). */
 .annot-feature, .translation-motion { transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1); }
 .translation-band {
   transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms cubic-bezier(0.4, 0, 0.2, 1), visibility 240ms;
 }
 .translation-band[aria-hidden="true"] { visibility: hidden; }
-.annot-bar { transition: d 240ms cubic-bezier(0.4, 0, 0.2, 1); }
 .annot-bases { animation: annot-bases-in 260ms ease-out 120ms both; }
 @keyframes annot-bases-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .annot-feature, .annot-bar, .translation-motion, .translation-band { transition: none; }
+  .annot-feature, .translation-motion, .translation-band { transition: none; }
   .annot-bases { animation: none; }
 }
