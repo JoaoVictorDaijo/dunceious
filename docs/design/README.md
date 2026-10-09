@@ -128,6 +128,17 @@ but one part is superseded:
 
 Token values will also need updating if the palette changes in item 3 are approved.
 
+### 7. Rethink in progress: theme concepts v2
+
+The gradient-wash styles are treated as a dead end; their lasting value is the map of where an
+accent can live. `prototypes/theme-concepts-v2.html` (open it directly, no build) mocks the app
+and switches between four placement concepts — **Clean** (logo, active mode, pill, 1px seam),
+**Signal** (solid environment-coloured status bar, VS Code-style), **Tint** (all dark chrome
+takes a little of the hue, Arc-style) and **Frame** (a ring and halo on the canvas edge, which
+bends the governing rule) — across the Nucleotide / Peptide / Hub / Empty environments.
+Keys: `1`–`4` concept, `n` `p` `h` `e` environment. Item 6 below is the interim state shipped
+until one concept is chosen.
+
 ### 6. Shortlist cut to four, plus a shared seam
 
 **Resolved** on `feat/ui-refresh`. Seven styles were more choice than value and several read
