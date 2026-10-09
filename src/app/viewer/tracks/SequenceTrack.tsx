@@ -22,9 +22,10 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, frameShift, translateFeature, type FrameShift } from '@/src/domain/bio';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, translationFrame } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame } from '../cds';
+import { frameshiftLabel } from '../annotationPresentation';
 
 export interface SequenceTrackProps {
   seq: string;
@@ -43,6 +44,38 @@ export interface SequenceTrackProps {
   currentSearchIdx: number;
 }
 
+/** Screen box of one drawn codon, plus the biological index of its last base in reading order. */
+interface CodonBox { left: number; right: number; midY: number; lastIdx: number }
+
+/**
+ * The step between two codons of a ribosomal frameshift: a line from the end of
+ * the previous codon (in reading direction) to the start of the next one in its
+ * new row, with the shift named on the junction so the re-read or skipped base
+ * is not mistaken for a drawing glitch.
+ */
+function drawFrameshiftStep(ctx: CanvasRenderingContext2D, prev: CodonBox, next: CodonBox, shift: FrameShift, strand: 1 | -1, color: string): void {
+  const from = strand === 1 ? prev.right : prev.left;
+  const to = strand === 1 ? next.left : next.right;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(from, prev.midY);
+  ctx.lineTo(to, prev.midY);
+  ctx.lineTo(to, next.midY);
+  ctx.stroke();
+  const midY = (prev.midY + next.midY) / 2;
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(to - 8, midY - 5, 16, 10);
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 8px ${MONO_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(frameshiftLabel(shift), to, midY);
+  ctx.restore();
+}
+
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
@@ -54,6 +87,10 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const bandHeight = AA_ROW_HEIGHT * 3;
   const bandTop = y - (translationVisible ? bandHeight : 0);
 
+
+  // Frames and frameshifts are read in biological bases, so an alignment gap
+  // between two codons is neither a frame change nor a skipped base.
+  const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
@@ -213,10 +250,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
-        const frame = translationFrame(f, seq);
         const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
         if (!ctx) return;
-        const aaY = AA_ROW_HEIGHT * frame;
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
@@ -228,15 +263,27 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        let prev: CodonBox | null = null;
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const aa = protein[j / 3] ?? '?';
           const startIdx = alignedIndices[j];
           const endIdx = alignedIndices[j + 2];
 
-          if (startIdx === undefined || endIdx === undefined) continue;
+          if (startIdx === undefined || endIdx === undefined) { prev = null; continue; }
 
-          const aX = xScale(Math.min(startIdx, endIdx)) - scrollX;
-          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(Math.min(startIdx, endIdx));
+          const lo = Math.min(startIdx, endIdx);
+          const aX = xScale(lo) - scrollX;
+          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(lo);
+          const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
+          // Each codon sits in the row of its own frame, so a ribosomal frameshift
+          // inside a join steps rows exactly where translation changes frame.
+          const aaY = AA_ROW_HEIGHT * codonFrame(firstBase, f.strand);
+          const lastIdx = originalPositions ? originalPositions[endIdx] : endIdx;
+          const box: CodonBox = { left: aX, right: aX + aW, midY: aaY + AA_ROW_HEIGHT / 2, lastIdx };
+
+          const shift = prev ? frameShift(prev.lastIdx, firstBase, f.strand) : null;
+          if (shift && prev && aX + aW >= 0 && aX <= viewportWidth) drawFrameshiftStep(ctx, prev, box, shift, f.strand, baseColor);
+          prev = box;
 
           if (aX + aW < 0 || aX > viewportWidth) continue;
 
@@ -253,7 +300,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, bandHeight, moleculeType, features, brokenFeatureMap, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, bandHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',

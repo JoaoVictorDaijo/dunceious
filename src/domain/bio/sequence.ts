@@ -363,6 +363,23 @@ export function mapUngappedRangeToAligned(
 /**
  * Maps a position in an aligned sequence (with gaps) back to the original sequence index.
  */
+/**
+ * `getOriginalPos` for every column at once: `positions[col]` is the number of
+ * residues before column `col`, so a residue column maps to its own biological
+ * index and a gap column to the next residue's. One pass over the sequence,
+ * for callers that would otherwise ask per codon.
+ */
+export const alignedToOriginalPositions = (alignedSeq: string): Uint32Array => {
+  const positions = new Uint32Array(alignedSeq.length + 1);
+  let count = 0;
+  for (let i = 0; i < alignedSeq.length; i++) {
+    positions[i] = count;
+    if (alignedSeq[i] !== '-') count++;
+  }
+  positions[alignedSeq.length] = count;
+  return positions;
+};
+
 export const getOriginalPos = (alignedSeq: string, alignedPos: number): number => {
   let originalPos = 0;
   const limit = Math.min(alignedPos, alignedSeq.length);

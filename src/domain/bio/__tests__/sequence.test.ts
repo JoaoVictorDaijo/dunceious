@@ -29,6 +29,7 @@ import {
   removeGapsWithMap,
   mapUngappedRangeToAligned,
   getOriginalPos,
+  alignedToOriginalPositions,
   PROTEIN_ONLY_RESIDUES,
   isProteinSession,
 } from '../sequence';
@@ -260,5 +261,18 @@ describe('translation across continuous aligned CDS parts', () => {
     const result = extractCodingSequence({ start: 0, end: 12, strand: 1 }, 'AT-GT-AG-GAG');
     expect(result.codingSeq).toBe('ATGTAGGAG');
     expect(isFeatureBroken({}, result.codingSeq)).toBe(true);
+  });
+});
+
+describe('alignedToOriginalPositions', () => {
+  it('maps every column to the biological index getOriginalPos gives it, in one pass', () => {
+    const seq = '--A-TG-AAA-TAA--';
+    const positions = alignedToOriginalPositions(seq);
+    expect(positions.length).toBe(seq.length + 1);
+    for (let col = 0; col <= seq.length; col++) expect(positions[col]).toBe(getOriginalPos(seq, col));
+  });
+
+  it('is the identity for an ungapped sequence', () => {
+    expect([...alignedToOriginalPositions('ATG')]).toEqual([0, 1, 2, 3]);
   });
 });

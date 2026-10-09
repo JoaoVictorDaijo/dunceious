@@ -19,7 +19,7 @@
 
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { extractCodingSequence, getOriginalPos, isFeatureBroken } from '@/src/domain/bio';
+import { extractCodingSequence, isFeatureBroken } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
@@ -51,18 +51,16 @@ export const computeBrokenFeatureMap = (
 };
 
 /**
- * Vertical lane (0, 1, or 2) for a feature's amino-acid row: its reading-frame
- * phase, folding in `/codon_start`. Forward features read up from `start`,
- * reverse features down from `end`, so the `codon_start` offset shifts the lane
- * forward on the plus strand and backward on the minus strand. Features sharing
- * a reading frame share a lane; those in different frames get different lanes.
- * With an aligned sequence, anchors are counted in biological bases, not columns.
+ * Row (0, 1, or 2) of one codon: the reading frame of its first base. A forward
+ * codon reads up from `firstBase`; a reverse codon reads down from it and
+ * occupies `[firstBase - 2, firstBase]`, so its row is the exclusive end
+ * `firstBase + 1` modulo 3 and a plain reverse CDS keeps the R1–R3 row of its
+ * `end`. `firstBase` is a biological index: in an alignment the caller maps
+ * columns to residues first (see `alignedToOriginalPositions`). Computed per
+ * codon rather than per feature so that a ribosomal frameshift inside a join
+ * changes rows where the frame really changes.
  */
-export const translationFrame = (feature: BioFeature, sequence?: string): 0 | 1 | 2 => {
-  const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);
-  const phase = Number.isFinite(codonStart) && codonStart > 1 ? codonStart - 1 : 0;
-  const boundary = feature.strand === 1 ? feature.start : feature.end;
-  const biologicalBoundary = sequence === undefined ? boundary : getOriginalPos(sequence, boundary);
-  const anchor = biologicalBoundary + (feature.strand === 1 ? phase : -phase);
+export const codonFrame = (firstBase: number, strand: 1 | -1): 0 | 1 | 2 => {
+  const anchor = strand === 1 ? firstBase : firstBase + 1;
   return (((anchor % 3) + 3) % 3) as 0 | 1 | 2;
 };

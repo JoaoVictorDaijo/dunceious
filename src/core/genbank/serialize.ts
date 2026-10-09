@@ -51,6 +51,15 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
  * sequence, 60 chars/line grouped
  * by 10 with a 1-based position gutter.
  */
+/**
+ * INSDC qualifiers that carry no value (the parser stores them as ''). They are
+ * written as a bare `/key`; any other empty value is dropped as noise.
+ */
+const FLAG_QUALIFIERS = new Set([
+  'circular_RNA', 'environmental_sample', 'focus', 'germline', 'macronuclear', 'partial',
+  'proviral', 'pseudo', 'rearranged', 'ribosomal_slippage', 'trans_splicing', 'transgenic',
+]);
+
 export const exportToGenBank = (records: SeqRecord[]): string => {
   if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
     throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
@@ -105,6 +114,10 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
         Object.entries(f.metadata).forEach(([k, v]) => {
           // Keys prefixed with '_' are internal Dunceious fields, not GenBank qualifiers
           if (k.startsWith('_')) return;
+          if (v === '' && FLAG_QUALIFIERS.has(k)) {
+            gb += `                     /${k}\n`;
+            return;
+          }
           if (v !== undefined && v !== null && v !== '') {
             gb += `                     /${k}="${escapeQualifierValue(String(v))}"\n`;
           }

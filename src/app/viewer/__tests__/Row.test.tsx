@@ -260,6 +260,37 @@ describe('thin annotation bars', () => {
 });
 
 
+describe('frameshift joins', () => {
+  const join: BioFeature = { type: 'CDS', name: 'j', start: 0, end: 60, strand: 1,
+    segments: [{ start: 0, end: 20 }, { start: 40, end: 60 }] };
+  const slip: BioFeature = { type: 'CDS', name: 'pp1ab', start: 0, end: 60, strand: 1,
+    segments: [{ start: 0, end: 30 }, { start: 29, end: 60 }] };
+  const names = (c: HTMLElement) => c.querySelectorAll('[data-annotation-name]');
+
+  it('paints the name once for a joined feature', () => {
+    const { container } = renderRow(rec([join]));
+    expect(names(container)).toHaveLength(1);
+  });
+
+  it('still shows the name when only a later part is in view', () => {
+    const { container } = renderRow(rec([join]), { scrollX: 30 * ZOOM, viewportWidth: 30 * ZOOM });
+    expect(names(container)).toHaveLength(1);
+  });
+
+  it('marks a −1 ribosomal slip on the bar at the shared base', () => {
+    const { container } = renderRow(rec([slip]));
+    const mark = container.querySelector('[data-frameshift]');
+    expect(mark?.getAttribute('data-frameshift')).toBe('-1');
+    expect(Math.round(Number(mark?.getAttribute('data-x')))).toBe(29 * ZOOM);
+    expect(mark?.textContent).toContain('−1');
+  });
+
+  it('does not mark a spliced join', () => {
+    const { container } = renderRow(rec([join]));
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+  });
+});
+
 describe('aligned annotation bars', () => {
   it('draws one bar across internal gaps with gap characters inside the opened bar', () => {
     const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--AC--GT--',

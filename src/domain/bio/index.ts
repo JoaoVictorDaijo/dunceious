@@ -33,6 +33,7 @@ export {
   removeGapsWithMap,
   mapUngappedRangeToAligned,
   getOriginalPos,
+  alignedToOriginalPositions,
   isProteinSession,
 } from './sequence';
 
@@ -48,3 +49,5 @@ export type {
 } from './types';
 
 export { getFeatureStrand } from './strand';
+export { frameShift, segmentFrameshifts } from './frameshift';
+export type { FrameShift, SegmentFrameshift } from './frameshift';

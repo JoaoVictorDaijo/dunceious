@@ -23,7 +23,8 @@ import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationBarPath, annotationDirection, showsAnnotationBases } from './annotationPresentation';
+import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases } from './annotationPresentation';
+import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
@@ -287,14 +288,21 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
+                ...frameshiftSummary(f),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
 
-              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true) => {
+              const partVisible = (s: number, e: number) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
-                if (fX > viewportWidth || fX + fW < 0) return null;
+                return fX <= viewportWidth && fX + fW >= 0;
+              };
+              // The name is painted once, on the first piece in view, so a long join
+              // keeps its name on screen without repeating it at every segment.
+              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true, labelled = true) => {
+                const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
+                if (!partVisible(s, e)) return null;
 
                 if (f.type === 'quantitative_data') return null; // Handled by QuantitativeTrack
 
@@ -332,7 +340,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       }}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
-                      start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded}
+                      start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
                 );
@@ -392,6 +400,19 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
+                const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                const marks = segmentFrameshifts(f).map(({ position, shift }) => {
+                  const mx = xScale(position) - scrollX;
+                  if (mx < -30 || mx > viewportWidth + 30) return null;
+                  // A tick on the shared (or skipped) base and a badge naming the shift.
+                  return (
+                    <g key={`fs-${position}`} data-frameshift={shift} data-x={mx} pointerEvents="none">
+                      <line x1={mx} x2={mx} y1={y - 2} y2={y + ANNOT_BAR_HEIGHT + 2} stroke="#0f172a" strokeWidth={1.5} />
+                      <rect x={mx + 3} y={y + 2} width={18} height={ANNOT_BAR_HEIGHT - 4} rx={2} fill="#0f172a" />
+                      <text x={mx + 12} y={y + ANNOT_BAR_HEIGHT / 2} fontSize={8} fontWeight={700} fill="#fff" textAnchor="middle" dominantBaseline="central">{frameshiftLabel(shift)}</text>
+                    </g>
+                  );
+                });
                 return place(
                   <>
                     {connectingLines}
@@ -401,8 +422,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       const terminal = segStrand === -1
                         ? seg.start === Math.min(...f.segments!.map(x => x.start))
                         : seg.end === Math.max(...f.segments!.map(x => x.end));
-                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal);
+                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal, idx === labelIdx);
                     })}
+                    {marks}
                   </>
                 );
               }
@@ -411,7 +433,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return place(
                   <>
                     {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
-                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
+                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1, !partVisible(f.start, seq.length))}
                   </>
                 );
               }
