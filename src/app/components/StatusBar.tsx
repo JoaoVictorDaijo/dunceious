@@ -17,8 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ThemeKey } from "@/src/app/logic/theme";
+import { TAP_WINDOW_MS, tapOutcome } from "@/src/app/logic/easterEgg";
+import CentralDogmaEgg from "./CentralDogmaEgg";
 
 interface StatusBarProps {
   sessionMoleculeType: "nucleotide" | "protein" | null;
@@ -34,12 +36,60 @@ const linkClass =
  * Footer status bar shown at the bottom of the app. The session pill takes the
  * environment accent, so it re-tints with the header when the workspace changes.
  */
-const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) => (
+const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) => {
+  const taps = useRef({ count: 0, last: 0 });
+  const [unlocked, setUnlocked] = useState(false);
+  const [showEgg, setShowEgg] = useState(false);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const onVersionTap = () => {
+    const now = Date.now();
+    const t = taps.current;
+    t.count = now - t.last > TAP_WINDOW_MS ? 1 : t.count + 1;
+    t.last = now;
+    const outcome = tapOutcome(t.count, unlocked);
+    if (outcome.kind === "countdown") {
+      setToast({ id: now, text: `${outcome.remaining} ${outcome.remaining === 1 ? "tap" : "taps"} away from unzipping the helix` });
+    } else if (outcome.kind === "unlock") {
+      t.count = 0;
+      setToast(null);
+      setUnlocked(true);
+      setShowEgg(true);
+    } else if (outcome.kind === "already") {
+      setToast({ id: now, text: "No need, you are already a molecular biologist" });
+    }
+  };
+
+  return (
+  <>
+  {toast && (
+    <div
+      key={toast.id}
+      role="status"
+      className="fixed bottom-12 left-6 z-[200] px-3.5 py-2 rounded-xl bg-slate-800/95 border border-slate-700 shadow-xl text-[11px] font-medium text-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-200"
+    >
+      <i className="fas fa-dna mr-2 text-sky-400"></i>{toast.text}
+    </div>
+  )}
+  {showEgg && <CentralDogmaEgg onClose={() => setShowEgg(false)} />}
   <div data-theme={themeKey} className="app-status relative bg-slate-950 border-t border-slate-800/80 overflow-hidden">
     <div className="hf-env" aria-hidden="true" />
     <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
       <div className="flex gap-4 items-center">
-        <span className="font-mono normal-case tracking-normal text-slate-300">Dunceious v{__APP_VERSION__}</span>
+        {/* Tap seven times, as with Android's build number. */}
+        <button
+          onClick={onVersionTap}
+          className="font-mono normal-case tracking-normal text-slate-300 hover:text-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+          data-tip="Dunceious build version"
+        >
+          Dunceious v{__APP_VERSION__}
+        </button>
         <Divider />
         <a
           href="https://www.gnu.org/licenses/agpl-3.0.html"
@@ -91,6 +141,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
       </div>
     </div>
   </div>
-);
+  </>
+  );
+};
 
 export default StatusBar;
