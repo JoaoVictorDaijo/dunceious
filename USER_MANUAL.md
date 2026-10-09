@@ -130,7 +130,7 @@ Results are highlighted in the viewer and listed in the sidebar. Use the **↑ /
 - **Missing Data**: Ensure your BED files follow the standard tab-delimited format.
 - **Performance**: If the browser becomes sluggish with very large alignments, try reducing the number of visible tracks or annotations.
 - **Upload Errors**: Check the **Logs** panel for detailed error messages. Common causes include sequence ID mismatches (alignment overlay), sequence length mismatches (alignment overlay), and molecule-type conflicts (loading protein sequences into a nucleotide session or vice versa).
-- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed.
+- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed. A pre-aligned FASTA exported from the same workspace re-imports correctly even when its IDs contain those suffixes.
 
 ## 6. License
 
