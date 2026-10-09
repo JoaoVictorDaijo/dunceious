@@ -28,21 +28,28 @@
  */
 
 import { splitWrapAround } from './intervals';
+import type { SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
 // Reverse complement
 // ---------------------------------------------------------------------------
 
-/** Reverse-complements a nucleotide string, preserving case and gap ('-') characters. */
-export function reverseComplement(seq: string): string {
+/**
+ * Reverse-complements nucleotides, preserving case, IUPAC ambiguity and gaps.
+ * Defaults to DNA output for existing callers; RNA output pairs A with U.
+ */
+export function reverseComplement(seq: string, moleculeType: SeqRecord['moleculeType'] = 'dna'): string {
   const complement: Record<string, string> = {
-    'A': 'T', 'T': 'A', 'U': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
+    'A': moleculeType === 'rna' ? 'U' : 'T', 'T': 'A', 'U': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
     'R': 'Y', 'Y': 'R', 'S': 'S', 'W': 'W', 'K': 'M',
     'M': 'K', 'B': 'V', 'D': 'H', 'H': 'D', 'V': 'B',
-    'a': 't', 't': 'a', 'u': 'a', 'c': 'g', 'g': 'c', 'n': 'n',
     '-': '-',
   };
-  return seq.split('').reverse().map(base => complement[base] || base).join('');
+  return seq.split('').reverse().map(base => {
+    const paired = complement[base.toUpperCase()];
+    if (!paired) return base;
+    return base === base.toLowerCase() ? paired.toLowerCase() : paired;
+  }).join('');
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +87,7 @@ const codeTable = (translTable: number): Record<string, string> => {
 };
 
 /**
- * Translates a nucleotide string codon-by-codon.
+ * Translates DNA or RNA codon-by-codon; U is normalized only for table lookup.
  *
  * @param seq         Coding sequence (5'→3', translation-ready).
  * @param translTable NCBI genetic-code id (default 1, the Standard Code).
@@ -91,7 +98,7 @@ export const translateSequence = (seq: string, translTable = 1): string => {
   const table = codeTable(translTable);
   let protein = "";
   for (let i = 0; i < seq.length - 2; i += 3) {
-    const tCodon = seq.substring(i, i + 3).toUpperCase();
+    const tCodon = seq.substring(i, i + 3).toUpperCase().replace(/U/g, 'T');
     protein += table[tCodon] || '?';
   }
   return protein;

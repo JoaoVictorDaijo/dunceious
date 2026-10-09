@@ -19,9 +19,9 @@
 
 const IUPAC_MAP: Record<string, string> = {
   'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
-  'R': '[AG]', 'Y': '[CT]', 'S': '[GC]', 'W': '[AT]',
-  'K': '[GT]', 'M': '[AC]', 'B': '[CGT]', 'D': '[AGT]',
-  'H': '[ACT]', 'V': '[ACG]', 'N': '[ACGT]',
+  'R': '[AG]', 'Y': '[CTU]', 'S': '[GC]', 'W': '[ATU]',
+  'K': '[GTU]', 'M': '[AC]', 'B': '[CGTU]', 'D': '[AGTU]',
+  'H': '[ACTU]', 'V': '[ACG]', 'N': '[ACGTU]',
 };
 
 const PROTEIN_IUPAC_MAP: Record<string, string> = {
@@ -44,7 +44,8 @@ const PROTEIN_IUPAC_MAP: Record<string, string> = {
  *
  * - An empty query returns a **never-match** regex (`/$.^/`).
  * - `moleculeType` selects the ambiguity map: nucleotide IUPAC codes
- *   (`N`→`[ACGT]`, `R`→`[AG]`, …) or protein codes (`B`→`[DN]`, `X`→any AA, …).
+ *   (`N`→`[ACGTU]`, `R`→`[AG]`, …) or protein codes (`B`→`[DN]`, `X`→any AA, …).
+ *   Literal T and U stay distinct; nucleotide ambiguity accepts DNA and RNA.
  * - Residues are joined with `-*` so matches tolerate alignment gaps between
  *   them; the regex is **global + case-insensitive** (`gi`).
  */

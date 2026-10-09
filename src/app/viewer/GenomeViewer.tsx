@@ -153,13 +153,13 @@ const GenomeViewer: React.FC<Props> = ({
 
   const {
     containerRef, horizontalScrollRef, listRef, listContainerRef,
-    dimensions, listHeight, scrollX, zoomLevel, gotoPos, setGotoPos, mousePos, setZoomLevel,
+    dimensions, listHeight, scrollX, zoomLevel, gotoPos, setGotoPos, mousePos, applyZoom, handleSelectionChange,
     viewportWidth, chartWidth, fitZoom, xScaleGlobal,
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
   } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete });
 
-  const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
+  const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange: handleSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
   const handleContextMenu = useCallback((e: React.MouseEvent, recordId: string, feature?: BioFeature) => {
     e.preventDefault();
@@ -196,7 +196,7 @@ const GenomeViewer: React.FC<Props> = ({
   }, [showConservation, records, alignmentLength]);
 
   const persistentSelection = activeSelection;
-  const setPersistentSelection = onSelectionChange;
+  const setPersistentSelection = handleSelectionChange;
 
   // Layout Constants
   const RIGHT_SPACER = 250;
@@ -274,8 +274,7 @@ const GenomeViewer: React.FC<Props> = ({
           searchResults={searchResults}
           currentSearchIdx={currentSearchIdx}
           customColors={customColors}
-          horizontalScrollRef={horizontalScrollRef}
-          onZoomChange={setZoomLevel}
+          onZoomChange={applyZoom}
         />
 
         {/* CONTROLS SECTION */}
@@ -316,7 +315,7 @@ const GenomeViewer: React.FC<Props> = ({
               {/* Selection actions — segmented track + emerald export */}
               <div className={segTrack} style={trackShadow}>
                 <button onClick={handleCenterOnSelection} className={segBtn} style={raisedShadow} title="Center on Selection">Center</button>
-                <button onClick={handleZoomToSelection} className={segBtn} style={raisedShadow}>Zoom Sel</button>
+                <button onClick={() => handleZoomToSelection()} className={segBtn} style={raisedShadow}>Zoom Sel</button>
               </div>
               <button onClick={onExportFasta} className={segExport} style={raisedShadow} title="Export selection as FASTA"><i className="fas fa-download text-[8px]"></i></button>
             </>
@@ -344,7 +343,7 @@ const GenomeViewer: React.FC<Props> = ({
           scrollX={scrollX} zoomLevel={zoomLevel} containerWidth={dimensions.width}
           mousePos={mousePos} persistentSelection={persistentSelection}
           dragSelection={dragSelection} dragCursorPos={dragCursorPos}
-          onSelectionChange={onSelectionChange}
+          onSelectionChange={handleSelectionChange}
         />
 
         {contextMenu && (
@@ -366,9 +365,12 @@ const GenomeViewer: React.FC<Props> = ({
             <button 
               onClick={() => {
                 if (contextMenu.feature) {
-                  onSelectionChange({ start: contextMenu.feature.start, end: contextMenu.feature.end, recordIds: [contextMenu.recordId] });
+                  const selection = { start: contextMenu.feature.start, end: contextMenu.feature.end, recordIds: [contextMenu.recordId] };
+                  handleSelectionChange(selection);
+                  handleZoomToSelection(selection);
+                } else {
+                  handleZoomToSelection();
                 }
-                handleZoomToSelection();
                 setContextMenu(null);
               }}
               disabled={!persistentSelection && !contextMenu.feature}
@@ -450,7 +452,7 @@ const GenomeViewer: React.FC<Props> = ({
           {mousePos && (
             <div className="absolute top-0 bottom-0 w-px bg-sky-500/30 z-40 pointer-events-none" style={{ left: mousePos.x }}>
               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg">
-                {mousePos.bp.toLocaleString()} bp
+                {(mousePos.bp + 1).toLocaleString()} bp
               </div>
             </div>
           )}

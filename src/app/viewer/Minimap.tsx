@@ -18,7 +18,7 @@
  */
 
 import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
 import { getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
 
@@ -34,8 +34,7 @@ export interface MinimapProps {
   searchResults: SearchResult[];
   currentSearchIdx: number;
   customColors?: Record<string, string>;
-  horizontalScrollRef: React.RefObject<HTMLDivElement | null>;
-  onZoomChange: (zoom: number) => void;
+  onZoomChange: (zoom: number, scrollLeft: number) => void;
 }
 
 export const Minimap: React.FC<MinimapProps> = ({
@@ -50,7 +49,6 @@ export const Minimap: React.FC<MinimapProps> = ({
   searchResults,
   currentSearchIdx,
   customColors,
-  horizontalScrollRef,
   onZoomChange,
 }) => {
   const minimapRef = useRef<SVGSVGElement>(null);
@@ -58,12 +56,27 @@ export const Minimap: React.FC<MinimapProps> = ({
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
   const brushRef = useRef<any>(null);
   const isBrushing = useRef(false);
+  const [minimapWidth, setMinimapWidth] = useState(0);
+
+  // Selection controls resize this flex item without resizing the viewer.
+  // Measure the actual drawing area so brush, ticks and canvas share one scale.
+  useEffect(() => {
+    const wrapper = minimapWrapperRef.current;
+    if (!wrapper) return;
+    const measure = () => setMinimapWidth(Math.max(0, wrapper.clientWidth - 8));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, []);
+  const zoomChangeRef = useRef(onZoomChange);
+  zoomChangeRef.current = onZoomChange;
 
   // Minimap Static Parts (Ruler, Sequence, Brush Init)
   useEffect(() => {
-    if (!minimapRef.current || !minimapWrapperRef.current || alignmentLength === 0) return;
+    if (!minimapRef.current || !minimapWrapperRef.current || minimapWidth === 0 || alignmentLength === 0) return;
 
-    const width = minimapWrapperRef.current.clientWidth - 8;
+    const width = minimapWidth;
     const height = 45;
     
     // Canvas Rendering for heavy elements
@@ -207,10 +220,7 @@ export const Minimap: React.FC<MinimapProps> = ({
             const targetZoom = Math.min(150, Math.max(fitZoom, newZoom));
             const newScroll = x0 * targetZoom;
             
-            onZoomChange(targetZoom);
-            if (horizontalScrollRef.current) {
-              horizontalScrollRef.current.scrollLeft = newScroll;
-            }
+            zoomChangeRef.current(targetZoom, newScroll);
           }
         }
       })
@@ -224,13 +234,13 @@ export const Minimap: React.FC<MinimapProps> = ({
       .call(brush);
 
     // Remove old click handler as brush handles it now
-  }, [alignmentLength, containerWidth, consensus, records, viewportWidth, customColors, searchResults, currentSearchIdx]);
+  }, [alignmentLength, minimapWidth, consensus, records, viewportWidth, customColors, searchResults, currentSearchIdx]);
 
   // Minimap Dynamic Indicator (Sync Brush with Main Viewport)
   useEffect(() => {
     if (!minimapRef.current || !minimapWrapperRef.current || !brushRef.current || alignmentLength === 0 || isBrushing.current) return;
 
-    const width = minimapWrapperRef.current.clientWidth - 8;
+    const width = minimapWidth;
     const miniX = d3.scaleLinear().domain([0, alignmentLength]).range([0, width]);
     const brushG = d3.select(minimapRef.current).select('.brush');
     
@@ -239,7 +249,7 @@ export const Minimap: React.FC<MinimapProps> = ({
     
     brushG.transition().duration(150).ease(d3.easeCubicOut).call(brushRef.current.move, [bX0, bX1]);
 
-  }, [scrollX, zoomLevel, viewportWidth, alignmentLength, containerWidth, customColors, searchResults, currentSearchIdx, records, consensus]);
+  }, [scrollX, zoomLevel, viewportWidth, alignmentLength, minimapWidth, customColors, searchResults, currentSearchIdx, records, consensus]);
 
   return (
     <div className="flex-1 flex flex-col justify-center min-w-0">

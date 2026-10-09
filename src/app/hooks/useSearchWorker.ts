@@ -109,6 +109,7 @@ export function useSearchWorker(
       id: r.id,
       sequence: r.sequence,
       alignedSequence: r.alignedSequence,
+      moleculeType: r.moleculeType,
     }));
   }, [records]);
 
