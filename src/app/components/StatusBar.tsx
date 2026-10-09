@@ -62,7 +62,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
       setUnlocked(true);
       setShowEgg(true);
     } else if (outcome.kind === "already") {
-      setToast({ id: now, text: "No need, you are already a molecular biologist" });
+      setToast({ id: now, text: "Already expressed. Refresh the page to replay it" });
     }
   };
 

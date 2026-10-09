@@ -209,7 +209,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Central Dogma easter egg"
+      aria-label="DUNCEIOUS gene expression easter egg"
       onClick={onClose}
       className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 select-none"
     >
@@ -247,9 +247,9 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
       <div className="mt-8 min-h-[150px] text-center max-w-xl">
       {elapsed >= FINALE_AT && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
-          <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">Central Dogma unlocked</h2>
+          <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">Gene expressed</h2>
           <p className="mt-3 text-[13px] text-slate-400 leading-relaxed">
-            You are now a molecular biologist. Spelling our name took two recoded stop codons:
+            Nine codons, one very small protein. Two of them are stop codons the cell reads anyway:
             <span className="text-amber-400"> U</span> is selenocysteine (UGA) and
             <span className="text-amber-400"> O</span> is pyrrolysine (UAG).
           </p>
