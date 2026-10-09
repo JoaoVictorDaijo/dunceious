@@ -131,6 +131,19 @@ describe('remote alignment application integration', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.getByText('EBI no longer has this job.')).toBeTruthy();
   });
+  it('runs a clean second job from Try again and overlays its result', async () => {
+    await start();
+    await act(async () => finish({ kind: 'ok', data: 'NOT_FOUND' }));
+    fireEvent.click(screen.getByRole('button', { name: /Alignment failed/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Align' }));
+    await waitFor(() => expect(captured.client!.status).toHaveBeenCalledTimes(2));
+    expect(captured.client!.submit).toHaveBeenCalledTimes(2);
+    expect(captured.sidebar!.isAlignmentLocked).toBe(true);
+    await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.isAlignmentLocked).toBe(false);
+  });
 });
 
 describe('file reads started before the lock', () => {

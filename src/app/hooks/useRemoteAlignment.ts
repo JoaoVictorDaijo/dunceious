@@ -24,8 +24,27 @@ import { ALIGNMENT_ENGINES, DEFAULT_ENGINE, preflightAlignment, measureAlignment
 import { createEbiClient, type EbiClient } from '@/src/app/lib/ebiClient';
 import { readAlignConsent } from '@/src/app/logic/alignConsentPref';
 import { readAlignEmail, readVerifiedAlignEmail, writeAlignEmail } from '@/src/app/logic/alignEmailPref';
-import { isAlignmentActive, runRemoteAlignment, sleepUntilPoll, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
+import {
+  ALIGNMENT_STEPS, createAlignmentProgress, isAlignmentActive, runRemoteAlignment, sleepUntilPoll,
+  type AlignmentProgress, type RemoteAlignmentState,
+} from '@/src/app/logic/remoteAlignment';
 import type { FastaAlignedRecord } from '@/src/workers/protocol';
+
+type AlignmentSnapshot = Pick<SeqRecord, 'id' | 'sequence'>[];
+type AlignmentPresentation = 'closed' | 'dialog' | 'pill';
+
+/** Dialog, pill or closed. A successful job's pill closes on its own; the ref gives job callbacks the current value. */
+function useAlignmentPresentation(phase: RemoteAlignmentState['phase']) {
+  const [presentation, setPresentation] = useState<AlignmentPresentation>('closed');
+  const presentationRef = useRef(presentation);
+  const present = (value: AlignmentPresentation) => { presentationRef.current = value; setPresentation(value); };
+  useEffect(() => {
+    if (phase !== 'done' || presentation !== 'pill') return;
+    const timer = setTimeout(() => present('closed'), 4000);
+    return () => clearTimeout(timer);
+  }, [phase, presentation]);
+  return { presentation, presentationRef, present };
+}
 
 function useAlignmentUnloadWarning(active: boolean) {
   useEffect(() => {
@@ -36,11 +55,21 @@ function useAlignmentUnloadWarning(active: boolean) {
   }, [active]);
 }
 
+function matchesSnapshot(snapshot: AlignmentSnapshot, records: SeqRecord[]): boolean {
+  return snapshot.length === records.length && snapshot.every((record, index) => records[index].id === record.id && records[index].sequence === record.sequence);
+}
+
+/** Fails a job whose run threw past the runner's own error handling, so neither the lock nor the monitor stays stuck. */
+function internalFailure(progress: AlignmentProgress, error: unknown, jobId: string | undefined, at: number): RemoteAlignmentState {
+  const failedStep = ALIGNMENT_STEPS.find(id => ['active', 'pending'].includes(progress.steps[id].status)) ?? 'applied';
+  const detail = `The alignment stopped after an internal error: ${error instanceof Error ? error.message : String(error)}`;
+  return { ...progress, phase: 'failed', reason: 'invalid-result', detail, jobId,
+    steps: { ...progress.steps, [failedStep]: { ...progress.steps[failedStep], status: 'failed', leftAt: at } } };
+}
+
 export function useRemoteAlignment(records: SeqRecord[], apply: (records: FastaAlignedRecord[]) => number, addLog: (message: string) => void, injectedClient?: EbiClient) {
   const [state, setState] = useState<RemoteAlignmentState>({ phase: 'idle' });
-  const [presentation, setPresentation] = useState<'closed' | 'dialog' | 'pill'>('closed');
-  const presentationRef = useRef(presentation);
-  const present = (value: typeof presentation) => { presentationRef.current = value; setPresentation(value); };
+  const { presentation, presentationRef, present } = useAlignmentPresentation(state.phase);
   const [engineId, setEngineId] = useState<EngineId | null>(DEFAULT_ENGINE);
   const [email, setEmailValue] = useState(readAlignEmail);
   const [verifiedEmail, setVerifiedEmail] = useState(readVerifiedAlignEmail);
@@ -53,11 +82,6 @@ export function useRemoteAlignment(records: SeqRecord[], apply: (records: FastaA
   const isAlignmentLocked = isAlignmentActive(state);
   useAlignmentUnloadWarning(isAlignmentLocked);
   useEffect(() => () => { activeJob.current?.controller.abort(); activeJob.current = null; }, []);
-  useEffect(() => {
-    if (state.phase !== 'done' || presentation !== 'pill') return;
-    const timer = setTimeout(() => present('closed'), 4000);
-    return () => clearTimeout(timer);
-  }, [state.phase, presentation]);
 
   const open = () => {
     if (activeJob.current || presentation === 'pill') { present('dialog'); return; }
@@ -80,29 +104,37 @@ export function useRemoteAlignment(records: SeqRecord[], apply: (records: FastaA
     const snapshot = records.map(({ id, sequence, moleculeType }) => ({ id, sequence, moleculeType }));
     const job = { controller: new AbortController(), jobId: undefined as string | undefined };
     activeJob.current = job;
-    await runRemoteAlignment({ engine, email, records: snapshot, moleculeKind: isProteinSession(records) ? 'protein' : 'dna' }, {
-      client, signal: job.controller.signal, now: Date.now, sleep: sleepUntilPoll, apply,
-      isCurrent: () => snapshot.length === currentRecords.current.length && snapshot.every((record, index) => {
-        const current = currentRecords.current[index];
-        return current.id === record.id && current.sequence === record.sequence;
-      }),
-      onState: next => {
-        if (activeJob.current !== job) return;
-        if ('jobId' in next && next.jobId && !job.jobId) {
-          job.jobId = next.jobId;
-          writeAlignEmail(email, true); setVerifiedEmail(email);
-          addLog(`Remote alignment: submitted to EBI ${engine.label} (job ${job.jobId}).`);
-        }
-        if (next.phase === 'failed') addLog(`Remote alignment failed (${next.reason}${next.jobId ? `, job ${next.jobId}` : ''}): ${next.detail}`);
-        if (next.phase === 'done') {
-          addLog(`Remote alignment: finished in ${Math.round(next.elapsed / 1000)} s.`);
-          if (presentationRef.current === 'dialog') present('closed');
-        }
-        if (next.phase === 'failed' && next.reason === 'email-invalid') present('dialog');
-        setState(next.phase === 'failed' && next.reason === 'email-invalid' ? { phase: 'configuring', emailError: "EBI could not verify this address's domain" } : next);
-      },
-    });
-    if (activeJob.current === job) activeJob.current = null;
+    try {
+      await runRemoteAlignment({ engine, email, records: snapshot, moleculeKind: isProteinSession(records) ? 'protein' : 'dna' }, {
+        client, signal: job.controller.signal, now: Date.now, sleep: sleepUntilPoll, apply,
+        isCurrent: () => matchesSnapshot(snapshot, currentRecords.current),
+        onState: next => {
+          if (activeJob.current !== job) {
+            // EBI's job id can land after cancel() already logged without it.
+            if (next.phase === 'cancelled' && next.jobId && !job.jobId) addLog(`Remote alignment: cancelled job ${next.jobId} keeps running at EBI.`);
+            return;
+          }
+          if ('jobId' in next && next.jobId && !job.jobId) {
+            job.jobId = next.jobId;
+            writeAlignEmail(email, true); setVerifiedEmail(email);
+            addLog(`Remote alignment: submitted to EBI ${engine.label} (job ${job.jobId}).`);
+          }
+          if (next.phase === 'failed') addLog(`Remote alignment failed (${next.reason}${next.jobId ? `, job ${next.jobId}` : ''}): ${next.detail}`);
+          if (next.phase === 'done') {
+            addLog(`Remote alignment: finished in ${Math.round(next.elapsed / 1000)} s.`);
+            if (presentationRef.current === 'dialog') present('closed');
+          }
+          if (next.phase === 'failed' && next.reason === 'email-invalid') present('dialog');
+          setState(next.phase === 'failed' && next.reason === 'email-invalid' ? { phase: 'configuring', emailError: "EBI could not verify this address's domain" } : next);
+        },
+      });
+    } catch (error) {
+      const at = Date.now();
+      const fresh = createAlignmentProgress(engine.id, snapshot.length, bytes, at);
+      if (activeJob.current === job) setState(current => internalFailure('steps' in current ? current : fresh, error, job.jobId, at));
+    } finally {
+      if (activeJob.current === job) activeJob.current = null;
+    }
   };
 
   return {
