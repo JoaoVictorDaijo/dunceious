@@ -33,6 +33,9 @@ export default {
         mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
       },
       colors: {
+        // The three darkest slates are the app chrome; lifted from Tailwind's stock
+        // values along the same hue so the dark surfaces read less like black.
+        slate: { 800: '#243146', 900: '#151e34', 950: '#091023' },
         // The environment accent set by the active theme (see src/app/logic/theme.ts).
         env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
       },

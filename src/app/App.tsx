@@ -272,7 +272,7 @@ const App: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
+      className="app-root flex flex-col h-screen bg-slate-900 text-slate-200 overflow-hidden font-sans select-none"
       data-env={envAccent}
       style={themeStyle}
     >
@@ -385,7 +385,7 @@ const App: React.FC = () => {
           isProteinSession={isProteinSession}
         />
 
-        <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
+        <main className="flex-1 bg-slate-900 relative flex flex-col min-h-0 min-w-0 p-1.5">
           {records.length === 0 ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>

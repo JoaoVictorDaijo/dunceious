@@ -228,7 +228,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-2 max-h-[500px]">
               {Object.entries(groupedSearchResults).map(([recordId, group]) => (
                 <div key={recordId} className="space-y-4">
-                  <div className="flex items-center justify-between sticky top-0 bg-[#020617] z-10 py-2 border-b border-slate-800/50">
+                  <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div>
                       <span className="text-[10px] font-bold text-slate-300 uppercase truncate max-w-[140px] tracking-tight">{recordId}</span>
