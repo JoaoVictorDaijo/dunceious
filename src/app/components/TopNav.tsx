@@ -88,7 +88,7 @@ const TopNav: React.FC<TopNavProps> = ({
     { label: 'Tracks', on: showTracks, onToggle: onToggleTracks, dot: 'bg-indigo-400 text-indigo-400',
       tip: 'imported quantitative data tracks' },
     { label: 'Translation', on: showTranslation, onToggle: onToggleTranslation, dot: 'bg-emerald-400 text-emerald-400',
-      tip: 'the amino-acid translation of CDS features (frames F1–F3, R1–R3)',
+      tip: 'the amino-acid translation of CDS features, forward strand above the bases and reverse below',
       disabledReason: sessionMoleculeType === 'protein' ? 'Translation does not apply to a peptide session' : undefined },
     { label: 'Conservation', on: showConservation, onToggle: onToggleConservation, dot: 'bg-amber-400 text-amber-400',
       tip: 'the per-column conservation heatmap',
