@@ -18,7 +18,8 @@
  */
 
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
-import { ANNOT_ROW_HEIGHT, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
+import { showsAnnotationBases } from './annotationPresentation';
 
 /** A quantitative-track data point: a value over the half-open bp interval [start, end). */
 export type TrackDatum = { start: number; end: number; value: number };
@@ -44,6 +45,9 @@ export interface RecordLayout {
   id: string;
   record: SeqRecord;
   placements: FeaturePlacement[];
+  /** Top of each annotation lane (px from the annotation area's top) and its height. */
+  laneTops: number[];
+  laneHeights: number[];
   annotHeight: number;
   quantHeight: number;
   topPadding: number;
@@ -73,6 +77,7 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
   return records.map(record => {
       // 1. Feature Packing (Annotations)
       const rows: { start: number, end: number }[][] = [];
+      const laneHasBases: boolean[] = [];
       const sortedFeatures = [...record.features].sort((a, b) => a.start - b.start);
 
       const placements = sortedFeatures.map(feat => {
@@ -97,14 +102,25 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
 
         if (rowIdx === rows.length) {
           rows.push([]);
+          laneHasBases.push(false);
         }
 
         rows[rowIdx].push(...featIntervals);
+        if (showsAnnotationBases(feat)) laneHasBases[rowIdx] = true;
         return { feature: feat, row: rowIdx };
       });
 
       const featRowsCount = showAnnotations ? rows.length : 0;
-      const annotHeight = featRowsCount * (ANNOT_ROW_HEIGHT + 6);
+      // Lanes stay one thin bar tall; only a lane holding a feature with its bases
+      // switched on grows, so one opted-in annotation does not inflate the rest.
+      const laneHeights = laneHasBases.map(b => ANNOT_BAR_HEIGHT + (b ? ANNOT_BASES_HEIGHT : 0));
+      const laneTops: number[] = [];
+      let laneCursor = 0;
+      for (const h of laneHeights) {
+        laneTops.push(laneCursor);
+        laneCursor += h + ANNOT_LANE_GAP;
+      }
+      const annotHeight = featRowsCount > 0 ? laneCursor : 0;
 
       // 2. Track Packing & Height Calculation
       const tracks = record.tracks || [];
@@ -156,6 +172,8 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
         id: record.id,
         record,
         placements,
+        laneTops,
+        laneHeights,
         annotHeight,
         quantHeight,
         topPadding,

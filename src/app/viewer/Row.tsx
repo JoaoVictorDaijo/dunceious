@@ -23,9 +23,10 @@ import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationDirection } from './annotationPresentation';
+import { annotationBarPath, annotationDirection } from './annotationPresentation';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { computeBrokenFeatureMap } from './cds';
-import { ANNOT_ROW_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -251,7 +252,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 if (!part1Visible && !part2Visible) return null;
               }
 
-              const y = p.row * (ANNOT_ROW_HEIGHT + 6) + l.topPadding;
+              const y = l.laneTops[p.row] + l.topPadding;
               const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
@@ -268,23 +269,26 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
 
-              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1) => {
+              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (fX > viewportWidth || fX + fW < 0) return null;
 
                 if (f.type === 'quantitative_data') return null; // Handled by QuantitativeTrack
 
-                const rectHeight = ANNOT_ROW_HEIGHT;
-                const rectY = y;
                 const fill = f.color || getFeatureColor(f.type, customColors);
+                const partStrand = strand ?? getFeatureStrand(f);
 
                 return (
                   <React.Fragment key={`${i}-${keySuffix}`}>
-                    <rect
-                      x={fX} y={rectY} width={Math.max(1, fW)} height={rectHeight}
-                      fill={fill} fillOpacity={isSelected ? 0.3 : 0.16} rx={4}
+                    <path
+                      data-annotation-part=""
+                      data-x={fX}
+                      data-width={Math.max(1, fW)}
+                      d={annotationBarPath(fX, y, Math.max(1, fW), ANNOT_BAR_HEIGHT, partStrand, pointed)}
+                      fill={fill} fillOpacity={isSelected ? 0.45 : 0.3}
+                      strokeLinejoin="round"
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
-                      strokeWidth={isSelected ? 1 : (isBroken ? 1.5 : 0.6)}
+                      strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
                       style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
                       onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
@@ -311,7 +315,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               };
 
               if (f.segments && f.segments.length > 0) {
-                const lineY = y + ANNOT_ROW_HEIGHT / 2;
+                const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
                 // Draw connecting lines between segments
                 const connectingLines: React.ReactElement[] = [];
@@ -367,7 +371,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return (
                   <React.Fragment key={i}>
                     {connectingLines}
-                    {f.segments.map((seg: FeatureSegment, idx: number) => renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand))}
+                    {f.segments.map((seg: FeatureSegment, idx: number) => {
+                      // Only the piece where the feature ends (its 3′ side) gets the arrow head.
+                      const segStrand = seg.strand ?? getFeatureStrand(f);
+                      const terminal = segStrand === -1
+                        ? seg.start === Math.min(...f.segments!.map(x => x.start))
+                        : seg.end === Math.max(...f.segments!.map(x => x.end));
+                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal);
+                    })}
                   </React.Fragment>
                 );
               }
@@ -375,8 +386,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               if (isWrap) {
                 return (
                   <React.Fragment key={i}>
-                    {renderPart(f.start, seq.length, 'p1')}
-                    {renderPart(0, f.end, 'p2')}
+                    {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
+                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
                   </React.Fragment>
                 );
               }

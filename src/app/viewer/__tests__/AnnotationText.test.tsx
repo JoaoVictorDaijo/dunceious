@@ -31,6 +31,15 @@ function show(overrides: Partial<Parameters<typeof AnnotationText>[0]> = {}) {
 const bases = (container: HTMLElement) => [...container.querySelectorAll('[data-annotation-base]')].map(t => t.textContent).join('');
 
 describe('annotation bases at genomic screen coordinates', () => {
+  it('spells the direction out when the bar is wide enough', () => {
+    const { container } = show({ zoom: 60 });
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Forward (+) 5′ → 3′');
+  });
+  it('drops the direction text before truncating a narrow name', () => {
+    const { container } = show({ zoom: 20 });
+    expect(container.querySelector('[data-annotation-direction]')).toBeNull();
+    expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
+  });
   it('hides the bases unless the annotation opted in', () => {
     const { container } = show({ feature: { ...feature, metadata: {} } });
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
@@ -39,13 +48,14 @@ describe('annotation bases at genomic screen coordinates', () => {
   it('renders the name, forward direction and the complete annotated region', () => {
     const { container } = show();
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
-    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Forward (+) 5′ → 3′');
+    // 180px leaves room for the short direction only; the arrow head carries the rest.
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('5′→3′');
     expect(bases(container)).toBe('AACGTA');
   });
   it('complements reverse bases in place, rather than reversing or reverse-complementing screen coordinates', () => {
     const { container } = show({ feature: { ...feature, strand: -1 } });
     expect(bases(container)).toBe('TTGCAT');
-    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Reverse (−) 3′ ← 5′');
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('3′←5′');
     expect(container.querySelector('[data-annotation-base="0"]')?.getAttribute('x')).toBe('15');
   });
   it('preserves RNA U and lowercase/IUPAC letters', () => {

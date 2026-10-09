@@ -66,7 +66,7 @@ function renderRow(record: SeqRecord, overrides: Partial<RowData> = {}) {
 }
 
 const connectors = (c: HTMLElement) => c.querySelectorAll('line[stroke-dasharray="2,1"]');
-const glyphs = (c: HTMLElement) => c.querySelectorAll('rect[rx="4"]');
+const glyphs = (c: HTMLElement) => c.querySelectorAll('path[data-annotation-part]');
 
 // xScale interpolates in floating point, so a bp can land a hair off its exact
 // pixel and match neither a string nor a float comparison; round before comparing.
@@ -74,8 +74,8 @@ const spanOf = (line: Element) =>
   [line.getAttribute('x1'), line.getAttribute('x2')].map(v => Math.round(Number(v)));
 
 const spanOfRect = (rect: Element) => {
-  const x = Number(rect.getAttribute('x'));
-  return [x, x + Number(rect.getAttribute('width'))].map(v => Math.round(v));
+  const x = Number(rect.getAttribute('data-x'));
+  return [x, x + Number(rect.getAttribute('data-width'))].map(v => Math.round(v));
 };
 
 beforeEach(() => { installCanvasRecorder(); }); // silence inner-canvas getContext noise
@@ -214,3 +214,29 @@ describe('annotation bases preserve segment geometry', () => {
     expect(letters.map(t => t.textContent).join('')).toBe('CTTT');
   });
 });
+
+describe('thin annotation bars', () => {
+  const d = (c: HTMLElement) => [...c.querySelectorAll('path[data-annotation-part]')].map(p => p.getAttribute('d') ?? '');
+
+  it('points a forward bar right, a reverse bar left, and leaves an unstranded bar square', () => {
+    const { container } = renderRow(rec([
+      { type: 'gene', name: 'f', start: 0, end: 20, strand: 1 },
+      { type: 'gene', name: 'r', start: 40, end: 60, strand: -1 },
+      { type: 'gene', name: 'u', start: 70, end: 90, strand: 1, metadata: { _gffStrand: '.' } },
+    ]));
+    const [fwd, rev, flat] = d(container);
+    expect(fwd).toMatch(/L160,/); // tip at the right edge (20 bp × 8 px)
+    expect(rev).toMatch(/L320,/); // tip at the left edge (40 bp × 8 px)
+    expect(flat).not.toMatch(/L/);
+  });
+
+  it('puts the arrow head only on the last piece of a joined feature', () => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'j', start: 0, end: 60, strand: 1, segments: [{ start: 0, end: 20 }, { start: 40, end: 60 }] },
+    ]));
+    const [first, last] = d(container);
+    expect(first).not.toMatch(/L/);
+    expect(last).toMatch(/L480,/);
+  });
+});
+
