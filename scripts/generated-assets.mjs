@@ -29,4 +29,5 @@ export const GENERATED_ASSETS = [
   'public/favicon-32.png',
   'public/apple-touch-icon.png',
   'public/og-image.png',
+  'docs/assets/readme-banner.svg',
 ];
