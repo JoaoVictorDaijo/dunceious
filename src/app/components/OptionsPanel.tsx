@@ -29,8 +29,6 @@ const FEATURE_TYPES = [
 export interface OptionsPanelProps {
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
-  skipClearAllConfirmation: boolean;
-  onSetSkipClearAllConfirmation: (value: boolean) => void;
   themeKey: ThemeKey;
   onSetThemeKey: (key: ThemeKey) => void;
 }
@@ -54,8 +52,6 @@ const CogIcon: React.FC<{ className?: string }> = ({ className }) => (
 const OptionsPanel: React.FC<OptionsPanelProps> = ({
   featureColors,
   onSetFeatureColors,
-  skipClearAllConfirmation,
-  onSetSkipClearAllConfirmation,
   themeKey,
   onSetThemeKey,
 }) => {
@@ -187,7 +183,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           </div>
 
           {/* Theme — the chrome accent style (per browser) */}
-          <div className="px-5 py-4 border-b border-slate-800">
+          <div className="px-5 py-4">
             <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">
               Theme <span className="normal-case tracking-normal font-medium text-slate-600">· accent follows the workspace</span>
             </span>
@@ -221,35 +217,6 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                   </span>
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Workspace preferences */}
-          <div className="px-5 py-4">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">Workspace</span>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-bold text-slate-300 block">Skip Clear-All confirmation</span>
-                <span className="text-[9px] text-slate-400 block mt-0.5">Wipe the workspace without the type-to-confirm prompt.</span>
-              </div>
-              <button
-                role="switch"
-                aria-checked={skipClearAllConfirmation}
-                aria-label="Skip Clear-All confirmation"
-                data-tip={skipClearAllConfirmation
-                  ? 'On: Clear All wipes the workspace at once. Turn off to be asked to type CLEAR first'
-                  : 'Off: Clear All asks you to type CLEAR before wiping the workspace'}
-                onClick={() => onSetSkipClearAllConfirmation(!skipClearAllConfirmation)}
-                className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
-                  skipClearAllConfirmation ? 'bg-env/30' : 'bg-slate-700'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform ${
-                    skipClearAllConfirmation ? 'translate-x-5 bg-env' : 'bg-slate-400'
-                  }`}
-                ></span>
-              </button>
             </div>
           </div>
         </div>

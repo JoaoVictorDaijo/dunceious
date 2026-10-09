@@ -34,8 +34,6 @@ export interface TopNavProps {
   onTabChange: (tab: 'alignment' | 'features') => void;
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
-  skipClearAllConfirmation: boolean;
-  onSetSkipClearAllConfirmation: (value: boolean) => void;
   themeKey: ThemeKey;
   onSetThemeKey: (key: ThemeKey) => void;
   /** Show the alignment-specific toolbar buttons (true when records are loaded in alignment view) */
@@ -66,8 +64,6 @@ const TopNav: React.FC<TopNavProps> = ({
   onTabChange,
   featureColors,
   onSetFeatureColors,
-  skipClearAllConfirmation,
-  onSetSkipClearAllConfirmation,
   themeKey,
   onSetThemeKey,
   showAlignmentControls,
@@ -226,8 +222,6 @@ const TopNav: React.FC<TopNavProps> = ({
       <OptionsPanel
         featureColors={featureColors}
         onSetFeatureColors={onSetFeatureColors}
-        skipClearAllConfirmation={skipClearAllConfirmation}
-        onSetSkipClearAllConfirmation={onSetSkipClearAllConfirmation}
         themeKey={themeKey}
         onSetThemeKey={onSetThemeKey}
       />

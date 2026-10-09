@@ -28,7 +28,6 @@ import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
-import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
 import {
@@ -92,7 +91,6 @@ const App: React.FC = () => {
     setActiveTab('alignment');
     setActiveSelection(selection);
   };
-  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
@@ -232,11 +230,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [records.length]);
 
-  const handleSetSkipClearAllConfirmation = (value: boolean) => {
-    writeSkipClearAllConfirmation(value);
-    setSkipClearAllConfirmation(value);
-  };
-
   const handleSetThemeKey = (key: ThemeKey) => {
     writeThemePref(key);
     setThemeKey(key);
@@ -244,19 +237,9 @@ const App: React.FC = () => {
 
   const handleClearAll = () => {
     if (records.length === 0) return;
-    if (!skipClearAllConfirmation) {
-      const choice = window.prompt(
-        'Type CLEAR to confirm. Type CLEAR ALWAYS to confirm and stop asking in this browser.',
-        'CLEAR',
-      );
-      if (!choice) return;
-      const normalized = choice.trim().toUpperCase();
-      if (normalized !== 'CLEAR' && normalized !== 'CLEAR ALWAYS') return;
-      if (normalized === 'CLEAR ALWAYS') {
-        writeSkipClearAllConfirmation(true);
-        setSkipClearAllConfirmation(true);
-      }
-    }
+    // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
+    const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
+    if (choice?.trim().toUpperCase() !== 'CLEAR') return;
     setRecords([]);
     addLog('Workspace cleared.');
   };
@@ -312,8 +295,6 @@ const App: React.FC = () => {
         onTabChange={changeTab}
         featureColors={featureColors}
         onSetFeatureColors={setFeatureColors}
-        skipClearAllConfirmation={skipClearAllConfirmation}
-        onSetSkipClearAllConfirmation={handleSetSkipClearAllConfirmation}
         themeKey={themeKey}
         onSetThemeKey={handleSetThemeKey}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
