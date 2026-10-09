@@ -204,9 +204,7 @@ environment colour).
 - **Email:** single input, pre-filled from local storage; helper text:
   "EBI requires a contact email for each job. It is stored only in this
   browser." Structural check per *Preflight validation → Email*.
-- **Privacy/attribution line:** "Your sequences are sent to EMBL-EBI's Job
-  Dispatcher and processed under their terms of use." with a link to
-  `https://www.ebi.ac.uk/about/terms-of-use/`.
+- **Privacy/attribution:** superseded by *Data-sharing consent*.
 - **Replace warning** when any record has `alignedSequence`.
 - **Footer:** `Cancel` · `Align` (primary).
 
@@ -493,6 +491,84 @@ overlay reducer, not at `PARSE_FASTA`:
   `src/app/logic/bioResponse.ts`.
 - Out of scope, reported separately: the manual *Upload Pre-aligned FASTA*
   path has the same pre-existing limitation for IDs containing spaces.
+
+## Data-sharing consent (amendment, 2026-10-09)
+
+Dunceious otherwise never sends sequences anywhere; this feature is the one
+exception, so it is gated behind an explicit, informed acknowledgement.
+EMBL-EBI's own Job Dispatcher privacy notice names **consent** as its lawful
+basis, which is one more reason the user must agree before the first upload.
+
+### What EMBL-EBI states (Job Dispatcher privacy notice, published 2022-11-25)
+
+- Collected: email address, IP address, date/time, operating system, browser,
+  amount of data transmitted.
+- Job logs and the associated email are deleted after **7 days**; web logs
+  with IPs are kept **30 days**, then anonymised.
+- Access: authorised EMBL-EBI staff; no transfers to third countries.
+- Links (both open in a new tab, `rel="noreferrer"`):
+  - Privacy notice: `https://www.ebi.ac.uk/jdispatcher/assets/html/privacy-notice.pdf`
+  - Terms of use: `https://www.ebi.ac.uk/about/terms-of-use/`
+
+### Consent step
+
+The first time the dialog opens in a browser it shows a consent step
+**instead of** the engine picker:
+
+- Title: **"Your sequences will leave this browser"**.
+- Body (concise bullets):
+  - "Everything else in Dunceious runs locally. Alignment is the exception:
+    all loaded sequences, including hidden ones, are uploaded to EMBL-EBI's
+    Job Dispatcher servers in the UK and aligned there."
+  - "EMBL-EBI also receives your email and IP address. Per its privacy
+    notice, job logs and your email are deleted after 7 days and web logs
+    after 30 days."
+  - "Don't send sequences you are not allowed to share, such as unpublished,
+    confidential or patient-derived data."
+  - Links: "EMBL-EBI privacy notice" · "Terms of use".
+- A required checkbox: **"I understand that my sequences and email will be
+  sent to EMBL-EBI and handled under its terms of use and privacy notice."**
+- Footer: `Cancel` · `Continue` (disabled until the box is checked).
+  Continue records consent and swaps to the engine picker.
+- Accessibility: the step is the dialog's content (same focus trap); the
+  checkbox has a proper `<label>`; the links are reachable by keyboard.
+
+### Persistence: once per browser, versioned, revocable
+
+- `src/app/logic/alignConsentPref.ts`, wrapped like `theme.ts`:
+  `readAlignConsent(): { acceptedAt: string } | null`,
+  `writeAlignConsent(now)`, `clearAlignConsent()`. Key
+  `dunceious.alignConsent`, value `{ version, acceptedAt }`.
+- `ALIGN_CONSENT_VERSION` (start at `1`) lives next to the consent copy.
+  A stored record with another version counts as **no consent**, so editing
+  the disclosure text means bumping the version and re-asking everyone.
+- Storage blocked or throwing → consent is held in memory for the session
+  only (the step reappears next visit); never crash.
+- After consent, the configuring view starts with one quiet line:
+  "Sending to EMBL-EBI · agreed {date} · **Review**" where Review reopens the
+  consent step showing the current state, with a **Revoke** action that
+  clears the record and keeps the dialog on the consent step.
+- This replaces the earlier one-line privacy/attribution paragraph under the
+  email field.
+
+### Enforcement
+
+- Consent is a precondition of **submit**, enforced in
+  `useRemoteAlignment.submit` (early return without a valid consent), not
+  only by hiding UI. No request is ever made to EBI before consent.
+- The Sidebar card's tip becomes "Send the loaded sequences to EMBL-EBI's
+  servers for alignment, then overlay the result".
+
+### Tests
+
+- `alignConsentPref`: none stored → null; current version → record; other
+  version → null; write/clear round-trip; blocked storage → in-memory, no throw.
+- `AlignRemoteModal`: first open shows the consent step with both links and
+  `Continue` disabled; checking enables it; Continue shows the engine picker;
+  with stored consent the picker shows directly with the "agreed" line;
+  Review → Revoke returns to the consent step and clears storage.
+- Hook/integration: `submit` without consent makes **no** `client.submit`
+  call; after consent it does.
 
 ## Out of scope
 
