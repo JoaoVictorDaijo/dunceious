@@ -53,6 +53,33 @@ describe('CentralDogmaEgg', () => {
     expect(screen.getByText('DUNCEIOUS expressed')).toBeTruthy();
     expect(screen.getByLabelText('Translated protein').textContent).toMatch(/^D.*U.*N.*C.*E.*I.*O.*U.*S/);
   });
+
+  it('credits both authors on the finished frame without closing when a card is clicked', () => {
+    const onClose = vi.fn();
+    render(<CentralDogmaEgg replay onClose={onClose} />);
+    expect(screen.getByText(/built for science/)).toBeTruthy();
+    const dijo = screen.getByRole('link', { name: /JoaoVictorDaijo/ });
+    const murilo = screen.getByRole('link', { name: /MuriloACassiano/ });
+    expect(dijo.getAttribute('href')).toBe('https://github.com/JoaoVictorDaijo');
+    expect(murilo.getAttribute('href')).toBe('https://github.com/MuriloACassiano');
+
+    act(() => { vi.advanceTimersByTime(CLOSE_GUARD_MS); });
+    fireEvent.click(dijo);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows no credits while the animation is still playing', () => {
+    render(<CentralDogmaEgg onClose={() => {}} />);
+    expect(screen.queryByText(/built for science/)).toBeNull();
+  });
+
+  it('falls back to a glyph when an avatar fails to load', () => {
+    const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
+    const img = container.querySelector('img');
+    expect(img).toBeTruthy();
+    fireEvent.error(img!);
+    expect(container.querySelectorAll('img').length).toBe(1);
+  });
 });
 
 describe('StatusBar version taps', () => {
