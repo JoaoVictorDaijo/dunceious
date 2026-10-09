@@ -40,11 +40,28 @@ describe('exportToGenBank', () => {
     // Marker must appear exactly once (not accumulated on re-export).
     expect(gb.match(/Exported by Dunceious\./g)).toHaveLength(1);
     expect(gb).toContain('ORGANISM  E. coli');
-    // '_'-prefixed and empty metadata are omitted; real qualifier is kept.
+    // '_'-prefixed and empty non-flag metadata are omitted; real qualifier is kept.
     expect(gb).toContain('/organism="E. coli"');
     expect(gb).not.toContain('_internal');
     expect(gb).not.toContain('/empty=');
     expect(gb.trimEnd().endsWith('//')).toBe(true);
+  });
+
+  it('writes INSDC flag qualifiers bare and still drops other empty values', () => {
+    const gb = exportToGenBank([record({
+      features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
+        metadata: { ribosomal_slippage: '', pseudo: '', note: '' } }],
+    })]);
+    expect(gb).toContain('                     /ribosomal_slippage\n');
+    expect(gb).toContain('                     /pseudo\n');
+    expect(gb).not.toContain('/note');
+  });
+
+  it('round-trips the /ribosomal_slippage flag through parse and export', () => {
+    const gb = exportToGenBank([record({ features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
+      metadata: { ribosomal_slippage: '' } }] })]);
+    const [rec] = parseGenBank(gb);
+    expect(rec.features.find(f => f.type === 'CDS')?.metadata?.ribosomal_slippage).toBe('');
   });
 
   it('writes a protein LOCUS using "aa" units', () => {
