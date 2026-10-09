@@ -134,17 +134,20 @@ describe('ribosomal frameshift (−1 PRF)', () => {
     expect(box(5 * ZOOM)?.[1]).toBe(0);             // T: post-slip frame, the row above
   });
 
-  it('labels the junction with the shift', () => {
+  it('outlines every amino-acid box in thin white, so stacked frames stay apart', () => {
     render(<SequenceTrack {...slip()} />);
-    expect(recorder.texts()).toContain('−1');
+    const aaBoxes = recorder.fillRects().filter(([, , w]) => w === 3 * ZOOM);
+    expect(aaBoxes.length).toBeGreaterThan(0);
+    const outlines = recorder.strokeRects().filter(s => s.color === '#fff' && s.width === 0.5).map(s => s.rect.join());
+    for (const box of aaBoxes) expect(outlines).toContain(box.join());
   });
 
-  it('does not label an ordinary spliced join', () => {
-    const features: BioFeature[] = [{ type: 'CDS', name: 'spliced', start: 0, end: SEQ.length, strand: 1,
-      segments: [{ start: 0, end: 6 }, { start: 8, end: SEQ.length }] }];
-    render(<SequenceTrack {...props(SEQ, features)} />);
+  // The rows abut, so a pill or connector here would cover the codons around
+  // the junction; the shift is named on the annotation bar instead.
+  it('draws no frameshift marker in the translation rows', () => {
+    render(<SequenceTrack {...slip()} />);
     expect(recorder.texts()).not.toContain('−1');
-    expect(recorder.texts()).not.toContain('+1');
+    expect(recorder.fillRects().every(([, , w]) => w === 3 * ZOOM || w === ZOOM)).toBe(true);
   });
 });
 
