@@ -278,6 +278,7 @@ const App: React.FC = () => {
 
       {editing && (
         <FeatureEditorModal
+          key={editing.featureIndex === -1 ? 'new' : `${editing.recordId}:${editing.featureIndex}`}
           editing={editing}
           records={records}
           featureColors={featureColors}

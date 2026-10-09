@@ -52,3 +52,28 @@ describe('annotation editor direction and name', () => {
     expect(change.mock.calls[0][0].feature.metadata).not.toHaveProperty('_gffStrand');
   });
 });
+
+describe('qualifier editing', () => {
+  const imported = { ...editing, featureIndex: 0, feature: { ...editing.feature,
+    locationString: 'join(2..4,6..8)', metadata: { _gffStrand: '?', note: 'synthetic', gene: 'syn' } } };
+
+  it('edits a qualifier value and keeps internal keys', () => {
+    const change = show(imported);
+    fireEvent.change(screen.getByDisplayValue('synthetic'), { target: { value: 'edited' } });
+    expect(change.mock.calls[0][0].feature.metadata).toEqual({ _gffStrand: '?', note: 'edited', gene: 'syn' });
+  });
+
+  it('renames and removes qualifiers', () => {
+    const change = show(imported);
+    fireEvent.change(screen.getByDisplayValue('gene'), { target: { value: 'locus_tag' } });
+    expect(change.mock.calls[0][0].feature.metadata).toEqual({ _gffStrand: '?', note: 'synthetic', locus_tag: 'syn' });
+    fireEvent.click(screen.getByLabelText('Remove qualifier note'));
+    expect(change.mock.calls[1][0].feature.metadata).not.toHaveProperty('note');
+  });
+
+  it('drops the preserved GenBank location once coordinates change', () => {
+    const change = show(imported);
+    fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '3' } });
+    expect(change.mock.calls[0][0].feature).toMatchObject({ start: 3, locationString: undefined });
+  });
+});
