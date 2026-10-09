@@ -40,7 +40,7 @@ const HubReturnPill: React.FC<HubReturnPillProps> = ({ label, onReturn, onDismis
       <span className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center transition-transform group-hover:-translate-x-0.5">
         <i className="fas fa-arrow-left text-[10px]"></i>
       </span>
-      <span className="text-[10px] font-semibold uppercase tracking-wider">Back to Annotation Hub</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider">Back to Annotation Hub</span>
       <span className="max-w-[220px] truncate text-[11px] font-medium text-amber-300/90 normal-case">{label}</span>
     </button>
     <button

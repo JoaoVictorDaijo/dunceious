@@ -97,7 +97,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-950/40 border border-amber-700/50 rounded-xl text-amber-400">
             <i className="fas fa-circle-notch text-sm"></i>
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest">Circular wrap-around</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest">Circular wrap-around</div>
               <div className="text-[9px] opacity-70 mt-0.5">
                 This feature crosses the genome origin (start &gt; end).
                 Editing start/end here preserves the wrap-around semantics.
@@ -112,7 +112,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Target sequence selector (new features only) */}
           {isNew && (
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Target Sequence</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Target Sequence</label>
               <select
                 value={recordId}
                 onChange={e => onChange({ ...editing, recordId: e.target.value })}
@@ -125,7 +125,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
           {/* Name */}
           <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Display Name</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Display Name</label>
             <input
               type="text"
               value={feature.name}
@@ -137,7 +137,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Type & Strand */}
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Feature Key</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Feature Key</label>
               <select
                 value={feature.type}
                 onChange={e => setFeature({ type: e.target.value })}
@@ -148,7 +148,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Strand</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Strand</label>
               <select
                 value={getFeatureStrand(feature)}
                 onChange={e => {
@@ -175,7 +175,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
           {/* Color picker */}
           <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Feature Color (Case by Case)</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Feature Color (Case by Case)</label>
             <div className="flex items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl px-5 py-3">
               <input
                 type="color"
@@ -189,7 +189,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <button
                 onClick={() => setFeature({ color: undefined })}
                 data-tip="Use the global colour for this feature type"
-                className="ml-auto text-[8px] font-semibold text-slate-500 uppercase hover:text-rose-500 transition-colors"
+                className="ml-auto text-[8px] font-bold text-slate-500 uppercase hover:text-rose-500 transition-colors"
               >
                 Reset to Default
               </button>
@@ -199,7 +199,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Coordinates */}
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">
                 {feature.segments && feature.segments.length > 1
                   ? isCircularWrap ? 'Wrap-around Start (bp)' : 'Envelope Start (bp)'
                   : 'Start (bp)'}
@@ -212,7 +212,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               />
             </div>
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">
                 {feature.segments && feature.segments.length > 1
                   ? isCircularWrap ? 'Wrap-around End (bp)' : 'Envelope End (bp)'
                   : 'End (bp)'}
@@ -230,7 +230,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {feature.segments && feature.segments.length > 1 && (
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] font-semibold text-slate-500 uppercase">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">
                   Segments ({feature.segments.length})
                 </label>
                 <button
@@ -239,7 +239,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     setGeometry({ segments: newSegs });
                   }}
                   data-tip="Append a new segment after the last one"
-                  className="text-[8px] font-semibold text-sky-500 uppercase hover:text-sky-300 transition-colors"
+                  className="text-[8px] font-bold text-sky-500 uppercase hover:text-sky-300 transition-colors"
                 >
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
@@ -247,7 +247,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
-                    <span className="text-[8px] font-semibold text-slate-600 uppercase w-4">#{idx + 1}</span>
+                    <span className="text-[8px] font-bold text-slate-600 uppercase w-4">#{idx + 1}</span>
                     <input
                       type="number"
                       value={seg.start}
@@ -289,7 +289,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* GenBank location string — kept verbatim from the source until coordinates change */}
           {feature.locationString && (
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">
                 GenBank Location
                 <span className="ml-2 normal-case font-medium text-slate-600">from the source file; editing coordinates regenerates it</span>
               </label>
@@ -302,13 +302,13 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Qualifiers — every /key="value" pair is editable */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-[10px] font-semibold text-slate-500 uppercase">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
                 Qualifiers{rows.length > 0 && ` (${rows.length})`}
               </label>
               <button
                 onClick={() => commitRows([...rows, { id: nextRowId.current++, key: '', value: '' }])}
                 data-tip="Add a /qualifier=&quot;value&quot; pair"
-                className="text-[8px] font-semibold text-sky-500 uppercase hover:text-sky-300 transition-colors"
+                className="text-[8px] font-bold text-sky-500 uppercase hover:text-sky-300 transition-colors"
               >
                 <i className="fas fa-plus mr-1"></i> Add Qualifier
               </button>
@@ -332,7 +332,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                           aria-label="Qualifier name"
                           spellCheck={false}
                           onChange={e => updateRow(row.id, { key: e.target.value })}
-                          className={`flex-1 min-w-0 bg-transparent text-[10px] font-mono font-semibold outline-none placeholder:text-slate-700 ${issue ? 'text-amber-400' : 'text-slate-300'}`}
+                          className={`flex-1 min-w-0 bg-transparent text-[10px] font-mono font-bold outline-none placeholder:text-slate-700 ${issue ? 'text-amber-400' : 'text-slate-300'}`}
                         />
                         <button
                           onClick={() => commitRows(rows.filter(r => r.id !== row.id))}

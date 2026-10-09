@@ -80,12 +80,12 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
   {showEgg && <CentralDogmaEgg onClose={() => setShowEgg(false)} />}
   <div data-theme={themeKey} className="app-status relative bg-slate-950 border-t border-slate-800/80 overflow-hidden">
     <div className="hf-env" aria-hidden="true" />
-    <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+    <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
       <div className="flex gap-4 items-center">
         {/* Tap seven times, as with Android's build number. */}
         <button
           onClick={onVersionTap}
-          className="font-mono normal-case tracking-normal text-slate-300 hover:text-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+          className="uppercase text-slate-300 hover:text-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
           data-tip="Dunceious build version"
         >
           Dunceious v{__APP_VERSION__}
@@ -135,9 +135,9 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
             <Divider />
           </>
         )}
-        <span className="text-slate-500">Built for Science</span>
+        <span className="text-slate-400">Built for Science</span>
         <Divider />
-        <span className="text-slate-500">© 2026</span>
+        <span className="text-slate-400">© 2026</span>
       </div>
     </div>
   </div>

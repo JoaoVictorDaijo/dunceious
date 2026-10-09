@@ -58,9 +58,9 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
               </div>
               <div className="flex-1 text-sm">
                 <p className="text-slate-300">
-                  <span className="font-semibold text-slate-100">{fileName}</span>
+                  <span className="font-bold text-slate-100">{fileName}</span>
                   <span className="text-slate-400"> is a </span>
-                  <span className="font-semibold text-rose-300">{incomingLabel}</span>
+                  <span className="font-bold text-rose-300">{incomingLabel}</span>
                   <span className="text-slate-400"> file</span>
                 </p>
               </div>
@@ -73,7 +73,7 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
               <div className="flex-1 text-sm">
                 <p className="text-slate-300">
                   <span className="text-slate-400">Workspace contains </span>
-                  <span className="font-semibold text-rose-300">{loadedLabel}</span>
+                  <span className="font-bold text-rose-300">{loadedLabel}</span>
                   <span className="text-slate-400"> sequences</span>
                 </p>
               </div>
@@ -83,7 +83,7 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
           <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50 text-xs text-slate-300">
             <p className="flex items-start gap-2">
               <i className="fas fa-lightbulb text-amber-400 mt-0.5 flex-shrink-0"></i>
-              <span><span className="font-semibold">Solution:</span> Clear all records first to switch sequence types.</span>
+              <span><span className="font-bold">Solution:</span> Clear all records first to switch sequence types.</span>
             </p>
           </div>
         </div>

@@ -90,6 +90,6 @@ describe('AnnotationHubPanel', () => {
     render(<AnnotationHubPanel {...panelProps()} lastFocusedKey="lin:feature:1" />);
     const tags = screen.getAllByText('Last focused');
     expect(tags).toHaveLength(1);
-    expect(tags[0].closest('span.font-bold')?.textContent).toContain('g3');
+    expect(tags[0].parentElement?.textContent).toContain('g3');
   });
 });

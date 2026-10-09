@@ -224,7 +224,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
         <i className="fas fa-xmark"></i>
       </button>
 
-      <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
       <canvas ref={canvasRef} className="w-full max-w-[1000px] h-[260px]" aria-hidden="true" />
 
       <div className="flex gap-2 mt-2 min-h-[92px]" aria-label="Translated protein">
@@ -253,7 +253,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
             <span className="text-amber-400"> U</span> is selenocysteine (UGA) and
             <span className="text-amber-400"> O</span> is pyrrolysine (UAG).
           </p>
-          <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
         </div>
       )}
       </div>
