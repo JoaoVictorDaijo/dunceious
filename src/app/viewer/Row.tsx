@@ -22,6 +22,8 @@ import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import { AnnotationText } from './AnnotationText';
+import { annotationDirection } from './annotationPresentation';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_ROW_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
@@ -206,7 +208,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 if (persistentSelection.start <= persistentSelection.end) {
                   if (s > viewportWidth || e < 0) return null;
                   return (
-                    <rect 
+                    <rect
                       x={Math.max(0, s)} 
                       y={0} 
                       width={Math.min(viewportWidth - Math.max(0, s), e - Math.max(0, s))} 
@@ -260,46 +262,51 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${f.start + 1}..${f.end}`}`,
-                `Strand: ${f.strand === 1 ? '+' : '-'}`,
+                annotationDirection(f, l.record.moleculeType),
+                'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
 
-              const renderPart = (s: number, e: number, keySuffix: string) => {
+              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (fX > viewportWidth || fX + fW < 0) return null;
 
                 if (f.type === 'quantitative_data') return null; // Handled by QuantitativeTrack
 
-                let rectHeight = ANNOT_ROW_HEIGHT;
-                let rectY = y;
-                let fill = f.color || getFeatureColor(f.type, customColors);
+                const rectHeight = ANNOT_ROW_HEIGHT;
+                const rectY = y;
+                const fill = f.color || getFeatureColor(f.type, customColors);
 
                 return (
-                  <rect 
-                    key={`${i}-${keySuffix}`}
-                    x={fX} y={rectY} width={Math.max(1, fW)} height={rectHeight}
-                    fill={fill} rx={4}
-                    stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : 'none')}
-                    strokeWidth={isSelected ? 1 : (isBroken ? 1.5 : 0)}
-                    strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                    style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                    onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
-                    onMouseOut={() => setTooltip(null)}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      onViewDetails?.(l.id, f);
-                    }}
-                    onContextMenu={(ev) => {
-                      ev.stopPropagation();
-                      onContextMenu(ev, l.id, f);
-                    }}
-                    onDoubleClick={(ev) => {
-                      ev.stopPropagation();
-                      ev.preventDefault();
-                      onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
-                    }}
-                  />
+                  <React.Fragment key={`${i}-${keySuffix}`}>
+                    <rect
+                      x={fX} y={rectY} width={Math.max(1, fW)} height={rectHeight}
+                      fill={fill} fillOpacity={isSelected ? 0.3 : 0.16} rx={4}
+                      stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
+                      strokeWidth={isSelected ? 1 : (isBroken ? 1.5 : 0.6)}
+                      strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
+                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
+                      onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
+                      onMouseOut={() => setTooltip(null)}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onViewDetails?.(l.id, f);
+                      }}
+                      onContextMenu={(ev) => {
+                        ev.stopPropagation();
+                        onContextMenu(ev, l.id, f);
+                      }}
+                      onDoubleClick={(ev) => {
+                        ev.stopPropagation();
+                        ev.preventDefault();
+                        onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
+                      }}
+                    />
+                    <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
+                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel}
+                      scrollX={scrollX} viewportWidth={viewportWidth} />
+                  </React.Fragment>
                 );
               };
 
@@ -360,7 +367,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return (
                   <React.Fragment key={i}>
                     {connectingLines}
-                    {f.segments.map((seg: FeatureSegment, idx: number) => renderPart(seg.start, seg.end, `seg-${idx}`))}
+                    {f.segments.map((seg: FeatureSegment, idx: number) => renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand))}
                   </React.Fragment>
                 );
               }

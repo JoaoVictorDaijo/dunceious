@@ -300,8 +300,14 @@ export function useFileHandlers(
   };
 
   const exportGenBankFile = () => {
-    downloadBlob(exportToGenBank(records), 'sequences_with_features.gb', 'text/plain');
-    addLog('GenBank file exported (includes new features).');
+    try {
+      downloadBlob(exportToGenBank(records), 'sequences_with_features.gb', 'text/plain');
+      addLog('GenBank file exported (includes new features).');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      addLog(`GenBank export stopped: ${message}`);
+      window.alert(message);
+    }
   };
 
   const exportGffFile = () => {

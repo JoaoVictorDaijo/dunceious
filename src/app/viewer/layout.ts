@@ -76,7 +76,7 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
       const sortedFeatures = [...record.features].sort((a, b) => a.start - b.start);
 
       const placements = sortedFeatures.map(feat => {
-        const genomeLength = record.sequence.length;
+        const genomeLength = (record.alignedSequence || record.sequence).length;
         const featIntervals = feat.start > feat.end
           ? [{ start: feat.start, end: genomeLength }, { start: 0, end: feat.end }]
           : [{ start: feat.start, end: feat.end }];

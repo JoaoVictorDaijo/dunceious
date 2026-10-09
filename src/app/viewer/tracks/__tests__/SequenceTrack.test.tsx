@@ -62,3 +62,14 @@ describe('SequenceTrack translation glyphs', () => {
     expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'P', 'E']));
   });
 });
+
+
+describe('unknown CDS direction', () => {
+  it('shows reference bases without synthesizing a forward translation', () => {
+    const recorder = installCanvasRecorder();
+    const input = props('ATGCCCGAG');
+    input.features[0].metadata = { _gffStrand: '?' };
+    render(<SequenceTrack {...input} />);
+    expect(recorder.texts().join('')).toBe('ATGCCCGAG');
+  });
+});

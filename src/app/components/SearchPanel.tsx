@@ -47,7 +47,7 @@ export interface SearchPanelProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession?: boolean;
 }
@@ -320,7 +320,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             <button
                               onClick={e => {
                                 e.stopPropagation();
-                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`);
+                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand);
                               }}
                               className="opacity-0 group-hover:opacity-100 transition-all text-[9px] font-black uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
                             >

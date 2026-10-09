@@ -60,7 +60,7 @@ export interface SidebarProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession: boolean;
 }

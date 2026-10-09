@@ -63,6 +63,7 @@ export interface UseFeatureManagerReturn {
     end: number,
     name: string,
     segments?: { start: number; end: number }[],
+    strand?: 1 | -1,
   ) => void;
 
   removeFeature: (recordId: string, featureIndex: number) => void;
@@ -157,6 +158,7 @@ export function useFeatureManager(
     end: number,
     name: string,
     segments?: { start: number; end: number }[],
+    strand?: 1 | -1,
   ) => {
     const targetRecord = records.find(r => r.id === recordId);
     const c = annotationCoords(targetRecord, start, end, segments);
@@ -169,7 +171,7 @@ export function useFeatureManager(
         type: 'misc_feature',
         start: c.start,
         end: c.end,
-        strand: 1,
+        strand: strand ?? 1,
         segments: c.segments,
       },
     });

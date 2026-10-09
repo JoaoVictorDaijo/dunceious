@@ -82,6 +82,7 @@ export function useSearchWorker(
     end: number,
     name: string,
     segments?: { start: number; end: number }[],
+    strand?: 1 | -1,
   ) => void,
   onFirstResult: (selection: SelectionArea) => void,
 ): UseSearchWorkerReturn {
@@ -359,6 +360,7 @@ export function useSearchWorker(
       res.end,
       `Joined Record Search: ${searchQuery}`,
       res.segments,
+      group.results[0].strand,
     );
   };
 
@@ -380,6 +382,7 @@ export function useSearchWorker(
       res.end,
       `Joined Search: ${searchQuery}`,
       res.segments,
+      matches[0].strand,
     );
   };
 
