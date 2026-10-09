@@ -44,3 +44,33 @@ export function fitAnnotationText(text: string, width: number, charWidth: number
   if (capacity < 2) return '';
   return text.length <= capacity ? text : text.slice(0, capacity - 1) + '…';
 }
+
+/**
+ * Internal metadata flag: the viewer draws an annotation's bases inside its box
+ * only when the user switched them on in the annotation details. Internal (`_`)
+ * keys are never exported as qualifiers, but do travel with project files.
+ */
+export const SHOW_BASES_KEY = '_showBases';
+
+export const showsAnnotationBases = (feature: BioFeature): boolean => feature.metadata?.[SHOW_BASES_KEY] === '1';
+
+/** The feature with its bases switched on or off; off removes the flag entirely. */
+export function withAnnotationBases(feature: BioFeature, show: boolean): BioFeature {
+  const metadata = { ...feature.metadata };
+  if (show) metadata[SHOW_BASES_KEY] = '1';
+  else delete metadata[SHOW_BASES_KEY];
+  return { ...feature, metadata };
+}
+
+/**
+ * SVG path of a thin annotation bar. A stranded bar gets a pointed end on its
+ * 3′ side (right for forward, left for reverse); unstranded bars and pieces that
+ * are not the feature's last are plain rectangles.
+ */
+export function annotationBarPath(x: number, y: number, w: number, h: number, strand: ReturnType<typeof getFeatureStrand> | undefined, pointed = true): string {
+  const head = Math.min(6, w / 2);
+  const mid = y + h / 2;
+  if (pointed && strand === 1) return `M${x},${y}H${x + w - head}L${x + w},${mid}L${x + w - head},${y + h}H${x}Z`;
+  if (pointed && strand === -1) return `M${x + w},${y}H${x + head}L${x},${mid}L${x + head},${y + h}H${x + w}Z`;
+  return `M${x},${y}H${x + w}V${y + h}H${x}Z`;
+}

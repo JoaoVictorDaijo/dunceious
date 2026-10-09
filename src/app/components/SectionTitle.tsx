@@ -30,7 +30,7 @@ interface SectionTitleProps {
 /** The one heading style for sidebar sections; only the icon takes the environment accent. */
 const SectionTitle: React.FC<SectionTitleProps> = ({ icon, children, trailing }) => (
   <div className="flex items-center justify-between gap-3 mb-3">
-    <h3 className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+    <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
       <i
         className={`fas ${icon} text-[10px] w-3 text-center transition-colors duration-700 motion-reduce:transition-none`}
         style={{ color: 'var(--env)' }}

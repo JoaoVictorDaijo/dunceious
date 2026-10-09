@@ -36,9 +36,6 @@ export default {
         // The environment accent set by the active theme (see src/app/logic/theme.ts).
         env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
       },
-      letterSpacing: {
-        tightest: '-0.05em',
-      },
       keyframes: {
         'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
         // A returned-to hub row: a warm pulse that settles into its resting tint.

@@ -33,21 +33,22 @@ const cds = (over: Partial<BioFeature>): BioFeature => ({
 describe('computeBrokenFeatureMap', () => {
   it('flags a CDS with an internal (early) stop as broken', () => {
     // ATG TAG GAG — the TAG stop is not the last codon.
-    const map = computeBrokenFeatureMap([cds({ start: 0, end: 9 })], 'ATGTAGGAG');
-    expect(map.get('0-9-1')).toBe(true);
+    const f = cds({ start: 0, end: 9 });
+    expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').get(f)).toBe(true);
   });
 
   it('does not flag a valid CDS', () => {
-    const map = computeBrokenFeatureMap([cds({ start: 0, end: 9 })], 'ATGCCCGAG');
-    expect(map.get('0-9-1')).toBe(false);
+    const f = cds({ start: 0, end: 9 });
+    expect(computeBrokenFeatureMap([f], 'ATGCCCGAG').get(f)).toBe(false);
   });
 
   it('honours the feature /transl_table so a mitochondrial TGA is not a false stop', () => {
     // TGG TGA AAA — internal TGA is a stop under the standard code, Trp under table 2.
     const seq = 'TGGTGAAAA';
-    expect(computeBrokenFeatureMap([cds({ start: 0, end: 9 })], seq).get('0-9-1')).toBe(true);
+    const plain = cds({ start: 0, end: 9 });
+    expect(computeBrokenFeatureMap([plain], seq).get(plain)).toBe(true);
     const mito = cds({ start: 0, end: 9, metadata: { transl_table: '2' } });
-    expect(computeBrokenFeatureMap([mito], seq).get('0-9-1')).toBe(false);
+    expect(computeBrokenFeatureMap([mito], seq).get(mito)).toBe(false);
   });
 
   it('ignores non-CDS features', () => {
@@ -55,13 +56,28 @@ describe('computeBrokenFeatureMap', () => {
     expect(map.size).toBe(0);
   });
 
+  it('does not mark a non-CDS feature that shares a broken CDS interval', () => {
+    const broken = cds({ start: 0, end: 9 });
+    const source = cds({ type: 'source', start: 0, end: 9 });
+    const map = computeBrokenFeatureMap([source, broken], 'ATGTAGGAG');
+    expect(map.get(broken)).toBe(true);
+    expect(map.has(source)).toBe(false);
+  });
+
+  it('never flags features of a peptide record', () => {
+    // Amino-acid letters read as codons can look like an early stop; they are not codons.
+    const f = cds({ start: 0, end: 9 });
+    expect(computeBrokenFeatureMap([f], 'MFVTAGFLV', 'protein').size).toBe(0);
+  });
+
   it('trusts the stored /translation over recomputation for broken detection', () => {
     // ATG TGA CCC recomputes to M _ P — an internal stop — but /transl_except
     // recodes the TGA to selenocysteine, so the annotated protein is not broken.
     const seq = 'ATGTGACCC';
-    expect(computeBrokenFeatureMap([cds({ start: 0, end: 9 })], seq).get('0-9-1')).toBe(true);
+    const recomputed = cds({ start: 0, end: 9 });
+    expect(computeBrokenFeatureMap([recomputed], seq).get(recomputed)).toBe(true);
     const annotated = cds({ start: 0, end: 9, translation: 'MUP' });
-    expect(computeBrokenFeatureMap([annotated], seq).get('0-9-1')).toBe(false);
+    expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(false);
   });
 });
 

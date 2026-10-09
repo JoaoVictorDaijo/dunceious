@@ -141,7 +141,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
               aria-label="Close options"
               data-tip="Close"
               data-tip-kbd="Esc"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               <i className="fas fa-xmark text-sm"></i>
             </button>
@@ -150,8 +150,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
           <div className="px-5 py-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-env">Feature Colors</span>
-              <span className="text-[8px] font-semibold uppercase tracking-wider text-env/80 bg-env/10 border border-env/20 rounded-full px-2 py-0.5">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-env">Feature Colors</span>
+              <span className="text-[8px] font-bold uppercase tracking-wider text-env/80 bg-env/10 border border-env/20 rounded-full px-2 py-0.5">
                 Global
               </span>
             </div>
@@ -162,7 +162,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                   data-tip={`Colour used for every ${type} feature in the viewport and the hub`}
                   className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer transition-colors hover:border-slate-600 hover:bg-slate-800/40"
                 >
-                  <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tighter">{type}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{type}</span>
                   <input
                     type="color"
                     value={featureColors[type] || getFeatureColor(type)}
@@ -176,7 +176,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             <button
               onClick={() => onSetFeatureColors({})}
               data-tip="Restore the built-in colour for every feature type"
-              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-semibold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-bold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               Reset to Defaults
             </button>
@@ -184,8 +184,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
 
           {/* Theme — the chrome accent style (per browser) */}
           <div className="px-5 py-4">
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">
-              Theme <span className="normal-case tracking-normal font-medium text-slate-600">· accent follows the workspace</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-3">
+              Theme <span className="normal-case tracking-normal font-medium text-slate-500">· accent follows the workspace</span>
             </span>
             <div role="radiogroup" aria-label="Chrome theme" className="grid grid-cols-2 gap-2">
               {THEMES.map((t, i) => (
@@ -211,7 +211,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                       <i className="fas fa-dna text-[7px] text-env"></i>
                     </span>
                   </span>
-                  <span className={`flex items-center justify-between px-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide ${themeKey === t.key ? 'text-env' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                  <span className={`flex items-center justify-between px-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide ${themeKey === t.key ? 'text-env' : 'text-slate-400 group-hover:text-slate-200'}`}>
                     {t.label}
                     {themeKey === t.key && <i className="fas fa-check text-[9px]" aria-hidden="true"></i>}
                   </span>

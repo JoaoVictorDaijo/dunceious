@@ -92,7 +92,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('exact')}
             aria-pressed={searchMode === 'exact'}
             data-tip="Exact search with IUPAC ambiguity codes (N, R, Y…)"
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             IUPAC
           </button>
@@ -100,7 +100,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('fuzzy')}
             aria-pressed={searchMode === 'fuzzy'}
             data-tip="Approximate search: tolerates mismatches, ranked by score"
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             Fuzzy
           </button>
@@ -121,7 +121,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
               {(searchQuery || filteredResults.length > 0 || isSearching) && (
-                <button onClick={onClearSearch} aria-label="Clear search" className="text-slate-600 hover:text-rose-500 transition-colors" data-tip="Clear the query, results and highlights">
+                <button onClick={onClearSearch} aria-label="Clear search" className="text-slate-500 hover:text-rose-500 transition-colors" data-tip="Clear the query, results and highlights">
                   <i className="fas fa-times-circle text-sm"></i>
                 </button>
               )}
@@ -146,8 +146,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {searchMode === 'fuzzy' && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
-              <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest">Min Match Confidence</label>
-              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-semibold">{searchOptions.minScore}%</span>
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Min Match Confidence</label>
+              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">{searchOptions.minScore}%</span>
             </div>
             <input
               type="range" min="0" max="100" step="5"
@@ -162,28 +162,28 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
             <div className="space-y-2">
-              <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest px-1">Strand</label>
+              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Strand</label>
               <div className="relative">
                 <select
                   value={searchOptions.strand}
                   onChange={e => onSearchOptionsChange({ ...searchOptions, strand: e.target.value as 'fwd' | 'rev' | 'both' })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-semibold text-slate-400 outline-none focus:border-sky-500 appearance-none cursor-pointer"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-sky-500 appearance-none cursor-pointer"
                 >
                   <option value="both">Both Strands</option>
                   <option value="fwd">Forward Only</option>
                   <option value="rev">Reverse Only</option>
                 </select>
-                <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-slate-600 pointer-events-none"></i>
+                <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-slate-500 pointer-events-none"></i>
               </div>
             </div>
           )}
           <div className="space-y-2">
-            <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest px-1">Result Limit</label>
+            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Result Limit</label>
             <input
               type="number"
               value={searchOptions.maxResults}
               onChange={e => onSearchOptionsChange({ ...searchOptions, maxResults: parseInt(e.target.value) })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-semibold text-slate-400 outline-none focus:border-sky-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-sky-500"
             />
           </div>
         </div>
@@ -195,11 +195,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-slate-200 uppercase tracking-widest">{filteredResults.length} Matches</span>
-                  <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                  <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
                 </div>
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
                   Across {Object.keys(groupedSearchResults).length} Records
                 </span>
               </div>
@@ -208,7 +208,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   <button
                     onClick={() => onSetSelectedIndices(new Set())}
                     data-tip="Deselect all matches"
-                    className="text-[9px] font-semibold uppercase text-rose-500 hover:text-rose-400 transition-colors"
+                    className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400 transition-colors"
                   >
                     Clear
                   </button>
@@ -217,7 +217,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   <button
                     onClick={onJoinSelectedMatches}
                     data-tip="Create one multi-segment annotation from the selected matches"
-                    className="px-4 py-2 rounded-xl bg-sky-600 text-white text-[9px] font-semibold uppercase hover:bg-sky-500 transition-all shadow-xl shadow-sky-900/40"
+                    className="px-4 py-2 rounded-xl bg-sky-600 text-white text-[9px] font-bold uppercase hover:bg-sky-500 transition-all shadow-xl shadow-sky-900/40"
                   >
                     Join Selected
                   </button>
@@ -231,19 +231,19 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   <div className="flex items-center justify-between sticky top-0 bg-[#020617] z-10 py-2 border-b border-slate-800/50">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div>
-                      <span className="text-[10px] font-semibold text-slate-300 uppercase truncate max-w-[140px] tracking-tight">{recordId}</span>
+                      <span className="text-[10px] font-bold text-slate-300 uppercase truncate max-w-[140px] tracking-tight">{recordId}</span>
                     </div>
                     <div className="flex gap-3">
                       <button
                         onClick={() => onToggleRecordSelection(recordId, true)}
                         data-tip="Select every match in this record"
-                        className="text-[8px] font-semibold text-slate-500 uppercase hover:text-sky-400 transition-colors"
+                        className="text-[8px] font-bold text-slate-400 uppercase hover:text-sky-400 transition-colors"
                       >
                         Select All
                       </button>
                       <button
                         onClick={() => onJoinAllInRecord(recordId)}
-                        className="text-[8px] font-semibold text-slate-500 uppercase hover:text-emerald-400 transition-colors"
+                        className="text-[8px] font-bold text-slate-400 uppercase hover:text-emerald-400 transition-colors"
                         data-tip="Create one multi-segment annotation from every match in this record"
                       >
                         Join All
@@ -284,36 +284,36 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[11px] font-bold text-slate-200 tracking-tight">
-                                  {match.start.toLocaleString()} <span className="text-slate-600 font-normal">→</span> {match.end.toLocaleString()}
+                                  {match.start.toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
                                 </span>
-                                <span className="text-[8px] font-semibold text-slate-600 uppercase tracking-widest">Position</span>
+                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Position</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               {match.score && (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-[10px] font-semibold text-amber-500">
+                                  <span className="text-[10px] font-bold text-amber-500">
                                     {scorePercent(match.score, maxScoreFound)}%
                                   </span>
-                                  <span className="text-[8px] font-semibold text-slate-600 uppercase tracking-tighter">Match</span>
+                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Match</span>
                                 </div>
                               )}
-                              <div className={`px-2 py-1 rounded-lg text-[8px] font-semibold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                              <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
                                 {match.strand === 1 ? 'Forward' : 'Reverse'}
                               </div>
                             </div>
                           </div>
 
                           <div className="seq-scroll text-[11px] font-mono bg-black/60 p-3 rounded-xl border border-slate-800/50 overflow-x-auto whitespace-nowrap shadow-inner">
-                            <span className="text-slate-600">{context.pre}</span>
+                            <span className="text-slate-500">{context.pre}</span>
                             <span className="text-sky-400 font-bold bg-sky-400/20 px-1 rounded-sm shadow-[0_0_10px_rgba(56,189,248,0.2)]">{context.match}</span>
-                            <span className="text-slate-600">{context.post}</span>
+                            <span className="text-slate-500">{context.post}</span>
                           </div>
 
                           <div className="mt-3 flex justify-between items-center">
                             <div className="flex gap-2">
                               {isActive && (
-                                <span className="text-[8px] font-semibold text-sky-500 uppercase flex items-center gap-1 animate-pulse">
+                                <span className="text-[8px] font-bold text-sky-500 uppercase flex items-center gap-1 animate-pulse">
                                   <i className="fas fa-eye"></i> Active
                                 </span>
                               )}
@@ -325,7 +325,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               }}
                               aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
                               data-tip="Save this match as an annotation"
-                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-semibold uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg border border-sky-500/20"
+                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-bold uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg border border-sky-500/20"
                             >
                               <i className="fas fa-plus text-[8px]"></i> Annotate
                             </button>

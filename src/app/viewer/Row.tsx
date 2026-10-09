@@ -23,9 +23,10 @@ import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationDirection } from './annotationPresentation';
+import { annotationBarPath, annotationDirection, showsAnnotationBases } from './annotationPresentation';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { computeBrokenFeatureMap } from './cds';
-import { ANNOT_ROW_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_BASES_MIN_ZOOM, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -79,8 +80,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq),
-    [l.record.features, seq],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
+    [l.record.features, seq, l.record.moleculeType],
   );
 
   return (
@@ -95,7 +96,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-slate-200" style={{ top: 0, height: l.annotHeight + l.topPadding }} />
             <div className="absolute right-2 flex items-center" style={{ top: 4, height: 12 }}>
-              <span className="text-[8px] font-semibold uppercase text-slate-400 tracking-widest">Annot</span>
+              <span className="text-[8px] font-bold uppercase text-slate-400 tracking-widest">Annot</span>
             </div>
           </>
         )}
@@ -104,7 +105,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-indigo-400/30" style={{ top: l.annotHeight + l.topPadding, height: l.quantHeight }} />
             <div className="absolute right-2 flex items-center" style={{ top: l.annotHeight + l.topPadding - 12, height: 12 }}>
-              <span className="text-[8px] font-semibold uppercase text-indigo-400 tracking-widest">Tracks</span>
+              <span className="text-[8px] font-bold uppercase text-indigo-400 tracking-widest">Tracks</span>
             </div>
             {/* Track Legends */}
             <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.annotHeight + l.topPadding }}>
@@ -131,24 +132,24 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className="absolute right-0 w-1 bg-emerald-400/30" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0), height: (effectiveTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT }} />
         <div className="absolute right-2 flex items-center" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) - 12, height: 12 }}>
-          <span className="text-[8px] font-semibold uppercase text-emerald-500 tracking-widest">Sequence</span>
+          <span className="text-[8px] font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
         {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY - AA_ROW_HEIGHT * 3 }}>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F1</span>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F2</span>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F3</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F1</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F2</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F3</span>
           </div>
         )}
-        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-semibold text-slate-900 shadow-sm tracking-tight" data-tip={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
+        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold text-slate-900 shadow-sm tracking-tight" data-tip={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
           {l.id}
         </div>
         {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY + NT_ROW_HEIGHT }}>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R1</span>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R2</span>
-            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R3</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R1</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R2</span>
+            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R3</span>
           </div>
         )}
       </div>
@@ -160,14 +161,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           {showAnnotations && l.annotHeight > 0 && (
             <div className="absolute left-0 right-0 bg-slate-50/30 border-b border-slate-100/50" style={{ top: 0, height: l.annotHeight + l.topPadding }}>
               <div className="absolute left-2 z-30 pointer-events-none" style={{ top: 4 }}>
-                <span className="text-[8px] font-semibold uppercase text-slate-400 tracking-widest">Annotations</span>
+                <span className="text-[8px] font-bold uppercase text-slate-400 tracking-widest">Annotations</span>
               </div>
             </div>
           )}
           
           {showTracks && tracks.length > 0 && (
             <div className="absolute left-2 z-30 pointer-events-none" style={{ top: l.annotHeight + l.topPadding - 12 }}>
-              <span className="text-[8px] font-semibold uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
+              <span className="text-[8px] font-bold uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
             </div>
           )}
 
@@ -251,11 +252,19 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 if (!part1Visible && !part2Visible) return null;
               }
 
-              const y = p.row * (ANNOT_ROW_HEIGHT + 6) + l.topPadding;
+              // Each feature sits in a <g> placed by transform so lane moves animate
+              // (see .annot-feature); everything inside draws from y = 0.
+              const laneY = l.laneTops[p.row] + l.topPadding;
+              const y = 0;
+              const expanded = showsAnnotationBases(f) && zoomLevel > ANNOT_BASES_MIN_ZOOM;
+              const barHeight = ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
+              const place = (node: React.ReactNode) => (
+                <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
+              );
               const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
-              const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
+              const isBroken = brokenFeatureMap.get(f) ?? false;
 
               const tooltipContent = [
                 `${f.name} [${f.type}]`,
@@ -268,25 +277,30 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
 
-              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1) => {
+              const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (fX > viewportWidth || fX + fW < 0) return null;
 
                 if (f.type === 'quantitative_data') return null; // Handled by QuantitativeTrack
 
-                const rectHeight = ANNOT_ROW_HEIGHT;
-                const rectY = y;
                 const fill = f.color || getFeatureColor(f.type, customColors);
+                const partStrand = strand ?? getFeatureStrand(f);
+                const barPath = annotationBarPath(fX, y, Math.max(1, fW), barHeight, partStrand, pointed);
 
                 return (
                   <React.Fragment key={`${i}-${keySuffix}`}>
-                    <rect
-                      x={fX} y={rectY} width={Math.max(1, fW)} height={rectHeight}
-                      fill={fill} fillOpacity={isSelected ? 0.3 : 0.16} rx={4}
+                    <path
+                      data-annotation-part=""
+                      data-x={fX}
+                      data-width={Math.max(1, fW)}
+                      className="annot-bar"
+                      d={barPath}
+                      fill={fill} fillOpacity={isSelected ? 0.45 : 0.3}
+                      strokeLinejoin="round"
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
-                      strokeWidth={isSelected ? 1 : (isBroken ? 1.5 : 0.6)}
+                      strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
+                      style={{ cursor: 'pointer', d: `path("${barPath}")` } as React.CSSProperties} opacity={isSelected ? 1 : 0.85}
                       onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
                       onMouseOut={() => setTooltip(null)}
                       onClick={(ev) => {
@@ -304,14 +318,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       }}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
-                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel}
+                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel} expanded={expanded}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
                 );
               };
 
               if (f.segments && f.segments.length > 0) {
-                const lineY = y + ANNOT_ROW_HEIGHT / 2;
+                const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
                 // Draw connecting lines between segments
                 const connectingLines: React.ReactElement[] = [];
@@ -364,23 +378,30 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                return (
-                  <React.Fragment key={i}>
+                return place(
+                  <>
                     {connectingLines}
-                    {f.segments.map((seg: FeatureSegment, idx: number) => renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand))}
-                  </React.Fragment>
+                    {f.segments.map((seg: FeatureSegment, idx: number) => {
+                      // Only the piece where the feature ends (its 3′ side) gets the arrow head.
+                      const segStrand = seg.strand ?? getFeatureStrand(f);
+                      const terminal = segStrand === -1
+                        ? seg.start === Math.min(...f.segments!.map(x => x.start))
+                        : seg.end === Math.max(...f.segments!.map(x => x.end));
+                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal);
+                    })}
+                  </>
                 );
               }
 
               if (isWrap) {
-                return (
-                  <React.Fragment key={i}>
-                    {renderPart(f.start, seq.length, 'p1')}
-                    {renderPart(0, f.end, 'p2')}
-                  </React.Fragment>
+                return place(
+                  <>
+                    {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
+                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
+                  </>
                 );
               }
-              return renderPart(f.start, f.end, 'p1');
+              return place(renderPart(f.start, f.end, 'p1'));
             })}
 
           </svg>
@@ -424,7 +445,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
-                    className="text-[8px] font-semibold uppercase px-1.5 py-0.5 rounded border shadow-sm"
+                    className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border shadow-sm"
                     style={{ 
                       color: trackColor, 
                       backgroundColor: '#fff',

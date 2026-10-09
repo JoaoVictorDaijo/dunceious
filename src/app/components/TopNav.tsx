@@ -113,17 +113,10 @@ const TopNav: React.FC<TopNavProps> = ({
       </button>
       <div className="flex flex-col">
         <div className="flex items-center gap-3">
-          {/* Same tile as the favicon; it takes the environment accent. */}
-          <span
-            className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-950 border transition-colors duration-700 motion-reduce:transition-none"
-            style={{ color: 'var(--env)', borderColor: 'color-mix(in srgb, var(--env) 35%, transparent)' }}
-            aria-hidden="true"
-          >
-            <i className="fas fa-dna text-[13px]"></i>
-          </span>
-          <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
+          {/* Indented past the slogan on purpose: the original offset is part of the wordmark. */}
+          <span className="ml-3 text-xl font-black tracking-wide uppercase italic text-white">Dunceious</span>
         </div>
-        <span className="text-[8px] font-semibold uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
+        <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-slate-400 italic leading-none mt-1">
           Because geniality is overpriced.
         </span>
       </div>
@@ -139,12 +132,12 @@ const TopNav: React.FC<TopNavProps> = ({
           data-tip="Visual Viewport: browse the sequences, annotations and data tracks"
           className={`group flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${activeTab === 'alignment' ? 'bg-sky-600 shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
-          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'alignment' ? 'bg-white/15 text-white' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'alignment' ? 'bg-white/15 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}>
             <i className="fas fa-crosshairs"></i>
           </span>
           <span className="flex flex-col items-start leading-none">
-            <span className={`text-[8px] font-semibold uppercase tracking-[0.28em] ${activeTab === 'alignment' ? 'text-sky-100' : 'text-slate-400'}`}>View</span>
-            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'alignment' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Visual Viewport</span>
+            <span className={`text-[8px] font-bold uppercase tracking-[0.28em] ${activeTab === 'alignment' ? 'text-sky-100' : 'text-slate-400'}`}>View</span>
+            <span className={`text-[10px] font-bold uppercase tracking-tight mt-0.5 ${activeTab === 'alignment' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Visual Viewport</span>
           </span>
         </button>
         <button
@@ -153,12 +146,12 @@ const TopNav: React.FC<TopNavProps> = ({
           data-tip="Annotation Hub: list, edit, export and jump to every annotation"
           className={`group flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${activeTab === 'features' ? 'bg-amber-500 shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
-          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'features' ? 'bg-slate-950/15 text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'features' ? 'bg-slate-950/15 text-slate-900' : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}>
             <i className="fas fa-table-list"></i>
           </span>
           <span className="flex flex-col items-start leading-none">
-            <span className={`text-[8px] font-semibold uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
-            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Annotation Hub</span>
+            <span className={`text-[8px] font-bold uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
+            <span className={`text-[10px] font-bold uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Annotation Hub</span>
           </span>
         </button>
       </div>
@@ -174,7 +167,7 @@ const TopNav: React.FC<TopNavProps> = ({
                 aria-pressed={dragMode === m.mode}
                 aria-label={m.label}
                 data-tip={m.tip}
-                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${dragMode === m.mode ? 'bg-white text-sky-600 shadow-lg' : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/70'}`}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${dragMode === m.mode ? 'bg-white text-sky-600 shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'}`}
               >
                 <i className={`fas ${m.icon}`}></i>
               </button>
@@ -184,7 +177,7 @@ const TopNav: React.FC<TopNavProps> = ({
           {activeSelection && (
             <button
               onClick={onClearSelection}
-              className="h-10 px-4 rounded-xl text-[9px] font-semibold uppercase tracking-wider border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all animate-in fade-in zoom-in-95 duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
+              className="h-10 px-4 rounded-xl text-[9px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all animate-in fade-in zoom-in-95 duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
               data-tip="Clear the current selection"
             >
               <i className="fas fa-xmark mr-1.5"></i>Clear
@@ -199,12 +192,12 @@ const TopNav: React.FC<TopNavProps> = ({
                 aria-pressed={l.on}
                 aria-disabled={l.disabledReason ? true : undefined}
                 data-tip={l.disabledReason ?? `${l.on ? 'Hide' : 'Show'} ${l.tip}`}
-                className={`h-8 flex items-center gap-2 px-3 rounded-lg text-[9px] font-semibold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${
+                className={`h-8 flex items-center gap-2 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${
                   l.disabledReason
-                    ? 'text-slate-600 cursor-not-allowed'
+                    ? 'text-slate-500 cursor-not-allowed'
                     : l.on
                       ? 'bg-slate-800 text-slate-100 shadow-inner'
-                      : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/60'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
                 <span

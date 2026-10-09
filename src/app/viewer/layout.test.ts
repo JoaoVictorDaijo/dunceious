@@ -18,7 +18,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ANNOT_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP } from './constants';
+
+const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
 import { computeRecordLayouts } from './layout';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
@@ -39,7 +41,7 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements.map(p => p.row)).toEqual([0, 0]);
-    expect(l.annotHeight).toBe(1 * (ANNOT_ROW_HEIGHT + 6)); // one lane
+    expect(l.annotHeight).toBe(LANE); // one lane
   });
 
   it('pushes features within the 10-bp buffer to a new lane', () => {
@@ -49,7 +51,20 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements.map(p => p.row)).toEqual([0, 1]);
-    expect(l.annotHeight).toBe(2 * (ANNOT_ROW_HEIGHT + 6));
+    expect(l.annotHeight).toBe(2 * LANE);
+    expect(l.laneTops).toEqual([0, LANE]);
+  });
+
+  it('grows only the lane holding a feature whose bases are switched on, and only while legible', () => {
+    const r = rec({ id: 'r', sequence: 'A'.repeat(100), features: [
+      { type: 'gene', name: 'a', start: 0, end: 10, strand: 1, metadata: { _showBases: '1' } },
+      { type: 'gene', name: 'b', start: 5, end: 25, strand: 1 },
+    ] });
+    expect(computeRecordLayouts([r], ALL)[0].laneHeights).toEqual([ANNOT_BAR_HEIGHT, ANNOT_BAR_HEIGHT]);
+    const [l] = computeRecordLayouts([r], { ...ALL, basesVisible: true });
+    expect(l.laneHeights).toEqual([ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT, ANNOT_BAR_HEIGHT]);
+    expect(l.laneTops).toEqual([0, ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT + ANNOT_LANE_GAP]);
+    expect(l.annotHeight).toBe(2 * LANE + ANNOT_BASES_HEIGHT);
   });
 
   it('keeps placements but zeroes annotHeight when showAnnotations is false', () => {
@@ -68,7 +83,7 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements).toEqual([{ feature: r.features[0], row: 0 }]);
-    expect(l.annotHeight).toBe(ANNOT_ROW_HEIGHT + 6);
+    expect(l.annotHeight).toBe(LANE);
   });
 
   it('gives line tracks height 80 and accumulates quantHeight with 12-px spacing', () => {
