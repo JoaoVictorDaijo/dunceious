@@ -46,7 +46,8 @@ src/
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
 │   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
 │   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
-│   └── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   ├── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   └── alignment/       # EMBL-EBI contract model: engine catalog, preflight, parsers, result remap — pure, NO fetch
 │
 ├── workers/             # Thin shells + typed contracts + worker bodies.
 │   ├── protocol.ts      # message contracts (may reference domain types)
@@ -63,7 +64,7 @@ src/
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
     ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts
-    └── lib/download.ts  # downloadBlob (the one DOM-coupled fn, kept out of core)
+    └── lib/             # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
 ```
 
 Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `perf/`,
@@ -126,11 +127,24 @@ All messages are typed as discriminated unions:
 - **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
   - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/logic/idHelpers.ts`).
   - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every ID in the file must match an existing workspace record exactly, and all sequences must have equal length; any mismatch is rejected with an error log entry. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
+- **Remote alignment** produces the same input as the overlay above, but computed by EMBL-EBI; see *Remote alignment (EMBL-EBI)* below.
 - **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
 - **GFF3 Parser**: Merges GFF3 features into existing records, matching by sequence ID.
 - **Annotation Import**: Merges external annotation files (GFF/BED) into existing records.
 - **Transposition**: Delegates to `src/domain/bio/coordinate.ts → processTransposition`.
+
+### Remote alignment (EMBL-EBI)
+
+The one feature that sends data off the machine, therefore opt-in and consent-gated. It is **not** a worker concern: it runs on the main thread (async `fetch` + timers) and converges with the pre-aligned pipe at the overlay reducer, not at `PARSE_FASTA`.
+
+- **Contract model** (`src/core/alignment/`, pure): `ebi.ts` holds the engine catalog (MAFFT default, Kalign, Clustal Omega, MUSCLE: limits, UI copy, `buildParams`), the submission builder (alias headers `s1…sN`, ungapped, 60-column FASTA, with an alias → record-ID map), parsers for EBI's XML errors, result types and job status, and `remapAlignment` (alias set, equal lengths and gap-stripped == submitted must all hold). `preflight.ts` has `validateEmail` and `preflightAlignment`, which run per engine before anything is sent. Limits come from measuring EBI itself, not its prose docs: minimum 2 sequences, maximum 500/2000/4000/500, and the byte limit applies to the 60-column payload (we enforce 99.5 % of it). EBI verifies the email's domain via DNS, so that rule cannot be mirrored client-side and is reported from its synchronous `400`.
+- **Client and runner** (`src/app/lib/ebiClient.ts`, `src/app/logic/remoteAlignment.ts`): the client is the only `fetch` caller (direct from the browser, EBI sends `Access-Control-Allow-Origin: *`; per-request timeout, 120 s for a submit). The runner is a pure async state machine over injected `client`/`sleep`/`now`/`signal`: submit once and never retry it, poll `status` with retry/backoff for transient failures, pick the result type (`aln-fasta`, then `fa`, then `out`), validate, then hand over. It exposes per-step timestamps for the monitor. There is no cancel endpoint at EBI, so cancelling only stops waiting.
+- **Convergence**: the runner remaps aliases to exact record IDs in memory and calls the shared `applyAlignmentOverlay` from `useBioWorker`, which runs the same `applyFastaResponse(…, true)` and logs as the `FASTA_SUCCESS` path. Nothing downstream changes (transposition, consensus).
+- **Lock**: `useRemoteAlignment` exposes `isAlignmentLocked`; while a job runs the handlers that change records (ingest, pre-aligned upload, project load, Clear All, record removal) disable and early-return, so jobs cannot race into the same overlay. A stale-session guard discards a result if records changed anyway.
+- **Consent**: the dialog shows an explicit disclosure first (`alignConsentPref.ts`, versioned, stored per browser, revocable); `submit` makes no request without it.
+- **UI**: `AlignmentSection` (sidebar, above search), `AlignRemoteModal` (consent, engine picker, email), `AlignmentJobMonitor` (step list, polling transparency) and `AlignmentJobPill` (minimized status).
+- Design record and the measured API contract: `docs/superpowers/specs/2026-10-09-remote-alignment-design.md`.
 
 ### Consensus (`src/domain/bio/consensus.ts`)
 
@@ -163,6 +177,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `useAppLogger` – append-only activity log, stable `addLog` callback
 - `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
 - `useFeatureManager` – feature CRUD, search-to-annotation bridge, record visibility toggle
+- `useRemoteAlignment` – remote alignment dialog state, job lifecycle, consent and lock
 - `useFileHandlers` – file upload handlers (with molecule-type enforcement) and export helpers
 - `useSearchWorker` – search worker bridge; derives `isProteinSession`; exposes grouped results and join helpers
 
@@ -172,6 +187,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `StatusBar` – bottom status bar: selection metrics, session molecule-type chip, license link
 - `TopNav` – top navigation: tab switcher, drag/select mode toggle, viewport display toggles; translation button disabled for protein sessions; session-type gradient accent strip
 - `Sidebar` – tab panel: file upload, alignment record list / feature list / search
+- `AlignmentSection`, `AlignRemoteModal`, `AlignmentJobMonitor`, `AlignmentJobPill` – remote alignment trigger, dialog, job monitor and minimized pill
 - `SearchPanel` – sequence search UI with grouped results; strand selector hidden for protein sessions
 - `RecordDetailsModal` – record metadata viewer
 - `FeatureEditorModal` – annotation editor (supports circular features)
