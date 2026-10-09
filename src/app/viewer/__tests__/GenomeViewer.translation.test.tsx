@@ -33,7 +33,10 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 function setup(showTranslation = true, moleculeType: SeqRecord['moleculeType'] = 'dna') {
   const records: SeqRecord[] = ['first', 'second'].map(id => ({
-    id, name: id, sequence: 'A'.repeat(1000), features: [], moleculeType,
+    id, name: id, sequence: 'A'.repeat(1000), moleculeType, features: [
+      { type: 'CDS', name: 'fwd', start: 0, end: 300, strand: 1 },
+      { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1 },
+    ],
   }));
   return render(<GenomeViewer records={records} consensus={records[0].sequence}
     showAnnotations={false} showTranslation={showTranslation} showTracks={false} showConservation={false}
@@ -57,9 +60,10 @@ it('opens and closes virtualized rows when zoom crosses the drawing threshold', 
   for (let i = 0; i < 8; i++) fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
   expect(first.style.height).toBe('42px');
   fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
-  expect(first.style.height).toBe('150px');
-  expect(second.style.transform).toBe('translateY(150px)');
-  expect(sequence.style.transform).toBe('translateY(54px)');
+  // One forward and one reverse row: only the lanes the record's CDSs use.
+  expect(first.style.height).toBe('78px');
+  expect(second.style.transform).toBe('translateY(78px)');
+  expect(sequence.style.transform).toBe('translateY(18px)');
   expect(forward.getAttribute('aria-hidden')).toBe('false');
 
   fireEvent.click(view.getByRole('button', { name: 'Zoom out' }));

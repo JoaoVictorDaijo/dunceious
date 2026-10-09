@@ -330,20 +330,30 @@ describe('aligned circular connectors', () => {
 });
 
 
-describe('translation labels and geometry', () => {
-  it.each([4.99, 5, 5.01])('keeps labels and sequence at the same visibility at zoom %s', (zoomLevel) => {
-    const data = rowData(rec([]), { showTranslation: true, zoomLevel });
+const coding: BioFeature[] = [
+  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 },
+  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1 },
+];
+
+describe('translation rows and geometry', () => {
+  it.each([4.99, 5, 5.01])('reserves only the used lanes, unlabelled, at zoom %s', (zoomLevel) => {
+    const data = rowData(rec(coding), { showTranslation: true, zoomLevel });
     const { container } = render(<Row index={0} style={{ top: 150 }} data={data} />);
     const visible = zoomLevel > 5;
-    expect(data.recordLayouts[0].height).toBe(visible ? 150 : 42);
-    for (const label of ['F1', 'F2', 'F3', 'R1', 'R2', 'R3']) {
-      const node = [...container.querySelectorAll('span')].find(s => s.textContent === label);
-      expect(node?.closest('[aria-hidden]')?.getAttribute('aria-hidden')).toBe(String(!visible));
-    }
+    const [layout] = data.recordLayouts;
+    const [collapsed] = rowData(rec(coding)).recordLayouts;
+    expect(layout.height - collapsed.height).toBe(visible ? 2 * 18 : 0);
+    expect(layout.seqBaseY - collapsed.seqBaseY).toBe(visible ? 18 : 0);
+    expect(container.textContent).not.toMatch(/[FR][123]/);
     const name = container.querySelector<HTMLElement>('[data-tip="r"]');
-    expect(name?.style.transform).toBe(`translateY(${visible ? 56 : 2}px)`);
+    expect(name?.style.transform).toBe(`translateY(${layout.seqBaseY + 2}px)`);
     expect(name?.classList.contains('translation-motion')).toBe(true);
     expect((container.firstChild as HTMLElement).style.transform).toBe('translateY(150px)');
+  });
+
+  it('reserves no translation rows for a record without coding features', () => {
+    const data = rowData(rec([]), { showTranslation: true, zoomLevel: 20 });
+    expect(data.recordLayouts[0]).toMatchObject({ translationVisible: true, seqBaseY: 0, height: 42 });
   });
 
   it('keeps protein labels absent even with Translation on at high zoom', () => {
@@ -354,17 +364,18 @@ describe('translation labels and geometry', () => {
 
 
 it('keeps a record selection aligned with the full effective row height', () => {
-  const record = rec([]);
+  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 }]);
   const makeData = (zoomLevel: number) => rowData(record, {
     zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
   });
   const { container, rerender } = render(<Row index={0} style={{}} data={makeData(5)} />);
   const selection = () => container.querySelector('rect[data-selection-band]');
-  expect(selection()?.getAttribute('height')).toBe('42');
+  const collapsed = String(makeData(5).recordLayouts[0].height);
+  expect(selection()?.getAttribute('height')).toBe(collapsed);
   rerender(<Row index={0} style={{}} data={makeData(6)} />);
-  expect(selection()?.getAttribute('height')).toBe('150');
+  expect(selection()?.getAttribute('height')).toBe(String(Number(collapsed) + 18));
   rerender(<Row index={0} style={{}} data={makeData(5)} />);
-  expect(selection()?.getAttribute('height')).toBe('42');
+  expect(selection()?.getAttribute('height')).toBe(collapsed);
 });
 
 describe('annotation bars stay in step with scroll', () => {

@@ -25,10 +25,12 @@ import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/
 import { parseFasta } from '@/src/core/formats/fasta';
 import { Minimap } from '@/src/app/viewer/Minimap';
 import { AA_ROW_HEIGHT } from '@/src/app/viewer/constants';
+import { assignTranslationLanes } from '@/src/app/viewer/cds';
+import type { BioFeature } from '@/src/domain/bio/types';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
-function props(seq: string): SequenceTrackProps {
+function props(seq: string, features: BioFeature[] = [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1 }]): SequenceTrackProps {
   return {
     seq,
     moleculeType: 'dna',
@@ -38,7 +40,8 @@ function props(seq: string): SequenceTrackProps {
     zoomLevel: ZOOM,
     scrollX: 0,
     showTranslation: true,
-    features: [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1 }],
+    features,
+    translationLanes: assignTranslationLanes(features, seq, 'dna'),
     searchResults: [],
     allSearchResults: [],
     currentSearchIdx: -1,
@@ -116,20 +119,19 @@ describe('ribosomal frameshift (−1 PRF)', () => {
   // ATG AAA | A CG GGT TAA: the join re-reads base 5, so K (bases 3–5) sits in
   // frame 0 and T (bases 5–7) in frame 2. Each codon belongs in its own row.
   const SEQ = 'ATGAAACGGGTTAA';
-  const slip = (): SequenceTrackProps => ({
-    ...props(SEQ),
-    features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: SEQ.length, strand: 1,
-      segments: [{ start: 0, end: 6 }, { start: 5, end: SEQ.length }] }],
-  });
+  const slip = (): SequenceTrackProps => props(SEQ, [{ type: 'CDS', name: 'pp1ab', start: 0, end: SEQ.length, strand: 1,
+    segments: [{ start: 0, end: 6 }, { start: 5, end: SEQ.length }] }]);
   let recorder: CanvasRecorder;
   beforeEach(() => { recorder = installCanvasRecorder(); });
 
   it('draws each codon in the row of its own frame', () => {
-    render(<SequenceTrack {...slip()} />);
+    const { container } = render(<SequenceTrack {...slip()} />);
     const box = (x: number) => recorder.fillRects().find(([rx, , w]) => rx === x && w === 3 * ZOOM);
     expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'K', 'T', 'G']));
-    expect(box(3 * ZOOM)?.[1]).toBe(0);                 // K: frame 0 → F1 row of the forward band
-    expect(box(5 * ZOOM)?.[1]).toBe(AA_ROW_HEIGHT * 2);  // T: frame 2 → F3 row
+    // The two frames overlap at the slip, so the band holds two rows.
+    expect(container.querySelector<HTMLElement>('.translation-band')?.style.height).toBe(`${AA_ROW_HEIGHT * 2}px`);
+    expect(box(3 * ZOOM)?.[1]).toBe(AA_ROW_HEIGHT); // K: pre-slip frame, row next to the bases
+    expect(box(5 * ZOOM)?.[1]).toBe(0);             // T: post-slip frame, the row above
   });
 
   it('labels the junction with the shift', () => {
@@ -138,10 +140,9 @@ describe('ribosomal frameshift (−1 PRF)', () => {
   });
 
   it('does not label an ordinary spliced join', () => {
-    const spliced = slip();
-    spliced.features = [{ type: 'CDS', name: 'spliced', start: 0, end: SEQ.length, strand: 1,
+    const features: BioFeature[] = [{ type: 'CDS', name: 'spliced', start: 0, end: SEQ.length, strand: 1,
       segments: [{ start: 0, end: 6 }, { start: 8, end: SEQ.length }] }];
-    render(<SequenceTrack {...spliced} />);
+    render(<SequenceTrack {...props(SEQ, features)} />);
     expect(recorder.texts()).not.toContain('−1');
     expect(recorder.texts()).not.toContain('+1');
   });
@@ -151,11 +152,31 @@ describe('aligned CDS translation', () => {
   it('renders codons across gaps in the same biological frame', () => {
     const recorder = installCanvasRecorder();
     const seq = '--A-TG-AAA-TAA--';
-    const { container } = render(<SequenceTrack {...props(seq)} features={[{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
-      segments: [{ start: 2, end: 14 }] }]} />);
+    const { container } = render(<SequenceTrack {...props(seq, [{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
+      segments: [{ start: 2, end: 14 }] }])} />);
     expect(recorder.texts().slice(-3)).toEqual(['M', 'K', '_']);
     expect(recorder.fillRects().slice(-3)).toEqual([[40, 0, 80, 18], [140, 0, 60, 18], [220, 0, 60, 18]]);
-    expect(container.querySelector<HTMLCanvasElement>('.translation-band')?.style.transform).toBe('translateY(46px)');
+    expect(container.querySelector<HTMLCanvasElement>('.translation-band')?.style.transform).toBe('translateY(82px)');
+  });
+});
+
+
+describe('translation lanes', () => {
+  it('stacks a different-frame overlap outward from the bases on each strand', () => {
+    const recorder = installCanvasRecorder();
+    const seq = 'ATGAAATAAATGAAATAA';
+    const features: BioFeature[] = [
+      { type: 'CDS', name: 'f0', start: 0, end: 9, strand: 1 },
+      { type: 'CDS', name: 'f1', start: 4, end: 13, strand: 1 },
+      { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1 },
+    ];
+    const { container } = render(<SequenceTrack {...props(seq, features)} />);
+    const [forward, reverse] = [...container.querySelectorAll<HTMLCanvasElement>('.translation-band')];
+    expect([forward.style.height, reverse.style.height]).toEqual(['36px', '18px']);
+    expect(forward.style.transform).toBe('translateY(64px)');
+    const aaRows = recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([, y]) => y);
+    // f0 sits next to the bases (bottom forward row), f1 above it, r0 in the single reverse row.
+    expect(aaRows).toEqual([18, 18, 18, 0, 0, 0, 0, 0, 0]);
   });
 });
 
@@ -187,10 +208,10 @@ describe('translation zoom boundary', () => {
 it('retains both translation canvases for the closing fade without drawing at low zoom', () => {
   const recorder = installCanvasRecorder();
   const input = props('ATG');
-  const { container, rerender } = render(<SequenceTrack {...input} zoomLevel={6} y={54} />);
+  const { container, rerender } = render(<SequenceTrack {...input} zoomLevel={6} y={18} />);
   const bands = [...container.querySelectorAll<HTMLCanvasElement>('.translation-band')];
   expect(bands).toHaveLength(2);
-  expect(bands.map(b => b.style.transform)).toEqual(['translateY(0px)', 'translateY(76px)']);
+  expect(bands.map(b => b.style.transform)).toEqual(['translateY(0px)', 'translateY(40px)']);
   expect(recorder.texts()).toEqual(['M']);
   rerender(<SequenceTrack {...input} zoomLevel={5} y={0} />);
   expect([...container.querySelectorAll('.translation-band')]).toEqual(bands);

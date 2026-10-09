@@ -156,6 +156,46 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+const AUTHORS = ['JoaoVictorDaijo', 'MuriloACassiano'] as const;
+
+const AuthorCard: React.FC<{ login: string }> = ({ login }) => {
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  return (
+    <a
+      href={`https://github.com/${login}`}
+      target="_blank"
+      rel="noreferrer"
+      // The backdrop closes on click; following a profile link must not.
+      onClick={e => e.stopPropagation()}
+      className="group flex items-center gap-3 pl-2.5 pr-4 py-2 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/50 hover:bg-slate-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+    >
+      {avatarFailed ? (
+        <span className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400" aria-hidden="true">
+          <i className="fab fa-github text-lg"></i>
+        </span>
+      ) : (
+        // Offline or blocked? The glyph above takes over rather than a broken image.
+        <img
+          src={`https://github.com/${login}.png?size=80`}
+          alt=""
+          width={40}
+          height={40}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setAvatarFailed(true)}
+          className="w-10 h-10 rounded-full bg-slate-800 ring-1 ring-slate-700 group-hover:ring-sky-500/60 transition-shadow"
+        />
+      )}
+      <span className="flex flex-col items-start text-left">
+        <span className="text-sm font-bold text-slate-100">{login}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 group-hover:text-sky-400 transition-colors">
+          <i className="fab fa-github mr-1.5"></i>GitHub
+        </span>
+      </span>
+    </a>
+  );
+};
+
 interface CentralDogmaEggProps {
   onClose: () => void;
   /** Open on the finished picture instead of playing the whole animation. */
@@ -220,7 +260,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
       aria-modal="true"
       aria-label="DUNCEIOUS gene expression easter egg"
       onClick={() => { if (backdropArmed) onClose(); }}
-      className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 select-none"
+      className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-md flex flex-col items-center overflow-y-auto p-6 animate-in fade-in duration-500 select-none"
     >
       <button
         ref={closeRef}
@@ -233,7 +273,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
         <i className="fas fa-xmark"></i>
       </button>
 
-      <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
+      <p className="mt-auto text-[10px] font-bold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
       <canvas ref={canvasRef} className="w-full max-w-[1000px] h-[260px]" aria-hidden="true" />
 
       <div className="flex gap-2 mt-2 min-h-[92px]" aria-label="Translated protein">
@@ -253,11 +293,23 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
       </div>
 
       {/* Space is reserved up front so the strands don't jump when the finale lands. */}
-      <div className="mt-8 min-h-[72px] text-center max-w-xl">
+      <div className="mt-6 mb-auto min-h-[200px] text-center max-w-xl">
       {elapsed >= FINALE_AT && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
           <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">DUNCEIOUS expressed</h2>
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
+          <p
+            className="mt-3 text-sm text-slate-400 animate-in fade-in duration-700 fill-mode-backwards"
+            style={{ animationDelay: '400ms' }}
+          >
+            Made with <i className="fas fa-heart text-rose-400 mx-0.5" aria-label="love"></i> and built for science
+          </p>
+          <div
+            className="mt-4 flex flex-wrap justify-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-backwards"
+            style={{ animationDelay: '700ms' }}
+          >
+            {AUTHORS.map(login => <AuthorCard key={login} login={login} />)}
+          </div>
+          <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
         </div>
       )}
       </div>

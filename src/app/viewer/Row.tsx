@@ -95,7 +95,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   const effectiveTranslation = l.translationVisible;
   const motionClass = showTranslation && l.record.moleculeType !== 'protein' ? 'translation-motion' : '';
-  const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0);
+  const lanes = l.translationLanes;
+  const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
   const rowTop = typeof style.top === 'number' ? `${style.top}px` : (style.top ?? '0px');
 
   // The focus label rides the region's visible start, holding at the view edge while that start is scrolled away.
@@ -162,30 +163,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className={`absolute right-0 w-1 bg-emerald-400/30 ${motionClass}`}
           style={{ top: 0, height: 1, transformOrigin: 'top',
-            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT})` }} />
+            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT})` }} />
         <div className="absolute right-2 flex items-center" style={{ top: bandTop - 12, height: 12 }}>
           <span className="text-[8px] font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        {l.record.moleculeType !== 'protein' && (
-          <div className="translation-band absolute left-0 right-2 flex flex-col items-end pointer-events-none" aria-hidden={!effectiveTranslation}
-            style={{ top: 0, opacity: effectiveTranslation ? 1 : 0, transform: `translateY(${bandTop + (effectiveTranslation ? 0 : 3)}px)` }}>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F1</span>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F2</span>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">F3</span>
-          </div>
-        )}
         <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
           {l.id}
         </div>
-        {l.record.moleculeType !== 'protein' && (
-          <div className="translation-band absolute left-0 right-2 flex flex-col items-end pointer-events-none" aria-hidden={!effectiveTranslation}
-            style={{ top: 0, opacity: effectiveTranslation ? 1 : 0, transform: `translateY(${l.seqBaseY + NT_ROW_HEIGHT}px)` }}>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R1</span>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R2</span>
-            <span className="text-[8px] font-bold text-slate-400 h-[18px] flex items-center">R3</span>
-          </div>
-        )}
       </div>
 
       {/* SEQUENCE CONTENT AREA */}
@@ -218,6 +203,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             scrollX={scrollX}
             showTranslation={showTranslation}
             features={l.record.features}
+            translationLanes={lanes}
             showConservation={showConservation}
             conservationScores={conservationScores}
             searchResults={rowSearchResults}
