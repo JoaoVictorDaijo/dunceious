@@ -146,7 +146,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   <aside
     ref={sidebarRef}
     style={open ? { width } : { width: 0 }}
-    className={`relative border-r border-slate-800/50 bg-[#020617] transition-all duration-300 flex flex-col shadow-inner overflow-hidden ${open ? 'p-5' : 'p-0 opacity-0 pointer-events-none'}`}
+    className={`relative border-r border-slate-800/50 bg-slate-950 transition-all duration-300 flex flex-col shadow-inner overflow-hidden ${open ? 'p-5' : 'p-0 opacity-0 pointer-events-none'}`}
   >
     {open && (
       <div
