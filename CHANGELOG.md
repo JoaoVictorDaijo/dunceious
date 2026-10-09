@@ -15,6 +15,45 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-10-09
+
+### Added
+- Draw annotations as thin Geneious-style arrow bars (pointed 3′ end, name
+  inside, direction when it fits) so dense records stay readable; lanes pack at
+  18 px instead of 48 px (#112).
+- Hide annotation bases by default; a *Show sequence in viewer* switch in the
+  annotation details opens that annotation's bar to show its bases inside, with
+  a short animation, only at a legible zoom (#112).
+- Make every qualifier editable in the Metadata Inspector — rename, add,
+  remove — with warnings for names GenBank would not round-trip (#110).
+- Round-trip Focus between the Annotation Hub and the viewport: a *Back to
+  Annotation Hub* pill returns to the origin row, which flashes and stays marked
+  *Last focused* (#110).
+- Explain every control with one tooltip style (keyboard focus, shortcut hints,
+  reasons for disabled controls) and give every control a hover state (#110).
+- Restrained motion: modal entrances, a crossfade between workspaces and button
+  press feedback, all off under reduced motion (#110).
+- A hidden easter egg behind the footer version (#110).
+- README banner and modern layout (#110, #111).
+
+### Changed
+- Rename the Database Hub to **Annotation Hub** (#110).
+- Self-host Inter and JetBrains Mono and rebalance type weights and contrast
+  across the chrome; the header shows the wordmark alone (#110, #112).
+- Cut the chrome themes to four (Clean, Halo, Aurora, Mesh) with an accent seam
+  and better footer contrast; a full theme rethink is prototyped in
+  `docs/design/prototypes/theme-concepts-v2.html` (#110, #112).
+- Clear All always asks to type `CLEAR`; the *Skip Clear-All confirmation*
+  option is removed (#110).
+
+### Fixed
+- Coordinate and segment edits no longer export at the original GenBank
+  location (#110).
+- Peptide sessions no longer show red dashed "broken CDS" borders on features,
+  and a broken CDS no longer marks other features sharing its span (#112).
+- The Options popover no longer lets the page behind show through (#110).
+
+
 ## [2.6.1] — 2026-10-09
 
 ### Changed
