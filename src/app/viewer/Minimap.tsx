@@ -234,7 +234,7 @@ export const Minimap: React.FC<MinimapProps> = ({
       .call(brush);
 
     // Remove old click handler as brush handles it now
-  }, [alignmentLength, minimapWidth, consensus, records, viewportWidth]);
+  }, [alignmentLength, minimapWidth, consensus, records, viewportWidth, customColors, searchResults, currentSearchIdx]);
 
   // Minimap Dynamic Indicator (Sync Brush with Main Viewport)
   useEffect(() => {
@@ -249,7 +249,7 @@ export const Minimap: React.FC<MinimapProps> = ({
     
     brushG.transition().duration(150).ease(d3.easeCubicOut).call(brushRef.current.move, [bX0, bX1]);
 
-  }, [scrollX, zoomLevel, viewportWidth, alignmentLength, minimapWidth]);
+  }, [scrollX, zoomLevel, viewportWidth, alignmentLength, minimapWidth, customColors, searchResults, currentSearchIdx, records, consensus]);
 
   return (
     <div className="flex-1 flex flex-col justify-center min-w-0">

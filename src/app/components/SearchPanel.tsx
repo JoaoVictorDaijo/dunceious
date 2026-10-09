@@ -34,6 +34,7 @@ export interface SearchPanelProps {
   onSearchOptionsChange: (opts: SearchPanelProps['searchOptions']) => void;
   isSearching: boolean;
   onSearch: () => void;
+  onClearSearch: () => void;
   filteredResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
@@ -65,6 +66,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   onSearchOptionsChange,
   isSearching,
   onSearch,
+  onClearSearch,
   filteredResults,
   groupedSearchResults,
   currentSearchIdx,
@@ -81,12 +83,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   getSequenceContext,
   isProteinSession = false,
 }) => {
-  const clearSearch = () => {
-    onSearchQueryChange('');
-    onSetSelectedIndices(new Set());
-    onSetCurrentIdx(-1);
-  };
-
   return (
     <section className="flex flex-col min-h-0 pt-4">
       <div className="flex items-center justify-between mb-6">
@@ -125,8 +121,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               onKeyDown={e => e.key === 'Enter' && onSearch()}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
-              {searchQuery && (
-                <button onClick={clearSearch} className="text-slate-600 hover:text-rose-500 transition-colors" title="Clear Search">
+              {(searchQuery || filteredResults.length > 0 || isSearching) && (
+                <button onClick={onClearSearch} className="text-slate-600 hover:text-rose-500 transition-colors" title="Clear Search">
                   <i className="fas fa-times-circle text-sm"></i>
                 </button>
               )}
