@@ -72,7 +72,7 @@ describe('parseGFF3', () => {
   it('skips rows with fewer than 9 tab columns', () => {
     expect(parseGFF3('c\ts\tgene\t1\t9')).toEqual({});
   });
-  it('maps + / . / missing strand to 1', () => {
+  it('maps an explicit plus strand to 1', () => {
     expect(parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g').c[0].strand).toBe(1);
   });
   it('skips a GFF3 row with a non-numeric start', () => {
@@ -119,5 +119,25 @@ describe('exportToGff', () => {
     })]);
     // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
     expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
+  });
+});
+
+
+describe('GFF strand provenance roundtrip', () => {
+  it.each(['+', '-', '.', '?'])('roundtrips %s without changing sequence or feature coordinates', strand => {
+    const features = parseGFF3(`REC1\tsynthetic\tmisc_feature\t2\t7\t.\t${strand}\t.\tID=synthetic;Name=Synthetic`).REC1;
+    const source = record({ features });
+    const snapshot = structuredClone(source);
+    const exported = exportToGff([source]);
+    expect(exported.split('\n')[1].split('\t')[6]).toBe(strand);
+    const reparsed = parseGFF3(exported).REC1[0];
+    expect(reparsed).toMatchObject({ name: 'Synthetic', start: 1, end: 7 });
+    if (strand === '.' || strand === '?') expect(reparsed.metadata?._gffStrand).toBe(strand);
+    expect(source).toEqual(snapshot);
+    expect(JSON.parse(JSON.stringify(source))).toEqual(source);
+  });
+  it('trusts the actual strand column over a spoofed internal attribute', () => {
+    const f = parseGFF3('r\tsynthetic\tgene\t1\t4\t.\t+\t.\tID=g;_gffStrand=?').r[0];
+    expect(f.metadata?._gffStrand).toBeUndefined();
   });
 });

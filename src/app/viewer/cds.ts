@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature } from '@/src/domain/bio/types';
 import { extractCodingSequence, isFeatureBroken } from '@/src/domain/bio';
 
@@ -31,7 +32,7 @@ export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 export const computeBrokenFeatureMap = (features: BioFeature[], seq: string): Map<string, boolean> => {
   const map = new Map<string, boolean>();
   features
-    .filter(f => CDS_ORF_TYPES.includes(f.type))
+    .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
       const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;

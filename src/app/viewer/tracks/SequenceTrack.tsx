@@ -18,6 +18,7 @@
  */
 
 import * as d3 from 'd3';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
@@ -192,7 +193,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // 2. Render Translation (CDS/ORF annotation features only)
     if (showTranslation && zoomLevel > 5) {
-      features.filter(f => CDS_ORF_TYPES.includes(f.type)).forEach(f => {
+      features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;

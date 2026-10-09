@@ -48,3 +48,5 @@ export type {
   SearchableRecord,
   SelectionArea,
 } from './types';
+
+export { getFeatureStrand } from './strand';

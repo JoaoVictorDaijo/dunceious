@@ -17,7 +17,25 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import { splitWrapAround } from '@/src/domain/bio/intervals';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
+
+/** Rebuild an edited/custom location from its existing segments, preserving
+ * their order. This serializes coordinates; it does not extract a spliced product.
+ */
+function featureLocation(feature: BioFeature, sequenceLength: number): string {
+  if (feature.locationString) return feature.locationString;
+  const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, sequenceLength);
+  const mixed = segments.some(segment => 'strand' in segment && segment.strand !== undefined);
+  const locations = segments.map(segment => {
+    const location = `${segment.start + 1}..${segment.end}`;
+    const strand = 'strand' in segment ? segment.strand : undefined;
+    return mixed && (strand ?? feature.strand) === -1 ? `complement(${location})` : location;
+  });
+  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
+  return !mixed && feature.strand === -1 ? `complement(${location})` : location;
+}
 
 /**
  * Serializes records to GenBank flat-file text.
@@ -28,11 +46,15 @@ import type { SeqRecord } from '@/src/domain/bio/types';
  * ` Exported by Dunceious.` marker, stripping any pre-existing copy first so
  * repeated exports don't accumulate duplicates. The LOCUS line differs by
  * molecule type: protein records use the `aa` unit and omit the molecule-type
- * field; others use `bp`/`DNA`. Metadata keys prefixed with `_` are internal and
- * omitted as qualifiers. ORIGIN lowercases the sequence, 60 chars/line grouped
+ * field; nucleotide records use `bp` with `RNA` or `DNA`. Metadata keys prefixed
+ * with `_` are internal and omitted as qualifiers. ORIGIN lowercases the
+ * sequence, 60 chars/line grouped
  * by 10 with a 1-based position gutter.
  */
 export const exportToGenBank = (records: SeqRecord[]): string => {
+  if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
+    throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
+  }
   return records.map(r => {
     const escapeQualifierValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
@@ -47,7 +69,8 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     if (isProtein) {
       gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} aa            ${topology}   UNK ${date}\n`;
     } else {
-      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
+      const molecule = r.moleculeType === 'rna' ? 'RNA' : 'DNA';
+      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    ${molecule}     ${topology}   UNK ${date}\n`;
     }
 
     // DEFINITION – always stamped with the Dunceious exporter marker.
@@ -70,14 +93,14 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     // FEATURES
     gb += `FEATURES             Location/Qualifiers\n`;
     r.features.forEach(f => {
-      // Prefer the original location string (preserves partial/join syntax);
-      // fall back to reconstructing a simple 1-based location.
-      const location = f.locationString ?? (
-        f.strand === 1
-          ? `${f.start + 1}..${f.end}`
-          : `complement(${f.start + 1}..${f.end})`
-      );
+      const location = featureLocation(f, length);
       gb += `     ${f.type.padEnd(15)} ${location}\n`;
+      // Custom features may have no name-bearing qualifier. Keep their visible
+      // name without changing any qualifiers on existing imported features.
+      const namedQualifiers = ['gene', 'product', 'label', 'locus_tag'];
+      if (!namedQualifiers.some(key => f.metadata?.[key])) {
+        gb += `                     /label="${escapeQualifierValue(f.name)}"\n`;
+      }
       if (f.metadata) {
         Object.entries(f.metadata).forEach(([k, v]) => {
           // Keys prefixed with '_' are internal Dunceious fields, not GenBank qualifiers

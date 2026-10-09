@@ -18,10 +18,11 @@
  */
 
 import * as d3 from 'd3';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { VariableSizeList } from 'react-window';
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { SIDEBAR_WIDTH } from './constants';
+import { centeredScroll, pixelToColumn, selectionExtent } from './coordinates';
 
 export interface UseViewportParams {
   records: SeqRecord[];
@@ -53,52 +54,61 @@ export function useViewport(params: UseViewportParams) {
 
   const fitZoom = useMemo(() => {
     if (alignmentLength > 0 && viewportWidth > 0) {
-      return (viewportWidth - 40) / alignmentLength;
+      return Math.min(150, Math.max(0.001, (viewportWidth - 40) / alignmentLength));
     }
     return 0.001;
   }, [alignmentLength, viewportWidth]);
 
+  const pendingScroll = useRef<number | null>(null);
+  const localSelection = useRef<SelectionArea | null>(null);
+
+  const scrollTo = useCallback((left: number) => {
+    const scroller = horizontalScrollRef.current;
+    if (!scroller) return;
+    scroller.scrollLeft = left; // Native clamping is the authority, including the right spacer.
+    setScrollX(scroller.scrollLeft);
+  }, []);
+
+  const applyZoom = useCallback((zoom: number, left: number) => {
+    const next = Math.min(150, Math.max(fitZoom, zoom));
+    if (next === zoomLevel) {
+      scrollTo(left);
+    } else {
+      pendingScroll.current = left;
+      setZoomLevel(next);
+    }
+  }, [fitZoom, zoomLevel, scrollTo]);
+
+  // The new content width must exist before assigning scrollLeft, or the browser
+  // clamps against the old width. Keep the canvas and native scrollbar in sync.
+  useLayoutEffect(() => {
+    scrollTo(pendingScroll.current ?? horizontalScrollRef.current?.scrollLeft ?? 0);
+    pendingScroll.current = null;
+  }, [chartWidth, viewportWidth, scrollTo]);
+
+  const handleSelectionChange = useCallback((selection: SelectionArea | null) => {
+    localSelection.current = selection;
+    onSelectionChange(selection);
+  }, [onSelectionChange]);
+
   const handleZoom = useCallback((delta: number, mouseBp?: number) => {
-    setZoomLevel(prev => {
-      const factor = delta > 0 ? 1.2 : 1 / 1.2;
-      const next = prev * factor;
-      const clamped = Math.min(150, Math.max(fitZoom, next));
-      
-      // If mouseBp is provided, adjust scroll to keep it centered
-      if (mouseBp !== undefined && horizontalScrollRef.current) {
-        const actualFactor = clamped / prev;
-        const currentScroll = horizontalScrollRef.current.scrollLeft;
-        const mouseX = mouseBp * prev - currentScroll;
-        const newScroll = mouseBp * clamped - mouseX;
-        
-        // Defer to a later task so React first commits the new zoom level: chartWidth
-        // scales with zoomLevel, so the scroll container only reaches `newScroll` once
-        // the wider content has rendered. Setting scrollLeft synchronously here would
-        // clamp it to the old (smaller) width and lose the zoom-to-cursor anchor.
-        setTimeout(() => {
-          if (horizontalScrollRef.current) {
-            horizontalScrollRef.current.scrollLeft = newScroll;
-          }
-        }, 0);
-      }
-      
-      return clamped;
-    });
-  }, [fitZoom]);
+    const left = horizontalScrollRef.current?.scrollLeft ?? 0;
+    const anchor = mouseBp ?? (left + viewportWidth / 2) / zoomLevel;
+    const anchorX = anchor * zoomLevel - left;
+    const next = Math.min(150, Math.max(fitZoom, zoomLevel * (delta > 0 ? 1.2 : 1 / 1.2)));
+    applyZoom(next, anchor * next - anchorX);
+  }, [fitZoom, zoomLevel, viewportWidth, applyZoom]);
 
   const handleCenterOnSelection = useCallback(() => {
-    if (activeSelection && horizontalScrollRef.current && viewportWidth > 0) {
-      const targetX = activeSelection.start * zoomLevel - (viewportWidth / 2);
-      horizontalScrollRef.current.scrollTo({
-        left: Math.max(0, targetX),
-        behavior: 'smooth'
-      });
+    if (activeSelection && viewportWidth > 0) {
+      const [start, end] = selectionExtent(activeSelection, alignmentLength);
+      scrollTo(centeredScroll(start, end, zoomLevel, viewportWidth));
     }
-  }, [activeSelection, zoomLevel, viewportWidth]);
+  }, [activeSelection, alignmentLength, zoomLevel, viewportWidth, scrollTo]);
 
   const handleFit = useCallback(() => {
-    setZoomLevel(fitZoom);
-  }, [fitZoom]);
+    applyZoom(fitZoom, 0);
+  }, [fitZoom, applyZoom]);
 
   const handleGoto = useCallback((pos: number) => {
     if (isNaN(pos) || pos < 0 || pos > alignmentLength) return;
@@ -118,43 +128,28 @@ export function useViewport(params: UseViewportParams) {
     }
   }, [jumpTo, handleGoto, onJumpComplete]);
 
-  const handleZoomToSelection = useCallback(() => {
-    if (activeSelection && viewportWidth > 0) {
-      let length: number;
-      if (activeSelection.start <= activeSelection.end) {
-        length = activeSelection.end - activeSelection.start;
-      } else {
-        // Wrap around case
-        length = (alignmentLength - activeSelection.start) + activeSelection.end;
-      }
-      
-      const targetZoom = (viewportWidth - 120) / Math.max(1, length);
-      setZoomLevel(Math.min(150, Math.max(fitZoom, targetZoom)));
+  const handleZoomToSelection = useCallback((selection: SelectionArea | null = activeSelection) => {
+    if (selection && viewportWidth > 0) {
+      const [start, end] = selectionExtent(selection, alignmentLength);
+      const targetZoom = Math.min(150, Math.max(fitZoom, (viewportWidth - 120) / Math.max(1, end - start)));
+      applyZoom(targetZoom, centeredScroll(start, end, targetZoom, viewportWidth));
     }
-  }, [activeSelection, viewportWidth, fitZoom, alignmentLength]);
+  }, [activeSelection, viewportWidth, fitZoom, alignmentLength, applyZoom]);
 
-  // Sync internal selection with prop
-
-  // Handle Auto-Scroll to selection (separate to handle zoom changes)
+  // External selections (search/inspector) reveal their target. A manual drag or
+  // handle edit already occurs in view and must stay under the pointer.
+  const selectionView = useRef({ zoomLevel, viewportWidth, alignmentLength, records });
+  selectionView.current = { zoomLevel, viewportWidth, alignmentLength, records };
   useEffect(() => {
-    if (activeSelection && horizontalScrollRef.current) {
-      // 1. Horizontal Scroll
-      const targetX = activeSelection.start * zoomLevel - 60; // Small offset
-      horizontalScrollRef.current.scrollTo({
-        left: Math.max(0, targetX),
-        behavior: 'smooth'
-      });
-
-      // 2. Vertical Scroll (to the record containing the match)
-      if (listRef.current && activeSelection.recordIds.length > 0) {
-        const targetRecordId = activeSelection.recordIds[0];
-        const recordIndex = records.findIndex(r => r.id === targetRecordId);
-        if (recordIndex !== -1) {
-          listRef.current.scrollToItem(recordIndex, 'smart');
-        }
-      }
+    if (activeSelection && activeSelection !== localSelection.current) {
+      const view = selectionView.current;
+      const [start, end] = selectionExtent(activeSelection, view.alignmentLength);
+      scrollTo(centeredScroll(start, end, view.zoomLevel, view.viewportWidth));
+      const recordIndex = view.records.findIndex(r => r.id === activeSelection.recordIds[0]);
+      if (recordIndex !== -1) listRef.current?.scrollToItem(recordIndex, 'smart');
     }
-  }, [activeSelection, zoomLevel, records]);
+    localSelection.current = null;
+  }, [activeSelection, scrollTo]);
 
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -189,8 +184,8 @@ export function useViewport(params: UseViewportParams) {
       setMousePos(null);
       return;
     }
-    const bp = Math.floor(xScaleGlobal.invert(x + scrollX));
-    setMousePos({ x: x + SIDEBAR_WIDTH, bp });
+    const bp = pixelToColumn(x, horizontalScrollRef.current?.scrollLeft ?? 0, zoomLevel, alignmentLength);
+    setMousePos(bp < alignmentLength ? { x: x + SIDEBAR_WIDTH, bp } : null);
   };
 
   const handleMouseLeave = () => {
@@ -248,7 +243,7 @@ export function useViewport(params: UseViewportParams) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSelectionChange, handleZoom, handleFit, handleCenterOnSelection]);
+  }, [onSelectionChange, handleZoom, handleFit, handleCenterOnSelection, chartWidth, listHeight]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -258,22 +253,22 @@ export function useViewport(params: UseViewportParams) {
         e.preventDefault();
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left - SIDEBAR_WIDTH;
-        const bp = xScaleGlobal.invert(x + scrollX);
+        const bp = (x + (horizontalScrollRef.current?.scrollLeft ?? 0)) / zoomLevel;
         handleZoom(-e.deltaY, bp);
       } else if (e.shiftKey) {
         e.preventDefault();
-        setScrollX(prev => Math.max(0, prev + e.deltaY));
+        scrollTo((horizontalScrollRef.current?.scrollLeft ?? 0) + e.deltaY);
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [zoomLevel, handleZoom]);
+  }, [zoomLevel, handleZoom, scrollTo]);
 
   const xScaleGlobal = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
 
   return {
     containerRef, horizontalScrollRef, listRef, listContainerRef,
-    dimensions, listHeight, scrollX, zoomLevel, gotoPos, setGotoPos, mousePos, setZoomLevel,
+    dimensions, listHeight, scrollX, zoomLevel, gotoPos, setGotoPos, mousePos, applyZoom, handleSelectionChange,
     viewportWidth, chartWidth, fitZoom, xScaleGlobal,
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,

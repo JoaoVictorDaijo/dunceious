@@ -15,6 +15,24 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-09
+
+### Added
+- Show primer and custom-annotation names, bases and strand direction within
+  their intervals, with 5′/3′ labels and bases shown at readable zoom levels.
+  Preserve unknown strand, separate segments and annotation export metadata
+  (#100, #104).
+
+### Fixed
+- Preserve RNA uracil through translation, nucleotide search, reverse-complement
+  search and GenBank export while retaining protein and DNA behavior (#95, #105).
+- Align selection coordinates with displayed bases and keep zoom centered;
+  measure the minimap after layout changes (#97, #101).
+- Explicitly clear search results and stale highlights while preserving manual
+  selection and annotations; retain minimap repaint dependencies (#98, #102).
+- Keep search-result Annotate actions visible and keyboard/touch accessible;
+  propagate strand and segments when creating annotations (#99, #103, #104).
+
 ## [2.5.0] — 2026-09-29
 
 Promotes the accumulated `develop` changes from production `2.0.1`, including
