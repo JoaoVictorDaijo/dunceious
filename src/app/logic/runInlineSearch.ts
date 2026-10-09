@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { reverseComplement, getNonGapSegments, removeGapsWithMap, mapUngappedRangeToAligned } from '@/src/domain/bio';
+import { reverseComplement, getNonGapSegments, removeGapsWithMap, mapUngappedRangeToAligned, detectMoleculeType } from '@/src/domain/bio';
 import type { SearchResult } from '@/src/domain/bio/types';
 import { smithWaterman } from '@/src/core/search/align';
 import type { SearchWorkerRequest } from '@/src/workers/protocol';
@@ -50,7 +50,7 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
     // `applyFastaResponse` (`kind: 'reject-empty'`), so a record with an empty
     // `alignedSequence` and a non-empty `sequence` cannot occur here — the
     // derivation difference cannot manifest.
-    results = runExactSearch(searchQuery, inputRecords, isProtein, strand);
+    results = runExactSearch(searchQuery, inputRecords, isProtein, strand, moleculeType);
   } else {
     results = [];
     const queryUpper = searchQuery.toUpperCase();
@@ -86,7 +86,7 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
       if (Date.now() - startedAt > maxInlineMs) break;
 
       if (!isProtein && (strand === 'both' || strand === 'rev')) {
-        const rcSeq = reverseComplement(seq);
+        const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
         const { ungapped: ungappedRcSeq, map: revMap } = removeGapsWithMap(rcSeq);
         if (ungappedRcSeq.length === 0) continue;
 

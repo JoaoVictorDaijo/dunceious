@@ -19,9 +19,11 @@
 
 // @vitest-environment jsdom
 import * as d3 from 'd3';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
+import { parseFasta } from '@/src/core/formats/fasta';
+import { Minimap } from '@/src/app/viewer/Minimap';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
@@ -43,9 +45,10 @@ function props(seq: string): SequenceTrackProps {
   };
 }
 
-describe('SequenceTrack translation glyphs', () => {
+describe('Sequence rendering with RNA and protein', () => {
   let recorder: CanvasRecorder;
   beforeEach(() => { recorder = installCanvasRecorder(); });
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it('draws the early-stop "!" glyph for a broken CDS (internal TAG stop)', () => {
     // ATG TAG GAG — the TAG stop is not the last codon → broken protein.
@@ -60,5 +63,38 @@ describe('SequenceTrack translation glyphs', () => {
     // Per-codon AA letters, not just the start residue: M(ATG) P(CCC) E(GAG). Pins
     // the draw loop's codon→residue mapping so an internal sense-codon mislabel fails.
     expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'P', 'E']));
+  });
+
+  it('renders RNA translation and flags an internal UAG stop', () => {
+    const [record] = parseFasta('>rna\nAUGUAGGAG');
+    render(<SequenceTrack {...props(record.sequence)} moleculeType={record.moleculeType} />);
+    expect(recorder.texts()).toEqual(expect.arrayContaining(['M', '!', 'E']));
+    expect(recorder.texts()).not.toContain('?');
+  });
+
+  it.each([20, 2, 0.25])('renders U like T at zoom %s without changing the glyph', (zoomLevel) => {
+    const [record] = parseFasta('>rna\nTu');
+    const trackProps = props(record.sequence);
+    render(<SequenceTrack {...trackProps} moleculeType={record.moleculeType} showTranslation={false}
+      zoomLevel={zoomLevel} xScale={d3.scaleLinear().domain([0, 2]).range([0, 2 * zoomLevel])} />);
+    expect(recorder.fillColors().length).toBeGreaterThan(0);
+    expect(recorder.fillColors().every(color => color === '#f43f5e')).toBe(true);
+    if (zoomLevel > 12) expect(recorder.texts()).toEqual(['T', 'u']);
+  });
+
+  it('uses protein colours and preserves selenocysteine U in a protein track', () => {
+    render(<SequenceTrack {...props('TU')} moleculeType="protein" showTranslation={false} />);
+    expect(recorder.texts()).toEqual(['T', 'U']);
+    expect(recorder.fillColors()).toEqual(['#22c55e', '#94a3b8']);
+  });
+
+  it('uses the same U/T colour in the minimap preview', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300);
+    const [record] = parseFasta('>rna\nTuUt');
+    render(<Minimap records={[record]} consensus={record.sequence} alignmentLength={4}
+      containerWidth={300} viewportWidth={100} scrollX={0} zoomLevel={20} fitZoom={20}
+      searchResults={[]} currentSearchIdx={-1} horizontalScrollRef={{ current: null }} onZoomChange={() => {}} />);
+    // The preview samples positions 0 (T) and 2 (U).
+    expect(recorder.fillColors().filter(color => color === '#f43f5e')).toHaveLength(2);
   });
 });

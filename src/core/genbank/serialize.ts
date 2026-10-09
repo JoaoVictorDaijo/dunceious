@@ -28,8 +28,9 @@ import type { SeqRecord } from '@/src/domain/bio/types';
  * ` Exported by Dunceious.` marker, stripping any pre-existing copy first so
  * repeated exports don't accumulate duplicates. The LOCUS line differs by
  * molecule type: protein records use the `aa` unit and omit the molecule-type
- * field; others use `bp`/`DNA`. Metadata keys prefixed with `_` are internal and
- * omitted as qualifiers. ORIGIN lowercases the sequence, 60 chars/line grouped
+ * field; nucleotide records use `bp` with `RNA` or `DNA`. Metadata keys prefixed
+ * with `_` are internal and omitted as qualifiers. ORIGIN lowercases the
+ * sequence, 60 chars/line grouped
  * by 10 with a 1-based position gutter.
  */
 export const exportToGenBank = (records: SeqRecord[]): string => {
@@ -47,7 +48,8 @@ export const exportToGenBank = (records: SeqRecord[]): string => {
     if (isProtein) {
       gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} aa            ${topology}   UNK ${date}\n`;
     } else {
-      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    DNA     ${topology}   UNK ${date}\n`;
+      const molecule = r.moleculeType === 'rna' ? 'RNA' : 'DNA';
+      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    ${molecule}     ${topology}   UNK ${date}\n`;
     }
 
     // DEFINITION – always stamped with the Dunceious exporter marker.
