@@ -1,7 +1,7 @@
 # Folder structure (quick reference)
 
 > Extract of `ARCHITECTURE.md` §2. **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md).
-> If this drifts, `ARCHITECTURE.md` wins. See §10 there for the restructure phase history.
+> If this drifts, `ARCHITECTURE.md` wins. See §9 there for the restructure phase history.
 
 All source lives under `src/`, in four layers. Imports point only **down** the stack:
 `domain ← core ← workers/handlers ← app`.
@@ -15,12 +15,15 @@ src/
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
 │   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
 │   │                    #   detection, gap↔ungapped mapping, isProteinSession
+│   ├── frameshift.ts    # programmed ribosomal frameshifts read from join coordinates
+│   ├── strand.ts        # getFeatureStrand (keeps GFF '.'/'?' strands)
 │   └── index.ts         # barrel
 │
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
 │   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
 │   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
-│   └── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   ├── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   └── alignment/       # EMBL-EBI contract model: engine catalog, preflight, parsers, result remap — pure, NO fetch
 │
 ├── workers/             # Thin shells + typed contracts + worker bodies.
 │   ├── protocol.ts      # message contracts (may reference domain types)
@@ -36,8 +39,9 @@ src/
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
-    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + tracks/ + Minimap + hooks + colors.ts
-    └── lib/download.ts  # downloadBlob (the one DOM-coupled fn, kept out of core)
+    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + Row + tracks/ + Minimap
+    │                    #   + cds.ts (translation lanes) + hooks (viewport, focus flight, …) + colors.ts
+    └── lib/             # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
 ```
 
 **Per layer, in one line:**
