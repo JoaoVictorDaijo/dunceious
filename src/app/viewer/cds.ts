@@ -18,25 +18,34 @@
  */
 
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import type { BioFeature } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { extractCodingSequence, isFeatureBroken } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 
 /**
- * Maps each CDS/ORF feature's `${start}-${end}-${strand}` key to whether its
- * protein has an internal (early) stop codon — a "broken" protein. Prefers the
- * stored `/translation` over recomputation (see {@link isFeatureBroken}).
+ * Maps each CDS/ORF feature to whether its protein has an internal (early) stop
+ * codon — a "broken" protein. Prefers the stored `/translation` over
+ * recomputation (see {@link isFeatureBroken}).
+ *
+ * Keyed by the feature object, not its interval: a source or gene sharing a
+ * broken CDS's span must not inherit the mark. A peptide record has no codons
+ * to read, so it never has broken features.
  */
-export const computeBrokenFeatureMap = (features: BioFeature[], seq: string): Map<string, boolean> => {
-  const map = new Map<string, boolean>();
+export const computeBrokenFeatureMap = (
+  features: BioFeature[],
+  seq: string,
+  moleculeType?: SeqRecord['moleculeType'],
+): Map<BioFeature, boolean> => {
+  const map = new Map<BioFeature, boolean>();
+  if (moleculeType === 'protein') return map;
   features
     .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
       const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
-      map.set(`${f.start}-${f.end}-${f.strand}`, isFeatureBroken(f, codingSeq, translTable));
+      map.set(f, isFeatureBroken(f, codingSeq, translTable));
     });
   return map;
 };

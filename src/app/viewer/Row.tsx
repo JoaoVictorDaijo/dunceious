@@ -79,8 +79,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq),
-    [l.record.features, seq],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
+    [l.record.features, seq, l.record.moleculeType],
   );
 
   return (
@@ -255,7 +255,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
-              const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
+              const isBroken = brokenFeatureMap.get(f) ?? false;
 
               const tooltipContent = [
                 `${f.name} [${f.type}]`,
