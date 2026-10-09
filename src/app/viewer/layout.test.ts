@@ -24,7 +24,7 @@ const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
 import { computeRecordLayouts } from './layout';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
-const ALL = { showAnnotations: true, showTranslation: true, showTracks: true };
+const ALL = { showAnnotations: true, translationVisible: true, showTracks: true };
 function rec(o: Partial<SeqRecord> & Pick<SeqRecord, 'id' | 'sequence'>): SeqRecord {
   return { name: o.id, features: [], ...o } as SeqRecord;
 }
@@ -130,4 +130,19 @@ it('packs a circular aligned feature using the aligned coordinate length', () =>
   ] });
   const [layout] = computeRecordLayouts([record], ALL);
   expect(layout.placements.map(p => p.row)).toEqual([0, 1]);
+});
+
+
+describe('translation row visibility', () => {
+  it.each([false, true])('reserves rows only for effective visibility %s', (translationVisible) => {
+    const [layout] = computeRecordLayouts([rec({ id: 'dna', sequence: 'ATG' })], { ...ALL, translationVisible });
+    expect(layout.seqBaseY).toBe(translationVisible ? 54 : 0);
+    expect(layout.height).toBe(translationVisible ? 150 : 42);
+    expect(layout.translationVisible).toBe(translationVisible);
+  });
+
+  it('rejects translation visibility for a protein record', () => {
+    const [layout] = computeRecordLayouts([rec({ id: 'protein', sequence: 'MPE', moleculeType: 'protein' })], ALL);
+    expect(layout).toMatchObject({ translationVisible: false, seqBaseY: 0, height: 42 });
+  });
 });

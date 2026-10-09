@@ -33,7 +33,6 @@ function props(seq: string): SequenceTrackProps {
     moleculeType: 'dna',
     xScale: d3.scaleLinear().domain([0, seq.length]).range([0, seq.length * ZOOM]),
     viewportWidth: seq.length * ZOOM + 40, // whole sequence on screen
-    height: 200,
     y: 100,
     zoomLevel: ZOOM,
     scrollX: 0,
@@ -117,9 +116,50 @@ describe('aligned CDS translation', () => {
   it('renders codons across gaps in the same biological frame', () => {
     const recorder = installCanvasRecorder();
     const seq = '--A-TG-AAA-TAA--';
-    render(<SequenceTrack {...props(seq)} features={[{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
+    const { container } = render(<SequenceTrack {...props(seq)} features={[{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
       segments: [{ start: 2, end: 14 }] }]} />);
     expect(recorder.texts().slice(-3)).toEqual(['M', 'K', '_']);
-    expect(recorder.fillRects().slice(-3)).toEqual([[40, 46, 80, 18], [140, 46, 60, 18], [220, 46, 60, 18]]);
+    expect(recorder.fillRects().slice(-3)).toEqual([[40, 0, 80, 18], [140, 0, 60, 18], [220, 0, 60, 18]]);
+    expect(container.querySelector<HTMLCanvasElement>('.translation-band')?.style.transform).toBe('translateY(46px)');
   });
+});
+
+
+describe('translation zoom boundary', () => {
+  it.each([4.99, 5, 5.01])('draws translation only above the boundary at zoom %s', (zoomLevel) => {
+    const recorder = installCanvasRecorder();
+    const { container } = render(<SequenceTrack {...props('ATG')} zoomLevel={zoomLevel} />);
+    expect(recorder.texts().includes('M')).toBe(zoomLevel > 5);
+    const band = container.querySelector<HTMLElement>('.translation-band');
+    expect(band?.style.opacity).toBe(zoomLevel > 5 ? '1' : '0');
+  });
+
+  it('does not translate protein records even when the toggle is on', () => {
+    const recorder = installCanvasRecorder();
+    render(<SequenceTrack {...props('ATG')} moleculeType="protein" />);
+    expect(recorder.texts()).toEqual(['A', 'T', 'G']);
+  });
+
+  it('keeps low-zoom search highlights within the nucleotide band', () => {
+    const recorder = installCanvasRecorder();
+    const hit = { recordId: 'r', start: 0, end: 3, strand: 1 as const, sequence: 'ATG' };
+    render(<SequenceTrack {...props('ATG')} zoomLevel={5} searchResults={[hit]} />);
+    expect(recorder.fillRects()[0][3]).toBe(22);
+  });
+});
+
+
+it('retains both translation canvases for the closing fade without drawing at low zoom', () => {
+  const recorder = installCanvasRecorder();
+  const input = props('ATG');
+  const { container, rerender } = render(<SequenceTrack {...input} zoomLevel={6} y={54} />);
+  const bands = [...container.querySelectorAll<HTMLCanvasElement>('.translation-band')];
+  expect(bands).toHaveLength(2);
+  expect(bands.map(b => b.style.transform)).toEqual(['translateY(0px)', 'translateY(76px)']);
+  expect(recorder.texts()).toEqual(['M']);
+  rerender(<SequenceTrack {...input} zoomLevel={5} y={0} />);
+  expect([...container.querySelectorAll('.translation-band')]).toEqual(bands);
+  expect(bands.map(b => b.style.opacity)).toEqual(['0', '0']);
+  expect(recorder.texts()).toEqual(['M']);
+  expect(container.querySelector('[data-sequence-band]')?.classList.contains('translation-motion')).toBe(true);
 });
