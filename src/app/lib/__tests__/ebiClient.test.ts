@@ -97,3 +97,39 @@ describe('EBI HTTP client', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe('EBI HTTP client error responses', () => {
+  it.each([
+    ['2', 2000], ['0', 0], ['Wed, 21 Oct 2026 07:28:00 GMT', undefined], ['soon', undefined],
+  ])('reads Retry-After %j on a 429 as %s ms', async (header, expected) => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('busy', { status: 429, headers: { 'Retry-After': header } }));
+    const result = await createEbiClient(fetcher).status('mafft', 'job', signal);
+    expect(result).toEqual({ kind: 'http', status: 429, detail: 'busy', transient: true, retryAfterMs: expected });
+  });
+
+  it('ignores Retry-After on a 5xx other than 503', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('boom', { status: 500, headers: { 'Retry-After': '2' } }));
+    expect(await createEbiClient(fetcher).status('mafft', 'job', signal)).toEqual({ kind: 'http', status: 500, detail: 'boom', transient: true, retryAfterMs: undefined });
+  });
+
+  it('reduces an HTML error page to its title so no markup reaches the user', async () => {
+    const page = '<!DOCTYPE html>\n<html><head><title>502 Bad Gateway</title><style>h1 { color: red }</style></head>\n<body><h1>Bad Gateway</h1><p>The proxy got an invalid response.</p></body></html>';
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(page, { status: 502 }));
+    expect(await createEbiClient(fetcher).status('mafft', 'job', signal)).toMatchObject({ kind: 'http', status: 502, detail: '502 Bad Gateway' });
+  });
+
+  it('falls back to the bounded visible text of an HTML error page without a title', async () => {
+    const page = `<html><body><h1>Service Unavailable</h1><script>track('x < y')</script><p>Back soon. ${'Sorry. '.repeat(40)}</p></body></html>`;
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(page, { status: 503 }));
+    const result = await createEbiClient(fetcher).status('mafft', 'job', signal);
+    const detail = result.kind === 'http' ? result.detail : '';
+    expect(detail).toMatch(/^Service Unavailable Back soon\. Sorry\./);
+    expect(detail).not.toMatch(/[<>]|track/);
+    expect(detail.length).toBeLessThanOrEqual(120);
+  });
+
+  it('keeps a plain-text error body that is not HTML', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('  Upstream timed out  ', { status: 504 }));
+    expect(await createEbiClient(fetcher).status('mafft', 'job', signal)).toMatchObject({ kind: 'http', status: 504, detail: 'Upstream timed out' });
+  });
+});

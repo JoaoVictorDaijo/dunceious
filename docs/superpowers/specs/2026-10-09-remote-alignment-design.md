@@ -144,22 +144,36 @@ idle
 | `input-invalid` | local preflight issue, or EBI `400` on count/size/empty entry | specific issue | — (fix input / pick engine) |
 | `email-invalid` | EBI `400 Please enter a valid email address` (local structural failures never reach submit) | inline under the email field: "EBI could not verify this address's domain" | yes, after edit |
 | `rejected` | `/run` `400` (any other description) | EBI's description verbatim | yes |
-| `job-error` | status `ERROR` or `FAILURE` | "The aligner failed"; show the last lines of the `error` result if fetchable | yes |
+| `job-error` | status `ERROR` or `FAILURE` | "The aligner failed"; show the last lines of the `error` result if its single, unretried fetch succeeds | yes |
 | `job-lost` | status `NOT_FOUND` | "EBI no longer has this job" | yes |
-| `no-alignment` | none of `aln-fasta`/`fa`/`out` yields FASTA | "EBI returned no alignment" | yes |
-| `invalid-result` | validation in *Result handling* fails | which check failed | yes |
+| `no-alignment` | none of `aln-fasta`/`fa`/`out` yields FASTA (none listed, or each refused with `400` or not FASTA) | "EBI returned no alignment", then one line per type tried with its outcome | yes |
+| `invalid-result` | validation in *Result handling* fails; an empty job id; or 5 consecutive status bodies that are not a job status | which check failed | yes |
 | `stale` | records changed while the job ran | "Records changed during alignment; result discarded" | yes |
-| `network` | `fetch` rejects (offline, DNS, CORS, abort by timeout) | "Can't reach EBI" | yes |
-| `http` | non-`400` HTTP error that survived retries (`429`, `5xx`, other) | status code + EBI description if XML | yes |
+| `network` | `fetch` rejects (offline, DNS, CORS, abort by timeout) | "Can't reach EBI"; on submit, adds that a job may already exist at EBI, so trying again could start a second one | yes |
+| `http` | non-`400` HTTP error that survived retries (`429`, `5xx`, other), or a `400` outside submit and result download | status code + EBI description if XML; an HTML page is reduced to its title or text | yes |
 
 ### Network policy
 
 - **Submit is never retried automatically** (a retry could create a duplicate
-  job). A network failure on submit → `network`; the user retries.
+  job). A network failure or timeout on submit → `network`, and the detail
+  warns that the request may still have reached EBI, so a job may already
+  exist and trying again could start a second one; the user decides.
 - **Polling** (`status`, `resulttypes`, `result`): transient failures
-  (`fetch` rejection, `429`, `5xx`) are retried with backoff; after **5
-  consecutive** transient failures → `network`/`http`. Honour `Retry-After`
-  on `429`/`503` when present (seconds form), capped at 60 s.
+  (`fetch` rejection, `429`, `5xx`, and a `200` status body that is not one
+  of the six statuses, such as a proxy or captive-portal page) are retried
+  with backoff (3, 6, 12, 24 s); after **5 consecutive** transient failures →
+  `network`/`http`, or `invalid-result` when the last one was an unrecognised
+  status body (a response arrived, so it is not a connectivity failure).
+  Honour `Retry-After` on `429`/`503` when present (seconds form), clamped to
+  1–60 s so `Retry-After: 0` cannot cause a hot retry. A non-transient answer
+  (`400`, other `4xx`) is not retried and resets the retry counter.
+- **Result types:** a `400` on one advertised type (e.g. `Requested renderer
+  'aln-fasta' not available`) moves on to the next type in the list; any other
+  non-transient failure stops the fetch as `http`.
+- **Error log** of an `ERROR`/`FAILURE` job: one best-effort fetch, never
+  retried and without touching the retry counter, so it cannot delay the
+  failure or show a connection hiccup; if it fails, the message is just
+  "The aligner failed".
 - **Poll cadence:** 3 s for the first 30 s, then 5 s until 2 min, then 10 s.
 - **Per-request timeout:** 30 s via `AbortSignal` (a slow single request is a
   transient failure, not a job failure).
@@ -171,8 +185,10 @@ idle
   running at EBI (no cancel endpoint) — the log line says so.
 - **Unload:** while a job is between `submitting` and `applying`, register a
   `beforeunload` prompt; leaving loses the job's result.
-- Every `400` body is parsed for `<description>`; unparseable bodies fall back
-  to the raw text, trimmed to 300 chars.
+- Every error body is parsed for `<description>`. An HTML page (a proxy or
+  gateway error) is reduced to its title or visible text, at most 120 chars,
+  so markup never reaches the user; any other unparseable body falls back to
+  the raw text, trimmed to 300 chars.
 
 ## UI
 
