@@ -95,7 +95,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-slate-200" style={{ top: 0, height: l.annotHeight + l.topPadding }} />
             <div className="absolute right-2 flex items-center" style={{ top: 4, height: 12 }}>
-              <span className="text-[6px] font-black uppercase text-slate-400 tracking-widest">Annot</span>
+              <span className="text-[8px] font-semibold uppercase text-slate-400 tracking-widest">Annot</span>
             </div>
           </>
         )}
@@ -104,7 +104,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-indigo-400/30" style={{ top: l.annotHeight + l.topPadding, height: l.quantHeight }} />
             <div className="absolute right-2 flex items-center" style={{ top: l.annotHeight + l.topPadding - 12, height: 12 }}>
-              <span className="text-[6px] font-black uppercase text-indigo-400 tracking-widest">Tracks</span>
+              <span className="text-[8px] font-semibold uppercase text-indigo-400 tracking-widest">Tracks</span>
             </div>
             {/* Track Legends */}
             <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.annotHeight + l.topPadding }}>
@@ -112,7 +112,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 const range = quantValueRanges[t.id] || { min: 0, max: 1 };
                 return (
                   <div key={t.id} className="flex flex-col justify-center items-end" style={{ height: t.height, marginBottom: 12 }}>
-                    <span className="text-[7px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
+                    <span className="text-[8px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
                     {t.kind === 'interval' ? (
                       <div 
                         className="w-16 h-1.5 my-0.5 rounded-[1px]" 
@@ -121,7 +121,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     ) : (
                       <div className="w-16 h-[1px] my-1 bg-indigo-400/50" />
                     )}
-                    <span className="text-[7px] font-bold text-slate-500">{range.min.toFixed(1)}</span>
+                    <span className="text-[8px] font-bold text-slate-500">{range.min.toFixed(1)}</span>
                   </div>
                 );
               })}
@@ -131,24 +131,24 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className="absolute right-0 w-1 bg-emerald-400/30" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0), height: (effectiveTranslation ? AA_ROW_HEIGHT * 6 : 0) + NT_ROW_HEIGHT }} />
         <div className="absolute right-2 flex items-center" style={{ top: l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) - 12, height: 12 }}>
-          <span className="text-[6px] font-black uppercase text-emerald-500 tracking-widest">Sequence</span>
+          <span className="text-[8px] font-semibold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
         {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY - AA_ROW_HEIGHT * 3 }}>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">F1</span>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">F2</span>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">F3</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F1</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F2</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F3</span>
           </div>
         )}
-        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-black text-slate-900 shadow-sm tracking-tight" title={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
+        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-semibold text-slate-900 shadow-sm tracking-tight" data-tip={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
           {l.id}
         </div>
         {effectiveTranslation && (
           <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.seqBaseY + NT_ROW_HEIGHT }}>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">R1</span>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">R2</span>
-            <span className="text-[7px] font-black text-slate-400 h-[18px] flex items-center">R3</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R1</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R2</span>
+            <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">R3</span>
           </div>
         )}
       </div>
@@ -160,14 +160,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           {showAnnotations && l.annotHeight > 0 && (
             <div className="absolute left-0 right-0 bg-slate-50/30 border-b border-slate-100/50" style={{ top: 0, height: l.annotHeight + l.topPadding }}>
               <div className="absolute left-2 z-30 pointer-events-none" style={{ top: 4 }}>
-                <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Annotations</span>
+                <span className="text-[8px] font-semibold uppercase text-slate-400 tracking-widest">Annotations</span>
               </div>
             </div>
           )}
           
           {showTracks && tracks.length > 0 && (
             <div className="absolute left-2 z-30 pointer-events-none" style={{ top: l.annotHeight + l.topPadding - 12 }}>
-              <span className="text-[7px] font-black uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
+              <span className="text-[8px] font-semibold uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
             </div>
           )}
 
@@ -424,7 +424,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
-                    className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border shadow-sm"
+                    className="text-[8px] font-semibold uppercase px-1.5 py-0.5 rounded border shadow-sm"
                     style={{ 
                       color: trackColor, 
                       backgroundColor: '#fff',

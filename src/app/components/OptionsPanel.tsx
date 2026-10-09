@@ -29,8 +29,6 @@ const FEATURE_TYPES = [
 export interface OptionsPanelProps {
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
-  skipClearAllConfirmation: boolean;
-  onSetSkipClearAllConfirmation: (value: boolean) => void;
   themeKey: ThemeKey;
   onSetThemeKey: (key: ThemeKey) => void;
 }
@@ -54,8 +52,6 @@ const CogIcon: React.FC<{ className?: string }> = ({ className }) => (
 const OptionsPanel: React.FC<OptionsPanelProps> = ({
   featureColors,
   onSetFeatureColors,
-  skipClearAllConfirmation,
-  onSetSkipClearAllConfirmation,
   themeKey,
   onSetThemeKey,
 }) => {
@@ -118,10 +114,10 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Options"
-        title="Options"
-        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+        data-tip={open ? undefined : 'Options: feature colours, theme and workspace preferences'}
+        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
           open
-            ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
+            ? 'bg-env/10 border-env/40 text-env'
             : 'bg-slate-800/50 border-slate-700/30 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
         }`}
       >
@@ -134,15 +130,17 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           role="dialog"
           aria-label="Options"
           tabIndex={-1}
-          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-md border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-            <span className="flex items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">
-              <CogIcon className="w-4 h-4 text-amber-400" /> Options
+            <span className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200">
+              <CogIcon className="w-4 h-4 text-env" /> Options
             </span>
             <button
               onClick={closeAndRestoreFocus}
               aria-label="Close options"
+              data-tip="Close"
+              data-tip-kbd="Esc"
               className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               <i className="fas fa-xmark text-sm"></i>
@@ -152,8 +150,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
           <div className="px-5 py-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Feature Colors</span>
-              <span className="text-[7px] font-black uppercase tracking-wider text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-env">Feature Colors</span>
+              <span className="text-[8px] font-semibold uppercase tracking-wider text-env/80 bg-env/10 border border-env/20 rounded-full px-2 py-0.5">
                 Global
               </span>
             </div>
@@ -161,14 +159,15 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
               {FEATURE_TYPES.map(type => (
                 <label
                   key={type}
-                  className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer"
+                  data-tip={`Colour used for every ${type} feature in the viewport and the hub`}
+                  className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer transition-colors hover:border-slate-600 hover:bg-slate-800/40"
                 >
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{type}</span>
+                  <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tighter">{type}</span>
                   <input
                     type="color"
                     value={featureColors[type] || getFeatureColor(type)}
                     onChange={e => onSetFeatureColors({ ...featureColors, [type]: e.target.value })}
-                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer"
+                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer transition-transform hover:scale-110"
                     aria-label={`${type} color`}
                   />
                 </label>
@@ -176,15 +175,18 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             </div>
             <button
               onClick={() => onSetFeatureColors({})}
-              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-black uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              data-tip="Restore the built-in colour for every feature type"
+              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-semibold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               Reset to Defaults
             </button>
           </div>
 
           {/* Theme — the chrome accent style (per browser) */}
-          <div className="px-5 py-4 border-b border-slate-800">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-3">Theme</span>
+          <div className="px-5 py-4">
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">
+              Theme <span className="normal-case tracking-normal font-medium text-slate-600">· accent follows the workspace</span>
+            </span>
             <div role="radiogroup" aria-label="Chrome theme" className="grid grid-cols-2 gap-2">
               {THEMES.map((t, i) => (
                 <button
@@ -195,41 +197,26 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                   tabIndex={themeKey === t.key ? 0 : -1}
                   onClick={() => onSetThemeKey(t.key)}
                   onKeyDown={e => handleThemeKeyNav(e, i)}
-                  className={`text-left px-3 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-tight transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
+                  data-tip={t.description}
+                  className={`group text-left p-1.5 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
                     themeKey === t.key
-                      ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
-                      : 'bg-black/20 border-slate-800/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      ? 'bg-env/10 border-env/40'
+                      : 'bg-black/20 border-slate-800/50 hover:border-slate-600 hover:bg-slate-800/40'
                   }`}
                 >
-                  {t.label}
+                  {/* A live miniature of the header: the real theme CSS paints it. */}
+                  <span data-theme={t.key} className="app-nav theme-preview relative block h-9 rounded-lg bg-slate-900 overflow-hidden" aria-hidden="true">
+                    <span className="hf-env" />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded bg-slate-950 border border-env/40 flex items-center justify-center">
+                      <i className="fas fa-dna text-[7px] text-env"></i>
+                    </span>
+                  </span>
+                  <span className={`flex items-center justify-between px-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide ${themeKey === t.key ? 'text-env' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                    {t.label}
+                    {themeKey === t.key && <i className="fas fa-check text-[9px]" aria-hidden="true"></i>}
+                  </span>
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* Workspace preferences */}
-          <div className="px-5 py-4">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-3">Workspace</span>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-bold text-slate-300 block">Skip Clear-All confirmation</span>
-                <span className="text-[9px] text-slate-400 block mt-0.5">Wipe the workspace without the type-to-confirm prompt.</span>
-              </div>
-              <button
-                role="switch"
-                aria-checked={skipClearAllConfirmation}
-                aria-label="Skip Clear-All confirmation"
-                onClick={() => onSetSkipClearAllConfirmation(!skipClearAllConfirmation)}
-                className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
-                  skipClearAllConfirmation ? 'bg-amber-500/30' : 'bg-slate-700'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform ${
-                    skipClearAllConfirmation ? 'translate-x-5 bg-amber-400' : 'bg-slate-400'
-                  }`}
-                ></span>
-              </button>
             </div>
           </div>
         </div>

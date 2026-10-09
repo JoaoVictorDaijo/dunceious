@@ -23,7 +23,7 @@ import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { extractCodingSequence, translateFeature } from '@/src/domain/bio';
-import { NT_ROW_HEIGHT, AA_ROW_HEIGHT } from '../constants';
+import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK } from '../constants';
 import { CDS_ORF_TYPES, computeBrokenFeatureMap, translationFrame } from '../cds';
 
 export interface SequenceTrackProps {
@@ -183,7 +183,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           ctx.globalAlpha = 1.0;
           ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
-          ctx.font = 'bold 10px monospace';
+          ctx.font = `600 10px ${MONO_STACK}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
@@ -209,7 +209,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         // over recomputation; one residue per codon, aligned to `alignedIndices`.
         const protein = translateFeature(f, codingSeq, translTable);
 
-        ctx.font = 'bold 9px monospace';
+        ctx.font = `600 9px ${MONO_STACK}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 

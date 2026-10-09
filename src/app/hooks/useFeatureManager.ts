@@ -20,7 +20,7 @@
 import { useState, useMemo, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
-import type { FlatItem } from '../components/DatabaseHubPanel';
+import type { FlatItem } from '../components/AnnotationHubPanel';
 import {
   saveEditedFeature as saveEditedFeatureReducer,
   removeFeature as removeFeatureReducer,
@@ -43,7 +43,7 @@ export interface UseFeatureManagerReturn {
   groupedFeatures: Record<string, (BioFeature & { index: number })[]>;
   /** Total feature count across all records (unfiltered). */
   allFeaturesCount: number;
-  /** Flat list used by the virtualised DatabaseHubPanel. */
+  /** Flat list used by the virtualised AnnotationHubPanel. */
   flattenedFeatures: FlatItem[];
 
   /** Commit a pending edit (insert or update) and close the editor. */
@@ -72,7 +72,7 @@ export interface UseFeatureManagerReturn {
 
 /**
  * Manages the feature editor modal, feature CRUD, and derived
- * grouped/flattened lists consumed by DatabaseHubPanel.
+ * grouped/flattened lists consumed by AnnotationHubPanel.
  *
  * @param records         - Current active records (read-only from this hook).
  * @param setRecords      - Setter to mutate records when features change.

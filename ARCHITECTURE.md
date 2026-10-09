@@ -175,7 +175,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `SearchPanel` – sequence search UI with grouped results; strand selector hidden for protein sessions
 - `RecordDetailsModal` – record metadata viewer
 - `FeatureEditorModal` – annotation editor (supports circular features)
-- `DatabaseHubPanel` – records and features table with export actions
+- `AnnotationHubPanel` – records and features table with export actions
 
 ### `src/app/viewer/GenomeViewer.tsx` (Rendering Engine)
 

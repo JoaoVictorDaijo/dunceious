@@ -31,7 +31,7 @@ describe('resolveEnvAccent', () => {
     expect(resolveEnvAccent('alignment', 'protein')).toBe('protein');
   });
 
-  it('is hub in the Database Hub when a molecule is loaded', () => {
+  it('is hub in the Annotation Hub when a molecule is loaded', () => {
     expect(resolveEnvAccent('features', 'nucleotide')).toBe('hub');
     expect(resolveEnvAccent('features', 'protein')).toBe('hub');
   });

@@ -26,13 +26,15 @@ export interface EnvPalette {
   env3: string;
 }
 
-export type ThemeKey =
-  | 'clean' | 'layered-light' | 'aurora' | 'conic'
-  | 'light-shaft' | 'duotone-drift' | 'mesh-grain';
+// Keys predate the current labels (layered-light shows as Halo, mesh-grain as
+// Mesh); they are what browsers have persisted, so they stay.
+export type ThemeKey = 'clean' | 'layered-light' | 'aurora' | 'mesh-grain';
 
 export interface Theme {
   key: ThemeKey;
   label: string;
+  /** One line for the picker's tooltip. */
+  description: string;
   /** Per-environment token sets. V1 themes all share DEFAULT_PALETTE. */
   palette: Record<EnvAccentKey, EnvPalette>;
 }
@@ -54,13 +56,14 @@ export const DEFAULT_PALETTE: Record<EnvAccentKey, EnvPalette> = {
 export const DEFAULT_THEME_KEY: ThemeKey = 'clean';
 
 export const THEMES: Theme[] = [
-  { key: 'clean',         label: 'Clean',         palette: DEFAULT_PALETTE },
-  { key: 'layered-light', label: 'Layered Light', palette: DEFAULT_PALETTE },
-  { key: 'aurora',        label: 'Aurora',        palette: DEFAULT_PALETTE },
-  { key: 'conic',         label: 'Conic Sheen',   palette: DEFAULT_PALETTE },
-  { key: 'light-shaft',   label: 'Prism Shafts',  palette: DEFAULT_PALETTE },
-  { key: 'duotone-drift', label: 'Duotone Drift', palette: DEFAULT_PALETTE },
-  { key: 'mesh-grain',    label: 'Mesh Grain',    palette: DEFAULT_PALETTE },
+  { key: 'clean',         label: 'Clean',  palette: DEFAULT_PALETTE,
+    description: 'Flat chrome with a single accent seam. Calmest, cheapest to render.' },
+  { key: 'layered-light', label: 'Halo',   palette: DEFAULT_PALETTE,
+    description: 'Soft pools of light glowing from the seam.' },
+  { key: 'aurora',        label: 'Aurora', palette: DEFAULT_PALETTE,
+    description: 'Slow luminous bands drifting across the header.' },
+  { key: 'mesh-grain',    label: 'Mesh',   palette: DEFAULT_PALETTE,
+    description: 'A still gradient mesh with a fine film grain.' },
 ];
 
 export const THEME_KEYS: ThemeKey[] = THEMES.map(t => t.key);

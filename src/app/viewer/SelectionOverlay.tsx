@@ -155,7 +155,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
           <div key="drag" className="absolute top-0 pointer-events-none border-x-2 border-emerald-400 bg-emerald-400/15 z-20" style={{ left: left + SIDEBAR_WIDTH, width, height: '100%' }} />
           {dragCursorPos && (
             <div 
-              className="fixed pointer-events-none z-[110] bg-emerald-600 text-white text-[9px] font-black px-3 py-1.5 rounded-lg shadow-xl border border-emerald-400/50 animate-in fade-in zoom-in-95 duration-100"
+              className="fixed pointer-events-none z-[110] bg-emerald-600 text-white text-[9px] font-semibold px-3 py-1.5 rounded-lg shadow-xl border border-emerald-400/50 animate-in fade-in zoom-in-95 duration-100"
               style={{ left: dragCursorPos.x + 15, top: dragCursorPos.y - 40 }}
             >
               <div className="flex items-center gap-2">

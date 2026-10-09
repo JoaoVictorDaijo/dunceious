@@ -17,12 +17,43 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import animate from 'tailwindcss-animate';
+import defaultTheme from 'tailwindcss/defaultTheme';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
   ],
-  theme: { extend: {} },
-  plugins: [],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Inter Variable"', ...defaultTheme.fontFamily.sans],
+        mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
+      },
+      colors: {
+        // The environment accent set by the active theme (see src/app/logic/theme.ts).
+        env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
+      },
+      letterSpacing: {
+        tightest: '-0.05em',
+      },
+      keyframes: {
+        'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
+        // A returned-to hub row: a warm pulse that settles into its resting tint.
+        'row-return': {
+          '0%': { backgroundColor: 'rgb(253 230 138 / 0.9)' },
+          '35%': { backgroundColor: 'rgb(254 243 199 / 0.9)' },
+          '60%': { backgroundColor: 'rgb(253 230 138 / 0.7)' },
+          '100%': { backgroundColor: 'rgb(255 251 235 / 0)' },
+        },
+      },
+      animation: {
+        'spin-slow': 'spin-slow 12s linear infinite',
+        'row-return': 'row-return 1.6s ease-out both',
+      },
+    },
+  },
+  plugins: [animate],
 };

@@ -71,7 +71,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 - **`StatusBar.tsx`**: Bottom status bar showing selection metrics, session molecule-type indicator, and license link.
 - **`RecordDetailsModal.tsx`**: Modal viewer for record metadata and feature information.
 - **`FeatureEditorModal.tsx`**: Modal editor for creating and modifying annotations, with support for circular features.
-- **`DatabaseHubPanel.tsx`**: Records and features table with bulk export actions.
+- **`AnnotationHubPanel.tsx`**: Records and features table with bulk export actions.
 - **`ProcessingOverlay.tsx`**: Full-screen loading overlay during file processing.
 
 **Shared Services** (`services/` and `src/domain/bio/`):

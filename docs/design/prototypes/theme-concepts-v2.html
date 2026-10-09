@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<!--
+  Dunceious
+
+  This file is part of Dunceious.
+
+  Dunceious is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Dunceious is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme Concepts v2 — Dunceious</title>
+<style>
+/* ============================================================
+   Four ways for the environment to show in the chrome. One mock app,
+   one set of env tokens; each concept only decides WHERE the accent
+   lives. Switch concept and environment from the dock at the bottom.
+   ============================================================ */
+@property --env  { syntax: "<color>"; inherits: true; initial-value: #0ea5e9; }
+@property --env2 { syntax: "<color>"; inherits: true; initial-value: #22d3ee; }
+
+:root {
+  --font: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --chrome: #0b1120;      /* nav + footer */
+  --side: #020617;        /* sidebar */
+  --backdrop: #0f172a;    /* around the canvas card */
+  --line: #1e293b;
+  --ink: #e2e8f0;
+  --ink-2: #94a3b8;
+  --ink-3: #64748b;
+  --on-env: #020617;      /* text on a solid accent */
+  transition: --env 600ms ease, --env2 600ms ease;
+}
+[data-env="nucleotide"] { --env: #0ea5e9; --env2: #22d3ee; }
+[data-env="protein"]    { --env: #a78bfa; --env2: #d8b4fe; }
+[data-env="hub"]        { --env: #f59e0b; --env2: #fbbf24; }
+[data-env="none"]       { --env: #94a3b8; --env2: #cbd5e1; }
+@media (prefers-reduced-motion: reduce) { :root { transition: none; } * { transition: none !important; animation: none !important; } }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: var(--font); background: #000; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+.app { position: fixed; inset: 0 0 76px 0; display: grid; grid-template-rows: 56px 1fr 30px; grid-template-columns: 248px 1fr; overflow: hidden; }
+.nav { grid-column: 1 / -1; position: relative; display: flex; align-items: center; gap: 16px; padding: 0 18px; background: var(--chrome); border-bottom: 1px solid var(--line); transition: background 600ms, border-color 600ms; }
+.side { position: relative; background: var(--side); border-right: 1px solid var(--line); padding: 18px 16px; display: flex; flex-direction: column; gap: 18px; transition: background 600ms, border-color 600ms; }
+.main { position: relative; background: var(--backdrop); padding: 8px; display: flex; transition: background 600ms; }
+.foot { grid-column: 1 / -1; position: relative; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; background: #020617; border-top: 1px solid var(--line); font-size: 9px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); transition: background 600ms, color 600ms, border-color 600ms; }
+
+/* ── shared chrome pieces ── */
+.icon-btn { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #1e293b80; border: 1px solid #33415560; color: var(--ink-2); }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-tile { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: #020617; border: 1px solid color-mix(in srgb, var(--env) 35%, transparent); color: var(--env); transition: color 600ms, border-color 600ms; }
+.wordmark { font-weight: 900; font-style: italic; letter-spacing: -.04em; font-size: 18px; text-transform: uppercase; }
+.slogan { font-size: 7px; letter-spacing: .4em; text-transform: uppercase; color: var(--ink-3); font-style: italic; margin-top: 2px; }
+.spacer { flex: 1; }
+.modes { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #020617; border: 1px solid var(--line); }
+.mode { display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 10px; color: var(--ink-3); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+.mode small { display: block; font-size: 7px; letter-spacing: .28em; opacity: .8; }
+.mode .glyph { width: 22px; height: 22px; border-radius: 7px; background: #1e293b; display: grid; place-items: center; }
+.mode.on { background: var(--env); color: var(--on-env); transition: background 600ms; }
+.mode.on .glyph { background: #0206171f; }
+.layers { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #020617; border: 1px solid var(--line); }
+.layer { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 8px; font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.layer.on { background: #1e293b; color: var(--ink); }
+.dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.sec-title { display: flex; align-items: center; gap: 8px; font-size: 9.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.sec-title i { width: 8px; height: 8px; border-radius: 2px; background: var(--env); transition: background 600ms; }
+.card { border-radius: 14px; background: #0f172a66; border: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; transition: background 600ms, border-color 600ms; }
+.row { display: flex; justify-content: space-between; font-size: 9px; color: var(--ink-3); text-transform: uppercase; font-weight: 600; letter-spacing: .06em; }
+.row b { font-family: var(--mono); color: var(--ink); font-weight: 500; letter-spacing: 0; }
+.rec { padding: 9px 10px; border-radius: 10px; background: #00000040; border: 1px solid var(--line); font-size: 10px; font-weight: 600; color: var(--ink-2); display: flex; justify-content: space-between; }
+.rec.active { color: var(--ink); border-color: color-mix(in srgb, var(--env) 45%, var(--line)); transition: border-color 600ms; }
+.btn { padding: 8px; border-radius: 8px; text-align: center; background: #1e293b; font-size: 8.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+
+.canvas { position: relative; flex: 1; border-radius: 12px; background: #fff; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #1e293b80; transition: box-shadow 600ms, border-color 600ms; }
+.ruler { height: 46px; background: #0f1c37; display: flex; align-items: end; padding: 0 16px 6px; gap: 0; font-family: var(--mono); font-size: 9px; color: #7c8bb0; }
+.ruler span { flex: 1; border-left: 1px solid #334155; padding-left: 4px; }
+.lanes { flex: 1; padding: 18px 16px 0 116px; position: relative; color: #0f172a; }
+.lane-label { position: absolute; left: 16px; font-size: 8px; font-weight: 600; letter-spacing: .1em; color: #94a3b8; text-transform: uppercase; }
+.feat { position: absolute; height: 38px; border-radius: 6px; border: 1px solid; padding: 4px 6px; font-family: var(--mono); font-size: 10.5px; font-weight: 600; }
+.feat small { display: block; font-weight: 400; font-size: 8.5px; color: #475569; }
+.seq { position: absolute; left: 116px; right: 16px; bottom: 54px; height: 20px; border-radius: 3px; background: repeating-linear-gradient(90deg, #22c55e 0 3px, #f43f5e 3px 5px, #3b82f6 5px 8px, #eab308 8px 10px, #22c55e 10px 11px, #3b82f6 11px 14px); }
+.table { flex: 1; padding: 22px 26px; background: #fffbeb80; color: #0f172a; }
+.table h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.02em; text-transform: uppercase; }
+.table p { margin: 4px 0 14px; font-size: 9px; letter-spacing: .3em; text-transform: uppercase; color: #d97706; font-weight: 600; }
+.trow { display: grid; grid-template-columns: 110px 1fr 160px 90px; align-items: center; height: 44px; border-bottom: 1px solid #f1f5f9; font-size: 12px; font-weight: 700; background: #fff; padding: 0 16px; }
+.trow code { font-family: var(--mono); font-size: 10px; color: #475569; }
+.chip { justify-self: start; padding: 3px 8px; border-radius: 5px; font-size: 8.5px; font-weight: 600; text-transform: uppercase; }
+.empty { flex: 1; display: grid; place-items: center; color: #334155; font-size: 11px; letter-spacing: .8em; text-transform: uppercase; font-weight: 700; }
+
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px; border-radius: 99px; color: var(--env); border: 1px solid color-mix(in srgb, var(--env) 30%, transparent); background: color-mix(in srgb, var(--env) 8%, transparent); transition: color 600ms, border-color 600ms, background 600ms; }
+.pill .dot { background: var(--env); box-shadow: 0 0 6px var(--env); }
+.foot .links { display: flex; gap: 16px; align-items: center; }
+.foot .ver { font-family: var(--mono); text-transform: none; letter-spacing: 0; color: var(--ink); }
+.sep { width: 1px; height: 12px; background: #33415599; }
+
+/* ============================================================
+   CONCEPTS — each block only says where the accent lives.
+   ============================================================ */
+
+/* 1 · CLEAN — neutral frame; accent on the logo, active mode, pill and a 1px seam. */
+[data-concept="clean"] .nav::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--env) 70%, transparent) 30%, var(--env) 50%, color-mix(in srgb, var(--env2) 60%, transparent) 70%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--env) 50%, transparent);
+}
+
+/* 2 · SIGNAL — the status bar IS the environment (VS Code's debug/remote bar). */
+[data-concept="signal"] .foot { background: var(--env); color: color-mix(in srgb, var(--on-env) 80%, var(--env)); border-top-color: transparent; }
+[data-concept="signal"] .foot .ver { color: var(--on-env); }
+[data-concept="signal"] .foot .sep { background: color-mix(in srgb, var(--on-env) 25%, transparent); }
+[data-concept="signal"] .foot .pill { color: var(--on-env); background: color-mix(in srgb, var(--on-env) 12%, transparent); border-color: color-mix(in srgb, var(--on-env) 25%, transparent); }
+[data-concept="signal"] .foot .pill .dot { background: var(--on-env); box-shadow: none; }
+[data-concept="signal"] .nav { box-shadow: inset 0 2px 0 var(--env); }
+[data-concept="signal"][data-env="none"] .foot { background: #1e293b; color: var(--ink-2); }
+[data-concept="signal"][data-env="none"] .foot .ver { color: var(--ink); }
+
+/* 3 · TINT — every dark surface takes a little of the hue (Arc-style spaces). */
+[data-concept="tint"] { --chrome: color-mix(in oklab, var(--env) 11%, #0b1120); --side: color-mix(in oklab, var(--env) 7%, #020617); --backdrop: color-mix(in oklab, var(--env) 9%, #0f172a); --line: color-mix(in oklab, var(--env) 18%, #1e293b); }
+[data-concept="tint"] .foot { background: color-mix(in oklab, var(--env) 9%, #020617); }
+[data-concept="tint"] .card { background: color-mix(in oklab, var(--env) 5%, #0f172a66); }
+[data-concept="tint"] .nav { background-image: radial-gradient(60% 140% at 0% 0%, color-mix(in srgb, var(--env) 14%, transparent), transparent 70%); }
+
+/* 4 · FRAME — the chrome stays neutral; the canvas edge carries the light. */
+[data-concept="frame"] .canvas {
+  border-color: color-mix(in srgb, var(--env) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--env) 25%, transparent), 0 0 28px -4px color-mix(in srgb, var(--env) 45%, transparent);
+}
+[data-concept="frame"] .main { background: radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--env) 10%, var(--backdrop)), var(--backdrop) 70%); }
+[data-concept="frame"][data-env="none"] .canvas { box-shadow: none; border-color: #1e293b80; }
+
+/* ── dock ── */
+.dock { position: fixed; left: 0; right: 0; bottom: 0; height: 76px; background: #0a0a0a; border-top: 1px solid #222; display: flex; align-items: center; gap: 28px; padding: 0 22px; font-size: 12px; color: #a3a3a3; }
+.dock .group { display: flex; align-items: center; gap: 6px; }
+.dock .group > span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #737373; margin-right: 6px; }
+.dock button { font: inherit; padding: 7px 12px; border-radius: 8px; border: 1px solid #333; background: #171717; color: #d4d4d4; cursor: pointer; }
+.dock button:hover { border-color: #555; color: #fff; }
+.dock button[aria-pressed="true"] { background: #fafafa; color: #0a0a0a; border-color: #fafafa; }
+.dock .desc { flex: 1; font-size: 12px; line-height: 1.45; color: #a3a3a3; max-width: 520px; }
+.dock .desc b { color: #fafafa; }
+.dock kbd { font-family: var(--mono); font-size: 10px; border: 1px solid #444; border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<div class="app" id="app" data-concept="clean" data-env="nucleotide">
+  <header class="nav">
+    <div class="icon-btn">&larr;</div>
+    <div class="logo">
+      <div class="logo-tile">&#10070;</div>
+      <div><div class="wordmark">Dunceious</div><div class="slogan">Because geniality is overpriced.</div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="modes">
+      <div class="mode" data-mode="view"><span class="glyph">&#8982;</span><span><small>View</small>Visual Viewport</span></div>
+      <div class="mode" data-mode="hub"><span class="glyph">&#9776;</span><span><small>Manage</small>Annotation Hub</span></div>
+    </div>
+    <div class="layers" id="layers">
+      <div class="layer on"><i class="dot" style="background:#38bdf8"></i>Annotations</div>
+      <div class="layer on"><i class="dot" style="background:#818cf8"></i>Tracks</div>
+      <div class="layer on"><i class="dot" style="background:#34d399"></i>Translation</div>
+      <div class="layer"><i class="dot" style="background:#475569"></i>Conservation</div>
+    </div>
+    <div class="icon-btn">&#9881;</div>
+  </header>
+
+  <aside class="side">
+    <section>
+      <div class="sec-title"><i></i>Record Navigator</div>
+      <div class="card"><div class="rec active">NC_045512 <span>&rsaquo;</span></div><div class="rec">MN908947 <span>&rsaquo;</span></div></div>
+    </section>
+    <section>
+      <div class="sec-title"><i></i>Selection Inspector</div>
+      <div class="card">
+        <div class="row">Range <b>21,563 – 25,384</b></div>
+        <div class="row">Length <b>3,822 bp</b></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div class="btn">FASTA</div><div class="btn">+ Annot</div></div>
+      </div>
+    </section>
+    <section>
+      <div class="sec-title"><i></i>Sequence Search</div>
+      <div class="card"><div class="rec" style="font-family:var(--mono);font-weight:500">ATGTTTGTTTTTCTTG…</div></div>
+    </section>
+  </aside>
+
+  <main class="main"><div class="canvas" id="canvas"></div></main>
+
+  <footer class="foot">
+    <div class="links"><span class="ver">Dunceious v2.6.1</span><i class="sep"></i><span>AGPL v3 or later</span><i class="sep"></i><span>Source code</span></div>
+    <div class="links"><span class="pill" id="pill"><i class="dot"></i><span id="pill-text">Nucleotide session</span></span><i class="sep"></i><span>Built for science</span><i class="sep"></i><span>© 2026</span></div>
+  </footer>
+</div>
+
+<div class="dock">
+  <div class="group" id="concepts"><span>Concept</span></div>
+  <div class="group" id="envs"><span>Environment</span></div>
+  <div class="group"><button id="cycle" aria-pressed="false">Auto-cycle</button></div>
+  <div class="desc" id="desc"></div>
+</div>
+
+<script>
+const CONCEPTS = [
+  ['clean',  '1 · Clean',  '<b>Clean.</b> Neutral frame. The accent lives on the logo, the active mode, the session pill and a 1px seam under the header. Quietest; the default.'],
+  ['signal', '2 · Signal', '<b>Signal.</b> The status bar <i>is</i> the environment — a solid band, like VS Code turns its bar orange while debugging. Plus a 2px top line. You always know where you are.'],
+  ['tint',   '3 · Tint',   '<b>Tint.</b> Every dark surface — header, sidebar, backdrop, footer, borders — takes a little of the hue, like Arc\'s colour-coded spaces. Ambient, never loud.'],
+  ['frame',  '4 · Frame',  '<b>Frame.</b> Chrome stays neutral; the edge of the canvas carries a ring and a soft halo, with a faint wash in the backdrop. <i>Bends the old "never near the data" rule</i> — the light stops at the card\'s border.'],
+];
+const ENVS = [['nucleotide', 'Nucleotide'], ['protein', 'Peptide'], ['hub', 'Hub'], ['none', 'Empty']];
+const app = document.getElementById('app');
+const canvas = document.getElementById('canvas');
+
+const VIEW = `<div class="ruler"><span>5,000</span><span>10,000</span><span>15,000</span><span>20,000</span><span>25,000</span></div>
+  <div class="lanes">
+    <div class="lane-label" style="top:22px">Annot</div>
+    <div class="feat" style="left:116px;right:16px;top:18px;background:#f1f5f9;border-color:#cbd5e1">source<small>Forward (+) 5′ → 3′</small></div>
+    <div class="feat" style="left:116px;width:18%;top:62px;background:#f1f5f9;border-color:#cbd5e1">5′UTR<small>Forward (+) 5′ → 3′</small></div>
+    <div class="feat" style="left:24%;right:16px;top:106px;background:#e0f2fe;border-color:#7dd3fc">ORF1ab polyprotein<small>Forward (+) 5′ → 3′</small></div>
+    <div class="feat" style="left:52%;width:24%;top:150px;background:#ede9fe;border-color:#c4b5fd">S · spike glycoprotein<small>Forward (+) 5′ → 3′</small></div>
+    <div class="lane-label" style="bottom:58px">NC_045512</div>
+    <div class="seq"></div>
+  </div>`;
+const ROWS = [['source', '#64748b', 'source', '1..29903', '29,903'], ['gene', '#0ea5e9', 'ORF1ab', '266..21555', '21,290'], ['CDS', '#8b5cf6', 'ORF1ab polyprotein', 'join(266..13468,13468..21555)', '21,291'], ['mat_peptide', '#14b8a6', 'nsp2', '806..2719', '1,914'], ['gene', '#0ea5e9', 'S', '21563..25384', '3,822']];
+const HUB = `<div class="table"><h2>Annotation Hub</h2><p>1 sequence · 57 annotations</p>${ROWS.map(r => `<div class="trow"><span class="chip" style="color:${r[1]};background:${r[1]}18;border:1px solid ${r[1]}33">${r[0]}</span><span>${r[2]}</span><code>${r[3]}</code><code style="text-align:right">${r[4]}</code></div>`).join('')}</div>`;
+
+function render() {
+  const env = app.dataset.env;
+  canvas.innerHTML = env === 'none' ? '<div class="empty">Workspace empty</div>' : env === 'hub' ? HUB : VIEW;
+  document.querySelectorAll('.mode').forEach(m => m.classList.toggle('on', env !== 'none' && (m.dataset.mode === 'hub') === (env === 'hub')));
+  document.getElementById('layers').style.visibility = env === 'hub' || env === 'none' ? 'hidden' : 'visible';
+  document.getElementById('pill').style.visibility = env === 'none' ? 'hidden' : 'visible';
+  document.getElementById('pill-text').textContent = env === 'protein' ? 'Peptide session' : 'Nucleotide session';
+  for (const b of document.querySelectorAll('[data-k]')) b.setAttribute('aria-pressed', String(app.dataset[b.dataset.kind] === b.dataset.k));
+  document.getElementById('desc').innerHTML = CONCEPTS.find(c => c[0] === app.dataset.concept)[2];
+}
+function addButtons(target, list, kind) {
+  for (const [k, label] of list) {
+    const b = document.createElement('button');
+    b.textContent = label; b.dataset.k = k; b.dataset.kind = kind;
+    b.onclick = () => { app.dataset[kind] = k; render(); };
+    target.appendChild(b);
+  }
+}
+addButtons(document.getElementById('concepts'), CONCEPTS, 'concept');
+addButtons(document.getElementById('envs'), ENVS, 'env');
+let timer = null;
+document.getElementById('cycle').onclick = e => {
+  const on = !timer;
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  if (on) { let i = 0; timer = setInterval(() => { app.dataset.env = ENVS[++i % 3][0]; render(); }, 1800); }
+  else { clearInterval(timer); timer = null; }
+};
+document.addEventListener('keydown', e => {
+  const n = Number(e.key);
+  if (n >= 1 && n <= 4) { app.dataset.concept = CONCEPTS[n - 1][0]; render(); }
+  const env = { n: 'nucleotide', p: 'protein', h: 'hub', e: 'none' }[e.key];
+  if (env) { app.dataset.env = env; render(); }
+});
+render();
+</script>
+</body>
+</html>

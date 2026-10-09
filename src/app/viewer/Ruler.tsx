@@ -19,6 +19,7 @@
 
 import * as d3 from 'd3';
 import React, { useEffect, useRef } from 'react';
+import { MONO_STACK } from './constants';
 
 export const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLinear<number, number>; scrollX: number; sidebarWidth: number; onJump: (pos: number) => void }> = ({ width, height, xScale, scrollX, sidebarWidth, onJump }) => {
   const gRef = useRef<SVGGElement>(null);
@@ -75,7 +76,7 @@ export const Ruler: React.FC<{ width: number; height: number; xScale: d3.ScaleLi
         .style('font-size', '9px')
         .style('font-weight', '500')
         .style('letter-spacing', '0.06em')
-        .style('font-family', 'JetBrains Mono, monospace');
+        .style('font-family', MONO_STACK);
       
       g.selectAll('.domain').attr('stroke', '#94a3b8').attr('stroke-width', 1.5);
       g.selectAll('.tick line').attr('stroke', '#94a3b8').attr('stroke-width', 1.5);

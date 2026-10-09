@@ -223,7 +223,7 @@ describe('examples/influenza-a-pr8-8segments.gb', () => {
     for (const r of records) expect(r.features.length).toBeGreaterThan(0);
   });
 
-  it('aggregates the Database Hub annotation count across records', () => {
+  it('aggregates the Annotation Hub annotation count across records', () => {
     // Mirrors the hook's allFeaturesCount formula shown as "M Annotations".
     const allFeaturesCount = records.reduce((acc, r) => acc + r.features.length, 0);
     expect(allFeaturesCount).toBe(36);
