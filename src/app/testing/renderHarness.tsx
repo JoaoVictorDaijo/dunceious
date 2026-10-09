@@ -37,6 +37,8 @@ export interface CanvasRecorder {
   fillRects(): Array<[number, number, number, number]>;
   /** Colours used for each fillRect, in draw order. */
   fillColors(): string[];
+  /** Ordered [x, y, w, h] tuples passed to ctx.strokeRect, with the strokeStyle and lineWidth in force. */
+  strokeRects(): Array<{ rect: [number, number, number, number]; color: string; width: number }>;
 }
 
 /**
@@ -52,7 +54,10 @@ export function installCanvasRecorder(): CanvasRecorder {
   const texts: string[] = [];
   const fillRects: Array<[number, number, number, number]> = [];
   const fillColors: string[] = [];
+  const strokeRects: Array<{ rect: [number, number, number, number]; color: string; width: number }> = [];
   let fillStyle = '';
+  let strokeStyle = '';
+  let lineWidth = 1;
 
   const ctx = new Proxy(
     {
@@ -61,6 +66,9 @@ export function installCanvasRecorder(): CanvasRecorder {
         fillRects.push([x, y, w, h]);
         fillColors.push(fillStyle);
       },
+      strokeRect: (x: number, y: number, w: number, h: number) => {
+        strokeRects.push({ rect: [x, y, w, h], color: strokeStyle, width: lineWidth });
+      },
     } as Record<string, unknown>,
     {
       get(target, prop) {
@@ -68,6 +76,8 @@ export function installCanvasRecorder(): CanvasRecorder {
       },
       set(_target, prop, value) {
         if (prop === 'fillStyle') fillStyle = String(value);
+        if (prop === 'strokeStyle') strokeStyle = String(value);
+        if (prop === 'lineWidth') lineWidth = Number(value);
         return true;
       },
     },
@@ -75,7 +85,7 @@ export function installCanvasRecorder(): CanvasRecorder {
 
   HTMLCanvasElement.prototype.getContext = (() => ctx) as unknown as HTMLCanvasElement['getContext'];
 
-  return { texts: () => texts, fillRects: () => fillRects, fillColors: () => fillColors };
+  return { texts: () => texts, fillRects: () => fillRects, fillColors: () => fillColors, strokeRects: () => strokeRects };
 }
 
 /** jsdom has no ResizeObserver; install a no-op so components that construct one render. */

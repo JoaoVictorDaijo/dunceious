@@ -134,6 +134,14 @@ describe('ribosomal frameshift (−1 PRF)', () => {
     expect(box(5 * ZOOM)?.[1]).toBe(0);             // T: post-slip frame, the row above
   });
 
+  it('outlines every amino-acid box in thin white, so stacked frames stay apart', () => {
+    render(<SequenceTrack {...slip()} />);
+    const aaBoxes = recorder.fillRects().filter(([, , w]) => w === 3 * ZOOM);
+    expect(aaBoxes.length).toBeGreaterThan(0);
+    const outlines = recorder.strokeRects().filter(s => s.color === '#fff' && s.width === 0.5).map(s => s.rect.join());
+    for (const box of aaBoxes) expect(outlines).toContain(box.join());
+  });
+
   // The rows abut, so a pill or connector here would cover the codons around
   // the junction; the shift is named on the annotation bar instead.
   it('draws no frameshift marker in the translation rows', () => {

@@ -259,7 +259,13 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
           ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
 
+          // The nucleotide cells' white hairline: it parts codons in a row and,
+          // where a frameshift stacks two frames, the rows themselves.
           ctx.globalAlpha = 1.0;
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+
           ctx.fillStyle = '#fff';
           ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
         }
