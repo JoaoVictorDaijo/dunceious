@@ -63,6 +63,9 @@ async function scenario(dpr, width) {
   const settle = () => page.waitForTimeout(220);
   const scroll = async x => { await scroller.evaluate((el, v) => { el.scrollLeft = v; }, x); await settle(); };
   const record = async name => {
+    const mini = page.locator('svg').filter({ has: page.locator('g.brush') });
+    const miniWidths = await mini.evaluate(el => [Number(el.getAttribute('width')), Math.max(0, el.parentElement.clientWidth - 8)]);
+    assert.equal(miniWidths[0], miniWidths[1], 'minimap scale follows its flex width after selection controls change');
     const state = await metrics();
     const range = await inputs.count() ? await selected() : null;
     results.push({ name, dpr, windowWidth: width, ...state, selection: range });
@@ -185,6 +188,7 @@ async function exerciseSelectionControls(h) {
     await settle();
     await assertCentered();
     await record(`zoom-${start}-${end}`);
+    if (start === 4000) await exerciseMinimapBrush(h);
     await scroll(0);
     await page.getByRole('button', { name: 'Center', exact: true }).click();
     await settle();
@@ -199,6 +203,25 @@ async function exerciseSelectionControls(h) {
 
 }
 
+
+async function exerciseMinimapBrush({ page, metrics, settle, record }) {
+  const mini = page.locator('svg').filter({ has: page.locator('g.brush') });
+  const box = await mini.boundingBox();
+  const scaleWidth = Number(await mini.getAttribute('width'));
+  const x0 = Math.floor(box.x + scaleWidth * 0.6);
+  const x1 = Math.floor(box.x + scaleWidth * 0.65);
+  await page.mouse.move(x0, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(x1, box.y + 10, { steps: 4 });
+  await page.mouse.up();
+  await settle();
+  const m = await metrics();
+  const expectedZoom = m.width / ((x1 - x0) / scaleWidth * 10000);
+  assert.ok(Math.abs(m.zoom - expectedZoom) < 0.001, 'minimap brush uses its visible scale');
+  const expectedLeft = (x0 - box.x) / scaleWidth * 10000 * m.zoom;
+  assert.ok(Math.abs(m.scroll - expectedLeft) < 2, 'minimap zoom commits the requested scroll after resizing content');
+  await record('minimap-brush');
+}
 
 async function virtualized() {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
