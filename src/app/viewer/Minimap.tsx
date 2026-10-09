@@ -21,6 +21,7 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
 import { getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
+import { MONO_STACK } from './constants';
 
 export interface MinimapProps {
   records: SeqRecord[];
@@ -196,6 +197,7 @@ export const Minimap: React.FC<MinimapProps> = ({
       .attr('fill', '#8093b6')
       .style('font-size', '8px')
       .style('font-weight', '500')
+      .style('font-family', MONO_STACK)
       .style('letter-spacing', '0.06em');
 
     miniSvg.selectAll('.domain').attr('stroke', 'rgba(148,163,184,0.4)').attr('stroke-width', 1.5);
@@ -257,7 +259,7 @@ export const Minimap: React.FC<MinimapProps> = ({
         <canvas ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
         <svg ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
-          <span className="text-[7px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
+          <span className="text-[8px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
         </div>
       </div>
     </div>

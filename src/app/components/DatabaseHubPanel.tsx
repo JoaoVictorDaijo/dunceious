@@ -126,10 +126,10 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
               className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
             />
             <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">
                 {record?.name || item.recordId}
                 {record?.isCircular && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-black border border-amber-200">CIRCULAR</span>
+                  <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-semibold border border-amber-200">CIRCULAR</span>
                 )}
               </span>
               {record?.definition && (
@@ -138,7 +138,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
             <button
               onClick={() => {
                 if (window.confirm(`Remove sequence "${record?.name || item.recordId}" from project?`)) {
@@ -163,13 +163,13 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
         <div style={style} className="border-b border-slate-100 hover:bg-indigo-50/30 transition-all group flex items-center px-8">
           <div className="w-[15%] shrink-0">
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-black text-slate-400">~</span>
+              <span className="px-3 py-1 rounded-md text-[9px] font-semibold uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-semibold text-slate-400">~</span>
             </div>
           </div>
           <div className="w-[35%] shrink-0 px-4">
             <div className="flex flex-col gap-0.5">
-              <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}</span>
+              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}</span>
               <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{t.data.length} data points</span>
             </div>
           </div>
@@ -192,7 +192,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
               </button>
               <button
                 onClick={() => onFocusItem(recordId, start, end)}
-                className="text-[10px] font-black uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
+                className="text-[10px] font-semibold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
               >
                 Focus
               </button>
@@ -209,7 +209,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
         <div className="w-[15%] shrink-0">
           <div className="flex items-center gap-3">
             <span
-              className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter"
+              className="px-3 py-1 rounded-md text-[9px] font-semibold uppercase tracking-tighter"
               style={{
                 backgroundColor: `${f.color || getFeatureColor(f.type, featureColors)}15`,
                 color: f.color || getFeatureColor(f.type, featureColors),
@@ -218,14 +218,14 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
             >
               {f.type}
             </span>
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-black ${f.strand === 1 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <span className={`inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-semibold ${f.strand === 1 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {getFeatureStrand(f) === 1 ? '+' : getFeatureStrand(f) === -1 ? '−' : getFeatureStrand(f)}
             </span>
           </div>
         </div>
         <div className="w-[35%] shrink-0 px-4">
           <div className="flex flex-col gap-0.5">
-            <span className="font-black text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}</span>
+            <span className="font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}</span>
             {f.metadata?.product && <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{f.metadata.product}</span>}
           </div>
         </div>
@@ -272,7 +272,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
                 onFocusItem(recordId, focusStart, focusEnd);
                 addLog(`Jump to ${f.name}`);
               }}
-              className="text-[10px] font-black uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 transition-all tracking-widest shadow-sm"
+              className="text-[10px] font-semibold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 transition-all tracking-widest shadow-sm"
             >
               Focus
             </button>
@@ -286,8 +286,8 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
       <div className="flex justify-between items-end mb-6">
         <div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900">Database Hub</h2>
-          <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.3em] mt-1">
+          <h2 className="text-2xl font-extrabold uppercase tracking-tighter text-slate-900">Database Hub</h2>
+          <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-[0.3em] mt-1">
             {records.length} Sequences • {allFeaturesCount} Annotations
           </p>
         </div>
@@ -304,27 +304,27 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
           </div>
           <button
             onClick={onStartNewFeature}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-semibold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-plus mr-1.5"></i> Add Feature
           </button>
           <div className="flex bg-slate-800 rounded-xl p-1 shadow-md">
-            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" title="Export All FASTA">
+            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all" title="Export All FASTA">
               <i className="fas fa-file-export mr-1.5"></i> FASTA
             </button>
-            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border-l border-slate-700" title="Export GenBank">
+            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export GenBank">
               <i className="fas fa-dna mr-1.5"></i> GenBank
             </button>
-            <button onClick={onExportGff} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border-l border-slate-700" title="Export GFF3">
+            <button onClick={onExportGff} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export GFF3">
               <i className="fas fa-file-code mr-1.5"></i> GFF3
             </button>
-            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border-l border-slate-700" title="Export Project JSON">
+            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export Project JSON">
               <i className="fas fa-save mr-1.5"></i> Save Project
             </button>
           </div>
           <button
             onClick={onClearAll}
-            className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md"
+            className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-semibold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All
           </button>
@@ -332,7 +332,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
       </div>
 
       <div className="flex-1 overflow-hidden border border-slate-200 rounded-3xl bg-white shadow-inner flex flex-col">
-        <div className="bg-slate-50 border-b border-slate-200 z-10 shadow-sm flex items-center px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="bg-slate-50 border-b border-slate-200 z-10 shadow-sm flex items-center px-8 py-5 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
           <div className="w-[15%]">Type / Strand</div>
           <div className="w-[35%] px-4">Descriptor</div>
           <div className="w-[20%] px-4">Location</div>

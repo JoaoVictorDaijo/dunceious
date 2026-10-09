@@ -20,6 +20,8 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/jetbrains-mono';
 import './index.css';
 import './themes.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';

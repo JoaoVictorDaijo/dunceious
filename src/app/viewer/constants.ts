@@ -17,6 +17,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** Matches Tailwind's `font-mono`; SVG and canvas text cannot read the CSS theme. */
+export const MONO_STACK = '"JetBrains Mono Variable", ui-monospace, monospace';
+
 export const SIDEBAR_WIDTH = 120;
 export const NT_ROW_HEIGHT = 22;
 export const AA_ROW_HEIGHT = 18;

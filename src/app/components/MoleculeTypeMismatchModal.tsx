@@ -44,7 +44,7 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
             <i className="fas fa-triangle-exclamation text-lg"></i>
           </div>
           <div>
-            <h2 className="text-lg font-black uppercase tracking-tight text-white">Session Type Mismatch</h2>
+            <h2 className="text-lg font-bold uppercase tracking-tight text-white">Session Type Mismatch</h2>
             <p className="text-xs text-slate-400 font-medium mt-1">Cannot load incompatible sequence type</p>
           </div>
         </div>

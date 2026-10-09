@@ -17,12 +17,31 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import animate from 'tailwindcss-animate';
+import defaultTheme from 'tailwindcss/defaultTheme';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
   ],
-  theme: { extend: {} },
-  plugins: [],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Inter Variable"', ...defaultTheme.fontFamily.sans],
+        mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
+      },
+      letterSpacing: {
+        tightest: '-0.05em',
+      },
+      keyframes: {
+        'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
+      },
+      animation: {
+        'spin-slow': 'spin-slow 12s linear infinite',
+      },
+    },
+  },
+  plugins: [animate],
 };

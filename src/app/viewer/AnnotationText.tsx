@@ -20,7 +20,7 @@
 import React from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { ANNOT_ROW_HEIGHT } from './constants';
+import { ANNOT_ROW_HEIGHT, MONO_STACK } from './constants';
 import { annotationBase, annotationDirection, fitAnnotationText } from './annotationPresentation';
 
 interface Props {
@@ -60,10 +60,10 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
   }
   return (
     <svg x={left} y={y} width={width} height={ANNOT_ROW_HEIGHT} overflow="hidden" pointerEvents="none" aria-label={`${feature.name}: ${fullDirection}; annotated region bases`}>
-      <g fill="#0f172a" fontFamily="monospace" fontSize={11}>
-        <text data-annotation-name="" x={4} y={12} fontWeight="bold">{fitAnnotationText(feature.name, width, 6.7)}</text>
-        <text data-annotation-direction="" x={4} y={24} fontSize={9}>{fitAnnotationText(directionText, width, 5.5)}</text>
-        <g fontWeight="bold">{bases}</g>
+      <g fill="#0f172a" fontFamily={MONO_STACK} fontSize={11}>
+        <text data-annotation-name="" x={4} y={12} fontWeight={600}>{fitAnnotationText(feature.name, width, 6.7)}</text>
+        <text data-annotation-direction="" x={4} y={24} fontSize={9} fill="#475569">{fitAnnotationText(directionText, width, 5.5)}</text>
+        <g fontWeight={600}>{bases}</g>
       </g>
     </svg>
   );

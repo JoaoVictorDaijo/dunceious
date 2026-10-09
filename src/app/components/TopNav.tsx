@@ -100,7 +100,7 @@ const TopNav: React.FC<TopNavProps> = ({
           ></i>
           <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
-        <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
+        <span className="text-[8px] font-semibold uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
           Because geniality is overpriced.
         </span>
       </div>
@@ -120,8 +120,8 @@ const TopNav: React.FC<TopNavProps> = ({
             <i className="fas fa-crosshairs"></i>
           </span>
           <span className="flex flex-col items-start leading-none">
-            <span className={`text-[7px] font-black uppercase tracking-[0.28em] ${activeTab === 'alignment' ? 'text-sky-100' : 'text-slate-400'}`}>View</span>
-            <span className={`text-[10px] font-black uppercase tracking-tight mt-0.5 ${activeTab === 'alignment' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Visual Viewport</span>
+            <span className={`text-[8px] font-semibold uppercase tracking-[0.28em] ${activeTab === 'alignment' ? 'text-sky-100' : 'text-slate-400'}`}>View</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'alignment' ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>Visual Viewport</span>
           </span>
         </button>
         <button
@@ -134,8 +134,8 @@ const TopNav: React.FC<TopNavProps> = ({
             <i className="fas fa-table-list"></i>
           </span>
           <span className="flex flex-col items-start leading-none">
-            <span className={`text-[7px] font-black uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
-            <span className={`text-[10px] font-black uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Database Hub</span>
+            <span className={`text-[8px] font-semibold uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Database Hub</span>
           </span>
         </button>
       </div>
@@ -164,7 +164,7 @@ const TopNav: React.FC<TopNavProps> = ({
             {activeSelection && (
               <button
                 onClick={onClearSelection}
-                className="px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
+                className="px-4 py-2.5 rounded-xl text-[9px] font-semibold uppercase border border-rose-500/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
                 title="Clear Current Selection"
               >
                 Clear
@@ -172,14 +172,14 @@ const TopNav: React.FC<TopNavProps> = ({
             )}
             <button
               onClick={onToggleAnnotations}
-              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${showAnnotations ? 'bg-sky-500/10 border-sky-500/50 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+              className={`px-4 py-2.5 rounded-xl text-[9px] font-semibold uppercase border transition-all ${showAnnotations ? 'bg-sky-500/10 border-sky-500/50 text-sky-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
               title="Toggle Annotations"
             >
               Annotations
             </button>
             <button
               onClick={onToggleTracks}
-              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${showTracks ? 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+              className={`px-4 py-2.5 rounded-xl text-[9px] font-semibold uppercase border transition-all ${showTracks ? 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
               title="Toggle Tracks"
             >
               Tracks
@@ -187,7 +187,7 @@ const TopNav: React.FC<TopNavProps> = ({
             <button
               disabled={sessionMoleculeType === 'protein'}
               onClick={onToggleTranslation}
-              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${sessionMoleculeType === 'protein' ? 'opacity-30 cursor-not-allowed grayscale' : ''} ${showTranslation ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+              className={`px-4 py-2.5 rounded-xl text-[9px] font-semibold uppercase border transition-all ${sessionMoleculeType === 'protein' ? 'opacity-30 cursor-not-allowed grayscale' : ''} ${showTranslation ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
               title={sessionMoleculeType === 'protein' ? 'Not applicable for peptide sessions' : 'Toggle Translation'}
             >
               Translation
@@ -195,7 +195,7 @@ const TopNav: React.FC<TopNavProps> = ({
             <button
               disabled={!isAlignmentLoaded}
               onClick={onToggleConservation}
-              className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase border transition-all ${!isAlignmentLoaded ? 'opacity-30 cursor-not-allowed grayscale' : ''} ${showConservation ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+              className={`px-4 py-2.5 rounded-xl text-[9px] font-semibold uppercase border transition-all ${!isAlignmentLoaded ? 'opacity-30 cursor-not-allowed grayscale' : ''} ${showConservation ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
               title="Toggle Conservation Heatmap (Requires Alignment)"
             >
               Conservation

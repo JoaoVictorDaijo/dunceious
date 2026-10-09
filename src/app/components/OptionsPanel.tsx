@@ -137,7 +137,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-md border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-            <span className="flex items-center gap-2.5 text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">
+            <span className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200">
               <CogIcon className="w-4 h-4 text-amber-400" /> Options
             </span>
             <button
@@ -152,8 +152,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
           <div className="px-5 py-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Feature Colors</span>
-              <span className="text-[7px] font-black uppercase tracking-wider text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-amber-500">Feature Colors</span>
+              <span className="text-[8px] font-semibold uppercase tracking-wider text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5">
                 Global
               </span>
             </div>
@@ -163,7 +163,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                   key={type}
                   className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer"
                 >
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{type}</span>
+                  <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tighter">{type}</span>
                   <input
                     type="color"
                     value={featureColors[type] || getFeatureColor(type)}
@@ -176,7 +176,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             </div>
             <button
               onClick={() => onSetFeatureColors({})}
-              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-black uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-semibold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               Reset to Defaults
             </button>
@@ -184,7 +184,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
 
           {/* Theme — the chrome accent style (per browser) */}
           <div className="px-5 py-4 border-b border-slate-800">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-3">Theme</span>
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">Theme</span>
             <div role="radiogroup" aria-label="Chrome theme" className="grid grid-cols-2 gap-2">
               {THEMES.map((t, i) => (
                 <button
@@ -209,7 +209,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
 
           {/* Workspace preferences */}
           <div className="px-5 py-4">
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-3">Workspace</span>
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 block mb-3">Workspace</span>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <span className="text-[11px] font-bold text-slate-300 block">Skip Clear-All confirmation</span>

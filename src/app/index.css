@@ -20,3 +20,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Accession IDs mix I/l/1 and O/0, so turn on Inter's tailed l, serifed I and slashed zero. */
+    font-feature-settings: "cv05", "cv08", "zero";
+  }
+}

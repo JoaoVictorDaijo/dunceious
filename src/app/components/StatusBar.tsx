@@ -29,7 +29,7 @@ interface StatusBarProps {
 const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType }) => (
   <div className="app-status relative bg-slate-950 border-t border-slate-800 overflow-hidden">
     <div className="hf-env" aria-hidden="true" />
-    <div className="relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-600">
+    <div className="relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-semibold uppercase tracking-widest text-slate-600">
     <div className="flex gap-4">
       <span>Dunceious v{__APP_VERSION__}</span>
       <span className="text-slate-800">|</span>

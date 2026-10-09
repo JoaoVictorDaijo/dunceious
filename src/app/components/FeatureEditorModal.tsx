@@ -66,7 +66,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in zoom-in duration-200 my-auto">
-        <h3 className="text-xl font-black uppercase tracking-tighter mb-8 flex items-center gap-4 text-white">
+        <h3 className="text-xl font-extrabold uppercase tracking-tighter mb-8 flex items-center gap-4 text-white">
           <i className="fas fa-microchip text-amber-500"></i>
           {isNew ? 'Create Feature' : 'Metadata Inspector'}
         </h3>
@@ -76,7 +76,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-950/40 border border-amber-700/50 rounded-xl text-amber-400">
             <i className="fas fa-circle-notch text-sm"></i>
             <div>
-              <div className="text-[10px] font-black uppercase tracking-widest">Circular wrap-around</div>
+              <div className="text-[10px] font-semibold uppercase tracking-widest">Circular wrap-around</div>
               <div className="text-[9px] opacity-70 mt-0.5">
                 This feature crosses the genome origin (start &gt; end).
                 Editing start/end here preserves the wrap-around semantics.
@@ -91,7 +91,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Target sequence selector (new features only) */}
           {isNew && (
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Target Sequence</label>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Target Sequence</label>
               <select
                 value={recordId}
                 onChange={e => onChange({ ...editing, recordId: e.target.value })}
@@ -104,7 +104,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
           {/* Name */}
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Display Name</label>
+            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Display Name</label>
             <input
               type="text"
               value={feature.name}
@@ -116,7 +116,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Type & Strand */}
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Feature Key</label>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Feature Key</label>
               <select
                 value={feature.type}
                 onChange={e => setFeature({ type: e.target.value })}
@@ -127,7 +127,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Strand</label>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Strand</label>
               <select
                 value={getFeatureStrand(feature)}
                 onChange={e => {
@@ -154,7 +154,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
           {/* Color picker */}
           <div>
-            <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Feature Color (Case by Case)</label>
+            <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Feature Color (Case by Case)</label>
             <div className="flex items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl px-5 py-3">
               <input
                 type="color"
@@ -167,7 +167,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               </span>
               <button
                 onClick={() => setFeature({ color: undefined })}
-                className="ml-auto text-[8px] font-black text-slate-500 uppercase hover:text-rose-500 transition-colors"
+                className="ml-auto text-[8px] font-semibold text-slate-500 uppercase hover:text-rose-500 transition-colors"
               >
                 Reset to Default
               </button>
@@ -177,7 +177,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Coordinates */}
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">
                 {feature.segments && feature.segments.length > 1
                   ? isCircularWrap ? 'Wrap-around Start (bp)' : 'Envelope Start (bp)'
                   : 'Start (bp)'}
@@ -190,7 +190,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">
                 {feature.segments && feature.segments.length > 1
                   ? isCircularWrap ? 'Wrap-around End (bp)' : 'Envelope End (bp)'
                   : 'End (bp)'}
@@ -208,7 +208,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {feature.segments && feature.segments.length > 1 && (
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase">
+                <label className="text-[10px] font-semibold text-slate-500 uppercase">
                   Segments ({feature.segments.length})
                 </label>
                 <button
@@ -216,7 +216,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     const newSegs = [...feature.segments!, { start: feature.end, end: feature.end + 100 }];
                     setFeature({ segments: newSegs });
                   }}
-                  className="text-[8px] font-black text-sky-500 uppercase hover:text-sky-400"
+                  className="text-[8px] font-semibold text-sky-500 uppercase hover:text-sky-400"
                 >
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
@@ -224,7 +224,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
-                    <span className="text-[8px] font-black text-slate-600 uppercase w-4">#{idx + 1}</span>
+                    <span className="text-[8px] font-semibold text-slate-600 uppercase w-4">#{idx + 1}</span>
                     <input
                       type="number"
                       value={seg.start}
@@ -264,7 +264,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* GenBank location string (read-only) */}
           {feature.locationString && (
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">GenBank Location (Read-only)</label>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">GenBank Location (Read-only)</label>
               <div className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-[10px] font-mono text-amber-500 break-all">
                 {feature.locationString}
               </div>
@@ -274,11 +274,11 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {/* Qualifiers */}
           {feature.metadata && Object.keys(feature.metadata).length > 0 && (
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Qualifiers</label>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase block mb-2">Qualifiers</label>
               <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro">
                 {Object.entries(feature.metadata).map(([k, v]) => (
                   <div key={k} className="flex flex-col bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
-                    <span className="text-[8px] font-black text-slate-600 uppercase">/{k}</span>
+                    <span className="text-[8px] font-semibold text-slate-600 uppercase">/{k}</span>
                     <span className="text-[10px] text-slate-400 break-words">{v}</span>
                   </div>
                 ))}
@@ -291,13 +291,13 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
         <div className="flex gap-4 mt-12">
           <button
             onClick={onDiscard}
-            className="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-black uppercase transition-all tracking-widest"
+            className="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold uppercase transition-all tracking-widest"
           >
             Discard
           </button>
           <button
             onClick={onSave}
-            className="flex-1 py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-xs font-black uppercase transition-all shadow-xl shadow-sky-900/40 tracking-widest"
+            className="flex-1 py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-xs font-bold uppercase transition-all shadow-xl shadow-sky-900/40 tracking-widest"
           >
             {isNew ? 'Create' : 'Apply'}
           </button>

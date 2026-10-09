@@ -35,7 +35,7 @@ const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({ isProcessing }) =
         <div className="w-24 h-24 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
         <i className="fas fa-helix absolute inset-0 flex items-center justify-center text-sky-500 text-2xl animate-pulse"></i>
       </div>
-      <p className="mt-6 text-sm font-black uppercase tracking-[0.3em] text-sky-400 animate-pulse">Processing Genomic Data...</p>
+      <p className="mt-6 text-sm font-bold uppercase tracking-[0.3em] text-sky-400 animate-pulse">Processing Genomic Data...</p>
       <p className="mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Dunceious is thinking hard</p>
     </div>
   );

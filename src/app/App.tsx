@@ -372,7 +372,7 @@ const App: React.FC = () => {
           {records.length === 0 ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
-              <p className="text-[12px] font-black uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
               <p className="text-[10px] font-bold text-slate-500 mt-4 italic">"Spend money on Coffee and Personal, not with expensive genial software."</p>
             </div>
           ) : (
@@ -434,11 +434,6 @@ const App: React.FC = () => {
 
       <StatusBar sessionMoleculeType={sessionMoleculeType} />
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-        .tracking-tightest { tracking-letter: -0.05em; }
-      `}} />
     </div>
   );
 };
