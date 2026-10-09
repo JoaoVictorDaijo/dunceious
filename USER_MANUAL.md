@@ -23,6 +23,10 @@ Dunceious enforces a homogeneous session: all records in a workspace must belong
 - The current session type is shown in the **Status Bar** at the bottom of the screen (blue DNA helix for nucleotide, purple node icon for peptide).
 - In a peptide session, the **Translation** toggle in the top bar is automatically disabled and reading-frame tracks are not displayed in the sequence viewer, as they are not applicable to amino-acid sequences.
 
+RNA sequences retain their original `U` residues. Uracil uses the same colour as
+thymine (`T`), RNA codons can be translated, and GenBank exports retain the RNA
+molecule type. In peptide sessions, `U` remains selenocysteine.
+
 ### 1.3 Alignment Workflow
 
 Dunceious does not include a built-in aligner. The recommended workflow is:
@@ -60,14 +64,18 @@ The supported degenerate codes depend on the active **session molecule type**:
 
 **Nucleotide sessions**
 
-| Code | Matches | Code | Matches    |
-| ---- | ------- | ---- | ---------- |
-| `R`  | A, G    | `B`  | C, G, T    |
-| `Y`  | C, T    | `D`  | A, G, T    |
-| `S`  | G, C    | `H`  | A, C, T    |
-| `W`  | A, T    | `V`  | A, C, G    |
-| `K`  | G, T    | `N`  | A, C, G, T |
-| `M`  | A, C    |      |            |
+| Code | Matches | Code | Matches       |
+| ---- | ------- | ---- | ------------- |
+| `R`  | A, G    | `B`  | C, G, T, U    |
+| `Y`  | C, T, U | `D`  | A, G, T, U    |
+| `S`  | G, C    | `H`  | A, C, T, U    |
+| `W`  | A, T, U | `V`  | A, C, G       |
+| `K`  | G, T, U | `N`  | A, C, G, T, U |
+| `M`  | A, C    |      |               |
+
+Literal `T` and `U` queries match their own residues. Reverse-strand searches
+use RNA complements (`A` pairs with `U`) for RNA records and DNA complements
+(`A` pairs with `T`) for DNA records.
 
 **Peptide sessions**
 

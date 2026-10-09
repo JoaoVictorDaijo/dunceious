@@ -48,6 +48,8 @@ export interface SidebarProps {
   onSearchOptionsChange: (opts: SidebarProps['searchOptions']) => void;
   isSearching: boolean;
   onSearch: () => void;
+  onClearSearch: () => void;
+  onSelectSearchResult: (selection: SelectionArea) => void;
   filteredResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
@@ -94,6 +96,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearchOptionsChange,
   isSearching,
   onSearch,
+  onClearSearch,
+  onSelectSearchResult,
   filteredResults,
   groupedSearchResults,
   currentSearchIdx,
@@ -363,6 +367,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onSearchOptionsChange={onSearchOptionsChange}
         isSearching={isSearching}
         onSearch={onSearch}
+        onClearSearch={onClearSearch}
         filteredResults={filteredResults}
         groupedSearchResults={groupedSearchResults}
         currentSearchIdx={currentSearchIdx}
@@ -371,7 +376,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         onSetSelectedIndices={onSetSelectedIndices}
         maxScoreFound={maxScoreFound}
         records={records}
-        onSetActiveSelection={onSetActiveSelection}
+        onSetActiveSelection={onSelectSearchResult}
         onSetActiveTab={onSetActiveTab}
         onToggleRecordSelection={onToggleRecordSelection}
         onJoinAllInRecord={onJoinAllInRecord}

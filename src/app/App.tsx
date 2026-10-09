@@ -20,7 +20,7 @@
 
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import DatabaseHubPanel from './components/DatabaseHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
@@ -76,6 +76,12 @@ const App: React.FC = () => {
   const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
   const [jumpTo, setJumpTo] = useState<number | null>(null);
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
+  const searchSelectionRef = useRef<SelectionArea | null>(null);
+  const selectSearchResult = (selection: SelectionArea) => {
+    searchSelectionRef.current = selection;
+    setActiveTab('alignment');
+    setActiveSelection(selection);
+  };
   const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
@@ -120,15 +126,20 @@ const App: React.FC = () => {
     isSearching,
     groupedSearchResults,
     handleSearch,
+    clearSearch,
     toggleRecordSelection,
     joinAllInRecord,
     joinSelectedMatches,
     getSequenceContext,
     isProteinSession,
-  } = useSearchWorker(records, addLog, addAnnotationFromSearch, selection => {
-    setActiveTab('alignment');
-    setActiveSelection(selection);
-  });
+  } = useSearchWorker(records, addLog, addAnnotationFromSearch, selectSearchResult);
+
+  const handleClearSearch = () => {
+    clearSearch();
+    const searchSelection = searchSelectionRef.current;
+    setActiveSelection(current => current === searchSelection ? null : current);
+    searchSelectionRef.current = null;
+  };
 
   const {
     handleFileUpload,
@@ -338,6 +349,8 @@ const App: React.FC = () => {
           onSearchOptionsChange={setSearchOptions}
           isSearching={isSearching}
           onSearch={handleSearch}
+          onClearSearch={handleClearSearch}
+          onSelectSearchResult={selectSearchResult}
           filteredResults={filteredResults}
           groupedSearchResults={groupedSearchResults}
           currentSearchIdx={currentSearchIdx}

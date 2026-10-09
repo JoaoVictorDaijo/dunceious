@@ -34,6 +34,7 @@ export interface SearchPanelProps {
   onSearchOptionsChange: (opts: SearchPanelProps['searchOptions']) => void;
   isSearching: boolean;
   onSearch: () => void;
+  onClearSearch: () => void;
   filteredResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
@@ -65,6 +66,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   onSearchOptionsChange,
   isSearching,
   onSearch,
+  onClearSearch,
   filteredResults,
   groupedSearchResults,
   currentSearchIdx,
@@ -81,12 +83,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   getSequenceContext,
   isProteinSession = false,
 }) => {
-  const clearSearch = () => {
-    onSearchQueryChange('');
-    onSetSelectedIndices(new Set());
-    onSetCurrentIdx(-1);
-  };
-
   return (
     <section className="flex flex-col min-h-0 pt-4">
       <div className="flex items-center justify-between mb-6">
@@ -125,8 +121,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               onKeyDown={e => e.key === 'Enter' && onSearch()}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
-              {searchQuery && (
-                <button onClick={clearSearch} className="text-slate-600 hover:text-rose-500 transition-colors" title="Clear Search">
+              {(searchQuery || filteredResults.length > 0 || isSearching) && (
+                <button onClick={onClearSearch} className="text-slate-600 hover:text-rose-500 transition-colors" title="Clear Search">
                   <i className="fas fa-times-circle text-sm"></i>
                 </button>
               )}
@@ -322,7 +318,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                                 e.stopPropagation();
                                 onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand);
                               }}
-                              className="opacity-0 group-hover:opacity-100 transition-all text-[9px] font-black uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
+                              aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
+                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-black uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
                             >
                               <i className="fas fa-plus text-[8px]"></i> Annotate
                             </button>

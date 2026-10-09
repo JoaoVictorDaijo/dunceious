@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { reverseComplement, getNonGapSegments } from '@/src/domain/bio';
+import { reverseComplement, getNonGapSegments, detectMoleculeType } from '@/src/domain/bio';
 import type { SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
 import { runExactSearch } from '@/src/core/search/exact';
@@ -45,7 +45,7 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
           results.push(...collectSeededFuzzyHits(queryUpper, seq, record.id, 1, minScore));
         }
         if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq);
+          const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
           const revHits = collectSeededFuzzyHits(queryUpper, rcSeq, record.id, -1, minScore);
           revHits.forEach(hit => {
             const start = L - hit.end;
@@ -61,7 +61,7 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
         }
       });
     } else {
-      results = runExactSearch(searchQuery, records, isProtein, strand);
+      results = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
     }
 
     // Sort results

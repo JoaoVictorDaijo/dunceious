@@ -51,6 +51,7 @@ export interface UseSearchWorkerReturn {
   isProteinSession: boolean;
   groupedSearchResults: GroupedSearchResults;
   handleSearch: () => void;
+  clearSearch: () => void;
   toggleRecordSelection: (recordId: string, select: boolean) => void;
   joinAllInRecord: (recordId: string) => void;
   joinSelectedMatches: () => void;
@@ -109,6 +110,7 @@ export function useSearchWorker(
       id: r.id,
       sequence: r.sequence,
       alignedSequence: r.alignedSequence,
+      moleculeType: r.moleculeType,
     }));
   }, [records]);
 
@@ -122,6 +124,7 @@ export function useSearchWorker(
   const nextRequestIdRef = useRef(0);
   const pendingRequestIdRef = useRef<number | null>(null);
   const fuzzyTimeoutRef = useRef<number | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestQueryRef = useRef(searchQuery);
   const addLogRef = useRef(addLog);
   const onFirstResultRef = useRef(onFirstResult);
@@ -134,6 +137,26 @@ export function useSearchWorker(
     }
   }, []);
 
+  const cancelPendingSearch = useCallback(() => {
+    pendingRequestIdRef.current = null;
+    lastRequestRef.current = null;
+    clearFuzzyTimeout();
+    if (navigationTimeoutRef.current !== null) {
+      clearTimeout(navigationTimeoutRef.current);
+      navigationTimeoutRef.current = null;
+    }
+  }, [clearFuzzyTimeout]);
+
+  const clearSearch = useCallback(() => {
+    cancelPendingSearch();
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchIdx(-1);
+    setSelectedSearchIndices(new Set());
+    setMaxScoreFound(0);
+    setIsSearching(false);
+  }, [cancelPendingSearch]);
+
   const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
     setIsSearching(false);
     const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
@@ -145,7 +168,9 @@ export function useSearchWorker(
     if (results.length > 0) {
       setCurrentSearchIdx(0);
       const first = results[0];
-      setTimeout(() => {
+      navigationTimeoutRef.current = setTimeout(() => {
+        navigationTimeoutRef.current = null;
+        if (!isMountedRef.current) return;
         onFirstResultRef.current({ start: first.start, end: first.end, recordIds: [first.recordId] });
       }, 0);
     } else {
@@ -195,6 +220,7 @@ export function useSearchWorker(
       if (!isMountedRef.current) return;
       const msg = e.data;
 
+      if (pendingRequestIdRef.current === null) return;
       if (
         typeof msg.requestId === 'number' &&
         pendingRequestIdRef.current !== null &&
@@ -220,7 +246,7 @@ export function useSearchWorker(
     };
 
     searchWorkerRef.current.onerror = (event: ErrorEvent) => {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || pendingRequestIdRef.current === null) return;
       const pending = lastRequestRef.current;
       if (pending && pending.mode === 'fuzzy') {
         runInlineFallback(pending, `Search Worker Error: ${event.message}. Using local fallback.`);
@@ -233,8 +259,7 @@ export function useSearchWorker(
     };
 
     return () => {
-      clearFuzzyTimeout();
-      pendingRequestIdRef.current = null;
+      cancelPendingSearch();
       const worker = searchWorkerRef.current;
       if (worker) {
         worker.onmessage = null;
@@ -248,11 +273,10 @@ export function useSearchWorker(
 
   // ── Dispatch search request ───────────────────────────────────────────────
   const handleSearch = useCallback(() => {
+    cancelPendingSearch();
     const normalizedQuery = searchQuery.replace(/\s+/g, '');
     if (!normalizedQuery || normalizedQuery.length < 1) {
-      setSearchResults([]);
-      setCurrentSearchIdx(-1);
-      setSelectedSearchIndices(new Set());
+      clearSearch();
       return;
     }
     setIsSearching(true);
@@ -327,7 +351,7 @@ export function useSearchWorker(
       clearFuzzyTimeout();
       return;
     }
-  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout]);
+  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout, cancelPendingSearch, clearSearch]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
   const groupedSearchResults = useMemo<GroupedSearchResults>(
@@ -414,6 +438,7 @@ export function useSearchWorker(
     isProteinSession,
     groupedSearchResults,
     handleSearch,
+    clearSearch,
     toggleRecordSelection,
     joinAllInRecord,
     joinSelectedMatches,

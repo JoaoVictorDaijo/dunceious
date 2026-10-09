@@ -36,9 +36,7 @@ export function annotationDirection(feature: BioFeature, moleculeType?: SeqRecor
  */
 export function annotationBase(base: string, strand: ReturnType<typeof getFeatureStrand>, moleculeType?: SeqRecord['moleculeType']): string {
   if (strand !== -1 || moleculeType === 'protein') return base;
-  const complemented = reverseComplement(base.toUpperCase());
-  const residue = moleculeType === 'rna' ? complemented.replace(/T/g, 'U') : complemented;
-  return base === base.toLowerCase() ? residue.toLowerCase() : residue;
+  return reverseComplement(base, moleculeType);
 }
 
 export function fitAnnotationText(text: string, width: number, charWidth: number): string {

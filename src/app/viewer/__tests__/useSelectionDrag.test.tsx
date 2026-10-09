@@ -134,6 +134,21 @@ describe('selection dragging', () => {
     expect(h.selected()).toEqual({ start: 200, end: 1000, recordIds: ['first', 'second'] });
   });
 
+  it('ignores right clicks and the fixed record-name sidebar', () => {
+    const h = setup();
+    fireEvent.mouseDown(screen.getByRole('region', { name: 'Genome' }), { button: 2, clientX: 320 });
+    h.move(520); h.up(520);
+    h.down(150); h.move(520); h.up(520);
+    expect(h.selected()).toBeNull();
+    expect(h.commits).toHaveLength(0);
+  });
+
+  it('clamps release past the left edge without creating a circular interval', () => {
+    const h = setup({ scrollLeft: 200, zoom: 2 });
+    h.down(420); h.up(-1000);
+    expect(h.selected()).toEqual({ start: 0, end: 200, recordIds: ['first', 'second'] });
+  });
+
   it('does not replace an existing circular selection on a click without a range', () => {
     const selection = { start: 800, end: 200, recordIds: ['first'] };
     const h = setup({ selection });
