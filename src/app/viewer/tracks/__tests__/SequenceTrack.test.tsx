@@ -24,6 +24,7 @@ import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder 
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
 import { parseFasta } from '@/src/core/formats/fasta';
 import { Minimap } from '@/src/app/viewer/Minimap';
+import { AA_ROW_HEIGHT } from '@/src/app/viewer/constants';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
@@ -109,5 +110,40 @@ describe('unknown CDS direction', () => {
     input.features[0].metadata = { _gffStrand: '?' };
     render(<SequenceTrack {...input} />);
     expect(recorder.texts().join('')).toBe('ATGCCCGAG');
+  });
+});
+
+describe('ribosomal frameshift (−1 PRF)', () => {
+  // ATG AAA | A CG GGT TAA: the join re-reads base 5, so K (bases 3–5) sits in
+  // frame 0 and T (bases 5–7) in frame 2. Each codon belongs in its own row.
+  const SEQ = 'ATGAAACGGGTTAA';
+  const slip = (): SequenceTrackProps => ({
+    ...props(SEQ),
+    features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: SEQ.length, strand: 1,
+      segments: [{ start: 0, end: 6 }, { start: 5, end: SEQ.length }] }],
+  });
+  let recorder: CanvasRecorder;
+  beforeEach(() => { recorder = installCanvasRecorder(); });
+
+  it('draws each codon in the row of its own frame', () => {
+    render(<SequenceTrack {...slip()} />);
+    const box = (x: number) => recorder.fillRects().find(([rx, , w]) => rx === x && w === 3 * ZOOM);
+    expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'K', 'T', 'G']));
+    expect(box(3 * ZOOM)?.[1]).toBe(100 - AA_ROW_HEIGHT * 3); // K: frame 0 → F1 row
+    expect(box(5 * ZOOM)?.[1]).toBe(100 - AA_ROW_HEIGHT);     // T: frame 2 → F3 row
+  });
+
+  it('labels the junction with the shift', () => {
+    render(<SequenceTrack {...slip()} />);
+    expect(recorder.texts()).toContain('−1');
+  });
+
+  it('does not label an ordinary spliced join', () => {
+    const spliced = slip();
+    spliced.features = [{ type: 'CDS', name: 'spliced', start: 0, end: SEQ.length, strand: 1,
+      segments: [{ start: 0, end: 6 }, { start: 8, end: SEQ.length }] }];
+    render(<SequenceTrack {...spliced} />);
+    expect(recorder.texts()).not.toContain('−1');
+    expect(recorder.texts()).not.toContain('+1');
   });
 });

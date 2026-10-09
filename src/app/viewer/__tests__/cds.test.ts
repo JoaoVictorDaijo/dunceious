@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeBrokenFeatureMap, translationFrame } from '../cds';
+import { computeBrokenFeatureMap, codonFrame } from '../cds';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 const cds = (over: Partial<BioFeature>): BioFeature => ({
@@ -81,29 +81,18 @@ describe('computeBrokenFeatureMap', () => {
   });
 });
 
-describe('translationFrame', () => {
-  it('is the start modulo 3 for a forward feature (codon_start=1)', () => {
-    expect(translationFrame(cds({ strand: 1, start: 0 }))).toBe(0);
-    expect(translationFrame(cds({ strand: 1, start: 1 }))).toBe(1);
-    expect(translationFrame(cds({ strand: 1, start: 5 }))).toBe(2);
+describe('codonFrame', () => {
+  it('is the first base modulo 3 on the forward strand', () => {
+    expect(codonFrame(0, 1)).toBe(0);
+    expect(codonFrame(1, 1)).toBe(1);
+    expect(codonFrame(5, 1)).toBe(2);
+    // ORF1ab after the −1 slip: CGG starts on 0-based 13467 → frame 0, not the ORF1a frame 1.
+    expect(codonFrame(13467, 1)).toBe(0);
   });
 
-  it('is the end modulo 3 for a reverse feature (codon_start=1)', () => {
-    expect(translationFrame(cds({ strand: -1, end: 6 }))).toBe(0);
-    expect(translationFrame(cds({ strand: -1, end: 7 }))).toBe(1);
-  });
-
-  it('folds /codon_start into a forward feature lane (shifts it forward)', () => {
-    expect(translationFrame(cds({ strand: 1, start: 0, metadata: { codon_start: '2' } }))).toBe(1);
-    expect(translationFrame(cds({ strand: 1, start: 0, metadata: { codon_start: '3' } }))).toBe(2);
-  });
-
-  it('subtracts the /codon_start phase for a reverse feature (reads down from end)', () => {
-    expect(translationFrame(cds({ strand: -1, end: 6, metadata: { codon_start: '2' } }))).toBe(2);
-    expect(translationFrame(cds({ strand: -1, end: 6, metadata: { codon_start: '3' } }))).toBe(1);
-  });
-
-  it('stays in {0,1,2} when the phase pushes the reverse anchor negative', () => {
-    expect(translationFrame(cds({ strand: -1, end: 1, metadata: { codon_start: '3' } }))).toBe(2);
+  it('keeps the exclusive-end convention on the reverse strand', () => {
+    // A reverse codon read from base 5 downwards occupies [3, 6): lane = 6 % 3.
+    expect(codonFrame(5, -1)).toBe(0);
+    expect(codonFrame(6, -1)).toBe(1);
   });
 });
