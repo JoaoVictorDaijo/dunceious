@@ -93,3 +93,19 @@ describe('AnnotationHubPanel', () => {
     expect(tags[0].parentElement?.textContent).toContain('g3');
   });
 });
+
+
+describe('aligned Hub focus', () => {
+  it('displays biological length but focuses the aligned first part', () => {
+    stubResizeObserver();
+    const record = rec({ id: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--' },
+      [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
+        segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }]);
+    const onFocusItem = vi.fn();
+    render(<AnnotationHubPanel {...panelProps()} records={[record]}
+      flattenedFeatures={buildFlattenedFeatures([record], '')} onFocusItem={onFocusItem} />);
+    expect(screen.getByText('7')).toBeTruthy();
+    fireEvent.click(screen.getByText('Focus'));
+    expect(onFocusItem).toHaveBeenCalledWith('gap', 2, 6, { key: 'gap:feature:0', label: 'joined' });
+  });
+});

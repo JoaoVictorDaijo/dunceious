@@ -96,3 +96,4 @@ describe('codonFrame', () => {
     expect(codonFrame(6, -1)).toBe(1);
   });
 });
+

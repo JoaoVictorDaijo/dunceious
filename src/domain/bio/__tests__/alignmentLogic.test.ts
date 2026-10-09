@@ -124,27 +124,18 @@ describe('processTransposition', () => {
   });
 
   it('shifts feature boundaries when gaps precede them in the aligned sequence', () => {
-    // '--ACGTACGT': raw pos 0→aligned 0, raw pos 2→aligned 4
     const record = makeRecord('r1', 'ACGTACGT', '--ACGTACGT');
     record.features = [{ type: 'gene', name: 'g1', start: 0, end: 2, strand: 1 }];
     const [result] = processTransposition([record]);
-    // transposeCoordinates(0, '--ACGTACGT') = 0
-    expect(result.features[0].start).toBe(0);
-    // transposeCoordinates(2, '--ACGTACGT') = 4
+    expect(result.features[0].start).toBe(2);
     expect(result.features[0].end).toBe(4);
   });
 
-  it('splits a feature into sub-segments around internal gaps in the aligned sequence', () => {
-    // Aligned: 'AC--GTACGT' (8 real bases, gap at positions 2-3)
-    // Feature covers raw [0, 4) which aligns to [0, 6)
-    // Sub-segments must skip the '--': [0,2) and [4,6)
+  it('keeps a feature continuous across internal alignment gaps', () => {
     const record = makeRecord('r1', 'ACGTACGT', 'AC--GTACGT');
     record.features = [{ type: 'gene', name: 'g1', start: 0, end: 4, strand: 1 }];
     const [result] = processTransposition([record]);
-    expect(result.features[0].segments).toEqual([
-      { start: 0, end: 2 },
-      { start: 4, end: 6 },
-    ]);
+    expect(result.features[0].segments).toEqual([{ start: 0, end: 6 }]);
   });
 
   it('produces a single segment when the aligned region has no internal gaps', () => {

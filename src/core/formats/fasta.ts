@@ -27,6 +27,8 @@ export interface FastaRecord {
   sequence: string;
   features: BioFeature[];
   moleculeType: 'dna' | 'rna' | 'protein';
+  /** The header line after `>`, trimmed; `id` is only its first token. */
+  header: string;
 }
 
 /**
@@ -36,15 +38,17 @@ export const parseFasta = (content: string): FastaRecord[] => {
   const lines = content.split('\n');
   const results: FastaRecord[] = [];
   let currentId = '';
+  let currentHeader = '';
   let currentSeq = '';
 
   lines.forEach(line => {
     const trimmed = line.trim();
     if (trimmed.startsWith('>')) {
       if (currentId) {
-        results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq) });
+        results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq), header: currentHeader });
       }
-      currentId = trimmed.substring(1).split(/\s+/)[0];
+      currentHeader = trimmed.substring(1).trim();
+      currentId = currentHeader.split(/\s+/)[0];
       currentSeq = '';
     } else if (trimmed) {
       currentSeq += trimmed;
@@ -52,7 +56,7 @@ export const parseFasta = (content: string): FastaRecord[] => {
   });
 
   if (currentId) {
-    results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq) });
+    results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq), header: currentHeader });
   }
   return results;
 };

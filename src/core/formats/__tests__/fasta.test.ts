@@ -22,9 +22,9 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseFasta, exportToFasta } from '../fasta';
 
 describe('parseFasta', () => {
-  it('parses a single record and takes the id from the first whitespace token', () => {
+  it('parses a single record, takes the id from the first whitespace token and keeps the full header', () => {
     expect(parseFasta('>seq1 a description\nACGT')).toEqual([
-      { id: 'seq1', name: 'seq1', sequence: 'ACGT', features: [], moleculeType: 'dna' },
+      { id: 'seq1', name: 'seq1', sequence: 'ACGT', features: [], moleculeType: 'dna', header: 'seq1 a description' },
     ]);
   });
 

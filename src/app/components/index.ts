@@ -48,3 +48,6 @@ export { default as TooltipLayer } from './TooltipLayer';
 
 export { default as TopNav } from './TopNav';
 export type { TopNavProps } from './TopNav';
+
+export { default as AlignRemoteModal } from './AlignRemoteModal';
+export type { AlignRemoteModalProps } from './AlignRemoteModal';

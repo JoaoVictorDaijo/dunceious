@@ -31,18 +31,20 @@ For the full feature description see [`DOCUMENTATION.md`](./DOCUMENTATION.md), f
 ## Features
 
 - **GenBank & FASTA ingestion** — multi-record GenBank files (nucleotide and protein), batch FASTA upload, and automatic de-duplication of repeated IDs. Each workspace holds one molecule type (nucleotide or peptide), detected per record and enforced on every upload; RNA keeps its `U` residues.
-- **Alignment overlay** — Dunceious has no built-in aligner: compute the alignment externally (MAFFT, MUSCLE, Clustal Omega, …) and upload the pre-aligned FASTA. Annotations are transposed into aligned coordinates and the conservation heatmap becomes available.
+- **Alignment** — two ways in, one pipeline. Upload a pre-aligned FASTA you computed yourself, or click **Align Sequences** to have [EMBL-EBI's Job Dispatcher](https://www.ebi.ac.uk/jdispatcher/) align the loaded records with MAFFT (the default), Kalign, Clustal Omega or MUSCLE, and overlay the result. The remote option is opt-in and asks for your explicit agreement first, because it sends your sequences to EMBL-EBI. Annotations are transposed into aligned coordinates and drawn as one continuous bar across gaps, and the conservation heatmap becomes available.
 - **Semantic zoom viewer** — from mismatch density at low zoom, to individual bases, to amino-acid translations (frames F1–F3) over CDS features, honouring each CDS's genetic code. Virtualized rows, sticky sequence labels, and Pan / Select interaction modes.
 - **Sequence search** — exact search with IUPAC degenerate codes for both nucleotide and peptide alphabets, and fuzzy Smith-Waterman local alignment (affine gaps, Gotoh) that also searches the reverse complement in nucleotide sessions. Turn hits into annotations from the results list.
 - **Annotations & tracks** — merge `.gff` / `.bed` annotations into loaded records, render BED files as quantitative line or interval tracks, create and edit features (including circular ones), and manage every record and feature in the **Annotation Hub**.
 - **Export** — FASTA (full alignment or selected region), GFF3, GenBank, a selection snapshot as JSON (0-based half-open intervals), or the whole workspace as a project JSON.
-- **Private by design** — no backend and no third-party CDNs; parsing and search run in Web Workers on your own machine.
+- **Private by design** — no backend and no third-party CDNs; parsing and search run in Web Workers on your own machine. The only exception is the optional remote alignment, which sends your sequences to EMBL-EBI only after you agree to it.
 
 Sample GenBank / GenPept records for trying it out live in [`examples/`](./examples/README.md).
 
 ## Use Dunceious
 
-**Everything runs locally in your browser.** Your sequences are parsed, viewed, aligned and searched entirely on your own machine — nothing is uploaded, and nothing is stored on any server. Dunceious has no backend.
+**Everything runs locally in your browser.** Your sequences are parsed, viewed and searched entirely on your own machine — nothing is uploaded, and nothing is stored on any server. Dunceious has no backend.
+
+**One opt-in exception: remote alignment.** If you choose **Align Sequences**, Dunceious first asks you to agree that your sequences (and a contact email) will leave your browser and be processed on EMBL-EBI's servers under its [privacy notice](https://www.ebi.ac.uk/jdispatcher/assets/html/privacy-notice.pdf) and [terms of use](https://www.ebi.ac.uk/about/terms-of-use/). Until you agree, nothing is sent. The agreement lasts only while the page stays open: a refresh, a closed and reopened page, or a new tab asks again, and you can revoke it at any time. Aligning with your own tool and uploading the pre-aligned FASTA keeps everything local.
 
 You can use it two ways:
 

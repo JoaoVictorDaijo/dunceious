@@ -29,13 +29,27 @@ molecule type. In peptide sessions, `U` remains selenocysteine.
 
 ### 1.3 Alignment Workflow
 
-Dunceious does not include a built-in aligner. The recommended workflow is:
+You can align in two ways. Both end in the same place: the alignment is overlaid on the loaded records.
+
+**A. Align inside Dunceious with EMBL-EBI** (the **Alignment** section in the sidebar):
+
+1. Load at least two sequences.
+2. Click **Align Sequences**. The first time, read and tick the agreement: your sequences, your email and your IP address are sent to EMBL-EBI's servers and handled under its privacy notice and terms of use (job logs and your email are deleted after 7 days). Don't use this for data you are not allowed to share. The agreement lasts until you leave or reload the page; after a refresh or when you come back, Dunceious asks again. You can review or revoke it from the dialog at any time.
+3. Pick an algorithm. **MAFFT** is the default: accurate and quick on whole genomes. **Kalign** is the fastest but slightly less precise on divergent sequences. **Clustal Omega** takes the largest inputs. **MUSCLE** is accurate on small sets but slow on long sequences. An algorithm that cannot take your data (too many sequences or too large) is greyed out with the reason.
+4. Enter an email address (EMBL-EBI requires one per job; it is remembered in this browser) and click **Align**.
+5. Follow the job in the monitor: validated, submitted, queued, aligning, fetching, applied. **Minimize** keeps it as a small status pill while you keep browsing. **Cancel** only stops Dunceious waiting; the job finishes at EMBL-EBI anyway.
+
+While a job runs, anything that would change the loaded records (uploading, loading a project, removing records, Clear All) is locked. Viewing, search, annotations and exports keep working.
+
+**B. Compute it yourself** and upload the result (nothing leaves your machine):
 
 1. Load sequences (GenBank or FASTA batch upload).
 2. Compute the alignment externally using a tool of your choice (e.g., MAFFT, MUSCLE, Clustal Omega).
 3. Upload the resulting aligned FASTA using the **Upload Alignment** action (see section 1.1).
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
+
+Annotations stay whole across alignment gaps: a gap inside a sequence never cuts an annotation into pieces, and the translation of a coding feature is unchanged. Only features that really have several parts (such as `join(...)`) are drawn as separate bars joined by a connector.
 
 ## 2. Navigation & Interaction
 
@@ -130,7 +144,8 @@ Results are highlighted in the viewer and listed in the sidebar. Use the **↑ /
 - **Missing Data**: Ensure your BED files follow the standard tab-delimited format.
 - **Performance**: If the browser becomes sluggish with very large alignments, try reducing the number of visible tracks or annotations.
 - **Upload Errors**: Check the **Logs** panel for detailed error messages. Common causes include sequence ID mismatches (alignment overlay), sequence length mismatches (alignment overlay), and molecule-type conflicts (loading protein sequences into a nucleotide session or vice versa).
-- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed.
+- **Remote alignment errors**: EMBL-EBI's own message is shown in the dialog. Common causes: an email whose domain EMBL-EBI cannot verify (use a real address), more sequences or more data than the chosen algorithm accepts (pick another, or reduce the set), or EMBL-EBI being unreachable (try again). A long queue is normal; the monitor keeps waiting.
+- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed. A pre-aligned FASTA exported from the same workspace re-imports correctly even when its IDs contain those suffixes.
 
 ## 6. License
 

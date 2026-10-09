@@ -40,6 +40,8 @@ interface Props {
   zoom: number;
   scrollX: number;
   viewportWidth: number;
+  /** Height of the clipping svg, matching the bar it labels; defaults to the closed or fully open bar. */
+  height?: number;
   /** The bar is open (opted in and zoomed in): draw the bases inside it, under the name. */
   expanded?: boolean;
   /** Only one piece of a multi-part feature carries the name and direction; the others draw bases alone. */
@@ -51,7 +53,8 @@ interface Props {
  * An expanded bar also holds the bases on a second line, inside the shape; only
  * visible bases are visited, so zooming into a long feature stays cheap.
  */
-export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
+export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, height, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
+  const clipHeight = height ?? ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
   const left = Math.max(0, start * zoom - scrollX);
   const right = Math.min(viewportWidth, end * zoom - scrollX);
   const width = right - left;
@@ -78,7 +81,7 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
     }
   }
   return (
-    <svg x={left} y={y} width={width} height={ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0)} overflow="hidden" pointerEvents="none" aria-label={`${feature.name}: ${fullDirection}`}>
+    <svg x={left} y={y} width={width} height={clipHeight} overflow="hidden" pointerEvents="none" aria-label={`${feature.name}: ${fullDirection}`}>
       <g fill="#0f172a" fontFamily={MONO_STACK} dominantBaseline="central">
         {name && <text data-annotation-name="" x={4} y={midY} fontSize={10} fontWeight={600}>{name}</text>}
         {directionText && (

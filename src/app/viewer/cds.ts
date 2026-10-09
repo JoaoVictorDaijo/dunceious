@@ -55,8 +55,10 @@ export const computeBrokenFeatureMap = (
  * codon reads up from `firstBase`; a reverse codon reads down from it and
  * occupies `[firstBase - 2, firstBase]`, so its row is the exclusive end
  * `firstBase + 1` modulo 3 and a plain reverse CDS keeps the R1–R3 row of its
- * `end`. Computed per codon rather than per feature so that a ribosomal
- * frameshift inside a join changes rows where the frame really changes.
+ * `end`. `firstBase` is a biological index: in an alignment the caller maps
+ * columns to residues first (see `alignedToOriginalPositions`). Computed per
+ * codon rather than per feature so that a ribosomal frameshift inside a join
+ * changes rows where the frame really changes.
  */
 export const codonFrame = (firstBase: number, strand: 1 | -1): 0 | 1 | 2 => {
   const anchor = strand === 1 ? firstBase : firstBase + 1;

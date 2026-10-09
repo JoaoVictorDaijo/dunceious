@@ -53,6 +53,7 @@ export interface RecordLayout {
   topPadding: number;
   height: number;
   seqBaseY: number;
+  translationVisible: boolean;
   trackLayouts: TrackLayout[];
 }
 
@@ -60,7 +61,7 @@ export interface LayoutOptions {
   showAnnotations: boolean;
   /** Bases are legible at this zoom: opted-in annotations open to show them. */
   basesVisible?: boolean;
-  showTranslation: boolean;
+  translationVisible: boolean;
   showTracks: boolean;
 }
 
@@ -75,7 +76,7 @@ export interface LayoutOptions {
  * Pure: no React, no DOM — unit-tested in node.
  */
 export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions): RecordLayout[] {
-  const { showAnnotations, showTranslation, showTracks, basesVisible = false } = opts;
+  const { showAnnotations, translationVisible, showTracks, basesVisible = false } = opts;
   return records.map(record => {
       // 1. Feature Packing (Annotations)
       const rows: { start: number, end: number }[][] = [];
@@ -166,7 +167,7 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
 
       const quantHeight = showTracks ? totalQuantHeight : 0;
       const topPadding = (featRowsCount > 0 || quantHeight > 0) ? 24 : 0;
-      const effectiveTranslation = showTranslation && record.moleculeType !== 'protein';
+      const effectiveTranslation = translationVisible && record.moleculeType !== 'protein';
       const seqBaseY = annotHeight + quantHeight + topPadding + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0);
       const height = seqBaseY + (effectiveTranslation ? AA_ROW_HEIGHT * 3 : 0) + NT_ROW_HEIGHT + 20;
 
@@ -181,6 +182,7 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
         topPadding,
         height,
         seqBaseY,
+        translationVisible: effectiveTranslation,
         trackLayouts
       };
     });

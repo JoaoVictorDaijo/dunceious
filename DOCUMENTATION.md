@@ -12,6 +12,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 - **FASTA Import** (Batch): Upload one or more FASTA files to add sequences to the workspace. Duplicate IDs are automatically de-duplicated with numeric suffixes (e.g., `seq1 (1)`, `seq1 (2)`). Molecule type (nucleotide vs protein) is detected per-record and enforced — sessions must be homogeneous.
 - **Alignment Overlay**: Upload a pre-aligned FASTA file using the **Upload Alignment** action to apply externally computed alignments to already-loaded records. Sequences are matched by record ID and must all have equal lengths; mismatches are rejected with an error log.
 - **External Alignment**: Dunceious does not include a built-in MSA aligner. Users compute alignments externally (e.g., MAFFT, MUSCLE, Clustal Omega) and import the result via the Alignment Overlay action (see above).
+- **Remote Alignment (EMBL-EBI)**: The **Alignment** sidebar section aligns the loaded records on EMBL-EBI's Job Dispatcher (MAFFT by default, Kalign, Clustal Omega or MUSCLE) and applies the result through the same overlay. It is opt-in: the first use requires an explicit agreement that the sequences and a contact email are sent to EMBL-EBI (linked privacy notice and terms of use). The agreement is kept only in memory for the current page load, so a refresh, a reopened page or a new tab asks again; it can be revoked at any time. Inputs are checked locally first (valid email, at least 2 sequences, the engine's sequence-count and size limits, residue alphabet). A job monitor shows each step (validated, submitted, queued, aligning, fetching, applied) and can be minimized to a floating pill; while a job runs, edits that change the record set are locked, and cancelling only stops waiting because EMBL-EBI cannot cancel a running job.
 - **Sequence Search**:
   - **Exact / IUPAC Mode**: Regex-based degenerate search. Supported codes depend on the active session type:
     - **Nucleotide**: Standard IUPAC codes — `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`, `N`.
@@ -107,6 +108,8 @@ When an alignment is performed, gaps (`-`) are inserted. To keep annotations acc
 
 - Let `S` be the raw sequence and `A` be the aligned sequence.
 - For a feature at `[start, end]` in `S`, the new position in `A` is calculated by iterating through `A` and counting non-gap characters until the original indices are reached.
+- Each part of a feature becomes **one continuous bar** from its first to its last base in `A`: gaps inside the feature are spanned, never drawn as breaks, while gaps before its first or after its last base are excluded. Only genuinely multi-part features (`join(...)`, or a circular feature crossing the origin) keep one bar per part, with connectors between them.
+- Lengths, coordinates, exports and translations always use the original, ungapped coordinates; the gap columns only affect where the bar is drawn.
 
 ### 4.3 Unified Scrolling Context
 
@@ -119,7 +122,7 @@ The layout uses CSS `sticky` positioning and a shared overflow container. This e
     - `.fasta`/`.fa` files (FASTA batch load or alignment overlay)
     - `.gff`/`.bed` annotation files (merge into existing records by ID/name/accession)
 2.  **Parsing**: `bioWorker.ts` converts files to `SeqRecord` objects. Molecule type (nucleotide vs protein) is detected per-record from the sequence content (GenBank: `LOCUS` line; FASTA: presence of protein-exclusive IUPAC codes). Duplicate record IDs are de-duplicated with numeric suffixes.
-3.  **Alignment Overlay** (optional): User uploads a pre-aligned FASTA via the **Upload Alignment** action. `bioWorker.ts` matches IDs and updates the `alignedSequence` field of matching records without altering their features or sequence data.
+3.  **Alignment Overlay** (optional): User uploads a pre-aligned FASTA via the **Upload Alignment** action, or runs a remote alignment from the **Alignment** section (EMBL-EBI), whose result is applied through the same overlay reducer. `bioWorker.ts` matches IDs and updates the `alignedSequence` field of matching records without altering their features or sequence data.
 4.  **Transposition**: When an alignment is active, `processTransposition` updates `BioFeature` indices to map original genomic coordinates to the new "aligned space" (indices including gaps).
 5.  **Rendering**: `GenomeViewer` receives the records and renders the SVG elements. Translation overlays are shown only in nucleotide sessions.
 6.  **Search**: When a user enters a query, `searchWorker.ts` runs exact (IUPAC regex) or fuzzy (Smith-Waterman) search, passing the session's `moleculeType` to suppress reverse-complement for protein sessions. Results are ranked and highlighted in the viewer.
