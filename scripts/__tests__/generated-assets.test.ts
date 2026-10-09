@@ -33,12 +33,18 @@ import { GENERATED_ASSETS } from '../generated-assets.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const GENERATOR = path.join(HERE, '..', 'gen-brand-assets.py');
 
-/** Repo-relative paths the generator writes via `os.path.join(PUBLIC, "…")`. */
+/** Generator output-directory constants and the repo-relative directory each names. */
+const OUTPUT_DIRS: Record<string, string> = { PUBLIC: 'public', DOCS_ASSETS: 'docs/assets' };
+
+/** Repo-relative paths the generator writes via `os.path.join(<OUTPUT_DIR>, "…")`. */
 function generatorOutputs(): string[] {
   const src = readFileSync(GENERATOR, 'utf8');
-  const re = /os\.path\.join\(\s*PUBLIC\s*,\s*["']([^"']+)["']\s*\)/g;
+  const re = new RegExp(
+    `os\\.path\\.join\\(\\s*(${Object.keys(OUTPUT_DIRS).join('|')})\\s*,\\s*["']([^"']+)["']\\s*\\)`,
+    'g',
+  );
   const names = new Set<string>();
-  for (const m of src.matchAll(re)) names.add(`public/${m[1]}`);
+  for (const m of src.matchAll(re)) names.add(`${OUTPUT_DIRS[m[1]]}/${m[2]}`);
   return [...names].sort();
 }
 

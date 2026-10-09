@@ -23,7 +23,7 @@ import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { extractCodingSequence, translateFeature } from '@/src/domain/bio';
-import { NT_ROW_HEIGHT, AA_ROW_HEIGHT } from '../constants';
+import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK } from '../constants';
 import { CDS_ORF_TYPES, computeBrokenFeatureMap, translationFrame } from '../cds';
 
 export interface SequenceTrackProps {
@@ -51,10 +51,9 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
-  // Keyed by `${start}-${end}-${strand}` to avoid re-running on unrelated re-renders.
   const brokenFeatureMap = useMemo(
-    () => (showTranslation ? computeBrokenFeatureMap(features, seq) : new Map<string, boolean>()),
-    [features, seq, showTranslation],
+    () => (showTranslation ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
+    [features, seq, moleculeType, showTranslation],
   );
 
   useEffect(() => {
@@ -183,7 +182,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           ctx.globalAlpha = 1.0;
           ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
-          ctx.font = 'bold 10px monospace';
+          ctx.font = `600 10px ${MONO_STACK}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
@@ -195,7 +194,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     if (showTranslation && zoomLevel > 5) {
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
-        const isBroken = brokenFeatureMap.get(`${f.start}-${f.end}-${f.strand}`) ?? false;
+        const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
         const frame = translationFrame(f);
@@ -209,7 +208,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         // over recomputation; one residue per codon, aligned to `alignedIndices`.
         const protein = translateFeature(f, codingSeq, translTable);
 
-        ctx.font = 'bold 9px monospace';
+        ctx.font = `600 9px ${MONO_STACK}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 

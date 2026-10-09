@@ -23,23 +23,39 @@ import { render } from '@/src/app/testing/renderHarness';
 import { AnnotationText } from '../AnnotationText';
 import type { BioFeature } from '@/src/domain/bio/types';
 
-const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1 };
+// Bases are opt-in per annotation; these tests exercise drawing them, so switch them on.
+const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1, metadata: { _showBases: '1' } };
 function show(overrides: Partial<Parameters<typeof AnnotationText>[0]> = {}) {
-  return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} {...overrides} /></svg>);
+  return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} expanded {...overrides} /></svg>);
 }
 const bases = (container: HTMLElement) => [...container.querySelectorAll('[data-annotation-base]')].map(t => t.textContent).join('');
 
 describe('annotation bases at genomic screen coordinates', () => {
+  it('spells the direction out when the bar is wide enough', () => {
+    const { container } = show({ zoom: 60 });
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Forward (+) 5′ → 3′');
+  });
+  it('drops the direction text before truncating a narrow name', () => {
+    const { container } = show({ zoom: 20 });
+    expect(container.querySelector('[data-annotation-direction]')).toBeNull();
+    expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
+  });
+  it('draws no bases while the bar is closed', () => {
+    const { container } = show({ expanded: false });
+    expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
+    expect(bases(container)).toBe('');
+  });
   it('renders the name, forward direction and the complete annotated region', () => {
     const { container } = show();
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
-    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Forward (+) 5′ → 3′');
+    // 180px leaves room for the short direction only; the arrow head carries the rest.
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('5′→3′');
     expect(bases(container)).toBe('AACGTA');
   });
   it('complements reverse bases in place, rather than reversing or reverse-complementing screen coordinates', () => {
     const { container } = show({ feature: { ...feature, strand: -1 } });
     expect(bases(container)).toBe('TTGCAT');
-    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('Reverse (−) 3′ ← 5′');
+    expect(container.querySelector('[data-annotation-direction]')?.textContent).toBe('3′←5′');
     expect(container.querySelector('[data-annotation-base="0"]')?.getAttribute('x')).toBe('15');
   });
   it('preserves RNA U and lowercase/IUPAC letters', () => {
@@ -51,7 +67,7 @@ describe('annotation bases at genomic screen coordinates', () => {
     expect(bases(container)).toBe('TTGCAT');
   });
   it.each(['.', '?'])('does not invent direction for GFF %s', raw => {
-    const { container } = show({ feature: { ...feature, metadata: { _gffStrand: raw } }, zoom: 60 });
+    const { container } = show({ feature: { ...feature, metadata: { _showBases: '1', _gffStrand: raw } }, zoom: 60 });
     expect(bases(container)).toBe('AACGTA');
     expect(container.textContent).not.toMatch(/[35]′|Forward|Reverse/);
     expect(container.textContent).toContain(raw === '.' ? 'Unstranded' : 'Unknown');
@@ -60,11 +76,6 @@ describe('annotation bases at genomic screen coordinates', () => {
     const { container } = show({ feature: { ...feature, strand: -1 }, moleculeType: 'protein', sequence: 'MKWVTA' });
     expect(bases(container)).toBe('MKWVTA');
     expect(container.textContent).not.toMatch(/[35]′|Forward|Reverse/);
-  });
-  it('keeps name/direction but hides unreadable bases at low zoom', () => {
-    const { container } = show({ end: 50, zoom: 6 });
-    expect(bases(container)).toBe('');
-    expect(container.textContent).toContain('Synthetic primer');
   });
   it('clips long names without extending outside a short feature', () => {
     const { container } = show({ zoom: 8 });

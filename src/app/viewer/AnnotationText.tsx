@@ -20,8 +20,14 @@
 import React from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { ANNOT_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, MONO_STACK } from './constants';
 import { annotationBase, annotationDirection, fitAnnotationText } from './annotationPresentation';
+
+/** Advance widths of the 10px name and 9px direction text in the mono stack. */
+const NAME_CHAR = 6.0;
+const DIR_CHAR = 5.4;
+/** Room the arrow head takes at the bar's pointed end. */
+const HEAD_ROOM = 8;
 
 interface Props {
   feature: BioFeature;
@@ -34,36 +40,49 @@ interface Props {
   zoom: number;
   scrollX: number;
   viewportWidth: number;
+  /** The bar is open (opted in and zoomed in): draw the bases inside it, under the name. */
+  expanded?: boolean;
 }
 
-/** Text stays inside the visible feature part. Only visible bases are visited,
- * so zooming into a long feature does not allocate its full sequence in the DOM.
+/** The label inside a thin annotation bar: the name, then the direction when it
+ * fits (full, then short, then dropped — the arrow already shows the strand).
+ * An expanded bar also holds the bases on a second line, inside the shape; only
+ * visible bases are visited, so zooming into a long feature stays cheap.
  */
-export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, zoom, scrollX, viewportWidth }: Props) {
+export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, zoom, scrollX, viewportWidth, expanded = false }: Props) {
   const left = Math.max(0, start * zoom - scrollX);
   const right = Math.min(viewportWidth, end * zoom - scrollX);
   const width = right - left;
   if (width <= 0) return null;
   const direction = strand ?? getFeatureStrand(feature);
   const fullDirection = annotationDirection(feature, moleculeType, strand);
-  const directionText = width >= 150 ? fullDirection : moleculeType === 'protein' ? 'Protein'
-    : direction === 1 ? '5′ → 3′' : direction === -1 ? '3′ ← 5′' : direction === '.' ? 'Unstranded' : 'Unknown';
-  const first = Math.max(start, 0, Math.floor((scrollX + left) / zoom));
-  const last = Math.min(end, sequence.length, Math.ceil((scrollX + right) / zoom));
+  const shortDirection = moleculeType === 'protein' ? 'Protein'
+    : direction === 1 ? '5′→3′' : direction === -1 ? '3′←5′' : direction === '.' ? 'Unstranded' : 'Unknown';
+  const name = fitAnnotationText(feature.name, width - HEAD_ROOM, NAME_CHAR);
+  const dirRoom = width - HEAD_ROOM - 4 - name.length * NAME_CHAR - 10;
+  const directionText = !name ? ''
+    : dirRoom >= fullDirection.length * DIR_CHAR ? fullDirection
+    : dirRoom >= shortDirection.length * DIR_CHAR ? shortDirection : '';
+  const midY = ANNOT_BAR_HEIGHT / 2;
+
   const bases: React.ReactElement[] = [];
-  if (zoom > 12) {
+  if (expanded) {
+    const first = Math.max(start, 0, Math.floor((scrollX + left) / zoom));
+    const last = Math.min(end, sequence.length, Math.ceil((scrollX + right) / zoom));
     for (let pos = first; pos < last; pos++) {
-      bases.push(<text key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={37} textAnchor="middle">
+      bases.push(<text key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1} textAnchor="middle" dominantBaseline="central">
         {annotationBase(sequence[pos], direction, moleculeType)}
       </text>);
     }
   }
   return (
-    <svg x={left} y={y} width={width} height={ANNOT_ROW_HEIGHT} overflow="hidden" pointerEvents="none" aria-label={`${feature.name}: ${fullDirection}; annotated region bases`}>
-      <g fill="#0f172a" fontFamily="monospace" fontSize={11}>
-        <text data-annotation-name="" x={4} y={12} fontWeight="bold">{fitAnnotationText(feature.name, width, 6.7)}</text>
-        <text data-annotation-direction="" x={4} y={24} fontSize={9}>{fitAnnotationText(directionText, width, 5.5)}</text>
-        <g fontWeight="bold">{bases}</g>
+    <svg x={left} y={y} width={width} height={ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0)} overflow="hidden" pointerEvents="none" aria-label={`${feature.name}: ${fullDirection}`}>
+      <g fill="#0f172a" fontFamily={MONO_STACK} dominantBaseline="central">
+        <text data-annotation-name="" x={4} y={midY} fontSize={10} fontWeight={600}>{name}</text>
+        {directionText && (
+          <text data-annotation-direction="" x={4 + name.length * NAME_CHAR + 10} y={midY} fontSize={9} fill="#475569">{directionText}</text>
+        )}
+        {expanded && <g className="annot-bases" fontSize={11} fontWeight={600}>{bases}</g>}
       </g>
     </svg>
   );

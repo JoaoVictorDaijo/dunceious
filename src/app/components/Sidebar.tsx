@@ -21,6 +21,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
+import SectionTitle from './SectionTitle';
 
 export interface SidebarProps {
   open: boolean;
@@ -118,9 +119,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
 
-  // The sidebar's brand-accent section labels re-tint with the workspace mode.
-  const accentColor = 'var(--env)';
-
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -163,31 +161,29 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Selection Inspector */}
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center justify-between transition-colors duration-700 motion-reduce:transition-none" style={{ color: accentColor }}>
-            Selection Inspector <i className="fas fa-vector-square"></i>
-          </h3>
-          <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-4 space-y-4">
+          <SectionTitle icon="fa-vector-square">Selection Inspector</SectionTitle>
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase">Range</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Range</span>
               <span className="text-[10px] font-mono text-sky-400">
                 {activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase">Length</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Length</span>
               <span className="text-[10px] font-mono text-sky-400">
                 {Math.abs(activeSelection.end - activeSelection.start).toLocaleString()} bp
               </span>
             </div>
 
-            <div className="pt-3 border-t border-sky-500/10 space-y-3">
+            <div className="pt-3 border-t border-slate-800 space-y-3">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-black text-slate-500 uppercase">Manual Selection</span>
-                <button onClick={() => onSetActiveSelection(null)} className="text-[7px] font-black text-rose-500 uppercase hover:text-rose-400">Clear</button>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">Manual Selection</span>
+                <button onClick={() => onSetActiveSelection(null)} data-tip="Clear the current selection" className="text-[8px] font-bold text-rose-500 uppercase hover:text-rose-300 transition-colors">Clear</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[7px] font-black text-slate-600 uppercase">Start</label>
+                  <label className="text-[8px] font-bold text-slate-500 uppercase">Start</label>
                   <input
                     type="number"
                     value={activeSelection.start}
@@ -196,7 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[7px] font-black text-slate-600 uppercase">End</label>
+                  <label className="text-[8px] font-bold text-slate-500 uppercase">End</label>
                   <input
                     type="number"
                     value={activeSelection.end}
@@ -207,15 +203,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <div className="pt-3 border-t border-sky-500/10 space-y-2">
-              <span className="text-[8px] font-black text-slate-500 uppercase block mb-1">Original Coordinates</span>
+            <div className="pt-3 border-t border-slate-800 space-y-2">
+              <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Original Coordinates</span>
               <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar-pro">
                 {transposedRecords.map(r => {
                   const s = getOriginalPos(r.alignedSequence || r.sequence, Math.min(activeSelection.start, activeSelection.end));
                   const e = getOriginalPos(r.alignedSequence || r.sequence, Math.max(activeSelection.start, activeSelection.end));
                   return (
                     <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded">
-                      <span className="text-[8px] font-black text-slate-400 truncate max-w-[80px]">{r.id}</span>
+                      <span className="text-[8px] font-bold text-slate-400 truncate max-w-[80px]">{r.id}</span>
                       <span className="text-[9px] font-mono text-slate-300">{s.toLocaleString()} - {e.toLocaleString()}</span>
                     </div>
                   );
@@ -224,13 +220,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-2">
-              <button onClick={onExportSelection} className="py-2 rounded-lg bg-emerald-600/20 text-emerald-500 text-[8px] font-black uppercase hover:bg-emerald-600/30 transition-all" title="Export Selection as FASTA">
+              <button onClick={onExportSelection} className="py-2 rounded-lg bg-emerald-600/20 text-emerald-500 text-[8px] font-bold uppercase hover:bg-emerald-600/30 transition-all" data-tip="Download the selected region of every visible record as FASTA">
                 <i className="fas fa-file-code mr-1"></i> FASTA
               </button>
-              <button onClick={onExportSelectionJson} className="py-2 rounded-lg bg-indigo-600/20 text-indigo-500 text-[8px] font-black uppercase hover:bg-indigo-600/30 transition-all" title="Export Selection as JSON (Full Data)">
+              <button onClick={onExportSelectionJson} className="py-2 rounded-lg bg-indigo-600/20 text-indigo-500 text-[8px] font-bold uppercase hover:bg-indigo-600/30 transition-all" data-tip="Download the selection with its annotations as JSON">
                 <i className="fas fa-file-json mr-1"></i> JSON
               </button>
-              <button onClick={onStartNewFeature} className="py-2 rounded-lg bg-sky-600/20 text-sky-500 text-[8px] font-black uppercase hover:bg-sky-600/30 transition-all" title="Create Annotation from Selection">
+              <button onClick={onStartNewFeature} className="py-2 rounded-lg bg-sky-600/20 text-sky-500 text-[8px] font-bold uppercase hover:bg-sky-600/30 transition-all" data-tip="Create a new annotation spanning the selection">
                 <i className="fas fa-plus mr-1"></i> Annot
               </button>
             </div>
@@ -241,10 +237,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Record Navigator */}
       {activeTab === 'alignment' && records.length > 0 && (
         <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase tracking-widest mb-4 flex items-center justify-between transition-colors duration-700 motion-reduce:transition-none" style={{ color: accentColor }}>
-            Record Navigator <i className="fas fa-list-ul text-[10px]"></i>
-          </h3>
-          <div className="bg-sky-500/5 border border-sky-500/20 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
+          <SectionTitle icon="fa-list-ul">Record Navigator</SectionTitle>
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
             {records.map(r => (
               <div
                 key={r.id}
@@ -253,11 +247,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
+                    data-tip={r.name && r.name !== r.id ? `${r.name}: select this record` : 'Select this record'}
                     className="flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-sky-500/20 transition-all"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-400 group-hover:text-sky-400 truncate max-w-[150px]">{r.id}</span>
-                      <i className="fas fa-chevron-right text-[8px] text-slate-600 group-hover:text-sky-500"></i>
+                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-sky-400 truncate max-w-[150px]">{r.id}</span>
+                      <i className="fas fa-chevron-right text-[8px] text-slate-500 group-hover:text-sky-500"></i>
                     </div>
                   </button>
                   <button
@@ -267,7 +262,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                       }
                     }}
                     className="w-7 h-7 shrink-0 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
-                    title="Remove Sequence"
+                    aria-label={`Remove ${r.id}`}
+                    data-tip="Remove this sequence from the project"
                   >
                     <i className="fas fa-trash-alt text-[10px]"></i>
                   </button>
@@ -281,25 +277,23 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation */}
       {activeTab === 'alignment' && records.length > 0 && (
         <section className="animate-in slide-in-from-left-2 duration-300">
-          <h3 className="text-[10px] font-black uppercase text-emerald-500 tracking-widest mb-4 flex items-center justify-between">
-            Navigation <i className="fas fa-compass text-[10px]"></i>
-          </h3>
-          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-4">
+          <SectionTitle icon="fa-compass">Navigation</SectionTitle>
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onSetJumpTo(0)} className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-black uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => onSetJumpTo(0)} data-tip="Jump to the first base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-bold uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
                 <i className="fas fa-step-backward"></i> Start
               </button>
-              <button onClick={() => onSetJumpTo(alignmentLength)} className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-black uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => onSetJumpTo(alignmentLength)} data-tip="Jump to the last base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-bold uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
                 End <i className="fas fa-step-forward"></i>
               </button>
             </div>
             <div className="space-y-2">
-              <label className="text-[8px] font-black text-slate-500 uppercase">Go to Position (bp)</label>
+              <label className="text-[8px] font-bold text-slate-400 uppercase">Go to Position (bp)</label>
               <div className="relative">
                 <input
                   type="number"
                   placeholder="e.g. 5000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[11px] font-mono text-emerald-400 outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[11px] font-mono text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const val = parseInt((e.target as HTMLInputElement).value);
@@ -310,13 +304,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 />
               </div>
             </div>
-            <div className="pt-2 border-t border-emerald-500/10">
-              <span className="text-[7px] font-black text-slate-600 uppercase block mb-2">Shortcuts</span>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[8px] font-bold text-slate-500 uppercase">
-                <div className="flex justify-between"><span>Zoom</span> <span className="text-emerald-500">+ / -</span></div>
-                <div className="flex justify-between"><span>Pan</span> <span className="text-emerald-500">Arrows</span></div>
-                <div className="flex justify-between"><span>Fit</span> <span className="text-emerald-500">F</span></div>
-                <div className="flex justify-between"><span>Center</span> <span className="text-emerald-500">C</span></div>
+            <div className="pt-2 border-t border-slate-800">
+              <span className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Shortcuts</span>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[8px] font-bold text-slate-400 uppercase">
+                <div className="flex justify-between"><span>Zoom</span> <span className="font-mono text-slate-300">+ / -</span></div>
+                <div className="flex justify-between"><span>Pan</span> <span className="font-mono text-slate-300">Arrows</span></div>
+                <div className="flex justify-between"><span>Fit</span> <span className="font-mono text-slate-300">F</span></div>
+                <div className="flex justify-between"><span>Center</span> <span className="font-mono text-slate-300">C</span></div>
               </div>
             </div>
           </div>
@@ -325,35 +319,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Ingestion */}
       <section>
-        <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4 flex items-center justify-between">
-          Ingestion <i className="fas fa-plus-circle text-sky-600"></i>
-        </h3>
-        <div className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
+        <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
+        <div data-tip="Open GenBank (.gb) or FASTA files, or drop them here" className="bg-slate-900/40 rounded-3xl p-8 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mb-4">
           <input type="file" multiple accept=".gb,.genbank,.fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onFileUpload} />
           <i className="fas fa-folder-tree text-slate-700 group-hover:text-sky-500 mb-4 block text-4xl transition-colors"></i>
-          <p className="text-[10px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Drop Input Batch</p>
-          <p className="text-[7px] font-medium text-slate-600 group-hover:text-slate-500 mt-1">GB or FASTA</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Drop Input Batch</p>
+          <p className="text-[8px] font-medium text-slate-500 group-hover:text-slate-400 mt-1">GB or FASTA</p>
         </div>
 
-        <div className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
+        <div data-tip="Overlay an alignment: a FASTA whose IDs match the loaded records" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-emerald-500/50 transition-all relative cursor-pointer text-center group ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
           <input type="file" accept=".fasta,.fa" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAlignmentUpload} />
           <i className="fas fa-file-import text-slate-700 group-hover:text-emerald-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Upload Pre-aligned FASTA</p>
-          <p className="text-[7px] font-bold text-slate-600 uppercase mt-1">IDs must match active records</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Upload Pre-aligned FASTA</p>
+          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">IDs must match active records</p>
         </div>
 
-        <div className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mt-4 ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
+        <div data-tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mt-4 ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
           <input type="file" multiple accept=".bed,.gff,.gff3,.bedgraph" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAnnotationUpload} />
           <i className="fas fa-tags text-slate-700 group-hover:text-sky-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Import Annotations</p>
-          <p className="text-[7px] font-bold text-slate-600 uppercase mt-1">BED, GFF3, or BedGraph</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Import Annotations</p>
+          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">BED, GFF3, or BedGraph</p>
         </div>
 
-        <div className="bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-amber-500/50 transition-all relative cursor-pointer text-center group mt-4">
+        <div data-tip="Restore a workspace saved with Save Project" className="bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-amber-500/50 transition-all relative cursor-pointer text-center group mt-4">
           <input type="file" accept=".json" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onProjectUpload} />
           <i className="fas fa-project-diagram text-slate-700 group-hover:text-amber-500 mb-3 block text-3xl transition-colors"></i>
-          <p className="text-[9px] font-black text-slate-500 uppercase group-hover:text-slate-300 tracking-tight">Load Project JSON</p>
-          <p className="text-[7px] font-bold text-slate-600 uppercase mt-1">Restore entire workspace</p>
+          <p className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight">Load Project JSON</p>
+          <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">Restore entire workspace</p>
         </div>
       </section>
 
@@ -388,13 +380,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Log terminal */}
       <section className="h-48 flex flex-col shrink-0">
-        <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-3 flex items-center justify-between">
-          Log Terminal <i className="fas fa-terminal text-[8px]"></i>
-        </h3>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[9px] text-slate-500 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
+        <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
+        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[9px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
           {logs.map((log, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
-              <span className="text-emerald-500 font-black">#</span>
+              <span className="text-emerald-500 font-bold">#</span>
               <span className="flex-1">{log}</span>
             </div>
           ))}

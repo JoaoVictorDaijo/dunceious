@@ -81,7 +81,7 @@ describe('scrollbar styles', () => {
   it('pairs the light-surface class with the base class at every call site', () => {
     const callSites = [
       'src/app/viewer/GenomeViewer.tsx',
-      'src/app/components/DatabaseHubPanel.tsx',
+      'src/app/components/AnnotationHubPanel.tsx',
       'src/app/components/RecordDetailsModal.tsx',
     ];
     for (const file of callSites) {

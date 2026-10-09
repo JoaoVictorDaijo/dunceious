@@ -17,8 +17,18 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** Matches Tailwind's `font-mono`; SVG and canvas text cannot read the CSS theme. */
+export const MONO_STACK = '"JetBrains Mono Variable", ui-monospace, monospace';
+
 export const SIDEBAR_WIDTH = 120;
 export const NT_ROW_HEIGHT = 22;
 export const AA_ROW_HEIGHT = 18;
-export const ANNOT_ROW_HEIGHT = 42;
+/** Annotation bar height: a thin Geneious-style arrow, so dense records stay readable. */
+export const ANNOT_BAR_HEIGHT = 14;
+/** Extra lane height for an annotation whose bases are switched on (drawn under the bar). */
+export const ANNOT_BASES_HEIGHT = 14;
+/** Vertical gap between annotation lanes. */
+export const ANNOT_LANE_GAP = 4;
+/** Zoom (px per base) above which an opted-in annotation opens to show its bases. */
+export const ANNOT_BASES_MIN_ZOOM = 12;
 export const RULER_HEIGHT = 25;

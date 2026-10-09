@@ -21,13 +21,13 @@
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import DatabaseHubPanel from './components/DatabaseHubPanel';
+import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
+import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
-import { readSkipClearAllConfirmation, writeSkipClearAllConfirmation } from './logic/clearConfirmationPref';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
 import {
@@ -37,6 +37,8 @@ import {
 } from './recordRemoval';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
+import TooltipLayer from './components/TooltipLayer';
+import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
 import {
     useAppLogger,
@@ -67,6 +69,14 @@ const App: React.FC = () => {
   // ── Layout ────────────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
+  // The hub row a Focus jump left from: the viewport offers the way back while
+  // `showHubReturn` holds, and the hub keeps marking the row after returning.
+  const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
+  const [showHubReturn, setShowHubReturn] = useState(false);
+  const changeTab = (tab: 'alignment' | 'features') => {
+    if (tab === 'features') setShowHubReturn(false);
+    setActiveTab(tab);
+  };
 
   // ── Modals ────────────────────────────────────────────────────────────────
   const [viewingRecordDetails, setViewingRecordDetails] = useState<SeqRecord | null>(null);
@@ -82,7 +92,6 @@ const App: React.FC = () => {
     setActiveTab('alignment');
     setActiveSelection(selection);
   };
-  const [skipClearAllConfirmation, setSkipClearAllConfirmation] = useState<boolean>(readSkipClearAllConfirmation);
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
@@ -174,9 +183,33 @@ const App: React.FC = () => {
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  // Details can open from the hub (a copy carrying `index`) or the viewer (the
+  // aligned copy, same order as the record's features), so resolve by position.
+  const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
+  const featureIndexOf = (recordId: string, feature: BioFeature): number => {
+    const hubIndex = (feature as BioFeature & { index?: number }).index;
+    if (typeof hubIndex === 'number') return hubIndex;
+    const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
+    return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
+  };
+
   const handleViewDetails = (recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
-    if (record) { setViewingRecordDetails(record); setViewingFeatureDetails(feature || null); }
+    if (!record) return;
+    setViewingRecordDetails(record);
+    setViewingFeatureDetails(feature || null);
+    setViewingFeatureIndex(feature ? featureIndexOf(recordId, feature) : -1);
+  };
+
+  const handleSetShowBases = (show: boolean) => {
+    const recordId = viewingRecordDetails?.id;
+    const index = viewingFeatureIndex;
+    if (!recordId || index < 0) return;
+    setRecords(prev => prev.map(r => r.id !== recordId ? r : {
+      ...r,
+      features: r.features.map((f, i) => (i === index ? withAnnotationBases(f, show) : f)),
+    }));
+    setViewingFeatureDetails(current => (current ? withAnnotationBases(current, show) : current));
   };
 
   const handleRemoveRecord = (recordId: string) => {
@@ -222,11 +255,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [records.length]);
 
-  const handleSetSkipClearAllConfirmation = (value: boolean) => {
-    writeSkipClearAllConfirmation(value);
-    setSkipClearAllConfirmation(value);
-  };
-
   const handleSetThemeKey = (key: ThemeKey) => {
     writeThemePref(key);
     setThemeKey(key);
@@ -234,19 +262,9 @@ const App: React.FC = () => {
 
   const handleClearAll = () => {
     if (records.length === 0) return;
-    if (!skipClearAllConfirmation) {
-      const choice = window.prompt(
-        'Type CLEAR to confirm. Type CLEAR ALWAYS to confirm and stop asking in this browser.',
-        'CLEAR',
-      );
-      if (!choice) return;
-      const normalized = choice.trim().toUpperCase();
-      if (normalized !== 'CLEAR' && normalized !== 'CLEAR ALWAYS') return;
-      if (normalized === 'CLEAR ALWAYS') {
-        writeSkipClearAllConfirmation(true);
-        setSkipClearAllConfirmation(true);
-      }
-    }
+    // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
+    const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
+    if (choice?.trim().toUpperCase() !== 'CLEAR') return;
     setRecords([]);
     addLog('Workspace cleared.');
   };
@@ -255,7 +273,6 @@ const App: React.FC = () => {
   return (
     <div
       className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
-      data-theme={themeKey}
       data-env={envAccent}
       style={themeStyle}
     >
@@ -272,11 +289,13 @@ const App: React.FC = () => {
           }}
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
+          onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
         />
       )}
 
       {editing && (
         <FeatureEditorModal
+          key={editing.featureIndex === -1 ? 'new' : `${editing.recordId}:${editing.featureIndex}`}
           editing={editing}
           records={records}
           featureColors={featureColors}
@@ -299,11 +318,9 @@ const App: React.FC = () => {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={changeTab}
         featureColors={featureColors}
         onSetFeatureColors={setFeatureColors}
-        skipClearAllConfirmation={skipClearAllConfirmation}
-        onSetSkipClearAllConfirmation={handleSetSkipClearAllConfirmation}
         themeKey={themeKey}
         onSetThemeKey={handleSetThemeKey}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
@@ -358,7 +375,7 @@ const App: React.FC = () => {
           selectedSearchIndices={selectedSearchIndices}
           onSetSelectedIndices={setSelectedSearchIndices}
           maxScoreFound={maxScoreFound}
-          onSetActiveTab={setActiveTab}
+          onSetActiveTab={changeTab}
           onRemoveRecord={handleRemoveRecord}
           onToggleRecordSelection={toggleRecordSelection}
           onJoinAllInRecord={joinAllInRecord}
@@ -370,75 +387,85 @@ const App: React.FC = () => {
 
         <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
           {records.length === 0 ? (
-            <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
-              <p className="text-[12px] font-black uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
+              <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
               <p className="text-[10px] font-bold text-slate-500 mt-4 italic">"Spend money on Coffee and Personal, not with expensive genial software."</p>
             </div>
           ) : (
             <div className="relative z-10 flex-1 flex flex-col min-h-0 min-w-0 bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-800/50">
-              {activeTab === 'alignment' ? (
-                <GenomeViewer
-                  records={transposedRecords}
-                  consensus={consensus}
-                  showAnnotations={showAnnotations}
-                  showTracks={showTracks}
-                  showTranslation={showTranslation}
-                  showConservation={showConservation}
-                  dragMode={dragMode}
-                  activeSelection={activeSelection}
-                  onSelectionChange={setActiveSelection}
-                  onExportFasta={exportSelection}
-                  onAddAnnotation={addAnnotationFromSearch}
-                  searchResults={filteredResults}
-                  currentSearchIdx={currentSearchIdx}
-                  selectedSearchIndices={selectedSearchIndices}
-                  customColors={featureColors}
-                  jumpTo={jumpTo}
-                  onJumpComplete={() => setJumpTo(null)}
-                  onExportRecord={handleExportRecord}
-                  onViewDetails={handleViewDetails}
-                  onRemoveRecord={handleRemoveRecord}
-                />
-              ) : (
-                <DatabaseHubPanel
-                  records={records}
-                  flattenedFeatures={flattenedFeatures}
-                  allFeaturesCount={allFeaturesCount}
-                  featureSearch={featureSearch}
-                  onFeatureSearchChange={setFeatureSearch}
-                  featureColors={featureColors}
-                  activeSelection={activeSelection}
-                  onStartNewFeature={startNewFeature}
-                  onToggleRecordVisibility={toggleRecordVisibility}
-                  onRemoveRecord={handleRemoveRecord}
-                  onViewFeatureDetails={handleViewDetails}
-                  onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
-                  onRemoveFeature={removeFeature}
-                  onFocusItem={(recordId, start, end) => {
-                    setActiveTab('alignment');
-                    setActiveSelection({ start, end, recordIds: [recordId] });
-                  }}
-                  onExportAllFasta={exportAllFasta}
-                  onExportGenBank={exportGenBankFile}
-                  onExportGff={exportGffFile}
-                  onExportProjectJson={exportProjectJson}
-                  onClearAll={handleClearAll}
-                  addLog={addLog}
+              {activeTab === 'alignment' && showHubReturn && hubFocus && (
+                <HubReturnPill
+                  label={hubFocus.label}
+                  onReturn={() => changeTab('features')}
+                  onDismiss={() => setShowHubReturn(false)}
                 />
               )}
+              {/* Keyed by mode so each switch replays a short fade instead of a hard cut. */}
+              <div key={activeTab} className="flex-1 flex flex-col min-h-0 min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
+                {activeTab === 'alignment' ? (
+                  <GenomeViewer
+                    records={transposedRecords}
+                    consensus={consensus}
+                    showAnnotations={showAnnotations}
+                    showTracks={showTracks}
+                    showTranslation={showTranslation}
+                    showConservation={showConservation}
+                    dragMode={dragMode}
+                    activeSelection={activeSelection}
+                    onSelectionChange={setActiveSelection}
+                    onExportFasta={exportSelection}
+                    onAddAnnotation={addAnnotationFromSearch}
+                    searchResults={filteredResults}
+                    currentSearchIdx={currentSearchIdx}
+                    selectedSearchIndices={selectedSearchIndices}
+                    customColors={featureColors}
+                    jumpTo={jumpTo}
+                    onJumpComplete={() => setJumpTo(null)}
+                    onExportRecord={handleExportRecord}
+                    onViewDetails={handleViewDetails}
+                    onRemoveRecord={handleRemoveRecord}
+                  />
+                ) : (
+                  <AnnotationHubPanel
+                    records={records}
+                    flattenedFeatures={flattenedFeatures}
+                    allFeaturesCount={allFeaturesCount}
+                    featureSearch={featureSearch}
+                    onFeatureSearchChange={setFeatureSearch}
+                    featureColors={featureColors}
+                    activeSelection={activeSelection}
+                    onStartNewFeature={startNewFeature}
+                    onToggleRecordVisibility={toggleRecordVisibility}
+                    onRemoveRecord={handleRemoveRecord}
+                    onViewFeatureDetails={handleViewDetails}
+                    onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
+                    onRemoveFeature={removeFeature}
+                    onFocusItem={(recordId, start, end, origin) => {
+                      setHubFocus(origin);
+                      setShowHubReturn(true);
+                      setActiveTab('alignment');
+                      setActiveSelection({ start, end, recordIds: [recordId] });
+                    }}
+                    lastFocusedKey={hubFocus?.key ?? null}
+                    onExportAllFasta={exportAllFasta}
+                    onExportGenBank={exportGenBankFile}
+                    onExportGff={exportGffFile}
+                    onExportProjectJson={exportProjectJson}
+                    onClearAll={handleClearAll}
+                    addLog={addLog}
+                  />
+                )}
+              </div>
             </div>
           )}
         </main>
       </div>
 
-      <StatusBar sessionMoleculeType={sessionMoleculeType} />
+      <StatusBar sessionMoleculeType={sessionMoleculeType} themeKey={themeKey} />
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-        .tracking-tightest { tracking-letter: -0.05em; }
-      `}} />
+      <TooltipLayer />
+
     </div>
   );
 };

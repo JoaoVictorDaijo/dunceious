@@ -19,7 +19,7 @@
 
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
-import type { FlatItem } from '../components/DatabaseHubPanel';
+import type { FlatItem } from '../components/AnnotationHubPanel';
 
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
 export function saveEditedFeature(
@@ -74,7 +74,7 @@ export function groupFeaturesBySearch(
         const inType = f.type.toLowerCase().includes(search);
         const inDef = r.definition?.toLowerCase().includes(search);
         const inMeta = f.metadata
-          ? Object.values(f.metadata).some(v => v.toLowerCase().includes(search))
+          ? Object.entries(f.metadata).some(([k, v]) => !k.startsWith('_') && v.toLowerCase().includes(search))
           : false;
         return inName || inType || inDef || inMeta;
       });
@@ -82,7 +82,7 @@ export function groupFeaturesBySearch(
   return groups;
 }
 
-/** Flat header/track/feature list for the virtualised DatabaseHubPanel. */
+/** Flat header/track/feature list for the virtualised AnnotationHubPanel. */
 export function buildFlattenedFeatures(records: SeqRecord[], featureSearch: string): FlatItem[] {
   const groupedFeatures = groupFeaturesBySearch(records, featureSearch);
   const items: FlatItem[] = [];
