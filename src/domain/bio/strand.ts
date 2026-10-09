@@ -17,8 +17,14 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export const SIDEBAR_WIDTH = 120;
-export const NT_ROW_HEIGHT = 22;
-export const AA_ROW_HEIGHT = 18;
-export const ANNOT_ROW_HEIGHT = 42;
-export const RULER_HEIGHT = 25;
+import type { BioFeature } from './types';
+
+/** GFF's absent/unknown direction must survive the legacy numeric strand field.
+ * Internal metadata is retained by project JSON and coordinate transposition.
+ * Read through this accessor when a feature's biological orientation matters.
+ */
+export function getFeatureStrand(feature: Pick<BioFeature, 'strand' | 'metadata'>): 1 | -1 | '.' | '?' {
+  const original = feature.metadata?._gffStrand;
+  if (original === '.' || original === '?') return original;
+  return feature.strand === 1 || feature.strand === -1 ? feature.strand : '?';
+}

@@ -192,3 +192,25 @@ describe('Row segment connectors', () => {
     expect(spans).toContainEqual([95 * ZOOM, LEN * ZOOM]);
   });
 });
+
+
+describe('annotation bases preserve segment geometry', () => {
+  it('draws bases only inside segments, using each segment strand', () => {
+    const r = rec([{ name: 'Mixed synthetic', type: 'misc_feature', start: 0, end: 8, strand: 1,
+      segments: [{ start: 0, end: 2, strand: 1 }, { start: 6, end: 8, strand: -1 }] }]);
+    r.sequence = 'AACCTTGA';
+    const { container } = renderRow(r, { zoomLevel: 30 });
+    const letters = [...container.querySelectorAll('[data-annotation-base]')];
+    expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([0, 1, 6, 7]);
+    expect(letters.map(t => t.textContent).join('')).toBe('AACT');
+    expect(connectors(container)).toHaveLength(1);
+  });
+  it('draws both parts of a circular reverse feature on their original coordinates', () => {
+    const r = rec([{ name: 'Circular synthetic', type: 'primer', start: 6, end: 2, strand: -1 }]);
+    r.sequence = 'AACCTTGA';
+    const { container } = renderRow(r, { zoomLevel: 30 });
+    const letters = [...container.querySelectorAll('[data-annotation-base]')];
+    expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([6, 7, 0, 1]);
+    expect(letters.map(t => t.textContent).join('')).toBe('CTTT');
+  });
+});

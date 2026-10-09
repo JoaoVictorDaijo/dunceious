@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
@@ -218,7 +219,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
               {f.type}
             </span>
             <span className={`inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-black ${f.strand === 1 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {f.strand === 1 ? '+' : '-'}
+              {getFeatureStrand(f) === 1 ? '+' : getFeatureStrand(f) === -1 ? '−' : getFeatureStrand(f)}
             </span>
           </div>
         </div>

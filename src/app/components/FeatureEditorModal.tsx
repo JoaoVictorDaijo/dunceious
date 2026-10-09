@@ -20,6 +20,7 @@
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 
 export interface EditingFeatureState {
@@ -38,7 +39,7 @@ export interface FeatureEditorModalProps {
   onDiscard: () => void;
 }
 
-const FEATURE_TYPES = ['gene', 'CDS', 'mRNA', 'tRNA', 'rRNA', 'exon', 'promoter', 'regulatory', 'misc_feature', 'intron'];
+const FEATURE_TYPES = ['gene', 'CDS', 'mRNA', 'tRNA', 'rRNA', 'exon', 'promoter', 'regulatory', 'misc_feature', 'intron', 'primer', 'primer_bind'];
 
 /**
  * Modal dialog for creating a new genomic feature or editing an existing one's
@@ -121,21 +122,35 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 onChange={e => setFeature({ type: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 text-slate-200"
               >
+                {!FEATURE_TYPES.includes(feature.type) && <option value={feature.type}>{feature.type}</option>}
                 {FEATURE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">Strand</label>
               <select
-                value={feature.strand}
-                onChange={e => setFeature({ strand: parseInt(e.target.value) as 1 | -1 })}
+                value={getFeatureStrand(feature)}
+                onChange={e => {
+                  const metadata = { ...feature.metadata };
+                  delete metadata._gffStrand;
+                  setFeature({ strand: Number(e.target.value) as 1 | -1, metadata, locationString: undefined });
+                }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 text-slate-200"
               >
+                {(getFeatureStrand(feature) === '.' || getFeatureStrand(feature) === '?') && (
+                  <option value={getFeatureStrand(feature)} disabled>
+                    {getFeatureStrand(feature) === '.' ? 'Unstranded (.)' : 'Unknown (?)'}
+                  </option>
+                )}
                 <option value={1}>Forward (+)</option>
                 <option value={-1}>Reverse (-)</option>
               </select>
             </div>
           </div>
+
+          <p className="text-[10px] text-slate-400">
+            The track displays bases from the annotated sequence intervals. Primer tails and mismatches require a separate oligo sequence.
+          </p>
 
           {/* Color picker */}
           <div>

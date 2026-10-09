@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { annotationDirection } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getDisplaySeq } from '@/src/app/logic/viewModel';
@@ -108,7 +109,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Strand</label>
                 <p className="text-sm font-bold text-slate-700">
-                  {feature.strand === 1 ? 'Forward (+)' : 'Reverse (-)'}
+                  {annotationDirection(feature, record.moleculeType)}
                 </p>
               </div>
               <div className="space-y-1">
@@ -147,7 +148,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           <div className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex justify-between items-center">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                {feature ? 'Annotation Sequence' : 'Record Sequence (Raw)'}
+                {feature ? 'Reference envelope' : 'Record Sequence (Raw)'}
               </label>
               <button
                 onClick={handleCopy}
@@ -156,6 +157,12 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 <i className="fas fa-copy"></i> Copy Sequence
               </button>
             </div>
+            {feature && (
+              <p className="text-[10px] text-slate-500">
+                {record.moleculeType === 'protein' ? 'Reference residues.' : 'Reference bases, 5′ → 3′.'}
+                {' '}Includes the interval between segments. The annotation track displays bases per segment on its indicated strand.
+              </p>
+            )}
             <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-inner group relative">
               <div className="max-h-[200px] overflow-y-auto custom-scrollbar-pro pr-2">
                 <p className="text-[11px] font-mono text-slate-400 break-all leading-relaxed selection:bg-sky-500/30 selection:text-sky-200">

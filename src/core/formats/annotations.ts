@@ -18,6 +18,7 @@
  */
 
 import type { BioFeature, FeatureSegment, QuantitativeTrack, SeqRecord } from '@/src/domain/bio/types';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 
 /** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
 export interface AnnotationTrack extends QuantitativeTrack {
@@ -78,7 +79,8 @@ export const parseBED = (content: string, filename: string): Record<string, Anno
  *
  * GFF3 is 1-based, fully closed; converted to the app's 0-based half-open model
  * by `start = col4 - 1` and `end = col5` (a 1-based inclusive end equals a
- * 0-based exclusive end, so col5 is used unchanged). strand col7 `-`→ -1 else 1.
+ * 0-based exclusive end, so col5 is used unchanged). strand col7 `-`→ -1 else legacy 1; absent/unknown orientation is
+ * retained in internal `_gffStrand` metadata and read via `getFeatureStrand`.
  * Name resolves from attribute `Name`, else `ID`, else `${type}_${start + 1}`.
  * A `.` score (col6) is omitted from metadata; other scores are kept as strings.
  * Attribute values are URL-decoded. Rows with < 9 tab-separated columns skipped.
@@ -119,6 +121,12 @@ export const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
         if (key.toLowerCase() === 'name') name = value;
       }
     });
+
+    // Column 7 is authoritative; attributes cannot spoof this internal marker.
+    delete metadata._gffStrand;
+    if (strandChar !== '+' && strandChar !== '-') {
+      metadata._gffStrand = strandChar === '.' ? '.' : '?';
+    }
 
     if (!name) name = `${type}_${start + 1}`;
 
@@ -188,14 +196,15 @@ export const parseBedGraph = (content: string, filename: string): Record<string,
 /**
  * Serializes records' features to GFF3. Converts the app's 0-based half-open
  * coords back to GFF3's 1-based fully-closed convention: `start = f.start + 1`,
- * `end = f.end` (unchanged). strand 1 → `+`, -1 → `-`; the source column is
+ * `end = f.end` (unchanged). strand 1 → `+`, -1 → `-`, preserved `.` / `?` → unchanged; the source column is
  * stamped `Dunceious`; `ID`/`Name` derive from `f.name` (spaces → `_` in `ID`).
  */
 export const exportToGff = (records: SeqRecord[]): string => {
   let gff = "##gff-version 3\n";
   records.forEach(r => {
     r.features.forEach(f => {
-      const strand = f.strand === 1 ? '+' : '-';
+      const direction = getFeatureStrand(f);
+      const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
       const attributes = `ID=${f.name.replace(/\s+/g, '_')};Name=${f.name}`;
       gff += `${r.id}\tDunceious\t${f.type}\t${f.start + 1}\t${f.end}\t.\t${strand}\t0\t${attributes}\n`;
     });

@@ -100,3 +100,14 @@ describe('Sequence rendering with RNA and protein', () => {
     expect(recorder.fillColors().filter(color => color === '#f43f5e')).toHaveLength(2);
   });
 });
+
+
+describe('unknown CDS direction', () => {
+  it('shows reference bases without synthesizing a forward translation', () => {
+    const recorder = installCanvasRecorder();
+    const input = props('ATGCCCGAG');
+    input.features[0].metadata = { _gffStrand: '?' };
+    render(<SequenceTrack {...input} />);
+    expect(recorder.texts().join('')).toBe('ATGCCCGAG');
+  });
+});

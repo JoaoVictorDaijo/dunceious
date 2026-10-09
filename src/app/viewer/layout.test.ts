@@ -18,6 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { ANNOT_ROW_HEIGHT } from './constants';
 import { computeRecordLayouts } from './layout';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
@@ -38,7 +39,7 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements.map(p => p.row)).toEqual([0, 0]);
-    expect(l.annotHeight).toBe(1 * (14 + 6)); // one lane
+    expect(l.annotHeight).toBe(1 * (ANNOT_ROW_HEIGHT + 6)); // one lane
   });
 
   it('pushes features within the 10-bp buffer to a new lane', () => {
@@ -48,7 +49,7 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements.map(p => p.row)).toEqual([0, 1]);
-    expect(l.annotHeight).toBe(2 * 20);
+    expect(l.annotHeight).toBe(2 * (ANNOT_ROW_HEIGHT + 6));
   });
 
   it('keeps placements but zeroes annotHeight when showAnnotations is false', () => {
@@ -67,7 +68,7 @@ describe('computeRecordLayouts', () => {
     ] });
     const [l] = computeRecordLayouts([r], ALL);
     expect(l.placements).toEqual([{ feature: r.features[0], row: 0 }]);
-    expect(l.annotHeight).toBe(20);
+    expect(l.annotHeight).toBe(ANNOT_ROW_HEIGHT + 6);
   });
 
   it('gives line tracks height 80 and accumulates quantHeight with 12-px spacing', () => {
@@ -104,4 +105,14 @@ describe('computeRecordLayouts', () => {
     expect(pro.seqBaseY).toBe(0);
     expect(pro.height).toBe(22 + 20);
   });
+});
+
+
+it('packs a circular aligned feature using the aligned coordinate length', () => {
+  const record = rec({ id: 'synthetic', sequence: 'AACGTACGTA', alignedSequence: '-----AACGT-----ACGTA-', features: [
+    { name: 'wrap', type: 'primer', start: 15, end: 2, strand: 1 },
+    { name: 'overlap', type: 'misc_feature', start: 17, end: 19, strand: -1 },
+  ] });
+  const [layout] = computeRecordLayouts([record], ALL);
+  expect(layout.placements.map(p => p.row)).toEqual([0, 1]);
 });

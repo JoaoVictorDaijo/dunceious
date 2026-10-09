@@ -17,8 +17,17 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export const SIDEBAR_WIDTH = 120;
-export const NT_ROW_HEIGHT = 22;
-export const AA_ROW_HEIGHT = 18;
-export const ANNOT_ROW_HEIGHT = 42;
-export const RULER_HEIGHT = 25;
+import { describe, expect, it } from 'vitest';
+import { getFeatureStrand } from '../strand';
+
+describe('known and unavailable feature direction', () => {
+  it.each([1, -1] as const)('retains explicit strand %s', strand => {
+    expect(getFeatureStrand({ strand })).toBe(strand);
+  });
+  it.each(['.', '?'])('preserves GFF %s over its legacy numeric placeholder', raw => {
+    expect(getFeatureStrand({ strand: 1, metadata: { _gffStrand: raw } })).toBe(raw);
+  });
+  it('does not treat unrelated metadata as direction', () => {
+    expect(getFeatureStrand({ strand: -1, metadata: { note: 'unknown', _gffStrand: '+' } })).toBe(-1);
+  });
+});

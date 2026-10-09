@@ -19,6 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { parseGenBank } from '../index';
 import { exportToGenBank } from '../serialize';
 
 function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
@@ -70,4 +71,29 @@ describe('exportToGenBank', () => {
     expect(gb).toContain('complement(3..8)');
     expect(gb).toContain('join(1..3,6..8)');
   });
+});
+
+
+describe('custom annotation roundtrip', () => {
+  it.each([1, -1] as const)('retains a custom primer name, region and strand %s', strand => {
+    const source = record({ features: [{ type: 'primer', name: 'Synthetic primer', start: 1, end: 8, strand }] });
+    const snapshot = structuredClone(source);
+    const parsed = parseGenBank(exportToGenBank([source]));
+    expect(parsed[0].features[0]).toMatchObject(source.features[0]);
+    expect(parsed[0].sequence).toBe(source.sequence);
+    expect(source).toEqual(snapshot);
+  });
+});
+
+
+it.each(['.', '?'])('refuses to invent a GenBank location strand for GFF %s', raw => {
+  const source = record({ features: [{ type: 'misc_feature', name: 'Unknown synthetic', start: 1, end: 8, strand: 1, metadata: { _gffStrand: raw } }] });
+  expect(() => exportToGenBank([source])).toThrow(/Export GFF3 or project JSON/);
+});
+
+it('roundtrips a newly created reverse annotation with separate segments', () => {
+  const source = record({ features: [{ type: 'misc_feature', name: 'Joined synthetic', start: 1, end: 9, strand: -1, segments: [{ start: 1, end: 3 }, { start: 6, end: 9 }] }] });
+  const exported = exportToGenBank([source]);
+  expect(exported).toContain('complement(join(2..3,7..9))');
+  expect(parseGenBank(exported)[0].features[0]).toMatchObject(source.features[0]);
 });
