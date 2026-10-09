@@ -25,11 +25,11 @@ import type { SearchResult } from '@/src/domain/bio/types';
 
 const hit: SearchResult = { recordId: 'synthetic', sequence: 'TAC', start: 3, end: 8, strand: -1,
   segments: [{ start: 3, end: 4 }, { start: 6, end: 8 }] };
-function panelProps(): SearchPanelProps {
+function panelProps(): SearchPanelProps & { onClearSearch: () => void } {
   return {
     searchQuery: 'TAC', onSearchQueryChange: vi.fn(), searchMode: 'exact', onSearchModeChange: vi.fn(),
     searchOptions: { minScore: 0, strand: 'both', maxResults: 100 }, onSearchOptionsChange: vi.fn(),
-    isSearching: false, onSearch: vi.fn(), filteredResults: [hit], groupedSearchResults: { synthetic: { results: [hit], indices: [0] } },
+    isSearching: false, onSearch: vi.fn(), onClearSearch: vi.fn(), filteredResults: [hit], groupedSearchResults: { synthetic: { results: [hit], indices: [0] } },
     currentSearchIdx: 0, onSetCurrentIdx: vi.fn(), selectedSearchIndices: new Set(), onSetSelectedIndices: vi.fn(),
     maxScoreFound: 1, records: [{ id: 'synthetic', name: 'synthetic', sequence: 'AACGTA', features: [] }],
     onSetActiveSelection: vi.fn(), onSetActiveTab: vi.fn(), onToggleRecordSelection: vi.fn(),
@@ -40,6 +40,6 @@ function panelProps(): SearchPanelProps {
 it('passes reverse direction and aligned segments from the Annotate button', () => {
   const props = panelProps();
   render(<SearchPanel {...props} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Annotate' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Annotate(?: match)?/ }));
   expect(props.onAnnotateMatch).toHaveBeenCalledWith('synthetic', 3, 8, 'Match: TAC', hit.segments, -1);
 });
