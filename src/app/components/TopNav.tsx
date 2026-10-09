@@ -101,7 +101,7 @@ const TopNav: React.FC<TopNavProps> = ({
           <span className="text-xl font-black tracking-tightest uppercase italic text-white">Dunceious</span>
         </div>
         <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-500 italic leading-none mt-1">
-          Because intelligence is overpriced.
+          Because geniality is overpriced.
         </span>
       </div>
     </div>
