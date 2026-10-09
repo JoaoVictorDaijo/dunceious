@@ -23,6 +23,7 @@ import { render, installCanvasRecorder } from '@/src/app/testing/renderHarness';
 import { fireEvent } from '@testing-library/react';
 import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
+import { TRANSLATION_MIN_ZOOM } from '../constants';
 import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
@@ -36,7 +37,7 @@ function rec(features: BioFeature[]): SeqRecord {
 function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
   const [layout] = computeRecordLayouts([record], {
     showAnnotations: true,
-    showTranslation: false,
+    translationVisible: !!overrides.showTranslation && (overrides.zoomLevel ?? ZOOM) > TRANSLATION_MIN_ZOOM,
     showTracks: false,
     basesVisible: (overrides.zoomLevel ?? ZOOM) > 12,
   });
@@ -291,4 +292,42 @@ describe('aligned circular connectors', () => {
     const { container } = renderRow(processTransposition([record])[0]);
     expect([...connectors(container)].map(spanOf)).toEqual([[10 * ZOOM, 12 * ZOOM], [0, 3 * ZOOM]]);
   });
+});
+
+
+describe('translation labels and geometry', () => {
+  it.each([4.99, 5, 5.01])('keeps labels and sequence at the same visibility at zoom %s', (zoomLevel) => {
+    const data = rowData(rec([]), { showTranslation: true, zoomLevel });
+    const { container } = render(<Row index={0} style={{ top: 150 }} data={data} />);
+    const visible = zoomLevel > 5;
+    expect(data.recordLayouts[0].height).toBe(visible ? 150 : 42);
+    for (const label of ['F1', 'F2', 'F3', 'R1', 'R2', 'R3']) {
+      const node = [...container.querySelectorAll('span')].find(s => s.textContent === label);
+      expect(node?.closest('[aria-hidden]')?.getAttribute('aria-hidden')).toBe(String(!visible));
+    }
+    const name = container.querySelector<HTMLElement>('[data-tip="r"]');
+    expect(name?.style.transform).toBe(`translateY(${visible ? 56 : 2}px)`);
+    expect(name?.classList.contains('translation-motion')).toBe(true);
+    expect((container.firstChild as HTMLElement).style.transform).toBe('translateY(150px)');
+  });
+
+  it('keeps protein labels absent even with Translation on at high zoom', () => {
+    const { container } = renderRow({ ...rec([]), moleculeType: 'protein' }, { showTranslation: true, zoomLevel: 20 });
+    expect(container.textContent).not.toMatch(/[FR][123]/);
+  });
+});
+
+
+it('keeps a record selection aligned with the full effective row height', () => {
+  const record = rec([]);
+  const makeData = (zoomLevel: number) => rowData(record, {
+    zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
+  });
+  const { container, rerender } = render(<Row index={0} style={{}} data={makeData(5)} />);
+  const selection = () => container.querySelector('rect[fill="#3b82f6"]');
+  expect(selection()?.getAttribute('height')).toBe('42');
+  rerender(<Row index={0} style={{}} data={makeData(6)} />);
+  expect(selection()?.getAttribute('height')).toBe('150');
+  rerender(<Row index={0} style={{}} data={makeData(5)} />);
+  expect(selection()?.getAttribute('height')).toBe('42');
 });
