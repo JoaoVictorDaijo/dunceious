@@ -24,7 +24,7 @@ import RecordDetailsModal from '../RecordDetailsModal';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 describe('RecordDetailsModal biological coordinates', () => {
-  it('shows the joined biological length and focuses its first aligned part', () => {
+  it('shows the joined biological length and focuses every aligned part', () => {
     const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--',
       features: [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
         segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] };
@@ -33,6 +33,6 @@ describe('RecordDetailsModal biological coordinates', () => {
       onFocusFeature={onFocusFeature} onExportRecord={() => {}} onCopyLog={() => {}} />);
     expect(screen.getByText('7 bp')).toBeTruthy();
     fireEvent.click(screen.getByText(/Focus/));
-    expect(onFocusFeature).toHaveBeenCalledWith('r', 2, 6);
+    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', start: 2, end: 16, label: 'joined', length: 7 });
   });
 });

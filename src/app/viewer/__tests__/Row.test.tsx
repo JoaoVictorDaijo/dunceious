@@ -64,6 +64,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     quantValueRanges: {},
     showTracks: false,
     basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
+    focusedRegion: null,
   };
   return { ...base, ...overrides };
 }
@@ -368,7 +369,7 @@ it('keeps a record selection aligned with the full effective row height', () => 
     zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
   });
   const { container, rerender } = render(<Row index={0} style={{}} data={makeData(5)} />);
-  const selection = () => container.querySelector('rect[fill="#3b82f6"]');
+  const selection = () => container.querySelector('rect[data-selection-band]');
   const collapsed = String(makeData(5).recordLayouts[0].height);
   expect(selection()?.getAttribute('height')).toBe(collapsed);
   rerender(<Row index={0} style={{}} data={makeData(6)} />);
@@ -432,5 +433,42 @@ describe('annotation motion CSS', () => {
     const transitions = css.match(/transition(-property)?\s*:[^;]*/g) ?? [];
     expect(transitions.filter(t => /(^|[\s:,])d(\s|,|$)/.test(t.replace(/^transition(-property)?\s*:/, ' ')))).toEqual([]);
     expect(css).not.toMatch(/\.annot-bar\b/);
+  });
+});
+
+describe('record selection and focus label', () => {
+  const selected = { start: 10, end: 30, recordIds: ['r'] };
+  const focused = { recordId: 'r', start: 10, end: 30, label: 'spike', length: 20 };
+  const edges = (c: HTMLElement) => [...c.querySelectorAll('line[data-selection-edge]')].map(spanOf);
+
+  it('outlines a record selection with an edge at each end', () => {
+    const { container } = renderRow(rec([]), { persistentSelection: selected });
+    expect(edges(container)).toEqual([[80, 80], [240, 240]]);
+  });
+
+  it('labels the focused region with its name and biological length at the region start', () => {
+    const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused });
+    expect(getByText('spike · 20 bp').style.left).toBe('80px');
+  });
+
+  it('holds the label at the view edge while the region start is scrolled away', () => {
+    const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 160 });
+    expect(getByText('spike · 20 bp').style.left).toBe('0px');
+  });
+
+  it('takes the place of the Annotations heading when it starts underneath it', () => {
+    const annotated = rec([{ type: 'gene', name: 'g', start: 40, end: 60, strand: 1 }]);
+    const near = renderRow(annotated, { persistentSelection: selected, focusedRegion: { ...focused, start: 2 } });
+    expect(near.queryByText('Annotations')).toBeNull();
+    near.unmount();
+    expect(renderRow(annotated, { persistentSelection: selected, focusedRegion: { ...focused, start: 20 } })
+      .getByText('Annotations')).toBeTruthy();
+  });
+
+  it('drops the label once the region leaves the view or belongs to another record', () => {
+    expect(renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 400 })
+      .queryByText('spike · 20 bp')).toBeNull();
+    expect(renderRow(rec([]), { persistentSelection: selected, focusedRegion: { ...focused, recordId: 'x' } })
+      .queryByText('spike · 20 bp')).toBeNull();
   });
 });

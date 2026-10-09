@@ -21,13 +21,13 @@ import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/anno
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { featureLength, getDisplaySeq } from '@/src/app/logic/viewModel';
-import { transposeInterval } from '@/src/domain/bio/coordinate';
+import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
   feature: BioFeature | null;
   onClose: () => void;
-  onFocusFeature: (recordId: string, start: number, end: number) => void;
+  onFocusFeature: (target: FocusTarget) => void;
   onExportRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
@@ -58,12 +58,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleFocus = () => {
     if (!feature) return;
-    const focusStart = feature.segments && feature.segments.length > 0 ? feature.segments[0].start : feature.start;
-    const focusEnd = feature.segments && feature.segments.length > 0 ? feature.segments[0].end : feature.end;
-    const { start, end } = record.alignedSequence
-      ? transposeInterval(focusStart, focusEnd, record.alignedSequence)
-      : { start: focusStart, end: focusEnd };
-    onFocusFeature(record.id, start, end);
+    onFocusFeature(featureFocusTarget(record, feature));
     onClose();
     onCopyLog(`Focusing on ${feature.name}`);
   };

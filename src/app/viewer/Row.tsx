@@ -21,6 +21,7 @@ import * as d3 from 'd3';
 import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases } from './annotationPresentation';
@@ -56,7 +57,14 @@ export interface RowData {
   showTracks: boolean;
   /** 0..1: how far opted-in annotation bars have opened to show their bases. */
   basesOpenness: number;
+  /** The focused annotation, while the selection is still exactly that region. */
+  focusedRegion: FocusTarget | null;
 }
+
+const SELECTION_FILL = '#38bdf8';
+const SELECTION_EDGE = '#0ea5e9';
+/** Where the "Annotations" heading ends; a focus label starting before it takes the heading's place. */
+const ANNOT_HEADING_END = 84;
 
 export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData>) => {
   const { 
@@ -66,7 +74,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
-    showTracks, basesOpenness
+    showTracks, basesOpenness, focusedRegion
   } = data;
 
   const l = recordLayouts[index];
@@ -90,6 +98,16 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const lanes = l.translationLanes;
   const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
   const rowTop = typeof style.top === 'number' ? `${style.top}px` : (style.top ?? '0px');
+
+  // The focus label rides the region's visible start, holding at the view edge while that start is scrolled away.
+  const focusLabelLeft = (() => {
+    if (!focusedRegion || focusedRegion.recordId !== l.id) return null;
+    const s = xScale(focusedRegion.start) - scrollX;
+    const e = xScale(focusedRegion.end) - scrollX;
+    if (focusedRegion.start > focusedRegion.end) return s < viewportWidth ? Math.max(0, s) : e > 0 ? 0 : null;
+    return s <= viewportWidth && e >= 0 ? Math.max(0, s) : null;
+  })();
+  const showAnnotHeading = focusLabelLeft === null || focusLabelLeft >= ANNOT_HEADING_END;
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
@@ -161,9 +179,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           {/* Section Backgrounds & Labels */}
           {showAnnotations && l.annotHeight > 0 && (
             <div className="absolute left-0 right-0 bg-slate-50/30 border-b border-slate-100/50" style={{ top: 0, height: l.annotHeight + l.topPadding }}>
-              <div className="absolute left-2 z-30 pointer-events-none" style={{ top: 4 }}>
-                <span className="text-[8px] font-bold uppercase text-slate-400 tracking-widest">Annotations</span>
-              </div>
+              {showAnnotHeading && (
+                <div className="absolute left-2 z-30 pointer-events-none" style={{ top: 4 }}>
+                  <span className="text-[8px] font-bold uppercase text-slate-400 tracking-widest">Annotations</span>
+                </div>
+              )}
             </div>
           )}
           
@@ -206,33 +226,22 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               (() => {
                 const s = xScale(persistentSelection.start) - scrollX;
                 const e = xScale(persistentSelection.end) - scrollX;
-                
-                if (persistentSelection.start <= persistentSelection.end) {
-                  if (s > viewportWidth || e < 0) return null;
-                  return (
-                    <rect
-                      x={Math.max(0, s)} 
-                      y={0} 
-                      width={Math.min(viewportWidth - Math.max(0, s), e - Math.max(0, s))} 
-                      height={l.height} 
-                      fill="#3b82f6" 
-                      opacity={0.08} 
-                    />
-                  );
-                } else {
-                  const e1 = xScale(alignmentLength) - scrollX;
-                  const e2 = xScale(persistentSelection.end) - scrollX;
-                  return (
-                    <React.Fragment>
-                      {s < viewportWidth && (
-                        <rect x={Math.max(0, s)} y={0} width={Math.min(viewportWidth, e1) - Math.max(0, s)} height={l.height} fill="#3b82f6" opacity={0.08} />
-                      )}
-                      {e2 > 0 && (
-                        <rect x={0} y={0} width={Math.min(viewportWidth, e2)} height={l.height} fill="#3b82f6" opacity={0.08} />
-                      )}
-                    </React.Fragment>
-                  );
-                }
+                const band = (x1: number, x2: number) => {
+                  const x = Math.max(0, x1);
+                  const width = Math.min(viewportWidth, x2) - x;
+                  return width > 0 && <rect data-selection-band x={x} y={0} width={width} height={l.height} fill={SELECTION_FILL} opacity={0.14} />;
+                };
+                const edge = (x: number) => x >= 0 && x <= viewportWidth && (
+                  <line data-selection-edge x1={x} x2={x} y1={0} y2={l.height} stroke={SELECTION_EDGE} strokeWidth={1.5} />
+                );
+                const wraps = persistentSelection.start > persistentSelection.end;
+                return (
+                  <React.Fragment>
+                    {wraps ? <>{band(s, xScale(alignmentLength) - scrollX)}{band(-scrollX, e)}</> : band(s, e)}
+                    {edge(s)}
+                    {edge(e)}
+                  </React.Fragment>
+                );
               })()
             )}
             
@@ -427,6 +436,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             })}
 
           </svg>
+          {focusedRegion && focusLabelLeft !== null && (
+            <div
+              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[9px] font-bold leading-[14px] text-amber-950 shadow-sm animate-in fade-in duration-300 motion-reduce:animate-none"
+              style={{ left: focusLabelLeft, top: 2 }}
+            >
+              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
+            </div>
+          )}
 
           {/* Quantitative Tracks - Rendered after SVG to be on top */}
           {showTracks && l.trackLayouts.map((track: TrackLayout, idx: number) => {

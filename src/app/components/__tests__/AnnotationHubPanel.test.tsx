@@ -83,7 +83,10 @@ describe('AnnotationHubPanel', () => {
     const onFocusItem = vi.fn();
     render(<AnnotationHubPanel {...panelProps()} onFocusItem={onFocusItem} />);
     fireEvent.click(screen.getAllByText('Focus')[2]);
-    expect(onFocusItem).toHaveBeenCalledWith('lin', 20, 30, { key: 'lin:feature:1', label: 'g3' });
+    expect(onFocusItem).toHaveBeenCalledWith(
+      { recordId: 'lin', start: 20, end: 30, label: 'g3', length: 10 },
+      { key: 'lin:feature:1', label: 'g3' },
+    );
   });
 
   it('marks only the last focused row when returning', () => {
@@ -96,7 +99,7 @@ describe('AnnotationHubPanel', () => {
 
 
 describe('aligned Hub focus', () => {
-  it('displays biological length but focuses the aligned first part', () => {
+  it('displays biological length and focuses every aligned part', () => {
     stubResizeObserver();
     const record = rec({ id: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--' },
       [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
@@ -106,6 +109,9 @@ describe('aligned Hub focus', () => {
       flattenedFeatures={buildFlattenedFeatures([record], '')} onFocusItem={onFocusItem} />);
     expect(screen.getByText('7')).toBeTruthy();
     fireEvent.click(screen.getByText('Focus'));
-    expect(onFocusItem).toHaveBeenCalledWith('gap', 2, 6, { key: 'gap:feature:0', label: 'joined' });
+    expect(onFocusItem).toHaveBeenCalledWith(
+      { recordId: 'gap', start: 2, end: 16, label: 'joined', length: 7 },
+      { key: 'gap:feature:0', label: 'joined' },
+    );
   });
 });

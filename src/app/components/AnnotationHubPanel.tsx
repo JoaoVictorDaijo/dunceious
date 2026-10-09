@@ -24,7 +24,7 @@ import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureLength } from '@/src/app/logic/viewModel';
-import { transposeInterval } from '@/src/domain/bio/coordinate';
+import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 
 export type FlatItem =
   | { type: 'header'; recordId: string; count: number }
@@ -62,7 +62,7 @@ export interface AnnotationHubPanelProps {
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
   onRemoveFeature: (recordId: string, featureIndex: number) => void;
-  onFocusItem: (recordId: string, start: number, end: number, origin: HubFocusOrigin) => void;
+  onFocusItem: (target: FocusTarget, origin: HubFocusOrigin) => void;
   /** The row the last Focus jump came from: scrolled into view and marked on mount. */
   lastFocusedKey?: string | null;
   onExportAllFasta: () => void;
@@ -245,7 +245,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                 <i className="fas fa-info-circle"></i>
               </button>
               <button
-                onClick={() => onFocusItem(recordId, start, end, { key: rowKey, label: t.name })}
+                onClick={() => onFocusItem({ recordId, start, end, label: t.name, length: end - start }, { key: rowKey, label: t.name })}
                 data-tip="Open this track's span in the viewport"
                 className="text-[10px] font-bold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
               >
@@ -325,13 +325,9 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
             <button
               onClick={() => {
-                const focusStart = f.segments && f.segments.length > 0 ? f.segments[0].start : f.start;
-                const focusEnd = f.segments && f.segments.length > 0 ? f.segments[0].end : f.end;
                 const record = records.find(r => r.id === recordId);
-                const { start, end } = record?.alignedSequence
-                  ? transposeInterval(focusStart, focusEnd, record.alignedSequence)
-                  : { start: focusStart, end: focusEnd };
-                onFocusItem(recordId, start, end, { key: rowKey, label: f.name });
+                if (!record) return;
+                onFocusItem(featureFocusTarget(record, f), { key: rowKey, label: f.name });
                 addLog(`Jump to ${f.name}`);
               }}
               data-tip="Open this annotation in the viewport, selected"
