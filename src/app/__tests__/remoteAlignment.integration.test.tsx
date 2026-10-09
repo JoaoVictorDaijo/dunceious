@@ -26,6 +26,7 @@ import type { AnnotationHubPanelProps } from '@/src/app/components/AnnotationHub
 import type { EbiClient, EbiResponse } from '@/src/app/lib/ebiClient';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { clearAlignConsent, readAlignConsent } from '@/src/app/logic/alignConsentPref';
 import App from '../App';
 
 const captured = vi.hoisted(() => ({ sidebar: null as SidebarProps | null, hub: null as AnnotationHubPanelProps | null, client: null as EbiClient | null }));
@@ -50,6 +51,7 @@ class LocalWorker {
 const records = [{ id: 'seq1', name: 'seq1', sequence: 'AC', features: [] }, { id: 'seq1 (1)', name: 'seq1 (1)', sequence: 'AGC', features: [] }];
 let finish!: (response: EbiResponse) => void;
 beforeEach(() => {
+  clearAlignConsent();
   LocalWorker.instances = []; captured.sidebar = null; captured.hub = null;
   stubResizeObserver(); installCanvasRecorder(); vi.stubGlobal('Worker', LocalWorker);
   vi.spyOn(window, 'confirm').mockReturnValue(true); vi.spyOn(window, 'prompt').mockReturnValue('CLEAR');
@@ -69,6 +71,10 @@ async function loadApp() {
 }
 async function beginAlignment() {
   fireEvent.click(screen.getByRole('button', { name: /Align Sequences/ }));
+  expect(captured.client!.submit).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  expect(readAlignConsent()).not.toBeNull();
   fireEvent.change(screen.getByRole('textbox', { name: 'Email' }), { target: { value: 'user@gmail.com' } });
   fireEvent.click(screen.getByRole('button', { name: 'Align' }));
   await waitFor(() => expect(captured.client!.status).toHaveBeenCalledOnce());
@@ -141,4 +147,20 @@ describe('file reads started before the lock', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
   });
+});
+
+it('reopens consent after revocation without sending a request', async () => {
+  await loadApp();
+  const alignCard = screen.getByRole('button', { name: /Align Sequences/ });
+  expect(alignCard.getAttribute('data-tip')).toBe("Send the loaded sequences to EMBL-EBI's servers for alignment, then overlay the result");
+  fireEvent.click(alignCard);
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(alignCard);
+  expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
+  expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(captured.client!.submit).not.toHaveBeenCalled();
 });

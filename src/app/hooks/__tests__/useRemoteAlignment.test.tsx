@@ -18,11 +18,14 @@
  */
 
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@/src/app/testing/renderHarness';
+import { clearAlignConsent, writeAlignConsent } from '@/src/app/logic/alignConsentPref';
 import { useRemoteAlignment } from '../useRemoteAlignment';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { EbiClient, EbiResponse } from '@/src/app/lib/ebiClient';
+
+beforeEach(() => { clearAlignConsent(); writeAlignConsent(new Date('2026-10-09T12:00:00.000Z')); });
 
 const records: SeqRecord[] = [
   { id: 'a', name: 'a', sequence: 'AC', features: [], visible: false },
@@ -116,4 +119,30 @@ it('reopens configuration when EBI rejects an email while minimized', async () =
   await act(async () => rejectEmail({ kind: 'rejected', status: 400, detail: 'Please enter a valid email address' }));
   expect(h.result.current.presentation).toBe('dialog');
   expect(h.result.current.state).toMatchObject({ phase: 'configuring', emailError: expect.stringContaining('domain') });
+});
+
+it('refuses submission without consent, accepts after agreement, and checks revocation again', async () => {
+  clearAlignConsent();
+  const h = harness();
+  act(() => { h.result.current.open(); h.result.current.setEmail('a@b.org'); });
+  await act(async () => h.result.current.submit());
+  expect(h.client.submit).not.toHaveBeenCalled();
+  expect(h.client.status).not.toHaveBeenCalled();
+  expect(h.result.current.isAlignmentLocked).toBe(false);
+  writeAlignConsent(new Date('2026-10-09T12:00:00.000Z'));
+  await h.start();
+  expect(h.client.submit).toHaveBeenCalledOnce();
+  await h.finish();
+  clearAlignConsent();
+  await act(async () => h.result.current.submit());
+  expect(h.client.submit).toHaveBeenCalledOnce();
+});
+
+it('refuses submission with consent for an outdated disclosure', async () => {
+  const h = harness();
+  act(() => { h.result.current.open(); h.result.current.setEmail('a@b.org'); });
+  window.localStorage.setItem('dunceious.alignConsent', JSON.stringify({ version: 0, acceptedAt: '2026-10-09T12:00:00.000Z' }));
+  await act(async () => h.result.current.submit());
+  expect(h.client.submit).not.toHaveBeenCalled();
+  expect(h.result.current.isAlignmentLocked).toBe(false);
 });

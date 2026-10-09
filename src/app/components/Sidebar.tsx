@@ -342,7 +342,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <button type="button" onClick={onAlignRemote} disabled={records.length === 0}
-          data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Send the loaded sequences to EMBL-EBI for alignment, then overlay the result"}
+          data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Send the loaded sequences to EMBL-EBI's servers for alignment, then overlay the result"}
           className="mt-4 w-full rounded-3xl border-2 border-dashed border-slate-800 bg-slate-900/40 p-6 text-center group motion-safe:transition-colors enabled:hover:border-[var(--env)] disabled:opacity-30 disabled:cursor-not-allowed">
           <i aria-hidden="true" className="fas fa-wand-magic-sparkles mb-3 block text-3xl text-slate-700 group-enabled:group-hover:text-[var(--env)]" />
           <p className="text-[9px] font-bold uppercase tracking-tight text-slate-400">{isAlignmentLocked ? 'Alignment running' : 'Align Sequences'}</p>

@@ -19,11 +19,14 @@
 
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import { ALIGNMENT_ENGINES, preflightAlignment } from '@/src/core/alignment';
 import { createAlignmentProgress } from '@/src/app/logic/remoteAlignment';
+import { clearAlignConsent, readAlignConsent, writeAlignConsent } from '@/src/app/logic/alignConsentPref';
 import AlignRemoteModal, { type AlignRemoteModalProps } from '../AlignRemoteModal';
+
+beforeEach(() => { clearAlignConsent(); writeAlignConsent(new Date('2026-10-09T12:00:00.000Z')); });
 
 function props(overrides: Partial<AlignRemoteModalProps> = {}): AlignRemoteModalProps {
   return {
@@ -85,7 +88,7 @@ describe('AlignRemoteModal', () => {
     render(<AlignRemoteModal {...props({ email: 'a@b.org' })} />);
     const align = screen.getByRole('button', { name: 'Align' }); align.focus();
     fireEvent.keyDown(align, { key: 'Tab' });
-    expect(document.activeElement).toBe(screen.getByRole('radio', { name: /^MAFFT/ }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Review' }));
   });
 });
 
@@ -120,5 +123,79 @@ describe('preflight and monitor UI', () => {
     expect(screen.getByText(/1 s/)).toBeTruthy();
     view.rerender(<AlignRemoteModal {...p} state={{ ...progress, steps: { ...progress.steps, running: { status: 'failed' } }, phase: 'failed', reason: 'network', detail: 'Offline' }} />);
     expect(screen.getByText('Offline')).toBeTruthy();
+  });
+});
+
+describe('data-sharing consent', () => {
+  it('requires acknowledgement before continuing to the picker and persists consent', () => {
+    clearAlignConsent();
+    const p = props({ email: 'a@b.org' });
+    const view = render(<AlignRemoteModal {...p} />);
+    expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getByText(/all loaded sequences, including hidden ones/)).toBeTruthy();
+    expect(screen.getByText(/job logs and your email are deleted after 7 days and web logs after 30 days/)).toBeTruthy();
+    expect(screen.getByText(/unpublished, confidential or patient-derived data/)).toBeTruthy();
+    const privacy = screen.getByRole('link', { name: 'EMBL-EBI privacy notice' });
+    const terms = screen.getByRole('link', { name: 'Terms of use' });
+    expect(privacy.getAttribute('href')).toBe('https://www.ebi.ac.uk/jdispatcher/assets/html/privacy-notice.pdf');
+    expect(terms.getAttribute('href')).toBe('https://www.ebi.ac.uk/about/terms-of-use/');
+    for (const link of [privacy, terms]) {
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noreferrer');
+    }
+    const checkbox = screen.getByRole('checkbox', { name: 'I understand that my sequences and email will be sent to EMBL-EBI and handled under its terms of use and privacy notice.' });
+    expect(document.activeElement).toBe(checkbox);
+    const next = screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    fireEvent.submit(next.closest('form')!);
+    expect(readAlignConsent()).toBeNull();
+    expect(p.onSubmit).not.toHaveBeenCalled();
+    fireEvent.click(checkbox);
+    expect(next.disabled).toBe(false);
+    fireEvent.click(next);
+    expect(screen.getByRole('radiogroup')).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: /^MAFFT/ }));
+    expect(readAlignConsent()?.acceptedAt).toBeTruthy();
+    expect(p.onSubmit).not.toHaveBeenCalled();
+    view.unmount();
+    render(<AlignRemoteModal {...p} />);
+    expect(screen.getByRole('radiogroup')).toBeTruthy();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('shows the agreement date and allows review and revocation', () => {
+    render(<AlignRemoteModal {...props()} />);
+    const date = new Date('2026-10-09T12:00:00.000Z').toLocaleDateString();
+    expect(screen.getByText(`Sending to EMBL-EBI · agreed ${date} ·`)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(readAlignConsent()).toEqual({ acceptedAt: '2026-10-09T12:00:00.000Z' });
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    expect(readAlignConsent()).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('checkbox'));
+    expect(window.localStorage.getItem('dunceious.alignConsent')).toBeNull();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('keeps consent links in the focus trap and cancels on Escape', () => {
+    clearAlignConsent();
+    const p = props();
+    render(<AlignRemoteModal {...p} />);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const firstLink = screen.getByRole('link', { name: 'EMBL-EBI privacy notice' });
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    expect(document.activeElement).toBe(firstLink);
+    fireEvent.keyDown(firstLink, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(cancel);
+    fireEvent.keyDown(cancel, { key: 'Escape' });
+    expect(p.onCancel).toHaveBeenCalledOnce();
+    expect(p.onMinimize).not.toHaveBeenCalled();
+    expect(readAlignConsent()).toBeNull();
   });
 });

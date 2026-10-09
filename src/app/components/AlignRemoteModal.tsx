@@ -19,6 +19,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ALIGNMENT_ENGINES, GLOBAL_ALIGNMENT_ISSUES, validateEmail, type AlignmentPreflight, type EngineId, type AlignmentMoleculeKind } from '@/src/core/alignment';
+import { ALIGN_CONSENT_COPY, readAlignConsent, writeAlignConsent, clearAlignConsent } from '@/src/app/logic/alignConsentPref';
 import AlignmentJobMonitor, { elapsedSeconds, useJobClock } from './AlignmentJobMonitor';
 import { isAlignmentActive, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 
@@ -70,6 +71,22 @@ const AlignRemoteModal: React.FC<AlignRemoteModalProps> = props => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const active = isAlignmentActive(state);
   const now = useJobClock(active);
+  const [consent, setConsent] = useState(readAlignConsent);
+  const [reviewConsent, setReviewConsent] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(!!consent);
+  const showConsent = !active && state.phase !== 'failed' && state.phase !== 'done' && (!consent || reviewConsent);
+  const continueWithConsent = () => {
+    if (!acknowledged) return;
+    if (!consent) writeAlignConsent(new Date());
+    setConsent(readAlignConsent());
+    setReviewConsent(false);
+  };
+  const revokeConsent = () => {
+    clearAlignConsent();
+    setConsent(null);
+    setAcknowledged(false);
+    dialogRef.current?.querySelector<HTMLInputElement>('input[type=checkbox]')?.focus();
+  };
   const [emailTouched, setEmailTouched] = useState(false);
   const validation = validateEmail(email);
   const inlineError = state.phase === 'configuring' && state.emailError ? state.emailError : emailTouched && !validation.ok
@@ -89,13 +106,14 @@ const AlignRemoteModal: React.FC<AlignRemoteModalProps> = props => {
     const target = dialog?.querySelector<HTMLElement>('input:checked:not(:disabled)')
       ?? dialog?.querySelector<HTMLElement>(':is(input, button):not(:disabled)');
     (target ?? dialog)?.focus();
-  }, [active, failed]);
+  }, [active, failed, showConsent]);
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') { event.preventDefault(); if (active) props.onMinimize(); else onCancel(); return; }
     if (event.key !== 'Tab') return;
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(':is(input, button, a[href]):not(:disabled)') ?? [])];
-    const first = focusable.find(el => el instanceof HTMLInputElement && el.type === 'radio' && el.checked) ?? focusable[0];
+    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(':is(input, button, a[href]):not(:disabled)') ?? [])]
+      .filter(el => !(el instanceof HTMLInputElement) || el.type !== 'radio' || el.checked || !engineId);
+    const first = focusable[0];
     const last = focusable.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -108,15 +126,39 @@ const AlignRemoteModal: React.FC<AlignRemoteModalProps> = props => {
         <header className="flex items-center gap-4 border-b border-slate-700/60 px-6 py-5">
           <i aria-hidden="true" className="fas fa-wand-magic-sparkles text-2xl text-[var(--env)]" />
           <div>
-            <h2 id="align-remote-title" className="text-lg font-semibold text-white">Align with EMBL-EBI</h2>
+            <h2 id="align-remote-title" className="text-lg font-semibold text-white">{showConsent ? ALIGN_CONSENT_COPY.title : 'Align with EMBL-EBI'}</h2>
             {'steps' in state && <p className="text-xs text-slate-400">Elapsed: {elapsedSeconds(state, now)} s</p>}
             <p className="mt-1 text-xs text-slate-400">{count} sequences · {Math.ceil(bytes / 1000)} KB · {moleculeKind === 'protein' ? 'peptide' : 'nucleotide'}</p>
           </div>
         </header>
-        <form noValidate onSubmit={event => { event.preventDefault(); setEmailTouched(true); if (canSubmit && !active && !failed) onSubmit(); }}>
+        <form noValidate onSubmit={event => {
+          event.preventDefault();
+          if (showConsent) { continueWithConsent(); return; }
+          setEmailTouched(true);
+          if (consent && canSubmit && !active && !failed) onSubmit();
+        }}>
           <div className="space-y-5 px-6 py-5">
-            {active || failed || state.phase === 'done' ? <AlignmentJobMonitor state={state} now={now} /> : (
+            {showConsent ? (
               <>
+                <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed text-slate-300">
+                  {ALIGN_CONSENT_COPY.bullets.map(bullet => <li key={bullet}>{bullet}</li>)}
+                </ul>
+                <p className="text-xs text-slate-400">
+                  <a href={ALIGN_CONSENT_COPY.privacyUrl} target="_blank" rel="noreferrer" className="text-[var(--env)] underline">EMBL-EBI privacy notice</a>
+                  {' · '}
+                  <a href={ALIGN_CONSENT_COPY.termsUrl} target="_blank" rel="noreferrer" className="text-[var(--env)] underline">Terms of use</a>
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 p-3 text-sm leading-relaxed text-slate-200">
+                  <input type="checkbox" required checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} className="mt-1 shrink-0 accent-[var(--env)]" />
+                  <span>{ALIGN_CONSENT_COPY.acknowledgement}</span>
+                </label>
+              </>
+            ) : active || failed || state.phase === 'done' ? <AlignmentJobMonitor state={state} now={now} /> : (
+              <>
+                {consent && <p className="text-xs text-slate-400">
+                  Sending to EMBL-EBI · agreed {new Date(consent.acceptedAt).toLocaleDateString()} · {' '}
+                  <button type="button" onClick={() => { setAcknowledged(true); setReviewConsent(true); }} className="text-[var(--env)] underline">Review</button>
+                </p>}
                 {commonIssues.length > 0 && <ul role="alert" className="space-y-1 text-xs text-rose-300">{commonIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
                 <EnginePicker {...props} />
                 {selected && !selected.ok && <ul className="space-y-1 text-xs text-rose-300">{selected.issues.filter(issue => !GLOBAL_ALIGNMENT_ISSUES.has(issue.code)).map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
@@ -129,14 +171,15 @@ const AlignRemoteModal: React.FC<AlignRemoteModalProps> = props => {
                   {email && props.verifiedEmail === email && !inlineError && <p className="mt-1 text-xs text-[var(--env)]">✓ Verified by EBI</p>}
                   <p id="align-email-help" className="mt-2 text-xs text-slate-500">EBI requires a contact email for each job. It is stored only in this browser.</p>
                 </div>
-                <p className="text-xs leading-relaxed text-slate-400">Your sequences are sent to EMBL-EBI's Job Dispatcher and processed under their <a href="https://www.ebi.ac.uk/about/terms-of-use/" target="_blank" rel="noreferrer" className="underline text-[var(--env)]">terms of use</a>.</p>
               </>
             )}
           </div>
           <footer className="flex justify-end gap-3 border-t border-slate-700/50 bg-slate-800/40 px-6 py-4">
+            {showConsent && consent && <button type="button" onClick={revokeConsent} className="mr-auto rounded-lg px-4 py-2 text-sm text-rose-300 hover:bg-slate-800">Revoke</button>}
             {active && <button type="button" onClick={props.onMinimize} className="mr-auto rounded-lg px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Minimize</button>}
             <button type="button" onClick={onCancel} className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">{failed || state.phase === 'done' ? 'Close' : 'Cancel'}</button>
-            {failed ? <button type="button" onClick={onRetry} className="rounded-lg border border-[var(--env)] px-4 py-2 text-sm text-[var(--env)]">{state.reason === 'input-invalid' ? 'Edit configuration' : 'Try again'}</button>
+            {showConsent ? <button type="submit" disabled={!acknowledged} className="rounded-lg bg-[var(--env)] px-5 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-30">Continue</button>
+              : failed ? <button type="button" onClick={onRetry} className="rounded-lg border border-[var(--env)] px-4 py-2 text-sm text-[var(--env)]">{state.reason === 'input-invalid' ? 'Edit configuration' : 'Try again'}</button>
               : !active && state.phase !== 'done' && <button type="submit" disabled={!canSubmit} className="rounded-lg bg-[var(--env)] px-5 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-30">Align</button>}
           </footer>
         </form>

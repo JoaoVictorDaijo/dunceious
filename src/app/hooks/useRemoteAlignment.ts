@@ -22,6 +22,7 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import { isProteinSession } from '@/src/domain/bio';
 import { ALIGNMENT_ENGINES, DEFAULT_ENGINE, preflightAlignment, measureAlignmentBytes, validateEmail, type EngineId } from '@/src/core/alignment';
 import { createEbiClient, type EbiClient } from '@/src/app/lib/ebiClient';
+import { readAlignConsent } from '@/src/app/logic/alignConsentPref';
 import { readAlignEmail, readVerifiedAlignEmail, writeAlignEmail } from '@/src/app/logic/alignEmailPref';
 import { isAlignmentActive, runRemoteAlignment, sleepUntilPoll, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 import type { FastaAlignedRecord } from '@/src/workers/protocol';
@@ -75,7 +76,7 @@ export function useRemoteAlignment(records: SeqRecord[], apply: (records: FastaA
   };
   const submit = async () => {
     const engine = ALIGNMENT_ENGINES.find(candidate => candidate.id === engineId);
-    if (!engine || activeJob.current || !verdicts[engine.id].ok || !validateEmail(email).ok) return;
+    if (!readAlignConsent() || !engine || activeJob.current || !verdicts[engine.id].ok || !validateEmail(email).ok) return;
     const snapshot = records.map(({ id, sequence, moleculeType }) => ({ id, sequence, moleculeType }));
     const job = { controller: new AbortController(), jobId: undefined as string | undefined };
     activeJob.current = job;
