@@ -21,7 +21,7 @@
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import DatabaseHubPanel from './components/DatabaseHubPanel';
+import AnnotationHubPanel from './components/AnnotationHubPanel';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
@@ -401,7 +401,7 @@ const App: React.FC = () => {
                   onRemoveRecord={handleRemoveRecord}
                 />
               ) : (
-                <DatabaseHubPanel
+                <AnnotationHubPanel
                   records={records}
                   flattenedFeatures={flattenedFeatures}
                   allFeaturesCount={allFeaturesCount}

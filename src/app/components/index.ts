@@ -23,8 +23,8 @@
  * @example
  * import { TopNav, Sidebar, StatusBar } from '@/src/app/components';
  */
-export { default as DatabaseHubPanel } from './DatabaseHubPanel';
-export type { FlatItem } from './DatabaseHubPanel';
+export { default as AnnotationHubPanel } from './AnnotationHubPanel';
+export type { FlatItem } from './AnnotationHubPanel';
 
 export { default as FeatureEditorModal } from './FeatureEditorModal';
 export type { EditingFeatureState } from './FeatureEditorModal';

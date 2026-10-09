@@ -29,7 +29,7 @@ export type FlatItem =
   | { type: 'track'; recordId: string; track: any }
   | { type: 'feature'; recordId: string; feature: BioFeature & { index: number } };
 
-export interface DatabaseHubPanelProps {
+export interface AnnotationHubPanelProps {
   records: SeqRecord[];
   flattenedFeatures: FlatItem[];
   allFeaturesCount: number;
@@ -53,10 +53,10 @@ export interface DatabaseHubPanelProps {
 }
 
 /**
- * The "Database Hub" panel shown when the features tab is active.
+ * The "Annotation Hub" panel shown when the features tab is active.
  * Renders a virtualised list of all records, their tracks, and annotations.
  */
-const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
+const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
   records,
   flattenedFeatures,
   allFeaturesCount,
@@ -286,7 +286,7 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
     <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
       <div className="flex justify-between items-end mb-6">
         <div>
-          <h2 className="text-2xl font-extrabold uppercase tracking-tighter text-slate-900">Database Hub</h2>
+          <h2 className="text-2xl font-extrabold uppercase tracking-tighter text-slate-900">Annotation Hub</h2>
           <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-[0.3em] mt-1">
             {records.length} Sequences • {allFeaturesCount} Annotations
           </p>
@@ -356,4 +356,4 @@ const DatabaseHubPanel: React.FC<DatabaseHubPanelProps> = ({
   );
 };
 
-export default DatabaseHubPanel;
+export default AnnotationHubPanel;

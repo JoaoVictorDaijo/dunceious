@@ -18,7 +18,7 @@
  */
 
 /**
- * Database Hub view-model over a real multi-record file (influenza A PR8, 8
+ * Annotation Hub view-model over a real multi-record file (influenza A PR8, 8
  * segments). The panel header reads "{records.length} Sequences • {allFeaturesCount}
  * Annotations" and its virtualised body is driven by buildFlattenedFeatures; the
  * existing unit tests exercise only synthetic single-record inputs, so this
@@ -43,7 +43,7 @@ function loadExample(file: string): string {
   }
 }
 
-describe('Database Hub aggregate — influenza-a-pr8-8segments.gb', () => {
+describe('Annotation Hub aggregate — influenza-a-pr8-8segments.gb', () => {
   const content = loadExample('influenza-a-pr8-8segments.gb');
   if (!content) {
     it.skip('fixture file not found', () => {});

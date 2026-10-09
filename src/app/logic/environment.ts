@@ -21,7 +21,7 @@ export type EnvAccentKey = 'nucleotide' | 'protein' | 'hub' | 'none';
 
 /**
  * The active environment accent. With no molecule there is no environment, so the
- * Database Hub does NOT go amber on an empty session — the null check runs first.
+ * Annotation Hub does NOT go amber on an empty session — the null check runs first.
  * In the Hub the accent reads `hub`; in the viewport it reads the molecule's own
  * environment. Colour values for each key live in the theme registry (theme.ts).
  */

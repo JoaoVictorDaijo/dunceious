@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
-import DatabaseHubPanel, { type DatabaseHubPanelProps } from '@/src/app/components/DatabaseHubPanel';
+import AnnotationHubPanel, { type AnnotationHubPanelProps } from '@/src/app/components/AnnotationHubPanel';
 import { buildFlattenedFeatures } from '@/src/app/logic/featureManager';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
@@ -40,7 +40,7 @@ const records: SeqRecord[] = [
 const allFeaturesCount = records.reduce((a, r) => a + r.features.length, 0); // 3
 
 const noop = () => {};
-function panelProps(): DatabaseHubPanelProps {
+function panelProps(): AnnotationHubPanelProps {
   return {
     records,
     flattenedFeatures: buildFlattenedFeatures(records, ''),
@@ -65,17 +65,17 @@ function panelProps(): DatabaseHubPanelProps {
   };
 }
 
-describe('DatabaseHubPanel', () => {
+describe('AnnotationHubPanel', () => {
   beforeEach(() => { stubResizeObserver(); });
 
   it('renders the header as "{n} Sequences • {m} Annotations"', () => {
-    render(<DatabaseHubPanel {...panelProps()} />);
+    render(<AnnotationHubPanel {...panelProps()} />);
     // Regex tolerates testing-library's whitespace normalization across the interpolated text nodes.
     expect(screen.getByText(/2\s+Sequences\s+•\s+3\s+Annotations/)).toBeTruthy();
   });
 
   it('renders a CIRCULAR badge for a circular record', () => {
-    render(<DatabaseHubPanel {...panelProps()} />);
+    render(<AnnotationHubPanel {...panelProps()} />);
     expect(screen.getByText('CIRCULAR')).toBeTruthy();
   });
 });

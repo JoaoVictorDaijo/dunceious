@@ -130,7 +130,7 @@ const TopNav: React.FC<TopNavProps> = ({
         <button
           onClick={() => onTabChange('features')}
           aria-pressed={activeTab === 'features'}
-          title="Database Hub — manage records & data"
+          title="Annotation Hub — manage records & data"
           className={`group flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${activeTab === 'features' ? 'bg-amber-500 shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
           <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all ${activeTab === 'features' ? 'bg-slate-950/15 text-slate-900' : 'bg-slate-800 text-slate-500 group-hover:text-slate-300'}`}>
@@ -138,7 +138,7 @@ const TopNav: React.FC<TopNavProps> = ({
           </span>
           <span className="flex flex-col items-start leading-none">
             <span className={`text-[8px] font-semibold uppercase tracking-[0.28em] ${activeTab === 'features' ? 'text-amber-950' : 'text-slate-400'}`}>Manage</span>
-            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Database Hub</span>
+            <span className={`text-[10px] font-semibold uppercase tracking-tight mt-0.5 ${activeTab === 'features' ? 'text-slate-950' : 'text-slate-400 group-hover:text-slate-200'}`}>Annotation Hub</span>
           </span>
         </button>
       </div>
