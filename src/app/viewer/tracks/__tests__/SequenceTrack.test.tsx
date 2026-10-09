@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import * as d3 from 'd3';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
+import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
 import { parseFasta } from '@/src/core/formats/fasta';
 import { Minimap } from '@/src/app/viewer/Minimap';
@@ -89,11 +89,13 @@ describe('Sequence rendering with RNA and protein', () => {
   });
 
   it('uses the same U/T colour in the minimap preview', () => {
+    stubResizeObserver();
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300);
     const [record] = parseFasta('>rna\nTuUt');
-    render(<Minimap records={[record]} consensus={record.sequence} alignmentLength={4}
+    const legacyScrollProps = { horizontalScrollRef: { current: null } };
+    render(<Minimap {...legacyScrollProps} records={[record]} consensus={record.sequence} alignmentLength={4}
       containerWidth={300} viewportWidth={100} scrollX={0} zoomLevel={20} fitZoom={20}
-      searchResults={[]} currentSearchIdx={-1} horizontalScrollRef={{ current: null }} onZoomChange={() => {}} />);
+      searchResults={[]} currentSearchIdx={-1} onZoomChange={() => {}} />);
     // The preview samples positions 0 (T) and 2 (U).
     expect(recorder.fillColors().filter(color => color === '#f43f5e')).toHaveLength(2);
   });
