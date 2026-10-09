@@ -256,7 +256,6 @@ const App: React.FC = () => {
   return (
     <div
       className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
-      data-theme={themeKey}
       data-env={envAccent}
       style={themeStyle}
     >
@@ -434,7 +433,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <StatusBar sessionMoleculeType={sessionMoleculeType} />
+      <StatusBar sessionMoleculeType={sessionMoleculeType} themeKey={themeKey} />
 
       <TooltipLayer />
 

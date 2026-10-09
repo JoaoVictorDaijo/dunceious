@@ -32,6 +32,10 @@ export default {
         sans: ['"Inter Variable"', ...defaultTheme.fontFamily.sans],
         mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
       },
+      colors: {
+        // The environment accent set by the active theme (see src/app/logic/theme.ts).
+        env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
+      },
       letterSpacing: {
         tightest: '-0.05em',
       },

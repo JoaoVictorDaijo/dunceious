@@ -45,10 +45,12 @@ function stubWindow(storage: ReturnType<typeof makeStorage>) {
 }
 
 describe('theme registry', () => {
-  it('ships exactly the seven shortlisted keys, clean first', () => {
-    expect(THEME_KEYS).toEqual([
-      'clean', 'layered-light', 'aurora', 'conic', 'light-shaft', 'duotone-drift', 'mesh-grain',
-    ]);
+  it('ships exactly the four kept keys, clean first', () => {
+    expect(THEME_KEYS).toEqual(['clean', 'layered-light', 'aurora', 'mesh-grain']);
+  });
+
+  it('every theme describes itself for the picker', () => {
+    for (const t of THEMES) expect(t.description.length).toBeGreaterThan(0);
   });
 
   it('default is clean and present in the registry', () => {
@@ -110,12 +112,12 @@ describe('theme persistence', () => {
   });
 
   it('reads the default when the stored key is unknown/stale', () => {
-    stubWindow(makeStorage({ [KEY]: 'removed-theme' }));
+    stubWindow(makeStorage({ [KEY]: 'conic' }));
     expect(readThemePref()).toBe('clean');
   });
 
   it('is a no-op without a window (SSR/non-DOM)', () => {
-    expect(() => writeThemePref('conic')).not.toThrow();
+    expect(() => writeThemePref('mesh-grain')).not.toThrow();
     expect(readThemePref()).toBe('clean');
   });
 
