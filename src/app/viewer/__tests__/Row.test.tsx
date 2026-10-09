@@ -36,6 +36,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     showAnnotations: true,
     showTranslation: false,
     showTracks: false,
+    basesVisible: (overrides.zoomLevel ?? ZOOM) > 12,
   });
   const base: RowData = {
     recordLayouts: [layout],
@@ -237,6 +238,18 @@ describe('thin annotation bars', () => {
     const [first, last] = d(container);
     expect(first).not.toMatch(/L/);
     expect(last).toMatch(/L480,/);
+  });
+
+  it('opens an opted-in bar only at a legible zoom, with its bases inside the bar', () => {
+    const opted: BioFeature = { type: 'gene', name: 'o', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } };
+    const closed = renderRow(rec([opted]), { zoomLevel: 8 });
+    expect(closed.container.querySelectorAll('[data-annotation-base]')).toHaveLength(0);
+    expect(d(closed.container)[0]).toMatch(/L32,7L/); // tip at mid-height of the 14 px thin bar
+    closed.unmount();
+
+    const open = renderRow(rec([opted]), { zoomLevel: 30 });
+    expect(open.container.querySelectorAll('[data-annotation-base]')).toHaveLength(4);
+    expect(d(open.container)[0]).toMatch(/L120,14L/); // tip mid-height of the 28 px open bar
   });
 });
 

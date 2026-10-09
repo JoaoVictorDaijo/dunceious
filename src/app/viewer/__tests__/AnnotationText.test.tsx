@@ -26,7 +26,7 @@ import type { BioFeature } from '@/src/domain/bio/types';
 // Bases are opt-in per annotation; these tests exercise drawing them, so switch them on.
 const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1, metadata: { _showBases: '1' } };
 function show(overrides: Partial<Parameters<typeof AnnotationText>[0]> = {}) {
-  return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} {...overrides} /></svg>);
+  return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} expanded {...overrides} /></svg>);
 }
 const bases = (container: HTMLElement) => [...container.querySelectorAll('[data-annotation-base]')].map(t => t.textContent).join('');
 
@@ -40,8 +40,8 @@ describe('annotation bases at genomic screen coordinates', () => {
     expect(container.querySelector('[data-annotation-direction]')).toBeNull();
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
   });
-  it('hides the bases unless the annotation opted in', () => {
-    const { container } = show({ feature: { ...feature, metadata: {} } });
+  it('draws no bases while the bar is closed', () => {
+    const { container } = show({ expanded: false });
     expect(container.querySelector('[data-annotation-name]')?.textContent).toBe('Synthetic primer');
     expect(bases(container)).toBe('');
   });
@@ -76,11 +76,6 @@ describe('annotation bases at genomic screen coordinates', () => {
     const { container } = show({ feature: { ...feature, strand: -1 }, moleculeType: 'protein', sequence: 'MKWVTA' });
     expect(bases(container)).toBe('MKWVTA');
     expect(container.textContent).not.toMatch(/[35]′|Forward|Reverse/);
-  });
-  it('keeps name/direction but hides unreadable bases at low zoom', () => {
-    const { container } = show({ end: 50, zoom: 6 });
-    expect(bases(container)).toBe('');
-    expect(container.textContent).toContain('Synthetic primer');
   });
   it('clips long names without extending outside a short feature', () => {
     const { container } = show({ zoom: 8 });

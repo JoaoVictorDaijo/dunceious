@@ -23,10 +23,10 @@ import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationBarPath, annotationDirection } from './annotationPresentation';
+import { annotationBarPath, annotationDirection, showsAnnotationBases } from './annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { computeBrokenFeatureMap } from './cds';
-import { ANNOT_BAR_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
+import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_BASES_MIN_ZOOM, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -252,7 +252,15 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 if (!part1Visible && !part2Visible) return null;
               }
 
-              const y = l.laneTops[p.row] + l.topPadding;
+              // Each feature sits in a <g> placed by transform so lane moves animate
+              // (see .annot-feature); everything inside draws from y = 0.
+              const laneY = l.laneTops[p.row] + l.topPadding;
+              const y = 0;
+              const expanded = showsAnnotationBases(f) && zoomLevel > ANNOT_BASES_MIN_ZOOM;
+              const barHeight = ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
+              const place = (node: React.ReactNode) => (
+                <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
+              );
               const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
@@ -277,6 +285,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
                 const fill = f.color || getFeatureColor(f.type, customColors);
                 const partStrand = strand ?? getFeatureStrand(f);
+                const barPath = annotationBarPath(fX, y, Math.max(1, fW), barHeight, partStrand, pointed);
 
                 return (
                   <React.Fragment key={`${i}-${keySuffix}`}>
@@ -284,13 +293,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       data-annotation-part=""
                       data-x={fX}
                       data-width={Math.max(1, fW)}
-                      d={annotationBarPath(fX, y, Math.max(1, fW), ANNOT_BAR_HEIGHT, partStrand, pointed)}
+                      className="annot-bar"
+                      d={barPath}
                       fill={fill} fillOpacity={isSelected ? 0.45 : 0.3}
                       strokeLinejoin="round"
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
+                      style={{ cursor: 'pointer', d: `path("${barPath}")` } as React.CSSProperties} opacity={isSelected ? 1 : 0.85}
                       onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent })}
                       onMouseOut={() => setTooltip(null)}
                       onClick={(ev) => {
@@ -308,7 +318,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       }}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
-                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel}
+                      start={s} end={e} strand={strand} y={y} zoom={zoomLevel} expanded={expanded}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
                 );
@@ -368,8 +378,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                return (
-                  <React.Fragment key={i}>
+                return place(
+                  <>
                     {connectingLines}
                     {f.segments.map((seg: FeatureSegment, idx: number) => {
                       // Only the piece where the feature ends (its 3′ side) gets the arrow head.
@@ -379,19 +389,19 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                         : seg.end === Math.max(...f.segments!.map(x => x.end));
                       return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal);
                     })}
-                  </React.Fragment>
+                  </>
                 );
               }
 
               if (isWrap) {
-                return (
-                  <React.Fragment key={i}>
+                return place(
+                  <>
                     {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
                     {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
-                  </React.Fragment>
+                  </>
                 );
               }
-              return renderPart(f.start, f.end, 'p1');
+              return place(renderPart(f.start, f.end, 'p1'));
             })}
 
           </svg>

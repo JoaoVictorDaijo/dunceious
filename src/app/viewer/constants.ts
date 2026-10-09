@@ -29,4 +29,6 @@ export const ANNOT_BAR_HEIGHT = 14;
 export const ANNOT_BASES_HEIGHT = 14;
 /** Vertical gap between annotation lanes. */
 export const ANNOT_LANE_GAP = 4;
+/** Zoom (px per base) above which an opted-in annotation opens to show its bases. */
+export const ANNOT_BASES_MIN_ZOOM = 12;
 export const RULER_HEIGHT = 25;

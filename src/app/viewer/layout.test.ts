@@ -55,12 +55,13 @@ describe('computeRecordLayouts', () => {
     expect(l.laneTops).toEqual([0, LANE]);
   });
 
-  it('grows only the lane holding a feature whose bases are switched on', () => {
+  it('grows only the lane holding a feature whose bases are switched on, and only while legible', () => {
     const r = rec({ id: 'r', sequence: 'A'.repeat(100), features: [
       { type: 'gene', name: 'a', start: 0, end: 10, strand: 1, metadata: { _showBases: '1' } },
       { type: 'gene', name: 'b', start: 5, end: 25, strand: 1 },
     ] });
-    const [l] = computeRecordLayouts([r], ALL);
+    expect(computeRecordLayouts([r], ALL)[0].laneHeights).toEqual([ANNOT_BAR_HEIGHT, ANNOT_BAR_HEIGHT]);
+    const [l] = computeRecordLayouts([r], { ...ALL, basesVisible: true });
     expect(l.laneHeights).toEqual([ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT, ANNOT_BAR_HEIGHT]);
     expect(l.laneTops).toEqual([0, ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT + ANNOT_LANE_GAP]);
     expect(l.annotHeight).toBe(2 * LANE + ANNOT_BASES_HEIGHT);

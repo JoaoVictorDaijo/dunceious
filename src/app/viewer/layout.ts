@@ -58,6 +58,8 @@ export interface RecordLayout {
 
 export interface LayoutOptions {
   showAnnotations: boolean;
+  /** Bases are legible at this zoom: opted-in annotations open to show them. */
+  basesVisible?: boolean;
   showTranslation: boolean;
   showTracks: boolean;
 }
@@ -73,7 +75,7 @@ export interface LayoutOptions {
  * Pure: no React, no DOM — unit-tested in node.
  */
 export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions): RecordLayout[] {
-  const { showAnnotations, showTranslation, showTracks } = opts;
+  const { showAnnotations, showTranslation, showTracks, basesVisible = false } = opts;
   return records.map(record => {
       // 1. Feature Packing (Annotations)
       const rows: { start: number, end: number }[][] = [];
@@ -111,9 +113,9 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
       });
 
       const featRowsCount = showAnnotations ? rows.length : 0;
-      // Lanes stay one thin bar tall; only a lane holding a feature with its bases
-      // switched on grows, so one opted-in annotation does not inflate the rest.
-      const laneHeights = laneHasBases.map(b => ANNOT_BAR_HEIGHT + (b ? ANNOT_BASES_HEIGHT : 0));
+      // Lanes stay one thin bar tall; a lane grows only while its opted-in
+      // annotation actually shows bases (legible zoom), so no gap opens elsewhere.
+      const laneHeights = laneHasBases.map(b => ANNOT_BAR_HEIGHT + (b && basesVisible ? ANNOT_BASES_HEIGHT : 0));
       const laneTops: number[] = [];
       let laneCursor = 0;
       for (const h of laneHeights) {

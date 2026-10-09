@@ -23,6 +23,7 @@ import { VariableSizeList } from 'react-window';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { RULER_HEIGHT, SIDEBAR_WIDTH } from './constants';
 import { computeRecordLayouts } from './layout';
+import { ANNOT_BASES_MIN_ZOOM } from './constants';
 import { Ruler } from './Ruler';
 import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
@@ -203,9 +204,11 @@ const GenomeViewer: React.FC<Props> = ({
   const OVERVIEW_HEIGHT = 65;
   const SCROLLBAR_HEIGHT = 16;
 
+  // A boolean, so the layout recomputes only when zoom crosses the threshold.
+  const basesVisible = zoomLevel > ANNOT_BASES_MIN_ZOOM;
   const recordLayouts = useMemo(
-    () => computeRecordLayouts(records, { showAnnotations, showTranslation, showTracks }),
-    [records, showAnnotations, showTranslation, showTracks],
+    () => computeRecordLayouts(records, { showAnnotations, showTranslation, showTracks, basesVisible }),
+    [records, showAnnotations, showTranslation, showTracks, basesVisible],
   );
 
   useEffect(() => {
