@@ -383,7 +383,7 @@ const App: React.FC = () => {
           onSetJumpTo={setJumpTo}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
-          onAlignRemote={remoteAlignment.open}
+          onAlignRemote={remoteAlignment.open} remoteAlignmentState={remoteAlignment.state}
           isAlignmentLocked={remoteAlignment.isAlignmentLocked}
           onAnnotationUpload={handleAnnotationUpload}
           onProjectUpload={handleProjectUpload}

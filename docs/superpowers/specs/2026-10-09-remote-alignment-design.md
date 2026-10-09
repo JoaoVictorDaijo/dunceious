@@ -178,16 +178,18 @@ idle
 
 ### Trigger
 
-A new card in the Sidebar's Ingestion section directly under
-`Upload Pre-aligned FASTA`, same card style, enabled whenever records are
-loaded (preflight explains blocks inside the dialog); while a job runs it
-reads "Alignment running" and reopens the monitor:
+A dedicated **Alignment** section in the Sidebar, directly above **Sequence
+Search**, uses the shared `SectionTitle` with `fa-wand-magic-sparkles`. A
+primary control uses the environment accent (`var(--env)`) and the current
+slate chrome, as a natural sibling of the other sections. It is enabled
+whenever records are loaded (preflight explains blocks inside the dialog).
 
-- icon `fa-wand-magic-sparkles` (or the closest existing FA 6 free icon);
-- title `Align Sequences`;
-- subtitle `MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI`;
-- `data-tip`: "Send the loaded sequences to EMBL-EBI for alignment, then
-  overlay the result".
+- control label `Align Sequences`;
+- one-line subtitle `MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI`;
+- while a job runs, the control reads `Alignment running` and reopens the
+  monitor; a compact live summary shows engine, current step, and elapsed time;
+- `data-tip`: "Send the loaded sequences to EMBL-EBI's servers for alignment,
+  then overlay the result"; while locked, "Locked while the EBI alignment runs".
 
 ### Dialog (`AlignRemoteModal`)
 

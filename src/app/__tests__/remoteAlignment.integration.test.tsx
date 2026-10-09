@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, stubResizeObserver, installCanvasRecorder } from '@/src/app/testing/renderHarness';
+import { act, fireEvent, render, screen, within, waitFor, stubResizeObserver, installCanvasRecorder } from '@/src/app/testing/renderHarness';
 import type { SidebarProps } from '@/src/app/components/Sidebar';
 import type { AnnotationHubPanelProps } from '@/src/app/components/AnnotationHubPanel';
 import type { EbiClient, EbiResponse } from '@/src/app/lib/ebiClient';
@@ -103,7 +103,9 @@ describe('remote alignment application integration', () => {
     expect(captured.sidebar!.records).toHaveLength(2);
     expect((screen.getByRole('button', { name: /Clear All/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByRole('button', { name: /^Remove / }).every(button => (button as HTMLButtonElement).disabled)).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: /Alignment running/ }));
+    const alignmentSection = screen.getByRole('region', { name: 'Alignment' });
+    expect(within(alignmentSection).getByRole('status').textContent).toBe('MAFFT · Checking job status');
+    fireEvent.click(within(alignmentSection).getByRole('button', { name: 'Alignment running' }));
     expect(screen.getByRole('dialog')).toBeTruthy(); expect(captured.client!.submit).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
@@ -163,4 +165,16 @@ it('reopens consent after revocation without sending a request', async () => {
   expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
   expect((screen.getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true);
   expect(captured.client!.submit).not.toHaveBeenCalled();
+});
+
+it('places a dedicated Alignment section immediately above Sequence Search, outside Ingestion', async () => {
+  await loadApp();
+  const alignment = screen.getByRole('region', { name: 'Alignment' });
+  const search = screen.getByRole('heading', { name: 'Sequence Search' }).closest('section');
+  const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
+  expect(search?.previousElementSibling).toBe(alignment);
+  expect(within(alignment).getByRole('heading', { name: 'Alignment' })).toBeTruthy();
+  expect(within(alignment).getByRole('button', { name: 'Align Sequences' })).toBeTruthy();
+  expect(within(ingestion).queryByRole('button', { name: 'Align Sequences' })).toBeNull();
+  expect(screen.getAllByRole('button', { name: 'Align Sequences' })).toHaveLength(1);
 });

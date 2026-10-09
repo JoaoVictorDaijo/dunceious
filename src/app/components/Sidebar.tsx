@@ -17,12 +17,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
+import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 import SectionTitle from './SectionTitle';
+import AlignmentSection from './AlignmentSection';
 
 export interface SidebarProps {
   open: boolean;
@@ -37,6 +38,7 @@ export interface SidebarProps {
   onAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAlignRemote?: () => void;
   isAlignmentLocked?: boolean;
+  remoteAlignmentState?: RemoteAlignmentState;
   onAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onExportSelection: () => void;
@@ -88,6 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAlignmentUpload,
   onAlignRemote,
   isAlignmentLocked,
+  remoteAlignmentState,
   onAnnotationUpload,
   onProjectUpload,
   onExportSelection,
@@ -341,14 +344,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">IDs must match active records</p>
         </div>
 
-        <button type="button" onClick={onAlignRemote} disabled={records.length === 0}
-          data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Send the loaded sequences to EMBL-EBI's servers for alignment, then overlay the result"}
-          className="mt-4 w-full rounded-3xl border-2 border-dashed border-slate-800 bg-slate-900/40 p-6 text-center group motion-safe:transition-colors enabled:hover:border-[var(--env)] disabled:opacity-30 disabled:cursor-not-allowed">
-          <i aria-hidden="true" className="fas fa-wand-magic-sparkles mb-3 block text-3xl text-slate-700 group-enabled:group-hover:text-[var(--env)]" />
-          <p className="text-[9px] font-bold uppercase tracking-tight text-slate-400">{isAlignmentLocked ? 'Alignment running' : 'Align Sequences'}</p>
-          <p className="mt-1 text-[8px] font-medium text-slate-500">MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI</p>
-        </button>
-
         <div data-tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" className={`bg-slate-900/40 rounded-3xl p-6 border-2 border-slate-800 border-dashed hover:border-sky-500/50 transition-all relative cursor-pointer text-center group mt-4 ${records.length === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
           <input type="file" multiple accept=".bed,.gff,.gff3,.bedgraph" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onAnnotationUpload} />
           <i className="fas fa-tags text-slate-700 group-hover:text-sky-500 mb-3 block text-3xl transition-colors"></i>
@@ -363,6 +358,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-[8px] font-bold text-slate-500 uppercase mt-1">Restore entire workspace</p>
         </div>
       </section>
+
+      <AlignmentSection count={records.length} state={remoteAlignmentState} onOpen={onAlignRemote} />
 
       {/* Search panel */}
       <SearchPanel
