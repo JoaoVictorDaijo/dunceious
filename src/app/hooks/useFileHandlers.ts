@@ -126,6 +126,7 @@ export function useFileHandlers(
   viewportState: { showAnnotations: boolean; showTranslation: boolean; showConservation: boolean },
   setters: ProjectSetters,
   addLog: (msg: string) => void,
+  isAlignmentLocked: () => boolean = () => false,
 ): UseFileHandlersReturn {
   const {
     setRecords,
@@ -162,12 +163,14 @@ export function useFileHandlers(
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0) return;
     setIsProcessing(true);
     addLog(`Ingesting batch: ${files.length} file(s).`);
     files.forEach(file =>
       dispatchFile(file, content => {
+        if (isAlignmentLocked()) { setIsProcessing(false); return null; }
         const isFasta = content.trimStart().startsWith('>');
         if (records.length > 0) {
           const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
@@ -187,11 +190,13 @@ export function useFileHandlers(
   };
 
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
     const [file] = takeFiles(e.target);
     if (!file || records.length === 0) return;
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
     dispatchFile(file, content => {
+      if (isAlignmentLocked()) { setIsProcessing(false); return null; }
       const incoming = sniffFastaCategory(content);
       const loaded = getLoadedCategory(records);
       if (incoming !== loaded) {
@@ -221,12 +226,14 @@ export function useFileHandlers(
   };
 
   const handleProjectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
     const [file] = takeFiles(e.target);
     if (!file) return;
     setIsProcessing(true);
     addLog(`Loading project: ${file.name}`);
     readFileAsText(file)
       .then(text => {
+        if (isAlignmentLocked()) { setIsProcessing(false); return; }
         try {
           const project = JSON.parse(text) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
           if (project.records)

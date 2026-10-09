@@ -26,6 +26,9 @@ import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
+import AlignRemoteModal from './components/AlignRemoteModal';
+import AlignmentJobPill from './components/AlignmentJobPill';
+import { useRemoteAlignment } from './hooks/useRemoteAlignment';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { resolveEnvAccent } from './logic/environment';
@@ -103,7 +106,10 @@ const App: React.FC = () => {
     isProcessing,
     setIsProcessing,
     bioWorkerRef,
+    applyAlignmentOverlay,
   } = useBioWorker(addLog);
+
+  const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
 
   const {
     editing,
@@ -180,6 +186,7 @@ const App: React.FC = () => {
       setIsProcessing,
     },
     addLog,
+    remoteAlignment.isLocked,
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -214,6 +221,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveRecord = (recordId: string) => {
+    if (remoteAlignment.isLocked()) return;
     const record = records.find(r => r.id === recordId);
     if (!record) return;
 
@@ -262,6 +270,7 @@ const App: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    if (remoteAlignment.isLocked()) return;
     if (records.length === 0) return;
     // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
     const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
@@ -277,7 +286,7 @@ const App: React.FC = () => {
       data-env={envAccent}
       style={themeStyle}
     >
-      <ProcessingOverlay isProcessing={isProcessing} />
+      <ProcessingOverlay isProcessing={isProcessing && !remoteAlignment.isAlignmentLocked} />
 
       {viewingRecordDetails && (
         <RecordDetailsModal
@@ -314,6 +323,28 @@ const App: React.FC = () => {
           onClose={closeMismatchModal}
         />
       )}
+
+      {remoteAlignment.presentation === 'dialog' && (
+        <AlignRemoteModal
+          state={remoteAlignment.state}
+          count={records.length}
+          bytes={remoteAlignment.bytes}
+          moleculeKind={remoteAlignment.moleculeKind}
+          hasAlignment={records.some(record => !!record.alignedSequence)}
+          engineId={remoteAlignment.engineId}
+          email={remoteAlignment.email}
+          verifiedEmail={remoteAlignment.verifiedEmail}
+          verdicts={remoteAlignment.verdicts}
+          onMinimize={remoteAlignment.minimize}
+          onEngineChange={remoteAlignment.setEngineId}
+          onEmailChange={remoteAlignment.setEmail}
+          onSubmit={() => { void remoteAlignment.submit(); }}
+          onCancel={remoteAlignment.cancel}
+          onRetry={remoteAlignment.retry}
+        />
+      )}
+
+      {remoteAlignment.presentation === 'pill' && <AlignmentJobPill state={remoteAlignment.state} onOpen={remoteAlignment.open} />}
 
       <TopNav
         sidebarOpen={sidebarOpen}
@@ -353,6 +384,8 @@ const App: React.FC = () => {
           onSetJumpTo={setJumpTo}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
+          onAlignRemote={remoteAlignment.open} remoteAlignmentState={remoteAlignment.state}
+          isAlignmentLocked={remoteAlignment.isAlignmentLocked}
           onAnnotationUpload={handleAnnotationUpload}
           onProjectUpload={handleProjectUpload}
           onExportSelection={exportSelection}
@@ -425,6 +458,7 @@ const App: React.FC = () => {
                     onJumpComplete={() => setJumpTo(null)}
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                   />
                 ) : (
@@ -438,6 +472,7 @@ const App: React.FC = () => {
                     activeSelection={activeSelection}
                     onStartNewFeature={startNewFeature}
                     onToggleRecordVisibility={toggleRecordVisibility}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}
                     onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}

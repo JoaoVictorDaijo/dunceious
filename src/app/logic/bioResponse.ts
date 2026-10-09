@@ -161,3 +161,23 @@ export function applyFastaResponse(
   });
   return { next, kind: 'overlay', length: alignedData[0]?.sequence.length ?? 0 };
 }
+
+export function applyFastaAndLog(
+  records: SeqRecord[], alignedData: FastaAlignedRecord[], asAlignment: boolean | undefined, addLog: (message: string) => void,
+): ReturnType<typeof applyFastaResponse> {
+  const result = applyFastaResponse(records, alignedData, asAlignment);
+  switch (result.kind) {
+    case 'batch': addLog(`Batch ingestion complete: ${result.count} records added.`); break;
+    case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
+    case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
+    case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
+    case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
+    default: {
+      // Exhaustiveness guard: a new `kind` without a case is a compile error, and
+      // an unhandled kind still logs instead of dropping silently.
+      const _exhaustive: never = result;
+      addLog(`ERROR: Unhandled FASTA response kind: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+  return result;
+}
