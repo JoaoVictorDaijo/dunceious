@@ -535,21 +535,24 @@ The first time the dialog opens in a browser it shows a consent step
 - Accessibility: the step is the dialog's content (same focus trap); the
   checkbox has a proper `<label>`; the links are reachable by keyboard.
 
-### Persistence: once per browser, versioned, revocable
+### Persistence: this page load only, revocable
 
-- `src/app/logic/alignConsentPref.ts`, wrapped like `theme.ts`:
-  `readAlignConsent(): { acceptedAt: string } | null`,
-  `writeAlignConsent(now)`, `clearAlignConsent()`. Key
-  `dunceious.alignConsent`, value `{ version, acceptedAt }`.
-- `ALIGN_CONSENT_VERSION` (start at `1`) lives next to the consent copy.
-  A stored record with another version counts as **no consent**, so editing
-  the disclosure text means bumping the version and re-asking everyone.
-- Storage blocked or throwing → consent is held in memory for the session
-  only (the step reappears next visit); never crash.
+Owner's decision (supersedes the earlier "once per browser" choice): consent
+must be asked again after every refresh, every closed-and-reopened page and in
+every new tab, while staying valid for the rest of the current page load.
+
+- `src/app/logic/alignConsentPref.ts` keeps the agreement in **module memory
+  only**: `readAlignConsent()`, `writeAlignConsent(now)`, `clearAlignConsent()`.
+  `sessionStorage` is deliberately not used because it survives a refresh.
+- On load the module deletes the `dunceious.alignConsent` localStorage record
+  written by the earlier version, so it is neither honoured nor left behind
+  (best-effort; blocked storage never throws).
+- No disclosure version is needed: every page load asks again with the current
+  text.
 - After consent, the configuring view starts with one quiet line:
-  "Sending to EMBL-EBI · agreed {date} · **Review**" where Review reopens the
-  consent step showing the current state, with a **Revoke** action that
-  clears the record and keeps the dialog on the consent step.
+  "Sending to EMBL-EBI · agreed until you leave or reload this page ·
+  **Review**", where Review reopens the consent step with a **Revoke** action
+  that clears the agreement and keeps the dialog on the consent step.
 - This replaces the earlier one-line privacy/attribution paragraph under the
   email field.
 
@@ -563,8 +566,9 @@ The first time the dialog opens in a browser it shows a consent step
 
 ### Tests
 
-- `alignConsentPref`: none stored → null; current version → record; other
-  version → null; write/clear round-trip; blocked storage → in-memory, no throw.
+- `alignConsentPref`: starts without consent; write/clear within a page load;
+  nothing written to storage and a fresh module load starts without consent;
+  a legacy persisted record is ignored and deleted; blocked storage never throws.
 - `AlignRemoteModal`: first open shows the consent step with both links and
   `Continue` disabled; checking enables it; Continue shows the engine picker;
   with stored consent the picker shows directly with the "agreed" line;
