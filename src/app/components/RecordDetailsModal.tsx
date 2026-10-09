@@ -20,7 +20,8 @@
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
-import { getDisplaySeq } from '@/src/app/logic/viewModel';
+import { featureLength, getDisplaySeq } from '@/src/app/logic/viewModel';
+import { transposeInterval } from '@/src/domain/bio/coordinate';
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
@@ -59,7 +60,10 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
     if (!feature) return;
     const focusStart = feature.segments && feature.segments.length > 0 ? feature.segments[0].start : feature.start;
     const focusEnd = feature.segments && feature.segments.length > 0 ? feature.segments[0].end : feature.end;
-    onFocusFeature(record.id, focusStart, focusEnd);
+    const { start, end } = record.alignedSequence
+      ? transposeInterval(focusStart, focusEnd, record.alignedSequence)
+      : { start: focusStart, end: focusEnd };
+    onFocusFeature(record.id, start, end);
     onClose();
     onCopyLog(`Focusing on ${feature.name}`);
   };
@@ -121,7 +125,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="space-y-1">
                 <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {(feature.end - feature.start).toLocaleString()} bp
+                  {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
                 </p>
               </div>
               {onSetShowBases && (

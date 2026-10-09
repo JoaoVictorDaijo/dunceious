@@ -49,6 +49,8 @@ While a job runs, anything that would change the loaded records (uploading, load
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
 
+Annotations stay whole across alignment gaps: a gap inside a sequence never cuts an annotation into pieces, and the translation of a coding feature is unchanged. Only features that really have several parts (such as `join(...)`) are drawn as separate bars joined by a connector.
+
 ## 2. Navigation & Interaction
 
 ### 2.1 Viewport Controls
@@ -143,7 +145,7 @@ Results are highlighted in the viewer and listed in the sidebar. Use the **↑ /
 - **Performance**: If the browser becomes sluggish with very large alignments, try reducing the number of visible tracks or annotations.
 - **Upload Errors**: Check the **Logs** panel for detailed error messages. Common causes include sequence ID mismatches (alignment overlay), sequence length mismatches (alignment overlay), and molecule-type conflicts (loading protein sequences into a nucleotide session or vice versa).
 - **Remote alignment errors**: EMBL-EBI's own message is shown in the dialog. Common causes: an email whose domain EMBL-EBI cannot verify (use a real address), more sequences or more data than the chosen algorithm accepts (pick another, or reduce the set), or EMBL-EBI being unreachable (try again). A long queue is normal; the monitor keeps waiting.
-- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed.
+- **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed. A pre-aligned FASTA exported from the same workspace re-imports correctly even when its IDs contain those suffixes.
 
 ## 6. License
 

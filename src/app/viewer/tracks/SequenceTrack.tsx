@@ -197,7 +197,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
 
-        const frame = translationFrame(f);
+        const frame = translationFrame(f, seq);
         const aaY = f.strand === 1
           ? y - AA_ROW_HEIGHT * (3 - frame)
           : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * frame;

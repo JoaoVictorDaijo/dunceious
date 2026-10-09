@@ -126,13 +126,19 @@ All messages are typed as discriminated unions:
 - **GenBank Parser**: Delegates to `src/core/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
 - **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
   - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/logic/idHelpers.ts`).
-  - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every ID in the file must match an existing workspace record exactly, and all sequences must have equal length; any mismatch is rejected with an error log entry. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
+  - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every record in the file must match an existing workspace record, and all sequences must have equal length; any mismatch is rejected with an error log entry. A record matches by the longest leading run of its FASTA header that is a workspace ID, so exported IDs containing spaces (`seq1 (1)`) round-trip and a trailing description (`>seq1 reference strain`) is ignored; `parseFasta` keeps the full header for this (`FastaRecord.header`), and `applyFastaResponse` resolves it. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
 - **Remote alignment** produces the same input as the overlay above, but computed by EMBL-EBI; see *Remote alignment (EMBL-EBI)* below.
 - **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
 - **GFF3 Parser**: Merges GFF3 features into existing records, matching by sequence ID.
 - **Annotation Import**: Merges external annotation files (GFF/BED) into existing records.
 - **Transposition**: Delegates to `src/domain/bio/coordinate.ts → processTransposition`.
+  Source records retain ungapped biological coordinates. Display copies keep one
+  continuous aligned segment per original part, spanning internal gaps but excluding
+  flanking gaps; circular origin crossings split into two parts. Search highlighting
+  still uses non-gap pieces. CDS extraction skips gap columns while preserving their
+  aligned indices, and translation frames count biological bases. Details and exports
+  use source features; focus actions map their coordinates into the alignment.
 
 ### Remote alignment (EMBL-EBI)
 

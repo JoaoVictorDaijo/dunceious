@@ -106,7 +106,8 @@ export const translateSequence = (seq: string, translTable = 1): string => {
 
 /**
  * Extracts the coding sequence for a feature from the full genome sequence,
- * respecting multi-part (join) and circular wrap-around locations.
+ * respecting multi-part (join) and circular wrap-around locations. Gap columns
+ * are omitted from both outputs so aligned annotation spans do not alter codons.
  *
  * For reverse-strand features the nucleotide string is reverse-complemented
  * and `alignedIndices` is reversed so that codon position `i` maps to the
@@ -118,7 +119,7 @@ export const translateSequence = (seq: string, translTable = 1): string => {
  * Absent or invalid values default to frame 1 (no offset).
  *
  * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
- * @param seq      The raw genome sequence (no gap characters expected, but '-' is tolerated).
+ * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
  * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
  */
 export function extractCodingSequence(

@@ -24,6 +24,7 @@ import { VariableSizeList } from 'react-window';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureLength } from '@/src/app/logic/viewModel';
+import { transposeInterval } from '@/src/domain/bio/coordinate';
 
 export type FlatItem =
   | { type: 'header'; recordId: string; count: number }
@@ -326,7 +327,11 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
               onClick={() => {
                 const focusStart = f.segments && f.segments.length > 0 ? f.segments[0].start : f.start;
                 const focusEnd = f.segments && f.segments.length > 0 ? f.segments[0].end : f.end;
-                onFocusItem(recordId, focusStart, focusEnd, { key: rowKey, label: f.name });
+                const record = records.find(r => r.id === recordId);
+                const { start, end } = record?.alignedSequence
+                  ? transposeInterval(focusStart, focusEnd, record.alignedSequence)
+                  : { start: focusStart, end: focusEnd };
+                onFocusItem(recordId, start, end, { key: rowKey, label: f.name });
                 addLog(`Jump to ${f.name}`);
               }}
               data-tip="Open this annotation in the viewport, selected"

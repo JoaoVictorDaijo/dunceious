@@ -19,7 +19,7 @@
 
 import { Dispatch, SetStateAction, useState } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { detectMoleculeType, classifyLocusMoleculeType, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { exportToGff } from '@/src/core/formats/annotations';
@@ -275,8 +275,20 @@ export function useFileHandlers(
     if (!activeSelection) { addLog('No selection active for JSON export.'); return; }
     const start = Math.min(activeSelection.start, activeSelection.end);
     const end = Math.max(activeSelection.start, activeSelection.end);
+    const selectedRecords = records.flatMap(record => {
+      const aligned = record.alignedSequence;
+      const biologicalStart = aligned ? getOriginalPos(aligned, start) : start;
+      const biologicalEnd = aligned ? getOriginalPos(aligned, end) : end;
+      return sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd)
+        .map(sliced => ({
+          ...sliced,
+          alignedSequence: aligned?.substring(start, end),
+          // Source location text cannot describe coordinates rebased to a selection.
+          features: sliced.features.map(feature => ({ ...feature, locationString: undefined })),
+        }));
+    });
     const project = {
-      records: sliceRecordsBySelection(records, start, end),
+      records: selectedRecords,
       featureColors,
       selectionRange: { start, end },
       version: __APP_VERSION__,
