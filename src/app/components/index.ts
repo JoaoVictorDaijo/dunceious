@@ -44,5 +44,7 @@ export type { SidebarProps } from './Sidebar';
 
 export { default as StatusBar } from './StatusBar';
 
+export { default as TooltipLayer } from './TooltipLayer';
+
 export { default as TopNav } from './TopNav';
 export type { TopNavProps } from './TopNav';

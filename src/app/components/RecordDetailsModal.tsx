@@ -85,7 +85,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors"
+            aria-label="Close"
+            data-tip="Close"
+            className="w-10 h-10 rounded-full hover:bg-slate-200 hover:text-slate-700 flex items-center justify-center text-slate-400 transition-colors"
           >
             <i className="fas fa-times"></i>
           </button>
@@ -152,6 +154,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </label>
               <button
                 onClick={handleCopy}
+                data-tip="Copy these bases to the clipboard"
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-50 text-sky-600 text-[9px] font-semibold uppercase hover:bg-sky-100 transition-colors"
               >
                 <i className="fas fa-copy"></i> Copy Sequence
@@ -187,6 +190,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     navigator.clipboard.writeText(feature.translation!);
                     onCopyLog(`Translation for ${feature.name} copied.`);
                   }}
+                  data-tip="Copy the protein sequence to the clipboard"
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[9px] font-semibold uppercase hover:bg-emerald-100 transition-colors"
                 >
                   <i className="fas fa-copy"></i> Copy AA
@@ -208,7 +212,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 {Object.entries(feature?.metadata || record.metadata || {}).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-[10px] font-semibold text-slate-500 uppercase">{key}</span>
-                    <span className="text-[11px] font-bold text-slate-700 max-w-[300px] truncate" title={String(value)}>
+                    <span className="text-[11px] font-bold text-slate-700 max-w-[300px] truncate" data-tip={String(value)}>
                       {String(value)}
                     </span>
                   </div>
@@ -222,13 +226,15 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
         <div className="bg-slate-50 px-8 py-6 border-t border-slate-200 flex justify-end gap-3">
           <button
             onClick={handleCopy}
-            className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[10px] font-semibold uppercase hover:bg-slate-50 transition-all flex items-center gap-2"
+            data-tip="Copy the sequence to the clipboard"
+            className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[10px] font-semibold uppercase hover:bg-slate-100 hover:text-slate-800 transition-all flex items-center gap-2"
           >
             <i className="fas fa-copy"></i> Copy
           </button>
           {feature && (
             <button
               onClick={handleFocus}
+              data-tip="Open this annotation in the viewport, selected"
               className="px-6 py-2.5 rounded-xl bg-sky-600 text-white text-[10px] font-semibold uppercase hover:bg-sky-500 transition-all flex items-center gap-2 shadow-lg shadow-sky-900/20"
             >
               <i className="fas fa-search-location"></i> Focus
@@ -237,6 +243,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {!feature && (
             <button
               onClick={handleExport}
+              data-tip="Download this record as FASTA"
               className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-semibold uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
             >
               <i className="fas fa-download"></i> Export FASTA

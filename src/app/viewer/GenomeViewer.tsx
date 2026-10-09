@@ -286,6 +286,8 @@ const GenomeViewer: React.FC<Props> = ({
               <input
                 type="text"
                 placeholder="Go to..."
+                aria-label="Go to position"
+                data-tip="Type a base position and press Enter"
                 className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-sky-500 rounded"
                 value={gotoPos}
                 onChange={e => setGotoPos(e.target.value)}
@@ -314,18 +316,18 @@ const GenomeViewer: React.FC<Props> = ({
               </div>
               {/* Selection actions — segmented track + emerald export */}
               <div className={segTrack} style={trackShadow}>
-                <button onClick={handleCenterOnSelection} className={segBtn} style={raisedShadow} title="Center on Selection">Center</button>
-                <button onClick={() => handleZoomToSelection()} className={segBtn} style={raisedShadow}>Zoom Sel</button>
+                <button onClick={handleCenterOnSelection} className={segBtn} style={raisedShadow} data-tip="Scroll the selection to the middle of the view" data-tip-kbd="C">Center</button>
+                <button onClick={() => handleZoomToSelection()} className={segBtn} style={raisedShadow} data-tip="Zoom until the selection fills the view">Zoom Sel</button>
               </div>
-              <button onClick={onExportFasta} className={segExport} style={raisedShadow} title="Export selection as FASTA"><i className="fas fa-download text-[8px]"></i></button>
+              <button onClick={onExportFasta} className={segExport} style={raisedShadow} aria-label="Export selection as FASTA" data-tip="Download the selected region as FASTA"><i className="fas fa-download text-[8px]"></i></button>
             </>
           )}
           {/* Fit — raised segment */}
-          <button onClick={handleFit} className={segBtn} style={raisedShadow}>Fit</button>
+          <button onClick={handleFit} className={segBtn} style={raisedShadow} data-tip="Zoom out to fit the whole sequence" data-tip-kbd="F">Fit</button>
           {/* Zoom — segmented track */}
           <div className={segTrack} style={trackShadow}>
-            <button onClick={() => handleZoom(1)} className={segIcon} style={raisedShadow}><i className="fas fa-plus text-[9px]"></i></button>
-            <button onClick={() => handleZoom(-1)} className={segIcon} style={raisedShadow}><i className="fas fa-minus text-[9px]"></i></button>
+            <button onClick={() => handleZoom(1)} className={segIcon} style={raisedShadow} aria-label="Zoom in" data-tip="Zoom in" data-tip-kbd="+"><i className="fas fa-plus text-[9px]"></i></button>
+            <button onClick={() => handleZoom(-1)} className={segIcon} style={raisedShadow} aria-label="Zoom out" data-tip="Zoom out" data-tip-kbd="−"><i className="fas fa-minus text-[9px]"></i></button>
           </div>
         </div>
       </div>

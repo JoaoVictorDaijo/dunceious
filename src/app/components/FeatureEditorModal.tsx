@@ -167,6 +167,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               </span>
               <button
                 onClick={() => setFeature({ color: undefined })}
+                data-tip="Use the global colour for this feature type"
                 className="ml-auto text-[8px] font-semibold text-slate-500 uppercase hover:text-rose-500 transition-colors"
               >
                 Reset to Default
@@ -216,7 +217,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     const newSegs = [...feature.segments!, { start: feature.end, end: feature.end + 100 }];
                     setFeature({ segments: newSegs });
                   }}
-                  className="text-[8px] font-semibold text-sky-500 uppercase hover:text-sky-400"
+                  data-tip="Append a new segment after the last one"
+                  className="text-[8px] font-semibold text-sky-500 uppercase hover:text-sky-300 transition-colors"
                 >
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
@@ -251,7 +253,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
                         setFeature({ segments: newSegs });
                       }}
-                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Remove segment ${idx + 1}`}
+                      data-tip="Remove this segment"
+                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                     >
                       <i className="fas fa-times text-[10px]"></i>
                     </button>
@@ -291,12 +295,14 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
         <div className="flex gap-4 mt-12">
           <button
             onClick={onDiscard}
+            data-tip="Close without saving"
             className="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold uppercase transition-all tracking-widest"
           >
             Discard
           </button>
           <button
             onClick={onSave}
+            data-tip={isNew ? 'Add this annotation to the record' : 'Save the changes to this annotation'}
             className="flex-1 py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-xs font-bold uppercase transition-all shadow-xl shadow-sky-900/40 tracking-widest"
           >
             {isNew ? 'Create' : 'Apply'}

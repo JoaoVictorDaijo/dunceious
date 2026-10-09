@@ -37,6 +37,7 @@ import {
 } from './recordRemoval';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
+import TooltipLayer from './components/TooltipLayer';
 import TopNav from './components/TopNav';
 import {
     useAppLogger,
@@ -433,6 +434,8 @@ const App: React.FC = () => {
       </div>
 
       <StatusBar sessionMoleculeType={sessionMoleculeType} />
+
+      <TooltipLayer />
 
     </div>
   );

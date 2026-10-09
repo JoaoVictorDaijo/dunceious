@@ -118,7 +118,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Options"
-        title="Options"
+        data-tip={open ? undefined : 'Options: feature colours, theme and workspace preferences'}
         className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 ${
           open
             ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
@@ -143,6 +143,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             <button
               onClick={closeAndRestoreFocus}
               aria-label="Close options"
+              data-tip="Close"
+              data-tip-kbd="Esc"
               className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               <i className="fas fa-xmark text-sm"></i>
@@ -161,14 +163,15 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
               {FEATURE_TYPES.map(type => (
                 <label
                   key={type}
-                  className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer"
+                  data-tip={`Colour used for every ${type} feature in the viewport and the hub`}
+                  className="flex items-center justify-between bg-black/20 px-2.5 py-1.5 rounded-lg border border-slate-800/50 cursor-pointer transition-colors hover:border-slate-600 hover:bg-slate-800/40"
                 >
                   <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tighter">{type}</span>
                   <input
                     type="color"
                     value={featureColors[type] || getFeatureColor(type)}
                     onChange={e => onSetFeatureColors({ ...featureColors, [type]: e.target.value })}
-                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer"
+                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer transition-transform hover:scale-110"
                     aria-label={`${type} color`}
                   />
                 </label>
@@ -176,7 +179,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             </div>
             <button
               onClick={() => onSetFeatureColors({})}
-              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[8px] font-semibold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              data-tip="Restore the built-in colour for every feature type"
+              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-semibold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               Reset to Defaults
             </button>

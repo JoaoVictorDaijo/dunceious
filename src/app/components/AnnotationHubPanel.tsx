@@ -123,6 +123,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
               type="checkbox"
               checked={isVisible}
               onChange={() => onToggleRecordVisibility(item.recordId)}
+              data-tip={isVisible ? 'Hide this record in the viewport' : 'Show this record in the viewport'}
               className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
             />
             <div className="flex flex-col">
@@ -146,7 +147,8 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                 }
               }}
               className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
-              title="Remove Sequence"
+              aria-label={`Remove ${record?.name || item.recordId}`}
+              data-tip="Remove this sequence and its annotations from the project"
             >
               <i className="fas fa-trash-alt"></i>
             </button>
@@ -182,16 +184,18 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             {(end - start).toLocaleString()}
           </div>
           <div className="w-[20%] shrink-0 text-right pl-4">
-            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
                 onClick={() => addLog(`Track: ${t.name} selected.`)}
                 className="text-slate-400 hover:text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-50 transition-all"
-                title="View Track Info"
+                aria-label="Track info"
+                data-tip="Log this track's summary"
               >
                 <i className="fas fa-info-circle"></i>
               </button>
               <button
                 onClick={() => onFocusItem(recordId, start, end)}
+                data-tip="Open this track's span in the viewport"
                 className="text-[10px] font-semibold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
               >
                 Focus
@@ -243,25 +247,28 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           })()}
         </div>
         <div className="w-[20%] shrink-0 text-right pl-4">
-          <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
             <button
               onClick={() => onViewFeatureDetails(recordId, f)}
               className="text-slate-400 hover:text-amber-600 p-2.5 rounded-xl hover:bg-amber-50 transition-all"
-              title="View Details"
+              aria-label="View details"
+              data-tip="Inspect this annotation: qualifiers, sequence, export"
             >
               <i className="fas fa-eye"></i>
             </button>
             <button
               onClick={() => onEditFeature(recordId, f.index, f)}
               className="text-slate-400 hover:text-amber-600 p-2.5 rounded-xl hover:bg-amber-50 transition-all"
-              title="Edit Metadata"
+              aria-label="Edit"
+              data-tip="Edit name, type, strand, coordinates and qualifiers"
             >
               <i className="fas fa-edit"></i>
             </button>
             <button
               onClick={() => onRemoveFeature(recordId, f.index)}
               className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
-              title="Delete Feature"
+              aria-label="Delete"
+              data-tip="Delete this annotation"
             >
               <i className="fas fa-trash-alt"></i>
             </button>
@@ -272,6 +279,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                 onFocusItem(recordId, focusStart, focusEnd);
                 addLog(`Jump to ${f.name}`);
               }}
+              data-tip="Open this annotation in the viewport, selected"
               className="text-[10px] font-semibold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 transition-all tracking-widest shadow-sm"
             >
               Focus
@@ -304,26 +312,28 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           </div>
           <button
             onClick={onStartNewFeature}
+            data-tip="Create a new annotation (prefilled from the current selection)"
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-semibold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-plus mr-1.5"></i> Add Feature
           </button>
           <div className="flex bg-slate-800 rounded-xl p-1 shadow-md">
-            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all" title="Export All FASTA">
+            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all" data-tip="Download every record as one multi-FASTA file">
               <i className="fas fa-file-export mr-1.5"></i> FASTA
             </button>
-            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export GenBank">
+            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download every record with its annotations as GenBank">
               <i className="fas fa-dna mr-1.5"></i> GenBank
             </button>
-            <button onClick={onExportGff} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export GFF3">
+            <button onClick={onExportGff} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download all annotations as GFF3">
               <i className="fas fa-file-code mr-1.5"></i> GFF3
             </button>
-            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" title="Export Project JSON">
+            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-semibold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Save the whole workspace (records, annotations, colours) as JSON">
               <i className="fas fa-save mr-1.5"></i> Save Project
             </button>
           </div>
           <button
             onClick={onClearAll}
+            data-tip="Remove every record and annotation from the workspace"
             className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-semibold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All

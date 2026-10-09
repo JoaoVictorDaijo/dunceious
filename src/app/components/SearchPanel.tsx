@@ -20,6 +20,7 @@
 import React from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { scorePercent } from '@/src/app/logic/viewModel';
+import SectionTitle from './SectionTitle';
 
 export interface GroupedSearchResults {
   [recordId: string]: { results: SearchResult[]; indices: number[] };
@@ -85,28 +86,26 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 }) => {
   return (
     <section className="flex flex-col min-h-0 pt-4">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[11px] font-bold uppercase text-slate-400 tracking-[0.2em] flex items-center gap-3">
-          <div className="w-6 h-6 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-500 shadow-inner">
-            <i className="fas fa-search text-[10px]"></i>
-          </div>
-          Sequence Search
-        </h3>
+      <SectionTitle icon="fa-search" trailing={
         <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
           <button
             onClick={() => onSearchModeChange('exact')}
+            aria-pressed={searchMode === 'exact'}
+            data-tip="Exact search with IUPAC ambiguity codes (N, R, Y…)"
             className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
             IUPAC
           </button>
           <button
             onClick={() => onSearchModeChange('fuzzy')}
+            aria-pressed={searchMode === 'fuzzy'}
+            data-tip="Approximate search: tolerates mismatches, ranked by score"
             className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Fuzzy
           </button>
         </div>
-      </div>
+      }>Sequence Search</SectionTitle>
 
       <div className="space-y-6 bg-slate-900/40 p-6 rounded-[2.5rem] border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
         {/* Search input */}
@@ -122,7 +121,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
               {(searchQuery || filteredResults.length > 0 || isSearching) && (
-                <button onClick={onClearSearch} className="text-slate-600 hover:text-rose-500 transition-colors" title="Clear Search">
+                <button onClick={onClearSearch} aria-label="Clear search" className="text-slate-600 hover:text-rose-500 transition-colors" data-tip="Clear the query, results and highlights">
                   <i className="fas fa-times-circle text-sm"></i>
                 </button>
               )}
@@ -131,6 +130,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               ) : (
                 <button
                   onClick={onSearch}
+                  aria-label="Search"
+                  data-tip="Run the search"
+                  data-tip-kbd="Enter"
                   className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500 hover:bg-sky-500 hover:text-white transition-all shadow-inner"
                 >
                   <i className="fas fa-arrow-right text-[10px]"></i>
@@ -205,6 +207,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 {selectedSearchIndices.size > 0 && (
                   <button
                     onClick={() => onSetSelectedIndices(new Set())}
+                    data-tip="Deselect all matches"
                     className="text-[9px] font-semibold uppercase text-rose-500 hover:text-rose-400 transition-colors"
                   >
                     Clear
@@ -213,6 +216,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 {selectedSearchIndices.size > 1 && (
                   <button
                     onClick={onJoinSelectedMatches}
+                    data-tip="Create one multi-segment annotation from the selected matches"
                     className="px-4 py-2 rounded-xl bg-sky-600 text-white text-[9px] font-semibold uppercase hover:bg-sky-500 transition-all shadow-xl shadow-sky-900/40"
                   >
                     Join Selected
@@ -232,6 +236,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     <div className="flex gap-3">
                       <button
                         onClick={() => onToggleRecordSelection(recordId, true)}
+                        data-tip="Select every match in this record"
                         className="text-[8px] font-semibold text-slate-500 uppercase hover:text-sky-400 transition-colors"
                       >
                         Select All
@@ -239,7 +244,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                       <button
                         onClick={() => onJoinAllInRecord(recordId)}
                         className="text-[8px] font-semibold text-slate-500 uppercase hover:text-emerald-400 transition-colors"
-                        title="Join all matches in this record"
+                        data-tip="Create one multi-segment annotation from every match in this record"
                       >
                         Join All
                       </button>
@@ -319,7 +324,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                                 onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand);
                               }}
                               aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
-                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-semibold uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20"
+                              data-tip="Save this match as an annotation"
+                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-semibold uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg border border-sky-500/20"
                             >
                               <i className="fas fa-plus text-[8px]"></i> Annotate
                             </button>

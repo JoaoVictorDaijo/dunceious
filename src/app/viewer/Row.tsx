@@ -141,7 +141,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             <span className="text-[8px] font-semibold text-slate-400 h-[18px] flex items-center">F3</span>
           </div>
         )}
-        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-semibold text-slate-900 shadow-sm tracking-tight" title={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
+        <div className="w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-semibold text-slate-900 shadow-sm tracking-tight" data-tip={l.id} style={{ marginTop: l.seqBaseY + 2 }}>
           {l.id}
         </div>
         {effectiveTranslation && (
