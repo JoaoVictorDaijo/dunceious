@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export { transposeCoordinates, buildAlignedSegments, processTransposition } from './coordinate';
+export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
 export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
@@ -36,8 +36,6 @@ export {
   isProteinSession,
 } from './sequence';
 
-// Expose the deduped `buildAlignedSegments` under the name the search code
-// imports it by (`getNonGapSegments` from '@/src/domain/bio').
 export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
   FeatureSegment,

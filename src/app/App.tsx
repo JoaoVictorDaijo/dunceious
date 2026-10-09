@@ -196,9 +196,10 @@ const App: React.FC = () => {
   const handleViewDetails = (recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
+    const index = feature ? featureIndexOf(recordId, feature) : -1;
     setViewingRecordDetails(record);
-    setViewingFeatureDetails(feature || null);
-    setViewingFeatureIndex(feature ? featureIndexOf(recordId, feature) : -1);
+    setViewingFeatureDetails(record.features[index] ?? null);
+    setViewingFeatureIndex(index);
   };
 
   const handleSetShowBases = (show: boolean) => {

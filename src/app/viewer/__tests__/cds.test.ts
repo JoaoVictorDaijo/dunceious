@@ -107,3 +107,13 @@ describe('translationFrame', () => {
     expect(translationFrame(cds({ strand: -1, end: 1, metadata: { codon_start: '3' } }))).toBe(2);
   });
 });
+
+
+describe('biological translation frames in an alignment', () => {
+  it.each([
+    [1 as const, 0], [-1 as const, 0],
+  ])('ignores gap columns for strand %s', (strand, expected) => {
+    const feature: BioFeature = { type: 'CDS', name: 'gapped', start: 2, end: 14, strand };
+    expect(translationFrame(feature, '--A-TG-AAA-TAA--')).toBe(expected);
+  });
+});

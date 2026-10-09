@@ -18,8 +18,10 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, installCanvasRecorder } from '@/src/app/testing/renderHarness';
+import { fireEvent } from '@testing-library/react';
+import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
 import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -253,3 +255,40 @@ describe('thin annotation bars', () => {
   });
 });
 
+
+describe('aligned annotation bars', () => {
+  it('draws one bar across internal gaps with gap characters inside the opened bar', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--AC--GT--',
+      features: [{ type: 'gene', name: 'gapped', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { zoomLevel: 30, setTooltip });
+    expect(glyphs(container)).toHaveLength(1);
+    expect(spanOfRect(glyphs(container)[0])).toEqual([60, 240]);
+    expect(connectors(container)).toHaveLength(0);
+    const letters = [...container.querySelectorAll('[data-annotation-base]')];
+    expect(letters.map(t => t.textContent).join('')).toBe('AC--GT');
+    expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([2, 3, 4, 5, 6, 7]);
+    fireEvent.mouseOver(glyphs(container)[0]);
+    expect(setTooltip).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('Locus: 1..4') }));
+  });
+
+  it('keeps the connector between genuine joined parts containing gaps', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--',
+      features: [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
+        segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] };
+    const { container } = renderRow(processTransposition([record])[0]);
+    expect([...glyphs(container)].map(spanOfRect)).toEqual([[2 * ZOOM, 6 * ZOOM], [9 * ZOOM, 16 * ZOOM]]);
+    expect([...connectors(container)].map(spanOf)).toEqual([[6 * ZOOM, 9 * ZOOM]]);
+  });
+});
+
+
+describe('aligned circular connectors', () => {
+  it('recognizes a joined part reaching the last real base before trailing gaps', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--ACGTACGT--',
+      features: [{ type: 'gene', name: 'origin-in-intron', start: 1, end: 8, strand: 1,
+        segments: [{ start: 6, end: 8 }, { start: 1, end: 3 }] }] };
+    const { container } = renderRow(processTransposition([record])[0]);
+    expect([...connectors(container)].map(spanOf)).toEqual([[10 * ZOOM, 12 * ZOOM], [0, 3 * ZOOM]]);
+  });
+});
