@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -137,7 +138,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
         )}
         <span className="text-slate-400">Built for Science</span>
         <Divider />
-        <span className="text-slate-400">© 2026</span>
+        <span className="text-slate-400">© 2026 João Victor Daijo &amp; Murilo Cassiano</span>
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -35,6 +36,7 @@ const MARKER = 'GNU Affero General Public License';
 
 const BODY = [
   'Dunceious',
+  'Copyright (C) 2026 João Victor Daijo and Murilo Cassiano',
   '',
   'This file is part of Dunceious.',
   '',

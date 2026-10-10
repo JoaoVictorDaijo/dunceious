@@ -20,6 +20,8 @@ All notable changes to Dunceious. Format loosely follows
   `THIRD_PARTY_NOTICES.txt` carrying the full license and notice texts of the
   bundled React, react-window, D3, font and Font Awesome packages, which the
   build previously dropped. `COPYING` is restored to the verbatim GNU AGPL text.
+- Name the copyright holders, João Victor Daijo and Murilo Cassiano, in every
+  source header and in the footer, which showed `© 2026` with no holder.
 
 ## [2.8.0] — 2026-10-09
 

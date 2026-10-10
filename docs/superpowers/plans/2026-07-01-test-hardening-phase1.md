@@ -385,6 +385,7 @@ Create `services/__tests__/bioUtils.test.ts`:
 ```typescript
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
