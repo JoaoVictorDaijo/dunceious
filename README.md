@@ -63,4 +63,4 @@ Source files need the AGPL header (`node scripts/check-license-headers.mjs --fix
 
 ## License
 
-[AGPL-3.0-or-later](./COPYING). The DNA mark is the Font Awesome Free `fa-dna` icon ([CC BY 4.0](https://fontawesome.com/license/free)); the banner lettering is set in [Inter](https://github.com/rsms/inter) ([SIL OFL 1.1](https://openfontlicense.org)).
+[AGPL-3.0-or-later](./COPYING). Production builds carry the license as `COPYING.txt` and the bundled dependencies' licenses as `THIRD_PARTY_NOTICES.txt`. The DNA mark is the Font Awesome Free `fa-dna` icon ([CC BY 4.0](https://fontawesome.com/license/free)); the banner lettering is set in [Inter](https://github.com/rsms/inter) ([SIL OFL 1.1](https://openfontlicense.org)).

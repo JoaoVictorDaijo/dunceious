@@ -191,4 +191,4 @@ Hovering (or keyboard-focusing) any control shows a tooltip explaining it, with 
 
 ## 7. License
 
-This software is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See the `COPYING` file for the full license text, or visit <https://www.gnu.org/licenses/agpl-3.0.html>.
+This software is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The full license text is served with the app at `/COPYING.txt` (and at <https://www.gnu.org/licenses/agpl-3.0.html>); the licenses of the third-party software it includes are at `/THIRD_PARTY_NOTICES.txt`.
