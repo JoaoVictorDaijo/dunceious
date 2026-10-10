@@ -19,8 +19,8 @@
 
 
 import GenomeViewer from '@/src/app/shared/viewer/GenomeViewer';
-import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import React, { useState } from 'react';
 import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
 import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
@@ -28,29 +28,15 @@ import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import AlignRemoteModal from './components/AlignRemoteModal';
 import AlignmentJobPill from './components/AlignmentJobPill';
-import { useRemoteAlignment } from '../shared/hooks/useRemoteAlignment';
 import RecordDetailsModal from './components/RecordDetailsModal';
-import type { FocusTarget } from '@/src/app/shared/logic/focusTarget';
-import { deriveAlignmentState } from '@/src/app/shared/logic/viewModel';
 import { resolveEnvAccent } from '../shared/logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from '../shared/logic/theme';
-import {
-  removeRecordFromProject,
-  sanitizeSearchStateAfterRecordRemoval,
-  updateSelectionAfterRecordRemoval,
-} from '../shared/recordRemoval';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
 import { withAnnotationBases } from '@/src/app/shared/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
-import {
-    useAppLogger,
-    useBioWorker,
-    useFeatureManager,
-    useFileHandlers,
-    useSearchWorker,
-} from '../shared/hooks';
+import { useWorkspace } from '@/src/app/shared/workspace/useWorkspace';
 
 // ---------------------------------------------------------------------------
 // DesktopApp — composition root
@@ -60,14 +46,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const DesktopApp: React.FC = () => {
-  // ── Logger ────────────────────────────────────────────────────────────────
-  const { logs, addLog } = useAppLogger();
-
-  // ── Viewport display toggles ─────────────────────────────────────────────
-  const [showAnnotations, setShowAnnotations] = useState(true);
-  const [showTranslation, setShowTranslation] = useState(true);
-  const [showTracks, setShowTracks] = useState(true);
-  const [showConservation, setShowConservation] = useState(false);
   const [dragMode, setDragMode] = useState<'pan' | 'select'>('select');
 
   // ── Layout ────────────────────────────────────────────────────────────────
@@ -86,43 +64,32 @@ const DesktopApp: React.FC = () => {
   const [viewingRecordDetails, setViewingRecordDetails] = useState<SeqRecord | null>(null);
   const [viewingFeatureDetails, setViewingFeatureDetails] = useState<BioFeature | null>(null);
 
-  // ── Misc UI ───────────────────────────────────────────────────────────────
-  const [featureColors, setFeatureColors] = useState<Record<string, string>>({});
-  const [jumpTo, setJumpTo] = useState<number | null>(null);
-  const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
-  const searchSelectionRef = useRef<SelectionArea | null>(null);
-  const selectSearchResult = (selection: SelectionArea) => {
-    searchSelectionRef.current = selection;
-    setActiveTab('alignment');
-    setActiveSelection(selection);
-  };
-  // `focusedRegion` names the selection while it stands; `pendingFocus` asks the
-  // viewport to frame it once and is cleared when handled, so a remount does not replay it.
-  const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
-  const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
-  const focusOn = (target: FocusTarget) => {
-    setActiveTab('alignment');
-    setActiveSelection({ start: target.start, end: target.end, recordIds: [target.recordId] });
-    setFocusedRegion(target);
-    setPendingFocus(target);
-  };
-  const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
-
-  // ── Domain hooks ──────────────────────────────────────────────────────────
+  // ── Shared workspace ──────────────────────────────────────────────────────
   const {
+    logs,
+    addLog,
+    showAnnotations,
+    setShowAnnotations,
+    showTranslation,
+    setShowTranslation,
+    showTracks,
+    setShowTracks,
+    showConservation,
+    setShowConservation,
+    featureColors,
+    setFeatureColors,
+    activeSelection,
+    setActiveSelection,
+    selectSearchResult,
+    focusedRegion,
+    pendingFocus,
+    setPendingFocus,
+    focusOn,
     records,
     setRecords,
     transposedRecords,
     consensus,
     isProcessing,
-    setIsProcessing,
-    bioWorkerRef,
-    applyAlignmentOverlay,
-  } = useBioWorker(addLog);
-
-  const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
-
-  const {
     editing,
     setEditing,
     featureSearch,
@@ -134,9 +101,6 @@ const DesktopApp: React.FC = () => {
     addAnnotationFromSearch,
     removeFeature,
     toggleRecordVisibility,
-  } = useFeatureManager(records, setRecords, activeSelection, addLog);
-
-  const {
     searchQuery,
     setSearchQuery,
     searchMode,
@@ -152,22 +116,11 @@ const DesktopApp: React.FC = () => {
     isSearching,
     groupedSearchResults,
     handleSearch,
-    clearSearch,
     toggleRecordSelection,
     joinAllInRecord,
     joinSelectedMatches,
     getSequenceContext,
     isProteinSession,
-  } = useSearchWorker(records, addLog, addAnnotationFromSearch, selectSearchResult);
-
-  const handleClearSearch = () => {
-    clearSearch();
-    const searchSelection = searchSelectionRef.current;
-    setActiveSelection(current => current === searchSelection ? null : current);
-    searchSelectionRef.current = null;
-  };
-
-  const {
     handleFileUpload,
     handleAlignmentUpload,
     handleAnnotationUpload,
@@ -181,24 +134,26 @@ const DesktopApp: React.FC = () => {
     exportProjectJson,
     moleculeTypeMismatch,
     closeMismatchModal,
-  } = useFileHandlers(
-    bioWorkerRef,
-    records,
-    activeSelection,
-    featureColors,
-    { showAnnotations, showTranslation, showConservation },
-    {
-      setRecords,
-      setFeatureColors,
-      setActiveSelection,
-      setShowAnnotations,
-      setShowTranslation,
-      setShowConservation,
-      setIsProcessing,
+    remoteAlignment,
+    handleClearSearch,
+    isAlignmentLoaded,
+    alignmentLength,
+    sessionMoleculeType,
+    removeRecord,
+  } = useWorkspace({
+    onNavigateToViewer: () => setActiveTab('alignment'),
+    onRecordRemoved: (recordId) => {
+      if (viewingRecordDetails?.id === recordId) {
+        setViewingRecordDetails(null);
+        setViewingFeatureDetails(null);
+      }
     },
-    addLog,
-    remoteAlignment.isLocked,
-  );
+  });
+
+  // ── Misc UI ───────────────────────────────────────────────────────────────
+  const [jumpTo, setJumpTo] = useState<number | null>(null);
+  const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
+
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
@@ -231,49 +186,11 @@ const DesktopApp: React.FC = () => {
     setViewingFeatureDetails(current => (current ? withAnnotationBases(current, show) : current));
   };
 
-  const handleRemoveRecord = (recordId: string) => {
-    if (remoteAlignment.isLocked()) return;
-    const record = records.find(r => r.id === recordId);
-    if (!record) return;
 
-    setRecords(prev => removeRecordFromProject(prev, recordId));
-    setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
-
-    const nextSearchState = sanitizeSearchStateAfterRecordRemoval(
-      filteredResults,
-      currentSearchIdx,
-      selectedSearchIndices,
-      recordId,
-    );
-    setCurrentSearchIdx(nextSearchState.currentSearchIdx);
-    setSelectedSearchIndices(nextSearchState.selectedSearchIndices);
-
-    if (viewingRecordDetails?.id === recordId) {
-      setViewingRecordDetails(null);
-      setViewingFeatureDetails(null);
-    }
-
-    addLog(`Sequence ${record.name || record.id} removed from project.`);
-  };
-
-  // ── Derived state ─────────────────────────────────────────────────────────
-  const { isAlignmentLoaded, alignmentLength, sessionMoleculeType } = useMemo(
-    () => deriveAlignmentState(records, isProteinSession),
-    [records, isProteinSession],
-  );
 
   const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
   const themeStyle = resolveThemeVars(getTheme(themeKey), envAccent) as React.CSSProperties;
 
-  useEffect(() => {
-    if (records.length === 0) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [records.length]);
 
   const handleSetThemeKey = (key: ThemeKey) => {
     writeThemePref(key);
@@ -418,7 +335,7 @@ const DesktopApp: React.FC = () => {
           onSetSelectedIndices={setSelectedSearchIndices}
           maxScoreFound={maxScoreFound}
           onSetActiveTab={changeTab}
-          onRemoveRecord={handleRemoveRecord}
+          onRemoveRecord={removeRecord}
           onToggleRecordSelection={toggleRecordSelection}
           onJoinAllInRecord={joinAllInRecord}
           onJoinSelectedMatches={joinSelectedMatches}
@@ -470,7 +387,7 @@ const DesktopApp: React.FC = () => {
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
-                    onRemoveRecord={handleRemoveRecord}
+                    onRemoveRecord={removeRecord}
                   />
                 ) : (
                   <AnnotationHubPanel
@@ -484,7 +401,7 @@ const DesktopApp: React.FC = () => {
                     onStartNewFeature={startNewFeature}
                     onToggleRecordVisibility={toggleRecordVisibility}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
-                    onRemoveRecord={handleRemoveRecord}
+                    onRemoveRecord={removeRecord}
                     onViewFeatureDetails={handleViewDetails}
                     onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
                     onRemoveFeature={removeFeature}
