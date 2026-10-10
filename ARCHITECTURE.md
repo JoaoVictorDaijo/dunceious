@@ -59,15 +59,23 @@ src/
 │       └── search.ts    # runSearch + collectSeededFuzzyHits
 │
 └── app/                 # The React application. May import everything below it.
-    ├── main.tsx + index.css   # entry (moved from root; index.html updated)
-    ├── App.tsx          # composition root
-    ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
-    ├── logic/           # pure reducers/view-model (+ runInlineSearch)
-    ├── hooks/
-    ├── components/      # modals, panels, nav, sidebar
-    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + Row + tracks/ + Minimap
-    │                    #   + cds.ts (translation lanes) + hooks (viewport, focus flight, …) + colors.ts
-    └── lib/             # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
+    ├── main.tsx + index.css + themes.css   # entry and global styles
+    ├── shell/           # ShellRoot: lazy-loads one UI root (desktop today; mobile next)
+    ├── shared/          # everything both UIs use
+    │   ├── workspace/   # useWorkspace — the workspace state and handlers (records, selection,
+    │   │                #   search, features, file I/O, remote alignment)
+    │   ├── types/       # contracts shared by hooks/logic and components (search, features)
+    │   ├── hooks/       # useBioWorker, useSearchWorker, useFeatureManager, useFileHandlers, …
+    │   ├── logic/       # pure reducers/view-model (+ runInlineSearch)
+    │   ├── viewer/      # GenomeViewer decomposed: slim container + layout.ts + Row + tracks/ + Minimap
+    │   │                #   + cds.ts (translation lanes) + hooks (viewport, focus flight, …) + colors.ts
+    │   ├── lib/         # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
+    │   └── recordRemoval.ts
+    ├── desktop/         # the desktop UI
+    │   ├── DesktopApp.tsx   # desktop composition root: desktop-only UI state over useWorkspace
+    │   ├── components/      # modals, panels, nav, sidebar
+    │   └── hooks/           # desktop-only UI hooks (job-pill dragging, file-drag arming)
+    └── testing/         # test harness
 ```
 
 Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `perf/`,
@@ -79,19 +87,27 @@ Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `per
 2. `src/core/**` imports `domain` **only**. Never workers, app, React, or DOM.
 3. `src/workers/**` imports `core` + `domain` + its own `protocol`.
 4. `src/app/**` may import anything below it. All React + DOM + browser I/O lives here.
+   Inside `src/app`, the UI shells have their own rule: `shared/` imports none of `desktop/`,
+   `mobile/` or `shell/`; `desktop/` and `mobile/` never import each other; `shell/` loads each
+   UI root only through `React.lazy` in `ShellRoot.tsx`.
 5. **One canonical home per type:** model types in `domain/bio/types.ts`; wire contracts in
    `workers/protocol.ts` (referencing domain types). No duplicate `SearchResult` /
    `SearchOptions` / FASTA-record shapes.
 
 These boundaries are **enforced by an import-boundary ESLint rule** (`no-restricted-imports`,
 per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 600 lines.
+The UI-shell rule has three enforcement layers: the same ESLint rule for static imports;
+`src/app/__tests__/boundaries.test.ts`, which also checks dynamic `import()`; and a build plugin
+(`scripts/shellIsolation.mjs`, wired in `vite.config.ts`) that fails the production build when
+Rollup's chunk metadata shows a UI module in the startup chunk or in the other UI's chunk graph.
 
 ### Extension rules — where does new code go?
 
 - **New domain algorithm** → `src/domain/bio/<file>.ts`; export from `index.ts`. Imports nothing outside `domain`.
 - **New file-format parser / search primitive** → `src/core/formats/` or `src/core/search/`; imports `domain` only; wire it into a `src/workers/handlers/*` body.
-- **New worker message type** → add request/response to `src/workers/protocol.ts` (reference domain types), handle the branch in `src/workers/handlers/{bio,search}.ts`, dispatch from the relevant `src/app/hooks/*` hook.
-- **New UI component** → `src/app/components/` (or `src/app/viewer/` if it belongs to the genome viewer); may import anything below it.
+- **New worker message type** → add request/response to `src/workers/protocol.ts` (reference domain types), handle the branch in `src/workers/handlers/{bio,search}.ts`, dispatch from the relevant `src/app/shared/hooks/*` hook.
+- **New UI component** → `src/app/desktop/components/` for the desktop UI (or `src/app/shared/viewer/` if it belongs to the genome viewer); may import anything below it and `src/app/shared/`.
+- **New shared state or logic** → `src/app/shared/` (state wiring in `workspace/useWorkspace.ts`, pure logic in `logic/`). Desktop-only UI state stays in `DesktopApp`.
 
 Full worked examples: `.claude/skills/dunceious-architecture/references/where-does-x-go.md`.
 `AGENTS.md` and `.claude/skills/dunceious-architecture/` are doorways into this document.
@@ -127,7 +143,7 @@ See §2 and the skill's `where-does-x-go.md`.
 
 - **GenBank Parser**: Delegates to `src/core/genbank/index.ts` (modular, fully tested). Supports both nucleotide and amino-acid (protein) records; molecule type is read from the `LOCUS` line (`aa` keyword → protein).
 - **FASTA Parser**: Two distinct ingestion modes, distinguished by the `asAlignment` flag on `ParseFastaRequest`:
-  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/logic/idHelpers.ts`).
+  - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per-record by scanning the first 200 residues for protein-exclusive IUPAC characters (D, E, F, H, I, K, L, M, P, Q, R, S, V, W, Y). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1 (1) → seq1 (2)`) via `makeUniqueId()` (in `src/app/shared/logic/idHelpers.ts`).
   - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every record in the file must match an existing workspace record, and all sequences must have equal length; any mismatch is rejected with an error log entry. A record matches by the longest leading run of its FASTA header that is a workspace ID, so exported IDs containing spaces (`seq1 (1)`) round-trip and a trailing description (`>seq1 reference strain`) is ignored; `parseFasta` keeps the full header for this (`FastaRecord.header`), and `applyFastaResponse` resolves it. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
 - **Remote alignment** produces the same input as the overlay above, but computed by EMBL-EBI; see *Remote alignment (EMBL-EBI)* below.
 - **Molecule-type enforcement** (`useFileHandlers.ts`): Before dispatching a parse request, `sniffFastaCategory` / `sniffGenBankCategory` detect the incoming molecule type. If it conflicts with the current session type (nucleotide vs protein), the upload is blocked and logged. Sessions must be homogeneous.
@@ -147,7 +163,7 @@ See §2 and the skill's `where-does-x-go.md`.
 The one feature that sends data off the machine, therefore opt-in and consent-gated. It is **not** a worker concern: it runs on the main thread (async `fetch` + timers) and converges with the pre-aligned pipe at the overlay reducer, not at `PARSE_FASTA`.
 
 - **Contract model** (`src/core/alignment/`, pure): `ebi.ts` holds the engine catalog (MAFFT default, Kalign, Clustal Omega, MUSCLE: limits, UI copy, `buildParams`), the submission builder (alias headers `s1…sN`, ungapped, 60-column FASTA, with an alias → record-ID map), parsers for EBI's XML errors, result types and job status, and `remapAlignment` (alias set, equal lengths and gap-stripped == submitted must all hold). `preflight.ts` has `validateEmail` and `preflightAlignment`, which run per engine before anything is sent. Limits come from measuring EBI itself, not its prose docs: minimum 2 sequences, maximum 500/2000/4000/500, and the byte limit applies to the 60-column payload (we enforce 99.5 % of it). EBI verifies the email's domain via DNS, so that rule cannot be mirrored client-side and is reported from its synchronous `400`.
-- **Client and runner** (`src/app/lib/ebiClient.ts`, `src/app/logic/remoteAlignment.ts`): the client is the only `fetch` caller (direct from the browser, EBI sends `Access-Control-Allow-Origin: *`; per-request timeout, 120 s for a submit). The runner is a pure async state machine over injected `client`/`sleep`/`now`/`signal`: submit once and never retry it, poll `status` with retry/backoff for transient failures, pick the result type (`aln-fasta`, then `fa`, then `out`), validate, then hand over. It exposes per-step timestamps for the monitor. There is no cancel endpoint at EBI, so cancelling only stops waiting.
+- **Client and runner** (`src/app/shared/lib/ebiClient.ts`, `src/app/shared/logic/remoteAlignment.ts`): the client is the only `fetch` caller (direct from the browser, EBI sends `Access-Control-Allow-Origin: *`; per-request timeout, 120 s for a submit). The runner is a pure async state machine over injected `client`/`sleep`/`now`/`signal`: submit once and never retry it, poll `status` with retry/backoff for transient failures, pick the result type (`aln-fasta`, then `fa`, then `out`), validate, then hand over. It exposes per-step timestamps for the monitor. There is no cancel endpoint at EBI, so cancelling only stops waiting.
 - **Convergence**: the runner remaps aliases to exact record IDs in memory and calls the shared `applyAlignmentOverlay` from `useBioWorker`, which runs the same `applyFastaResponse(…, true)` and logs as the `FASTA_SUCCESS` path. Nothing downstream changes (transposition, consensus).
 - **Lock**: `useRemoteAlignment` exposes `isAlignmentLocked`; while a job runs the handlers that change records (ingest, pre-aligned upload, project load, Clear All, record removal) disable and early-return, so jobs cannot race into the same overlay. A stale-session guard discards a result if records changed anyway.
 - **Consent**: the dialog shows an explicit disclosure first (`alignConsentPref.ts`: held only in module memory, so it ends with the page load; revocable; an agreement persisted by an earlier version is deleted on load); `submit` makes no request without it.
@@ -172,25 +188,27 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
 
 ## 5. Component Hierarchy
 
-### `src/app/App.tsx` (Composition Root)
+### `src/app/shell/ShellRoot.tsx`, `src/app/desktop/DesktopApp.tsx`, `src/app/shared/workspace/useWorkspace.ts`
 
-- Wires the hooks below together and holds the top-level UI state (active workspace, toggles, open modals, Focus and the Hub return target).
+- `ShellRoot` lazy-loads the UI root, so each UI is its own chunk.
+- `useWorkspace` wires the hooks below together and owns the shared state: records, selection, display toggles, feature colours, Focus, search and record removal. It takes `onNavigateToViewer` and `onRecordRemoved` callbacks so it never touches UI state.
+- `DesktopApp` holds the desktop-only UI state (sidebar, active workspace tab, open modals, the Hub return target, drag mode, theme) and renders the desktop layout.
 - Does not own the workers: `useBioWorker` and `useSearchWorker` create them, send typed `BioWorkerRequest` / `SearchWorkerRequest` messages and consume the typed responses — no `any` in worker message paths.
 
-### `src/app/hooks/` (Custom Hooks)
+### `src/app/shared/hooks/` (Custom Hooks)
 
-State and logic extracted from `App.tsx` into purpose-built hooks, each with a single responsibility:
+State and logic extracted from the composition root into purpose-built hooks, each with a single responsibility:
 
 - `useAppLogger` – append-only activity log, stable `addLog` callback
 - `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
 - `useFeatureManager` – feature CRUD, search-to-annotation bridge, record visibility toggle
 - `useRemoteAlignment` – remote alignment dialog state, job lifecycle, consent and lock
-- `useDraggableJobPill` – pointer and keyboard dragging of the minimized alignment pill
-- `useFileDragActive` – whether files are being dragged over the window (depth-counted, reset on drop/dragend), which arms the Ingestion drop zones
+- `useDraggableJobPill` (desktop) – pointer and keyboard dragging of the minimized alignment pill
+- `useFileDragActive` (desktop) – whether files are being dragged over the window (depth-counted, reset on drop/dragend), which arms the Ingestion drop zones
 - `useFileHandlers` – file upload handlers (with molecule-type enforcement) and export helpers
 - `useSearchWorker` – search worker bridge; derives `isProteinSession`; exposes grouped results and join helpers
 
-### `src/app/components/` (Presentational Components)
+### `src/app/desktop/components/` (Presentational Components)
 
 - `ProcessingOverlay` – full-screen loading overlay
 - `StatusBar` – bottom status bar: selection metrics, session molecule-type chip, version (the easter-egg trigger), license link
@@ -208,7 +226,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `MoleculeTypeMismatchModal` – explains a blocked nucleotide/peptide upload
 - `CentralDogmaEgg` – the version-tap easter egg
 
-### `src/app/viewer/GenomeViewer.tsx` (Rendering Engine)
+### `src/app/shared/viewer/GenomeViewer.tsx` (Rendering Engine)
 
 - **Virtualization**: `react-window` row-virtualized list; `computeRecordLayouts` (`layout.ts`) sizes every row.
 - **Annotation lanes**: features are packed greedily into non-overlapping lanes and drawn by `Row` as thin arrow bars (`annotationBarPath`, 14 px, name inside via `AnnotationText`). A feature opted in with *Show sequence in viewer* opens to show its bases above `ANNOT_BASES_MIN_ZOOM`; `useBasesOpenness` eases that opening without animating scroll-driven geometry.
@@ -252,7 +270,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Vite 6**: Build tool and dev server.
 - **Vitest 4 + Testing Library**: Unit, component and canvas render tests (jsdom with a canvas-2D recorder), behind a v8 coverage ratchet.
 
-The only `fetch` is the opt-in remote alignment (`src/app/lib/ebiClient.ts`, see §4). The one other off-origin request is the easter egg's final frame, which loads the authors' avatar images from github.com (falling back to an icon when blocked); no user data is involved. Everything else is served from the app's own origin.
+The only `fetch` is the opt-in remote alignment (`src/app/shared/lib/ebiClient.ts`, see §4). The one other off-origin request is the easter egg's final frame, which loads the authors' avatar images from github.com (falling back to an icon when blocked); no user data is involved. Everything else is served from the app's own origin.
 
 ---
 

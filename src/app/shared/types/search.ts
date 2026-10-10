@@ -17,24 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { SearchResult } from '@/src/domain/bio/types';
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/inter';
-import '@fontsource-variable/jetbrains-mono';
-import './index.css';
-import './themes.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import ShellRoot from './shell/ShellRoot';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+export interface GroupedSearchResults {
+  [recordId: string]: { results: SearchResult[]; indices: number[] };
 }
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ShellRoot />
-  </React.StrictMode>
-);

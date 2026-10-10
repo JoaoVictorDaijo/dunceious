@@ -17,24 +17,16 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { BioFeature } from '@/src/domain/bio/types';
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/inter';
-import '@fontsource-variable/jetbrains-mono';
-import './index.css';
-import './themes.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import ShellRoot from './shell/ShellRoot';
+export type FlatItem =
+  | { type: 'header'; recordId: string; count: number }
+  | { type: 'track'; recordId: string; track: any }
+  | { type: 'feature'; recordId: string; feature: BioFeature & { index: number } };
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+export interface EditingFeatureState {
+  recordId: string;
+  /** -1 means "new feature" */
+  featureIndex: number;
+  feature: BioFeature;
 }
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ShellRoot />
-  </React.StrictMode>
-);

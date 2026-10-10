@@ -33,15 +33,12 @@ src/
 │       └── search.ts    # runSearch + collectSeededFuzzyHits
 │
 └── app/                 # The React application. May import everything below it.
-    ├── main.tsx + index.css   # entry (moved from root; index.html updated)
-    ├── App.tsx          # composition root
-    ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
-    ├── logic/           # pure reducers/view-model (+ runInlineSearch)
-    ├── hooks/
-    ├── components/      # modals, panels, nav, sidebar
-    ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + Row + tracks/ + Minimap
-    │                    #   + cds.ts (translation lanes) + hooks (viewport, focus flight, …) + colors.ts
-    └── lib/             # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
+    ├── main.tsx + index.css + themes.css   # entry and global styles
+    ├── shell/           # ShellRoot: lazy-loads one UI root per device
+    ├── shared/          # both UIs: workspace/ (useWorkspace), types/, hooks/, logic/, viewer/, lib/, recordRemoval.ts
+    ├── desktop/         # DesktopApp.tsx + components/ + desktop-only hooks/
+    └── testing/         # test harness
+    # shared ← desktop | mobile ← shell: see ARCHITECTURE.md §2 for the rule and its three enforcement layers
 ```
 
 **Per layer, in one line:**
