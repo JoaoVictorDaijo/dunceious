@@ -17,24 +17,24 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import React, { Suspense } from 'react';
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import '@fontsource-variable/inter';
-import '@fontsource-variable/jetbrains-mono';
-import './index.css';
-import './themes.css';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import ShellRoot from './shell/ShellRoot';
+// Each UI is its own lazy chunk, so a visitor downloads only the shell it uses.
+const DesktopApp = React.lazy(() => import('../desktop/DesktopApp'));
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+function ShellFallback() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-900 text-slate-700">
+      <i className="fas fa-dna text-6xl animate-pulse" aria-hidden="true"></i>
+      <span className="sr-only">Loading Dunceious…</span>
+    </div>
+  );
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ShellRoot />
-  </React.StrictMode>
-);
+export default function ShellRoot() {
+  return (
+    <Suspense fallback={<ShellFallback />}>
+      <DesktopApp />
+    </Suspense>
+  );
+}
