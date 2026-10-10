@@ -49,22 +49,32 @@ The engine's overlay model assumes a record's `sequence` holds residues only and
 in `alignedSequence`: `applyFastaResponse` attaches an overlay without touching features,
 `processTransposition` maps stored feature positions from residue space to columns, and today's
 `annotationCoords` (`logic/featureManager.ts`) ungaps every new annotation into residue space.
-GenBank and GFF features are residue positions too. The one input that breaks this is a plain
-FASTA with gap characters imported through **Sequences**: it is stored as-is in `sequence`, so its
-annotations are drawn at the wrong columns (selecting `GT` in `--AC-GTAC` stores `[2,4)`, drawn
-over `AC`), and they would move again if an alignment overlay were later applied.
+GFF features are residue positions too. Two inputs break this, because their parsers keep `-` in
+`sequence`: a plain FASTA with gaps imported through **Sequences**, and a GenBank file whose ORIGIN
+contains gaps (`toSeqRecord.ts` keeps `-`; the app's own GenBank exporter writes `sequence` into
+ORIGIN, so a gapped record exported today comes back this way). Such a record's annotations are
+drawn at the wrong columns (selecting `GT` in `--AC-GTAC` stores `[2,4)`, drawn over `AC`), and they
+would move again if an alignment overlay were later applied.
 
 **Fix: normalize at ingestion** (a `fix` commit in PR 3, with regression tests):
 
-- a Sequences-path FASTA record whose string contains gap characters (the gap definition of
-  `alignedToOriginalPositions`) is stored as `sequence` = the string with gaps removed and
-  `alignedSequence` = the original string. Ungapped records are unchanged;
+- a record from the Sequences path, **FASTA or GenBank**, whose string contains gap characters
+  (the gap definition of `alignedToOriginalPositions`) is stored as `sequence` = the string with
+  gaps removed and `alignedSequence` = the original string, before the workspace is mutated.
+  Ungapped records are unchanged. A gapped GenBank record's features are taken as residue
+  positions, which is how the app's exporter wrote them (its only known producer);
 - a project whose record has a gapped `sequence` is normalized the same way on load: if it has no
   `alignedSequence`, the gapped string becomes it; if it has one, it is kept. Its features stay as
   stored, because every path that could have created them already wrote residue positions;
 - nothing else changes: the viewer draws the same string, `deriveAlignmentState` sees the same
   lengths, FASTA export (which prefers `alignedSequence`) writes the same text, and GenBank / GFF
-  exports and remote alignment now receive gap-free residues, as they should.
+  exports and remote alignment now receive gap-free residues, as they should (so GenBank export
+  stops producing gapped ORIGIN sections).
+
+**Overlay contents are not validated, and that stays.** `applyFastaResponse` accepts an overlay
+whose residues differ from `sequence` (its test overlays `ACGGT` on `ACGT`); tightening that is a
+desktop compatibility change outside this design. To stay consistent anyway, every UI reads the
+**display string** as the authority, as the desktop viewer and search already do (below).
 
 After this, **stored feature coordinates are always residue positions of `sequence`**, and an
 overlay applied later re-maps them correctly through `processTransposition`.
@@ -75,8 +85,12 @@ overlay applied later re-maps them correctly through `processTransposition`.
   draws.
 - `SelectionArea`, `FocusTarget`, search results and the project JSON selection are in
   **column space**: positions in the display string, with today's start/end convention.
-- **Residue space** is `sequence` (equivalently, the display string without gaps). The **mobile
-  reader displays residue space**, numbered 1-based as biological positions.
+- **Residue space** is the display string with gaps removed. After normalization it equals
+  `sequence` except for an overlay whose residues differ, where the display string wins: it is
+  what the desktop draws and what search (`core/search/exact.ts`) reads. The **mobile reader
+  displays residue space**, numbered 1-based; reader text, search hits, annotations and the
+  mobile exports (`exportRecordRange`, `extractFeatureResidues`) all derive from the display
+  string. Desktop exports keep today's behavior.
 - The reader converts **only at its own boundary**:
   - shared → reader: `alignedToOriginalPositions` / `getOriginalPos` (existing, `domain/bio/sequence.ts`);
   - reader → shared: a new pure inverse, `originalToAlignedPos(displayString, residuePos)`, added
@@ -476,8 +490,12 @@ tab; PR 7 can ride the same promotion or the next.
     gets the frozen pre-rotation center;
   - `zoomAroundAnchor`: anchor stays fixed; identical requests against different `minZoom`,
     including crossing the lower bound, give the right zoom and scroll;
-  - gapped-FASTA normalization: Sequences import and project load (with and without an existing
-    `alignedSequence`); GenBank/GFF exports gap-free; FASTA export text unchanged;
+  - gapped-input normalization: FASTA and GenBank Sequences import (including a GenBank file
+    produced by today's exporter), project load with and without an existing `alignedSequence`;
+    GenBank/GFF exports gap-free; FASTA export text unchanged;
+  - mismatched overlay (`ACGGT` on `ACGT`, an added residue, a missing residue, a substitution):
+    reader text, search hits, annotation placement and mobile exports agree with the display
+    string; desktop exports unchanged;
   - `originalToAlignedPos` and the coordinate acceptance case above, including the later overlays
     with identical and different gap placement;
   - active-record transitions table, including removing the active record from the 8-record
