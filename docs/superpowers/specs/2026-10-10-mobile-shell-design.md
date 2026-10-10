@@ -41,49 +41,56 @@ rows "Option A". They are a visual reference only; **this document is the contra
 
 ## Coordinate contract
 
-All shared state keeps **today's coordinate space**, so the desktop and the project format are
-untouched:
+### One storage rule: `sequence` is never gapped
 
-- Each record has a **display string**: `alignedSequence ?? sequence`, exactly the string the
-  desktop viewer draws and `featureManager.ts` converts from today. It may contain gap characters
-  whatever its source: an alignment overlay, or a plain FASTA imported with gaps through
-  Sequences (stored in `sequence` as today, no normalization) or restored from a project.
+The engine's overlay model assumes a record's `sequence` holds residues only and that gaps live
+in `alignedSequence`: `applyFastaResponse` attaches an overlay without touching features,
+`processTransposition` maps stored feature positions from residue space to columns, and today's
+`annotationCoords` (`logic/featureManager.ts`) ungaps every new annotation into residue space.
+GenBank and GFF features are residue positions too. The one input that breaks this is a plain
+FASTA with gap characters imported through **Sequences**: it is stored as-is in `sequence`, so its
+annotations are drawn at the wrong columns (selecting `GT` in `--AC-GTAC` stores `[2,4)`, drawn
+over `AC`), and they would move again if an alignment overlay were later applied.
+
+**Fix: normalize at ingestion** (a `fix` commit in PR 3, with regression tests):
+
+- a Sequences-path FASTA record whose string contains gap characters (the gap definition of
+  `alignedToOriginalPositions`) is stored as `sequence` = the string with gaps removed and
+  `alignedSequence` = the original string. Ungapped records are unchanged;
+- a project whose record has a gapped `sequence` is normalized the same way on load: if it has no
+  `alignedSequence`, the gapped string becomes it; if it has one, it is kept. Its features stay as
+  stored, because every path that could have created them already wrote residue positions;
+- nothing else changes: the viewer draws the same string, `deriveAlignmentState` sees the same
+  lengths, FASTA export (which prefers `alignedSequence`) writes the same text, and GenBank / GFF
+  exports and remote alignment now receive gap-free residues, as they should.
+
+After this, **stored feature coordinates are always residue positions of `sequence`**, and an
+overlay applied later re-maps them correctly through `processTransposition`.
+
+### Spaces the UIs use
+
+- Each record's **display string** is `alignedSequence ?? sequence`, the string the desktop viewer
+  draws.
 - `SelectionArea`, `FocusTarget`, search results and the project JSON selection are in
-  **column space**: positions in the display string, with the start/end convention the code uses
-  today.
-- **Residue space** is the display string with gap characters removed, using the same gap
-  definition as `alignedToOriginalPositions`. The **mobile reader displays residue space**,
-  numbered 1-based as biological positions.
-- The reader converts **only at its own boundary**, and whenever the display string contains gaps
-  (not only when `alignedSequence` exists):
+  **column space**: positions in the display string, with today's start/end convention.
+- **Residue space** is `sequence` (equivalently, the display string without gaps). The **mobile
+  reader displays residue space**, numbered 1-based as biological positions.
+- The reader converts **only at its own boundary**:
   - shared → reader: `alignedToOriginalPositions` / `getOriginalPos` (existing, `domain/bio/sequence.ts`);
   - reader → shared: a new pure inverse, `originalToAlignedPos(displayString, residuePos)`, added
     to `domain/bio/sequence.ts` with tests (PR 5).
-- Every mobile path that writes shared state (selection, annotate, search-hit focus) goes through
-  these conversions; existing shared mutations keep receiving column-space input. Desktop
-  ingestion and the project format are unchanged.
-
-**Stored feature coordinates** follow the engine, which differs by representation:
-
-- record **with** `alignedSequence` (overlay): features are stored in residue positions of
-  `sequence`; `processTransposition` maps them to columns for display, focus and extraction;
-- record **without** `alignedSequence` (including a gapped plain FASTA): `processTransposition`
-  leaves features untouched, so they are stored **in display-string positions, gaps included**.
-
-A new shared helper `columnToFeaturePos(record, column)` encodes this: `getOriginalPos(alignedSequence, column)`
-when an overlay exists, otherwise `column` unchanged. Every path that turns a column-space draft
-into a stored feature uses it: the new `addFeatures`, and the existing `annotationCoords` in
-`logic/featureManager.ts`, which today ungaps unconditionally and so misplaces annotations on a
-gapped plain FASTA (selecting `GT` in `--AC-GTAC` stores `[2,4)`, drawn over `AC`). That is an
-existing desktop bug; PR 5 fixes it in its own `fix` commit with a regression test. Rendering,
-focus, extraction and project restore are unchanged, because they already read stored
-coordinates this way.
+- Paths that turn a column-space draft into a stored feature (`annotationCoords`, the new
+  `addFeatures`) convert with `getOriginalPos(displayString, column)`, as `annotationCoords` does
+  today. With the normalization above this is correct for every record.
 
 **Acceptance:** for each of (a) a record `ACGTAC` with an alignment overlay `--AC-GTAC`, (b) a
-plain FASTA `>r` / `--AC-GTAC` imported through Sequences, and (c) the project JSON equivalent of
-(b): selecting residues 3–4 (`GT`) in the reader, annotating it, then checking the stored
-feature's desktop bar, its focus target, its feature FASTA, a search for `GT`, the selection
-export and a project round-trip all identify `GT`, in both shells.
+plain FASTA `>r` / `--AC-GTAC` imported through Sequences, and (c) a project JSON whose record has
+`sequence: "--AC-GTAC"` and no `alignedSequence`: selecting residues 3–4 (`GT`) in the reader,
+annotating it, then checking the feature's desktop bar, its focus target, its feature FASTA, a
+search for `GT`, the selection export and a project round-trip all identify `GT`, in both shells.
+Then, for (b), applying the identical alignment and an alignment with different gap placement
+(e.g. `A--CG-TAC`) keeps the existing annotation on `GT`, and annotating after the overlay gives
+an equivalent feature.
 
 ## Architecture
 
@@ -439,9 +446,9 @@ Each PR targets `develop`. Versions bump at the `develop → main` promotion per
 | --- | --- | --- | --- |
 | 1 | `refactor(app): split the app into shared and desktop shells` | `shared/types/` contracts, folder moves, `useWorkspace()` with `onNavigateToViewer` and `onRecordRemoved`, `ShellRoot` (desktop only), ESLint rules, boundaries test, build isolation check, ARCHITECTURE.md | High, mitigated: no behavior change; full suite + before/after screenshots |
 | 2 | `feat(viewer): pan, select and pinch-zoom by touch` | Pointer events (mouse path unchanged), touch/pen state machine, `zoomAroundAnchor`, `onFeatureTap`, `touch-action`, `toolbar="compact"`, `initialCenterColumn` / `onViewportChange` | Medium: mouse behavior and full toolbar must be identical |
-| 3 | `feat(mobile): add the mobile shell with landing, workspace and export` | `pickShell` + overrides, `MobileApp`, tabs, active-record rules, Landing, Workspace, Add sheet + ingestion rules, examples, `addLog` level, notices, More, `deliver` seam, `onWorkspaceReplaced` + the project-load selection `fix` commit | Low: additive `addLog` level; the project-load fix changes desktop only where it was wrong |
+| 3 | `feat(mobile): add the mobile shell with landing, workspace and export` | `pickShell` + overrides, `MobileApp`, tabs, active-record rules, Landing, Workspace, Add sheet + ingestion rules, examples, `addLog` level, notices, More, `deliver` seam, `onWorkspaceReplaced`, and two `fix` commits: the project-load selection reset and the gapped-FASTA normalization | Low: additive `addLog` level; both fixes change desktop only where it was wrong |
 | 4 | `feat(mobile): map the genome and open features` | Map, Feature sheet, shared translation helper, `extractFeatureResidues`, `exportFeatureSequence` | Low (helper extraction under existing tests) |
-| 5 | `feat(mobile): read the sequence and annotate selections` | Reader, `originalToAlignedPos`, `columnToFeaturePos` + the gapped-FASTA annotation `fix` commit, selection, Annotate sheet, `addFeatures`, `exportRecordRange`, Features cards | Low: the fix changes desktop only where it was wrong |
+| 5 | `feat(mobile): read the sequence and annotate selections` | Reader, `originalToAlignedPos`, selection, Annotate sheet, `addFeatures`, `exportRecordRange`, Features cards | None (additive) |
 | 6 | `feat(mobile): search motifs` | Search screen, batch annotate (consumes `addFeatures`) | None |
 | 7 | `feat(mobile): compare aligned sequences` | Overview + lens + reference picker, landscape viewer mount | None |
 
@@ -467,8 +474,10 @@ tab; PR 7 can ride the same promotion or the next.
     gets the frozen pre-rotation center;
   - `zoomAroundAnchor`: anchor stays fixed; identical requests against different `minZoom`,
     including crossing the lower bound, give the right zoom and scroll;
-  - `originalToAlignedPos`, `columnToFeaturePos`, and the three-way coordinate acceptance case above
-    (desktop bar, focus target, feature FASTA, search, selection export, project round-trip);
+  - gapped-FASTA normalization: Sequences import and project load (with and without an existing
+    `alignedSequence`); GenBank/GFF exports gap-free; FASTA export text unchanged;
+  - `originalToAlignedPos` and the coordinate acceptance case above, including the later overlays
+    with identical and different gap placement;
   - active-record transitions table, including removing the active record from the 8-record
     influenza workspace with a sheet open, and removing the last record;
   - exports: one-record selection; `extractFeatureResidues` for joined, reverse-strand and
