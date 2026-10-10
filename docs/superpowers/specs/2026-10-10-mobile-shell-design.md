@@ -1,6 +1,6 @@
 # Mobile shell — design
 
-**Date:** 2026-10-10 · **Branch:** `docs/mobile-shell-spec` (off `develop`) · **Status:** draft, in review (rev 2)
+**Date:** 2026-10-10 · **Branch:** `docs/mobile-shell-spec` (off `develop`) · **Status:** draft, in review (rev 4)
 
 Dunceious is desktop-only today. On a 390×844 phone the sidebar takes ~80% of the width and the
 viewer is ~50 px wide, and every interaction (pan, drag-select, minimap, ctrl+wheel zoom, hover
@@ -63,10 +63,27 @@ untouched:
   these conversions; existing shared mutations keep receiving column-space input. Desktop
   ingestion and the project format are unchanged.
 
+**Stored feature coordinates** follow the engine, which differs by representation:
+
+- record **with** `alignedSequence` (overlay): features are stored in residue positions of
+  `sequence`; `processTransposition` maps them to columns for display, focus and extraction;
+- record **without** `alignedSequence` (including a gapped plain FASTA): `processTransposition`
+  leaves features untouched, so they are stored **in display-string positions, gaps included**.
+
+A new shared helper `columnToFeaturePos(record, column)` encodes this: `getOriginalPos(alignedSequence, column)`
+when an overlay exists, otherwise `column` unchanged. Every path that turns a column-space draft
+into a stored feature uses it: the new `addFeatures`, and the existing `annotationCoords` in
+`logic/featureManager.ts`, which today ungaps unconditionally and so misplaces annotations on a
+gapped plain FASTA (selecting `GT` in `--AC-GTAC` stores `[2,4)`, drawn over `AC`). That is an
+existing desktop bug; PR 5 fixes it in its own `fix` commit with a regression test. Rendering,
+focus, extraction and project restore are unchanged, because they already read stored
+coordinates this way.
+
 **Acceptance:** for each of (a) a record `ACGTAC` with an alignment overlay `--AC-GTAC`, (b) a
 plain FASTA `>r` / `--AC-GTAC` imported through Sequences, and (c) the project JSON equivalent of
-(b): selecting residues 3–4 (`GT`) in the reader, annotating, searching `GT`, exporting the
-selection and round-tripping a project all identify `GT` in both shells.
+(b): selecting residues 3–4 (`GT`) in the reader, annotating it, then checking the stored
+feature's desktop bar, its focus target, its feature FASTA, a search for `GT`, the selection
+export and a project round-trip all identify `GT`, in both shells.
 
 ## Architecture
 
@@ -339,10 +356,15 @@ Each mobile action has a defined scope; desktop export behavior does not change.
 separate pure domain function, `extractFeatureResidues(record, feature, moleculeType)` in
 `domain/bio/sequence.ts`:
 
-- concatenates every part of the feature in annotated order (joins, origin-crossing parts),
-  keeping all annotated residues — no `codon_start` trimming;
-- nucleotide records on the minus strand are reverse-complemented with a **molecule-aware**
-  alphabet (`U` for RNA, `T` for DNA, IUPAC codes complemented);
+- takes every part of the feature in annotated order (joins, origin-crossing parts), keeping all
+  annotated residues — no `codon_start` trimming — and drops gap characters from the output;
+- **orientation**, nucleotide records only, following the same precedence as the existing
+  extraction (`sequence.ts`, per-segment branch): when any segment carries its own strand, each
+  segment is oriented by its own strand, in join order, with **no** whole-feature reversal
+  (`join(complement(1..3),complement(7..9))` on `ATGAAACCC` gives `CATGGG`); otherwise a
+  minus-strand feature's concatenation is reverse-complemented as a whole;
+- complements use a **molecule-aware** alphabet (`U` for RNA, `T` for DNA, IUPAC codes
+  complemented);
 - protein records are **never** complemented, whatever strand metadata the feature carries.
 
 New shared inputs (additive): `exportFeatureSequence(recordId, featureIndex)` (PR 4) and
@@ -419,7 +441,7 @@ Each PR targets `develop`. Versions bump at the `develop → main` promotion per
 | 2 | `feat(viewer): pan, select and pinch-zoom by touch` | Pointer events (mouse path unchanged), touch/pen state machine, `zoomAroundAnchor`, `onFeatureTap`, `touch-action`, `toolbar="compact"`, `initialCenterColumn` / `onViewportChange` | Medium: mouse behavior and full toolbar must be identical |
 | 3 | `feat(mobile): add the mobile shell with landing, workspace and export` | `pickShell` + overrides, `MobileApp`, tabs, active-record rules, Landing, Workspace, Add sheet + ingestion rules, examples, `addLog` level, notices, More, `deliver` seam, `onWorkspaceReplaced` + the project-load selection `fix` commit | Low: additive `addLog` level; the project-load fix changes desktop only where it was wrong |
 | 4 | `feat(mobile): map the genome and open features` | Map, Feature sheet, shared translation helper, `extractFeatureResidues`, `exportFeatureSequence` | Low (helper extraction under existing tests) |
-| 5 | `feat(mobile): read the sequence and annotate selections` | Reader, `originalToAlignedPos`, selection, Annotate sheet, `addFeatures`, `exportRecordRange`, Features cards | None (additive) |
+| 5 | `feat(mobile): read the sequence and annotate selections` | Reader, `originalToAlignedPos`, `columnToFeaturePos` + the gapped-FASTA annotation `fix` commit, selection, Annotate sheet, `addFeatures`, `exportRecordRange`, Features cards | Low: the fix changes desktop only where it was wrong |
 | 6 | `feat(mobile): search motifs` | Search screen, batch annotate (consumes `addFeatures`) | None |
 | 7 | `feat(mobile): compare aligned sequences` | Overview + lens + reference picker, landscape viewer mount | None |
 
@@ -445,11 +467,13 @@ tab; PR 7 can ride the same promotion or the next.
     gets the frozen pre-rotation center;
   - `zoomAroundAnchor`: anchor stays fixed; identical requests against different `minZoom`,
     including crossing the lower bound, give the right zoom and scroll;
-  - `originalToAlignedPos` and the three-way coordinate acceptance case above;
+  - `originalToAlignedPos`, `columnToFeaturePos`, and the three-way coordinate acceptance case above
+    (desktop bar, focus target, feature FASTA, search, selection export, project round-trip);
   - active-record transitions table, including removing the active record from the 8-record
     influenza workspace with a sheet open, and removing the last record;
   - exports: one-record selection; `extractFeatureResidues` for joined, reverse-strand and
-    origin-crossing features, CDSs with `codon_start` 2/3 (full length kept), RNA minus strand
+    origin-crossing features, an independently complemented join (`CATGGG` case) and a mixed-strand
+    join with exact order and orientation, CDSs with `codon_start` 2/3 (full length kept), RNA minus strand
     (`U`), and protein features with minus-strand metadata (unchanged); CDS Copy equals the
     displayed translation;
   - `addFeatures`: one hit, several hits on one record, hits across records, mixed strands — exact
