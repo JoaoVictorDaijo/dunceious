@@ -281,4 +281,6 @@ final verification + ESLint enforcement, so the two never overwrite each other.
 
 ## 10. License
 
-This project is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The AGPL v3 was chosen specifically because Dunceious is a web application: it ensures that anyone who runs a modified version as a network service must also publish their source code. See the `COPYING` file for the full license text.
+This project is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The AGPL v3 was chosen specifically because Dunceious is a web application: anyone who runs a modified version as a network service must offer the corresponding source of that version to the users interacting with it remotely (AGPL §13). See the `COPYING` file for the full license text.
+
+Every production build ships `COPYING.txt` (the root `COPYING`, unchanged) and `THIRD_PARTY_NOTICES.txt` (the full license and notice texts of each npm package bundled into the output) at the root of `dist/`. Both are emitted by `scripts/legal-notices.mjs`; the build fails if a bundled package ships no license file.

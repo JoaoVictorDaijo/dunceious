@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
 # Dunceious
+# Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
 #
 # This file is part of Dunceious.
 #
@@ -60,7 +61,8 @@ FA_ATTR = "Font Awesome Free 6.4.0 fa-dna glyph, CC BY 4.0 - https://fontawesome
 # AGPL header emitted into generated SVGs (see scripts/check-license-headers.mjs).
 AGPL_SVG = (
     "<!--\n"
-    "  Dunceious\n\n"
+    "  Dunceious\n"
+    "  Copyright (C) 2026 João Victor Daijo and Murilo Cassiano\n\n"
     "  This file is part of Dunceious.\n\n"
     "  Dunceious is free software: you can redistribute it and/or modify\n"
     "  it under the terms of the GNU Affero General Public License as published by\n"

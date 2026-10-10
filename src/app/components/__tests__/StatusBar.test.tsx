@@ -18,17 +18,21 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Vitest config for the performance regression guardrails.
- * Run via:  npm run perf
- */
-import { defineConfig } from 'vitest/config';
-import { sharedBenchConfig } from '../vitest.shared';
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@/src/app/testing/renderHarness';
+import StatusBar from '../StatusBar';
 
-export default defineConfig({
-  ...sharedBenchConfig,
-  test: {
-    ...sharedBenchConfig.test,
-    include: ['perf/**/*.perf.ts'],
-  },
+describe('StatusBar legal notices', () => {
+  it('names the copyright holders and links the license and the source', () => {
+    render(<StatusBar sessionMoleculeType={null} themeKey="clean" />);
+
+    expect(screen.getByText('© 2026 João Victor Daijo & Murilo Cassiano')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /AGPL v3 or later/ }).getAttribute('href')).toBe(
+      'https://www.gnu.org/licenses/agpl-3.0.html',
+    );
+    expect(screen.getByRole('link', { name: /Source Code/ }).getAttribute('href')).toBe(
+      'https://github.com/JoaoVictorDaijo/dunceious',
+    );
+  });
 });

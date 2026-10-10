@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -21,6 +22,7 @@ import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
+import { legalNotices } from "./scripts/legal-notices.mjs";
 
 export default defineConfig(() => {
   // Single source of truth for the app version: read from package.json and
@@ -30,6 +32,7 @@ export default defineConfig(() => {
   const pkg = JSON.parse(
     readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
   ) as { version: string };
+  const notices = legalNotices({ root: __dirname });
   return {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
@@ -38,7 +41,10 @@ export default defineConfig(() => {
       port: 3000,
       host: "0.0.0.0",
     },
-    plugins: [react()],
+    plugins: [react(), notices.main],
+    worker: {
+      plugins: () => [notices.worker],
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),
