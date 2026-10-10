@@ -44,23 +44,29 @@ rows "Option A". They are a visual reference only; **this document is the contra
 All shared state keeps **today's coordinate space**, so the desktop and the project format are
 untouched:
 
+- Each record has a **display string**: `alignedSequence ?? sequence`, exactly the string the
+  desktop viewer draws and `featureManager.ts` converts from today. It may contain gap characters
+  whatever its source: an alignment overlay, or a plain FASTA imported with gaps through
+  Sequences (stored in `sequence` as today, no normalization) or restored from a project.
 - `SelectionArea`, `FocusTarget`, search results and the project JSON selection are in
-  **alignment-column space** (positions in `alignedSequence` when a record has one, otherwise in
-  `sequence`, where columns and residues coincide), with the same start/end convention the code
-  uses today.
-- The **mobile reader displays residue space**: the active record's ungapped residues, numbered
-  1-based as biological positions.
-- The reader converts **only at its own boundary**:
+  **column space**: positions in the display string, with the start/end convention the code uses
+  today.
+- **Residue space** is the display string with gap characters removed, using the same gap
+  definition as `alignedToOriginalPositions`. The **mobile reader displays residue space**,
+  numbered 1-based as biological positions.
+- The reader converts **only at its own boundary**, and whenever the display string contains gaps
+  (not only when `alignedSequence` exists):
   - shared → reader: `alignedToOriginalPositions` / `getOriginalPos` (existing, `domain/bio/sequence.ts`);
-  - reader → shared: a new pure inverse, `originalToAlignedPos(alignedSeq, residuePos)`, added to
-    `domain/bio/sequence.ts` with tests (PR 5).
+  - reader → shared: a new pure inverse, `originalToAlignedPos(displayString, residuePos)`, added
+    to `domain/bio/sequence.ts` with tests (PR 5).
 - Every mobile path that writes shared state (selection, annotate, search-hit focus) goes through
-  these conversions; existing shared mutations (e.g. `featureManager.ts` converting a selection
-  with `getOriginalPos`) keep receiving column-space input.
+  these conversions; existing shared mutations keep receiving column-space input. Desktop
+  ingestion and the project format are unchanged.
 
-**Acceptance:** with a record `ACGTAC` aligned as `--AC-GTAC`, selecting residues 3–4 (`GT`) in
-the reader, annotating, searching `GT`, exporting the selection and round-tripping a project all
-identify `GT` in both shells.
+**Acceptance:** for each of (a) a record `ACGTAC` with an alignment overlay `--AC-GTAC`, (b) a
+plain FASTA `>r` / `--AC-GTAC` imported through Sequences, and (c) the project JSON equivalent of
+(b): selecting residues 3–4 (`GT`) in the reader, annotating, searching `GT`, exporting the
+selection and round-tripping a project all identify `GT` in both shells.
 
 ## Architecture
 
@@ -121,8 +127,17 @@ Two layers of enforcement, both in CI:
    `React.lazy` call in `shell/ShellRoot.tsx`. Fixture snippets prove it rejects a cross-shell
    import, a dynamic import of a non-root module and an eager dynamic root import.
 
-Plus the bundle check: after `vite build`, the build manifest shows the desktop chunk graph
-contains no `src/app/mobile/` module and vice versa.
+3. **A build check** with source-module evidence. A small Rollup plugin in `vite.config.ts`
+   (`generateBundle` hook, every production build) reads each output chunk's `moduleIds` and its
+   static `imports`, then:
+   - the **startup graph** = the entry chunk plus its static imports, transitively; it may contain
+     no module under `src/app/desktop/` or `src/app/mobile/`;
+   - the **desktop graph** = the chunk whose `facadeModuleId` is `src/app/desktop/DesktopApp.tsx`
+     plus its static imports, transitively; it may contain no module under `src/app/mobile/`;
+   - the **mobile graph** is the same from `src/app/mobile/MobileApp.tsx`, with no `src/app/desktop/` module.
+   Chunks shared by both graphs (from `shared/`) are allowed. The build fails on a violation. The
+   checker is a pure function over the bundle object, unit-tested with a synthetic bundle that
+   places a non-entry mobile module inside a desktop-reachable chunk. No manifest is needed.
 
 The domain ← core ← workers ← app rules are unchanged; `shared/`, `desktop/`, `mobile/` and
 `shell/` are all inside the `app` layer. `ARCHITECTURE.md` and the `dunceious-architecture` skill
@@ -150,6 +165,14 @@ Options, so shared code never touches shell state:
 - `onRecordRemoved(recordId)` — called after the shared removal (records, selection, search
   state). Desktop closes its details modals for that record, exactly as `App.tsx` does today;
   mobile runs its own reconciliation (below).
+- `onWorkspaceReplaced()` — called after a project load succeeds and replaces the records. Before
+  calling it, the shared code resets the state that referred to the old workspace: the active
+  selection becomes the project's selection **or `null`** (today `handleProjectUpload` keeps the
+  old selection when the project's is `null`, so record IDs that reappear in the new project can
+  point at different sequences); `focusedRegion`, `pendingFocus` and the search results are
+  cleared. Desktop closes its details modals and any open feature editor; mobile runs its
+  reconciliation. This is a desktop bug fix as well, shipped as its own `fix` commit in PR 3 with
+  a regression test.
 
 Rule for anything not listed: **it stays in `DesktopApp` until a mobile screen needs it**, then
 moves, in the PR that needs it.
@@ -190,10 +213,15 @@ Touch differs only where the platform requires it:
 
 ### Gesture arbitration
 
-One state machine per viewer, used by every pointer type:
+**Mouse** (`pointerType === 'mouse'`) keeps today's semantics exactly: the drag starts on
+pointerdown with no movement threshold, a nonempty interval commits on release using the
+**release** coordinate (also when no move event arrived between down and up, as
+`useSelectionDrag.test.tsx` covers), Shift-click extension and double-click work as today. The
+mouse never enters the state machine below.
 
-1. **pointerdown** → `pending`. No pointer capture yet, so a plain click still reaches `Row.tsx`
-   handlers.
+**Touch and pen** use one state machine per viewer:
+
+1. **pointerdown** → `pending`. No pointer capture yet.
 2. Movement beyond a **6 px slop** → `drag` (pan or select per mode); pointer capture is taken now.
 3. A **second pointer** at any time → `pinch`: an in-progress selection is **discarded without
    committing**, autoscroll stops, pan stops. Zoom follows the two pointers.
@@ -206,9 +234,11 @@ One state machine per viewer, used by every pointer type:
 
 ### Pinch zoom
 
-`zoomAroundAnchor({ zoom, scrollX, anchorX, scale }) → { zoom, scrollX }` is a pure function,
-clamped to the existing fit/`MAX_ZOOM` bounds. ctrl+wheel switches to it, so both paths behave
-identically.
+`zoomAroundAnchor({ zoom, scrollX, anchorX, scale, minZoom, maxZoom }) → { zoom, scrollX }` is a
+pure function. It **clamps first** (`minZoom` = the viewer's current fit zoom, `maxZoom` =
+`MAX_ZOOM`) and computes the new `scrollX` from the **clamped** zoom so the anchor column stays
+under the anchor, as `handleZoom` in `useViewport.ts` does today. ctrl+wheel switches to it, so
+both paths behave identically.
 
 ### Touch taps and tooltips
 
@@ -221,8 +251,20 @@ Tooltips stay hover-only for `pointerType === 'mouse'`. New optional prop
 internally, so a surrounding frame cannot drive it. New optional prop
 `toolbar?: 'full' | 'compact'`, default `'full'` (today's rendering, unchanged). `'compact'`
 renders the same minimap and the same internal zoom/fit handlers in one row with **44 px** touch
-targets. No external viewport controller is introduced. Desktop regression is checked in PR 2;
-PR 7 only sets `toolbar="compact"`.
+targets. No external viewport controller is introduced. Desktop regression is checked in PR 2.
+
+### Viewport position in and out
+
+Two more optional props, also PR 2, both unused by desktop:
+
+- `initialCenterColumn?: number` — applied once on mount: the viewer centers that column at its
+  current zoom.
+- `onViewportChange?({ centerColumn, zoom })` — reported after every viewport change, throttled to
+  one call per animation frame.
+
+Mobile keeps the last reported value. When the orientation media query changes, mobile **freezes**
+that value before the layout resizes or the viewer unmounts, and ignores later reports. PR 7 only
+wires these props and `toolbar="compact"`.
 
 ## Mobile UI
 
@@ -244,6 +286,11 @@ Map, Sequence and Features show the **active record** (mobile state):
 
 On `onRecordRemoved`, mobile also closes any feature sheet, annotate sheet or reader selection that
 refers to the removed record; a discarded annotate draft shows a short notice.
+
+On `onWorkspaceReplaced`, mobile discards **all** open sheets, annotate drafts, pending
+navigation and the lens column, resets the alignment reference to the first record, and sets the
+active record per the table, regardless of whether record IDs reappear in the new project. The
+shared selection is already the incoming project's selection or `null` (see `useWorkspace()`).
 
 ### Screens
 
@@ -283,12 +330,23 @@ Each mobile action has a defined scope; desktop export behavior does not change.
 | Action | Records | Content |
 | --- | --- | --- |
 | Reader selection → FASTA / Copy | the active record only | its ungapped residues in the selected range, forward strand |
-| Feature sheet → Export FASTA | that record | the feature's spliced, strand-oriented residues (nucleotides, or amino acids in a protein session) via `extractCodingSequence` (joins, reverse strand, origin-crossing handled there) |
-| Feature sheet → Copy | that record | CDS in a nucleotide session: the protein shown in the sheet; everything else: the same residues as Export FASTA |
+| Feature sheet → Export FASTA | that record | the feature's **full** residues via `extractFeatureResidues` (below) |
+| Feature sheet → Copy | that record | CDS in a nucleotide session: the protein shown in the sheet (translation path); everything else: the same residues as Export FASTA |
 | More → Export FASTA / GFF3 / GenBank / Project | whole workspace | same as desktop's buttons today |
 
-New shared inputs (PR 4/5, additive): `exportRecordRange(recordId, residueStart, residueEnd)` and
-`exportFeatureSequence(recordId, featureIndex)`. All exports go through a new optional
+`extractCodingSequence` is **not** used for export: it prepares translation (it drops
+`codon_start - 1` residues and reverse-complements with the DNA alphabet only). PR 4 adds a
+separate pure domain function, `extractFeatureResidues(record, feature, moleculeType)` in
+`domain/bio/sequence.ts`:
+
+- concatenates every part of the feature in annotated order (joins, origin-crossing parts),
+  keeping all annotated residues — no `codon_start` trimming;
+- nucleotide records on the minus strand are reverse-complemented with a **molecule-aware**
+  alphabet (`U` for RNA, `T` for DNA, IUPAC codes complemented);
+- protein records are **never** complemented, whatever strand metadata the feature carries.
+
+New shared inputs (additive): `exportFeatureSequence(recordId, featureIndex)` (PR 4) and
+`exportRecordRange(recordId, residueStart, residueEnd)` (PR 5). All exports go through a new optional
 `deliver(filename, blob)` seam in `useFileHandlers`: desktop keeps today's download; mobile
 uses `navigator.share({ files })` when `navigator.canShare({ files })` is true, else the download.
 
@@ -296,11 +354,14 @@ uses `navigator.share({ files })` when `navigator.canShare({ files })` is true, 
 
 "Annotate as features" creates **one feature per selected hit**, each on its own record and with
 the hit's strand; hits may span records. The sheet asks for a base name (default: the query) and a
-type (default `misc_feature`); features are named `<base> 1…n` in result order. This needs a
-shared batch mutation, `addFeatures(drafts[])` in `useFeatureManager` (PR 6, additive), that adds
-all drafts in one state update and logs once. The existing `addAnnotationFromSearch` /
-`joinSelectedMatches` desktop paths are untouched. A reader-selection annotation is a one-draft
-call to the same function.
+type (default `misc_feature`); features are named `<base> 1…n` in result order.
+
+Both annotate flows use one shared batch mutation, `addFeatures(drafts[])` in
+`useFeatureManager`, **introduced in PR 5** (with its draft type
+`{ recordId, start, end, strand, name, type }` in column space and its mutation tests), where the
+reader-selection annotation is a one-draft call. It adds all drafts in one state update and logs
+once. PR 6 only consumes it for search hits. The existing `addAnnotationFromSearch` /
+`joinSelectedMatches` desktop paths are untouched.
 
 ### Translation
 
@@ -321,8 +382,9 @@ used by both, covered by the existing viewer tests. Protein records are never tr
   ambiguity codes count as a difference unless the letters are identical.
 - **Navigation:** previous/next steps through difference columns (any record) in column order,
   stopping at the ends; "No differences" when there are none.
-- **Lens:** mobile state holds the lens column. Turning to landscape opens the viewer centered on
-  that column; turning back sets the lens to the viewer's center column.
+- **Lens:** mobile state holds the lens column. Turning to landscape mounts the viewer with
+  `initialCenterColumn` = the lens column; turning back sets the lens to the `centerColumn` frozen
+  from `onViewportChange` before the resize (see "Viewport position in and out").
 
 ### Reader and map details
 
@@ -353,12 +415,12 @@ Each PR targets `develop`. Versions bump at the `develop → main` promotion per
 
 | # | PR | Scope | Desktop risk |
 | --- | --- | --- | --- |
-| 1 | `refactor(app): split the app into shared and desktop shells` | `shared/types/` contracts, folder moves, `useWorkspace()` with its two callbacks, `ShellRoot` (desktop only), ESLint rules + boundaries test, ARCHITECTURE.md | High, mitigated: no behavior change; full suite + before/after screenshots |
-| 2 | `feat(viewer): pan, select and pinch-zoom by touch` | Pointer events, gesture state machine, `zoomAroundAnchor`, `onFeatureTap`, `touch-action`, `toolbar="compact"` | Medium: mouse behavior and full toolbar must be identical |
-| 3 | `feat(mobile): add the mobile shell with landing, workspace and export` | `pickShell` + overrides, `MobileApp`, tabs, active-record rules, Landing, Workspace, Add sheet + ingestion rules, examples, `addLog` level, notices, More, `deliver` seam | Low (additive `addLog` level) |
-| 4 | `feat(mobile): map the genome and open features` | Map, Feature sheet, shared translation helper, `exportFeatureSequence` | Low (helper extraction under existing tests) |
+| 1 | `refactor(app): split the app into shared and desktop shells` | `shared/types/` contracts, folder moves, `useWorkspace()` with `onNavigateToViewer` and `onRecordRemoved`, `ShellRoot` (desktop only), ESLint rules, boundaries test, build isolation check, ARCHITECTURE.md | High, mitigated: no behavior change; full suite + before/after screenshots |
+| 2 | `feat(viewer): pan, select and pinch-zoom by touch` | Pointer events (mouse path unchanged), touch/pen state machine, `zoomAroundAnchor`, `onFeatureTap`, `touch-action`, `toolbar="compact"`, `initialCenterColumn` / `onViewportChange` | Medium: mouse behavior and full toolbar must be identical |
+| 3 | `feat(mobile): add the mobile shell with landing, workspace and export` | `pickShell` + overrides, `MobileApp`, tabs, active-record rules, Landing, Workspace, Add sheet + ingestion rules, examples, `addLog` level, notices, More, `deliver` seam, `onWorkspaceReplaced` + the project-load selection `fix` commit | Low: additive `addLog` level; the project-load fix changes desktop only where it was wrong |
+| 4 | `feat(mobile): map the genome and open features` | Map, Feature sheet, shared translation helper, `extractFeatureResidues`, `exportFeatureSequence` | Low (helper extraction under existing tests) |
 | 5 | `feat(mobile): read the sequence and annotate selections` | Reader, `originalToAlignedPos`, selection, Annotate sheet, `addFeatures`, `exportRecordRange`, Features cards | None (additive) |
-| 6 | `feat(mobile): search motifs` | Search screen, batch annotate | None |
+| 6 | `feat(mobile): search motifs` | Search screen, batch annotate (consumes `addFeatures`) | None |
 | 7 | `feat(mobile): compare aligned sequences` | Overview + lens + reference picker, landscape viewer mount | None |
 
 PR 3 is the first PR after which a phone visitor sees the mobile UI. Until their PRs land, the
@@ -370,16 +432,26 @@ tab; PR 7 can ride the same promotion or the next.
 
 - **Unit (Vitest + Testing Library, existing setup):**
   - `pickShell`: override, coarse pointer, shorter side, tablet;
-  - `useWorkspace`: parity with today's `App` wiring, both callbacks;
+  - `useWorkspace`: parity with today's `App` wiring, all three callbacks; project load with a
+    `null` selection after a selection in the previous project, with overlapping record IDs,
+    leaves no old selection, focus, search result or mobile draft; a valid incoming selection is kept;
+  - build isolation checker: synthetic bundle with a mobile module inside a desktop-reachable chunk fails;
   - boundaries test with its rejecting fixtures;
   - gesture state machine: drag→pinch promotion discards the selection, one-finger-left after pinch,
-    cancel/lost-capture/unmount cleanup, click suppression, mouse click and double-click unchanged,
-    two-axis mouse pan;
-  - `zoomAroundAnchor`: anchor stays fixed, clamps;
-  - `originalToAlignedPos` and the coordinate acceptance case above;
+    cancel/lost-capture/unmount cleanup, click suppression; mouse: sub-6 px drags still commit,
+    down/up with no move uses the release coordinate, Shift-click and double-click unchanged,
+    two-axis pan;
+  - viewport props: enter landscape at a known lens column, pan and zoom, rotate back — the lens
+    gets the frozen pre-rotation center;
+  - `zoomAroundAnchor`: anchor stays fixed; identical requests against different `minZoom`,
+    including crossing the lower bound, give the right zoom and scroll;
+  - `originalToAlignedPos` and the three-way coordinate acceptance case above;
   - active-record transitions table, including removing the active record from the 8-record
     influenza workspace with a sheet open, and removing the last record;
-  - exports: one-record selection, joined, reverse-strand and origin-crossing feature sequences;
+  - exports: one-record selection; `extractFeatureResidues` for joined, reverse-strand and
+    origin-crossing features, CDSs with `codon_start` 2/3 (full length kept), RNA minus strand
+    (`U`), and protein features with minus-strand metadata (unchanged); CDS Copy equals the
+    displayed translation;
   - `addFeatures`: one hit, several hits on one record, hits across records, mixed strands — exact
     counts, coordinates and strands;
   - ingestion: disabled actions on empty workspace, each `'error'` site produces a notice;
