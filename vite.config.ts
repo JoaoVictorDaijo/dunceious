@@ -20,7 +20,22 @@
 import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+import { checkShellIsolation } from "./scripts/shellIsolation.mjs";
+
+
+// Fails the production build if a UI shell's modules leak into the startup chunk
+// or into the other shell's chunk graph (see scripts/shellIsolation.mjs).
+function shellIsolation(): Plugin {
+  return {
+    name: 'dunceious-shell-isolation',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const violations = checkShellIsolation(bundle);
+      if (violations.length > 0) this.error(violations.join('\n'));
+    },
+  };
+}
 
 export default defineConfig(() => {
   // Single source of truth for the app version: read from package.json and
@@ -38,7 +53,7 @@ export default defineConfig(() => {
       port: 3000,
       host: "0.0.0.0",
     },
-    plugins: [react()],
+    plugins: [react(), shellIsolation()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),

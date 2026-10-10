@@ -105,6 +105,48 @@ export default tseslint.config(
       ] }],
     },
   },
+  // --- UI shell boundaries inside src/app: shared ← desktop | mobile ← shell ---
+  // Static imports only; dynamic import() is checked by src/app/__tests__/boundaries.test.ts.
+  {
+    files: ['src/app/shared/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/desktop/*', '@/src/app/desktop/**', '**/app/desktop/**', '../desktop/*', '../desktop/**', '../../desktop/**', '../../../desktop/**', '@/src/app/mobile/*', '@/src/app/mobile/**', '**/app/mobile/**', '../mobile/*', '../mobile/**', '../../mobile/**', '../../../mobile/**', '@/src/app/shell/*', '@/src/app/shell/**', '**/app/shell/**', '../shell/*', '../shell/**', '../../shell/**', '../../../shell/**'],
+          message: 'Shell rule: shared may not import desktop, mobile or shell.' },
+      ] }],
+    },
+  },
+  {
+    files: ['src/app/desktop/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/mobile/*', '@/src/app/mobile/**', '**/app/mobile/**', '../mobile/*', '../mobile/**', '../../mobile/**', '../../../mobile/**', '@/src/app/shell/*', '@/src/app/shell/**', '**/app/shell/**', '../shell/*', '../shell/**', '../../shell/**', '../../../shell/**'],
+          message: 'Shell rule: desktop may not import mobile or shell.' },
+      ] }],
+    },
+  },
+  {
+    files: ['src/app/mobile/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/desktop/*', '@/src/app/desktop/**', '**/app/desktop/**', '../desktop/*', '../desktop/**', '../../desktop/**', '../../../desktop/**', '@/src/app/shell/*', '@/src/app/shell/**', '**/app/shell/**', '../shell/*', '../shell/**', '../../shell/**', '../../../shell/**'],
+          message: 'Shell rule: mobile may not import desktop or shell.' },
+      ] }],
+    },
+  },
+  {
+    files: ['src/app/shell/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/desktop/*', '@/src/app/desktop/**', '**/app/desktop/**', '../desktop/*', '../desktop/**', '../../desktop/**', '../../../desktop/**', '@/src/app/mobile/*', '@/src/app/mobile/**', '**/app/mobile/**', '../mobile/*', '../mobile/**', '../../mobile/**', '../../../mobile/**'],
+          message: 'Shell rule: shell loads desktop and mobile only through React.lazy in ShellRoot.' },
+      ] }],
+    },
+  },
   {
     ignores: ['dist/**', 'node_modules/**'],
   },
