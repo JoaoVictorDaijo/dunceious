@@ -27,14 +27,14 @@ If two seem to fit, pick the **lowest** layer it can live in without importing u
 
 - **Contract:** add the request + response interfaces to `src/workers/protocol.ts` and extend the relevant discriminated union (`BioWorkerRequest`/`BioWorkerResponse` or the search equivalents). Reference `domain/bio/types` for payload shapes — don't redeclare them.
 - **Body:** handle the new `type` branch in the pure handler `src/workers/handlers/bio.ts` (or `search.ts`), returning the response — **not** in the worker's `onmessage`. The worker shell stays a one-liner: `self.onmessage = e => self.postMessage(handleBioMessage(e.data))`.
-- **Dispatch:** post the typed request and consume the typed response from the owning hook in `src/app/hooks/` (e.g. `useBioWorker` / `useSearchWorker`).
+- **Dispatch:** post the typed request and consume the typed response from the owning hook in `src/app/shared/hooks/` (e.g. `useBioWorker` / `useSearchWorker`).
 - **Tests:** the handler is a pure function — unit-test it directly (see the existing handler tests). Protocol-shape tests live in `src/workers/__tests__/`.
 
 ## Worked example 3 — adding a new UI component
 
-- **File:** `src/app/components/MyPanel.tsx` for an app-scoped panel/modal/nav element; or `src/app/viewer/` if it's part of the genome-viewer rendering (tracks, minimap, overlays).
-- **May import:** anything below it — `core`, `domain`, hooks, other components. This is the only layer allowed React + DOM.
-- **Barrel:** export it from `src/app/components/index.ts` if that barrel is how siblings are consumed.
+- **File:** `src/app/desktop/components/MyPanel.tsx` for a desktop panel/modal/nav element; or `src/app/shared/viewer/` if it's part of the genome-viewer rendering (tracks, minimap, overlays).
+- **May import:** anything below it — `core`, `domain`, `src/app/shared/`, other desktop components. Never `src/app/mobile/` (lint, a boundary test and the build all reject it). This is the only layer allowed React + DOM.
+- **Barrel:** export it from `src/app/desktop/components/index.ts` if that barrel is how siblings are consumed.
 - **AGPL header:** yes — `.tsx` is covered.
 - **Anti-pattern:** putting rendering/React into `core` or `domain`; those layers must stay framework-free.
 
