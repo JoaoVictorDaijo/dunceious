@@ -32,7 +32,9 @@ rows "Option A". They are a visual reference only; **this document is the contra
   differ, and export.
 - The desktop UI's components carry no mobile branches. Desktop-visible changes are limited to:
   PR 1 file moves (no behavior change), PR 2 viewer input and toolbar-mode upgrade (mouse
-  behavior identical, touch now works), and additive shared APIs that desktop does not call.
+  behavior identical, touch now works), two bug fixes in PR 3 (project load keeps a stale
+  selection; a gapped FASTA's annotations land on the wrong columns), and additive shared APIs
+  that desktop does not call.
 
 **Non-goals (v1)**
 - Feature parity: no mobile feature editor (qualifiers, joins, circular features), no remote
