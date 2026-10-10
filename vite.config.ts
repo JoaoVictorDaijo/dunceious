@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
+import { legalNotices } from "./scripts/legal-notices.mjs";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
@@ -115,6 +116,7 @@ export default defineConfig(() => {
   const pkg = JSON.parse(
     readFileSync(path.resolve(ROOT, "package.json"), "utf-8"),
   ) as { version: string };
+  const notices = legalNotices({ root: ROOT });
   return {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
@@ -131,7 +133,10 @@ export default defineConfig(() => {
       port: 3000,
       host: "0.0.0.0",
     },
-    plugins: [react()],
+    plugins: [react(), notices.main],
+    worker: {
+      plugins: () => [notices.worker],
+    },
     resolve: {
       alias: {
         "@": path.resolve(ROOT, "."),
