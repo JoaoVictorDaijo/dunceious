@@ -57,9 +57,9 @@ export default defineConfig(() => {
         include: [
           "src/core/**",
           "src/workers/handlers/**",
-          "src/app/recordRemoval.ts",
-          "src/app/viewer/layout.ts",
-          "src/app/logic/**",
+          "src/app/shared/recordRemoval.ts",
+          "src/app/shared/viewer/layout.ts",
+          "src/app/shared/logic/**",
           "src/domain/**",
         ],
         exclude: [

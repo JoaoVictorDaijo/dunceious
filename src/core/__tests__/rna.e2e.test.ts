@@ -27,7 +27,7 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { runSearch } from '@/src/workers/handlers/search';
 import type { SearchWorkerRequest } from '@/src/workers/protocol';
-import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
+import { runInlineSearch } from '@/src/app/shared/logic/runInlineSearch';
 
 // All sequences in this suite are synthetic.
 describe('RNA ingestion and export', () => {
