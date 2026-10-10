@@ -18,7 +18,7 @@
  */
 
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
-import type { GroupedSearchResults } from '../components/SearchPanel';
+import type { GroupedSearchResults } from '@/src/app/shared/types/search';
 
 /** Fuzzy results filtered by minScore percentage; passthrough for exact / no-max. */
 export function filteredResults(

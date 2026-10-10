@@ -24,10 +24,8 @@
  * import { TopNav, Sidebar, StatusBar } from '@/src/app/components';
  */
 export { default as AnnotationHubPanel } from './AnnotationHubPanel';
-export type { FlatItem } from './AnnotationHubPanel';
 
 export { default as FeatureEditorModal } from './FeatureEditorModal';
-export type { EditingFeatureState } from './FeatureEditorModal';
 
 export { default as MoleculeTypeMismatchModal } from './MoleculeTypeMismatchModal';
 export type { MoleculeTypeMismatchModalProps } from './MoleculeTypeMismatchModal';
@@ -37,7 +35,6 @@ export { default as ProcessingOverlay } from './ProcessingOverlay';
 export { default as RecordDetailsModal } from './RecordDetailsModal';
 
 export { default as SearchPanel } from './SearchPanel';
-export type { GroupedSearchResults } from './SearchPanel';
 
 export { default as Sidebar } from './Sidebar';
 export type { SidebarProps } from './Sidebar';

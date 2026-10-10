@@ -19,7 +19,7 @@
 
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
-import type { FlatItem } from '../components/AnnotationHubPanel';
+import type { FlatItem } from '@/src/app/shared/types/features';
 
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
 export function saveEditedFeature(

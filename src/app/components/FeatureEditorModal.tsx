@@ -21,6 +21,7 @@ import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import type { EditingFeatureState } from '@/src/app/shared/types/features';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import {
   metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
@@ -31,13 +32,6 @@ const ISSUE_TEXT: Record<QualifierIssue, string> = {
   internal: 'Names starting with _ are reserved and will not be saved',
   invalid: 'GenBank qualifier names use letters, digits, _ and - only',
 };
-
-export interface EditingFeatureState {
-  recordId: string;
-  /** -1 means "new feature" */
-  featureIndex: number;
-  feature: BioFeature;
-}
 
 export interface FeatureEditorModalProps {
   editing: EditingFeatureState;

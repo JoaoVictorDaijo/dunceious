@@ -25,11 +25,7 @@ import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { featureLength } from '@/src/app/logic/viewModel';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
-
-export type FlatItem =
-  | { type: 'header'; recordId: string; count: number }
-  | { type: 'track'; recordId: string; track: any }
-  | { type: 'feature'; recordId: string; feature: BioFeature & { index: number } };
+import type { FlatItem } from '@/src/app/shared/types/features';
 
 /** Stable identity of a hub row across tab switches, used to find it again after Focus. */
 export function hubRowKey(item: FlatItem): string {

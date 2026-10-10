@@ -21,7 +21,8 @@ import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/r
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
-import SearchPanel, { GroupedSearchResults } from './SearchPanel';
+import SearchPanel from './SearchPanel';
+import type { GroupedSearchResults } from '@/src/app/shared/types/search';
 import SectionTitle from './SectionTitle';
 import AlignmentSection from './AlignmentSection';
 import DropZone from './DropZone';

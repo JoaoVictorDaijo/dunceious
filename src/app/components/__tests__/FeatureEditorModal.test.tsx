@@ -20,7 +20,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
-import FeatureEditorModal, { type EditingFeatureState } from '../FeatureEditorModal';
+import FeatureEditorModal from '../FeatureEditorModal';
+import type { EditingFeatureState } from '@/src/app/shared/types/features';
 
 const editing: EditingFeatureState = { recordId: 'synthetic', featureIndex: -1,
   feature: { type: 'misc_feature', name: 'Synthetic element', start: 1, end: 8, strand: 1 } };

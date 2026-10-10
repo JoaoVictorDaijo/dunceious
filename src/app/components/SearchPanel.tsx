@@ -21,10 +21,7 @@ import React from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { scorePercent } from '@/src/app/logic/viewModel';
 import SectionTitle from './SectionTitle';
-
-export interface GroupedSearchResults {
-  [recordId: string]: { results: SearchResult[]; indices: number[] };
-}
+import type { GroupedSearchResults } from '@/src/app/shared/types/search';
 
 export interface SearchPanelProps {
   searchQuery: string;

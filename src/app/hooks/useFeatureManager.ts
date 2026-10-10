@@ -19,8 +19,7 @@
 
 import { useState, useMemo, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
-import type { EditingFeatureState } from '../components/FeatureEditorModal';
-import type { FlatItem } from '../components/AnnotationHubPanel';
+import type { EditingFeatureState, FlatItem } from '@/src/app/shared/types/features';
 import {
   saveEditedFeature as saveEditedFeatureReducer,
   removeFeature as removeFeatureReducer,
