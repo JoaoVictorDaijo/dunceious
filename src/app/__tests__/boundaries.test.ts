@@ -64,6 +64,28 @@ describe('app import boundaries', () => {
     expect(one('src/app/shell/ShellRoot.tsx', src)).toEqual([]);
   });
 
+  it('rejects an eager backtick dynamic import of a root', () => {
+    expect(one('src/app/shell/ShellRoot.tsx', 'const p = import(`../desktop/DesktopApp`);')).toHaveLength(1);
+  });
+
+  it('rejects a backtick dynamic import across shells', () => {
+    expect(one('src/app/shared/logic/x.ts', 'const m = import(`../../mobile/MobileApp`);')).toHaveLength(1);
+  });
+
+  it('allows a backtick lazy root in ShellRoot', () => {
+    const src = "import React from 'react';\nconst D = React.lazy(() => import(`../desktop/DesktopApp`));";
+    expect(one('src/app/shell/ShellRoot.tsx', src)).toEqual([]);
+  });
+
+  it('resolves dot segments in alias paths', () => {
+    const src = "export type { SidebarProps } from '@/src/app/shared/../desktop/components/Sidebar';";
+    expect(one('src/app/shared/types/x.ts', src)).toHaveLength(1);
+  });
+
+  it('classifies Windows-style file paths', () => {
+    expect(one('src\\app\\shared\\logic\\x.ts', "import D from '../../desktop/DesktopApp';")).toHaveLength(1);
+  });
+
   it('rejects a lazy root outside ShellRoot', () => {
     const src = "import React from 'react';\nconst D = React.lazy(() => import('../desktop/DesktopApp'));";
     expect(one('src/app/shell/Other.tsx', src)).toHaveLength(1);

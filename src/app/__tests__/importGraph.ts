@@ -39,10 +39,17 @@ function shellOf(path: string): Shell | null {
   return m ? (m[1] as Shell) : null;
 }
 
+const toPosix = (path: string) => path.replace(/\\/g, '/');
+
 function resolveSpecifier(from: string, spec: string): string | null {
-  if (spec.startsWith('@/')) return spec.slice(2);
-  if (spec.startsWith('.')) return normalize(join(dirname(from), spec)).replace(/\\/g, '/');
+  if (spec.startsWith('@/')) return toPosix(normalize(spec.slice(2)));
+  if (spec.startsWith('.')) return toPosix(normalize(join(dirname(from), spec)));
   return null;
+}
+
+/** A module specifier written as a plain or backtick string (no substitutions). */
+function literalText(node: ts.Node | undefined): string | null {
+  return node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : null;
 }
 
 function isLazyArgument(call: ts.CallExpression): boolean {
@@ -63,7 +70,8 @@ function isLazyArgument(call: ts.CallExpression): boolean {
  */
 export function checkImports(files: { path: string; source: string }[]): string[] {
   const violations: string[] = [];
-  for (const file of files) {
+  for (const input of files) {
+    const file = { ...input, path: toPosix(input.path) };
     const from = shellOf(file.path);
     if (!from) continue;
     const sf = ts.createSourceFile(file.path, file.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -80,8 +88,8 @@ export function checkImports(files: { path: string; source: string }[]): string[
         && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
         check(node.moduleSpecifier.text, null);
       } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
-        && node.arguments.length > 0 && ts.isStringLiteral(node.arguments[0])) {
-        check(node.arguments[0].text, node);
+        && literalText(node.arguments[0]) !== null) {
+        check(literalText(node.arguments[0])!, node);
       } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)
         && ts.isStringLiteral(node.argument.literal)) {
         check(node.argument.literal.text, null);
