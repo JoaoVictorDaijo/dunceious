@@ -1,6 +1,6 @@
 # Mobile shell — design
 
-**Date:** 2026-10-10 · **Branch:** `docs/mobile-shell-spec` (off `develop`) · **Status:** draft, in review (rev 4)
+**Date:** 2026-10-10 · **Branch:** `docs/mobile-shell-spec` (off `develop`) · **Status:** approved after 6 independent review rounds (Codex gpt-6-astra; 21 findings resolved)
 
 Dunceious is desktop-only today. On a 390×844 phone the sidebar takes ~80% of the width and the
 viewer is ~50 px wide, and every interaction (pan, drag-select, minimap, ctrl+wheel zoom, hover
