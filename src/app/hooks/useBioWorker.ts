@@ -23,6 +23,7 @@ import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord } from '@/
 import { applyParseSuccess, applyAnnotations, applyFastaAndLog } from '@/src/app/logic/bioResponse';
 
 export interface UseBioWorkerReturn {
+  requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>;
   applyAlignmentOverlay: (records: FastaAlignedRecord[]) => number;
   records: SeqRecord[];
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
@@ -67,6 +68,25 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
   const bioWorkerRef = useRef<Worker | null>(null);
 
+  const requestCounter = useRef(0);
+  const pendingRequests = useRef(new Map<number, {
+    resolve: (response: BioWorkerResponse) => void;
+    reject: (error: Error) => void;
+  }>());
+  const requestBio = useCallback((request: BioWorkerRequest): Promise<BioWorkerResponse> => {
+    const worker = bioWorkerRef.current;
+    if (!worker) return Promise.reject(new Error('The processing worker is unavailable.'));
+    const requestId = ++requestCounter.current;
+    return new Promise((resolve, reject) => {
+      pendingRequests.current.set(requestId, { resolve, reject });
+      try { worker.postMessage({ ...request, requestId }); }
+      catch (error) {
+        pendingRequests.current.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }, []);
+
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     bioWorkerRef.current = new Worker(
@@ -75,7 +95,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     );
 
     bioWorkerRef.current.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
-      const msg = e.data;
+      let msg = e.data;
 
       if (msg.type === 'SUCCESS') {
         setTransposedRecords(msg.records);
@@ -84,17 +104,17 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
 
       } else if (msg.type === 'PARSE_SUCCESS') {
-        setRecords(prev => {
-          const { next, count } = applyParseSuccess(prev, msg.records, msg.filename);
-          addLog(`Batch ingestion complete: ${count} records added.`);
-          return next;
-        });
+        const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
+        setRecords(result.next);
+        addLog(`Batch ingestion complete: ${result.count} records added.`);
+        msg = { ...msg, idMap: result.idMap };
         setIsProcessing(false);
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
+        const annotationResponse = msg;
         const annotations = msg.annotations;
         setRecords(prev => {
-          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations, msg.details);
+          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations, annotationResponse.details, annotationResponse.idMap);
           if (unmatched.length > 0) {
             addLog(
               `WARNING: Some IDs in file did not match active records: [${unmatched
@@ -108,17 +128,35 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         setIsProcessing(false);
 
       } else if (msg.type === 'FASTA_SUCCESS') {
-        const { alignedData, asAlignment } = msg;
-        setRecords(prev => applyFastaAndLog(prev, alignedData, asAlignment, addLog, msg.filename).next);
+        const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
+        setRecords(result.next);
+        if (result.kind === 'batch') msg = { ...msg, idMap: result.idMap };
         setIsProcessing(false);
 
       } else if (msg.type === 'ERROR') {
         setIsProcessing(false);
         addLog(`Processing Error: ${msg.error}`);
       }
+      if (msg.requestId !== undefined) {
+        const pending = pendingRequests.current.get(msg.requestId);
+        pendingRequests.current.delete(msg.requestId);
+        if (msg.type === 'ERROR') pending?.reject(new Error(msg.error));
+        else pending?.resolve(msg);
+      }
     };
 
-    return () => { bioWorkerRef.current?.terminate(); };
+    bioWorkerRef.current.onerror = event => {
+      for (const pending of pendingRequests.current.values()) pending.reject(new Error(event.message || 'Worker failed.'));
+      pendingRequests.current.clear();
+      setIsProcessing(false);
+      addLog(`Processing Error: ${event.message || 'Worker failed.'}`);
+    };
+    return () => {
+      bioWorkerRef.current?.terminate();
+      bioWorkerRef.current = null;
+      for (const pending of pendingRequests.current.values()) pending.reject(new Error('Worker terminated.'));
+      pendingRequests.current.clear();
+    };
     // addLog identity is stable (defined once in useAppLogger) so it is safe
     // to omit from deps without triggering stale-closure bugs.
   }, []);
@@ -139,6 +177,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   }, [records]);
 
   return {
+    requestBio,
     applyAlignmentOverlay,
     records,
     setRecords,

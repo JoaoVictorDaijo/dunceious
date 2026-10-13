@@ -26,6 +26,11 @@ import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/
 
 /** Pure router for bio-worker messages: maps a request to its response. */
 export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
+  const response = routeBioMessage(msg);
+  return msg.requestId === undefined ? response : { ...response, requestId: msg.requestId };
+}
+
+function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
   if (msg.type === 'PROCESS_RECORDS') {
     try {
       const transposed = processTransposition(msg.records);
@@ -65,7 +70,7 @@ export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
       } else {
         parsed = parseBED(msg.content, msg.filename);
       }
-      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details };
+      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details, idMap: msg.idMap };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

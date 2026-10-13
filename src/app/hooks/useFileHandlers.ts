@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
@@ -25,6 +25,9 @@ import { exportToFasta } from '@/src/core/formats/fasta';
 import { exportToGff } from '@/src/core/formats/annotations';
 import { downloadBlob } from '@/src/app/lib/download';
 import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
+
+import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
+import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;
 const FASTA_SAMPLE_MAX_LENGTH = 1200;
@@ -89,6 +92,7 @@ export interface MoleculeTypeMismatchError {
 }
 
 export interface UseFileHandlersReturn {
+  handleDroppedFiles: (files: File[]) => Promise<void>;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -127,6 +131,7 @@ export function useFileHandlers(
   setters: ProjectSetters,
   addLog: (msg: string) => void,
   isAlignmentLocked: () => boolean = () => false,
+  dropImport?: { requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>; readText?: (file: File) => Promise<string> },
 ): UseFileHandlersReturn {
   const {
     setRecords,
@@ -140,6 +145,9 @@ export function useFileHandlers(
 
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
   const [projectName, setProjectName] = useState('dunceious_project');
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  const dropQueue = useRef(Promise.resolve());
 
   const promptForProjectName = () => {
     const input = window.prompt('Project name (required):', projectName);
@@ -225,13 +233,11 @@ export function useFileHandlers(
     );
   };
 
-  const handleProjectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAlignmentLocked()) return;
-    const [file] = takeFiles(e.target);
-    if (!file) return;
+  const loadProjectFile = (file: File): Promise<void> => {
+    if (isAlignmentLocked()) return Promise.resolve();
     setIsProcessing(true);
     addLog(`Loading project: ${file.name}`);
-    readFileAsText(file)
+    return (dropImport?.readText ?? readFileAsText)(file)
       .then(text => {
         if (isAlignmentLocked()) { setIsProcessing(false); return; }
         try {
@@ -256,6 +262,62 @@ export function useFileHandlers(
         addLog(`Could not read project file "${file.name}": ${err instanceof Error ? err.message : String(err)}`);
       })
       .finally(() => setIsProcessing(false));
+  };
+
+  const handleProjectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
+    const [file] = takeFiles(e.target);
+    if (file) void loadProjectFile(file);
+  };
+
+  const handleDroppedFiles = (files: File[]): Promise<void> => {
+    if (isAlignmentLocked() || files.length === 0) return Promise.resolve();
+    const route = routeDroppedFiles(files);
+    if (route.kind === 'refused') {
+      addLog(route.reason);
+      return Promise.resolve();
+    }
+    const run = async () => {
+      if (isAlignmentLocked()) return;
+      if (route.kind === 'project') {
+        if (window.confirm('Load this project and replace the workspace?')) await loadProjectFile(route.file);
+        return;
+      }
+      setIsProcessing(true);
+      let category = recordsRef.current.length > 0 ? getLoadedCategory(recordsRef.current) : undefined;
+      const request = async (message: BioWorkerRequest) => {
+        if (isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
+        if (!dropImport) throw new Error('The processing worker is unavailable.');
+        return dropImport.requestBio(message);
+      };
+      try {
+        await importDroppedBatch<File>(route, {
+          readText: dropImport?.readText ?? readFileAsText,
+          importSequence: async (file, content) => {
+            const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
+            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
+            if (category && category !== incoming) {
+              setMoleculeTypeMismatch({ incoming, loaded: category, fileName: file.name });
+              throw new Error(`Cannot load "${file.name}": molecule type differs from the session.`);
+            }
+            const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, ...(isFasta ? { asAlignment: false } : {}) });
+            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+            if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
+            if (Object.keys(response.idMap).length > 0) category = incoming;
+            return response.idMap;
+          },
+          importAnnotations: async (file, content, idMap) => {
+            const response = await request({ type: 'PARSE_ANNOTATIONS', filename: file.name, content, idMap });
+            if (response.type !== 'ANNOTATIONS_SUCCESS') throw new Error(`Unexpected annotation response for "${file.name}".`);
+          },
+        });
+      } catch (error) {
+        addLog(error instanceof Error ? error.message : String(error));
+      } finally { setIsProcessing(false); }
+    };
+    const pending = dropQueue.current.then(run);
+    dropQueue.current = pending;
+    return pending;
   };
 
   // ── Export helpers ────────────────────────────────────────────────────────
@@ -356,6 +418,7 @@ export function useFileHandlers(
   };
 
   return {
+    handleDroppedFiles,
     handleFileUpload,
     handleAlignmentUpload,
     handleAnnotationUpload,
