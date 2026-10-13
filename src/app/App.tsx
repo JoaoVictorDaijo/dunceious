@@ -29,6 +29,7 @@ import ProcessingOverlay from './components/ProcessingOverlay';
 import AlignRemoteModal from './components/AlignRemoteModal';
 import AlignmentJobPill from './components/AlignmentJobPill';
 import { useRemoteAlignment } from './hooks/useRemoteAlignment';
+import { useHubState } from './hooks/useHubState';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
@@ -73,6 +74,8 @@ const App: React.FC = () => {
   // ── Layout ────────────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
+  // Session state belongs above the keyed workspace content so tab switches preserve it.
+  useHubState();
   // The hub row a Focus jump left from: the viewport offers the way back while
   // `showHubReturn` holds, and the hub keeps marking the row after returning.
   const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
