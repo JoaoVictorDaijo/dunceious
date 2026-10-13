@@ -68,3 +68,10 @@ it.each([{ selectionRange: { start: '0', end: 4 } }, { exportedAt: {} }])('rejec
   expect(parseProject(JSON.stringify({ ...state, format: 2, ...invalid })))
     .toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
 });
+
+
+it.each(['local_1', 'LOCAL_1'])('rejects duplicate workspace ID %s without a partial project', id => {
+  const result = parseProject(serializeProject({ ...state, records: [record, { ...record, id }] }));
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.message).toMatch(/duplicate.*record ID/i);
+});

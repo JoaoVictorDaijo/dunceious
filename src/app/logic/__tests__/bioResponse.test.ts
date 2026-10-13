@@ -363,3 +363,18 @@ it('treats GFF-filled historical details as file data and keeps them in every in
   expect(exportToGenBank([edited]).text).not.toContain('Atlantis');
   expect(readDetails(writeDetails(edited, { location: edited.fileDetails?.location })).location).toBe('USSR');
 });
+
+
+it('attaches standalone annotations using a final sanitized-ID match', () => {
+  const feature: BioFeature = { name: 'g', type: 'gene', start: 1, end: 3, strand: 1 };
+  const result = applyAnnotations([rec({ id: 'seq_1', name: 'display name', sequence: 'AAAA' })], { 'seq(1)': [feature] });
+  expect(result.unmatched).toEqual([]);
+  expect(result.next[0].features).toEqual([feature]);
+});
+
+it('does not use sanitized IDs to override ambiguous name matches or refused batch IDs', () => {
+  const feature: BioFeature = { name: 'g', type: 'gene', start: 1, end: 3, strand: 1 };
+  const records = [rec({ id: 'seq_1', name: 'seq(1)' }), rec({ id: 'other', name: 'seq(1)' })];
+  expect(applyAnnotations(records, { 'seq(1)': [feature] }).unmatched).toEqual(['seq(1)']);
+  expect(applyAnnotations(records.slice(0, 1), { 'seq(1)': [feature] }, {}, { 'seq(1)': null }).unmatched).toEqual(['seq(1)']);
+});

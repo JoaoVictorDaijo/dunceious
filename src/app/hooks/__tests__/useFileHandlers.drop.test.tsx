@@ -20,6 +20,7 @@
 // @vitest-environment jsdom
 import { it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
+import { useHubState } from '../useHubState';
 import { useBioWorker } from '../useBioWorker';
 import { useFileHandlers } from '../useFileHandlers';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
@@ -42,12 +43,13 @@ function setup(readText: (file: File) => Promise<string>, locked = () => false) 
   const log = vi.fn();
   const hook = renderHook(() => {
     const bio = useBioWorker(log);
+    const hub = useHubState();
     const handlers = useFileHandlers(bio.bioWorkerRef, bio.records, null, {},
       { showAnnotations: true, showTranslation: false, showConservation: false },
-      { setRecords: bio.setRecords, setIsProcessing: bio.setIsProcessing, setFeatureColors: vi.fn(), setActiveSelection: vi.fn(),
+      { onWorkspaceReplaced: hub.resetWorkspace, setRecords: bio.setRecords, setIsProcessing: bio.setIsProcessing, setFeatureColors: vi.fn(), setActiveSelection: vi.fn(),
         setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn() }, log, locked,
-      { requestBio: bio.requestBio, getRecords: bio.getRecords, readText });
-    return { bio, handlers };
+      { requestBio: bio.requestBio, getRecords: bio.getRecords, getWorkspaceRevision: () => hub.workspaceRevision.current, readText });
+    return { bio, handlers, hub };
   });
   return { ...hook, log };
 }
@@ -173,4 +175,35 @@ it('checks a sequence queued after project replacement against the new workspace
   expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toEqual([]);
   await second;
   expect(result.current.bio.records.map(r => r.id)).toEqual(['protein']);
+});
+
+
+it.each(['clear', 'project'])('stops a batch after %s replaces the workspace during a delayed read', async route => {
+  let finish!: (text: string) => void;
+  const slow = new Promise<string>(resolve => { finish = resolve; });
+  const project = JSON.stringify({ format: 2, records: [], featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false });
+  const { result, log } = setup(file => file.name === 'new.json' ? Promise.resolve(project) : file.name === 'slow.fa' ? slow : Promise.resolve('>later\nACGT'));
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'slow.fa'), new File([], 'later.fa'), new File([], 'later.gff3')]); });
+  await act(async () => {
+    if (route === 'clear') { result.current.hub.resetWorkspace(); result.current.bio.setRecords([]); }
+    else result.current.handlers.handleProjectUpload({ target: { files: [new File([], 'new.json')], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>);
+  });
+  await act(async () => { finish('>old\nACGT'); });
+  expect(LocalWorker.instance.requests).toEqual([]);
+  await pending;
+  expect(log).toHaveBeenCalledWith('Drop cancelled: the workspace was replaced');
+  expect(result.current.bio.records).toEqual([]);
+});
+
+it('does not dispatch annotations after workspace replacement while awaiting a sequence worker', async () => {
+  const { result, log } = setup(async file => file.name.endsWith('.fa') ? '>a\nACGT' : 'a\ts\tgene\t1\t2\t.\t+\t.\tID=g');
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'a.fa'), new File([], 'a.gff3')]); });
+  act(() => { result.current.hub.resetWorkspace(); result.current.bio.setRecords([]); });
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); });
+  expect(LocalWorker.instance.requests.map(request => request.type)).toEqual(['PARSE_FASTA']);
+  expect(result.current.bio.records).toEqual([]);
+  await pending;
+  expect(log).toHaveBeenCalledWith('Drop cancelled: the workspace was replaced');
 });

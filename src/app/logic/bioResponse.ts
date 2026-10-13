@@ -18,7 +18,7 @@
  */
 
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
-import { makeUniqueId } from '@/src/app/logic/idHelpers';
+import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
 import type { GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
@@ -77,6 +77,7 @@ export function applyAnnotations(
     } else {
       matches = prev.filter(r => r.id === id);
       if (matches.length === 0) matches = prev.filter(r => r.name === id || r.accession === id);
+      if (matches.length === 0) matches = prev.filter(r => r.id === sanitizeId(id));
     }
     if (matches.length !== 1) {
       unmatched.push(id);

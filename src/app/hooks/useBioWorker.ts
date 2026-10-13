@@ -24,7 +24,7 @@ import { applyParseSuccess, applyAnnotations, applyFastaAndLog } from '@/src/app
 
 export interface UseBioWorkerReturn {
   getRecords: () => SeqRecord[];
-  requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>;
+  requestBio: (request: BioWorkerRequest, shouldCommit?: () => boolean) => Promise<BioWorkerResponse | 'stale'>;
   applyAlignmentOverlay: (records: FastaAlignedRecord[]) => number;
   records: SeqRecord[];
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
@@ -72,15 +72,16 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
   const requestCounter = useRef(0);
   const pendingRequests = useRef(new Map<number, {
-    resolve: (response: BioWorkerResponse) => void;
+    resolve: (response: BioWorkerResponse | 'stale') => void;
+    shouldCommit?: () => boolean;
     reject: (error: Error) => void;
   }>());
-  const requestBio = useCallback((request: BioWorkerRequest): Promise<BioWorkerResponse> => {
+  const requestBio = useCallback((request: BioWorkerRequest, shouldCommit?: () => boolean): Promise<BioWorkerResponse | 'stale'> => {
     const worker = bioWorkerRef.current;
     if (!worker) return Promise.reject(new Error('The processing worker is unavailable.'));
     const requestId = ++requestCounter.current;
     return new Promise((resolve, reject) => {
-      pendingRequests.current.set(requestId, { resolve, reject });
+      pendingRequests.current.set(requestId, { resolve, reject, shouldCommit });
       try { worker.postMessage({ ...request, requestId }); }
       catch (error) {
         pendingRequests.current.delete(requestId);
@@ -98,6 +99,12 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
     bioWorkerRef.current.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
       let msg = e.data;
+      const pending = msg.requestId === undefined ? undefined : pendingRequests.current.get(msg.requestId);
+      if (pending?.shouldCommit && !pending.shouldCommit()) {
+        pendingRequests.current.delete(msg.requestId!);
+        pending.resolve('stale');
+        return;
+      }
 
       if (msg.type === 'SUCCESS') {
         setTransposedRecords(msg.records);

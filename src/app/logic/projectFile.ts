@@ -97,5 +97,11 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
       || !Array.isArray(selection.recordIds) || !selection.recordIds.every(id => typeof id === 'string')))) {
     return { ok: false, message: 'This project file contains invalid workspace data.' };
   }
+  const ids = new Set<string>();
+  for (const record of value.records as SeqRecord[]) {
+    const id = record.id.toLowerCase();
+    if (ids.has(id)) return { ok: false, message: `This project file contains a duplicate record ID: ${record.id}.` };
+    ids.add(id);
+  }
   return { ok: true, project: value as unknown as ProjectFile };
 }

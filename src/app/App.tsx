@@ -229,7 +229,7 @@ const App: React.FC = () => {
     },
     addLog,
     remoteAlignment.isLocked,
-    { requestBio, getRecords },
+    { requestBio, getRecords, getWorkspaceRevision: () => hubState.workspaceRevision.current },
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────

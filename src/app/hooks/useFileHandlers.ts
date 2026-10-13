@@ -130,7 +130,7 @@ export function useFileHandlers(
   setters: ProjectSetters,
   addLog: (msg: string) => void,
   isAlignmentLocked: () => boolean = () => false,
-  dropImport?: { getRecords: () => SeqRecord[]; requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>; readText?: (file: File) => Promise<string> },
+  dropImport?: { getWorkspaceRevision?: () => number; getRecords: () => SeqRecord[]; requestBio: (request: BioWorkerRequest, shouldCommit?: () => boolean) => Promise<BioWorkerResponse | 'stale'>; readText?: (file: File) => Promise<string> },
 ): UseFileHandlersReturn {
   const {
     setRecords,
@@ -147,6 +147,7 @@ export function useFileHandlers(
   const recordsRef = useRef(records);
   recordsRef.current = records;
   const dropQueue = useRef(Promise.resolve());
+  const workspaceRevision = useRef(0);
 
   const promptForProjectName = () => {
     const input = window.prompt('Project name (required):', projectName);
@@ -242,6 +243,7 @@ export function useFileHandlers(
         const parsed = parseProject(text);
         if (!parsed.ok) { addLog(parsed.message); return; }
         const project = parsed.project;
+        workspaceRevision.current++;
         setters.onWorkspaceReplaced?.();
         setRecords(project.records.map(r => ({ ...r, visible: r.visible ?? true })));
         setFeatureColors(project.featureColors);
@@ -277,16 +279,27 @@ export function useFileHandlers(
         if (window.confirm('Load this project and replace the workspace?')) await loadProjectFile(route.file);
         return;
       }
+      const getRevision = () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current;
+      const revision = getRevision();
+      const shouldCommit = () => getRevision() === revision;
+      const checkWorkspace = () => {
+        if (!shouldCommit()) throw new Error('Drop cancelled: the workspace was replaced');
+      };
       setIsProcessing(true);
       const request = async (message: BioWorkerRequest) => {
+        checkWorkspace();
         if (isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
         if (!dropImport) throw new Error('The processing worker is unavailable.');
-        return dropImport.requestBio(message);
+        const response = await dropImport.requestBio(message, shouldCommit);
+        if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
+        checkWorkspace();
+        return response;
       };
       try {
         await importDroppedBatch<File>(route, {
           readText: dropImport?.readText ?? readFileAsText,
           importSequence: async (file, content) => {
+            checkWorkspace();
             const currentRecords = dropImport?.getRecords() ?? recordsRef.current;
             const category = currentRecords.length > 0 ? getLoadedCategory(currentRecords) : undefined;
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
