@@ -184,7 +184,7 @@ export function useFileHandlers(
             return null;
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', content } : { type: 'PARSE_GENBANK', content };
+        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
       }, workerDeps),
     );
   };
@@ -207,7 +207,7 @@ export function useFileHandlers(
         setIsProcessing(false);
         return null;
       }
-      return { type: 'PARSE_FASTA', content, asAlignment: true };
+      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true };
     }, workerDeps);
   };
 

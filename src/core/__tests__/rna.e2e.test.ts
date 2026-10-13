@@ -52,7 +52,7 @@ describe('RNA ingestion and export', () => {
   });
 
   it('preserves RNA and protein molecule types through the bio worker', () => {
-    const parsed = handleBioMessage({ type: 'PARSE_FASTA', content: '>rna\nAUGCCCUAG\n>protein\nMUOP' });
+    const parsed = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>rna\nAUGCCCUAG\n>protein\nMUOP' });
     if (parsed.type !== 'FASTA_SUCCESS') throw new Error('Unexpected parse response');
     expect(parsed.alignedData.map(r => r.moleculeType)).toEqual(['rna', 'protein']);
     const [rna] = parsed.alignedData;

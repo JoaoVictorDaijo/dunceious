@@ -85,7 +85,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       } else if (msg.type === 'PARSE_SUCCESS') {
         setRecords(prev => {
-          const { next, count } = applyParseSuccess(prev, msg.records);
+          const { next, count } = applyParseSuccess(prev, msg.records, msg.filename);
           addLog(`Batch ingestion complete: ${count} records added.`);
           return next;
         });
@@ -94,7 +94,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
         const annotations = msg.annotations;
         setRecords(prev => {
-          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations);
+          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations, msg.details);
           if (unmatched.length > 0) {
             addLog(
               `WARNING: Some IDs in file did not match active records: [${unmatched
@@ -109,7 +109,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       } else if (msg.type === 'FASTA_SUCCESS') {
         const { alignedData, asAlignment } = msg;
-        setRecords(prev => applyFastaAndLog(prev, alignedData, asAlignment, addLog).next);
+        setRecords(prev => applyFastaAndLog(prev, alignedData, asAlignment, addLog, msg.filename).next);
         setIsProcessing(false);
 
       } else if (msg.type === 'ERROR') {

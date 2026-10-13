@@ -34,16 +34,16 @@ const rec = (o: Partial<SeqRecord> & { id: string }): SeqRecord => ({
 
 describe('resolveAccession', () => {
   it('prefers a trimmed non-empty incoming accession', () => {
-    expect(resolveAccession('  ACC1 ', 'id1', 'u1')).toBe('ACC1');
+    expect(resolveAccession('  ACC1 ')).toBe('ACC1');
   });
-  it('falls back to the incoming id when accession is blank', () => {
-    expect(resolveAccession('   ', 'id1', 'u1')).toBe('id1');
+  it('keeps blank accessions absent', () => {
+    expect(resolveAccession('   ')).toBeUndefined();
   });
-  it('skips the id when it is "Unknown", using the uniqueId', () => {
-    expect(resolveAccession(undefined, 'Unknown', 'u1')).toBe('u1');
+  it('keeps missing accessions absent', () => {
+    expect(resolveAccession(undefined)).toBeUndefined();
   });
-  it('uses the uniqueId when both accession and id are empty', () => {
-    expect(resolveAccession('', '', 'u1')).toBe('u1');
+  it('keeps empty accessions absent', () => {
+    expect(resolveAccession('')).toBeUndefined();
   });
 });
 
@@ -57,7 +57,7 @@ describe('applyParseSuccess', () => {
     expect(count).toBe(2);
     expect(next.slice(1).map(r => ({ id: r.id, name: r.name, accession: r.accession, visible: r.visible }))).toEqual([
       { id: 'g1_1', name: 'g1_1', accession: 'ACC9', visible: true },
-      { id: 'g2', name: 'g2', accession: 'g2', visible: true },
+      { id: 'g2', name: 'g2', accession: undefined, visible: true },
     ]);
     // prev record is preserved unchanged
     expect(next[0]).toBe(prev[0]);
@@ -188,7 +188,7 @@ describe('applyFastaResponse', () => {
   describe('record IDs that contain spaces', () => {
     // Batch dedup names a second "seq1" as "seq1 (1)", so a session can hold IDs with spaces.
     const parsedAlignment = (content: string) => {
-      const res = handleBioMessage({ type: 'PARSE_FASTA', content, asAlignment: true });
+      const res = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content, asAlignment: true });
       if (res.type !== 'FASTA_SUCCESS') throw new Error(`unexpected ${res.type}`);
       return res.alignedData;
     };
@@ -235,10 +235,88 @@ it('deduplicates incoming IDs against all workspace IDs without changing accessi
 
 it('matches alignment IDs while ignoring FASTA modifiers and keeping source details unchanged', () => {
   const prev = [rec({ id: 'seq1_1', sequence: 'ACGT', definition: 'original' })];
-  const response = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1_1 [host=camel] external description\nA--CGT', asAlignment: true });
+  const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1_1 [host=camel] external description\nA--CGT', asAlignment: true });
   if (response.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA_SUCCESS');
   expect(response.alignedData[0]).toMatchObject({ header: 'external description', details: { host: 'camel' } });
   const result = applyFastaResponse(prev, response.alignedData, true);
   expect(result.kind).toBe('overlay');
   expect(result.next[0]).toMatchObject({ id: 'seq1_1', sequence: 'ACGT', alignedSequence: 'A--CGT', definition: 'original', features: [] });
+});
+
+
+describe('import provenance and annotation ownership', () => {
+  const feature: BioFeature = { type: 'gene', name: 'late gene', start: 799, end: 900, strand: 1 };
+  const region = (end: number) => ({ start: 0, end, details: { host: 'camel', organism: 'virus' },
+    feature: { type: 'region', name: 'region', start: 0, end, strand: 1 as const } });
+
+  it('captures the GenBank file values and filename without inventing an accession', () => {
+    const source: BioFeature = { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { host: 'camel', country: 'Oman' } };
+    const result = applyParseSuccess([], [rec({ id: 'local', sequence: 'ACGT', features: [source] })], 'camel.gb');
+    expect(result.next[0]).toMatchObject({ importedFrom: 'camel.gb', fileDetails: { host: 'camel', location: 'Oman' } });
+    expect(result.next[0].accession).toBeUndefined();
+    expect(result.idMap).toEqual({ local: 'local' });
+  });
+
+  it('writes FASTA modifiers into source details and snapshots them', () => {
+    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'camel.fa', content: '>local [host=camel] [strain=K1] sample\nACGT' });
+    expect(response).toMatchObject({ filename: 'camel.fa' });
+    if (response.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA');
+    const result = applyFastaResponse([], response.alignedData, false, response.filename);
+    expect(result.next[0]).toMatchObject({ importedFrom: 'camel.fa', fileDetails: { host: 'camel' }, fastaModifiers: { strain: 'K1' }, definition: 'sample', features: [{ type: 'source', start: 0, end: 4, metadata: { host: 'camel' } }] });
+    expect(result.next[0].accession).toBeUndefined();
+    if (result.kind === 'batch') expect(result.idMap).toEqual({ local: 'local' });
+  });
+
+  it('attaches batch annotations to the new record despite an older exact ID', () => {
+    const imported = applyParseSuccess([rec({ id: 'contig1', sequence: 'A'.repeat(100) })], [rec({ id: 'contig1', sequence: 'A'.repeat(1000) })], 'contig.fa');
+    const result = applyAnnotations(imported.next, { contig1: [feature] }, {}, imported.idMap);
+    expect(result.next[0].features).toEqual([]);
+    expect(result.next[1].features).toEqual([feature]);
+    expect(result.unmatched).toEqual([]);
+  });
+
+  it('refuses ambiguous accessions but gives exact workspace IDs precedence', () => {
+    const records = [rec({ id: 'a', accession: 'X' }), rec({ id: 'b', accession: 'X' })];
+    const refused = applyAnnotations(records, { X: [feature] }, {});
+    expect(refused.totalAdded).toBe(0);
+    expect(refused.unmatched).toEqual(['X']);
+    const exact = applyAnnotations([rec({ id: 'X' }), ...records], { X: [feature] }, {});
+    expect(exact.next.map(r => r.features.length)).toEqual([1, 0, 0]);
+  });
+
+  it('refuses duplicate incoming IDs instead of using an old exact match', () => {
+    const imported = applyParseSuccess([rec({ id: 'a' })], [rec({ id: 'a' }), rec({ id: 'a' })], 'two.gb');
+    expect(imported.idMap).toEqual({ a: null });
+    const result = applyAnnotations(imported.next, { a: [feature] }, {}, imported.idMap);
+    expect(result.totalAdded).toBe(0);
+    expect(result.unmatched).toEqual(['a']);
+  });
+
+  it('fills only empty unedited details and preserves the imported snapshot', () => {
+    const record = rec({ id: 'a', sequence: 'A'.repeat(1000), fileDetails: { host: 'original', location: 'Oman' }, features: [{ type: 'source', name: 'source', start: 0, end: 1000, strand: 1, metadata: { host: 'edited' } }] });
+    const result = applyAnnotations([record], {}, { a: { ...region(1000), details: { host: 'camel', organism: 'virus', location: 'Egypt' } } });
+    expect(result.next[0].features[0].metadata).toEqual({ host: 'edited', organism: 'virus' });
+    expect(result.next[0].fileDetails).toEqual({ host: 'original', location: 'Oman' });
+    expect(record.features[0].metadata).toEqual({ host: 'edited' });
+    expect(result.unmatched).toEqual([]);
+  });
+
+  it('keeps a short source candidate as an ordinary annotation and reports unmatched details', () => {
+    const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], {}, { a: region(100), missing: region(1000) });
+    expect(result.next[0].features).toEqual([region(100).feature]);
+    expect(result.totalAdded).toBe(1);
+    expect(result.unmatched).toEqual(['missing']);
+  });
+});
+
+
+it('echoes the GenBank filename from the real worker handler', () => {
+  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb' });
+});
+
+it('keeps imported provenance and file values intact during an alignment overlay', () => {
+  const record = rec({ id: 'a', sequence: 'ACGT', importedFrom: 'original.fa', fileDetails: { host: 'camel' } });
+  const result = applyFastaResponse([record], [{ id: 'a', name: 'a', sequence: 'A--CGT', features: [], details: { host: 'human' } }], true, 'overlay.fa');
+  expect(result.next[0]).toMatchObject({ importedFrom: 'original.fa', fileDetails: { host: 'camel' }, features: [], alignedSequence: 'A--CGT' });
 });

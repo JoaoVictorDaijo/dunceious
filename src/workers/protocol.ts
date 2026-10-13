@@ -48,13 +48,18 @@ export interface ProcessRecordsRequest {
   records: SeqRecord[];
 }
 
+/** null marks an incoming ID shared by multiple records in one drop. */
+export type BatchIdMap = Record<string, string | null>;
+
 export interface ParseGenBankRequest {
   type: 'PARSE_GENBANK';
+  filename: string;
   content: string;
 }
 
 export interface ParseFastaRequest {
   type: 'PARSE_FASTA';
+  filename: string;
   content: string;
   /** When true the FASTA is an external pre-aligned overlay; otherwise it is a batch load. */
   asAlignment?: boolean;
@@ -85,6 +90,7 @@ export interface ProcessRecordsSuccessResponse {
 
 export interface ParseGenBankSuccessResponse {
   type: 'PARSE_SUCCESS';
+  filename: string;
   records: SeqRecord[];
 }
 
@@ -97,6 +103,7 @@ export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'f
 
 export interface ParseFastaSuccessResponse {
   type: 'FASTA_SUCCESS';
+  filename: string;
   alignedData: FastaAlignedRecord[];
   asAlignment?: boolean;
 }

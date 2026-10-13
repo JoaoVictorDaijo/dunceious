@@ -36,13 +36,13 @@ export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     }
   } else if (msg.type === 'PARSE_GENBANK') {
     try {
-      return { type: 'PARSE_SUCCESS', records: parseGenBank(msg.content) };
+      return { type: 'PARSE_SUCCESS', filename: msg.filename, records: parseGenBank(msg.content) };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }
   } else if (msg.type === 'PARSE_FASTA') {
     try {
-      return { type: 'FASTA_SUCCESS', alignedData: parseFasta(msg.content), asAlignment: msg.asAlignment };
+      return { type: 'FASTA_SUCCESS', filename: msg.filename, alignedData: parseFasta(msg.content), asAlignment: msg.asAlignment };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

@@ -66,7 +66,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(
 
 async function loadApp() {
   const view = render(<App />);
-  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', records } }));
+  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records } }));
   return view;
 }
 async function beginAlignment() {

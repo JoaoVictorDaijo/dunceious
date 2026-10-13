@@ -67,7 +67,7 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
   if (req.type === 'PARSE_GENBANK') {
     try {
       const records = parseGenBank(req.content);
-      return { type: 'PARSE_SUCCESS', records };
+      return { type: 'PARSE_SUCCESS', filename: req.filename, records };
     } catch (err) {
       return { type: 'ERROR', error: (err as Error).message };
     }
@@ -90,7 +90,7 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
         }
       });
       if (currentId) results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [] });
-      return { type: 'FASTA_SUCCESS', alignedData: results };
+      return { type: 'FASTA_SUCCESS', filename: req.filename, alignedData: results };
     } catch (err) {
       return { type: 'ERROR', error: (err as Error).message };
     }
@@ -225,7 +225,7 @@ ORIGIN
         1 atgcatgcat
 //
 `;
-    const req: BioWorkerRequest = { type: 'PARSE_GENBANK', content: gb };
+    const req: BioWorkerRequest = { type: 'PARSE_GENBANK', filename: 'fixture.fa', content: gb };
     const resp = dispatchBioRequest(req);
     expect(resp.type).toBe('PARSE_SUCCESS');
     if (resp.type === 'PARSE_SUCCESS') {
@@ -246,7 +246,7 @@ ORIGIN
 
   it('PARSE_FASTA request parses multi-sequence FASTA', () => {
     const fasta = '>seq1\nACGT\n>seq2\nTGCA\n';
-    const req: BioWorkerRequest = { type: 'PARSE_FASTA', content: fasta };
+    const req: BioWorkerRequest = { type: 'PARSE_FASTA', filename: 'fixture.fa', content: fasta };
     const resp = dispatchBioRequest(req);
     expect(resp.type).toBe('FASTA_SUCCESS');
     if (resp.type === 'FASTA_SUCCESS') {
@@ -259,8 +259,8 @@ ORIGIN
   it('BioWorkerResponse discriminated union covers all expected variants', () => {
     // Type-level test: construct each variant and verify `.type` discriminant
     const success: BioWorkerResponse = { type: 'SUCCESS', records: [], consensus: '' };
-    const parseSuccess: BioWorkerResponse = { type: 'PARSE_SUCCESS', records: [] };
-    const fastaSuccess: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: [] };
+    const parseSuccess: BioWorkerResponse = { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records: [] };
+    const fastaSuccess: BioWorkerResponse = { type: 'FASTA_SUCCESS', filename: 'fixture.fa', alignedData: [] };
     const annotSuccess: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: {}, details: {} };
     const error: BioWorkerResponse = { type: 'ERROR', error: 'msg' };
 
