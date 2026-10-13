@@ -32,7 +32,7 @@ export function groupKeyOf(record: SeqRecord, field: GroupField): string {
   const details = readDetails(record);
   const value = field === 'file' ? record.importedFrom
     : field === 'location' ? details.location?.split(':')[0]
-    : field === 'year' ? details.collectionDate?.match(/\b\d{4}\b/)?.[0]
+    : field === 'year' ? details.collectionDate?.split('T')[0].match(/\b\d{4}\b/)?.[0]
     : details[field];
   return value?.trim() || 'Not specified';
 }

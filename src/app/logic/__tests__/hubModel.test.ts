@@ -59,6 +59,11 @@ describe('hub sequence model', () => {
     const records = [record('c', { collection_date: '2016-01' }), record('a', { collection_date: '21-Mar-2013' }), record('b', { collection_date: 'Mar-2014' })];
     expect(buildSequenceSections(records, filters(), { grouped: true, field: 'year' }, 'load').map(s => s.group)).toEqual(['2013', '2014', '2016']);
   });
+  it.each(['2014T12Z', 'Mar-2014T12Z', '21-Mar-2014T12:00Z', '2014-03T12Z', '2014-03-21T12:00:30Z'])('groups the valid timestamp %s by its collection year', collection_date => {
+    const records = [record('dated', { collection_date })];
+    expect(groupKeyOf(records[0], 'year')).toBe('2014');
+    expect(groupPreview(records, 'year')).toEqual({ groups: 1, notSpecified: 0 });
+  });
   it('partitions records exactly once in every mode and excludes source counts', () => {
     const records = [record('a', { organism: 'virus', host: 'camel' }), record('b', { organism: 'virus' }), record('c')];
     for (const field of ['organism', 'host', 'location', 'year', 'file'] as const) {
