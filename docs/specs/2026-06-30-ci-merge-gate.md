@@ -1,3 +1,13 @@
+---
+title: "CI Pipeline — Phase 1: The Merge Gate"
+status: implemented
+date: 2026-06-30
+areas: ["ci"]
+prs: [37]
+issues: []
+superseded_by: null
+summary: "Use one unprivileged CI job to gate merges on type checking, lint, tests and the production build."
+---
 # CI Pipeline — Phase 1: The Merge Gate
 
 **Date:** 2026-06-30
@@ -35,7 +45,7 @@ This document specifies **Phase 1 only**.
 
 Three pre-existing problems:
 
-1. **The CI workflow is broken.** [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)
+1. **The CI workflow is broken.** [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
    contains committed git merge-conflict markers (`<<<<<<<` / `=======` /
    `>>>>>>>`), making it invalid YAML — CI effectively does not run.
 2. **Type-checking was never gated.** The old workflow only ran `npm test`,
@@ -98,10 +108,10 @@ benchmark job, the `node benchmark/summarize.mjs` step, and the artifact upload.
 
 - Add dev dependencies `@types/d3` and `@types/react-dom`.
   - `@types/react-dom` resolves the TS7016 for `react-dom/client` in
-    [`index.tsx`](../../../index.tsx).
+    [`index.tsx`](../../ARCHITECTURE.md#the-layered-src-tree).
   - `@types/d3` resolves the TS7016 for `d3` and is expected to resolve the 10
     TS7006 implicit-`any` errors in
-    [`components/GenomeViewer.tsx`](../../../components/GenomeViewer.tsx) (d3
+    [`components/GenomeViewer.tsx`](../../ARCHITECTURE.md#the-layered-src-tree) (d3
     callback params get typed once d3 itself is typed).
 - If any implicit-`any` params remain after installing `@types/d3`, add explicit
   type annotations at those call sites. No behavior changes — types only.
@@ -109,7 +119,7 @@ benchmark job, the `node benchmark/summarize.mjs` step, and the artifact upload.
 
 ### 3. Fix ESLint (`eslint .` → exit 0)
 
-- In [`eslint.config.js`](../../../eslint.config.js), correct the Node-script
+- In [`eslint.config.js`](../../eslint.config.js), correct the Node-script
   override: change the `files` glob from `benchmark/**/*.mjs` to `bench/**/*.mjs`
   (the actual location), and replace the single `process: 'readonly'` global with
   the full Node global set — the `globals` package's `globals.node` (add `globals`
@@ -117,7 +127,7 @@ benchmark job, the `node benchmark/summarize.mjs` step, and the artifact upload.
   This fixes all 16 `no-undef` errors in `bench/runBench.mjs`,
   `bench/summarize.mjs`, and `bench/visualize.mjs`.
 - Fix the 2 `no-loss-of-precision` errors in
-  [`bench/searchLogic.perf.bench.ts`](../../../bench/searchLogic.perf.bench.ts)
+  [`bench/searchLogic.perf.bench.ts`](../../perf/README.md)
   by correcting the offending numeric literals.
 - **Warnings stay warnings.** The 56 `max-lines` / `max-lines-per-function`
   warnings are intentionally deferred by the config's own comments to "Phase 2-3
@@ -134,7 +144,7 @@ In `package.json`:
 
 This lets CI report type errors and lint errors as independent steps (instead of
 `&&` short-circuiting). Update the "Available Scripts" table in
-[`README.md`](../../../README.md): `npm run lint` now means ESLint, and document
+[`README.md`](../../README.md): `npm run lint` now means ESLint, and document
 the new `npm run typecheck`.
 
 ### 5. Branch protection (GitHub repo setting)

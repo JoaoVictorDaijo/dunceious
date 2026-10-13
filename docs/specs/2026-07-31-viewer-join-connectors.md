@@ -1,3 +1,13 @@
+---
+title: "Out-of-order join connectors — design"
+status: implemented
+date: 2026-07-31
+areas: ["viewer"]
+prs: [87]
+issues: [80]
+superseded_by: null
+summary: "Draw order-independent join connectors and reserve origin-side wraps for evidence of a real origin crossing."
+---
 # Out-of-order join connectors — design
 
 Issue: #80 · Branch: `fix/trans-splice-connector` · Date: 2026-07-31

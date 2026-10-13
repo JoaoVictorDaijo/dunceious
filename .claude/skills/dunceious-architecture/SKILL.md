@@ -27,7 +27,7 @@ domain  ←  core  ←  workers/handlers  ←  app
 - **The import rules + one-canonical-type-home** → [`references/import-rules.md`](references/import-rules.md)
 - **"Where does X go?" (parser / worker message / UI component / domain algorithm), with worked examples** → [`references/where-does-x-go.md`](references/where-does-x-go.md)
 - **Everything, in depth** → [`ARCHITECTURE.md`](../../../ARCHITECTURE.md)
-- **Why the restructure + the phase plan** → [`docs/superpowers/specs/2026-07-02-architecture-restructure-design.md`](../../../docs/superpowers/specs/2026-07-02-architecture-restructure-design.md)
+- **Why the layers are arranged this way** → [`ARCHITECTURE.md` §2](../../../ARCHITECTURE.md#layer-import-rules-the-contract)
 
 ## Non-negotiables
 

@@ -13,7 +13,7 @@
 
 ## ✅ No-behavior-change checklist
 
-> **Required for every PR on the `refactor/modular-architecture` branch.**
+> **Required for refactor PRs.**
 > All boxes must be checked before merging a refactor PR.
 
 - [ ] **App boots** — dev server (`npm run dev`) starts without errors.
@@ -33,6 +33,6 @@
 
 <!-- Describe how the change was tested (unit, integration, manual). -->
 
-## Related issues / phases
+## Related issues
 
-<!-- Link the migration checklist issue or phase this PR belongs to. -->
+<!-- Link issues so their context stays attached to the change. -->

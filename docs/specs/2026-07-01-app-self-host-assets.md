@@ -1,3 +1,13 @@
+---
+title: "Self-host frontend assets — Tailwind v3 build + Font Awesome, drop runtime CDNs"
+status: implemented
+date: 2026-07-01
+areas: ["app", "assets"]
+prs: [43]
+issues: []
+superseded_by: null
+summary: "Bundle Tailwind v3 and Font Awesome locally to remove runtime CDN dependencies while preserving the UI."
+---
 # Self-host frontend assets — Tailwind v3 build + Font Awesome, drop runtime CDNs
 
 **Date:** 2026-07-01

@@ -1,3 +1,13 @@
+---
+title: "Test Hardening — Phase 1 Design"
+status: implemented
+date: 2026-07-01
+areas: ["testing", "ci"]
+prs: [39]
+issues: []
+superseded_by: null
+summary: "Harden existing pure-logic tests and enforce a scoped coverage ratchet below achieved coverage."
+---
 # Test Hardening — Phase 1 Design
 
 **Date:** 2026-07-01

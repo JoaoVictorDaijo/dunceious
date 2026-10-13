@@ -1,3 +1,13 @@
+---
+title: "Benchmark/Perf Pipeline Cleanup — Phase 2"
+status: implemented
+date: 2026-06-30
+areas: ["bench", "perf"]
+prs: [38]
+issues: []
+superseded_by: null
+summary: "Separate performance guardrails from the benchmark data grid without changing measurements or budgets."
+---
 # Benchmark/Perf Pipeline Cleanup — Phase 2
 
 **Date:** 2026-06-30

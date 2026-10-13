@@ -1,3 +1,13 @@
+---
+title: "Architecture Restructure — Design"
+status: implemented
+date: 2026-07-02
+areas: ["architecture", "domain", "core", "workers", "app"]
+prs: [49, 50, 51, 52, 53, 55, 56, 57, 58, 59, 60]
+issues: []
+superseded_by: null
+summary: "Unify source under enforced technical layers, consolidate pure logic and decompose the genome viewer."
+---
 # Architecture Restructure — Design
 
 **Date:** 2026-07-02
@@ -6,8 +16,8 @@
 duplication/dead code, decompose the oversized `GenomeViewer`, close high-value JSDoc gaps,
 and encode the architecture as an agent-facing skill.
 
-> This spec is the **north star**. Each phase below has its own detailed plan under
-> `docs/superpowers/plans/2026-07-02-arch-phase*.md`. The maintainer will hand individual
+> This spec is the **north star**. Each phase below has its own detailed plan.
+> The maintainer will hand individual
 > phases to separate sessions to deep-dive and execute. Nothing here is executed by the
 > authoring session.
 

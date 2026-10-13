@@ -1,3 +1,13 @@
+---
+title: "Component / Canvas Render Tests — Design"
+status: implemented
+date: 2026-07-21
+areas: ["testing", "viewer", "app"]
+prs: [82]
+issues: [68]
+superseded_by: null
+summary: "Use a shared jsdom and canvas-recording harness to test semantic rendered output without expanding the coverage denominator."
+---
 # Component / Canvas Render Tests — Design
 
 **Date:** 2026-07-21
@@ -15,7 +25,7 @@ component and asserts on what is actually *drawn*. A regression in the canvas
 draw path or the DOM output would ship undetected.
 
 This is the realization of a deliberately deferred decision: the Phase 1
-test-hardening spec (`2026-07-01-test-hardening-phase1-design.md`, lines 29–30)
+test-hardening spec ([2026-07-01-testing-hardening-phase1.md](2026-07-01-testing-hardening-phase1.md))
 put "React test infra (jsdom + `@testing-library`)" behind a "Phase 2
 checkpoint" that was never taken. Issue #68 takes it, scoped narrowly to the
 render tier.

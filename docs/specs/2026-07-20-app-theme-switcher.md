@@ -1,3 +1,13 @@
+---
+title: "Theme framework + switcher — design"
+status: superseded
+date: 2026-07-20
+areas: ["app", "themes"]
+prs: [72, 77]
+issues: []
+superseded_by: 141
+summary: "Keep the theme framework and persisted chrome choice; the original shortlist and palette were later replaced."
+---
 # Theme framework + switcher — design
 
 **Date:** 2026-07-20 · **Branch:** `feat/theme-switcher` (off `feat/env-accent-design`) · **Status:** approved

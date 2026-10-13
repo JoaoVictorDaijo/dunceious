@@ -1,3 +1,13 @@
+---
+title: "Remote alignment via EMBL-EBI — design"
+status: implemented
+date: 2026-10-09
+areas: ["alignment", "app", "core"]
+prs: [120, 121, 125]
+issues: []
+superseded_by: null
+summary: "Run consent-gated alignment through EMBL-EBI and apply validated results through the shared overlay reducer while locking record mutations."
+---
 # Remote alignment via EMBL-EBI — design
 
 Branch: `feat/remote-alignment` · Date: 2026-10-09

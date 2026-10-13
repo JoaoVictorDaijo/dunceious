@@ -36,3 +36,12 @@ exempt. `npm run lint:headers` enforces this in CI; auto-insert with
 ## Before you claim done
 
 `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` · `npm run lint:headers` — all green.
+
+## Project documents
+
+Track durable documentation and historical design specs. Commit specs in `docs/specs/`
+as `YYYY-MM-DD-<area>-<topic>.md` with YAML front matter; follow
+[`docs/specs/README.md`](docs/specs/README.md) for metadata and lifecycle. Keep implementation
+plans, review/IAR ledgers, handoffs and session notes untracked in `.code/docs/<task>/`
+at the primary repository root. Put outcomes and verification evidence in the PR description
+or comments; fold lasting decisions, invariants and limitations into the living docs.

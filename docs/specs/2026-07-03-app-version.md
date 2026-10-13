@@ -1,3 +1,13 @@
+---
+title: "Centralized App Version — Design"
+status: implemented
+date: 2026-07-03
+areas: ["app", "build"]
+prs: [63]
+issues: []
+superseded_by: null
+summary: "Inject the package.json version through Vite as one compile-time constant for UI and export provenance."
+---
 # Centralized App Version — Design
 
 **Date:** 2026-07-03

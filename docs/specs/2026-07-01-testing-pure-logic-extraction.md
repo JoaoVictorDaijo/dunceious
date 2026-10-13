@@ -1,3 +1,13 @@
+---
+title: "Test Hardening — Phase 2A Design: Extract & test trapped pure logic"
+status: implemented
+date: 2026-07-01
+areas: ["testing", "workers", "app"]
+prs: [40, 41, 42]
+issues: []
+superseded_by: null
+summary: "Extract trapped pure logic from workers, hooks and components into testable modules while preserving behavior."
+---
 # Test Hardening — Phase 2A Design: Extract & test trapped pure logic
 
 **Date:** 2026-07-01

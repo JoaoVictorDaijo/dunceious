@@ -57,7 +57,9 @@ this up who assumes "Hub always means amber" will paint amber chrome on an empty
 
 **Resolved.** The theme switcher shipped on `feat/theme-switcher`: a seven-style shortlist
 with `clean` as the default, both palette retunes applied (see item 3), and the edge bleed
-removed. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. The investigation
+removed. The [original spec](../specs/2026-07-20-app-theme-switcher.md) preserves those
+decisions; its shortlist and palette have since been superseded (items 3 and 6 below).
+Current theme registry: `src/app/logic/theme.ts`. The investigation
 notes below are kept for the record.
 
 We do not have to pick one treatment and discard the rest. The nine styles are all driven by
@@ -81,7 +83,7 @@ is plausibly cheap — the switch is one attribute on the app root.
 ### 2. Keep `A · Clean` as a supported option
 
 **Resolved.** `clean` ships as one of the seven styles and is the default (see item 1 and
-`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
+`src/app/logic/theme.ts`).
 
 The flat baseline — accent edge strip plus tinted chrome accents, no wash — is a legitimate
 choice, not just a control. It is the calmest option and the cheapest to render. If the theme
@@ -92,7 +94,7 @@ the default).
 
 **Resolved.** Both retunes shipped on `feat/theme-switcher` — sky `--env3` → `#0d9488` (teal)
 and protein `--env` → `#a78bfa` — applied across the seven-style shortlist (see item 1 and
-`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
+`src/app/logic/theme.ts`).
 
 Both are **live in the prototype** and marked in-file with revert instructions.
 
@@ -117,7 +119,7 @@ contrast rather than the hex values. `src/app/logic/theme.ts` holds the current 
 kept, but `ENV_LAYERS` and the colour helpers moved to the theme registry (`src/app/logic/theme.ts`)
 so tokens have one home; the Hub's amber backdrop stayed; and the workspace edge strips were
 **deleted** (not merely replaced) — the accent now renders only through the header/footer `.hf-env`
-layers. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. Original notes kept for
+layers. Current theme registry: `src/app/logic/theme.ts`. Original notes kept for
 the record:
 
 The env-accent code on this branch predates the prototypes. It holds up better than expected —
