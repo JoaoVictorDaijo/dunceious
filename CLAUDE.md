@@ -93,3 +93,20 @@ exception:** `v1.0.0`–`v2.4.1` sit on the *develop-line* commits where each wa
 landed (main is behind and diverged), so they mark **reconstructed development
 milestones**, not deployments — only `v1.0.0`–`v2.0.1` are also reachable from
 `main`. The deploy-means-tag rule binds from the first real promotion onward.
+
+## Pushes and Cloudflare Pages builds
+
+Cloudflare Pages builds every push it is allowed to build (native Git
+integration, no deploy workflow). Branch control is set to production `main`
+plus preview branch `develop` only, so feature branches never build.
+
+- Batch commits locally and push once per finished step, not per commit.
+- Every agent commit on a branch other than `main` carries `[CF-Pages-Skip]` in
+  its message. Pages reads only the last commit of a push, so that one must
+  carry it. Never use `[skip ci]`: it also skips the GitHub Actions gates.
+- PR titles into `develop` carry `[CF-Pages-Skip]` too: GitHub copies the title
+  into the merge commit, so the merge does not build. PRs into `main` (the
+  `develop` → `main` promotion) never carry it, or the release does not deploy.
+- A live preview happens only on `develop` and only when the user asks: drop the
+  marker from that PR's title before it is merged, and the merge builds
+  `develop.dunceious.pages.dev`. Never create a branch just for a preview.

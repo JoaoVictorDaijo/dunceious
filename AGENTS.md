@@ -33,6 +33,10 @@ it from any existing source file, e.g. `vite.config.ts`). `.md`, `.json`, and bi
 exempt. `npm run lint:headers` enforces this in CI; auto-insert with
 `node scripts/check-license-headers.mjs --fix`. See [`CLAUDE.md`](CLAUDE.md) for the full rule.
 
+## Pushes and Cloudflare Pages builds
+
+Every push can trigger a Cloudflare Pages build. Batch pushes and follow the `[CF-Pages-Skip]` rules in [`CLAUDE.md`](CLAUDE.md#pushes-and-cloudflare-pages-builds).
+
 ## Before you claim done
 
 `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` · `npm run lint:headers` — all green.
