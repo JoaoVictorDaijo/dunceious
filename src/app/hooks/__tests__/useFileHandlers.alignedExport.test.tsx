@@ -48,6 +48,7 @@ describe('exports with aligned annotations', () => {
     const { result } = setup();
     result.current.exportSelectionJson();
     const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[0][0] as string);
+    expect(saved.format).toBe(2);
     expect(saved.records[0]).toMatchObject({ sequence: 'CGT', alignedSequence: 'C--GT',
       features: [{ start: 1, end: 3, segments: [{ start: 1, end: 3 }] }] });
     expect(saved.records[0].features[0].locationString).toBeUndefined();
@@ -64,6 +65,7 @@ describe('exports with aligned annotations', () => {
     expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('C--GT');
     result.current.exportProjectJson();
     const project = JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string);
+    expect(project.format).toBe(2);
     expect(project.records).toEqual([record]);
   });
 });

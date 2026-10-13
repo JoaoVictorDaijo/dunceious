@@ -1,0 +1,51 @@
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { serializeProject, parseProject } from '../projectFile';
+import type { SeqRecord } from '@/src/domain/bio/types';
+
+const record: SeqRecord = { id: 'local_1', name: 'local_1', sequence: 'ACGT', alignedSequence: 'A--CGT',
+  label: 'camel isolate', accession: 'X', version: 'X.2', importedFrom: 'camel.gb', locationQualifier: 'country',
+  fileDetails: { host: 'camel', collectionDate: '2014' }, fastaModifiers: { strain: 'K1', custom: 'kept' }, annotationsEdited: true,
+  features: [{ type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { host: 'human', collection_date: 'March 2014', country: 'Oman' } }],
+  tracks: [{ id: 'track', name: 'score', data: [{ start: 0, end: 4, value: 2 }] }], visible: false };
+const state = { name: 'Project', records: [record], featureColors: { gene: '#123456' },
+  activeSelection: { start: 0, end: 4, recordIds: ['local_1'] },
+  showAnnotations: false, showTranslation: true, showConservation: false, version: '2.8.0' };
+
+describe('project format 2', () => {
+  it('round-trips every field including invalid edited details without sanitizing values', () => {
+    const text = serializeProject(state);
+    expect(JSON.parse(text).format).toBe(2);
+    const result = parseProject(text);
+    expect(result).toEqual({ ok: true, project: { ...state, format: 2 } });
+    expect(state.records[0].features[0].metadata?.collection_date).toBe('March 2014');
+  });
+  it.each([undefined, 1, '2', 3])('rejects unsupported or absent format %s with the explicit earlier-version message', format => {
+    expect(parseProject(JSON.stringify({ ...state, format }))).toEqual({ ok: false,
+      message: "This project was saved by an earlier version of Dunceious and can't be opened." });
+  });
+  it('returns a clear failure for malformed JSON', () => {
+    expect(parseProject('{broken')).toEqual({ ok: false, message: 'This project file is not valid JSON.' });
+  });
+  it.each([{ ...state, records: {} }, { ...state, records: [{}] }, { ...state, featureColors: null }, { ...state, showAnnotations: 'yes' }])('refuses malformed format 2 data without returning a partial project', invalid => {
+    expect(parseProject(JSON.stringify({ ...invalid, format: 2 }))).toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+  });
+});

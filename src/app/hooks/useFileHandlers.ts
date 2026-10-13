@@ -26,6 +26,7 @@ import { exportToGff } from '@/src/core/formats/annotations';
 import { downloadBlob } from '@/src/app/lib/download';
 import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
 
+import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
 import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 
@@ -240,23 +241,17 @@ export function useFileHandlers(
     return (dropImport?.readText ?? readFileAsText)(file)
       .then(text => {
         if (isAlignmentLocked()) { setIsProcessing(false); return; }
-        try {
-          const project = JSON.parse(text) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (project.records)
-            setRecords(project.records.map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-              ...r,
-              visible: r.visible !== undefined ? r.visible : true,
-            })));
-          if (project.featureColors) setFeatureColors(project.featureColors);
-          if (project.activeSelection) setActiveSelection(project.activeSelection);
-          if (project.showAnnotations !== undefined) setShowAnnotations(project.showAnnotations);
-          if (project.showTranslation !== undefined) setShowTranslation(project.showTranslation);
-          if (project.showConservation !== undefined) setShowConservation(project.showConservation);
-          if (typeof project.name === 'string' && project.name.trim()) setProjectName(project.name.trim());
-          addLog('Project loaded successfully.');
-        } catch (err) {
-          addLog(`Error loading project: ${err}`);
-        }
+        const parsed = parseProject(text);
+        if (!parsed.ok) { addLog(parsed.message); return; }
+        const project = parsed.project;
+        setRecords(project.records.map(r => ({ ...r, visible: r.visible ?? true })));
+        setFeatureColors(project.featureColors);
+        setActiveSelection(project.activeSelection ?? null);
+        setShowAnnotations(project.showAnnotations);
+        setShowTranslation(project.showTranslation);
+        setShowConservation(project.showConservation);
+        if (project.name?.trim()) setProjectName(project.name.trim());
+        addLog('Project loaded successfully.');
       })
       .catch(err => {
         addLog(`Could not read project file "${file.name}": ${err instanceof Error ? err.message : String(err)}`);
@@ -352,12 +347,14 @@ export function useFileHandlers(
     const project = {
       records: selectedRecords,
       featureColors,
+      ...viewportState,
+      activeSelection: null,
       selectionRange: { start, end },
       version: __APP_VERSION__,
       exportedAt: new Date().toISOString(),
     };
     downloadBlob(
-      JSON.stringify(project, null, 2),
+      serializeProject(project),
       `selection_${start}_${end}.json`,
       'application/json',
     );
@@ -413,7 +410,7 @@ export function useFileHandlers(
       showConservation: viewportState.showConservation,
       version: __APP_VERSION__,
     };
-    downloadBlob(JSON.stringify(project, null, 2), `${safeName || 'dunceious_project'}.json`, 'application/json');
+    downloadBlob(serializeProject(project), `${safeName || 'dunceious_project'}.json`, 'application/json');
     addLog('Project JSON exported.');
   };
 
