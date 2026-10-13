@@ -6,14 +6,14 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ### 1.1 Ingesting Data
 
-The **Ingestion** section of the sidebar has one card per kind of input. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).
+In the Visual Viewport, the **Ingestion** section of the sidebar has one card per kind of input. In the Annotation Hub, imports are in the **⋯** menu and files can be dropped onto the hub canvas. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).
 
-- **GenBank or FASTA (Drop input batch)**: Upload `.gb`, `.gbk`, `.fasta` or `.fa` files. Multi-record files add several sequences at once, and several files can be selected together. Both nucleotide and amino-acid (protein) GenBank records are supported. If a sequence ID already exists in the workspace, a numeric suffix is appended automatically (e.g., `seq1 → seq1 (1) → seq1 (2)`), preventing silent overwrites.
-- **Upload pre-aligned FASTA (Alignment Overlay)**: Apply an externally computed alignment to already-loaded records. Every sequence in the file must match a loaded record, and all sequences must have equal lengths. A header matches when it starts with a loaded record's ID, so IDs with spaces such as `seq1 (1)` re-import correctly and a trailing description (`>seq1 reference strain`) is ignored. Mismatches are rejected and reported in the **Log Terminal**. This action updates the alignment of matching records without altering their features.
-- **Import annotations**: Upload `.gff`, `.bed` or BedGraph files to merge additional features into loaded records. The importer matches by record ID, name, or accession; unmatched IDs are reported in the **Log Terminal**.
+- **GenBank or FASTA (Drop input batch)**: Upload `.gb`, `.gbk`, `.fasta` or `.fa` files. Multi-record files add several sequences at once, and several files can be selected together. Both nucleotide and amino-acid (protein) GenBank records are supported. If a sequence ID already exists in the workspace, a numeric suffix is appended automatically (e.g., `seq1 → seq1_1 → seq1_2`), preventing silent overwrites.
+- **Upload pre-aligned FASTA (Alignment Overlay)**: Apply an externally computed alignment to already-loaded records. Every sequence in the file must match a loaded record, and all sequences must have equal lengths. A header matches when it starts with a loaded record's ID; suffixes such as `seq1_1` are retained and a trailing description (`>seq1 reference strain`) is ignored. Mismatches are rejected and reported in the **Log Terminal**. This action updates the alignment of matching records without altering their features.
+- **Import annotations**: Upload `.gff`, `.gff3`, `.bed` or BedGraph files to merge additional features into loaded records. The importer first matches exact workspace IDs; a name or accession fallback must identify exactly one record. Ambiguous and unmatched IDs are reported in the **Log Terminal**.
   - A BED file with a numerical score in the 5th column is rendered as an **Interval Track**.
   - A BED file with many data points automatically packs overlapping intervals into multiple rows.
-- **Load project JSON**: Restore a whole workspace saved with **Save Project**.
+- **Load project JSON**: Restore a whole workspace saved with **Save project…**, after confirmation. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
 
 If you leave the page with unsaved work, the browser asks you to confirm first.
 
@@ -137,17 +137,37 @@ Results are highlighted in the viewer and listed in the sidebar. Use the **↑ /
 
 ### 3.2 Annotation Hub
 
-Switch to the **Annotation Hub** in the top bar to see every record and feature in one table. From there you can:
+Switch to **Annotation Hub** in the top bar. Its index, search, folds, grouping, density, selection and scroll positions stay in place when you switch to the viewport and back.
 
-- **Focus** a feature in the viewer (see 2.4) or open its details.
-- **Edit** a feature in the **Metadata Inspector**, or **Add Feature** to create one.
-- Delete features, or remove a whole sequence from the project.
-- Export FASTA, GFF3 or GenBank, and **Save Project** as JSON.
-- **Clear All**, which removes every record and annotation after you type `CLEAR` to confirm.
+**Find and group sequences.** The sidebar's **Find sequence** searches IDs/accessions, display names, isolate text, details and definitions. **List** shows each sequence once; **Grouped** partitions them by Organism, Host, Location (country before `:`), Collection year or Imported from. The grouping menu previews counts; unavailable fields say **No data in these files**. Missing values are in **Not specified**, last. Sort by load order, accession or fewest annotations. **Needs attention** limits the index to unannotated, partial or edited sequences. An eye controls viewport visibility independently of the selection checkbox.
+
+**Sequences tab.** Each sequence has a pinned section header, details, length, annotation count and genome strip. Collapse a section to its type summary, or use **Expand all / Collapse all** for visible sections. Switch between Compact and Comfortable density. The overview rail on the right jumps between sections; the sidebar follows the active section. Hover a row to highlight its feature on the strip, or click the strip to jump. Row actions remain available: Inspect, Edit, Open in viewport and Delete. Delete offers **Undo**; the return pill restores the origin row after a trip to the viewport. A source-only sequence is unannotated and offers **Import annotations…**.
+
+**Search annotations.** The toolbar searches annotation name, gene, product, type and note, excluding sequence definitions. The counter and previous/next buttons step through matches; Enter / Shift+Enter do the same in search. Navigation opens the matching section and centres its row. Type chips and strand filters narrow results. Search opens groups with hits; folds made while filtering apply only to that filter context.
+
+**Features tab.** Features are grouped within each organism and compared by identity, using product for mature/signal/transit peptides and gene, locus tag or name otherwise. The presence strip has one cell per sequence, and lengths are compared separately per type against their median. Headers report missing, odd length (more than 3% from the median), duplicate and partial/not-determined cases. Features present in fewer than half the complete annotated sequences are accessory; their absence is not flagged. Partial sequences are never called missing; unannotated sequences are labelled unannotated. Unknown organisms and organisms without a complete annotated baseline explain why comparison is unavailable. **Only missing or odd length** narrows this tab, and missing-sequence links jump to the Sequences tab. The sidebar becomes a feature index with **Limit to sequences**.
+
+**Edit details and display names.** **Edit details** opens Organism, Host, Location and Collection date; Imported from and the isolate line are read-only. Location offers INSDC country suggestions. Dates accept `YYYY`, `Mon-YYYY`, `DD-Mon-YYYY`, `YYYY-MM` or `YYYY-MM-DD`, optionally with UTC time ending in `Z`; missing-value terms are accepted. Warnings do not block saving, but invalid edited values are omitted from interchange exports until corrected. Unchanged file values pass through. Changed fields show an edited marker and **Revert to the file's value**. Details belong to the source feature, which is excluded from annotation counts and the generic feature editor. Rename gives a project-only display name beside the accession; it never changes export IDs.
+
+**Selection.** Index/header checkboxes select sequences; row checkboxes select annotations, with a select-all-visible checkbox above the rows. Sequence actions include Show only these / Show all, Export…, Hide/Show in viewport, Set detail and Remove… with confirmation. **Set detail** fills only empty values by default; untick **Only where empty** to overwrite existing values. Selected annotations can be exported to GFF3 or deleted with Undo. Clear removes the selection. Record-changing actions remain locked during remote alignment.
+
+**Import, save and drop.** The **⋯** menu offers Save project…, Sequences…, Pre-aligned FASTA…, Annotations…, Load project… and Clear workspace… (type `CLEAR` to confirm). Drop `.gb`/`.genbank`/`.fasta`/`.fa` sequences and `.bed`/`.gff`/`.gff3`/`.bedgraph` annotations together: sequences load first, then annotations attach to the records imported in that batch, even when their IDs gain suffixes. Duplicate incoming IDs make annotation routing ambiguous and are reported. Drop a project `.json` on its own; mixed project drops are refused. Drops always add FASTA as sequences; use **Pre-aligned FASTA…** explicitly for an alignment overlay.
+
+**Keyboard**, while the hub has focus and you are not typing:
+
+| Key | Action |
+| --- | --- |
+| `/` | Focus annotation search |
+| Enter / Shift+Enter in search | Next / previous match |
+| `J` / `K` | Next / previous row |
+| `[` / `]` | Previous / next group |
+| `X` | Select the current annotation row |
+| `O` | Fold/unfold the current group |
+| Esc | Close the open menu/dialog or clear selection |
 
 ### 3.3 Metadata Inspector
 
-The **Metadata Inspector** edits one feature: its key, display name, target sequence, strand, location (several segments, or a circular wrap-around), colour, and every qualifier. Qualifiers can be renamed, added and removed; a name GenBank would not round-trip is flagged before you save. **Discard** leaves the feature unchanged.
+The **Metadata Inspector** edits one annotation (sequence source details use **Edit details**): its key, display name, target sequence, strand, location (several segments, or a circular wrap-around), colour, and every qualifier. Qualifiers can be renamed, added and removed; a name GenBank would not round-trip is flagged before you save. **Discard** leaves the feature unchanged.
 
 ### 3.4 Annotation Details
 
@@ -161,9 +181,17 @@ Clicking an annotation (or **View details** in the Hub) shows its metadata, loca
 
 ## 4. Exporting Data
 
-- **Export FASTA**: Download the full alignment or a selected region.
-- **Export GFF**: Download the current feature annotations in GFF3 format, suitable for use in other bioinformatics tools.
-- **Export GenBank**: Export one or more records in GenBank flat-file format, preserving sequence and annotation data, including flag qualifiers such as `/ribosomal_slippage` and `/pseudo`.
+Open **Export…** from the hub toolbar or sequence selection bar. The sequence tree follows the Sequences index grouping even from the Features tab, with partial group checkboxes and Find. It starts with selected sequences, otherwise matching filters, otherwise all. Quick picks choose All, Selected in hub, Matching filters, Shown in viewport or None.
+
+Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the footer filename:
+
+- **FASTA** writes original residues and ID-only headers by default. **Keep alignment gaps** is optional and unavailable without an alignment. **Include details in the header (NCBI format)** writes details, isolate/strain and kept unknown modifiers; deprecated modifiers are omitted. Whole-record FASTA from the viewport also defaults to original residues. Viewport selection export retains exactly the selected aligned columns.
+- **GenBank / GenPept** writes sequences and annotations with molecule-appropriate qualifiers, quoted text, unquoted numeric values and bare flags. Annotation type and **Only matching annotations** filters retain source details. Missing organism warns without blocking export. Repeated qualifiers imported from GenBank keep only their last value.
+- **GFF3** writes annotations and full-sequence details regions (`gbkey=Src`), with type and matching filters. Load the sequences separately before importing it. Geometry, strand, phase and multipart identity are preserved; exact extracted residue order for unusual all-inner-complement joins is not guaranteed.
+- **Dunceious project** saves the chosen subset, retaining every workspace value, including invalid details, originals, edit markers, display names, modifiers and colours. It reopens only in Dunceious. **Save project…** in the ⋯ menu saves the whole workspace.
+
+**What this file will contain** previews written details and omissions using the selected export options, including invalid edits, non-GenBank attributes and deprecated FASTA modifiers. Display names stay in Dunceious. The missing-organism warning offers **Edit details**. The footer shows the sequence count and filename. See [the format preservation table](./ARCHITECTURE.md#export-format-contracts) for what each export retains.
+
 - **Export Selection JSON**: When a selection is active, choose **Export Selection JSON** to download the
   selected region as a JSON project snapshot.
   All coordinates in the exported file use **0-based half-open intervals `[start, end)`**: `start` is the

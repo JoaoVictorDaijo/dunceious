@@ -15,6 +15,29 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+
+- Annotation Hub index with List/Grouped modes, sequence and feature tabs,
+  pinned virtualized headers, genome strips, overview navigation, annotation
+  search stepping, filters, keyboard controls and persistent session state.
+- Sequence details editing with imported-value provenance and Revert, bulk
+  fill-empty edits, project-only display names, and annotation deletion Undo.
+- Subset export dialog with per-format options and a contents/omissions preview;
+  ordered sequence/annotation drops with collision-aware batch routing.
+
+### Changed
+
+- Workspace IDs use sanitized underscore suffixes. GenBank/GenPept exports use
+  molecule-specific qualifier syntax and allowlists, separate ACCESSION/VERSION,
+  and INSDC quote escaping. GFF3 uses encoded attributes, Sequence Ontology types,
+  multipart IDs, CDS phases and full-length source-detail regions.
+- Whole-record FASTA exports default to original residues; alignment gaps and
+  NCBI detail modifiers are explicit options. Viewport selection exports retain
+  selected aligned columns.
+- Project format 2 preserves detail originals, edit markers, display names and
+  modifiers; earlier project formats are rejected without migration.
+
+
 ## [2.8.0] — 2026-10-09
 
 ### Added
