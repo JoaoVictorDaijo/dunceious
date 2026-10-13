@@ -47,7 +47,7 @@ Sample GenBank / GenPept records for trying it out live in [`examples/`](./examp
 You can use it two ways:
 
 1. **Online, no install** — open **[dunceious.pages.dev](https://dunceious.pages.dev/)**. The app is fully static and self-contained (no third-party CDNs), so every file you open stays on your device. It is hosted on Cloudflare Pages purely as static files — the hosting only serves the app; it never sees your data.
-2. **Run it locally** — prefer to run it yourself, work offline, or hack on the code? Build and serve it locally; see [Quick start](#quick-start) below.
+2. **Run it locally** — prefer to run it yourself and work offline? Build and serve it locally; see [Quick start](#quick-start) below.
 
 ## Quick start
 
