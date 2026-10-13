@@ -56,7 +56,7 @@ describe('applyParseSuccess', () => {
     ]);
     expect(count).toBe(2);
     expect(next.slice(1).map(r => ({ id: r.id, name: r.name, accession: r.accession, visible: r.visible }))).toEqual([
-      { id: 'g1 (1)', name: 'g1 (1)', accession: 'ACC9', visible: true },
+      { id: 'g1_1', name: 'g1_1', accession: 'ACC9', visible: true },
       { id: 'g2', name: 'g2', accession: 'g2', visible: true },
     ]);
     // prev record is preserved unchanged
@@ -78,8 +78,8 @@ describe('applyParseSuccess', () => {
   it('dedups two colliding INCOMING records against each other, pushing the freshly-minted id back into existingIds', () => {
     const { next, count } = applyParseSuccess([], [rec({ id: 'b' }), rec({ id: 'b' })]);
     expect(count).toBe(2);
-    expect(next.map(r => r.id)).toEqual(['b', 'b (1)']);
-    expect(next.map(r => r.name)).toEqual(['b', 'b (1)']);
+    expect(next.map(r => r.id)).toEqual(['b', 'b_1']);
+    expect(next.map(r => r.name)).toEqual(['b', 'b_1']);
   });
 });
 
@@ -145,7 +145,7 @@ describe('applyFastaResponse', () => {
     expect(res.kind).toBe('batch');
     if (res.kind === 'batch') {
       expect(res.count).toBe(2);
-      expect(res.next.slice(1).map(r => r.id)).toEqual(['a (1)', 'b']);
+      expect(res.next.slice(1).map(r => r.id)).toEqual(['a_1', 'b']);
       expect(res.next.slice(1).every(r => r.visible === true)).toBe(true);
     }
   });
@@ -219,4 +219,15 @@ describe('applyFastaResponse', () => {
     expect(res.kind).toBe('reject-empty');
     expect(res.next).toBe(prev);
   });
+});
+
+
+it('deduplicates incoming IDs against all workspace IDs without changing accessions', () => {
+  const prev = [rec({ id: 'seq1' }), rec({ id: 'seq1_1' })];
+  const incoming = [rec({ id: 'seq1', accession: 'seq1' }), rec({ id: 'seq1', accession: 'seq1' })];
+  const { next } = applyParseSuccess(prev, incoming);
+  expect(next.slice(2).map(r => r.id)).toEqual(['seq1_2', 'seq1_3']);
+  expect(next.slice(2).map(r => r.accession)).toEqual(['seq1', 'seq1']);
+  expect(next[0]).toBe(prev[0]);
+  expect(incoming.map(r => r.id)).toEqual(['seq1', 'seq1']);
 });

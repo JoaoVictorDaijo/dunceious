@@ -115,7 +115,7 @@ describe('remote alignment application integration', () => {
   it('applies exact IDs through the shared reducer and fades the successful pill', async () => {
     await start(); vi.useFakeTimers();
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 bp).'))).toBe(true);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
     expect(screen.getByRole('button', { name: /Aligned/ })).toBeTruthy();
@@ -141,7 +141,7 @@ describe('remote alignment application integration', () => {
     expect(captured.client!.submit).toHaveBeenCalledTimes(2);
     expect(captured.sidebar!.isAlignmentLocked).toBe(true);
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
   });
 });
