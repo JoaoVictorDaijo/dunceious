@@ -65,14 +65,14 @@ export default function ExportDialog({ records, state, onClose, onExport, onEdit
   const fileName = `${baseName || 'sequences'}.${extension}`;
   const options = useMemo<ExportOptions>(() => ({
     residues: keepGaps && hasAlignment ? 'aligned' : 'original', header: details ? 'details' : 'id',
-    ...(format === 'genbank' || format === 'gff3' ? { types, matchingKeys: onlyMatching ? matchingKeys : undefined } : {}), fileName,
-  }), [keepGaps, hasAlignment, details, format, types, onlyMatching, matchingKeys, fileName]);
+    ...(format === 'genbank' || format === 'gff3' ? { types, matchingKeys: onlyMatching ? matchingKeys : undefined } : {}),
+  }), [keepGaps, hasAlignment, details, format, types, onlyMatching, matchingKeys]);
   const preview = useMemo(() => {
     try { return { ...describeExport(chosen, format, options), error: '' }; }
     catch (error) { return { report: null, summary: '', error: error instanceof Error ? error.message : String(error) }; }
   }, [chosen, format, options]);
   const report = preview.report;
-  const missingIds = new Set(exportRecordsForOptions(chosen, format, options).filter(record => record.moleculeType !== 'protein' && !detailsForExport(record, emptyReport()).organism).map(record => record.id));
+  const missingIds = useMemo(() => new Set(exportRecordsForOptions(chosen, format, options).filter(record => record.moleculeType !== 'protein' && !detailsForExport(record, emptyReport()).organism).map(record => record.id)), [chosen, format, options]);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -158,7 +158,7 @@ export default function ExportDialog({ records, state, onClose, onExport, onEdit
         <p aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} → {fileName}</p>
         <label className="flex items-center gap-2">File name <span className="flex rounded border border-slate-300 bg-white"><input aria-label="File name" value={name} onChange={e => setName(e.target.value)} className="w-32 rounded-l bg-transparent px-2 py-2" /><span className="border-l border-slate-200 px-2 py-2 text-slate-500">.{extension}</span></span></label>
         <button onClick={onClose} className="rounded px-3 py-2 hover:bg-slate-200">Cancel</button>
-        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, options); onClose(); }} className="rounded bg-slate-800 px-4 py-2 font-semibold text-white disabled:opacity-40">Export</button>
+        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded bg-slate-800 px-4 py-2 font-semibold text-white disabled:opacity-40">Export</button>
       </footer>
     </div>
   </div>, document.body);

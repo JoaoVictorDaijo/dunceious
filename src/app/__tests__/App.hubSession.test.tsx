@@ -79,3 +79,18 @@ describe('hub workspace identity', () => {
     expect(screen.queryByLabelText('Selection actions')).toBeNull();
   });
 });
+
+
+it('keeps the last focused annotation after deleting an earlier row and undoing', async () => {
+  const workers = await setup();
+  fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'rows.fa', records: [{ ...record('rows', 'unused'), features: Array.from({ length: 6 }, (_, i) => ({ name: `row${i}`, type: 'gene', start: 0, end: 2, strand: 1 as const })) }] } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence rows' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open row5 on rows in viewport' }));
+  fireEvent.click(screen.getByRole('button', { name: /Back to Annotation Hub/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete row2 on rows' }));
+  expect(screen.getByText('Last focused').closest('[data-row-key]')?.getAttribute('data-row-key')).toBe('rows:4');
+  expect(screen.getByText('Last focused').closest('[data-row-key]')?.textContent).toContain('row5');
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(screen.getByText('Last focused').closest('[data-row-key]')?.getAttribute('data-row-key')).toBe('rows:5');
+});

@@ -53,7 +53,8 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onTo
       <label>Set detail <select aria-label="Detail field" value={field} onChange={e => setField(e.target.value as DetailKey)} className="rounded border border-slate-300 bg-white p-1"><option value="organism">Organism</option><option value="host">Host</option><option value="location">Location</option><option value="collectionDate">Collection date</option></select></label>
       <input ref={valueInput} aria-label="Detail value" value={value} onChange={e => setValue(e.target.value)} className="w-32 rounded border border-slate-300 bg-white p-1" />
       <label className="flex gap-1"><input type="checkbox" checked={onlyEmpty} onChange={e => setOnlyEmpty(e.target.checked)} />only where empty</label>
-      <button disabled={locked} onClick={() => {
+      <button disabled={locked || !value.trim()} onClick={() => {
+        if (locked || !value.trim()) return;
         const eligible = chosen.filter(r => !onlyEmpty || !readDetails(r)[field]?.trim());
         const kept = chosen.length - eligible.length;
         onSetDetail(new Set(eligible.map(r => r.id)), field, value);

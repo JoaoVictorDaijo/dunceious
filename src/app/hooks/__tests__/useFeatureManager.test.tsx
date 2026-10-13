@@ -133,3 +133,87 @@ describe('hub callback stability', () => {
     expect(result.current.setEditing).toBe(first.setEditing);
   });
 });
+
+
+it('logs why the generic editor refuses a source feature', () => {
+  const log = vi.fn(); const source = writeDetails(records[0], { host: 'camel' });
+  const { result } = renderHook(() => useFeatureManager([source], vi.fn(), null, log));
+  act(() => result.current.setEditing({ recordId: source.id, featureIndex: 0, feature: source.features[0] }));
+  expect(log).toHaveBeenCalledWith(expect.stringMatching(/Edit details/));
+});
+
+it('blocks deletion and undo using the current alignment lock', () => {
+  let locked = true;
+  const { result } = renderHook(() => {
+    const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]);
+    return { value, manager: useFeatureManager(value, setValue, null, () => {}, { isLocked: () => locked }) };
+  });
+  act(() => result.current.manager.removeFeature('synthetic', 0));
+  expect(result.current.value[0].features.map(f => f.name)).toEqual(['a', 'b']);
+  locked = false; act(() => result.current.manager.removeFeature('synthetic', 0));
+  locked = true; act(() => result.current.manager.undoDelete());
+  expect(result.current.value[0].features.map(f => f.name)).toEqual(['b']);
+  expect(result.current.manager.undoAvailable).toBe(true);
+  locked = false; act(() => result.current.manager.undoDelete());
+  expect(result.current.value[0].features.map(f => f.name)).toEqual(['a', 'b']);
+});
+
+it('pauses undo expiry and uses the remaining time on resume', () => {
+  vi.useFakeTimers();
+  try {
+    const { result } = renderHook(() => {
+      const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: [{ name: 'a', type: 'gene', start: 0, end: 2, strand: 1 }] }]);
+      return useFeatureManager(value, setValue, null, () => {});
+    });
+    act(() => result.current.removeFeature('synthetic', 0));
+    act(() => vi.advanceTimersByTime(3000));
+    act(() => result.current.setUndoPaused(true));
+    act(() => vi.advanceTimersByTime(10000)); expect(result.current.undoAvailable).toBe(true);
+    act(() => result.current.setUndoPaused(false));
+    act(() => vi.advanceTimersByTime(4999)); expect(result.current.undoAvailable).toBe(true);
+    act(() => vi.advanceTimersByTime(1)); expect(result.current.undoAvailable).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+
+
+it('gives a second deletion a fresh eight-second undo window', () => {
+  vi.useFakeTimers();
+  try {
+    const { result } = renderHook(() => {
+      const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]);
+      return useFeatureManager(value, setValue, null, () => {});
+    });
+    act(() => result.current.removeFeature('synthetic', 0));
+    act(() => vi.advanceTimersByTime(5000));
+    act(() => result.current.removeFeature('synthetic', 0));
+    act(() => vi.advanceTimersByTime(7999)); expect(result.current.undoAvailable).toBe(true);
+    act(() => vi.advanceTimersByTime(1)); expect(result.current.undoAvailable).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+
+it('clears deleted row keys and remaps surviving pending jumps in both directions', () => {
+  const { result } = renderHook(() => {
+    const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: ['a', 'b', 'c', 'd'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]);
+    const [deletedKey, setDeletedKey] = useState<string | null>('synthetic:1');
+    const [jump, setJump] = useState<string | null>('synthetic:3');
+    const manager = useFeatureManager(value, setValue, null, () => {}, { onRemapRows: remap => {
+      setDeletedKey(key => key ? remap(key) : null); setJump(key => key ? remap(key) : null);
+    } });
+    return { manager, deletedKey, jump };
+  });
+  act(() => result.current.manager.removeFeatures(new Set(['synthetic:1', 'synthetic:2'])));
+  expect(result.current.deletedKey).toBeNull(); expect(result.current.jump).toBe('synthetic:1');
+  act(() => result.current.manager.undoDelete());
+  expect(result.current.deletedKey).toBeNull(); expect(result.current.jump).toBe('synthetic:3');
+});
+
+
+it('keeps a detail edit queued before deletion in the same event', () => {
+  const { result } = renderHook(() => {
+    const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]);
+    return { value, manager: useFeatureManager(value, setValue, null, () => {}) };
+  });
+  act(() => { result.current.manager.setRecordDetails('synthetic', { host: 'camel' }); result.current.manager.removeFeature('synthetic', 0); });
+  expect(readDetails(result.current.value[0]).host).toBe('camel');
+  expect(result.current.value[0].features.filter(f => f.type !== 'source').map(f => f.name)).toEqual(['b']);
+});

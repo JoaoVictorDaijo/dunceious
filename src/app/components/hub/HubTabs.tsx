@@ -19,5 +19,11 @@
 
 import type { useHubState } from '@/src/app/hooks/useHubState';
 export default function HubTabs({ state, sequences, features }: { state: ReturnType<typeof useHubState>; sequences: number; features: number }) {
-  return <div role="tablist" aria-label="Hub view" className="flex gap-5 border-b border-slate-200 px-5">{(['sequences', 'features'] as const).map(tab => <button role="tab" aria-selected={state.tab === tab} key={tab} className={`border-b-2 px-2 py-3 text-sm ${state.tab === tab ? 'border-slate-700 font-semibold text-slate-900' : 'border-transparent text-slate-500'}`} onClick={() => state.setTab(tab)} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { state.setTab(tab === 'sequences' ? 'features' : 'sequences'); (e.currentTarget.parentElement?.querySelector(`[role="tab"]:not([aria-selected="${state.tab === tab}"])`) as HTMLElement)?.focus(); } }}>{tab === 'sequences' ? `Sequences ${sequences}` : `Features ${features}`}</button>)}</div>;
+  return <div role="tablist" aria-label="Hub view" className="flex gap-5 border-b border-slate-200 px-5">{(['sequences', 'features'] as const).map(tab => <button role="tab" id={`hub-tab-${tab}`} aria-controls={`hub-panel-${tab}`} tabIndex={state.tab === tab ? 0 : -1} aria-selected={state.tab === tab} key={tab} className={`border-b-2 px-2 py-3 text-sm ${state.tab === tab ? 'border-slate-700 font-semibold text-slate-900' : 'border-transparent text-slate-500'}`} onClick={() => state.setTab(tab)} onKeyDown={event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'sequences' : event.key === 'End' ? 'features' : tab === 'sequences' ? 'features' : 'sequences';
+    state.setTab(next);
+    document.getElementById(`hub-tab-${next}`)?.focus();
+  }}>{tab === 'sequences' ? `Sequences ${sequences}` : `Features ${features}`}</button>)}</div>;
 }

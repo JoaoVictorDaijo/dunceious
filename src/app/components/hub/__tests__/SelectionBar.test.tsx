@@ -41,3 +41,12 @@ describe('SelectionBar', () => {
     expect(screen.getByRole('status').textContent).toBe('Set Host on 2 sequences · 1 already had a value and kept it');
   });
 });
+
+
+it('disables empty bulk detail edits even when overwriting is selected', () => {
+  render(<Subject />); fireEvent.click(screen.getByText('Select all'));
+  fireEvent.click(screen.getByLabelText('only where empty'));
+  expect((screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: '   ' } });
+  expect((screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement).disabled).toBe(true);
+});

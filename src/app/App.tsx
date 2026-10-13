@@ -128,12 +128,28 @@ const App: React.FC = () => {
 
   const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
 
+  const remapHubRows = useCallback((remap: (key: string) => string | null) => {
+    setHubFocus(previous => {
+      if (!previous) return previous;
+      const key = remap(previous.key);
+      return key ? { ...previous, key } : null;
+    });
+    hubState.setJumpTarget(previous => {
+      if (!previous) return previous;
+      const key = remap(previous.key);
+      return key ? { ...previous, key } : null;
+    });
+    hubState.setSelectedRows(previous => new Set([...previous].flatMap(key => { const next = remap(key); return next ? [next] : []; })));
+  }, [hubState.setJumpTarget, hubState.setSelectedRows]);
+
   const {
     editing,
     setEditing,
     setRecordDetails,
     setRecordLabel,
     undoAvailable,
+    undoVersion,
+    setUndoPaused,
     undoDelete,
     dismissUndo,
     removeFeatures,
@@ -142,7 +158,7 @@ const App: React.FC = () => {
     addAnnotationFromSearch,
     removeFeature,
     toggleRecordVisibility,
-  } = useFeatureManager(records, setRecords, activeSelection, addLog);
+  } = useFeatureManager(records, setRecords, activeSelection, addLog, { isLocked: remoteAlignment.isLocked, onRemapRows: remapHubRows });
 
   const {
     searchQuery,
@@ -516,10 +532,12 @@ const App: React.FC = () => {
                     onExportRecords={exportRecords}
                     onDeleteRows={removeFeatures}
                     undoAvailable={undoAvailable}
+                    undoVersion={undoVersion}
+                    onUndoPause={setUndoPaused}
                     onUndoDelete={undoDelete}
                     onSetRecordDetails={setRecordDetails}
                     onSetRecordLabel={setRecordLabel}
-                    onSetDetail={(ids, key, value) => setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record))}
+                    onSetDetail={(ids, key, value) => { if (remoteAlignment.isLocked()) return; setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); }}
                     featureColors={featureColors}
                     onStartNewFeature={startNewFeature}
                     onToggleRecordVisibility={toggleRecordVisibility}

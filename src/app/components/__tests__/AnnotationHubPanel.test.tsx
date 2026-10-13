@@ -37,7 +37,7 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
@@ -203,4 +203,67 @@ describe('AnnotationHubPanel', () => {
     expect(screen.getByText('7 bp')).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Open joined on gap in viewport' }));
     expect(focused).toHaveBeenCalledWith({ recordId: 'gap', start: 2, end: 16, label: 'joined', length: 7 }, { key: 'gap:0', label: 'joined' });
   });
+});
+
+
+it.each(['tabs', 'focus'])('keeps typed details through a %s round trip', route => {
+  render(<Subject initial={[records[0]]} />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
+  fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
+  if (route === 'tabs') {
+    fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sequences 1' }));
+  } else {
+    fireEvent.click(screen.getByRole('button', { name: 'Open ORF4b on seq0 in viewport' }));
+    fireEvent.click(screen.getByText('Return to hub'));
+  }
+  expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel draft');
+});
+
+it('confirms before replacing a dirty details draft with another editor', () => {
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  try {
+    render(<Subject initial={records.slice(0, 2)} />);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
+    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Rename seq0' }));
+    expect(confirm).toHaveBeenCalled();
+    expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel draft');
+  } finally { confirm.mockRestore(); }
+});
+
+it('shows a lock notice for a blocked drop', () => {
+  const dropped = vi.fn(); render(<Subject locked dropped={dropped} />);
+  fireEvent.drop(screen.getByRole('region', { name: 'Annotation Hub' }), { dataTransfer: { files: [new File(['ACGT'], 'x.fa')] } });
+  expect(dropped).not.toHaveBeenCalled();
+  expect(screen.getByRole('status').textContent).toMatch(/alignment.*lock/i);
+});
+
+it('makes only the selected hub tab a tab stop and connects its panel', () => {
+  render(<Subject />);
+  const tabs = screen.getAllByRole('tab');
+  expect(tabs.map(tab => tab.tabIndex)).toEqual([0, -1]);
+  expect(document.getElementById(tabs[0].getAttribute('aria-controls')!)).toBe(screen.getByRole('tabpanel'));
+  tabs[0].focus(); fireEvent.keyDown(tabs[0], { key: 'ArrowRight' });
+  expect(document.activeElement).toBe(tabs[1]);
+  expect(tabs.map(tab => tab.tabIndex)).toEqual([-1, 0]);
+});
+
+it('reveals an annotation hidden by search when picked on a header strip', () => {
+  render(<Subject initial={[{ ...records[0], features: [{ ...records[0].features[0], name: 'hidden' }, { ...records[0].features[0], name: 'visible', start: 30, end: 40 }] }]} />);
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'visible' } });
+  fireEvent.keyDown(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
+  expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
+  expect(screen.getByRole('status').textContent).toMatch(/cleared to show/);
+  expect(screen.getByText('hidden')).toBeTruthy();
+});
+
+
+it('clears unresolved jumps even when filters leave the list empty', () => {
+  render(<Subject />);
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no match' } });
+  fireEvent.click(screen.getByText('Request hidden jump'));
+  expect(screen.getByLabelText('Pending hub jump').textContent).toBe('none');
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+  expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq0')).toBeTruthy();
 });

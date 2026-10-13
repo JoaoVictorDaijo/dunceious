@@ -124,6 +124,8 @@ describe('HubIndex', () => {
     render(<Subject />); fireEvent.click(screen.getByRole('button', { name: 'Grouped' }));
     fireEvent.click(screen.getByRole('button', { name: /by Organism/ }));
     const menu = screen.getByRole('menu');
+    expect(within(menu).queryByText('Missing details can be filled in with Edit details.')).toBeNull();
+    expect(screen.getByText('Missing details can be filled in with Edit details.')).toBeTruthy();
     expect(within(menu).getByText('Location · 1 groups · 1 not specified')).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Collection year.*No data in these files/ }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(menu).getByRole('menuitem', { name: /Host ·/ }));

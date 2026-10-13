@@ -23,6 +23,7 @@ import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } f
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails } from '@/src/domain/bio/types';
+import { readDetails } from '@/src/domain/bio/details';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 import type { HubFocusOrigin } from '../AnnotationHubPanel';
 import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionHeader';
@@ -39,7 +40,7 @@ type Entry = { key: string; sectionKey: string; size: number } & (
   | { type: 'empty'; record: SeqRecord } | { type: 'spacer' } | { type: 'editor'; record: SeqRecord; editor: 'details' | 'name' });
 export interface HubListProps {
   items: SequenceSection[] | FeatureGroup[]; kind: 'sequences' | 'features'; state: HubState;
-  records?: SeqRecord[]; onNotice?: (message: string) => void;
+  filtersPending?: boolean; records?: SeqRecord[]; onNotice?: (message: string) => void;
   height?: number; featureColors?: Record<string, string>; lastFocusedKey?: string | null; currentRowKey?: string | null;
   isAlignmentLocked?: boolean;
   onSetRecordDetails?: (id: string, details: SequenceDetails) => void;
@@ -55,7 +56,7 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
   return data(index, style);
 }
 
-function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
   const workspaceRevision = useRef(state.workspaceRevision.current);
   workspaceRevision.current = state.workspaceRevision.current;
   const scrollOffset = useRef(state.scrollOffset[kind]);
@@ -72,9 +73,8 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
   const container = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState(600);
   const [hovered, setHovered] = useState<BioFeature | null>(null);
-  const [editingName, setEditingName] = useState<string | null>(null);
+  const { editingName, setEditingName, draft, setDraft } = state;
   const editor = useMemo(() => state.editingDetails ? { id: state.editingDetails, kind: 'details' as const } : editingName ? { id: editingName, kind: 'name' as const } : null, [state.editingDetails, editingName]);
-  const [draft, setDraft] = useState<{ id: string; details?: SequenceDetails; label?: string } | null>(null);
   const closeEditor = () => { state.setEditingDetails(null); setEditingName(null); setDraft(null); };
   const height = providedHeight ?? measuredHeight;
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
@@ -157,7 +157,7 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
   }, [kind, state.setCollapsed, state.setSearchFolds]);
   const pending = state.jumpTarget?.key;
   useEffect(() => {
-    if (!pending) return;
+    if (!pending || filtersPending || kind !== state.tab) return;
     let sectionKey = items.find(item => item.key === pending)?.key;
     if (!sectionKey) for (const item of items) {
       const rows = kind === 'sequences' ? (item as SequenceSection).rows.map(feature => ({ record: (item as SequenceSection).record, feature })) : (item as FeatureGroup).rows;
@@ -171,9 +171,9 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
       const headerHeight = entries[headerIndex]?.size ?? 0;
       const position = entry.type === 'header' ? starts[index] : starts[index] - headerHeight - Math.max(0, (height - headerHeight - entry.size) / 2);
       list.current?.scrollTo(Math.max(starts[headerIndex] ?? 0, Math.min(position, maxOffset)));
-      state.setJumpTarget(null);
     }
-  }, [pending, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
+    state.setJumpTarget(null);
+  }, [pending, filtersPending, state.tab, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
   const jump = useCallback((key: string) => state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })), [state.setJumpTarget]);
   const sequenceJump = useCallback((key: string) => {
     const record = records.find(record => record.id === key);
@@ -193,8 +193,14 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
     state.setTab('sequences'); jump(key);
   }, [records, state.filters, state.setFilters, state.setTab, jump, onNotice]);
   const edit = useCallback((id: string, kind: 'details' | 'name') => {
+    if (editor?.id === id && editor.kind === kind) { open(id); jump(id); return; }
+    const record = records.find(record => record.id === draft?.id);
+    const currentDetails = record ? readDetails(record) : {};
+    const dirty = draft && (Object.entries(draft.details ?? {}).some(([key, value]) => value !== (currentDetails[key as keyof SequenceDetails] ?? ''))
+      || draft.label !== undefined && draft.label !== (record?.label ?? ''));
+    if (dirty && !window.confirm('Discard unsaved changes to open another editor?')) return;
     setDraft({ id }); open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
-  }, [open, state.setEditingDetails, jump]);
+  }, [editor, draft, records, setDraft, setEditingName, open, state.setEditingDetails, jump]);
   const headerActions = useMemo(() => new Map(items.map(item => [item.key, {
     onFold: () => fold(item.key),
     onSelect: () => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(item.key)) next.delete(item.key); else next.add(item.key); return next; }),
@@ -202,14 +208,20 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
     onEditDetails: onSetRecordDetails ? () => edit(item.key, 'details') : undefined,
     onRename: onSetRecordLabel ? () => edit(item.key, 'name') : undefined,
     onPick: (feature: BioFeature) => {
-      if (kind === 'sequences') { const record = (item as SequenceSection).record; jump(`${record.id}:${record.features.indexOf(feature)}`); }
+      if (kind === 'sequences') { const section = item as SequenceSection;
+        const record = section.record;
+        if (!section.rows.includes(feature)) {
+          state.setFilters(prev => ({ ...prev, query: '', types: new Set<string>(), strand: 'all' }));
+          onNotice?.(`Search and type filters cleared to show ${record.label || record.accession || record.id}`);
+        }
+        jump(`${record.id}:${record.features.indexOf(feature)}`); }
     },
-  }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump]);
+  }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump, state.setFilters, onNotice]);
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered} />;
+    return <SequenceSectionHeader section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
@@ -226,7 +238,16 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
     const indexOfFeature = entry.record.features.indexOf(entry.feature);
     return <div style={style}><AnnotationRow record={entry.record} feature={entry.feature} rowKey={entry.key} kind={kind} selected={state.selectedRows.has(entry.key)} current={currentRowKey === entry.key} lastFocused={lastFocusedKey === entry.key} featureColors={featureColors} locked={isAlignmentLocked} onCurrent={() => onCurrentRow?.(entry.key)} onHover={setHovered} onSelect={() => state.setSelectedRows(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} onInspect={() => onViewFeatureDetails?.(entry.record.id, entry.feature)} onEdit={() => onEditFeature?.(entry.record.id, indexOfFeature, entry.feature)} onDelete={() => onRemoveFeature?.(entry.record.id, indexOfFeature)} onFocus={() => onFocusItem?.(featureFocusTarget(entry.record, entry.feature), { key: entry.key, label: entry.feature.name })} /></div>;
   };
-  const blocks = entries.flatMap((entry, i) => entry.type === 'header' ? [{ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, start: starts[i], size: (starts[entries.findIndex((other, j) => j > i && other.type === 'header')] ?? total) - starts[i] }] : []);
+  const blocks = useMemo(() => {
+    const result: { key: string; label: string; start: number; size: number }[] = [];
+    entries.forEach((entry, index) => {
+      if (entry.type !== 'header') return;
+      const previous = result.at(-1);
+      if (previous) previous.size = starts[index] - previous.start;
+      result.push({ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, start: starts[index], size: total - starts[index] });
+    });
+    return result;
+  }, [entries, starts, total, kind]);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
       <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>

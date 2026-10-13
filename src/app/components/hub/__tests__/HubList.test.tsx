@@ -20,12 +20,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { useLayoutEffect } from 'react';
-import { render, screen, fireEvent, within, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent, within, stubResizeObserver, renderHook, act } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import HubList from '../HubList';
+import { useAppLogger } from '@/src/app/hooks/useAppLogger';
 const records: SeqRecord[] = ['one', 'two', 'three'].map(id => ({ id, name: id, sequence: 'A'.repeat(100), features: [{ type: 'CDS', name: `${id}-gene`, start: 5, end: 25, strand: -1 }] }));
 function Subject({ kind = 'sequences', offset = 0 }: { kind?: 'sequences' | 'features'; offset?: number }) {
   const state = useHubState();
@@ -89,4 +90,29 @@ describe('HubList', () => {
     const cells = within(pinned.getByRole('group', { name: 'Presence' })).getAllByRole('button');
     expect(cells).toHaveLength(3); expect(cells.map(c => c.className)).toEqual([expect.stringContaining('state-present'), expect.stringContaining('state-absent'), expect.stringContaining('state-absent')]);
   });
+});
+
+
+it('keeps the logging callback stable when a log entry changes', () => {
+  const { result } = renderHook(useAppLogger);
+  const first = result.current.addLog;
+  act(() => result.current.addLog('new entry'));
+  expect(result.current.addLog).toBe(first);
+  expect(result.current.logs[0]).toContain('new entry');
+});
+
+it('clears unresolvable jumps before a later filter change can replay them', () => {
+  function Pending() {
+    const state = useHubState();
+    return <><button onClick={() => state.setJumpTarget({ key: 'three:0', serial: 1 })}>Hidden jump</button><output aria-label="Pending jump">{state.jumpTarget?.key ?? 'none'}</output><HubList state={state} kind="sequences" items={buildSequenceSections(records.slice(0, 1), state.filters, { grouped: false }, 'load')} height={180} /></>;
+  }
+  render(<Pending />); fireEvent.click(screen.getByText('Hidden jump'));
+  expect(screen.getByLabelText('Pending jump').textContent).toBe('none');
+});
+
+it('keeps other sequence strips bright when one annotation is hovered', () => {
+  render(<Subject />);
+  fireEvent.mouseEnter(screen.getByText('one-gene').closest('[data-row-key]')!);
+  const other = screen.getByRole('button', { name: /Genome strip for two/ });
+  expect([...other.querySelectorAll('path')].every(path => path.getAttribute('opacity') === '1')).toBe(true);
 });

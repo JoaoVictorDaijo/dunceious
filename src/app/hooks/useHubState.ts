@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useReducer, useRef, useState, type SetStateAction } from 'react';
+import type { SequenceDetails } from '@/src/domain/bio/types';
 import type { GroupField, HubFilters, SortOrder } from '@/src/app/logic/hubModel';
 
 export type HubTab = 'sequences' | 'features';
@@ -59,6 +60,8 @@ export function useHubState() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [scrollOffset, setScrollOffset] = useState<Record<HubTab, number>>({ sequences: 0, features: 0 });
   const [menu, setMenu] = useState<HubMenu>(null);
+  const [draft, setDraft] = useState<{ id: string; details?: SequenceDetails; label?: string } | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
   const [editingDetails, setEditingDetails] = useState<string | null>(null);
 
   const [currentSectionKey, setCurrentSectionKey] = useState<string | null>(null);
@@ -85,6 +88,8 @@ export function useHubState() {
     setCurrentSectionKey(null);
     setMenu(null);
     setEditingDetails(null);
+    setEditingName(null);
+    setDraft(null);
     setOnlyProblemsValue(false);
     setTab('sequences');
   }, [setFilters, setSearchFolds]);
@@ -95,6 +100,6 @@ export function useHubState() {
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
     selectedRecords, setSelectedRecords, selectedRows, setSelectedRows, scrollOffset, setScrollOffset,
-    menu, setMenu, editingDetails, setEditingDetails,
+    menu, setMenu, editingDetails, setEditingDetails, editingName, setEditingName, draft, setDraft,
   };
 }

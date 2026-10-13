@@ -24,6 +24,7 @@ import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarne
 import { useHubState } from '@/src/app/hooks/useHubState';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { writeDetails } from '@/src/domain/bio/details';
+import * as exportPlan from '@/src/app/logic/exportPlan';
 import ExportDialog, { type ExportDialogProps } from '../ExportDialog';
 
 const records: SeqRecord[] = ['a', 'b', 'c'].map(id => ({ id, name: id, sequence: 'ACGT', features: [] }));
@@ -140,4 +141,16 @@ it('toggles the whole group and picks only sequences shown in the viewport', () 
   expect((screen.getByLabelText('Export a') as HTMLInputElement).checked).toBe(true);
   expect((screen.getByLabelText('Export b') as HTMLInputElement).checked).toBe(false);
   expect((screen.getByLabelText('Export c') as HTMLInputElement).checked).toBe(true);
+});
+
+
+it('does not rerun the export serializer when only the filename changes', () => {
+  const describe = vi.spyOn(exportPlan, 'describeExport');
+  try {
+    render(<Subject />); open(); format('GenBank');
+    const count = describe.mock.calls.length;
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
+    expect(describe.mock.calls.length).toBe(count);
+    expect(screen.getByText('2 sequences → new name.gb')).toBeTruthy();
+  } finally { describe.mockRestore(); }
 });
