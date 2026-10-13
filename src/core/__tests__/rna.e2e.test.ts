@@ -35,8 +35,8 @@ describe('RNA ingestion and export', () => {
     const [record] = parseFasta('>rna\naugc\nryswkmbdhvn');
     expect(record.moleculeType).toBe('rna');
     expect(record.sequence).toBe('augcryswkmbdhvn');
-    expect(exportToFasta([record])).toBe('>rna\naugcryswkmbdhvn');
-    expect(exportToFasta([record], 1, 4)).toContain('\nugc');
+    expect(exportToFasta([record]).text).toBe('>rna\naugcryswkmbdhvn');
+    expect(exportToFasta([record], { residues: 'original', header: 'id', slice: { start: 1, end: 4 } }).text).toContain('\nugc');
   });
 
   it.each(['RNA', 'mRNA', 'ss-RNA'])('round-trips a GenBank %s LOCUS and uracil', (molecule) => {
@@ -87,7 +87,7 @@ describe('RNA ingestion and export', () => {
     const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end);
     expect(selected).toMatchObject({ moleculeType: 'rna', sequence: 'AUG', alignedSequence: undefined });
     expect(selected.features[0]).toMatchObject({ start: 0, end: 3, segments: [{ start: 0, end: 3 }] });
-    for (const reimported of [parseFasta(exportToFasta([selected]))[0], parseGenBank(exportToGenBank([selected]).text)[0]]) {
+    for (const reimported of [parseFasta(exportToFasta([selected]).text)[0], parseGenBank(exportToGenBank([selected]).text)[0]]) {
       expect(reimported).toMatchObject({ moleculeType: 'rna', sequence: 'AUG' });
     }
     expect(record).toMatchObject({ sequence: 'CCAUGG', alignedSequence: 'CC-AUGG' });

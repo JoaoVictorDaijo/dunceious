@@ -27,7 +27,7 @@ import type { FastaAlignedRecord } from '@/src/workers/protocol';
  * "seq1 (1)" whole, and an external header may append a description after the ID.
  */
 function resolveHeaderId(record: FastaAlignedRecord, currentIds: ReadonlySet<string>): string {
-  const tokens = record.header?.split(/\s+/) ?? [];
+  const tokens = `${record.id} ${record.header ?? ''}`.trim().split(/\s+/);
   for (let end = tokens.length; end > 1; end--) {
     const candidate = tokens.slice(0, end).join(' ');
     if (currentIds.has(candidate)) return candidate;

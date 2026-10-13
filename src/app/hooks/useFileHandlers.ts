@@ -264,7 +264,7 @@ export function useFileHandlers(
     const start = activeSelection ? Math.min(activeSelection.start, activeSelection.end) : undefined;
     const end = activeSelection ? Math.max(activeSelection.start, activeSelection.end) : undefined;
     downloadBlob(
-      exportToFasta(records, start, end),
+      exportToFasta(records, { residues: 'aligned', header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }).text,
       activeSelection ? 'selection_export.fasta' : 'msa_export.fasta',
       'text/plain',
     );
@@ -303,7 +303,7 @@ export function useFileHandlers(
   };
 
   const exportAllFasta = () => {
-    downloadBlob(exportToFasta(records), 'all_sequences.fasta', 'text/plain');
+    downloadBlob(exportToFasta(records).text, 'all_sequences.fasta', 'text/plain');
     addLog('Full FASTA (all records) exported.');
   };
 
@@ -311,7 +311,7 @@ export function useFileHandlers(
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     downloadBlob(
-      exportToFasta([record]),
+      exportToFasta([record]).text,
       `${record.id.replace(/[^a-z0-9]/gi, '_')}.fasta`,
       'text/plain',
     );

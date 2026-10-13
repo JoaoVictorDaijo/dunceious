@@ -195,7 +195,7 @@ describe('applyFastaResponse', () => {
     const session = [rec({ id: 'seq1', sequence: 'ACGT' }), rec({ id: 'seq1 (1)', sequence: 'ACGA' })];
 
     it('overlays a FASTA exported from the same session', () => {
-      const exported = exportToFasta(session.map((r, i) => ({ ...r, sequence: i ? 'AC-GA' : 'ACGT-' })));
+      const exported = exportToFasta(session.map((r, i) => ({ ...r, sequence: i ? 'AC-GA' : 'ACGT-' }))).text;
       const res = applyFastaResponse(session, parsedAlignment(exported), true);
       expect(res.kind).toBe('overlay');
       expect(res.next.map(r => r.alignedSequence)).toEqual(['ACGT-', 'AC-GA']);
@@ -230,4 +230,15 @@ it('deduplicates incoming IDs against all workspace IDs without changing accessi
   expect(next.slice(2).map(r => r.accession)).toEqual(['seq1', 'seq1']);
   expect(next[0]).toBe(prev[0]);
   expect(incoming.map(r => r.id)).toEqual(['seq1', 'seq1']);
+});
+
+
+it('matches alignment IDs while ignoring FASTA modifiers and keeping source details unchanged', () => {
+  const prev = [rec({ id: 'seq1_1', sequence: 'ACGT', definition: 'original' })];
+  const response = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1_1 [host=camel] external description\nA--CGT', asAlignment: true });
+  if (response.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA_SUCCESS');
+  expect(response.alignedData[0]).toMatchObject({ header: 'external description', details: { host: 'camel' } });
+  const result = applyFastaResponse(prev, response.alignedData, true);
+  expect(result.kind).toBe('overlay');
+  expect(result.next[0]).toMatchObject({ id: 'seq1_1', sequence: 'ACGT', alignedSequence: 'A--CGT', definition: 'original', features: [] });
 });

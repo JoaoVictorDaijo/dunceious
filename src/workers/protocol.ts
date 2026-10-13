@@ -31,6 +31,7 @@
 
 import type {
   SeqRecord,
+  SequenceDetails,
   BioFeature,
   QuantitativeTrack,
   SearchResult,
@@ -88,8 +89,9 @@ export interface ParseGenBankSuccessResponse {
 }
 
 /** The record shape carried in a FASTA_SUCCESS response's alignedData. */
-export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'> & {
-  /** Full FASTA header, kept so an alignment can name records whose IDs contain spaces. */
+export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType' | 'definition' | 'fastaModifiers'> & {
+  details?: SequenceDetails;
+  /** Cleaned description text can complete a whitespace-containing alignment ID. */
   header?: string;
 };
 
