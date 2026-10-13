@@ -77,6 +77,8 @@ The app centers on one viewer, so technical layers fit better than feature-first
 Pure utilities are functions grouped into cohesive modules; `core` names format/search logic
 without implying I/O services. Worker orchestration lives above it so pure logic never depends
 on worker wire contracts.
+The [restructure spec](docs/specs/2026-07-02-architecture-restructure.md) records the original
+decisions and phase history.
 
 1. `src/domain/**` imports **only** `domain`. No DOM, React, core, workers, or app.
 2. `src/core/**` imports `domain` **only**. Never workers, app, React, or DOM.

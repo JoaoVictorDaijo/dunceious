@@ -57,7 +57,9 @@ this up who assumes "Hub always means amber" will paint amber chrome on an empty
 
 **Resolved.** The theme switcher shipped on `feat/theme-switcher`: a seven-style shortlist
 with `clean` as the default, both palette retunes applied (see item 3), and the edge bleed
-removed. Current theme registry: `src/app/logic/theme.ts`. The investigation
+removed. The [original spec](../specs/2026-07-20-app-theme-switcher.md) preserves those
+decisions; its shortlist and palette have since been superseded (items 3 and 6 below).
+Current theme registry: `src/app/logic/theme.ts`. The investigation
 notes below are kept for the record.
 
 We do not have to pick one treatment and discard the rest. The nine styles are all driven by
