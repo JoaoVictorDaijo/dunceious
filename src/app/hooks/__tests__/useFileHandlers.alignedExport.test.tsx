@@ -55,6 +55,20 @@ describe('exports with aligned annotations', () => {
     expect(record.features[0].start).toBe(2);
   });
 
+  it('exports only the requested subset in each format and preserves whole-workspace exports', () => {
+    const { result } = setup();
+    const subset = [{ ...record, id: 'chosen' }];
+    result.current.exportSubset(subset, 'fasta');
+    expect(vi.mocked(downloadBlob).mock.calls[0][0]).toBe('>chosen\nACGTACGT');
+    result.current.exportSubset(subset, 'genbank');
+    expect(vi.mocked(downloadBlob).mock.calls[1][0]).toMatch(/^LOCUS\s+chosen/m);
+    result.current.exportSubset(subset, 'gff3');
+    expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('chosen\tDunceious\tgene');
+    result.current.exportSubset(subset, 'project');
+    expect(JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string).records).toEqual(subset);
+    result.current.exportAllFasta();
+    expect(vi.mocked(downloadBlob).mock.calls[4][0]).toBe('>r\nACGTACGT');
+  });
   it('exports GenBank and GFF coordinates in biological units and FASTA in aligned columns', () => {
     const { result } = setup();
     result.current.exportGenBankFile();

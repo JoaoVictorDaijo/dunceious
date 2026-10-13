@@ -47,7 +47,7 @@ export function useHubState() {
   const [grouped, setGrouped] = useState(false);
   const [groupField, setGroupField] = useState<GroupField>('organism');
   const [sort, setSort] = useState<SortOrder>('load');
-  const [{ filters, searchFolds }, dispatchFilters] = useReducer(filterReducer, undefined, () => ({
+  const [{ filters, searchFolds }, dispatchFilters] = useReducer(filterReducer, undefined, (): FilterState => ({
     filters: { query: '', types: new Set<string>(), strand: 'all' as const, sequenceQuery: '', needsAttention: false },
     searchFolds: new Set<string>(),
   }));
@@ -63,9 +63,16 @@ export function useHubState() {
 
   const [currentSectionKey, setCurrentSectionKey] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<{ key: string; serial: number } | null>(null);
-  const [onlyProblems, setOnlyProblems] = useState(false);
+  const [onlyProblems, setOnlyProblemsValue] = useState(false);
+  const setOnlyProblems = useCallback((value: boolean) => {
+    if (value === onlyProblems) return;
+    setOnlyProblemsValue(value);
+    setSearchFolds(new Set());
+  }, [onlyProblems, setSearchFolds]);
+  const [indexFolds, setIndexFolds] = useState<Set<string>>(() => new Set());
 
   return {
+    indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,

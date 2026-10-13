@@ -98,3 +98,13 @@ describe('hub sequence model', () => {
     expect(sections(records).map(s => s.key)).toEqual(['a', 'b']);
   });
 });
+
+describe('hub tracks', () => {
+  it('keeps a track-only search hit without counting it as an annotation', () => {
+    const r = { ...record('coverage', {}, []), tracks: [{ id: 'depth', name: 'Read depth', data: [{ start: 0, end: 100, value: 5 }] }] };
+    const hits = sections([r], { query: 'depth' });
+    expect(hits).toHaveLength(1); expect(hits[0].total).toBe(0); expect(hits[0].tracks?.map(t => t.id)).toEqual(['depth']);
+    expect(searchHits(hits)).toEqual(['coverage:track:depth']);
+    expect(sections([r], { types: new Set(['CDS']) })).toEqual([]);
+  });
+});

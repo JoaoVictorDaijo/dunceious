@@ -18,100 +18,91 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fireEvent, render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
-import AnnotationHubPanel, { type AnnotationHubPanelProps } from '@/src/app/components/AnnotationHubPanel';
-import { buildFlattenedFeatures } from '@/src/app/logic/featureManager';
-import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
-
-function rec(over: Partial<SeqRecord> & Pick<SeqRecord, 'id'>, features: BioFeature[]): SeqRecord {
-  return { name: over.id, sequence: 'A'.repeat(50), features, ...over } as SeqRecord;
-}
-
-// The full flattened list (~330px) fits react-window's 600px default viewport, so every row
-// mounts — including the circular record's header (with its CIRCULAR badge), regardless of order.
-const records: SeqRecord[] = [
-  rec({ id: 'circ', name: 'Circular One', isCircular: true },
-    [{ type: 'gene', name: 'g1', start: 0, end: 10, strand: 1 }]),
-  rec({ id: 'lin', name: 'Linear Two' },
-    [{ type: 'gene', name: 'g2', start: 0, end: 10, strand: 1 },
-     { type: 'gene', name: 'g3', start: 20, end: 30, strand: 1 }]),
-];
-const allFeaturesCount = records.reduce((a, r) => a + r.features.length, 0); // 3
-
+import { useState } from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, stubResizeObserver, within } from '@/src/app/testing/renderHarness';
+import { useHubState } from '@/src/app/hooks/useHubState';
+import { useFeatureManager } from '@/src/app/hooks/useFeatureManager';
+import HubIndex from '../hub/HubIndex';
+import AnnotationHubPanel, { type HubFocusOrigin } from '../AnnotationHubPanel';
+import type { SeqRecord } from '@/src/domain/bio/types';
+const records: SeqRecord[] = Array.from({ length: 8 }, (_, i) => ({ id: `seq${i}`, name: `seq${i}`, sequence: 'A'.repeat(100), features: [{ name: i < 3 ? 'ORF4b' : `gene${i}`, type: 'CDS', start: 5, end: 15, strand: 1 }] }));
 const noop = () => {};
-function panelProps(): AnnotationHubPanelProps {
-  return {
-    records,
-    flattenedFeatures: buildFlattenedFeatures(records, ''),
-    allFeaturesCount,
-    featureSearch: '',
-    onFeatureSearchChange: noop,
-    featureColors: {},
-    activeSelection: null,
-    onStartNewFeature: noop,
-    onToggleRecordVisibility: noop,
-    onRemoveRecord: noop,
-    onViewFeatureDetails: noop,
-    onEditFeature: noop,
-    onRemoveFeature: noop,
-    onFocusItem: noop,
-    onExportAllFasta: noop,
-    onExportGenBank: noop,
-    onExportGff: noop,
-    onExportProjectJson: noop,
-    onClearAll: noop,
-    addLog: noop,
-  };
+function Subject({ initial = records, dropped = noop, focused = noop, locked = false, index = false }: { index?: boolean; initial?: SeqRecord[]; dropped?: (files: File[]) => void; focused?: (...args: unknown[]) => void; locked?: boolean }) {
+  const state = useHubState();
+  const [value, setValue] = useState(initial);
+  const manager = useFeatureManager(value, setValue, null, noop);
+  const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
+  const [viewport, setViewport] = useState(false);
+  if (viewport) return <button onClick={() => setViewport(false)}>Return to hub</button>;
+  return <>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetDetail={noop} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportAllFasta={noop} onExportGenBank={noop} onExportGff={noop} onExportProjectJson={noop} onExportSubset={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
-
+beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
-  beforeEach(() => { stubResizeObserver(); });
-
-  it('renders the header as "{n} Sequences • {m} Annotations"', () => {
-    render(<AnnotationHubPanel {...panelProps()} />);
-    // Regex tolerates testing-library's whitespace normalization across the interpolated text nodes.
-    expect(screen.getByText(/2\s+Sequences\s+•\s+3\s+Annotations/)).toBeTruthy();
+  it('searches annotations and advances through matches with Enter', () => {
+    render(<Subject />); const search = screen.getByRole('searchbox', { name: 'Search annotations' });
+    fireEvent.change(search, { target: { value: 'ORF4b' } }); fireEvent.keyDown(search, { key: 'Enter' });
+    expect(screen.getByText('1 / 3')).toBeTruthy();
+    fireEvent.keyDown(search, { key: 'Enter' }); expect(screen.getByText('2 / 3')).toBeTruthy();
   });
-
-  it('renders a CIRCULAR badge for a circular record', () => {
-    render(<AnnotationHubPanel {...panelProps()} />);
-    expect(screen.getByText('CIRCULAR')).toBeTruthy();
+  it('moves the current row with J and selects it with X while ignoring text fields', () => {
+    render(<Subject />); const hub = screen.getByRole('region', { name: 'Annotation Hub' });
+    fireEvent.keyDown(hub, { key: 'j' }); fireEvent.keyDown(hub, { key: 'j' }); fireEvent.keyDown(hub, { key: 'x' });
+    expect((screen.getByLabelText('Select annotation ORF4b on seq1') as HTMLInputElement).checked).toBe(true);
+    fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'j' });
+    expect(screen.getAllByRole('checkbox').filter(el => (el as HTMLInputElement).checked)).toHaveLength(1);
   });
-
-  it('hands Focus the row it came from', () => {
-    const onFocusItem = vi.fn();
-    render(<AnnotationHubPanel {...panelProps()} onFocusItem={onFocusItem} />);
-    fireEvent.click(screen.getAllByText('Focus')[2]);
-    expect(onFocusItem).toHaveBeenCalledWith(
-      { recordId: 'lin', start: 20, end: 30, label: 'g3', length: 10 },
-      { key: 'lin:feature:1', label: 'g3' },
-    );
+  it('accepts hub shortcuts from the sidebar index', () => {
+    render(<Subject index />); const index = screen.getByRole('region', { name: 'Hub index' });
+    fireEvent.keyDown(index, { key: 'j' }); fireEvent.keyDown(index, { key: 'x' });
+    expect((screen.getByLabelText('Select annotation ORF4b on seq0') as HTMLInputElement).checked).toBe(true);
   });
-
-  it('marks only the last focused row when returning', () => {
-    render(<AnnotationHubPanel {...panelProps()} lastFocusedKey="lin:feature:1" />);
-    const tags = screen.getAllByText('Last focused');
-    expect(tags).toHaveLength(1);
-    expect(tags[0].parentElement?.textContent).toContain('g3');
+  it('keeps a keyboard-selected checkbox mounted and focused', () => {
+    render(<Subject />); const checkbox = screen.getByLabelText('Select annotation ORF4b on seq0');
+    checkbox.focus(); fireEvent.click(checkbox);
+    expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBe(checkbox);
+    expect(document.activeElement).toBe(checkbox);
   });
-});
-
-
-describe('aligned Hub focus', () => {
-  it('displays biological length and focuses every aligned part', () => {
-    stubResizeObserver();
-    const record = rec({ id: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--' },
-      [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
-        segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }]);
-    const onFocusItem = vi.fn();
-    render(<AnnotationHubPanel {...panelProps()} records={[record]}
-      flattenedFeatures={buildFlattenedFeatures([record], '')} onFocusItem={onFocusItem} />);
-    expect(screen.getByText('7')).toBeTruthy();
-    fireEvent.click(screen.getByText('Focus'));
-    expect(onFocusItem).toHaveBeenCalledWith(
-      { recordId: 'gap', start: 2, end: 16, label: 'joined', length: 7 },
-      { key: 'gap:feature:0', label: 'joined' },
-    );
+  it('disables destructive and import actions during alignment lock', () => {
+    const dropped = vi.fn(); render(<Subject locked dropped={dropped} />);
+    expect(screen.getByRole('button', { name: 'Delete ORF4b on seq0' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Clear workspace…' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('menuitem', { name: 'Sequences…' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.drop(screen.getByRole('region', { name: 'Annotation Hub' }), { dataTransfer: { files: [new File([''], 'a.fa')] } });
+    expect(dropped).not.toHaveBeenCalled();
+  });
+  it('closes an open menu before clearing the selection with Esc', () => {
+    render(<Subject />); fireEvent.click(screen.getByLabelText('Select annotation ORF4b on seq0'));
+    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect((screen.getByLabelText('Select annotation ORF4b on seq0') as HTMLInputElement).checked).toBe(true);
+  });
+  it('routes dropped files from the working canvas', () => {
+    const dropped = vi.fn(); render(<Subject dropped={dropped} />);
+    const files = [new File(['>a\nAAAA'], 'a.fa'), new File([''], 'a.gff3')];
+    fireEvent.drop(screen.getByRole('region', { name: 'Annotation Hub' }), { dataTransfer: { files } });
+    expect(dropped).toHaveBeenCalledWith(files);
+  });
+  it('restores a deleted annotation at its original index with Undo', () => {
+    render(<Subject initial={[{ ...records[0], features: ['a', 'b', 'c'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete b on seq0' })); expect(screen.queryByText('b')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getAllByRole('button', { name: /^Delete .* on seq0$/ }).map(el => el.getAttribute('aria-label'))).toEqual(['Delete a on seq0', 'Delete b on seq0', 'Delete c on seq0']);
+  });
+  it('returns from viewport focus to the off-screen origin with the new row key', () => {
+    const focused = vi.fn(); render(<Subject focused={focused} index />);
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq7' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open gene7 on seq7 in viewport' }));
+    expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
+    fireEvent.click(screen.getByText('Return to hub')); expect(screen.getByText('Last focused')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq7')).toBeTruthy();
+  });
+  it('keeps biological length and aligned geometry in focus', () => {
+    const focused = vi.fn();
+    render(<Subject focused={focused} initial={[{ id: 'gap', name: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--', features: [{ name: 'joined', type: 'gene', start: 0, end: 8, strand: 1, segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] }]} />);
+    expect(screen.getByText('7 bp')).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Open joined on gap in viewport' }));
+    expect(focused).toHaveBeenCalledWith({ recordId: 'gap', start: 2, end: 16, label: 'joined', length: 7 }, { key: 'gap:0', label: 'joined' });
   });
 });

@@ -17,16 +17,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useState, useMemo, useCallback, Dispatch, SetStateAction } from 'react';
+import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
-import type { FlatItem } from '../components/AnnotationHubPanel';
 import {
   saveEditedFeature as saveEditedFeatureReducer,
   removeFeature as removeFeatureReducer,
   toggleRecordVisibility as toggleVisibility,
-  groupFeaturesBySearch,
-  buildFlattenedFeatures,
   newFeatureFromSelection,
   annotationCoords,
 } from '@/src/app/logic/featureManager';
@@ -36,15 +33,9 @@ export interface UseFeatureManagerReturn {
   editing: EditingFeatureState | null;
   setEditing: (state: EditingFeatureState | null) => void;
 
-  featureSearch: string;
-  setFeatureSearch: (q: string) => void;
-
-  /** Features per record filtered by featureSearch, with original index attached. */
-  groupedFeatures: Record<string, (BioFeature & { index: number })[]>;
-  /** Total feature count across all records (unfiltered). */
-  allFeaturesCount: number;
-  /** Flat list used by the virtualised AnnotationHubPanel. */
-  flattenedFeatures: FlatItem[];
+  undoAvailable: boolean;
+  undoDelete: () => void;
+  removeFeatures: (keys: Set<string>) => void;
 
   /** Commit a pending edit (insert or update) and close the editor. */
   saveEditedFeature: () => void;
@@ -70,15 +61,6 @@ export interface UseFeatureManagerReturn {
   toggleRecordVisibility: (recordId: string) => void;
 }
 
-/**
- * Manages the feature editor modal, feature CRUD, and derived
- * grouped/flattened lists consumed by AnnotationHubPanel.
- *
- * @param records         - Current active records (read-only from this hook).
- * @param setRecords      - Setter to mutate records when features change.
- * @param activeSelection - Current viewport selection for seeding new features.
- * @param addLog          - Callback to append a timestamped message.
- */
 export function useFeatureManager(
   records: SeqRecord[],
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>,
@@ -86,43 +68,74 @@ export function useFeatureManager(
   addLog: (msg: string) => void,
 ): UseFeatureManagerReturn {
   const [editing, setEditing] = useState<EditingFeatureState | null>(null);
-  const [featureSearch, setFeatureSearch] = useState('');
+  const [undoAvailable, setUndoAvailable] = useState(false);
+  const [undoVersion, setUndoVersion] = useState(0);
+  const undoArrays = useRef<Map<string, BioFeature[]> | null>(null);
+  const undo = useRef<(() => void) | null>(null);
 
-  // ── Derived lists ─────────────────────────────────────────────────────────
+  const removeFeatures = useCallback((keys: Set<string>) => {
+    const removals = records.flatMap(record => {
+      const entries = record.features.flatMap((feature, index) => feature.type !== 'source' && keys.has(`${record.id}:${index}`) ? [{ feature, index }] : []);
+      return entries.length ? [{ record, entries }] : [];
+    });
+    if (!removals.length) return;
+    const after = new Map<string, BioFeature[]>();
+    setRecords(prev => prev.map(record => {
+      const removal = removals.find(item => item.record.id === record.id);
+      if (!removal) return record;
+      let next = record;
+      for (const entry of [...removal.entries].reverse()) next = removeFeatureReducer([next], record.id, entry.index).next[0];
+      after.set(record.id, next.features);
+      return next;
+    }));
+    undoArrays.current = after;
+    undo.current = () => {
+      setRecords(prev => prev.map(record => {
+        const removal = removals.find(item => item.record.id === record.id);
+        if (!removal || record.features !== after.get(record.id)) return record;
+        const features = [...record.features];
+        removal.entries.forEach(entry => features.splice(entry.index, 0, entry.feature));
+        return { ...record, features, annotationsEdited: removal.record.annotationsEdited };
+      }));
+      addLog('Annotation deletion undone.');
+    };
+    setUndoAvailable(true);
+    setUndoVersion(prev => prev + 1);
+    addLog(`Removed ${removals.reduce((count, item) => count + item.entries.length, 0)} annotations.`);
+  }, [records, setRecords, addLog]);
 
-  const groupedFeatures = useMemo(
-    () => groupFeaturesBySearch(records, featureSearch),
-    [records, featureSearch],
-  );
+  const undoDelete = useCallback(() => {
+    undo.current?.();
+    undo.current = null;
+    undoArrays.current = null;
+    setUndoAvailable(false);
+  }, []);
 
-  const allFeaturesCount = useMemo(
-    () => records.reduce((acc, r) => acc + r.features.length, 0),
-    [records],
-  );
+  useEffect(() => {
+    if (!undoAvailable || !undoArrays.current) return;
+    const valid = [...undoArrays.current].every(([id, features]) => records.find(record => record.id === id)?.features === features);
+    if (!valid) {
+      undo.current = null;
+      undoArrays.current = null;
+      setUndoAvailable(false);
+    }
+  }, [records, undoAvailable]);
 
-  const flattenedFeatures = useMemo<FlatItem[]>(
-    () => buildFlattenedFeatures(records, featureSearch),
-    [records, featureSearch],
-  );
-
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!undoAvailable) return;
+    const timer = setTimeout(() => {
+      undo.current = null;
+      undoArrays.current = null;
+      setUndoAvailable(false);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [undoAvailable, undoVersion]);
 
   const toggleRecordVisibility = (recordId: string) => {
     setRecords(prev => toggleVisibility(prev, recordId));
   };
 
-  const removeFeature = useCallback(
-    (recordId: string, featureIndex: number) => {
-      setRecords(prev => {
-        const { next, removedName } = removeFeatureReducer(prev, recordId, featureIndex);
-        if (removedName !== undefined) {
-          addLog(`Removed feature: ${removedName}`);
-        }
-        return next;
-      });
-    },
-    [setRecords, addLog],
-  );
+  const removeFeature = useCallback((recordId: string, featureIndex: number) => removeFeatures(new Set([`${recordId}:${featureIndex}`])), [removeFeatures]);
 
   const saveEditedFeature = () => {
     if (!editing) return;
@@ -183,11 +196,9 @@ export function useFeatureManager(
   return {
     editing,
     setEditing,
-    featureSearch,
-    setFeatureSearch,
-    groupedFeatures,
-    allFeaturesCount,
-    flattenedFeatures,
+    undoAvailable,
+    undoDelete,
+    removeFeatures,
     saveEditedFeature,
     startNewFeature,
     addAnnotationFromSearch,

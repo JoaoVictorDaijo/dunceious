@@ -17,20 +17,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Annotation Hub view-model over a real multi-record file (influenza A PR8, 8
- * segments). The panel header reads "{records.length} Sequences • {allFeaturesCount}
- * Annotations" and its virtualised body is driven by buildFlattenedFeatures; the
- * existing unit tests exercise only synthetic single-record inputs, so this
- * pins the multi-record aggregate that ships to the Hub.
- */
-
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
-import { buildFlattenedFeatures } from '@/src/app/logic/featureManager';
+import { buildSequenceSections, type HubFilters } from '@/src/app/logic/hubModel';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,26 +48,23 @@ describe('Annotation Hub aggregate — influenza-a-pr8-8segments.gb', () => {
   });
 
   it('renders one header per sequence and one row per annotation', () => {
-    const items = buildFlattenedFeatures(records, '');
-    const headers = items.filter(i => i.type === 'header');
-    const featureRows = items.filter(i => i.type === 'feature');
+    const filters: HubFilters = { query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false };
+    const items = buildSequenceSections(records, filters, { grouped: false }, 'load');
+    const headers = items;
+    const featureRows = items.flatMap(section => section.rows);
 
-    // "8 Sequences"
     expect(headers).toHaveLength(8);
-    // "36 Annotations" — matches the reduce used for allFeaturesCount.
-    expect(featureRows).toHaveLength(36);
-    expect(featureRows.length).toBe(records.reduce((acc, r) => acc + r.features.length, 0));
+    expect(featureRows).toHaveLength(28);
+    expect(featureRows.length).toBe(records.reduce((acc, r) => acc + r.features.filter(f => f.type !== 'source').length, 0));
   });
 
   it('groups every feature under its own record header', () => {
-    const items = buildFlattenedFeatures(records, '');
+    const filters: HubFilters = { query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false };
+    const items = buildSequenceSections(records, filters, { grouped: false }, 'load');
     for (const r of records) {
-      const header = items.find(i => i.type === 'header' && i.recordId === r.id);
-      expect(header).toBeDefined();
-      // Narrow the discriminated union; only the 'header' variant carries count.
-      if (header && header.type === 'header') {
-        expect(header.count).toBe(r.features.length);
-      }
+      const section = items.find(item => item.record.id === r.id);
+      expect(section).toBeDefined();
+      expect(section?.total).toBe(r.features.filter(f => f.type !== 'source').length);
     }
   });
 });

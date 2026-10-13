@@ -103,3 +103,10 @@ describe('hub session state', () => {
     expect(second.result.current.selectedRecords.size).toBe(0);
   });
 });
+
+it('clears search folds when the feature problem filter changes', () => {
+  const { result } = renderHook(useHubState);
+  act(() => result.current.setSearchFolds(new Set(['features:S'])));
+  act(() => result.current.setOnlyProblems(true));
+  expect(result.current.searchFolds.size).toBe(0);
+});

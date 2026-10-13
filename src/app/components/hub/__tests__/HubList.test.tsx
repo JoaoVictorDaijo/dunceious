@@ -42,6 +42,14 @@ describe('HubList', () => {
     fireEvent.click(screen.getByText('Jump third'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
   });
+  it('updates the pinned header after a scroll event', () => {
+    render(<Subject />);
+    const viewport = screen.getByText('one-gene').closest('[data-row-key]')?.parentElement?.parentElement?.parentElement;
+    if (!viewport) throw new Error('Virtual viewport missing');
+    Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 532 } });
+    fireEvent.scroll(viewport, { target: { scrollTop: 190 } });
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
+  });
   it('can pin the final short section and leaves its target row below the header', () => {
     render(<Subject />); fireEvent.click(screen.getByText('Jump third'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();

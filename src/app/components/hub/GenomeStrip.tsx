@@ -27,7 +27,7 @@ export default function GenomeStrip({ record, highlight, large = false, onPick }
   return <div aria-label={`Genome strip for ${record.id}`} className="relative w-full rounded bg-slate-400/15" style={{ height: Math.max(1, types.length) * height }}>
     {features.flatMap((feature, index) => {
       const parts = feature.segments?.length ? feature.segments : feature.start > feature.end ? [{ start: feature.start, end: record.sequence.length }, { start: 0, end: feature.end }] : [feature];
-      return parts.map((part, partIndex) => <button key={`${index}:${partIndex}`} disabled={!onPick} aria-label={`Jump to ${feature.name}`} onClick={() => onPick?.(feature)} className="absolute rounded-sm focus-visible:ring-2 focus-visible:ring-amber-500" style={{ left: `${part.start / record.sequence.length * 100}%`, width: `${(part.end - part.start) / record.sequence.length * 100}%`, top: types.indexOf(feature.type) * height, height: height - 1, backgroundColor: getFeatureColor(feature.type), opacity: highlight && !highlight(feature) ? .25 : 1 }} />);
+      return parts.map((part, partIndex) => <button key={`${index}:${partIndex}`} disabled={!onPick} aria-label={`Jump to ${feature.name}`} onClick={() => onPick?.(feature)} className="absolute rounded-sm focus-visible:ring-2 focus-visible:ring-amber-500" style={{ left: `${part.start / record.sequence.length * 100}%`, width: `${(part.end - part.start) / record.sequence.length * 100}%`, top: types.indexOf(feature.type) * height, height: height - 1, backgroundColor: feature.color || getFeatureColor(feature.type), opacity: highlight && !highlight(feature) ? .25 : 1 }} />);
     })}
   </div>;
 }

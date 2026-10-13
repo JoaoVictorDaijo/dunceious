@@ -21,6 +21,7 @@
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { writeDetails } from '@/src/domain/bio/details';
 import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
 import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
@@ -130,10 +131,9 @@ const App: React.FC = () => {
   const {
     editing,
     setEditing,
-    featureSearch,
-    setFeatureSearch,
-    flattenedFeatures,
-    allFeaturesCount,
+    undoAvailable,
+    undoDelete,
+    removeFeatures,
     saveEditedFeature,
     startNewFeature,
     addAnnotationFromSearch,
@@ -173,6 +173,8 @@ const App: React.FC = () => {
   };
 
   const {
+    handleDroppedFiles,
+    exportSubset,
     handleFileUpload,
     handleAlignmentUpload,
     handleAnnotationUpload,
@@ -245,14 +247,8 @@ const App: React.FC = () => {
     setRecords(prev => removeRecordFromProject(prev, recordId));
     setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
 
-    const nextSearchState = sanitizeSearchStateAfterRecordRemoval(
-      filteredResults,
-      currentSearchIdx,
-      selectedSearchIndices,
-      recordId,
-    );
-    setCurrentSearchIdx(nextSearchState.currentSearchIdx);
-    setSelectedSearchIndices(nextSearchState.selectedSearchIndices);
+    setCurrentSearchIdx(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, prev, selectedSearchIndices, recordId).currentSearchIdx);
+    setSelectedSearchIndices(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, currentSearchIdx, prev, recordId).selectedSearchIndices);
 
     if (viewingRecordDetails?.id === recordId) {
       setViewingRecordDetails(null);
@@ -436,7 +432,7 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 bg-slate-900 relative flex flex-col min-h-0 min-w-0 p-1.5">
-          {records.length === 0 ? (
+          {records.length === 0 && activeTab === 'alignment' ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
               <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
@@ -483,12 +479,18 @@ const App: React.FC = () => {
                 ) : (
                   <AnnotationHubPanel
                     records={records}
-                    flattenedFeatures={flattenedFeatures}
-                    allFeaturesCount={allFeaturesCount}
-                    featureSearch={featureSearch}
-                    onFeatureSearchChange={setFeatureSearch}
+                    state={hubState}
+                    onDroppedFiles={handleDroppedFiles}
+                    onFileUpload={handleFileUpload}
+                    onAlignmentUpload={handleAlignmentUpload}
+                    onAnnotationUpload={handleAnnotationUpload}
+                    onProjectUpload={handleProjectUpload}
+                    onExportSubset={exportSubset}
+                    onDeleteRows={removeFeatures}
+                    undoAvailable={undoAvailable}
+                    onUndoDelete={undoDelete}
+                    onSetDetail={(ids, key, value) => setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record))}
                     featureColors={featureColors}
-                    activeSelection={activeSelection}
                     onStartNewFeature={startNewFeature}
                     onToggleRecordVisibility={toggleRecordVisibility}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}

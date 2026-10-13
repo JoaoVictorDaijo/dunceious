@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
 import { readDetails } from '@/src/domain/bio/details';
 import { annotationFeatures, isolateOf, needsAttention } from '@/src/domain/bio/recordStatus';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -25,7 +25,7 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 export type GroupField = 'organism' | 'host' | 'location' | 'year' | 'file';
 export type HubFilters = { query: string; types: Set<string>; strand: 'all' | 'fwd' | 'rev'; sequenceQuery: string; needsAttention: boolean; onlyIds?: Set<string> };
 export type SortOrder = 'load' | 'accession' | 'fewest';
-export type SequenceSection = { key: string; group: string | null; record: SeqRecord; rows: BioFeature[]; total: number };
+export type SequenceSection = { key: string; group: string | null; record: SeqRecord; rows: BioFeature[]; total: number; tracks?: QuantitativeTrack[] };
 export type GroupMode = { grouped: false } | { grouped: true; field: GroupField };
 
 export function groupKeyOf(record: SeqRecord, field: GroupField): string {
@@ -77,9 +77,10 @@ export function buildSequenceSections(records: SeqRecord[], filters: HubFilters,
     const annotations = annotationFeatures(record);
     return {
       key: record.id, group: mode.grouped ? groupKeyOf(record, mode.field) : null,
+      tracks: (record.tracks ?? []).filter(track => track.name.toLowerCase().includes(filters.query.trim().toLowerCase()) && (!filters.types.size || filters.types.has('track')) && filters.strand === 'all'),
       record, rows: annotations.filter(feature => matchesAnnotationFilters(feature, filters)), total: annotations.length,
     };
-  }).filter(section => !hasAnnotationFilters(filters) || section.rows.length > 0);
+  }).filter(section => !hasAnnotationFilters(filters) || section.rows.length > 0 || section.tracks.length > 0);
   return sections.sort((a, b) => {
     if (a.group !== b.group) {
       if (a.group === 'Not specified') return 1;
@@ -96,6 +97,6 @@ export function buildSequenceSections(records: SeqRecord[], filters: HubFilters,
 export function searchHits(sections: SequenceSection[]): string[] {
   return [...new Set(sections.flatMap(section => {
     const visible = new Set(section.rows);
-    return section.record.features.flatMap((feature, index) => visible.has(feature) ? [`${section.record.id}:${index}`] : []);
+    return [...(section.tracks ?? []).map(track => `${section.record.id}:track:${track.id}`), ...section.record.features.flatMap((feature, index) => visible.has(feature) ? [`${section.record.id}:${index}`] : [])];
   }))];
 }

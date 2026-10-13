@@ -20,6 +20,7 @@
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import type { HubExportFormat } from '@/src/app/components/hub/SelectionBar';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { exportToGff } from '@/src/core/formats/annotations';
@@ -99,6 +100,7 @@ export interface UseFileHandlersReturn {
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleExportRecord: (recordId: string) => void;
+  exportSubset: (records: SeqRecord[], format: HubExportFormat) => void;
   exportSelection: () => void;
   exportSelectionJson: () => void;
   exportAllFasta: () => void;
@@ -393,7 +395,7 @@ export function useFileHandlers(
     addLog('GFF3 exported.');
   };
 
-  const exportProjectJson = () => {
+  const saveProject = (selectedRecords: SeqRecord[]) => {
     const chosenProjectName = promptForProjectName();
     if (!chosenProjectName) {
       addLog('Project save cancelled: a project name is required.');
@@ -402,7 +404,7 @@ export function useFileHandlers(
     const safeName = chosenProjectName.replace(/[^a-z0-9._-]/gi, '_');
     const project = {
       name: chosenProjectName,
-      records,
+      records: selectedRecords,
       featureColors,
       activeSelection,
       showAnnotations: viewportState.showAnnotations,
@@ -414,7 +416,18 @@ export function useFileHandlers(
     addLog('Project JSON exported.');
   };
 
+  const exportProjectJson = () => saveProject(records);
+  const exportSubset = (subset: SeqRecord[], format: HubExportFormat) => {
+    if (format === 'project') { saveProject(subset); return; }
+    try {
+      const result = format === 'fasta' ? exportToFasta(subset) : format === 'genbank' ? exportToGenBank(subset) : { text: exportToGff(subset) };
+      downloadBlob(result.text, `selected_sequences.${format === 'fasta' ? 'fasta' : format === 'genbank' ? 'gb' : 'gff3'}`, 'text/plain');
+      addLog(`Exported ${subset.length} selected sequences as ${format}.`);
+    } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
+  };
+
   return {
+    exportSubset,
     handleDroppedFiles,
     handleFileUpload,
     handleAlignmentUpload,

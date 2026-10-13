@@ -38,7 +38,7 @@ type Entry = { key: string; sectionKey: string; size: number } & (
 export interface HubListProps {
   items: SequenceSection[] | FeatureGroup[]; kind: 'sequences' | 'features'; state: HubState;
   height?: number; featureColors?: Record<string, string>; lastFocusedKey?: string | null; currentRowKey?: string | null;
-  tracks?: Map<string, QuantitativeTrack[]>; isAlignmentLocked?: boolean;
+  isAlignmentLocked?: boolean;
   onFocusItem?: (target: FocusTarget, origin: HubFocusOrigin) => void;
   onViewFeatureDetails?: (recordId: string, feature: BioFeature) => void;
   onEditFeature?: (recordId: string, index: number, feature: BioFeature) => void;
@@ -46,13 +46,17 @@ export interface HubListProps {
   onToggleRecordVisibility?: (id: string) => void; onImportAnnotations?: () => void;
   onCurrentRow?: (key: string) => void; addLog?: (message: string) => void;
 }
-export default function HubList({ items, kind, state, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, tracks, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog }: HubListProps) {
+function VirtualRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) {
+  return data(index, style);
+}
+
+export default function HubList({ items, kind, state, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog }: HubListProps) {
   const list = useRef<VariableSizeList>(null);
   const container = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState(600);
   const [hovered, setHovered] = useState<BioFeature | null>(null);
   const height = providedHeight ?? measuredHeight;
-  const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds);
+  const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
   const folded = useCallback((key: string) => filtering ? state.searchFolds.has(`${kind}:${key}`) : state.collapsed[kind].has(key), [filtering, state.searchFolds, state.collapsed, kind]);
   const fold = (key: string) => {
     const toggle = (prev: Set<string>, target: string) => { const next = new Set(prev); if (next.has(target)) next.delete(target); else next.add(target); return next; };
@@ -73,7 +77,7 @@ export default function HubList({ items, kind, state, height: providedHeight, fe
       const rowSize = state.density === 'compact' ? 44 : 64;
       if (kind === 'sequences') {
         const section = item as SequenceSection;
-        (tracks?.get(section.record.id) ?? section.record.tracks ?? []).forEach(track => result.push({ type: 'track', key: `${section.record.id}:track:${track.id}`, sectionKey: item.key, size: rowSize, record: section.record, track }));
+        (section.tracks ?? section.record.tracks ?? []).forEach(track => result.push({ type: 'track', key: `${section.record.id}:track:${track.id}`, sectionKey: item.key, size: rowSize, record: section.record, track }));
         section.rows.forEach(feature => result.push({ type: 'row', key: `${section.record.id}:${section.record.features.indexOf(feature)}`, sectionKey: item.key, size: rowSize, record: section.record, feature }));
         if (!section.total) result.push({ type: 'empty', key: `${item.key}:empty`, sectionKey: item.key, size: 60, record: section.record });
       } else (item as FeatureGroup).rows.forEach(({ record, feature }) => result.push({ type: 'row', key: `${record.id}:${record.features.indexOf(feature)}`, sectionKey: item.key, size: rowSize, record, feature }));
@@ -82,7 +86,7 @@ export default function HubList({ items, kind, state, height: providedHeight, fe
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, tracks, height]);
+  }, [items, kind, folded, state.density, height]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
@@ -129,7 +133,7 @@ export default function HubList({ items, kind, state, height: providedHeight, fe
     const section = entry.item as SequenceSection;
     return <SequenceSectionHeader section={section} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} onFold={() => fold(entry.key)} onSelect={() => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(section.record.id)) next.delete(section.record.id); else next.add(section.record.id); return next; })} onVisibility={() => onToggleRecordVisibility?.(section.record.id)} highlight={hovered} onPick={feature => jump(`${section.record.id}:${section.record.features.indexOf(feature)}`)} />;
   };
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+  const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
     if (entry.type === 'spacer') return <div style={style} />;
     if (entry.type === 'header') return <div style={{ ...style, visibility: index === pinnedIndex ? 'hidden' : undefined }}>{header(entry)}</div>;
@@ -146,8 +150,8 @@ export default function HubList({ items, kind, state, height: providedHeight, fe
   const blocks = entries.flatMap((entry, i) => entry.type === 'header' ? [{ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, start: starts[i], size: (starts[entries.findIndex((other, j) => j > i && other.type === 'header')] ?? total) - starts[i] }] : []);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
-      <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} onScroll={({ scrollOffset }) => state.setScrollOffset(prev => prev[kind] === scrollOffset ? prev : { ...prev, [kind]: scrollOffset })} className="custom-scrollbar-pro scrollbar-on-light">{Row}</VariableSizeList>
-      {pinned?.type === 'header' && <div role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: pinned.size }}>{header(pinned)}</div>}
+      <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={({ scrollOffset }) => state.setScrollOffset(prev => prev[kind] === scrollOffset ? prev : { ...prev, [kind]: scrollOffset })} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>
+      {pinned?.type === 'header' && <div role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: pinned.size, top: Math.max(0, starts[pinnedIndex] - offset) }}>{header(pinned)}</div>}
     </div>
     <OverviewRail blocks={blocks} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
   </div>;
