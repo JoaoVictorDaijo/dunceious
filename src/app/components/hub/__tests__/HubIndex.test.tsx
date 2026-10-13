@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { useEffect } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import HubIndex from '../HubIndex';
@@ -31,11 +31,67 @@ function Subject({ toggle = () => {}, features = false }: { toggle?: (id: string
   return <HubIndex records={records} state={state} onToggleRecordVisibility={toggle} />;
 }
 describe('HubIndex', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it('lists each record once and routes the visibility eye', () => {
     const toggle = vi.fn(); render(<Subject toggle={toggle} />);
     expect(screen.getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
     expect(toggle).toHaveBeenCalledWith('a');
+  });
+  it('reveals the current entry from resize measurements without layout reads during scroll spy', () => {
+    let resize = () => {};
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    function ScrollSubject() {
+      const state = useHubState();
+      return <><button onClick={() => state.setCurrentSectionKey('b')}>Track b</button>
+        <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} /></>;
+    }
+    render(<ScrollSubject />);
+    const container = screen.getByLabelText('Index entries');
+    const active = screen.getByRole('button', { name: 'Jump to sequence b' });
+    Object.defineProperties(container, { clientHeight: { get: () => 100, configurable: true }, offsetTop: { get: () => 40, configurable: true } });
+    Object.defineProperties(active, { offsetTop: { get: () => 240, configurable: true }, offsetHeight: { get: () => 30, configurable: true }, offsetParent: { value: container } });
+    resize();
+    const offsetTop = vi.spyOn(active, 'offsetTop', 'get');
+    const offsetHeight = vi.spyOn(active, 'offsetHeight', 'get');
+    const containerHeight = vi.spyOn(container, 'clientHeight', 'get');
+    const containerBounds = vi.spyOn(container, 'getBoundingClientRect');
+    const activeBounds = vi.spyOn(active, 'getBoundingClientRect');
+    fireEvent.click(screen.getByRole('button', { name: 'Track b' }));
+    expect(active.getAttribute('aria-current')).toBe('true');
+    expect(container.scrollTop).toBe(170);
+    expect(containerBounds).not.toHaveBeenCalled();
+    expect(activeBounds).not.toHaveBeenCalled();
+    expect(offsetTop).not.toHaveBeenCalled();
+    expect(offsetHeight).not.toHaveBeenCalled();
+    expect(containerHeight).not.toHaveBeenCalled();
+    offsetTop.mockReturnValue(400);
+    resize();
+    expect(container.scrollTop).toBe(330);
+    containerBounds.mockRestore();
+    activeBounds.mockRestore();
+  });
+  it('does not recompute untouched entries when scroll spy changes the current sequence', () => {
+    const definition = vi.fn(() => 'Unchanged isolate');
+    const untouched = { ...records[2] };
+    Object.defineProperty(untouched, 'definition', { get: definition });
+    const stableRecords = [records[0], records[1], untouched];
+    const toggle = () => {};
+    function MemoSubject() {
+      const state = useHubState();
+      return <><button onClick={() => state.setCurrentSectionKey('b')}>Track next</button>
+        <HubIndex records={stableRecords} state={state} onToggleRecordVisibility={toggle} /></>;
+    }
+    render(<MemoSubject />);
+    definition.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Track next' }));
+    expect(screen.getByRole('button', { name: 'Jump to sequence b' }).getAttribute('aria-current')).toBe('true');
+    expect(screen.getByText('Unchanged isolate')).toBeTruthy();
+    expect(definition).not.toHaveBeenCalled();
   });
   it('indexes Features under organism headings with a sequence limit', () => {
     render(<Subject features />);

@@ -20,7 +20,7 @@
 
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { writeDetails } from '@/src/domain/bio/details';
 import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
 import HubReturnPill from './components/HubReturnPill';
@@ -104,12 +104,12 @@ const App: React.FC = () => {
   // viewport to frame it once and is cleared when handled, so a remount does not replay it.
   const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
   const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
-  const focusOn = (target: FocusTarget) => {
+  const focusOn = useCallback((target: FocusTarget) => {
     setActiveTab('alignment');
     setActiveSelection({ start: target.start, end: target.end, recordIds: [target.recordId] });
     setFocusedRegion(target);
     setPendingFocus(target);
-  };
+  }, []);
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
@@ -220,21 +220,28 @@ const App: React.FC = () => {
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
   // aligned copy, same order as the record's features), so resolve by position.
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
-  const featureIndexOf = (recordId: string, feature: BioFeature): number => {
+  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number => {
     const hubIndex = (feature as BioFeature & { index?: number }).index;
     if (typeof hubIndex === 'number') return hubIndex;
     const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
     return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-  };
+  }, [records, transposedRecords]);
 
-  const handleViewDetails = (recordId: string, feature?: BioFeature) => {
+  const handleViewDetails = useCallback((recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     const index = feature ? featureIndexOf(recordId, feature) : -1;
     setViewingRecordDetails(record);
     setViewingFeatureDetails(record.features[index] ?? null);
     setViewingFeatureIndex(index);
-  };
+  }, [records, featureIndexOf]);
+
+  const editHubFeature = useCallback((recordId: string, featureIndex: number, feature: BioFeature) => setEditing({ recordId, featureIndex, feature }), [setEditing]);
+  const focusHubFeature = useCallback((target: FocusTarget, origin: HubFocusOrigin) => {
+    setHubFocus(origin);
+    setShowHubReturn(true);
+    focusOn(target);
+  }, [focusOn]);
 
   const handleSetShowBases = (show: boolean) => {
     const recordId = viewingRecordDetails?.id;
@@ -519,13 +526,9 @@ const App: React.FC = () => {
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}
-                    onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
+                    onEditFeature={editHubFeature}
                     onRemoveFeature={removeFeature}
-                    onFocusItem={(target, origin) => {
-                      setHubFocus(origin);
-                      setShowHubReturn(true);
-                      focusOn(target);
-                    }}
+                    onFocusItem={focusHubFeature}
                     lastFocusedKey={hubFocus?.key ?? null}
                     onExportProjectJson={exportProjectJson}
                     onClearAll={handleClearAll}

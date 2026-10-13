@@ -39,6 +39,26 @@ export function featureIdentity(feature: BioFeature): string {
   return metadata?.gene?.trim() || metadata?.locus_tag?.trim() || feature.name;
 }
 
+function organismOf(record: SeqRecord): string | null {
+  return readDetails(record).organism?.trim() || null;
+}
+
+function groupKey(organism: string | null, identity: string): string {
+  return JSON.stringify([organism, identity]);
+}
+
+export function countFeatureGroups(records: SeqRecord[], filters: HubFilters): number {
+  const keys = new Set<string>();
+  for (const record of records) {
+    if (!matchesSequenceFilters(record, filters)) continue;
+    const organism = organismOf(record);
+    for (const feature of annotationFeatures(record)) {
+      if (matchesAnnotationFilters(feature, filters)) keys.add(groupKey(organism, featureIdentity(feature)));
+    }
+  }
+  return keys.size;
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
@@ -64,7 +84,7 @@ function compareRows(a: FeatureRow, b: FeatureRow): number {
   return a.record.id.localeCompare(b.record.id) || featureSortKey(a.feature).localeCompare(featureSortKey(b.feature));
 }
 
-function compareGroup(organism: string | null, identity: string, records: SeqRecord[], allRows: FeatureRow[], filters: HubFilters): FeatureGroup {
+function compareGroup(organism: string | null, identity: string, records: SeqRecord[], allRows: FeatureRow[]): FeatureGroup {
   const baseline = records.filter(record => !isPartial(record) && !isUnannotated(record));
   const notComparedReason = organism === null ? 'organism unknown' : baseline.length === 0 ? 'no complete annotated sequences' : undefined;
   const compared = notComparedReason === undefined;
@@ -104,9 +124,9 @@ function compareGroup(organism: string | null, identity: string, records: SeqRec
     return { recordId: record.id, state };
   });
   return {
-    key: JSON.stringify([organism, identity]), organism: organism ?? 'No organism', identity, types,
+    key: groupKey(organism, identity), organism: organism ?? 'No organism', identity, types,
     medianStart: median(allRows.map(row => row.feature.start)),
-    rows: allRows.filter(row => matchesAnnotationFilters(row.feature, filters)).sort(compareRows), cells,
+    rows: allRows.sort(compareRows), cells,
     counts: {
       present: records.filter(record => byRecord.has(record.id)).length,
       missing: cells.filter(cell => cell.state === 'missing').length,
@@ -118,10 +138,10 @@ function compareGroup(organism: string | null, identity: string, records: SeqRec
   };
 }
 
-export function buildFeatureGroups(records: SeqRecord[], filters: HubFilters, onlyProblems: boolean): FeatureGroup[] {
+function compareFeatures(records: SeqRecord[]): FeatureGroup[] {
   const organisms = new Map<string | null, SeqRecord[]>();
-  for (const record of records.filter(record => matchesSequenceFilters(record, filters))) {
-    const organism = readDetails(record).organism?.trim() || null;
+  for (const record of records) {
+    const organism = organismOf(record);
     const members = organisms.get(organism) ?? [];
     members.push(record);
     organisms.set(organism, members);
@@ -139,9 +159,31 @@ export function buildFeatureGroups(records: SeqRecord[], filters: HubFilters, on
       }
     }
     for (const [identity, rows] of identities) {
-      const group = compareGroup(organism, identity, sorted, rows, filters);
-      if (group.rows.length && (!onlyProblems || group.counts.missing > 0 || group.counts.odd > 0)) result.push(group);
+      result.push(compareGroup(organism, identity, sorted, rows));
     }
   }
   return result.sort((a, b) => a.organism.localeCompare(b.organism) || a.identity.localeCompare(b.identity) || a.key.localeCompare(b.key));
+}
+
+// Record updates replace the workspace array. Retaining only its latest sequence pool bounds search memory.
+const comparisons = new WeakMap<SeqRecord[], { sequenceKey: string; groups: FeatureGroup[] }>();
+
+function comparisonGroups(records: SeqRecord[], filters: HubFilters): FeatureGroup[] {
+  const sequenceKey = JSON.stringify([filters.sequenceQuery, filters.needsAttention,
+    filters.onlyIds ? [...filters.onlyIds].sort() : null]);
+  let cached = comparisons.get(records);
+  if (!cached || cached.sequenceKey !== sequenceKey) {
+    cached = { sequenceKey, groups: compareFeatures(records.filter(record => matchesSequenceFilters(record, filters))) };
+    comparisons.set(records, cached);
+  }
+  return cached.groups;
+}
+
+export function buildFeatureGroups(records: SeqRecord[], filters: HubFilters, onlyProblems: boolean): FeatureGroup[] {
+  return comparisonGroups(records, filters).flatMap(group => {
+    if (onlyProblems && group.counts.missing === 0 && group.counts.odd === 0) return [];
+    const rows = group.rows.filter(row => matchesAnnotationFilters(row.feature, filters)).map(row => ({ ...row }));
+    if (!rows.length) return [];
+    return [{ ...group, rows, types: [...group.types], cells: group.cells.map(cell => ({ ...cell })), counts: { ...group.counts } }];
+  });
 }

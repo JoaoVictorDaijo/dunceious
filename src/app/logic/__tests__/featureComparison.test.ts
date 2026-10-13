@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { HubFilters } from '../hubModel';
-import { buildFeatureGroups, featureIdentity } from '../featureComparison';
+import { buildFeatureGroups, countFeatureGroups, featureIdentity } from '../featureComparison';
 
 const f = (name = 'S', type = 'CDS', length = 100, metadata: Record<string, string> = {}): BioFeature => ({ name, type, start: 10, end: 10 + length, strand: 1, metadata });
 const r = (id: string, features: BioFeature[], organism = 'virus', patch: Partial<SeqRecord> = {}): SeqRecord => ({
@@ -31,6 +31,62 @@ const groups = (records: SeqRecord[], patch: Partial<HubFilters> = {}, onlyProbl
 const states = (records: SeqRecord[]) => groups(records)[0].cells.map(c => [c.recordId, c.state]);
 
 describe('feature comparison', () => {
+  it('counts visible groups across organisms and filters without reading comparison geometry', () => {
+    let geometryReads = 0;
+    const measured = { ...f('S'), get end() { geometryReads++; return 110; } };
+    const records = [r('a', [measured, f('S', 'gene'), f('other')]), r('b', [f('S')]), r('c', [f('S')], 'other')];
+    const cases: [Partial<HubFilters>, number][] = [
+      [{}, 3], [{ query: 'S' }, 3], [{ types: new Set(['gene']) }, 1], [{ strand: 'rev' }, 0],
+      [{ onlyIds: new Set(['a', 'b']) }, 2], [{ sequenceQuery: 'c' }, 1], [{ query: 'absent' }, 0],
+    ];
+    for (const [patch, expected] of cases) expect(countFeatureGroups(records, filters(patch))).toBe(expected);
+    expect(geometryReads).toBe(0);
+    for (const [patch, expected] of cases) expect(groups(records, patch)).toHaveLength(expected);
+  });
+
+  it('reuses biological comparison when annotation filters and problem visibility change', () => {
+    let geometryReads = 0;
+    const measured = { ...f('S', 'CDS', 104), get end() { geometryReads++; return 114; } };
+    const records = [r('a', [f('S'), f('S', 'gene')]), r('b', [f('S'), f('S', 'gene')]), r('c', [measured, f('S', 'gene')])];
+    expect(groups(records)[0].counts.odd).toBe(1);
+    const warmedReads = geometryReads;
+    expect(warmedReads).toBeGreaterThan(0);
+    const filtered = groups(records, { query: 'S', types: new Set(['gene']), strand: 'fwd' }, true);
+    expect(filtered[0].rows.map(row => row.feature.type)).toEqual(['gene', 'gene', 'gene']);
+    expect(filtered[0].counts).toMatchObject({ present: 3, odd: 1, pool: 3 });
+    expect(groups(records, { query: 'absent' })).toEqual([]);
+    expect(groups(records, { strand: 'rev' })).toEqual([]);
+    expect(geometryReads).toBe(warmedReads);
+  });
+
+  it('refreshes comparison for sequence pool changes and immutable annotation edits', () => {
+    const records = [r('a', [f()]), r('b', [f()]), r('c', [f('S', 'CDS', 104)])]
+      .map(record => ({ ...record, fileDetails: { organism: 'virus' } }));
+    expect(groups(records)[0].counts).toMatchObject({ odd: 1, pool: 3 });
+    expect(groups(records, { onlyIds: new Set(['c']) })[0].counts).toMatchObject({ odd: 0, pool: 1 });
+    expect(groups(records, { sequenceQuery: 'a' })[0].counts).toMatchObject({ odd: 0, pool: 1 });
+    expect(groups(records, { needsAttention: true })).toEqual([]);
+    const edited = records.map(record => record.id === 'c' ? { ...record, features: [record.features[0], f('S', 'CDS', 100)] } : record);
+    expect(groups(edited)[0].counts).toMatchObject({ odd: 0, pool: 3 });
+    expect(groups(records)[0].counts).toMatchObject({ odd: 1, pool: 3 });
+  });
+
+  it('does not expose mutable cached comparison containers', () => {
+    const records = [r('a', [f()]), r('b', [f()]), r('c', [f('S', 'CDS', 104)])];
+    const first = groups(records)[0];
+    first.cells[0].state = 'missing';
+    first.cells.pop();
+    first.counts.odd = 99;
+    first.types.push('corrupted');
+    first.rows[0].feature = f('corrupted');
+    first.rows.pop();
+    const next = groups(records)[0];
+    expect(next.cells.map(cell => cell.state)).toEqual(['present', 'present', 'odd']);
+    expect(next.counts).toMatchObject({ odd: 1, pool: 3 });
+    expect(next.types).toEqual(['CDS']);
+    expect(next.rows.map(row => row.feature.name)).toEqual(['S', 'S', 'S']);
+  });
+
   it('uses product identity for each peptide type, with fallback when absent', () => {
     for (const type of ['mat_peptide', 'sig_peptide', 'transit_peptide']) {
       expect(featureIdentity(f('fallback', type, 10, { gene: 'ORF1ab', product: 'nsp1' }))).toBe('nsp1');

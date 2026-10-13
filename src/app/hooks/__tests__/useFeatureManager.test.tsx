@@ -119,3 +119,17 @@ it('refuses an annotation draft targeting an existing source index', () => {
   act(() => result.current.setEditing({ recordId: 'synthetic', featureIndex: 0, feature: { type: 'gene', name: 'bypass', start: 0, end: 2, strand: 1 } }));
   expect(result.current.editing).toBeNull();
 });
+
+describe('hub callback stability', () => {
+  it('keeps detail, name, visibility and editor handlers stable across unrelated renders', () => {
+    const setRecords = vi.fn();
+    const log = vi.fn();
+    const { result, rerender } = renderHook(() => useFeatureManager(records, setRecords, null, log));
+    const first = result.current;
+    rerender();
+    expect(result.current.toggleRecordVisibility).toBe(first.toggleRecordVisibility);
+    expect(result.current.setRecordDetails).toBe(first.setRecordDetails);
+    expect(result.current.setRecordLabel).toBe(first.setRecordLabel);
+    expect(result.current.setEditing).toBe(first.setEditing);
+  });
+});

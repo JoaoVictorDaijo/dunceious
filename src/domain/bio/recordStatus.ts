@@ -20,20 +20,39 @@
 import type { BioFeature, DetailKey, SeqRecord } from './types';
 import { DETAIL_QUALIFIER, isDetailEdited } from './details';
 
+type FeatureStatus = { annotations: BioFeature[]; partial: boolean };
+// Annotation edits replace the feature array; label and visibility edits can reuse its biology.
+const featureStatuses = new WeakMap<BioFeature[], FeatureStatus>();
+const partialRecords = new WeakMap<SeqRecord, boolean>();
+
+function featureStatus(features: BioFeature[]): FeatureStatus {
+  let status = featureStatuses.get(features);
+  if (!status) {
+    status = { annotations: features.filter(f => !isSourceFeature(f)), partial: features.some(f => /[<>]/.test(f.locationString ?? '')) };
+    featureStatuses.set(features, status);
+  }
+  return status;
+}
+
 export function isSourceFeature(feature: BioFeature): boolean {
   return feature.type === 'source';
 }
 
 export function annotationFeatures(record: SeqRecord): BioFeature[] {
-  return record.features.filter(f => !isSourceFeature(f));
+  return featureStatus(record.features).annotations.slice();
 }
 
 export function isUnannotated(record: SeqRecord): boolean {
-  return annotationFeatures(record).length === 0;
+  return featureStatus(record.features).annotations.length === 0;
 }
 
 export function isPartial(record: SeqRecord): boolean {
-  return /\bpartial\b/i.test(record.definition ?? '') || record.features.some(f => /[<>]/.test(f.locationString ?? ''));
+  let partial = partialRecords.get(record);
+  if (partial === undefined) {
+    partial = /\bpartial\b/i.test(record.definition ?? '') || featureStatus(record.features).partial;
+    partialRecords.set(record, partial);
+  }
+  return partial;
 }
 
 export function isEdited(record: SeqRecord): boolean {

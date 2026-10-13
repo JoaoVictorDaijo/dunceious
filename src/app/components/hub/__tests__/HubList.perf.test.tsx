@@ -19,6 +19,7 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
+import { useState } from 'react';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections, searchHits } from '@/src/app/logic/hubModel';
@@ -34,13 +35,19 @@ const height = 600;
 
 function Subject() {
   const state = useHubState();
-  const sections = buildSequenceSections(records, state.filters, { grouped: false }, 'load');
+  const [shown, setShown] = useState(true);
+  const [loaded, setLoaded] = useState(records);
+  const sections = buildSequenceSections(loaded, state.filters, { grouped: false }, 'load');
   const hits = searchHits(sections);
   return <>
+    <button onClick={() => { state.resetWorkspace(); setLoaded([]); }}>Clear workspace</button>
+    <button onClick={() => setLoaded(records)}>Load fixture</button>
+    <output aria-label="Saved offset">{state.scrollOffset.sequences}</output>
+    <button onClick={() => setShown(value => !value)}>Toggle list</button>
     <label>Annotation search<input value={state.filters.query} onChange={event => state.setFilters(prev => ({ ...prev, query: event.target.value }))} /></label>
     <button onClick={() => state.setJumpTarget({ key: hits[hits.length - 1], serial: 1 })}>Jump to last match</button>
     <FilterBar state={state} types={new Map()} keys={sections.map(section => section.key)} />
-    <HubList state={state} kind="sequences" items={sections} records={records} height={height} />
+    {shown && sections.length > 0 && <HubList state={state} kind="sequences" items={sections} records={records} height={height} />}
   </>;
 }
 
@@ -64,6 +71,35 @@ describe('100×60 hub acceptance fixture', () => {
     expect(crossing).toBeDefined();
     expect(crossing!.segments).toHaveLength(2);
     expect(featureLength(circular!.sequence.length, crossing!.start, crossing!.end, crossing!.segments)).toBe(300);
+  });
+
+  it('keeps scroll frames out of shared state and saves the final position on unmount', () => {
+    const { container } = render(<Subject />);
+    const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light');
+    if (!viewport) throw new Error('Virtual viewport missing');
+    Object.defineProperties(viewport, { clientHeight: { configurable: true, value: height }, scrollHeight: { configurable: true, value: 272448 } });
+    fireEvent.scroll(viewport, { target: { scrollTop: 500 } });
+    expectPinned('hub001');
+    expect(screen.getByLabelText('Saved offset').textContent).toBe('0');
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle list' }));
+    expect(screen.getByLabelText('Saved offset').textContent).toBe('500');
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle list' }));
+    expect(container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!.scrollTop).toBe(500);
+    expectPinned('hub001');
+  });
+
+  it('does not restore an old offset when workspace reset and list unmount happen together', () => {
+    const { container } = render(<Subject />);
+    const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light');
+    if (!viewport) throw new Error('Virtual viewport missing');
+    Object.defineProperties(viewport, { clientHeight: { configurable: true, value: height }, scrollHeight: { configurable: true, value: 272448 } });
+    fireEvent.scroll(viewport, { target: { scrollTop: 3000 } });
+    expectPinned('hub002');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear workspace' }));
+    expect(screen.getByLabelText('Saved offset').textContent).toBe('0');
+    fireEvent.click(screen.getByRole('button', { name: 'Load fixture' }));
+    expectPinned('hub001');
+    expect(container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!.scrollTop).toBe(0);
   });
 
   it('keeps the correct pinned header through end scrolling, folding, density and a last-match jump', () => {
@@ -91,6 +127,7 @@ describe('100×60 hub acceptance fixture', () => {
     expectPinned('hub003');
 
     fireEvent.change(screen.getByLabelText('Annotation search'), { target: { value: 'fixture-hit' } });
+    expect(screen.getByLabelText('Overview rail').querySelectorAll('span').length).toBeLessThanOrEqual(height);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }));
     expectPinned('hub098');
     fireEvent.click(screen.getByRole('button', { name: 'Jump to last match' }));

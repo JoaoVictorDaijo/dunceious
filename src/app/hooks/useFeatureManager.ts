@@ -86,16 +86,16 @@ export function useFeatureManager(
   const undoArrays = useRef<Map<string, BioFeature[]> | null>(null);
   const undo = useRef<(() => void) | null>(null);
 
-  const setEditing = (next: EditingFeatureState | null) => {
+  const setEditing = useCallback((next: EditingFeatureState | null) => {
     if (next && (next.feature.type === 'source' || records.find(record => record.id === next.recordId)?.features[next.featureIndex]?.type === 'source')) return;
     setEditingState(next);
-  };
-  const setRecordDetails = (recordId: string, details: SequenceDetails) => {
+  }, [records]);
+  const setRecordDetails = useCallback((recordId: string, details: SequenceDetails) => {
     setRecords(prev => prev.map(record => record.id === recordId ? writeDetails(record, details) : record));
-  };
-  const setRecordLabel = (recordId: string, label: string) => {
+  }, [setRecords]);
+  const setRecordLabel = useCallback((recordId: string, label: string) => {
     setRecords(prev => prev.map(record => record.id === recordId ? { ...record, label: label.trim() || undefined } : record));
-  };
+  }, [setRecords]);
 
   const removeFeatures = useCallback((keys: Set<string>) => {
     const removals = records.flatMap(record => {
@@ -161,9 +161,9 @@ export function useFeatureManager(
     return () => clearTimeout(timer);
   }, [undoAvailable, undoVersion]);
 
-  const toggleRecordVisibility = (recordId: string) => {
+  const toggleRecordVisibility = useCallback((recordId: string) => {
     setRecords(prev => toggleVisibility(prev, recordId));
-  };
+  }, [setRecords]);
 
   const removeFeature = useCallback((recordId: string, featureIndex: number) => removeFeatures(new Set([`${recordId}:${featureIndex}`])), [removeFeatures]);
 

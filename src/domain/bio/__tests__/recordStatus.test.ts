@@ -27,6 +27,31 @@ const gene: BioFeature = { type: 'gene', name: 'gene', start: 0, end: 3, strand:
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'X', name: 'X', sequence: 'ACGT', features: [source, gene], ...extra });
 
 describe('record status', () => {
+  it('reuses feature-derived status across unchanged records without rescanning annotations', () => {
+    let typeReads = 0;
+    let locationReads = 0;
+    const feature: BioFeature = { ...gene, get type() { typeReads++; return 'gene'; }, get locationString() { locationReads++; return '1..3'; } };
+    const original = record({ features: [source, feature] });
+    expect(annotationFeatures(original)).toEqual([feature]);
+    expect(isPartial(original)).toBe(false);
+    const reads = { typeReads, locationReads };
+    expect(isUnannotated(original)).toBe(false);
+    expect(annotationFeatures({ ...original, label: 'renamed' })).toEqual([feature]);
+    expect(isPartial({ ...original, label: 'renamed' })).toBe(false);
+    expect({ typeReads, locationReads }).toEqual(reads);
+  });
+
+  it('keeps cached annotations safe from returned-array edits and refreshes replacement features', () => {
+    const original = record();
+    annotationFeatures(original).pop();
+    expect(annotationFeatures(original)).toEqual([gene]);
+    expect(isUnannotated(original)).toBe(false);
+    expect(isUnannotated({ ...original, features: [source] })).toBe(true);
+    expect(isPartial({ ...original, features: [{ ...gene, locationString: '<1..3' }] })).toBe(true);
+    expect(isPartial({ ...original, definition: 'partial genome' })).toBe(true);
+    expect(isPartial(original)).toBe(false);
+  });
+
   it('excludes source from annotations and unannotated status', () => {
     expect(isSourceFeature(source)).toBe(true);
     expect(isSourceFeature(gene)).toBe(false);

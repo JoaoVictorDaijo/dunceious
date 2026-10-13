@@ -24,6 +24,7 @@ import { render, screen, fireEvent, stubResizeObserver, within } from '@/src/app
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { useFeatureManager } from '@/src/app/hooks/useFeatureManager';
 import { writeDetails } from '@/src/domain/bio/details';
+import * as comparison from '@/src/app/logic/featureComparison';
 import HubIndex from '../hub/HubIndex';
 import AnnotationHubPanel, { type HubFocusOrigin } from '../AnnotationHubPanel';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -40,6 +41,21 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
+  it('counts feature identities without running comparisons until the Features tab opens', () => {
+    const build = vi.spyOn(comparison, 'buildFeatureGroups');
+    try {
+      render(<Subject index />);
+      expect(screen.getByRole('tab', { name: 'Features 6' })).toBeTruthy();
+      expect(build).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
+      expect(screen.getByRole('tab', { name: 'Features 1' })).toBeTruthy();
+      expect(build).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
+      expect(build).toHaveBeenCalled();
+      expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('not compared: organism unknown')).toBeTruthy();
+    } finally { build.mockRestore(); }
+  });
+
   it('opens export from the selection bar with selected sequences and Esc leaves selection intact', () => {
     render(<Subject />);
     fireEvent.click(screen.getAllByLabelText('Select sequence seq0')[0]);

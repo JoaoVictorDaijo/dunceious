@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { memo, useMemo } from 'react';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import DisplayName from './DisplayName';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
@@ -30,10 +31,10 @@ export function featureSectionHeight(group: FeatureGroup, folded: boolean): numb
   return 88 + (hasComparisonTags(group) ? 24 : 0) + (!folded && group.counts.missing ? 20 : 0);
 }
 
-export default function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [] }: { records?: SeqRecord[]; group: FeatureGroup; folded: boolean; onFold: () => void; onSequence: (id: string) => void }) {
-  const lengths = group.rows.map(({ record, feature }) => featureLength(record.sequence.length, feature.start, feature.end, feature.segments));
+function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [] }: { records?: SeqRecord[]; group: FeatureGroup; folded: boolean; onFold: () => void; onSequence: (id: string) => void }) {
+  const lengths = useMemo(() => group.rows.map(({ record, feature }) => featureLength(record.sequence.length, feature.start, feature.end, feature.segments)), [group]);
   const counts = group.counts;
-  const recordById = new Map(records.map(record => [record.id, record]));
+  const recordById = useMemo(() => new Map(records.map(record => [record.id, record])), [records]);
   const sequenceName = (id: string) => { const record = recordById.get(id); return record ? [record.label, record.accession || record.id].filter(Boolean).join(' · ') : id; };
   return <div className="h-full border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-600">
     <div className="flex items-center gap-3"><button aria-label={`${folded ? 'Expand' : 'Collapse'} ${group.identity}`} aria-expanded={!folded} onClick={onFold} className="p-2">{folded ? '▸' : '▾'}</button><strong className="text-slate-900">{group.identity}</strong><span>{group.types.join(' · ')}</span><span className="ml-auto">in {counts.present} of {counts.pool}</span></div>
@@ -45,3 +46,5 @@ export default function FeatureSectionHeader({ group, folded, onFold, onSequence
     {!folded && counts.missing > 0 && <div className="mt-1 truncate">Missing: {group.cells.filter(c => c.state === 'missing').map(c => <button key={c.recordId} className="mr-2 text-rose-700 underline" onClick={() => onSequence(c.recordId)}>{recordById.has(c.recordId) ? <DisplayName record={recordById.get(c.recordId)!} /> : c.recordId}</button>)}</div>}
   </div>;
 }
+
+export default memo(FeatureSectionHeader);

@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useReducer, useState, type SetStateAction } from 'react';
+import { useCallback, useReducer, useRef, useState, type SetStateAction } from 'react';
 import type { GroupField, HubFilters, SortOrder } from '@/src/app/logic/hubModel';
 
 export type HubTab = 'sequences' | 'features';
@@ -39,7 +39,7 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
     return { ...state, searchFolds: typeof action.value === 'function' ? action.value(state.searchFolds) : action.value };
   }
   const filters = typeof action.value === 'function' ? action.value(state.filters) : action.value;
-  return { filters, searchFolds: sameFilters(state.filters, filters) ? state.searchFolds : new Set() };
+  return { filters, searchFolds: sameFilters(state.filters, filters) || state.searchFolds.size === 0 ? state.searchFolds : new Set() };
 }
 
 export function useHubState() {
@@ -71,7 +71,9 @@ export function useHubState() {
   }, [onlyProblems, setSearchFolds]);
   const [indexFolds, setIndexFolds] = useState<Set<string>>(() => new Set());
 
+  const workspaceRevision = useRef(0);
   const resetWorkspace = useCallback(() => {
+    workspaceRevision.current++;
     setSelectedRecords(new Set());
     setSelectedRows(new Set());
     setFilters({ query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false });
@@ -88,7 +90,7 @@ export function useHubState() {
   }, [setFilters, setSearchFolds]);
 
   return {
-    resetWorkspace, indexFolds, setIndexFolds,
+    workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,

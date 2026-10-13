@@ -127,3 +127,10 @@ it('resets workspace-dependent state while keeping grouping, sort and density pr
   expect(result.current.scrollOffset).toEqual({ sequences: 0, features: 0 }); expect(result.current.indexFolds.size).toBe(0);
   expect([result.current.grouped, result.current.groupField, result.current.sort, result.current.density]).toEqual([true, 'host', 'fewest', 'comfortable']);
 });
+
+it('reuses already empty search folds so urgent query edits do not invalidate deferred list props', () => {
+  const { result } = renderHook(useHubState);
+  const empty = result.current.searchFolds;
+  act(() => result.current.setFilters(previous => ({ ...previous, query: 'spike' })));
+  expect(result.current.searchFolds).toBe(empty);
+});

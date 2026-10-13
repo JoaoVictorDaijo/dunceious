@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
@@ -55,7 +55,19 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
   return data(index, style);
 }
 
-export default function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+  const workspaceRevision = useRef(state.workspaceRevision.current);
+  workspaceRevision.current = state.workspaceRevision.current;
+  const scrollOffset = useRef(state.scrollOffset[kind]);
+  const savedOffsets = useRef(state.scrollOffset);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pinnedElement = useRef<HTMLDivElement>(null);
+  const railIndicator = useRef<HTMLDivElement>(null);
+  const [, setPinnedSection] = useState<string | null>(null);
+  if (state.scrollOffset !== savedOffsets.current) {
+    savedOffsets.current = state.scrollOffset;
+    scrollOffset.current = state.scrollOffset[kind];
+  }
   const list = useRef<VariableSizeList>(null);
   const container = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState(600);
@@ -67,11 +79,11 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
   const height = providedHeight ?? measuredHeight;
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
   const folded = useCallback((key: string) => filtering ? state.searchFolds.has(`${kind}:${key}`) : state.collapsed[kind].has(key), [filtering, state.searchFolds, state.collapsed, kind]);
-  const fold = (key: string) => {
+  const fold = useCallback((key: string) => {
     const toggle = (prev: Set<string>, target: string) => { const next = new Set(prev); if (next.has(target)) next.delete(target); else next.add(target); return next; };
     if (filtering) state.setSearchFolds(prev => toggle(prev, `${kind}:${key}`));
     else state.setCollapsed(prev => ({ ...prev, [kind]: toggle(prev[kind], key) }));
-  };
+  }, [filtering, kind, state.setSearchFolds, state.setCollapsed]);
   const entries = useMemo(() => {
     const result: Entry[] = [];
     let previousGroup: string | null = null;
@@ -100,10 +112,37 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
-  const offset = Math.min(state.scrollOffset[kind], maxOffset);
+  const offset = Math.min(scrollOffset.current, maxOffset);
+  scrollOffset.current = offset;
   let pinnedIndex = entries.findIndex(entry => entry.type === 'header');
   for (let i = 0; i < entries.length; i++) if (starts[i] <= offset && entries[i].type === 'header') pinnedIndex = i;
   const pinned = entries[pinnedIndex];
+  const activeSection = useRef(pinned?.sectionKey ?? null);
+  activeSection.current = pinned?.sectionKey ?? null;
+  const saveOffset = useCallback(() => {
+    // A reset can unmount the list before it receives the new workspace offsets.
+    if (workspaceRevision.current !== state.workspaceRevision.current) return;
+    const value = scrollOffset.current;
+    state.setScrollOffset(prev => prev[kind] === value ? prev : { ...prev, [kind]: value });
+  }, [kind, state.setScrollOffset, state.workspaceRevision]);
+  useEffect(() => () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveOffset();
+  }, [saveOffset]);
+  const onScroll = ({ scrollOffset: value }: { scrollOffset: number }) => {
+    scrollOffset.current = Math.min(value, maxOffset);
+    let index = entries.findIndex(entry => entry.type === 'header');
+    for (let i = 0; i < entries.length && starts[i] <= scrollOffset.current; i++) if (entries[i].type === 'header') index = i;
+    const section = entries[index]?.sectionKey ?? null;
+    if (section !== activeSection.current) {
+      activeSection.current = section;
+      setPinnedSection(section);
+    }
+    if (pinnedElement.current) pinnedElement.current.style.top = `${Math.max(0, (starts[index] ?? 0) - scrollOffset.current)}px`;
+    if (railIndicator.current) railIndicator.current.style.top = `${scrollOffset.current / total * 100}%`;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(saveOffset, 150);
+  };
   useEffect(() => {
     if (providedHeight !== undefined || !container.current) return;
     const observer = new ResizeObserver(values => { if (values[0]?.contentRect.height) setMeasuredHeight(values[0].contentRect.height); });
@@ -135,8 +174,8 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
       state.setJumpTarget(null);
     }
   }, [pending, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
-  const jump = (key: string) => state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 }));
-  const sequenceJump = (key: string) => {
+  const jump = useCallback((key: string) => state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })), [state.setJumpTarget]);
+  const sequenceJump = useCallback((key: string) => {
     const record = records.find(record => record.id === key);
     if (record) {
       const sequenceHidden = !matchesSequenceFilters(record, state.filters);
@@ -152,15 +191,25 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
       }
     }
     state.setTab('sequences'); jump(key);
-  };
-  const edit = (id: string, kind: 'details' | 'name') => {
+  }, [records, state.filters, state.setFilters, state.setTab, jump, onNotice]);
+  const edit = useCallback((id: string, kind: 'details' | 'name') => {
     setDraft({ id }); open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
-  };
+  }, [open, state.setEditingDetails, jump]);
+  const headerActions = useMemo(() => new Map(items.map(item => [item.key, {
+    onFold: () => fold(item.key),
+    onSelect: () => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(item.key)) next.delete(item.key); else next.add(item.key); return next; }),
+    onVisibility: () => onToggleRecordVisibility?.(item.key),
+    onEditDetails: onSetRecordDetails ? () => edit(item.key, 'details') : undefined,
+    onRename: onSetRecordLabel ? () => edit(item.key, 'name') : undefined,
+    onPick: (feature: BioFeature) => {
+      if (kind === 'sequences') { const record = (item as SequenceSection).record; jump(`${record.id}:${record.features.indexOf(feature)}`); }
+    },
+  }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump]);
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
-    if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={() => fold(entry.key)} onSequence={sequenceJump} />;
+    if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} onFold={() => fold(entry.key)} onSelect={() => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(section.record.id)) next.delete(section.record.id); else next.add(section.record.id); return next; })} onVisibility={() => onToggleRecordVisibility?.(section.record.id)} highlight={hovered} onEditDetails={onSetRecordDetails ? () => edit(section.record.id, 'details') : undefined} onRename={onSetRecordLabel ? () => edit(section.record.id, 'name') : undefined} onPick={feature => jump(`${section.record.id}:${section.record.features.indexOf(feature)}`)} />;
+    return <SequenceSectionHeader section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
@@ -180,9 +229,16 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
   const blocks = entries.flatMap((entry, i) => entry.type === 'header' ? [{ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, start: starts[i], size: (starts[entries.findIndex((other, j) => j > i && other.type === 'header')] ?? total) - starts[i] }] : []);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
-      <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={({ scrollOffset }) => state.setScrollOffset(prev => prev[kind] === scrollOffset ? prev : { ...prev, [kind]: scrollOffset })} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>
-      {pinned?.type === 'header' && <div role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: pinned.size, top: Math.max(0, starts[pinnedIndex] - offset) }}>{header(pinned)}</div>}
+      <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: pinned.size, top: Math.max(0, starts[pinnedIndex] - offset) }}>{header(pinned)}</div>}
     </div>
-    <OverviewRail blocks={blocks} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
+    <OverviewRail indicatorRef={railIndicator} blocks={blocks} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
   </div>;
 }
+
+export default memo(HubList, (previous, next) => {
+  const keys = Object.keys(previous) as (keyof HubListProps)[];
+  return keys.length === Object.keys(next).length && keys.every(key => key === 'state'
+    ? (Object.keys(previous.state) as (keyof HubState)[]).every(field => previous.state[field] === next.state[field])
+    : previous[key] === next[key]);
+});

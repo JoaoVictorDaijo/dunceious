@@ -298,8 +298,8 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 ## 7. Performance Optimizations
 
 - **Canvas for Tracks**: Quantitative data is rendered to Canvas to avoid DOM overhead.
-- **Memoization**: Layout calculations wrapped in `useMemo`.
-- **Debounced Updates**: Scroll/zoom interactions are debounced.
+- **Memoization**: Hub strips cache geometry by immutable record and colour map; index entries and section headers skip unrelated renders. Record status and biological feature comparisons use weak caches, with annotation filters applied after comparison. Full comparison runs only in the Features tab; the Sequences tab uses a cheap identity count for its tab label.
+- **Hub scrolling and search**: List offsets stay in local refs during scrolling and persist after idle or unmount; scroll-spy updates only when the section changes. Index entry positions are measured on resize/layout changes and reused while scrolling. Annotation filtering, match counters and jumps use the deferred search query. Overview search ticks share one mark per rail pixel.
 - **Typed Arrays in Workers**: `Int32Array` matrices for Smith-Waterman reduce GC pressure.
 
 ---
