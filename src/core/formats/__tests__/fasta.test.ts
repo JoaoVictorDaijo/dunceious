@@ -131,3 +131,13 @@ it('uses source isolate and strain once when retained modifiers collide', () => 
   const r = record({ features: [{ type: 'source', name: 'source', start: 0, end: 10, strand: 1, metadata: { isolate: 'I1', strain: 'S1' } }], fastaModifiers: { isolate: 'old', strain: 'old', custom: 'extra' } });
   expect(exportToFasta([r], { residues: 'original', header: 'details' }).text).toBe('>REC1 [isolate=I1] [strain=S1] [custom=extra]\nATGCAAATAG');
 });
+
+
+it('omits empty and cleaned-empty FASTA modifiers', () => {
+  const [record] = parseFasta('>X [custom=] [other=ok]\nACGT');
+  record.fastaModifiers!.blank = '[]\n';
+  const { text } = exportToFasta([record], { residues: 'original', header: 'details' });
+  expect(text).not.toContain('[custom=]');
+  expect(text).not.toContain('[blank=]');
+  expect(text).toContain('[other=ok]');
+});

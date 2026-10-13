@@ -75,12 +75,15 @@ export function exportToFasta(records: SeqRecord[], options: FastaExportOptions 
     let header = record.id;
     if (options.header === 'details') {
       const details = detailsForExport(record, report);
-      for (const [key, value] of Object.entries(details)) header += ` [${DETAIL_TO_MODIFIER[key as DetailKey]}=${cleanHeaderValue(value)}]`;
+      for (const [key, value] of Object.entries(details)) {
+        const cleaned = cleanHeaderValue(value);
+        if (cleaned) header += ` [${DETAIL_TO_MODIFIER[key as DetailKey]}=${cleaned}]`;
+      }
       const source = record.features.find(feature => feature.type === 'source')?.metadata;
       const written = new Set<string>();
       for (const key of ['isolate', 'strain']) {
         const value = source?.[key];
-        if (!value) continue;
+        if (!value || !cleanHeaderValue(value)) continue;
         header += ` [${key}=${cleanHeaderValue(value)}]`;
         written.add(key);
       }
@@ -90,7 +93,7 @@ export function exportToFasta(records: SeqRecord[], options: FastaExportOptions 
           continue;
         }
         if (Object.hasOwn(MODIFIER_TO_DETAIL, key.toLowerCase()) || written.has(key.toLowerCase())) continue;
-        header += ` [${cleanHeaderValue(key)}=${cleanHeaderValue(value)}]`;
+        if (cleanHeaderValue(key) && cleanHeaderValue(value)) header += ` [${cleanHeaderValue(key)}=${cleanHeaderValue(value)}]`;
       }
     }
     if (slice) header += ` [Slice: ${slice.start}-${slice.end}]`;

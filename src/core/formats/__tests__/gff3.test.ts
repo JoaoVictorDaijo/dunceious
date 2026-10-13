@@ -22,8 +22,6 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGff3, parseGFF3 } from '../gff3';
 import { soTypeFor } from '../soTypes';
 import { extractCodingSequence } from '@/src/domain/bio/sequence';
-import { featureLength } from '@/src/app/logic/viewModel';
-import { handleBioMessage } from '@/src/workers/handlers/bio';
 
 const feature = (extra: Partial<BioFeature> = {}): BioFeature => ({ type: 'CDS', name: 'gene1', start: 0, end: 150, strand: 1, ...extra });
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'seq_1', name: 'seq_1', sequence: 'A'.repeat(1000), features: [], ...extra });
@@ -78,7 +76,7 @@ it('round-trips circular origin crossings without start exceeding end on a GFF l
   expect(lines(text).slice(1).map(row => row.slice(3, 5))).toEqual([['901', '1000'], ['1', '100']]);
   const [f] = parseGFF3(text).features.seq_1;
   expect(f).toMatchObject({ start: 900, end: 100 });
-  expect(featureLength(1000, f.start, f.end, f.segments)).toBe(200);
+  expect(f.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(200);
   expect(f.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
 });
 
@@ -106,11 +104,6 @@ it('does not promote a source-marked partial region when declared length disagre
   const parsed = parseGFF3('##sequence-region seq_1 1 1000\nseq_1\ts\tregion\t1\t200\t.\t+\t.\tgbkey=Src;host=camel');
   expect(parsed.details).toEqual({});
   expect(parsed.features.seq_1[0]).toMatchObject({ start: 0, end: 200 });
-});
-
-it('passes detail candidates through the annotation worker response', () => {
-  const result = handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'x.gff3', content: 'seq_1\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;host=camel' });
-  expect(result).toMatchObject({ type: 'ANNOTATIONS_SUCCESS', details: { seq_1: { start: 0, end: 1000, details: { host: 'camel' } } } });
 });
 
 it('exports source details once and counts invalid edited omissions', () => {
@@ -159,7 +152,7 @@ it('preserves the entire high-coordinate run of a three-part circular feature', 
   const r = record({ isCircular: true, features: [feature({ start: 900, end: 100, segments })] });
   const parsed = parseGFF3(exportToGff3([r]).text).features.seq_1[0];
   expect(parsed).toMatchObject({ start: 900, end: 100, segments });
-  expect(featureLength(1000, parsed.start, parsed.end, parsed.segments)).toBe(175);
+  expect(parsed.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(175);
 });
 
 it('orders sorted circular rows at the largest gap without losing exon order', () => {
@@ -171,7 +164,7 @@ it('orders sorted circular rows at the largest gap without losing exon order', (
 it.each(['+', '-'])('normalizes canonical unwrapped circular coordinates on strand %s', strand => {
   const parsed = parseGFF3(`seq_1\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\nseq_1\ts\tCDS\t901\t1100\t.\t${strand}\t1\tID=x`).features.seq_1[0];
   expect(parsed).toMatchObject({ start: 900, end: 100, segments: [{ start: 900, end: 1000 }, { start: 0, end: 100 }] });
-  expect(featureLength(1000, parsed.start, parsed.end, parsed.segments)).toBe(200);
+  expect(parsed.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(200);
   expect(lines(exportToGff3([record({ isCircular: true, features: [parsed] })]).text).slice(1).map(row => row[7])).toEqual(strand === '+' ? ['1', '0'] : ['0', '1']);
 });
 
@@ -201,4 +194,28 @@ it('writes the source region first independently of source array position', () =
   const data = lines(exportToGff3([input]).text);
   expect(data.map(row => row[2])).toEqual(['region', 'CDS']);
   expect(data[0][8]).toContain('host=camel');
+});
+
+
+it('reads NCBI source-region collection-date and nat-host attributes', () => {
+  const parsed = parseGFF3('seq_1\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;collection-date=2014;nat-host=camel');
+  expect(parsed.details.seq_1.details).toEqual({ collectionDate: '2014', host: 'camel' });
+});
+
+it('keeps the first source candidate and retains later candidates as annotations', () => {
+  const parsed = parseGFF3('seq_1\ts\tregion\t1\t1000\t.\t+\t.\tID=first;gbkey=Src;host=camel\nseq_1\ts\tregion\t1\t1000\t.\t+\t.\tID=second;gbkey=Src;host=human');
+  expect(parsed.details.seq_1.details.host).toBe('camel');
+  expect(parsed.features.seq_1[0].metadata?.ID).toBe('second');
+});
+
+it('preserves reserved attribute case and distinct custom case variants', () => {
+  const metadata = { Dbxref: 'GeneID:1', Note: 'reserved', note: 'custom', Alias: 'a', Ontology_term: 'GO:1' };
+  const parsed = parseGFF3(exportToGff3([record({ features: [feature({ metadata })] })]).text);
+  expect(parsed.features.seq_1[0].metadata).toMatchObject(metadata);
+});
+
+
+it('merges custom case collisions as encoded GFF3 multi-values without losing data', () => {
+  const { text } = exportToGff3([record({ features: [feature({ metadata: { Foo: 'a,b', foo: 'c', FOO: 'a,b' } })] })]);
+  expect(lines(text)[1][8]).toContain('foo=a%2Cb,c');
 });

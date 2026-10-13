@@ -151,6 +151,7 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   if (syntax === 'flag') return [indent + '/' + key];
   if (!value) return [];
 
+  value = value.replace(/\s*[\r\n]+\s*/g, ' ');
   const quoted = syntax === 'quoted';
   const escaped = quoted ? value.replace(/"/g, '""') : value;
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
@@ -166,6 +167,7 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
       }
     }
     // Splitting an unbroken text token would add a space on import and change its value.
+    if (boundary < 0) boundary = remaining.indexOf(' ', 58);
     if (boundary < 0) break;
     lines.push(indent + remaining.slice(0, boundary));
     remaining = remaining.slice(boundary + (key === 'translation' ? 0 : 1));

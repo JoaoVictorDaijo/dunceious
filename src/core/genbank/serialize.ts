@@ -83,13 +83,28 @@ export function exportToGenBank(records: SeqRecord[]): ExportResult {
         if (!isProtein) metadata.mol_type ||= `unassigned ${molecule}`;
       }
       // A valid name-bearing qualifier keeps custom annotations identifiable after import.
-      if (feature.type !== 'source' && !['gene', 'product', 'locus_tag', 'standard_name'].some(key => metadata[key])) {
+      if (!isProtein && feature.type !== 'source' && feature.name && feature.name !== feature.type && !['gene', 'product', 'locus_tag', 'standard_name'].some(key => metadata[key])) {
         metadata.standard_name = feature.name;
+      }
+      if (feature.type === 'CDS' && !metadata.codon_start) {
+        let phase = metadata.phase;
+        if (metadata._gffPhases) {
+          try {
+            const phases: unknown = JSON.parse(metadata._gffPhases);
+            if (Array.isArray(phases)) {
+              const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
+              phase = String(phases[reverse ? phases.length - 1 : 0]);
+            }
+          } catch {
+            // Malformed part phases retain the single-feature phase fallback.
+          }
+        }
+        if (/^[012]$/.test(phase ?? '')) metadata.codon_start = String(Number(phase) + 1);
       }
       for (const [key, value] of Object.entries(metadata)) {
         if (key.startsWith('_')) continue;
         const syntax = rules.get(key);
-        if (!syntax || (isProtein && key === 'mol_type')) {
+        if (!syntax || (isProtein && key === 'mol_type') || (syntax !== 'flag' && !value)) {
           report.droppedAttributes++;
           continue;
         }

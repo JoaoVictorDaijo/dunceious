@@ -80,7 +80,7 @@ export const INSDC_COUNTRIES: readonly string[] = [
   "Cook Islands",
   "Coral Sea Islands",
   "Costa Rica",
-  "Cote d’Ivoire",
+  "Cote d'Ivoire",
   "Croatia",
   "Cuba",
   "Curacao",

@@ -94,3 +94,8 @@ it('appends new source details without shifting existing annotation indices', ()
   expect(next.features[2].type).toBe('source');
   expect(readDetails(next)).toEqual({ host: 'camel' });
 });
+
+
+it("accepts the INSDC ASCII country spelling Cote d'Ivoire", () => {
+  expect(validateDetail('location', "Cote d'Ivoire")).toBeNull();
+});

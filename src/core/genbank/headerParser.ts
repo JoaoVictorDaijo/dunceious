@@ -86,7 +86,7 @@ export function parseHeader(lines: string[]): HeaderData {
 
     if (line.startsWith('ACCESSION')) {
       const values = line.substring(12).trim().split(/\s+/).filter(Boolean);
-      if (values.length > 0) accession = values[0];
+      if (values.length > 0 && values[0] !== '.') accession = values[0];
       continue;
     }
 

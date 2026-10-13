@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGenBank } from '../serialize';
 import { parseGenBank } from '../index';
+import { parseGFF3 } from '../../formats/gff3';
 
 const feature = (metadata: Record<string, string> = {}): BioFeature => ({ type: 'CDS', name: 'primer F3', start: 0, end: 4, strand: 1, metadata });
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'local', name: 'local', sequence: 'ACGT', features: [], ...extra });
@@ -146,4 +147,48 @@ it('writes source first even when source is last in the workspace features', () 
   const types = text.split('\n').filter(line => /^ {5}\S/.test(line)).map(line => line.trim().split(/\s+/)[0]);
   expect(types).toEqual(['source', 'CDS']);
   expect(input.features.map(f => f.type)).toEqual(['CDS', 'source']);
+});
+
+
+it("does not invent a standard_name for an unnamed 5'UTR", () => {
+  const [input] = parseGenBank("LOCUS       local 4 bp DNA\nFEATURES             Location/Qualifiers\n     5'UTR           1..4\nORIGIN\n        1 acgt\n//");
+  expect(exportToGenBank([input]).text).not.toContain('/standard_name');
+});
+
+it('does not synthesize nucleotide standard_name for protein features', () => {
+  const { text } = exportToGenBank([record({ moleculeType: 'protein', features: [feature({ region_name: 'domain' })] })]);
+  expect(text).not.toContain('/standard_name');
+});
+
+it('keeps the local accession absent through export and re-import', () => {
+  expect(parseGenBank(exportToGenBank([record()]).text)[0].accession).toBeUndefined();
+});
+
+it('continues wrapping text after an overlong URL token', () => {
+  const url = 'https://' + 'x'.repeat(62);
+  const note = ('intro ' + url + ' ' + 'camel isolate '.repeat(110)).slice(0, 1500).trim();
+  const { text } = exportToGenBank([record({ features: [feature({ note })] })]);
+  const longLines = text.split('\n').filter(line => line.startsWith(' '.repeat(21)) && line.length > 79);
+  expect(longLines).toHaveLength(1);
+  expect(longLines[0].trim()).toBe(url);
+  expect(annotations(text)[0].metadata?.note).toBe(note);
+});
+
+it('normalizes line breaks before writing qualifier text', () => {
+  const { text } = exportToGenBank([record({ features: [feature({ note: 'first line  \r\n  second line' })] })]);
+  expect(text).toContain('/note="first line second line"');
+  expect(annotations(text)[0].metadata?.note).toBe('first line second line');
+});
+
+it('counts empty quoted qualifiers as dropped attributes', () => {
+  const { text, report } = exportToGenBank([record({ features: [feature({ note: '' })] })]);
+  expect(text).not.toContain('/note=');
+  expect(report.droppedAttributes).toBe(1);
+});
+
+
+it.each(['+', '-'])('uses the first transcription part phase for GenBank codon_start on %s CDS', strand => {
+  const parsed = parseGFF3(`local\ts\tCDS\t1\t2\t.\t${strand}\t${strand === '+' ? 2 : 0}\tID=x\nlocal\ts\tCDS\t3\t4\t.\t${strand}\t${strand === '+' ? 0 : 2}\tID=x`);
+  const { text } = exportToGenBank([record({ features: parsed.features.local })]);
+  expect(text).toContain('/codon_start=3\n');
 });

@@ -39,8 +39,8 @@ function encodeSeqid(value: string): string {
   return Array.from(value).map(char => /^[a-zA-Z0-9.:^*$@!+_?|-]$/.test(char) ? char : encode(char)).join('');
 }
 
-function attributeText(attributes: Record<string, string>): string {
-  return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${encode(value)}`).join(';');
+function attributeText(attributes: Record<string, string | string[]>): string {
+  return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${Array.isArray(value) ? value.map(encode).join(',') : encode(value)}`).join(';');
 }
 
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
@@ -92,10 +92,14 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const phases = partPhases(feature, segments);
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
-      const attrs: Record<string, string> = { ID: `${record.id}.${number}`, Name: feature.name };
+      const attrs: Record<string, string | string[]> = { ID: `${record.id}.${number}`, Name: feature.name };
       for (const [key, value] of Object.entries(metadata)) {
         if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
-        attrs[key.toLowerCase()] = value;
+        const outputKey = ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
+        const previous = attrs[outputKey];
+        const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
+        if (!values.includes(value)) values.push(value);
+        attrs[outputKey] = values.length === 1 ? values[0] : values;
       }
       if (so.original) attrs.insdc_type = so.original;
       segments.forEach((segment, index) => {
@@ -206,10 +210,12 @@ export function parseGFF3(content: string): {
       circular.add(seqid);
       lengths.set(seqid, feature.end);
     }
-    if (wholeRegion && metadata.gbkey === 'Src') {
+    if (wholeRegion && metadata.gbkey === 'Src' && !details[seqid]) {
       const values: SequenceDetails = {};
       for (const [key, qualifier] of Object.entries(DETAIL_QUALIFIER)) {
-        const value = key === 'location' ? metadata.geo_loc_name ?? metadata.country : metadata[qualifier];
+        const value = key === 'location' ? metadata.geo_loc_name ?? metadata.country
+          : key === 'host' ? metadata.host ?? metadata['nat-host']
+          : key === 'collectionDate' ? metadata.collection_date ?? metadata['collection-date'] : metadata[qualifier];
         if (value !== undefined) values[key as keyof SequenceDetails] = value;
       }
       details[seqid] = { details: values, start: feature.start, end: feature.end, feature };
