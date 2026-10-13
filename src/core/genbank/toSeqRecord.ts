@@ -57,6 +57,8 @@ export function toSeqRecord(recordStr: string): SeqRecord {
     name: header.name,
     definition: header.definition,
     accession: header.accession ?? (header.id !== 'Unknown' ? header.id : undefined),
+    version: header.version,
+    locationQualifier: features.some(f => f.type === 'source' && f.metadata?.country !== undefined && f.metadata?.geo_loc_name === undefined) ? 'country' : undefined,
     moleculeType: header.moleculeType,
     sequence,
     features,

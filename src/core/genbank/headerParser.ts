@@ -30,6 +30,7 @@ export interface HeaderData {
   id: string;
   /** ACCESSION (or VERSION fallback) */
   accession?: string;
+  version?: string;
   /** Display name – derived from DEFINITION (truncated) or SOURCE */
   name: string;
   /** Full DEFINITION text (multi-line values are space-joined) */
@@ -47,6 +48,7 @@ export function parseHeader(lines: string[]): HeaderData {
   let name = 'Unknown';
   let definition = '';
   let accession: string | undefined;
+  let version: string | undefined;
   let isCircular = false;
   let moleculeType: 'dna' | 'rna' | 'protein' = 'dna';
 
@@ -88,9 +90,9 @@ export function parseHeader(lines: string[]): HeaderData {
       continue;
     }
 
-    if (!accession && line.startsWith('VERSION')) {
+    if (line.startsWith('VERSION')) {
       const value = line.substring(12).trim().split(/\s+/)[0];
-      if (value) accession = value;
+      if (value) version = value;
       continue;
     }
 
@@ -98,5 +100,5 @@ export function parseHeader(lines: string[]): HeaderData {
     if (line.startsWith('FEATURES') || line.startsWith('ORIGIN')) break;
   }
 
-  return { id, name, definition, accession, isCircular, moleculeType };
+  return { id, name, definition, accession: accession ?? version?.replace(/\.\d+$/, ''), version, isCircular, moleculeType };
 }
