@@ -18,7 +18,8 @@
  */
 
 import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
-import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
+import { SeqRecord, SelectionArea, BioFeature, SequenceDetails } from '@/src/domain/bio/types';
+import { writeDetails } from '@/src/domain/bio/details';
 import { annotationFeatures } from '@/src/domain/bio/recordStatus';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
 import {
@@ -40,6 +41,9 @@ export interface UseFeatureManagerReturn {
   /** State for the feature-editor modal; null when modal is closed. */
   editing: EditingFeatureState | null;
   setEditing: (state: EditingFeatureState | null) => void;
+
+  setRecordDetails: (recordId: string, details: SequenceDetails) => void;
+  setRecordLabel: (recordId: string, label: string) => void;
 
   undoAvailable: boolean;
   undoDelete: () => void;
@@ -76,11 +80,22 @@ export function useFeatureManager(
   activeSelection: SelectionArea | null,
   addLog: (msg: string) => void,
 ): UseFeatureManagerReturn {
-  const [editing, setEditing] = useState<EditingFeatureState | null>(null);
+  const [editing, setEditingState] = useState<EditingFeatureState | null>(null);
   const [undoAvailable, setUndoAvailable] = useState(false);
   const [undoVersion, setUndoVersion] = useState(0);
   const undoArrays = useRef<Map<string, BioFeature[]> | null>(null);
   const undo = useRef<(() => void) | null>(null);
+
+  const setEditing = (next: EditingFeatureState | null) => {
+    if (next && (next.feature.type === 'source' || records.find(record => record.id === next.recordId)?.features[next.featureIndex]?.type === 'source')) return;
+    setEditingState(next);
+  };
+  const setRecordDetails = (recordId: string, details: SequenceDetails) => {
+    setRecords(prev => prev.map(record => record.id === recordId ? writeDetails(record, details) : record));
+  };
+  const setRecordLabel = (recordId: string, label: string) => {
+    setRecords(prev => prev.map(record => record.id === recordId ? { ...record, label: label.trim() || undefined } : record));
+  };
 
   const removeFeatures = useCallback((keys: Set<string>) => {
     const removals = records.flatMap(record => {
@@ -153,7 +168,7 @@ export function useFeatureManager(
   const removeFeature = useCallback((recordId: string, featureIndex: number) => removeFeatures(new Set([`${recordId}:${featureIndex}`])), [removeFeatures]);
 
   const saveEditedFeature = () => {
-    if (!editing) return;
+    if (!editing || editing.feature.type === 'source' || records.find(record => record.id === editing.recordId)?.features[editing.featureIndex]?.type === 'source') return;
     const { recordId, featureIndex, feature } = editing;
     setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature));
     addLog(
@@ -211,6 +226,8 @@ export function useFeatureManager(
   return {
     editing,
     setEditing,
+    setRecordDetails,
+    setRecordLabel,
     undoAvailable,
     undoDelete,
     dismissUndo,

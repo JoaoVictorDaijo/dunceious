@@ -96,3 +96,26 @@ describe('undo lifetime', () => {
     act(() => vi.advanceTimersByTime(8000)); expect(result.current.manager.undoAvailable).toBe(false);
   });
 });
+
+describe('source editor boundary', () => {
+  it('refuses existing sources and a source draft without changing details', () => {
+    const original = writeDetails(records[0], { host: 'camel' });
+    const { result } = renderHook(() => {
+      const [value, setValue] = useState([original]);
+      return { value, manager: useFeatureManager(value, setValue, null, () => {}) };
+    });
+    act(() => result.current.manager.setEditing({ recordId: 'synthetic', featureIndex: 0, feature: original.features[0] }));
+    expect(result.current.manager.editing).toBeNull();
+    act(() => result.current.manager.setEditing({ recordId: 'synthetic', featureIndex: -1, feature: original.features[0] }));
+    expect(result.current.manager.editing).toBeNull();
+    act(() => result.current.manager.saveEditedFeature());
+    expect(readDetails(result.current.value[0])).toEqual({ host: 'camel' });
+  });
+});
+
+it('refuses an annotation draft targeting an existing source index', () => {
+  const initial = writeDetails(records[0], { host: 'camel' });
+  const { result } = renderHook(() => useFeatureManager([initial], vi.fn(), null, () => {}));
+  act(() => result.current.setEditing({ recordId: 'synthetic', featureIndex: 0, feature: { type: 'gene', name: 'bypass', start: 0, end: 2, strand: 1 } }));
+  expect(result.current.editing).toBeNull();
+});

@@ -22,24 +22,28 @@ import { VariableSizeList } from 'react-window';
 import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import type { BioFeature, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails } from '@/src/domain/bio/types';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 import type { HubFocusOrigin } from '../AnnotationHubPanel';
 import SequenceSectionHeader from './SequenceSectionHeader';
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
 import OverviewRail from './OverviewRail';
+import DetailsEditor from './DetailsEditor';
+import { DisplayNameEditor } from './DisplayName';
 
 type HubState = ReturnType<typeof useHubState>;
 type Entry = { key: string; sectionKey: string; size: number } & (
   { type: 'header'; item: SequenceSection | FeatureGroup } | { type: 'divider'; label: string; count: number }
   | { type: 'row'; record: SeqRecord; feature: BioFeature } | { type: 'track'; record: SeqRecord; track: QuantitativeTrack }
-  | { type: 'empty'; record: SeqRecord } | { type: 'spacer' });
+  | { type: 'empty'; record: SeqRecord } | { type: 'spacer' } | { type: 'editor'; record: SeqRecord; editor: 'details' | 'name' });
 export interface HubListProps {
   items: SequenceSection[] | FeatureGroup[]; kind: 'sequences' | 'features'; state: HubState;
   records?: SeqRecord[]; onNotice?: (message: string) => void;
   height?: number; featureColors?: Record<string, string>; lastFocusedKey?: string | null; currentRowKey?: string | null;
   isAlignmentLocked?: boolean;
+  onSetRecordDetails?: (id: string, details: SequenceDetails) => void;
+  onSetRecordLabel?: (id: string, label: string) => void;
   onFocusItem?: (target: FocusTarget, origin: HubFocusOrigin) => void;
   onViewFeatureDetails?: (recordId: string, feature: BioFeature) => void;
   onEditFeature?: (recordId: string, index: number, feature: BioFeature) => void;
@@ -51,11 +55,14 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
   return data(index, style);
 }
 
-export default function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog }: HubListProps) {
+export default function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
   const list = useRef<VariableSizeList>(null);
   const container = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState(600);
   const [hovered, setHovered] = useState<BioFeature | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const editor = useMemo(() => state.editingDetails ? { id: state.editingDetails, kind: 'details' as const } : editingName ? { id: editingName, kind: 'name' as const } : null, [state.editingDetails, editingName]);
+  const closeEditor = () => { state.setEditingDetails(null); setEditingName(null); };
   const height = providedHeight ?? measuredHeight;
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
   const folded = useCallback((key: string) => filtering ? state.searchFolds.has(`${kind}:${key}`) : state.collapsed[kind].has(key), [filtering, state.searchFolds, state.collapsed, kind]);
@@ -74,6 +81,7 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
       }
       previousGroup = group;
       result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : folded(item.key) ? 96 : state.density === 'compact' ? 132 : 148, item });
+      if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? 440 : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
       if (kind === 'sequences') {
@@ -87,7 +95,7 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height]);
+  }, [items, kind, folded, state.density, height, editor]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
@@ -144,14 +152,18 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
     }
     state.setTab('sequences'); jump(key);
   };
+  const edit = (id: string, kind: 'details' | 'name') => {
+    open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
+  };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
-    if (kind === 'features') return <FeatureSectionHeader group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={() => fold(entry.key)} onSequence={sequenceJump} />;
+    if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={() => fold(entry.key)} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader section={section} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} onFold={() => fold(entry.key)} onSelect={() => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(section.record.id)) next.delete(section.record.id); else next.add(section.record.id); return next; })} onVisibility={() => onToggleRecordVisibility?.(section.record.id)} highlight={hovered} onPick={feature => jump(`${section.record.id}:${section.record.features.indexOf(feature)}`)} />;
+    return <SequenceSectionHeader section={section} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} onFold={() => fold(entry.key)} onSelect={() => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(section.record.id)) next.delete(section.record.id); else next.add(section.record.id); return next; })} onVisibility={() => onToggleRecordVisibility?.(section.record.id)} highlight={hovered} onEditDetails={onSetRecordDetails ? () => edit(section.record.id, 'details') : undefined} onRename={onSetRecordLabel ? () => edit(section.record.id, 'name') : undefined} onPick={feature => jump(`${section.record.id}:${section.record.features.indexOf(feature)}`)} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
+    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor record={entry.record} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
     if (entry.type === 'spacer') return <div style={style} />;
     if (entry.type === 'header') return <div style={{ ...style, visibility: index === pinnedIndex ? 'hidden' : undefined }}>{header(entry)}</div>;
     if (entry.type === 'divider') return <div style={style} className="bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-600">{entry.label} · {entry.count}</div>;

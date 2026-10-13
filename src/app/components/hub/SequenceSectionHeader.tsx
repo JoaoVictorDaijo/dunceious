@@ -19,25 +19,25 @@
 
 import type { SequenceSection } from '@/src/app/logic/hubModel';
 import { isolateOf, annotationFeatures, isPartial, isEdited, isUnannotated } from '@/src/domain/bio/recordStatus';
-import { readDetails } from '@/src/domain/bio/details';
+import DetailsLine from './DetailsLine';
+import DisplayName from './DisplayName';
 import type { BioFeature } from '@/src/domain/bio/types';
 import GenomeStrip from './GenomeStrip';
-export default function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails }: { section: SequenceSection; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: () => void }) {
+export default function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails, onRename }: { section: SequenceSection; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: () => void; onRename?: () => void }) {
   const { record, rows, total } = section;
   const composition = new Map<string, number>();
   annotationFeatures(record).forEach(f => composition.set(f.type, (composition.get(f.type) ?? 0) + 1));
-  const details = readDetails(record);
   return <div className="h-full border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-600">
     <div className="flex items-center gap-3">
       <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${record.id}`} aria-expanded={!folded} onClick={onFold} className="p-2">{folded ? '▸' : '▾'}</button>
       <input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={onSelect} />
-      <span className="font-semibold text-slate-900">{record.label || record.accession || record.id}</span>{record.label && <span className="font-mono">{record.accession || record.id}</span>}
+      <DisplayName record={record} onRename={onRename} />
       <span className="ml-auto">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'} · {rows.length === total ? total : `${rows.length}/${total}`} annotations{Boolean(record.tracks?.length) && ` · ${record.tracks?.length} tracks`}</span>
       <button aria-label={`${record.visible === false ? 'Show' : 'Hide'} ${record.id} in viewport`} onClick={onVisibility} className="p-2"><i aria-hidden="true" className={`fas ${record.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
     </div>
     <p className="truncate">{isolateOf(record)}</p>
     {folded ? <p className="mt-2">{[...composition].map(([type, count]) => `${count} ${type}`).join(' · ')}</p> : <>
-      <div className="my-1 flex items-center gap-3"><span className="truncate">{[details.host, details.location, details.collectionDate].filter(Boolean).join(' · ') || 'No details specified'}</span>{onEditDetails && <button onClick={onEditDetails} className="text-amber-700 underline">Edit details</button>}
+      <div className="my-1 flex items-center gap-3"><DetailsLine record={record} />{onEditDetails && <button onClick={onEditDetails} className="text-amber-700 underline">Edit details</button>}
       {record.isCircular && <span>CIRCULAR</span>}{isPartial(record) && <span>Partial</span>}{isUnannotated(record) && <span>Unannotated</span>}{isEdited(record) && <span>Edited</span>}</div>
       <GenomeStrip record={record} large highlight={f => highlight ? f === highlight : rows.includes(f)} onPick={onPick} />
     </>}

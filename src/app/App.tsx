@@ -131,6 +131,8 @@ const App: React.FC = () => {
   const {
     editing,
     setEditing,
+    setRecordDetails,
+    setRecordLabel,
     undoAvailable,
     undoDelete,
     dismissUndo,
@@ -510,6 +512,8 @@ const App: React.FC = () => {
                     onDeleteRows={removeFeatures}
                     undoAvailable={undoAvailable}
                     onUndoDelete={undoDelete}
+                    onSetRecordDetails={setRecordDetails}
+                    onSetRecordLabel={setRecordLabel}
                     onSetDetail={(ids, key, value) => setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record))}
                     featureColors={featureColors}
                     onStartNewFeature={startNewFeature}

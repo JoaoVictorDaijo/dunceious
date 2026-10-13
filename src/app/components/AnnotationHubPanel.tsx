@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import type { BioFeature, DetailKey, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, DetailKey, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { annotationFeatures } from '@/src/domain/bio/recordStatus';
 import { buildSequenceSections, searchHits } from '@/src/app/logic/hubModel';
 import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
@@ -49,6 +49,8 @@ export interface AnnotationHubPanelProps {
   onDeleteRows: (keys: Set<string>) => void;
   undoAvailable: boolean;
   onUndoDelete: () => void;
+  onSetRecordDetails: (id: string, details: SequenceDetails) => void;
+  onSetRecordLabel: (id: string, label: string) => void;
   onSetDetail: (ids: Set<string>, key: DetailKey, value: string) => void;
   onFocusItem: (target: FocusTarget, origin: HubFocusOrigin) => void;
   lastFocusedKey?: string | null;
@@ -137,7 +139,7 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
       <input type="checkbox" aria-label="Select all visible annotations" checked={annotationKeys.size > 0 && [...annotationKeys].every(key => state.selectedRows.has(key))} ref={input => { if (input) input.indeterminate = [...annotationKeys].some(key => state.selectedRows.has(key)) && ![...annotationKeys].every(key => state.selectedRows.has(key)); }} onChange={event => state.setSelectedRows(prev => { const next = new Set(prev); annotationKeys.forEach(key => { if (event.target.checked) next.add(key); else next.delete(key); }); return next; })} />
       <span className="w-24">Type / Strand</span><span className="flex-1">{state.tab === 'features' ? 'Sequence' : 'Name / Product'}</span><span className="w-[26ch] shrink-0 font-mono">Location</span><span className="w-20 text-right">Length</span><span className="w-52 text-right">Actions</span>
     </div>
-    {items.length ? <HubList key={state.tab} items={items} kind={state.tab} state={state} records={records} onNotice={setNotice} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={(id, index) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }} onToggleRecordVisibility={props.onToggleRecordVisibility} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
+    {items.length ? <HubList key={state.tab} items={items} kind={state.tab} state={state} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={(id, index) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }} onToggleRecordVisibility={props.onToggleRecordVisibility} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
     {props.undoAvailable && <UndoToast onUndo={props.onUndoDelete} />}
   </section>;
 }

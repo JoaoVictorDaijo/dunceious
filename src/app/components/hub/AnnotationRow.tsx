@@ -21,6 +21,7 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import DisplayName from './DisplayName';
 import { featureLength } from '@/src/app/logic/viewModel';
 
 interface AnnotationRowProps {
@@ -60,7 +61,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
       className={strand === -1 ? 'text-rose-600' : strand === 1 ? 'text-emerald-700' : 'text-slate-500'}>
       {strand === -1 ? '←' : strand === 1 ? '→' : '?'}</span></span>
     <div className="min-w-0 flex-1">
-      <strong className="text-slate-900">{kind === 'features' ? record.label || record.accession || record.id : feature.name}</strong>
+      <strong className="text-slate-900">{kind === 'features' ? <DisplayName record={record} /> : feature.name}</strong>
       {lastFocused && <span className="ml-2 text-amber-700">Last focused</span>}
       {detail && <p title={detail} className="truncate text-slate-500">{detail}</p>}
     </div>
