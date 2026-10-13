@@ -26,7 +26,7 @@ import { isEdited, isPartial, isUnannotated, isolateOf } from '@/src/domain/bio/
 import GroupByControl from './GroupByControl';
 import GenomeStrip from './GenomeStrip';
 import DisplayName from './DisplayName';
-export default function HubIndex({ records, state, onToggleRecordVisibility }: { records: SeqRecord[]; state: ReturnType<typeof useHubState>; onToggleRecordVisibility: (id: string) => void }) {
+export default function HubIndex({ records, state, onToggleRecordVisibility, featureColors }: { records: SeqRecord[]; featureColors?: Record<string, string>; state: ReturnType<typeof useHubState>; onToggleRecordVisibility: (id: string) => void }) {
   const sections = useMemo(() => buildSequenceSections(records, state.filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort), [records, state.filters, state.grouped, state.groupField, state.sort]);
   const features = useMemo(() => buildFeatureGroups(records, state.filters, state.onlyProblems), [records, state.filters, state.onlyProblems]);
   const foldKey = (group: string) => `${state.tab}:${state.groupField}:${group}`;
@@ -57,7 +57,7 @@ export default function HubIndex({ records, state, onToggleRecordVisibility }: {
             <button aria-label={`${record.visible === false ? 'Show' : 'Hide'} ${record.id} in viewport`} onClick={() => onToggleRecordVisibility(record.id)} className="p-1"><i aria-hidden="true" className={`fas ${record.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button></div>
           <p className="mt-1 truncate text-slate-400">{isolateOf(record)}</p>
           <p className="my-2 text-slate-400">{rows.length === total ? total : `${rows.length}/${total}`} annotations {isUnannotated(record) && '· Unannotated'} {isPartial(record) && '· Partial'} {isEdited(record) && '· Edited'} {record.visible === false && '· hidden in viewport'}</p>
-          <GenomeStrip record={record} highlight={feature => rows.includes(feature)} onPick={feature => jump(`${record.id}:${record.features.indexOf(feature)}`)} />
+          <GenomeStrip record={record} featureColors={featureColors} highlight={feature => rows.includes(feature)} onPick={feature => jump(`${record.id}:${record.features.indexOf(feature)}`)} />
         </div>))}
       </div>)}
     </div>

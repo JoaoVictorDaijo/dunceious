@@ -30,6 +30,7 @@ import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  featureColors?: Record<string, string>;
   hubState?: ReturnType<typeof useHubState>;
   onToggleRecordVisibility?: (id: string) => void;
   open: boolean;
@@ -86,6 +87,7 @@ export interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({
   open,
   hubState,
+  featureColors,
   onToggleRecordVisibility,
   activeTab,
   records,
@@ -181,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
 
-      {activeTab === 'features' && hubState && <HubIndex records={records} state={hubState} onToggleRecordVisibility={onToggleRecordVisibility ?? (() => {})} />}
+      {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} onToggleRecordVisibility={onToggleRecordVisibility ?? (() => {})} />}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (

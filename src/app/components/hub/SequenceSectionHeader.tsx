@@ -23,7 +23,7 @@ import DetailsLine from './DetailsLine';
 import DisplayName from './DisplayName';
 import type { BioFeature } from '@/src/domain/bio/types';
 import GenomeStrip from './GenomeStrip';
-export default function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails, onRename }: { section: SequenceSection; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: () => void; onRename?: () => void }) {
+export default function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails, onRename, featureColors }: { section: SequenceSection; featureColors?: Record<string, string>; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: () => void; onRename?: () => void }) {
   const { record, rows, total } = section;
   const composition = new Map<string, number>();
   annotationFeatures(record).forEach(f => composition.set(f.type, (composition.get(f.type) ?? 0) + 1));
@@ -39,7 +39,7 @@ export default function SequenceSectionHeader({ section, folded, selected, onFol
     {folded ? <p className="mt-2">{[...composition].map(([type, count]) => `${count} ${type}`).join(' · ')}</p> : <>
       <div className="my-1 flex items-center gap-3"><DetailsLine record={record} />{onEditDetails && <button onClick={onEditDetails} className="text-amber-700 underline">Edit details</button>}
       {record.isCircular && <span>CIRCULAR</span>}{isPartial(record) && <span>Partial</span>}{isUnannotated(record) && <span>Unannotated</span>}{isEdited(record) && <span>Edited</span>}</div>
-      <GenomeStrip record={record} large highlight={f => highlight ? f === highlight : rows.includes(f)} onPick={onPick} />
+      <GenomeStrip record={record} featureColors={featureColors} large highlight={f => highlight ? f === highlight : rows.includes(f)} onPick={onPick} />
     </>}
   </div>;
 }

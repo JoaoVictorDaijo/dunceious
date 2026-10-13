@@ -408,6 +408,7 @@ const App: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
           hubState={hubState}
+          featureColors={featureColors}
           onToggleRecordVisibility={toggleRecordVisibility}
           open={sidebarOpen}
           activeTab={activeTab}
