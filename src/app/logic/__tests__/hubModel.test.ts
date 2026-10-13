@@ -48,8 +48,12 @@ describe('hub sequence model', () => {
     expect(buildSequenceSections(records, filters(), { grouped: true, field: 'location' }, 'load').map(s => [s.record.id, s.group])).toEqual([
       ['om', 'Oman'], ['sa', 'Saudi Arabia'], ['empty', 'Not specified'],
     ]);
-    expect(groupPreview(records, 'location')).toEqual({ groups: 3, notSpecified: 1 });
+    expect(groupPreview(records, 'location')).toEqual({ groups: 2, notSpecified: 1 });
     expect(groupPreview([], 'host')).toEqual({ groups: 0, notSpecified: 0 });
+  });
+  it('counts named groups once and missing sequences individually in previews', () => {
+    expect(groupPreview([record('a'), record('b')], 'host')).toEqual({ groups: 0, notSpecified: 2 });
+    expect(groupPreview([record('a', { geo_loc_name: 'Oman:Muscat' }), record('b', { country: 'Oman' }), record('c')], 'location')).toEqual({ groups: 1, notSpecified: 1 });
   });
   it('orders collection years chronologically', () => {
     const records = [record('c', { collection_date: '2016-01' }), record('a', { collection_date: '21-Mar-2013' }), record('b', { collection_date: 'Mar-2014' })];

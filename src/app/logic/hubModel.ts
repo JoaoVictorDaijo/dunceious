@@ -39,7 +39,7 @@ export function groupKeyOf(record: SeqRecord, field: GroupField): string {
 
 export function groupPreview(records: SeqRecord[], field: GroupField): { groups: number; notSpecified: number } {
   const keys = records.map(record => groupKeyOf(record, field));
-  return { groups: new Set(keys).size, notSpecified: keys.filter(key => key === 'Not specified').length };
+  return { groups: new Set(keys.filter(key => key !== 'Not specified')).size, notSpecified: keys.filter(key => key === 'Not specified').length };
 }
 
 function contains(values: (string | undefined)[], query: string): boolean {
