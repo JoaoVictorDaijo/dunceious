@@ -195,3 +195,10 @@ it('uses a circular landmark without the source marker while retaining it as an 
   expect(parsed.features.seq_1[0].type).toBe('region');
   expect(parsed.features.seq_1[1]).toMatchObject({ start: 900, end: 100, segments: [{ start: 900, end: 1000 }, { start: 0, end: 100 }] });
 });
+
+it('writes the source region first independently of source array position', () => {
+  const input = record({ features: [feature(), feature({ type: 'source', name: 'source', start: 0, end: 1000, metadata: { host: 'camel' } })] });
+  const data = lines(exportToGff3([input]).text);
+  expect(data.map(row => row[2])).toEqual(['region', 'CDS']);
+  expect(data[0][8]).toContain('host=camel');
+});

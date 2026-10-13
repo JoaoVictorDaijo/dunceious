@@ -19,6 +19,7 @@
 
 import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature } from '@/src/domain/bio/types';
+import { annotationFeatures } from '@/src/domain/bio/recordStatus';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
 import {
   saveEditedFeature as saveEditedFeatureReducer,
@@ -28,6 +29,13 @@ import {
   annotationCoords,
 } from '@/src/app/logic/featureManager';
 
+function sameAnnotations(record: SeqRecord, expected: BioFeature[] | undefined): boolean {
+  if (!expected) return false;
+  const annotations = annotationFeatures(record);
+  const previous = expected.filter(feature => feature.type !== 'source');
+  return annotations.length === previous.length && annotations.every((feature, index) => feature === previous[index]);
+}
+
 export interface UseFeatureManagerReturn {
   /** State for the feature-editor modal; null when modal is closed. */
   editing: EditingFeatureState | null;
@@ -35,6 +43,7 @@ export interface UseFeatureManagerReturn {
 
   undoAvailable: boolean;
   undoDelete: () => void;
+  dismissUndo: () => void;
   removeFeatures: (keys: Set<string>) => void;
 
   /** Commit a pending edit (insert or update) and close the editor. */
@@ -92,7 +101,7 @@ export function useFeatureManager(
     undo.current = () => {
       setRecords(prev => prev.map(record => {
         const removal = removals.find(item => item.record.id === record.id);
-        if (!removal || record.features !== after.get(record.id)) return record;
+        if (!removal || !sameAnnotations(record, after.get(record.id))) return record;
         const features = [...record.features];
         removal.entries.forEach(entry => features.splice(entry.index, 0, entry.feature));
         return { ...record, features, annotationsEdited: removal.record.annotationsEdited };
@@ -104,6 +113,12 @@ export function useFeatureManager(
     addLog(`Removed ${removals.reduce((count, item) => count + item.entries.length, 0)} annotations.`);
   }, [records, setRecords, addLog]);
 
+  const dismissUndo = useCallback(() => {
+    undo.current = null;
+    undoArrays.current = null;
+    setUndoAvailable(false);
+  }, []);
+
   const undoDelete = useCallback(() => {
     undo.current?.();
     undo.current = null;
@@ -113,7 +128,7 @@ export function useFeatureManager(
 
   useEffect(() => {
     if (!undoAvailable || !undoArrays.current) return;
-    const valid = [...undoArrays.current].every(([id, features]) => records.find(record => record.id === id)?.features === features);
+    const valid = [...undoArrays.current].every(([id, features]) => { const record = records.find(record => record.id === id); return Boolean(record && sameAnnotations(record, features)); });
     if (!valid) {
       undo.current = null;
       undoArrays.current = null;
@@ -198,6 +213,7 @@ export function useFeatureManager(
     setEditing,
     undoAvailable,
     undoDelete,
+    dismissUndo,
     removeFeatures,
     saveEditedFeature,
     startNewFeature,

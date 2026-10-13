@@ -23,6 +23,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, stubResizeObserver, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { useFeatureManager } from '@/src/app/hooks/useFeatureManager';
+import { writeDetails } from '@/src/domain/bio/details';
 import HubIndex from '../hub/HubIndex';
 import AnnotationHubPanel, { type HubFocusOrigin } from '../AnnotationHubPanel';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -34,8 +35,8 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const manager = useFeatureManager(value, setValue, null, noop);
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
-  if (viewport) return <button onClick={() => setViewport(false)}>Return to hub</button>;
-  return <>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetDetail={noop} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportAllFasta={noop} onExportGenBank={noop} onExportGff={noop} onExportProjectJson={noop} onExportSubset={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
+  return <><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportAllFasta={noop} onExportGenBank={noop} onExportGff={noop} onExportProjectJson={noop} onExportSubset={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
@@ -98,6 +99,38 @@ describe('AnnotationHubPanel', () => {
     expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
     fireEvent.click(screen.getByText('Return to hub')); expect(screen.getByText('Last focused')).toBeTruthy();
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq7')).toBeTruthy();
+  });
+  it('preserves the current scroll position on ordinary tab switches after a focus return', () => {
+    render(<Subject index />); fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq7' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open gene7 on seq7 in viewport' }));
+    fireEvent.click(screen.getByText('Return to hub'));
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq0' }));
+    fireEvent.click(screen.getByText('Visit viewport')); fireEvent.click(screen.getByText('Switch back normally'));
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq0')).toBeTruthy();
+  });
+  it('keeps annotation selection on its feature when bulk details create source data', () => {
+    render(<Subject initial={[{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]} />);
+    fireEvent.click(screen.getByLabelText('Select annotation b on seq0'));
+    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByLabelText('Select sequence seq0'));
+    fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'camel' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect((screen.getByLabelText('Select annotation b on seq0') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete with undo' }));
+    expect(screen.queryByText('b')).toBeNull(); expect(screen.getByText('a')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('camel')).toBeTruthy();
+  });
+  it('reveals a missing sequence after a filtered Features jump and explains the cleared filters', () => {
+    const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus' } };
+    const initial = [{ ...records[0], features: [source, records[0].features[0]] }, { ...records[1], features: [source, { ...records[1].features[0], name: 'other' }] }];
+    render(<Subject initial={initial} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Features 2' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
+    fireEvent.click(screen.getByRole('button', { name: 'CDS 2' }));
+    fireEvent.change(screen.getByLabelText('Strand'), { target: { value: 'fwd' } });
+    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'seq1' }));
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq1')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Search and type filters cleared to show seq1');
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   });
   it('keeps biological length and aligned geometry in focus', () => {
     const focused = vi.fn();

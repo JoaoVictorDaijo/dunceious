@@ -133,6 +133,7 @@ const App: React.FC = () => {
     setEditing,
     undoAvailable,
     undoDelete,
+    dismissUndo,
     removeFeatures,
     saveEditedFeature,
     startNewFeature,
@@ -172,6 +173,13 @@ const App: React.FC = () => {
     searchSelectionRef.current = null;
   };
 
+  const resetHubWorkspace = () => {
+    hubState.resetWorkspace();
+    dismissUndo();
+    setHubFocus(null);
+    setShowHubReturn(false);
+  };
+
   const {
     handleDroppedFiles,
     exportSubset,
@@ -195,6 +203,7 @@ const App: React.FC = () => {
     featureColors,
     { showAnnotations, showTranslation, showConservation },
     {
+      onWorkspaceReplaced: resetHubWorkspace,
       setRecords,
       setFeatureColors,
       setActiveSelection,
@@ -244,6 +253,17 @@ const App: React.FC = () => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
 
+    const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
+    record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
+    hubState.setSelectedRecords(prev => new Set([...prev].filter(id => id !== recordId)));
+    hubState.setSelectedRows(prev => new Set([...prev].filter(key => !keys.has(key))));
+    hubState.setFilters(prev => {
+      if (!prev.onlyIds?.has(recordId)) return prev;
+      const onlyIds = new Set([...prev.onlyIds].filter(id => id !== recordId));
+      return { ...prev, onlyIds: onlyIds.size ? onlyIds : undefined };
+    });
+    if (hubFocus && keys.has(hubFocus.key)) { setHubFocus(null); setShowHubReturn(false); }
+    if (hubState.jumpTarget && (hubState.jumpTarget.key === recordId || keys.has(hubState.jumpTarget.key))) hubState.setJumpTarget(null);
     setRecords(prev => removeRecordFromProject(prev, recordId));
     setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
 
@@ -288,6 +308,7 @@ const App: React.FC = () => {
     // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
     const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
     if (choice?.trim().toUpperCase() !== 'CLEAR') return;
+    resetHubWorkspace();
     setRecords([]);
     addLog('Workspace cleared.');
   };
@@ -443,7 +464,7 @@ const App: React.FC = () => {
               {activeTab === 'alignment' && showHubReturn && hubFocus && (
                 <HubReturnPill
                   label={hubFocus.label}
-                  onReturn={() => changeTab('features')}
+                  onReturn={() => { hubState.setJumpTarget(prev => ({ key: hubFocus.key, serial: (prev?.serial ?? 0) + 1 })); changeTab('features'); }}
                   onDismiss={() => setShowHubReturn(false)}
                 />
               )}

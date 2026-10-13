@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
-import type { SequenceSection } from '@/src/app/logic/hubModel';
+import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import type { BioFeature, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
@@ -37,6 +37,7 @@ type Entry = { key: string; sectionKey: string; size: number } & (
   | { type: 'empty'; record: SeqRecord } | { type: 'spacer' });
 export interface HubListProps {
   items: SequenceSection[] | FeatureGroup[]; kind: 'sequences' | 'features'; state: HubState;
+  records?: SeqRecord[]; onNotice?: (message: string) => void;
   height?: number; featureColors?: Record<string, string>; lastFocusedKey?: string | null; currentRowKey?: string | null;
   isAlignmentLocked?: boolean;
   onFocusItem?: (target: FocusTarget, origin: HubFocusOrigin) => void;
@@ -50,7 +51,7 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
   return data(index, style);
 }
 
-export default function HubList({ items, kind, state, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog }: HubListProps) {
+export default function HubList({ items, kind, state, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog }: HubListProps) {
   const list = useRef<VariableSizeList>(null);
   const container = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState(600);
@@ -126,7 +127,23 @@ export default function HubList({ items, kind, state, height: providedHeight, fe
     }
   }, [pending, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
   const jump = (key: string) => state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 }));
-  const sequenceJump = (key: string) => { state.setTab('sequences'); jump(key); };
+  const sequenceJump = (key: string) => {
+    const record = records.find(record => record.id === key);
+    if (record) {
+      const sequenceHidden = !matchesSequenceFilters(record, state.filters);
+      const noSequenceFilters = { ...state.filters, sequenceQuery: '', needsAttention: false, onlyIds: undefined };
+      const annotationHidden = !buildSequenceSections([record], noSequenceFilters, { grouped: false }, 'load').length;
+      if (sequenceHidden || annotationHidden) {
+        state.setFilters(prev => ({ ...prev,
+          ...(annotationHidden ? { query: '', types: new Set<string>(), strand: 'all' as const } : {}),
+          ...(sequenceHidden ? { sequenceQuery: '', needsAttention: false, onlyIds: undefined } : {}),
+        }));
+        const cleared = annotationHidden ? sequenceHidden ? 'Search, type and sequence filters' : 'Search and type filters' : 'Sequence filters';
+        onNotice?.(`${cleared} cleared to show ${record.label || record.accession || record.id}`);
+      }
+    }
+    state.setTab('sequences'); jump(key);
+  };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={() => fold(entry.key)} onSequence={sequenceJump} />;

@@ -71,8 +71,24 @@ export function useHubState() {
   }, [onlyProblems, setSearchFolds]);
   const [indexFolds, setIndexFolds] = useState<Set<string>>(() => new Set());
 
+  const resetWorkspace = useCallback(() => {
+    setSelectedRecords(new Set());
+    setSelectedRows(new Set());
+    setFilters({ query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false });
+    setCollapsed({ sequences: new Set(), features: new Set() });
+    setSearchFolds(new Set());
+    setIndexFolds(new Set());
+    setScrollOffset({ sequences: 0, features: 0 });
+    setJumpTarget(null);
+    setCurrentSectionKey(null);
+    setMenu(null);
+    setEditingDetails(null);
+    setOnlyProblemsValue(false);
+    setTab('sequences');
+  }, [setFilters, setSearchFolds]);
+
   return {
-    indexFolds, setIndexFolds,
+    resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,

@@ -52,7 +52,8 @@ export function writeDetails(record: SeqRecord, details: SequenceDetails): SeqRe
   }
   const updated = { ...source, metadata };
   const features = [...record.features];
-  if (sourceIndex < 0) features.unshift(updated);
+  // Annotation row keys use feature indices, so creating details cannot shift them.
+  if (sourceIndex < 0) features.push(updated);
   else features[sourceIndex] = updated;
   return { ...record, features };
 }

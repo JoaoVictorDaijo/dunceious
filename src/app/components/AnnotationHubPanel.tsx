@@ -71,6 +71,8 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const [currentRow, setCurrentRow] = useState<string | null>(null);
   const [searchIndex, setSearchIndex] = useState(-1);
   const [dragOver, setDragOver] = useState(false);
+  const [notice, setNotice] = useState('');
+  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(timer); }, [notice]);
   const sections = useMemo(() => buildSequenceSections(records, state.filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort), [records, state.filters, state.grouped, state.groupField, state.sort]);
   const groups = useMemo(() => buildFeatureGroups(records, state.filters, state.onlyProblems), [records, state.filters, state.onlyProblems]);
   const items = state.tab === 'sequences' ? sections : groups;
@@ -91,10 +93,8 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const jump = (key: string) => { setCurrentRow(key); state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); };
   useEffect(() => { setSearchIndex(-1); }, [state.filters, state.tab, state.onlyProblems]);
   useEffect(() => {
-    if (!lastFocusedKey) return;
-    state.setJumpTarget(prev => ({ key: lastFocusedKey, serial: (prev?.serial ?? 0) + 1 }));
-    setCurrentRow(lastFocusedKey);
-  }, [lastFocusedKey, state.setJumpTarget]);
+    if (state.jumpTarget && rows.includes(state.jumpTarget.key)) setCurrentRow(state.jumpTarget.key);
+  }, [state.jumpTarget, rows]);
   const navigate = (direction: number) => {
     if (!matches.length) return;
     const index = searchIndex < 0 ? direction > 0 ? 0 : matches.length - 1 : (searchIndex + direction + matches.length) % matches.length;
@@ -132,11 +132,12 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
     <HubTabs state={state} sequences={records.length} features={groups.length} />
     <FilterBar state={state} types={types} keys={items.map(item => item.key)} />
     <SelectionBar records={records} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onToggleVisibility={props.onToggleRecordVisibility} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} onExport={props.onExportSubset} onDeleteRows={props.onDeleteRows} />
+    {notice && <p role="status" className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-slate-700">{notice}</p>}
     <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-500">
       <input type="checkbox" aria-label="Select all visible annotations" checked={annotationKeys.size > 0 && [...annotationKeys].every(key => state.selectedRows.has(key))} ref={input => { if (input) input.indeterminate = [...annotationKeys].some(key => state.selectedRows.has(key)) && ![...annotationKeys].every(key => state.selectedRows.has(key)); }} onChange={event => state.setSelectedRows(prev => { const next = new Set(prev); annotationKeys.forEach(key => { if (event.target.checked) next.add(key); else next.delete(key); }); return next; })} />
       <span className="w-24">Type / Strand</span><span className="flex-1">{state.tab === 'features' ? 'Sequence' : 'Name / Product'}</span><span className="w-28">Location</span><span className="w-20 text-right">Length</span><span className="w-52 text-right">Actions</span>
     </div>
-    {items.length ? <HubList key={state.tab} items={items} kind={state.tab} state={state} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={(id, index) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }} onToggleRecordVisibility={props.onToggleRecordVisibility} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
+    {items.length ? <HubList key={state.tab} items={items} kind={state.tab} state={state} records={records} onNotice={setNotice} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={(id, index) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }} onToggleRecordVisibility={props.onToggleRecordVisibility} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
     {props.undoAvailable && <UndoToast onUndo={props.onUndoDelete} />}
   </section>;
 }

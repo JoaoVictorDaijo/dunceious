@@ -85,3 +85,12 @@ describe('validateDetail', () => {
     expect(validateDetail('host', '   ')).toEqual(expect.any(String));
   });
 });
+
+it('appends new source details without shifting existing annotation indices', () => {
+  const a = { type: 'gene', name: 'a', start: 0, end: 2, strand: 1 as const };
+  const b = { ...a, name: 'b' };
+  const next = writeDetails(record({ features: [a, b] }), { host: 'camel' });
+  expect(next.features[0]).toBe(a); expect(next.features[1]).toBe(b);
+  expect(next.features[2].type).toBe('source');
+  expect(readDetails(next)).toEqual({ host: 'camel' });
+});

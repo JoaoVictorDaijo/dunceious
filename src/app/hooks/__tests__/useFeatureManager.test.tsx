@@ -18,6 +18,7 @@
  */
 
 // @vitest-environment jsdom
+import { writeDetails, readDetails } from '@/src/domain/bio/details';
 import { useState } from 'react';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
@@ -66,6 +67,15 @@ describe('undo lifetime', () => {
       return { value, setValue, manager: useFeatureManager(value, setValue, null, () => {}) };
     });
   }
+  it('preserves Undo through a real detail edit and restores the previous annotation marker', () => {
+    const { result } = setup(); act(() => result.current.manager.removeFeature('synthetic', 1));
+    act(() => result.current.setValue(prev => prev.map(r => writeDetails(r, { host: 'camel' }))));
+    expect(result.current.manager.undoAvailable).toBe(true);
+    act(() => result.current.manager.undoDelete());
+    expect(result.current.value[0].features.filter(f => f.type !== 'source').map(f => f.name)).toEqual(['a', 'b', 'c']);
+    expect(readDetails(result.current.value[0])).toEqual({ host: 'camel' });
+    expect(result.current.value[0].annotationsEdited).toBeUndefined();
+  });
   it('dismisses undo after another edit to the affected annotations', () => {
     const { result } = setup(); act(() => result.current.manager.removeFeature('synthetic', 1));
     act(() => result.current.setValue(prev => prev.map(r => ({ ...r, features: [...r.features, { name: 'new', type: 'gene', start: 2, end: 3, strand: 1 }] }))));

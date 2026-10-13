@@ -64,7 +64,7 @@ export function exportToGenBank(records: SeqRecord[]): ExportResult {
     if (r.version) gb += `VERSION     ${r.version}\n`;
     gb += `KEYWORDS    .\nSOURCE      ${details.organism || '.'}\n  ORGANISM  ${details.organism || '.'}\nFEATURES             Location/Qualifiers\n`;
 
-    const features = [...r.features];
+    const features = [...r.features.filter(f => f.type === 'source'), ...r.features.filter(f => f.type !== 'source')];
     if (!isProtein && !features.some(f => f.type === 'source')) {
       features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
     }

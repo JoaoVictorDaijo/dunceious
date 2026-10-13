@@ -110,3 +110,20 @@ it('clears search folds when the feature problem filter changes', () => {
   act(() => result.current.setOnlyProblems(true));
   expect(result.current.searchFolds.size).toBe(0);
 });
+
+it('resets workspace-dependent state while keeping grouping, sort and density preferences', () => {
+  const { result } = renderHook(useHubState);
+  act(() => {
+    result.current.setGrouped(true); result.current.setGroupField('host'); result.current.setSort('fewest'); result.current.setDensity('comfortable');
+    result.current.setSelectedRows(new Set(['r:0'])); result.current.setSelectedRecords(new Set(['r']));
+    result.current.setFilters(f => ({ ...f, query: 'old', onlyIds: new Set(['r']) }));
+    result.current.setJumpTarget({ key: 'r:0', serial: 1 }); result.current.setCurrentSectionKey('r');
+    result.current.setScrollOffset({ sequences: 100, features: 200 }); result.current.setIndexFolds(new Set(['r']));
+  });
+  act(() => result.current.resetWorkspace());
+  expect(result.current.selectedRows.size).toBe(0); expect(result.current.selectedRecords.size).toBe(0);
+  expect(result.current.filters.query).toBe(''); expect(result.current.filters.onlyIds).toBeUndefined();
+  expect(result.current.jumpTarget).toBeNull(); expect(result.current.currentSectionKey).toBeNull();
+  expect(result.current.scrollOffset).toEqual({ sequences: 0, features: 0 }); expect(result.current.indexFolds.size).toBe(0);
+  expect([result.current.grouped, result.current.groupField, result.current.sort, result.current.density]).toEqual([true, 'host', 'fewest', 'comfortable']);
+});

@@ -139,3 +139,11 @@ it('quotes organelle controlled values as in the INSDC examples', () => {
   const { text } = exportToGenBank([record({ features: [source({ organelle: 'mitochondrion:kinetoplast' })] })]);
   expect(text).toContain('/organelle="mitochondrion:kinetoplast"');
 });
+
+it('writes source first even when source is last in the workspace features', () => {
+  const input = record({ features: [feature(), source({ host: 'camel' })] });
+  const { text } = exportToGenBank([input]);
+  const types = text.split('\n').filter(line => /^ {5}\S/.test(line)).map(line => line.trim().split(/\s+/)[0]);
+  expect(types).toEqual(['source', 'CDS']);
+  expect(input.features.map(f => f.type)).toEqual(['CDS', 'source']);
+});

@@ -78,6 +78,7 @@ function getLoadedCategory(records: SeqRecord[]): 'nucleotide' | 'protein' {
 
 /** Subset of app state that the project-restore handler needs to write back. */
 export interface ProjectSetters {
+  onWorkspaceReplaced?: () => void;
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
   setFeatureColors: Dispatch<SetStateAction<Record<string, string>>>;
   setActiveSelection: Dispatch<SetStateAction<SelectionArea | null>>;
@@ -246,6 +247,7 @@ export function useFileHandlers(
         const parsed = parseProject(text);
         if (!parsed.ok) { addLog(parsed.message); return; }
         const project = parsed.project;
+        setters.onWorkspaceReplaced?.();
         setRecords(project.records.map(r => ({ ...r, visible: r.visible ?? true })));
         setFeatureColors(project.featureColors);
         setActiveSelection(project.activeSelection ?? null);
