@@ -61,7 +61,7 @@ export default function ExportDialog({ records, state, onClose, onExport, onEdit
     return new Set(buildSequenceSections(records, state.filters, { grouped: false }, 'load').flatMap(section => section.rows.map(feature => `${section.record.id}:${section.record.features.indexOf(feature)}`)));
   }, [records, state.filters, state.tab, state.onlyProblems]);
   const extension = EXPORT_EXTENSION[format];
-  const baseName = name.trim().replace(/[\/\\]/g, '_').replace(new RegExp(`\\.${extension}$`, 'i'), '');
+  const baseName = name.trim().replaceAll('/', '_').replaceAll('\\', '_').replace(new RegExp(`\\.${extension}$`, 'i'), '');
   const fileName = `${baseName || 'sequences'}.${extension}`;
   const options = useMemo<ExportOptions>(() => ({
     residues: keepGaps && hasAlignment ? 'aligned' : 'original', header: details ? 'details' : 'id',
