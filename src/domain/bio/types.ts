@@ -69,11 +69,21 @@ export interface QuantitativeTrack {
   color?: string;
 }
 
+export type DetailKey = 'organism' | 'host' | 'location' | 'collectionDate';
+export type SequenceDetails = Partial<Record<DetailKey, string>>;
+
 export interface SeqRecord {
   id: string;
   name: string;
   definition?: string;
   accession?: string;
+  version?: string;
+  importedFrom?: string;
+  label?: string;
+  fileDetails?: SequenceDetails;
+  locationQualifier?: 'geo_loc_name' | 'country';
+  fastaModifiers?: Record<string, string>;
+  annotationsEdited?: boolean;
   /** Raw, ungapped residue string — always the coordinate space of source-record features. */
   sequence: string;
   moleculeType?: 'dna' | 'rna' | 'protein'; // governs reverse-strand search & translation availability
