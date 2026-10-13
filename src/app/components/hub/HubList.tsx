@@ -62,7 +62,8 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
   const [hovered, setHovered] = useState<BioFeature | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const editor = useMemo(() => state.editingDetails ? { id: state.editingDetails, kind: 'details' as const } : editingName ? { id: editingName, kind: 'name' as const } : null, [state.editingDetails, editingName]);
-  const closeEditor = () => { state.setEditingDetails(null); setEditingName(null); };
+  const [draft, setDraft] = useState<{ id: string; details?: SequenceDetails; label?: string } | null>(null);
+  const closeEditor = () => { state.setEditingDetails(null); setEditingName(null); setDraft(null); };
   const height = providedHeight ?? measuredHeight;
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
   const folded = useCallback((key: string) => filtering ? state.searchFolds.has(`${kind}:${key}`) : state.collapsed[kind].has(key), [filtering, state.searchFolds, state.collapsed, kind]);
@@ -153,7 +154,7 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
     state.setTab('sequences'); jump(key);
   };
   const edit = (id: string, kind: 'details' | 'name') => {
-    open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
+    setDraft({ id }); open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
   };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
@@ -163,7 +164,7 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
-    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor record={entry.record} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
+    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor record={entry.record} draft={draft?.id === entry.record.id ? draft.details ?? {} : {}} onChange={details => setDraft({ id: entry.record.id, details })} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} label={draft?.id === entry.record.id ? draft.label ?? entry.record.label ?? '' : entry.record.label ?? ''} onChange={label => setDraft({ id: entry.record.id, label })} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
     if (entry.type === 'spacer') return <div style={style} />;
     if (entry.type === 'header') return <div style={{ ...style, visibility: index === pinnedIndex ? 'hidden' : undefined }}>{header(entry)}</div>;
     if (entry.type === 'divider') return <div style={style} className="bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-600">{entry.label} · {entry.count}</div>;

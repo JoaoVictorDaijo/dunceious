@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { DetailKey, SequenceDetails, SeqRecord } from '@/src/domain/bio/types';
 import { DETAIL_QUALIFIER, readDetails, validateDetail } from '@/src/domain/bio/details';
 import { INSDC_COUNTRIES } from '@/src/domain/bio/insdcVocabulary';
@@ -28,13 +28,13 @@ const fields: { key: DetailKey; label: string; placeholder: string }[] = [
   { key: 'location', label: 'Location', placeholder: 'Saudi Arabia:Riyadh' },
   { key: 'collectionDate', label: 'Collection date', placeholder: '2014, Mar-2014 or 21-Mar-2014' },
 ];
-export default function DetailsEditor({ record, onSave, onCancel }: { record: SeqRecord; onSave: (details: SequenceDetails) => void; onCancel: () => void }) {
-  const [draft, setDraft] = useState<SequenceDetails>(() => readDetails(record));
+export default function DetailsEditor({ record, draft, onChange, onSave, onCancel }: { record: SeqRecord; draft: SequenceDetails; onChange: (details: SequenceDetails) => void; onSave: (details: SequenceDetails) => void; onCancel: () => void }) {
+  const details = { ...readDetails(record), ...draft };
   const id = useId();
   return <form aria-label={`Details for ${record.id}`} className="h-full overflow-y-auto border-b border-slate-200 bg-white px-5 py-4 text-xs text-slate-700" onSubmit={event => { event.preventDefault(); onSave(draft); }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onCancel(); } }}>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {fields.map(({ key, label, placeholder }) => {
-        const value = draft[key] ?? '';
+        const value = details[key] ?? '';
         const edited = value !== (record.fileDetails?.[key] ?? '');
         const warning = edited ? validateDetail(key, value) : null;
         const qualifier = key === 'location' ? record.locationQualifier ?? DETAIL_QUALIFIER[key] : DETAIL_QUALIFIER[key];
@@ -42,9 +42,9 @@ export default function DetailsEditor({ record, onSave, onCancel }: { record: Se
           <label htmlFor={`${id}-${key}`} className="block font-semibold">{label}</label>
           <span className="font-mono text-slate-500">/{qualifier}</span>
           {edited && <span className="ml-2 text-amber-700">edited</span>}
-          <input id={`${id}-${key}`} autoFocus={key === 'organism'} value={value} placeholder={placeholder} list={key === 'location' ? `${id}-countries` : undefined} aria-invalid={Boolean(warning)} aria-describedby={warning ? `${id}-${key}-warning` : undefined} className={`mt-1 w-full rounded border bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${warning ? 'border-amber-500 text-amber-800' : 'border-slate-300'}`} onChange={event => setDraft(prev => ({ ...prev, [key]: event.target.value }))} />
+          <input id={`${id}-${key}`} autoFocus={key === 'organism'} value={value} placeholder={placeholder} list={key === 'location' ? `${id}-countries` : undefined} aria-invalid={Boolean(warning)} aria-describedby={warning ? `${id}-${key}-warning` : undefined} className={`mt-1 w-full rounded border bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${warning ? 'border-amber-500 text-amber-800' : 'border-slate-300'}`} onChange={event => onChange({ ...draft, [key]: event.target.value })} />
           {warning && <p id={`${id}-${key}-warning`} className="mt-1 text-amber-700">{warning}</p>}
-          {edited && <button type="button" aria-label={`Revert ${label} to the file's value`} className="mt-1 py-1 text-amber-700 underline focus-visible:ring-2 focus-visible:ring-amber-500" onClick={() => setDraft(prev => ({ ...prev, [key]: record.fileDetails?.[key] ?? '' }))}>Revert to the file's value</button>}
+          {edited && <button type="button" aria-label={`Revert ${label} to the file's value`} className="mt-1 py-1 text-amber-700 underline focus-visible:ring-2 focus-visible:ring-amber-500" onClick={() => onChange({ ...draft, [key]: record.fileDetails?.[key] ?? '' })}>Revert to the file's value</button>}
         </div>;
       })}
     </div>

@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 export default function DisplayName({ record, onRename }: { record: SeqRecord; onRename?: () => void }) {
@@ -28,12 +28,11 @@ export default function DisplayName({ record, onRename }: { record: SeqRecord; o
   </span>;
 }
 
-export function DisplayNameEditor({ record, onSave, onCancel }: { record: SeqRecord; onSave: (label: string) => void; onCancel: () => void }) {
-  const [label, setLabel] = useState(record.label ?? '');
+export function DisplayNameEditor({ record, label, onChange, onSave, onCancel }: { record: SeqRecord; label: string; onChange: (label: string) => void; onSave: (label: string) => void; onCancel: () => void }) {
   const id = useId();
   return <form className="flex h-full flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-5 py-3 text-xs" onSubmit={event => { event.preventDefault(); onSave(label); }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onCancel(); } }}>
     <label htmlFor={id}>Display name</label>
-    <input autoFocus id={id} value={label} placeholder={record.accession || record.id} onChange={event => setLabel(event.target.value)} className="min-w-0 flex-1 rounded border border-slate-300 p-2 focus-visible:ring-2 focus-visible:ring-amber-500" />
+    <input autoFocus id={id} value={label} placeholder={record.accession || record.id} onChange={event => onChange(event.target.value)} className="min-w-0 flex-1 rounded border border-slate-300 p-2 focus-visible:ring-2 focus-visible:ring-amber-500" />
     <button type="submit" className="rounded bg-amber-100 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Save name</button>
     <button type="button" onClick={onCancel} className="rounded border border-slate-300 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Cancel</button>
     <p className="w-full text-slate-500">Display names are saved in the project only.</p>

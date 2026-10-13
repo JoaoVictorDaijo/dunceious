@@ -74,3 +74,16 @@ it('keeps display names and accessions on Features rows and missing-sequence lin
   expect(within(missing).getByText('ACC_c').className).toContain('font-mono');
   expect(screen.getByText('Isolate a').closest('[data-row-key]')?.textContent).toContain('ACC_a');
 });
+
+it('keeps a name draft when scrolling away unmounts its virtual entry', () => {
+  render(<Subject initial={[record, ...Array.from({ length: 20 }, (_, i) => ({ ...record, id: `extra${i}`, label: undefined }))]} />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Rename workspace' }));
+  fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'New draft' } });
+  const viewport = screen.getByLabelText('Display name').closest('form')?.parentElement?.parentElement?.parentElement;
+  if (!viewport) throw new Error('Missing virtual viewport');
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 500 }, scrollHeight: { configurable: true, value: 5000 } });
+  fireEvent.scroll(viewport, { target: { scrollTop: 2000 } });
+  expect(screen.queryByLabelText('Display name')).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 0 } });
+  expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('New draft');
+});

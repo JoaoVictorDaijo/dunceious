@@ -29,13 +29,13 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import HubList from '../HubList';
 
 const fasta: SeqRecord = { id: 'contig', name: 'contig', sequence: 'AAAA', features: [], importedFrom: 'camel.fa' };
-function Subject({ initial = fasta }: { initial?: SeqRecord }) {
-  const [records, setRecords] = useState([initial]);
+function Subject({ initial = fasta, many = false }: { initial?: SeqRecord; many?: boolean }) {
+  const [records, setRecords] = useState([initial, ...(many ? Array.from({ length: 20 }, (_, i) => ({ ...fasta, id: `extra${i}` })) : [])]);
   const manager = useFeatureManager(records, setRecords, null, () => {});
   const state = useHubState();
   return <><output aria-label="Saved details">{JSON.stringify(readDetails(records[0]))}</output>
-    <output aria-label="Feature count">{records[0].features.length}</output>
-    <HubList items={buildSequenceSections(records, state.filters, { grouped: false }, 'load')} records={records} kind="sequences" state={state} height={700} onSetRecordDetails={manager.setRecordDetails} />
+    <button onClick={() => manager.setRecordDetails('contig', { host: 'bat' })}>Bulk host bat</button><output aria-label="Feature count">{records[0].features.length}</output>
+    <HubList items={buildSequenceSections(records, state.filters, { grouped: false }, 'load')} records={records} kind="sequences" state={state} height={many ? 300 : 700} onSetRecordDetails={manager.setRecordDetails} />
   </>;
 }
 function open() {
@@ -88,4 +88,25 @@ describe('sequence details editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByLabelText('Saved details').textContent).toBe('{"location":"Historical country"}');
   });
+});
+
+it('keeps a details draft when scrolling away unmounts its virtual entry', () => {
+  render(<Subject many />); open();
+  fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
+  const viewport = screen.getByRole('form', { name: 'Details for contig' }).parentElement?.parentElement?.parentElement;
+  if (!viewport) throw new Error('Missing virtual viewport');
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 300 }, scrollHeight: { configurable: true, value: 5000 } });
+  fireEvent.scroll(viewport, { target: { scrollTop: 2000 } });
+  expect(screen.queryByLabelText('Host')).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 0 } });
+  expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel draft');
+  fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
+  expect(screen.getByLabelText('Saved details').textContent).toBe('{"host":"camel draft"}');
+});
+it('saves only fields changed inline and keeps a subsequent bulk edit to an untouched field', () => {
+  render(<Subject initial={writeDetails(fasta, { host: 'camel' })} />); open();
+  fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: '2014' } });
+  fireEvent.click(screen.getByText('Bulk host bat'));
+  fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
+  expect(screen.getByLabelText('Saved details').textContent).toBe('{"host":"bat","collectionDate":"2014"}');
 });
