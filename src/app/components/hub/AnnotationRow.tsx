@@ -64,7 +64,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
       {lastFocused && <span className="ml-2 text-amber-700">Last focused</span>}
       {detail && <p title={detail} className="truncate text-slate-500">{detail}</p>}
     </div>
-    <span title={location} aria-label={`Location: ${location}`} className="min-w-0 w-28 shrink-0 truncate font-mono text-slate-600">{location}</span>
+    <span title={location} aria-label={`Location: ${location}`} className="min-w-0 w-[26ch] shrink-0 truncate font-mono text-slate-600">{location}</span>
     <span className="w-20 shrink-0 text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span>
     <div className="flex shrink-0 gap-1 text-slate-500">
       <button aria-label={`Inspect ${feature.name} on ${record.id}`} className="p-2" onClick={onInspect}><i aria-hidden="true" className="fas fa-info-circle" /></button>
