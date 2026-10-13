@@ -29,9 +29,9 @@
    Options popover renders its own theme without inheriting the page's.
    ============================================================ */
 
-@property --env  { syntax: "<color>"; inherits: true; initial-value: #0ea5e9; }
-@property --env2 { syntax: "<color>"; inherits: true; initial-value: #22d3ee; }
-@property --env3 { syntax: "<color>"; inherits: true; initial-value: #0d9488; }
+@property --env  { syntax: "<color>"; inherits: true; initial-value: #4bbbef; }
+@property --env2 { syntax: "<color>"; inherits: true; initial-value: #95dcff; }
+@property --env3 { syntax: "<color>"; inherits: true; initial-value: #2b91be; }
 
 .app-root {
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
