@@ -92,7 +92,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('exact')}
             aria-pressed={searchMode === 'exact'}
             data-tip="Exact search with IUPAC ambiguity codes (N, R, Y…)"
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             IUPAC
           </button>
@@ -100,7 +100,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('fuzzy')}
             aria-pressed={searchMode === 'fuzzy'}
             data-tip="Approximate search: tolerates mismatches, ranked by score"
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             Fuzzy
           </button>
@@ -114,7 +114,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             <input
               type="text"
               placeholder={searchMode === 'exact' ? 'Enter IUPAC sequence...' : 'Enter query sequence...'}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-[12px] font-bold text-slate-200 outline-none focus:border-sky-500 transition-all pr-20 shadow-inner group-hover:border-slate-700"
+              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-[12px] font-bold text-slate-200 outline-none focus:border-env transition-all pr-20 shadow-inner group-hover:border-slate-700"
               value={searchQuery}
               onChange={e => onSearchQueryChange(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && onSearch()}
@@ -126,14 +126,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 </button>
               )}
               {isSearching ? (
-                <i className="fas fa-circle-notch fa-spin text-sky-500 text-sm"></i>
+                <i className="fas fa-circle-notch fa-spin text-env text-sm"></i>
               ) : (
                 <button
                   onClick={onSearch}
                   aria-label="Search"
                   data-tip="Run the search"
                   data-tip-kbd="Enter"
-                  className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500 hover:bg-sky-500 hover:text-white transition-all shadow-inner"
+                  className="w-8 h-8 rounded-xl bg-env/10 flex items-center justify-center text-env hover:bg-env-strong hover:text-white transition-all shadow-inner"
                 >
                   <i className="fas fa-arrow-right text-[10px]"></i>
                 </button>
@@ -146,7 +146,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {searchMode === 'fuzzy' && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Min Match Confidence</label>
+              <label className="text-[11px] font-semibold text-slate-400">Min match confidence</label>
               <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">{searchOptions.minScore}%</span>
             </div>
             <input
@@ -162,12 +162,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
             <div className="space-y-2">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Strand</label>
+              <label className="text-[11px] font-semibold text-slate-400 px-1">Strand</label>
               <div className="relative">
                 <select
                   value={searchOptions.strand}
                   onChange={e => onSearchOptionsChange({ ...searchOptions, strand: e.target.value as 'fwd' | 'rev' | 'both' })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-sky-500 appearance-none cursor-pointer"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-env appearance-none cursor-pointer"
                 >
                   <option value="both">Both Strands</option>
                   <option value="fwd">Forward Only</option>
@@ -178,12 +178,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             </div>
           )}
           <div className="space-y-2">
-            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Result Limit</label>
+            <label className="text-[11px] font-semibold text-slate-400 px-1">Result limit</label>
             <input
               type="number"
               value={searchOptions.maxResults}
               onChange={e => onSearchOptionsChange({ ...searchOptions, maxResults: parseInt(e.target.value) })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-sky-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-none focus:border-env"
             />
           </div>
         </div>
@@ -194,13 +194,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             <div className="flex items-center justify-between mb-6 px-1">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-200 uppercase tracking-widest">{filteredResults.length} Matches</span>
-                  <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                  <span className="text-[11px] font-semibold text-slate-200">{filteredResults.length} matches</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
                 </div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                  Across {Object.keys(groupedSearchResults).length} Records
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Across {Object.keys(groupedSearchResults).length} records
                 </span>
               </div>
               <div className="flex gap-2">
@@ -208,7 +208,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   <button
                     onClick={() => onSetSelectedIndices(new Set())}
                     data-tip="Deselect all matches"
-                    className="text-[9px] font-bold uppercase text-rose-500 hover:text-rose-400 transition-colors"
+                    className="text-[11px] font-semibold text-rose-500 hover:text-rose-400 transition-colors"
                   >
                     Clear
                   </button>
@@ -217,9 +217,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   <button
                     onClick={onJoinSelectedMatches}
                     data-tip="Create one multi-segment annotation from the selected matches"
-                    className="px-4 py-2 rounded-xl bg-sky-600 text-white text-[9px] font-bold uppercase hover:bg-sky-500 transition-all shadow-xl shadow-sky-900/40"
+                    className="px-4 py-2 rounded-xl bg-env-strong text-white text-[11px] font-semibold hover:bg-env-strong/90 transition-all shadow-xl"
                   >
-                    Join Selected
+                    Join selected
                   </button>
                 )}
               </div>
@@ -230,23 +230,23 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 <div key={recordId} className="space-y-4">
                   <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div>
-                      <span className="text-[10px] font-bold text-slate-300 uppercase truncate max-w-[140px] tracking-tight">{recordId}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-env"></div>
+                      <span className="text-[11px] font-semibold text-slate-300 truncate max-w-[140px]">{recordId}</span>
                     </div>
                     <div className="flex gap-3">
                       <button
                         onClick={() => onToggleRecordSelection(recordId, true)}
                         data-tip="Select every match in this record"
-                        className="text-[8px] font-bold text-slate-400 uppercase hover:text-sky-400 transition-colors"
+                        className="text-[11px] font-semibold text-slate-400 hover:text-env transition-colors"
                       >
-                        Select All
+                        Select all
                       </button>
                       <button
                         onClick={() => onJoinAllInRecord(recordId)}
-                        className="text-[8px] font-bold text-slate-400 uppercase hover:text-emerald-400 transition-colors"
+                        className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors"
                         data-tip="Create one multi-segment annotation from every match in this record"
                       >
-                        Join All
+                        Join all
                       </button>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             onSetActiveTab('alignment');
                             onSetActiveSelection({ start: match.start, end: match.end, recordIds: [match.recordId] });
                           }}
-                          className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-sky-500 ring-2 ring-sky-500/20 bg-sky-500/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
+                          className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-env ring-2 ring-env/20 bg-env/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
                         >
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
@@ -279,14 +279,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                                     else next.delete(globalIdx);
                                     onSetSelectedIndices(next);
                                   }}
-                                  className="w-4 h-4 rounded-lg border-slate-700 bg-slate-900 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                  className="w-4 h-4 rounded-lg border-slate-700 bg-slate-900 text-env focus:ring-env cursor-pointer"
                                 />
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[11px] font-bold text-slate-200 tracking-tight">
                                   {match.start.toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
                                 </span>
-                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Position</span>
+                                <span className="text-[11px] font-semibold text-slate-500">Position</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -295,10 +295,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                                   <span className="text-[10px] font-bold text-amber-500">
                                     {scorePercent(match.score, maxScoreFound)}%
                                   </span>
-                                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">Match</span>
+                                  <span className="text-[11px] font-semibold text-slate-500">Match</span>
                                 </div>
                               )}
-                              <div className={`px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                              <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
                                 {match.strand === 1 ? 'Forward' : 'Reverse'}
                               </div>
                             </div>
@@ -313,7 +313,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                           <div className="mt-3 flex justify-between items-center">
                             <div className="flex gap-2">
                               {isActive && (
-                                <span className="text-[8px] font-bold text-sky-500 uppercase flex items-center gap-1 animate-pulse">
+                                <span className="text-[11px] font-semibold text-env flex items-center gap-1 animate-pulse">
                                   <i className="fas fa-eye"></i> Active
                                 </span>
                               )}
@@ -325,9 +325,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               }}
                               aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
                               data-tip="Save this match as an annotation"
-                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all text-[9px] font-bold uppercase text-sky-500 hover:text-sky-400 flex items-center gap-2 bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-lg border border-sky-500/20"
+                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-env transition-all text-[11px] font-semibold text-env flex items-center gap-2 bg-env/10 hover:bg-env/20 px-3 py-1.5 rounded-lg border border-env/20"
                             >
-                              <i className="fas fa-plus text-[8px]"></i> Annotate
+                              <i className="fas fa-plus text-[10px]"></i> Annotate
                             </button>
                           </div>
                         </div>

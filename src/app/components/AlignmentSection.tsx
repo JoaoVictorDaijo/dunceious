@@ -40,10 +40,10 @@ export default function AlignmentSection({ count, state = { phase: 'idle' }, onO
       <button type="button" onClick={onOpen} disabled={count === 0}
         data-tip={active ? 'Show the running alignment' : "Send the loaded sequences to EMBL-EBI's servers for alignment, then overlay the result"}
         className="flex w-full items-center justify-between gap-3 rounded-xl bg-[var(--env)] px-4 py-3 text-left text-xs font-bold text-slate-950 motion-safe:transition-opacity enabled:hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--env)]">
-        <span>{active ? 'Alignment running' : 'Align Sequences'}</span>
+        <span>{active ? 'Alignment running' : 'Align sequences'}</span>
         <i aria-hidden="true" className={`fas ${active ? 'fa-circle-notch motion-safe:animate-spin' : 'fa-arrow-right'}`} />
       </button>
-      <p className="mt-2 text-[9px] text-slate-400">MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI</p>
+      <p className="mt-2 text-[11px] text-slate-400">MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI</p>
       {active && <p className="mt-2 text-[10px] text-[var(--env)]">
         <span role="status">{engine} · {alignmentStage(state)}</span> · {elapsedSeconds(state, now)} s
       </p>}

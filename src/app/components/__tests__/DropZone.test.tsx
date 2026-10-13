@@ -28,7 +28,7 @@ const files = { dataTransfer: { types: ['Files'] } };
 function renderZone(props: Partial<React.ComponentProps<typeof DropZone>> = {}) {
   const onChange = vi.fn();
   const view = render(
-    <DropZone accent="sky" icon="fa-folder-tree" title="Drop Input Batch" hint="GB or FASTA"
+    <DropZone accent="sky" icon="fa-folder-tree" title="Drop input batch" hint="GB or FASTA"
       accept=".gb,.fasta" multiple tip="Open files" onChange={onChange} {...props} />,
   );
   const zone = view.container.querySelector('[data-drop]') as HTMLElement;
@@ -76,7 +76,7 @@ describe('DropZone', () => {
     fireEvent.change(input);
     expect(onChange).toHaveBeenCalledOnce();
     expect(zone.getAttribute('data-drop')).not.toBe('over');
-    rerender(<DropZone accent="sky" icon="fa-folder-tree" title="Drop Input Batch" hint="GB or FASTA"
+    rerender(<DropZone accent="sky" icon="fa-folder-tree" title="Drop input batch" hint="GB or FASTA"
       accept=".gb,.fasta" tip="Open files" onChange={onChange} armed={false} />);
     expect(zone.getAttribute('data-drop')).toBe('idle');
   });

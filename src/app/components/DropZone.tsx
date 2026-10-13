@@ -99,11 +99,11 @@ export default function DropZone({
     >
       <input type="file" multiple={multiple} accept={accept} className="absolute inset-0 opacity-0 cursor-pointer" disabled={disabled} onChange={onChange} />
       <i className={`drop-zone-icon fas ${icon} text-slate-700 ${colors.icon} block ${primary ? 'mb-4 text-4xl' : 'mb-3 text-3xl'}`}></i>
-      <p className={`${primary ? 'text-[10px]' : 'text-[9px]'} font-bold text-slate-400 uppercase group-hover:text-slate-300 tracking-tight`}>{title}</p>
+      <p className="text-[11px] font-semibold text-slate-400 group-hover:text-slate-300">{title}</p>
       {state === 'over' ? (
-        <p className="drop-zone-release text-[8px] font-bold uppercase mt-1" aria-live="polite">Release to load</p>
+        <p className="drop-zone-release text-[11px] font-semibold mt-1" aria-live="polite">Release to load</p>
       ) : (
-        <p className={primary ? 'text-[8px] font-medium text-slate-500 group-hover:text-slate-400 mt-1' : 'text-[8px] font-bold text-slate-500 uppercase mt-1'}>{hint}</p>
+        <p className={primary ? 'text-[11px] font-medium text-slate-500 group-hover:text-slate-400 mt-1' : 'text-[11px] font-semibold text-slate-500 mt-1'}>{hint}</p>
       )}
     </div>
   );

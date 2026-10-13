@@ -127,7 +127,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-slate-200" style={{ top: 0, height: l.annotHeight + l.topPadding }} />
             <div className="absolute right-2 flex items-center" style={{ top: 4, height: 12 }}>
-              <span className="text-[8px] font-bold uppercase text-slate-400 tracking-widest">Annot</span>
+              <span className="text-[10px] leading-none font-bold uppercase text-slate-400 tracking-widest">Annot</span>
             </div>
           </>
         )}
@@ -136,7 +136,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <>
             <div className="absolute right-0 w-1 bg-indigo-400/30" style={{ top: l.annotHeight + l.topPadding, height: l.quantHeight }} />
             <div className="absolute right-2 flex items-center" style={{ top: l.annotHeight + l.topPadding - 12, height: 12 }}>
-              <span className="text-[8px] font-bold uppercase text-indigo-400 tracking-widest">Tracks</span>
+              <span className="text-[10px] leading-none font-bold uppercase text-indigo-400 tracking-widest">Tracks</span>
             </div>
             {/* Track Legends */}
             <div className="absolute left-0 right-2 flex flex-col items-end pointer-events-none" style={{ top: l.annotHeight + l.topPadding }}>
@@ -144,7 +144,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 const range = quantValueRanges[t.id] || { min: 0, max: 1 };
                 return (
                   <div key={t.id} className="flex flex-col justify-center items-end" style={{ height: t.height, marginBottom: 12 }}>
-                    <span className="text-[8px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
+                    <span className="text-[11px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
                     {t.kind === 'interval' ? (
                       <div 
                         className="w-16 h-1.5 my-0.5 rounded-[1px]" 
@@ -153,7 +153,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     ) : (
                       <div className="w-16 h-[1px] my-1 bg-indigo-400/50" />
                     )}
-                    <span className="text-[8px] font-bold text-slate-500">{range.min.toFixed(1)}</span>
+                    <span className="text-[11px] font-bold text-slate-500">{range.min.toFixed(1)}</span>
                   </div>
                 );
               })}
@@ -165,10 +165,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           style={{ top: 0, height: 1, transformOrigin: 'top',
             transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT})` }} />
         <div className="absolute right-2 flex items-center" style={{ top: bandTop - 12, height: 12 }}>
-          <span className="text-[8px] font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
+          <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
           {l.id}
         </div>
       </div>
@@ -189,7 +189,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           
           {showTracks && tracks.length > 0 && (
             <div className="absolute left-2 z-30 pointer-events-none" style={{ top: l.annotHeight + l.topPadding - 12 }}>
-              <span className="text-[8px] font-bold uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
+              <span className="text-[10px] leading-none font-bold uppercase text-indigo-400 tracking-widest">Quantitative Tracks</span>
             </div>
           )}
 
@@ -438,7 +438,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           </svg>
           {focusedRegion && focusLabelLeft !== null && (
             <div
-              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[9px] font-bold leading-[14px] text-amber-950 shadow-sm animate-in fade-in duration-300 motion-reduce:animate-none"
+              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-sm animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
               {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
@@ -484,7 +484,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
-                    className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded border shadow-sm"
+                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border shadow-sm"
                     style={{ 
                       color: trackColor, 
                       backgroundColor: '#fff',

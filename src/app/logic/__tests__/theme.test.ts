@@ -73,20 +73,34 @@ describe('theme registry', () => {
     }
   });
 
-  it('ships the approved retunes (sky teal env3, protein a78bfa)', () => {
-    expect(DEFAULT_PALETTE.nucleotide.env3).toBe('#0d9488');
-    expect(DEFAULT_PALETTE.protein.env).toBe('#a78bfa');
+  it('keeps every env accent legible as text on the chrome and under slate-950 text', () => {
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map(i => {
+        const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a: string, b: string) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    // slate-900 / slate-950 as overridden in tailwind.config.js
+    for (const p of Object.values(DEFAULT_PALETTE)) {
+      expect(contrast(p.env, '#151e34')).toBeGreaterThanOrEqual(7);
+      expect(contrast(p.env, '#091023')).toBeGreaterThanOrEqual(7);
+    }
   });
 
   it('resolveThemeVars maps the resolved env to the three CSS custom properties', () => {
     expect(resolveThemeVars(getTheme('clean'), 'hub')).toEqual({
-      '--env': '#f59e0b', '--env2': '#fbbf24', '--env3': '#f97316',
+      '--env': '#dfa04b', '--env2': '#f5c891', '--env3': '#b07a2e',
     });
   });
 
   it('resolveThemeVars returns the neutral family for none', () => {
     expect(resolveThemeVars(getTheme('aurora'), 'none')).toEqual({
-      '--env': '#929ba8', '--env2': '#b8bec7', '--env3': '#6e7684',
+      '--env': '#a7afb9', '--env2': '#ccd2d9', '--env3': '#808790',
     });
   });
 

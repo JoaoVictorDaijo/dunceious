@@ -164,7 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-20 group"
         onMouseDown={handleDragStart}
       >
-        <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-sky-500/60 transition-colors" />
+        <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
     <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
@@ -175,55 +175,55 @@ const Sidebar: React.FC<SidebarProps> = ({
           <SectionTitle icon="fa-vector-square">Selection Inspector</SectionTitle>
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Range</span>
-              <span className="text-[10px] font-mono text-sky-400">
+              <span className="text-[11px] font-semibold text-slate-400">Range</span>
+              <span className="text-[11px] font-mono text-sky-400">
                 {activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Length</span>
-              <span className="text-[10px] font-mono text-sky-400">
-                {Math.abs(activeSelection.end - activeSelection.start).toLocaleString()} bp
+              <span className="text-[11px] font-semibold text-slate-400">Length</span>
+              <span className="text-[11px] font-mono text-sky-400">
+                {Math.abs(activeSelection.end - activeSelection.start).toLocaleString()} {isProteinSession ? 'aa' : 'bp'}
               </span>
             </div>
 
             <div className="pt-3 border-t border-slate-800 space-y-3">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-bold text-slate-400 uppercase">Manual Selection</span>
-                <button onClick={() => onSetActiveSelection(null)} data-tip="Clear the current selection" className="text-[8px] font-bold text-rose-500 uppercase hover:text-rose-300 transition-colors">Clear</button>
+                <span className="text-[11px] font-semibold text-slate-400">Manual selection</span>
+                <button onClick={() => onSetActiveSelection(null)} data-tip="Clear the current selection" className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition-colors">Clear</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[8px] font-bold text-slate-500 uppercase">Start</label>
+                  <label className="text-[11px] font-semibold text-slate-400">Start</label>
                   <input
                     type="number"
                     value={activeSelection.start}
                     onChange={e => onSetActiveSelection({ ...activeSelection, start: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] font-mono text-sky-400 outline-none focus:border-sky-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[8px] font-bold text-slate-500 uppercase">End</label>
+                  <label className="text-[11px] font-semibold text-slate-400">End</label>
                   <input
                     type="number"
                     value={activeSelection.end}
                     onChange={e => onSetActiveSelection({ ...activeSelection, end: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] font-mono text-sky-400 outline-none focus:border-sky-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
                   />
                 </div>
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-800 space-y-2">
-              <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Original Coordinates</span>
+              <span className="text-[11px] font-semibold text-slate-400 block mb-1">Original coordinates</span>
               <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar-pro">
                 {transposedRecords.map(r => {
                   const s = getOriginalPos(r.alignedSequence || r.sequence, Math.min(activeSelection.start, activeSelection.end));
                   const e = getOriginalPos(r.alignedSequence || r.sequence, Math.max(activeSelection.start, activeSelection.end));
                   return (
                     <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded">
-                      <span className="text-[8px] font-bold text-slate-400 truncate max-w-[80px]">{r.id}</span>
-                      <span className="text-[9px] font-mono text-slate-300">{s.toLocaleString()} - {e.toLocaleString()}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 truncate max-w-[96px]">{r.id}</span>
+                      <span className="text-[11px] font-mono text-slate-300">{s.toLocaleString()} - {e.toLocaleString()}</span>
                     </div>
                   );
                 })}
@@ -231,13 +231,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-2">
-              <button onClick={onExportSelection} className="py-2 rounded-lg bg-emerald-600/20 text-emerald-500 text-[8px] font-bold uppercase hover:bg-emerald-600/30 transition-all" data-tip="Download the selected region of every visible record as FASTA">
+              <button onClick={onExportSelection} className="py-2 rounded-lg bg-emerald-600/20 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-600/30 transition-all" data-tip="Download the selected region of every visible record as FASTA">
                 <i className="fas fa-file-code mr-1"></i> FASTA
               </button>
-              <button onClick={onExportSelectionJson} className="py-2 rounded-lg bg-indigo-600/20 text-indigo-500 text-[8px] font-bold uppercase hover:bg-indigo-600/30 transition-all" data-tip="Download the selection with its annotations as JSON">
+              <button onClick={onExportSelectionJson} className="py-2 rounded-lg bg-indigo-600/20 text-indigo-400 text-[11px] font-semibold hover:bg-indigo-600/30 transition-all" data-tip="Download the selection with its annotations as JSON">
                 <i className="fas fa-file-json mr-1"></i> JSON
               </button>
-              <button onClick={onStartNewFeature} className="py-2 rounded-lg bg-sky-600/20 text-sky-500 text-[8px] font-bold uppercase hover:bg-sky-600/30 transition-all" data-tip="Create a new annotation spanning the selection">
+              <button onClick={onStartNewFeature} className="py-2 rounded-lg bg-env/15 text-env text-[11px] font-semibold hover:bg-env/25 transition-all" data-tip="Create a new annotation spanning the selection">
                 <i className="fas fa-plus mr-1"></i> Annot
               </button>
             </div>
@@ -253,17 +253,17 @@ const Sidebar: React.FC<SidebarProps> = ({
             {records.map(r => (
               <div
                 key={r.id}
-                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-sky-500/50 transition-all group"
+                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all group"
               >
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
                     data-tip={r.name && r.name !== r.id ? `${r.name}: select this record` : 'Select this record'}
-                    className="flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-sky-500/20 transition-all"
+                    className="flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-env/15 transition-all"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-sky-400 truncate max-w-[150px]">{r.id}</span>
-                      <i className="fas fa-chevron-right text-[8px] text-slate-500 group-hover:text-sky-500"></i>
+                      <span className="text-[11px] font-semibold text-slate-300 group-hover:text-env truncate max-w-[150px]">{r.id}</span>
+                      <i className="fas fa-chevron-right text-[8px] text-slate-500 group-hover:text-env"></i>
                     </div>
                   </button>
                   <button
@@ -274,7 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onRemoveRecord(r.id);
                       }
                     }}
-                    className="disabled:opacity-30 disabled:cursor-not-allowed w-7 h-7 shrink-0 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                    className="disabled:opacity-30 disabled:cursor-not-allowed w-7 h-7 shrink-0 rounded-lg text-slate-500 group-hover:text-rose-400/80 hover:bg-rose-500/15 hover:text-rose-400 focus-visible:text-rose-400 transition-colors"
                     aria-label={`Remove ${r.id}`}
                     data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence from the project"}
                   >
@@ -293,20 +293,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           <SectionTitle icon="fa-compass">Navigation</SectionTitle>
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onSetJumpTo(0)} data-tip="Jump to the first base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-bold uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => onSetJumpTo(0)} data-tip="Jump to the first base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[11px] font-semibold text-slate-400 transition-all flex items-center justify-center gap-2">
                 <i className="fas fa-step-backward"></i> Start
               </button>
-              <button onClick={() => onSetJumpTo(alignmentLength)} data-tip="Jump to the last base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[8px] font-bold uppercase text-slate-400 transition-all flex items-center justify-center gap-2">
+              <button onClick={() => onSetJumpTo(alignmentLength)} data-tip="Jump to the last base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[11px] font-semibold text-slate-400 transition-all flex items-center justify-center gap-2">
                 End <i className="fas fa-step-forward"></i>
               </button>
             </div>
             <div className="space-y-2">
-              <label className="text-[8px] font-bold text-slate-400 uppercase">Go to Position (bp)</label>
+              <label htmlFor="sidebar-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
               <div className="relative">
                 <input
+                  id="sidebar-goto-position"
                   type="number"
                   placeholder="e.g. 5000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[11px] font-mono text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-mono text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const val = parseInt((e.target as HTMLInputElement).value);
@@ -315,11 +316,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     }
                   }}
                 />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-slate-500" aria-hidden="true">{isProteinSession ? 'aa' : 'bp'}</span>
               </div>
             </div>
             <div className="pt-2 border-t border-slate-800">
-              <span className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Shortcuts</span>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[8px] font-bold text-slate-400 uppercase">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Shortcuts</span>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] font-medium text-slate-400">
                 <div className="flex justify-between"><span>Zoom</span> <span className="font-mono text-slate-300">+ / -</span></div>
                 <div className="flex justify-between"><span>Pan</span> <span className="font-mono text-slate-300">Arrows</span></div>
                 <div className="flex justify-between"><span>Fit</span> <span className="font-mono text-slate-300">F</span></div>
@@ -333,19 +335,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Ingestion */}
       <section>
         <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
-        <DropZone accent="sky" icon="fa-folder-tree" title="Drop Input Batch" hint="GB or FASTA" primary className="mb-4"
+        <DropZone accent="sky" icon="fa-folder-tree" title="Drop input batch" hint="GB or FASTA" primary className="mb-4"
           accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} armed={fileDragActive} disabled={isAlignmentLocked}
           tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Open GenBank (.gb) or FASTA files, or drop them here"} />
 
-        <DropZone accent="emerald" icon="fa-file-import" title="Upload Pre-aligned FASTA" hint="IDs must match active records"
+        <DropZone accent="emerald" icon="fa-file-import" title="Upload pre-aligned FASTA" hint="IDs must match active records"
           accept=".fasta,.fa" onChange={onAlignmentUpload} armed={fileDragActive} disabled={isAlignmentLocked} unavailable={records.length === 0}
           tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Overlay an alignment: a FASTA whose IDs match the loaded records"} />
 
-        <DropZone accent="sky" icon="fa-tags" title="Import Annotations" hint="BED, GFF3, or BedGraph" className="mt-4"
+        <DropZone accent="sky" icon="fa-tags" title="Import annotations" hint="BED, GFF3, or BedGraph" className="mt-4"
           accept=".bed,.gff,.gff3,.bedgraph" multiple onChange={onAnnotationUpload} armed={fileDragActive} unavailable={records.length === 0}
           tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" />
 
-        <DropZone accent="amber" icon="fa-project-diagram" title="Load Project JSON" hint="Restore entire workspace" className="mt-4"
+        <DropZone accent="amber" icon="fa-project-diagram" title="Load project JSON" hint="Restore entire workspace" className="mt-4"
           accept=".json" onChange={onProjectUpload} armed={fileDragActive} disabled={isAlignmentLocked}
           tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Restore a workspace saved with Save Project"} />
       </section>
@@ -384,7 +386,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Log terminal */}
       <section className="h-48 flex flex-col shrink-0">
         <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[9px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
+        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
           {logs.map((log, i) => (
             <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
               <span className="text-emerald-500 font-bold">#</span>
