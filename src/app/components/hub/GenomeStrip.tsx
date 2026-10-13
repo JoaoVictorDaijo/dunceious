@@ -28,6 +28,7 @@ type StripFeature = { feature: BioFeature; position: number; location: string; p
 type StripGeometry = { parts: StripPart[]; features: StripFeature[]; ordered: StripFeature[]; lanes: number; views: Map<boolean, { mask: string; paths: StripPath[] }> };
 const defaultColors = {};
 const viewWidth = 1000;
+const laneHeights = { compact: 3, large: 6 };
 // A fixed SVG viewBox scales cached geometry without measuring or rebuilding it on resize.
 const geometryCache = new WeakMap<SeqRecord, WeakMap<Record<string, string>, StripGeometry>>();
 
@@ -51,7 +52,7 @@ function stripGeometry(record: SeqRecord, featureColors = defaultColors): StripG
     const featureParts = segments.map(part => {
       const start = part.start / record.sequence.length * viewWidth;
       const end = part.end / record.sequence.length * viewWidth;
-      const value: StripPart = { feature, index, start, end, lane, color, paths: [rectangle(start, end, lane, 3), rectangle(start, end, lane, 6)] };
+      const value: StripPart = { feature, index, start, end, lane, color, paths: [rectangle(start, end, lane, laneHeights.compact), rectangle(start, end, lane, laneHeights.large)] };
       parts.push(value);
       return value;
     });
@@ -81,6 +82,10 @@ function stripPaths(geometry: StripGeometry, large: boolean, highlight?: (featur
   return paths;
 }
 
+export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>): number {
+  return Math.max(1, stripGeometry(record, featureColors).lanes) * (large ? laneHeights.large : laneHeights.compact);
+}
+
 function GenomeStrip({ record, highlight, large = false, onPick, featureColors }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void }) {
   const geometry = stripGeometry(record, featureColors);
   const paths = stripPaths(geometry, large, highlight);
@@ -90,8 +95,8 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors }
   const index = cursor.record === record ? Math.min(cursor.index, ordered.length - 1) : 0;
   const current = ordered[index];
   const interactive = large && Boolean(onPick) && Boolean(current);
-  const height = large ? 6 : 3;
-  const totalHeight = Math.max(1, geometry.lanes) * height;
+  const height = large ? laneHeights.large : laneHeights.compact;
+  const totalHeight = genomeStripHeight(record, large, featureColors);
   const pick = (event: MouseEvent<SVGSVGElement>) => {
     if (!interactive) return;
     const bounds = event.currentTarget.getBoundingClientRect();

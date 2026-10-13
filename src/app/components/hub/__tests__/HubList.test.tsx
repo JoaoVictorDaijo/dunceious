@@ -34,11 +34,26 @@ function Subject({ kind = 'sequences', offset = 0 }: { kind?: 'sequences' | 'fea
   return <><button onClick={() => state.setDensity('comfortable')}>Comfortable</button><button onClick={() => state.setJumpTarget({ key: 'three:0', serial: 1 })}>Jump third</button><HubList state={state} kind={kind} items={kind === 'sequences' ? sections : buildFeatureGroups(records, state.filters, false)} height={180} /></>;
 }
 describe('HubList', () => {
+  it.each(['compact', 'comfortable'])('uses the rendered content height for %s sequence headers', density => {
+    render(<Subject />);
+    if (density === 'comfortable') fireEvent.click(screen.getByText('Comfortable'));
+    const pinned = screen.getByRole('region', { name: 'Pinned section' });
+    const header = pinned.firstElementChild as HTMLElement;
+    const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
+    expect(pinned.style.height).toBe('95px');
+    expect(header.style.height).toBe('95px');
+    expect(row.style.top).toBe('95px');
+    expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
+    fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
+    expect(pinned.style.height).toBe('89px');
+    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('89px');
+  });
+
   it('pins the section at the restored offset and recomputes after density and jumps', () => {
     stubResizeObserver(); render(<Subject offset={190} />);
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Comfortable'));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('one')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Jump third'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
   });
@@ -55,7 +70,7 @@ describe('HubList', () => {
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
     const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement;
     const viewport = row?.parentElement?.parentElement;
-    expect(Number.parseFloat(row?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(132);
+    expect(Number.parseFloat(row?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(95);
   });
   it('folds rows and shows the composition summary', () => {
     render(<Subject />); fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Collapse one' }));

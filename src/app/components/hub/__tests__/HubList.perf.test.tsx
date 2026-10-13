@@ -135,7 +135,7 @@ describe('100×60 hub acceptance fixture', () => {
     const lastRow = container.querySelector<HTMLElement>('[data-row-key="hub098:60"]');
     expect(lastRow).not.toBeNull();
     const top = Number.parseFloat(lastRow!.parentElement!.style.top) - viewport.scrollTop;
-    expect(top).toBeGreaterThanOrEqual(148);
+    expect(top).toBeGreaterThanOrEqual(113);
     expect(top + 64).toBeLessThanOrEqual(height);
     expect(container.querySelectorAll('[data-row-key]').length).toBeLessThan(100);
   });

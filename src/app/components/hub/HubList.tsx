@@ -25,7 +25,7 @@ import type { useHubState } from '@/src/app/hooks/useHubState';
 import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails } from '@/src/domain/bio/types';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 import type { HubFocusOrigin } from '../AnnotationHubPanel';
-import SequenceSectionHeader from './SequenceSectionHeader';
+import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionHeader';
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
 import OverviewRail from './OverviewRail';
@@ -93,7 +93,7 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : folded(item.key) ? 96 : state.density === 'compact' ? 132 : 148, item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors), item });
       if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? 440 : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
@@ -108,7 +108,7 @@ function HubList({ items, kind, state, records = [], onNotice, height: providedH
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height, editor]);
+  }, [items, kind, folded, state.density, height, editor, featureColors]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
