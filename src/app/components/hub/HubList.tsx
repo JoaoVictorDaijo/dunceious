@@ -26,7 +26,7 @@ import type { BioFeature, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 import type { HubFocusOrigin } from '../AnnotationHubPanel';
 import SequenceSectionHeader from './SequenceSectionHeader';
-import FeatureSectionHeader from './FeatureSectionHeader';
+import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
 import OverviewRail from './OverviewRail';
 
@@ -73,7 +73,7 @@ export default function HubList({ items, kind, state, records = [], onNotice, he
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: folded(item.key) ? 96 : state.density === 'compact' ? 132 : 148, item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : folded(item.key) ? 96 : state.density === 'compact' ? 132 : 148, item });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
       if (kind === 'sequences') {

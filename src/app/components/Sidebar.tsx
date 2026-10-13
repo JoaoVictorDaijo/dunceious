@@ -159,6 +159,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
+  const logOutput = <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
+    {logs.map((log, i) => <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
+      <span className="text-emerald-500 font-bold">#</span><span className="flex-1">{log}</span>
+    </div>)}
+  </div>;
+
   return (
   <aside
     ref={sidebarRef}
@@ -392,18 +398,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       </>}
-      {/* Log terminal */}
-      <section className="h-48 flex flex-col shrink-0">
+      {activeTab === 'features' ? <details className="border-t border-slate-800 pt-3 text-xs text-slate-400">
+        <summary className="cursor-pointer rounded px-1 py-1 focus-visible:ring-2 focus-visible:ring-env">Log</summary>
+        <div className="mt-2 flex h-48 flex-col">{logOutput}</div>
+      </details> : <section className="h-48 flex flex-col shrink-0">
         <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
-          {logs.map((log, i) => (
-            <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
-              <span className="text-emerald-500 font-bold">#</span>
-              <span className="flex-1">{log}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        {logOutput}
+      </section>}
 
     </div>
   </aside>

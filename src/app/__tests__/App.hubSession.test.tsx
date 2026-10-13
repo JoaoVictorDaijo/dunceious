@@ -67,6 +67,13 @@ describe('hub workspace identity', () => {
     expect((screen.getByLabelText('Select annotation new on r') as HTMLInputElement).checked).toBe(false);
     expect(screen.queryByLabelText('Selection actions')).toBeNull();
   });
+  it('keeps the hub log collapsed until requested and preserves the viewport log', async () => {
+    await setup(); const disclosure = screen.getByText('Log').closest('details');
+    expect(disclosure).not.toBeNull(); expect(disclosure?.open).toBe(false);
+    fireEvent.click(screen.getByText('Log')); expect(disclosure?.open).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+    expect(screen.getByText('Log Terminal')).toBeTruthy();
+  });
   it('prunes annotation selection when its record is removed', async () => {
     await setup(); fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
     expect(screen.queryByLabelText('Selection actions')).toBeNull();

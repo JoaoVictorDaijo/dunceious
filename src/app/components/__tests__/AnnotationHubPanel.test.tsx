@@ -132,6 +132,22 @@ describe('AnnotationHubPanel', () => {
     expect(screen.getByRole('status').textContent).toBe('Search and type filters cleared to show seq1');
     expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   });
+  it('exposes the full long location to tooltip and assistive technology', () => {
+    const location = 'complement(join(97999..98793,69611..69724))';
+    render(<Subject initial={[{ ...records[0], features: [{ ...records[0].features[0], locationString: location }] }]} />);
+    expect(screen.getByLabelText(`Location: ${location}`).getAttribute('title')).toBe(location);
+  });
+  it('shows biological lengths with thousands separators', () => {
+    render(<Subject initial={[{ ...records[0], sequence: 'A'.repeat(30000), features: [{ name: 'long', type: 'CDS', start: 0, end: 21290, strand: 1 }] }]} />);
+    expect(screen.getByText('21,290 bp')).toBeTruthy();
+  });
+  it('identifies each Features row by accession, annotation and isolate', () => {
+    const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus', isolate: 'camel-1' } };
+    render(<Subject initial={[{ ...records[0], features: [source, { name: 'gene S', type: 'gene', start: 0, end: 30, strand: 1, metadata: { gene: 'S' } }, { name: 'spike', type: 'CDS', start: 0, end: 30, strand: 1, metadata: { gene: 'S', product: 'surface protein' } }] }]} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
+    expect(screen.getByText('gene S · camel-1')).toBeTruthy();
+    expect(screen.getByText('spike · surface protein · camel-1')).toBeTruthy();
+  });
   it('keeps biological length and aligned geometry in focus', () => {
     const focused = vi.fn();
     render(<Subject focused={focused} initial={[{ id: 'gap', name: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--', features: [{ name: 'joined', type: 'gene', start: 0, end: 8, strand: 1, segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] }]} />);

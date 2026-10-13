@@ -32,7 +32,7 @@ export default function SequenceSectionHeader({ section, folded, selected, onFol
       <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${record.id}`} aria-expanded={!folded} onClick={onFold} className="p-2">{folded ? '▸' : '▾'}</button>
       <input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={onSelect} />
       <span className="font-semibold text-slate-900">{record.label || record.accession || record.id}</span>{record.label && <span className="font-mono">{record.accession || record.id}</span>}
-      <span className="ml-auto">{record.sequence.length.toLocaleString()} {record.moleculeType === 'protein' ? 'aa' : 'bp'} · {rows.length === total ? total : `${rows.length}/${total}`} annotations{Boolean(record.tracks?.length) && ` · ${record.tracks?.length} tracks`}</span>
+      <span className="ml-auto">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'} · {rows.length === total ? total : `${rows.length}/${total}`} annotations{Boolean(record.tracks?.length) && ` · ${record.tracks?.length} tracks`}</span>
       <button aria-label={`${record.visible === false ? 'Show' : 'Hide'} ${record.id} in viewport`} onClick={onVisibility} className="p-2"><i aria-hidden="true" className={`fas ${record.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
     </div>
     <p className="truncate">{isolateOf(record)}</p>
