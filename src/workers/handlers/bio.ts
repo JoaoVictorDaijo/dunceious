@@ -51,15 +51,21 @@ export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     try {
       const ext = msg.filename.split('.').pop()?.toLowerCase();
       let parsed: Record<string, AnnotationTrack[] | BioFeature[]>;
+      let details: ReturnType<typeof parseGFF3>['details'] = {};
+      const parseGff = () => {
+        const result = parseGFF3(msg.content);
+        details = result.details;
+        return result.features;
+      };
       if (ext === 'bed') parsed = parseBED(msg.content, msg.filename);
-      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(msg.content);
+      else if (ext === 'gff' || ext === 'gff3') parsed = parseGff();
       else if (ext === 'bedgraph') parsed = parseBedGraph(msg.content, msg.filename);
       else if (msg.content.includes('\t') && msg.content.split('\n')[0].split('\t').length === 9) {
-        parsed = parseGFF3(msg.content);
+        parsed = parseGff();
       } else {
         parsed = parseBED(msg.content, msg.filename);
       }
-      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed };
+      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

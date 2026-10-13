@@ -17,8 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment, QuantitativeTrack, SeqRecord } from '@/src/domain/bio/types';
-import { getFeatureStrand } from '@/src/domain/bio/strand';
+import type { QuantitativeTrack } from '@/src/domain/bio/types';
+export { parseGFF3, exportToGff, exportToGff3 } from './gff3';
 
 /** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
 export interface AnnotationTrack extends QuantitativeTrack {
@@ -75,80 +75,6 @@ export const parseBED = (content: string, filename: string): Record<string, Anno
 };
 
 /**
- * Parses GFF3 into per-seqid `BioFeature[]`.
- *
- * GFF3 is 1-based, fully closed; converted to the app's 0-based half-open model
- * by `start = col4 - 1` and `end = col5` (a 1-based inclusive end equals a
- * 0-based exclusive end, so col5 is used unchanged). strand col7 `-`→ -1 else legacy 1; absent/unknown orientation is
- * retained in internal `_gffStrand` metadata and read via `getFeatureStrand`.
- * Name resolves from attribute `Name`, else `ID`, else `${type}_${start + 1}`.
- * A `.` score (col6) is omitted from metadata; other scores are kept as strings.
- * Attribute values are URL-decoded. Rows with < 9 tab-separated columns skipped.
- */
-export const parseGFF3 = (content: string): Record<string, BioFeature[]> => {
-  const lines = content.split('\n');
-  const results: Record<string, BioFeature[]> = {};
-
-  lines.forEach(line => {
-    if (!line.trim() || line.startsWith('#')) return;
-
-    const parts = line.trim().split('\t');
-    if (parts.length < 9) return;
-
-    const seqid = parts[0];
-    const source = parts[1];
-    const type = parts[2];
-    const start = parseInt(parts[3]) - 1;
-    const end = parseInt(parts[4]);
-    const score = parts[5];
-    const strandChar = parts[6];
-    const phase = parts[7];
-    const attributesStr = parts[8];
-
-    if (isNaN(start) || isNaN(end)) return;
-
-    const strand: 1 | -1 = strandChar === '-' ? -1 : 1;
-    const metadata: Record<string, string> = { source, phase };
-    if (score !== '.') metadata.score = score;
-
-    const attrParts = attributesStr.split(';');
-    let name = '';
-    attrParts.forEach(attr => {
-      const [key, value] = attr.split('=');
-      if (key && value) {
-        metadata[key] = decodeURIComponent(value);
-        if (key.toLowerCase() === 'id' && !name) name = value;
-        if (key.toLowerCase() === 'name') name = value;
-      }
-    });
-
-    // Column 7 is authoritative; attributes cannot spoof this internal marker.
-    delete metadata._gffStrand;
-    if (strandChar !== '+' && strandChar !== '-') {
-      metadata._gffStrand = strandChar === '.' ? '.' : '?';
-    }
-
-    if (!name) name = `${type}_${start + 1}`;
-
-    const segments: FeatureSegment[] = [{ start, end }];
-    const feature: BioFeature = {
-      type,
-      name,
-      start,
-      end,
-      strand,
-      segments,
-      metadata
-    };
-
-    if (!results[seqid]) results[seqid] = [];
-    results[seqid].push(feature);
-  });
-
-  return results;
-};
-
-/**
  * Parses bedGraph into per-chromosome 'line' tracks.
  *
  * Coordinates are 0-based half-open (col2 start inclusive, col3 end exclusive),
@@ -193,21 +119,3 @@ export const parseBedGraph = (content: string, filename: string): Record<string,
   return results;
 };
 
-/**
- * Serializes records' features to GFF3. Converts the app's 0-based half-open
- * coords back to GFF3's 1-based fully-closed convention: `start = f.start + 1`,
- * `end = f.end` (unchanged). strand 1 → `+`, -1 → `-`, preserved `.` / `?` → unchanged; the source column is
- * stamped `Dunceious`; `ID`/`Name` derive from `f.name` (spaces → `_` in `ID`).
- */
-export const exportToGff = (records: SeqRecord[]): string => {
-  let gff = "##gff-version 3\n";
-  records.forEach(r => {
-    r.features.forEach(f => {
-      const direction = getFeatureStrand(f);
-      const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-      const attributes = `ID=${f.name.replace(/\s+/g, '_')};Name=${f.name}`;
-      gff += `${r.id}\tDunceious\t${f.type}\t${f.start + 1}\t${f.end}\t.\t${strand}\t0\t${attributes}\n`;
-    });
-  });
-  return gff;
-};

@@ -261,7 +261,7 @@ ORIGIN
     const success: BioWorkerResponse = { type: 'SUCCESS', records: [], consensus: '' };
     const parseSuccess: BioWorkerResponse = { type: 'PARSE_SUCCESS', records: [] };
     const fastaSuccess: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: [] };
-    const annotSuccess: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: {} };
+    const annotSuccess: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: {}, details: {} };
     const error: BioWorkerResponse = { type: 'ERROR', error: 'msg' };
 
     expect(success.type).toBe('SUCCESS');

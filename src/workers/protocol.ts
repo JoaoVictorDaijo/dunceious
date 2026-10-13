@@ -36,6 +36,7 @@ import type {
   SearchResult,
   SearchableRecord,
 } from '../domain/bio/types';
+import type { GffSourceRegion } from '../core/formats/gff3';
 
 // ---------------------------------------------------------------------------
 // Bio Worker — Requests (main → worker)
@@ -101,6 +102,7 @@ export interface ParseFastaSuccessResponse {
 export interface AnnotationsSuccessResponse {
   type: 'ANNOTATIONS_SUCCESS';
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>;
+  details: Record<string, GffSourceRegion>;
 }
 
 export interface WorkerErrorResponse {

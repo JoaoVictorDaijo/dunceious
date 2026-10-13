@@ -49,34 +49,34 @@ describe('parseBED', () => {
 describe('parseGFF3', () => {
   it('converts the 1-based start to 0-based and maps strand', () => {
     const out = parseGFF3('chr1\tsrc\tgene\t10\t20\t.\t-\t0\tID=g1');
-    const f = out.chr1[0];
+    const f = out.features.chr1[0];
     expect(f.start).toBe(9); // 10 - 1
     expect(f.end).toBe(20);
     expect(f.strand).toBe(-1);
     expect(f.segments).toEqual([{ start: 9, end: 20 }]);
   });
   it('prefers Name over ID for the feature name and omits a "." score', () => {
-    const f = parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g1;Name=myGene').c[0];
+    const f = parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g1;Name=myGene').features.c[0];
     expect(f.name).toBe('myGene');
     expect(f.metadata).not.toHaveProperty('score');
     expect(f.metadata).toMatchObject({ source: 's', phase: '0', ID: 'g1', Name: 'myGene' });
   });
   it('falls back to `${type}_${start+1}` when no ID/Name', () => {
-    expect(parseGFF3('c\ts\tCDS\t5\t9\t.\t+\t0\tfoo=bar').c[0].name).toBe('CDS_5');
+    expect(parseGFF3('c\ts\tCDS\t5\t9\t.\t+\t0\tfoo=bar').features.c[0].name).toBe('CDS_5');
   });
   it('keeps a non-"." score in metadata and URL-decodes attribute values', () => {
-    const f = parseGFF3('c\ts\tgene\t1\t9\t3.2\t+\t0\tID=a;note=a%20b').c[0];
+    const f = parseGFF3('c\ts\tgene\t1\t9\t3.2\t+\t0\tID=a;note=a%20b').features.c[0];
     expect(f.metadata!.score).toBe('3.2');
     expect(f.metadata!.note).toBe('a b');
   });
   it('skips rows with fewer than 9 tab columns', () => {
-    expect(parseGFF3('c\ts\tgene\t1\t9')).toEqual({});
+    expect(parseGFF3('c\ts\tgene\t1\t9')).toEqual({ features: {}, details: {} });
   });
   it('maps an explicit plus strand to 1', () => {
-    expect(parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g').c[0].strand).toBe(1);
+    expect(parseGFF3('c\ts\tgene\t5\t9\t.\t+\t0\tID=g').features.c[0].strand).toBe(1);
   });
   it('skips a GFF3 row with a non-numeric start', () => {
-    expect(parseGFF3('c\ts\tgene\tx\t9\t.\t+\t0\tID=g')).toEqual({});
+    expect(parseGFF3('c\ts\tgene\tx\t9\t.\t+\t0\tID=g')).toEqual({ features: {}, details: {} });
   });
 });
 
@@ -110,7 +110,7 @@ describe('exportToGff', () => {
     })]);
     expect(gff.startsWith('##gff-version 3\n')).toBe(true);
     // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
-    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=my_gene;Name=my gene');
+    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=REC1.1;Name=my%20gene');
   });
 
   it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
@@ -118,26 +118,26 @@ describe('exportToGff', () => {
       features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
     })]);
     // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
-    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t0\tID=g1;Name=g1');
+    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t.\tID=REC1.1;Name=g1');
   });
 });
 
 
 describe('GFF strand provenance roundtrip', () => {
   it.each(['+', '-', '.', '?'])('roundtrips %s without changing sequence or feature coordinates', strand => {
-    const features = parseGFF3(`REC1\tsynthetic\tmisc_feature\t2\t7\t.\t${strand}\t.\tID=synthetic;Name=Synthetic`).REC1;
+    const features = parseGFF3(`REC1\tsynthetic\tmisc_feature\t2\t7\t.\t${strand}\t.\tID=synthetic;Name=Synthetic`).features.REC1;
     const source = record({ features });
     const snapshot = structuredClone(source);
     const exported = exportToGff([source]);
-    expect(exported.split('\n')[1].split('\t')[6]).toBe(strand);
-    const reparsed = parseGFF3(exported).REC1[0];
+    expect(exported.split('\n').find(line => line.includes('\tsequence_feature\t'))!.split('\t')[6]).toBe(strand);
+    const reparsed = parseGFF3(exported).features.REC1[0];
     expect(reparsed).toMatchObject({ name: 'Synthetic', start: 1, end: 7 });
     if (strand === '.' || strand === '?') expect(reparsed.metadata?._gffStrand).toBe(strand);
     expect(source).toEqual(snapshot);
     expect(JSON.parse(JSON.stringify(source))).toEqual(source);
   });
   it('trusts the actual strand column over a spoofed internal attribute', () => {
-    const f = parseGFF3('r\tsynthetic\tgene\t1\t4\t.\t+\t.\tID=g;_gffStrand=?').r[0];
+    const f = parseGFF3('r\tsynthetic\tgene\t1\t4\t.\t+\t.\tID=g;_gffStrand=?').features.r[0];
     expect(f.metadata?._gffStrand).toBeUndefined();
   });
 });

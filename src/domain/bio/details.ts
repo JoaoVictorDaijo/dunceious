@@ -69,8 +69,8 @@ function validDate(value: string): boolean {
   if (time !== undefined && !/^(?:[01]\d|2[0-3])(?::[0-5]\d(?::[0-5]\d)?)?Z$/.test(time)) return false;
 
   let year: number;
-  let month = 1;
-  let day = 1;
+  let month: number;
+  let day: number;
   const numeric = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(date);
   const named = /^(?:(\d{2})-)?([A-Z][a-z]{2})-(\d{4})$/.exec(date);
   if (numeric) {
