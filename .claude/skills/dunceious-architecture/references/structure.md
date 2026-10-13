@@ -1,7 +1,7 @@
 # Folder structure (quick reference)
 
 > Extract of `ARCHITECTURE.md` §2. **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md).
-> If this drifts, `ARCHITECTURE.md` wins. See §9 there for the restructure phase history.
+> If this drifts, `ARCHITECTURE.md` wins.
 
 All source lives under `src/`, in four layers. Imports point only **down** the stack:
 `domain ← core ← workers/handlers ← app`.

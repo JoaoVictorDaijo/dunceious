@@ -36,3 +36,10 @@ exempt. `npm run lint:headers` enforces this in CI; auto-insert with
 ## Before you claim done
 
 `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` · `npm run lint:headers` — all green.
+
+## Project documents
+
+Track only durable documentation that stays true and useful after merge. Keep in-flight
+specs, plans, review/IAR ledgers, handoffs and session notes untracked in `.code/docs/<task>/`
+at the primary repository root. Put outcomes and verification evidence in the PR description
+or comments; fold lasting decisions, invariants and limitations into the living docs.

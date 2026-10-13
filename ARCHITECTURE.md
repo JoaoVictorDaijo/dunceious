@@ -2,9 +2,7 @@
 
 > **This is the canonical architecture reference (the north star).** All source lives under a
 > single layered `src/` tree — `domain ← core ← workers/handlers ← app`, imports pointing only
-> **down** the stack. The rationale and phase-by-phase history of the restructure that produced
-> it are in `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md`. Phase 0 owns
-> the architectural description here; the layer boundaries are enforced by ESLint (§2).
+> **down** the stack. The layer boundaries are enforced by ESLint (§2).
 
 This document outlines the high-level architecture of the Dunceious client-side genome-viewer
 SPA (React 19 + TypeScript, Vite, Web Workers, d3, react-window).
@@ -74,6 +72,11 @@ Root keeps only true root things: configs, `index.html`, `docs/`, `bench/`, `per
 `scripts/`, `.github/`. Root `components/`, `services/`, and `types.ts` no longer exist.
 
 ### Layer import rules (the contract)
+
+The app centers on one viewer, so technical layers fit better than feature-first folders.
+Pure utilities are functions grouped into cohesive modules; `core` names format/search logic
+without implying I/O services. Worker orchestration lives above it so pure logic never depends
+on worker wire contracts.
 
 1. `src/domain/**` imports **only** `domain`. No DOM, React, core, workers, or app.
 2. `src/core/**` imports `domain` **only**. Never workers, app, React, or DOM.
@@ -149,10 +152,11 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
 - **Contract model** (`src/core/alignment/`, pure): `ebi.ts` holds the engine catalog (MAFFT default, Kalign, Clustal Omega, MUSCLE: limits, UI copy, `buildParams`), the submission builder (alias headers `s1…sN`, ungapped, 60-column FASTA, with an alias → record-ID map), parsers for EBI's XML errors, result types and job status, and `remapAlignment` (alias set, equal lengths and gap-stripped == submitted must all hold). `preflight.ts` has `validateEmail` and `preflightAlignment`, which run per engine before anything is sent. Limits come from measuring EBI itself, not its prose docs: minimum 2 sequences, maximum 500/2000/4000/500, and the byte limit applies to the 60-column payload (we enforce 99.5 % of it). EBI verifies the email's domain via DNS, so that rule cannot be mirrored client-side and is reported from its synchronous `400`.
 - **Client and runner** (`src/app/lib/ebiClient.ts`, `src/app/logic/remoteAlignment.ts`): the client is the only `fetch` caller (direct from the browser, EBI sends `Access-Control-Allow-Origin: *`; per-request timeout, 120 s for a submit). The runner is a pure async state machine over injected `client`/`sleep`/`now`/`signal`: submit once and never retry it, poll `status` with retry/backoff for transient failures, pick the result type (`aln-fasta`, then `fa`, then `out`), validate, then hand over. It exposes per-step timestamps for the monitor. There is no cancel endpoint at EBI, so cancelling only stops waiting.
 - **Convergence**: the runner remaps aliases to exact record IDs in memory and calls the shared `applyAlignmentOverlay` from `useBioWorker`, which runs the same `applyFastaResponse(…, true)` and logs as the `FASTA_SUCCESS` path. Nothing downstream changes (transposition, consensus).
+- **Provider safeguards**: aliases keep real record IDs out of submissions and avoid header mangling; remapped IDs stay in memory to preserve spaces. Submit is never retried because a lost response may still have created a job. Reads stop after five consecutive transient failures, with retry delays clamped to 1–60 s; queued jobs have no overall timeout. An advertised `error` result is not itself a failure signal (it can be stderr from a successful job); status determines failure, and refused alignment types fall through to the next candidate.
 - **Lock**: `useRemoteAlignment` exposes `isAlignmentLocked`; while a job runs the handlers that change records (ingest, pre-aligned upload, project load, Clear All, record removal) disable and early-return, so jobs cannot race into the same overlay. A stale-session guard discards a result if records changed anyway.
 - **Consent**: the dialog shows an explicit disclosure first (`alignConsentPref.ts`: held only in module memory, so it ends with the page load; revocable; an agreement persisted by an earlier version is deleted on load); `submit` makes no request without it.
 - **UI**: `AlignmentSection` (sidebar, above search), `AlignRemoteModal` (consent, engine picker, email), `AlignmentJobMonitor` (step list, polling transparency) and `AlignmentJobPill` (minimized status, dragged or moved with the arrow keys through `useDraggableJobPill`; the clamping geometry is pure in `logic/floatingPosition.ts`, and the position is kept only for the page load).
-- Design record and the measured API contract: `docs/superpowers/specs/2026-10-09-remote-alignment-design.md`.
+- Module memory is deliberate for consent: `sessionStorage` survives refresh, which would violate the requirement to ask again on every page load.
 
 ### Consensus (`src/domain/bio/consensus.ts`)
 
@@ -167,6 +171,14 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
 - **Reverse-complement search**: Performed automatically for nucleotide sessions (forward + reverse strands). Suppressed entirely for protein sessions where strand orientation is not applicable.
 - **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`. Each `SearchableRecord` also retains its optional molecule type so mixed DNA/RNA nucleotide sessions use the correct reverse complement per record. Legacy projections infer RNA from U, or honor an explicit RNA request when the record type is absent.
 - **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `src/core/search/align.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
+
+### Joined-feature rendering
+
+Connectors mean “these blocks belong to one feature”; descending or overlapping segments alone
+do not establish trans-splicing, so they share one style. In `src/app/viewer/Row.tsx`, a wrapping
+envelope or a segment reaching the last base permits an origin-side connector; other pairs
+bridge only a positive gap. **Known limitation:** within a wrapping-envelope feature, every
+descending segment pair takes the wrap branch, even if only one pair crosses the origin.
 
 ---
 
@@ -252,33 +264,16 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Vite 6**: Build tool and dev server.
 - **Vitest 4 + Testing Library**: Unit, component and canvas render tests (jsdom with a canvas-2D recorder), behind a v8 coverage ratchet.
 
+Render tests opt into jsdom per file and use `src/app/testing/renderHarness.tsx` for explicit
+cleanup (Testing Library cannot auto-register it without Vitest globals). The canvas recorder
+asserts drawn glyphs and rectangles, not pixel fidelity; SVG connector tests also pin geometry.
+The coverage ratchet measures the logic allowlist in `vite.config.ts`, not the entire UI, so
+render-test coverage must not be inferred from its percentage.
+
 The only `fetch` is the opt-in remote alignment (`src/app/lib/ebiClient.ts`, see §4). The one other off-origin request is the easter egg's final frame, which loads the authors' avatar images from github.com (falling back to an icon when blocked); no user data is involved. Everything else is served from the app's own origin.
 
 ---
 
-## 9. Restructure Status
-
-The 2024–2026 modularisation (Phases 0–6, PRs #7–#14) established `src/app/`, `src/domain/bio/`,
-`src/workers/`, the modular GenBank parser, worker contracts, and `strictNullChecks`. A
-**follow-on architecture restructure** (Phases 0 and A–E) then unified the remaining root code
-(`components/`, `services/`, `types.ts`) into the layered `src/` tree in §2 and added the layer
-enforcement. That restructure is complete; the table below records what each phase delivered.
-
-| Phase | Scope | Status |
-| ----- | ----- | ------ |
-| 0 | Architecture skill + `AGENTS.md` + this document (the north star) | done |
-| A | Dead-code deletion, type-dedup, `clipInterval` name-collision fix — no new modules | done |
-| B | `src/domain/bio/sequence.ts` — consolidate sequence primitives | done |
-| C | `services/` → `src/core/`; worker bodies → `src/workers/handlers/`; split `bioUtils`; DOM/presentation → `app/`; kill `types.ts` shim | done |
-| D | `GenomeViewer` → `src/app/viewer/` decomposed (`layout.ts` + `tracks/` + `Minimap` + hooks) | done |
-| E | High-value JSDoc + comment-policy fixes; **final `ARCHITECTURE.md` accuracy pass** (verify the moved code, drop the 🎯/📍 markers); flip ESLint size guard to `error` + add the import-boundary rule | done |
-
-See `docs/superpowers/specs/2026-07-02-architecture-restructure-design.md` for the full per-phase
-plans. **Ownership:** Phase 0 owns this document's architectural description; Phase E owns the
-final verification + ESLint enforcement, so the two never overwrite each other.
-
----
-
-## 10. License
+## 9. License
 
 This project is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. The AGPL v3 was chosen specifically because Dunceious is a web application: it ensures that anyone who runs a modified version as a network service must also publish their source code. See the `COPYING` file for the full license text.
