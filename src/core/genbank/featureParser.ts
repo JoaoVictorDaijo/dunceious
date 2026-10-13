@@ -94,6 +94,8 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       feature.metadata![key] = value;
     }
 
+    if (!NAME_QUALIFIERS.some(key => qualifiers[key]) && qualifiers.standard_name) feature.name = qualifiers.standard_name;
+
     features.push(feature);
   }
 

@@ -320,7 +320,7 @@ export function useFileHandlers(
 
   const exportGenBankFile = () => {
     try {
-      downloadBlob(exportToGenBank(records), 'sequences_with_features.gb', 'text/plain');
+      downloadBlob(exportToGenBank(records).text, 'sequences_with_features.gb', 'text/plain');
       addLog('GenBank file exported (includes new features).');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
