@@ -61,7 +61,7 @@ describe('scrollbar styles', () => {
   });
 
   it('declares no standard scrollbar property in a component style block', () => {
-    for (const file of ['src/app/App.tsx', 'src/app/viewer/GenomeViewer.tsx']) {
+    for (const file of ['src/app/desktop/DesktopApp.tsx', 'src/app/shared/viewer/GenomeViewer.tsx']) {
       expect(read(file), `${file} must not set scrollbar-width/color`).not.toMatch(
         /scrollbar-(?:width|color)\s*:/,
       );
@@ -80,9 +80,9 @@ describe('scrollbar styles', () => {
 
   it('pairs the light-surface class with the base class at every call site', () => {
     const callSites = [
-      'src/app/viewer/GenomeViewer.tsx',
-      'src/app/components/AnnotationHubPanel.tsx',
-      'src/app/components/RecordDetailsModal.tsx',
+      'src/app/shared/viewer/GenomeViewer.tsx',
+      'src/app/desktop/components/AnnotationHubPanel.tsx',
+      'src/app/desktop/components/RecordDetailsModal.tsx',
     ];
     for (const file of callSites) {
       for (const className of read(file).matchAll(/className="([^"]*scrollbar-on-light[^"]*)"/g)) {
