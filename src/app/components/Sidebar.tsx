@@ -21,6 +21,8 @@ import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/r
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
+import HubIndex from './hub/HubIndex';
+import type { useHubState } from '@/src/app/hooks/useHubState';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 import SectionTitle from './SectionTitle';
 import AlignmentSection from './AlignmentSection';
@@ -28,6 +30,8 @@ import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  hubState?: ReturnType<typeof useHubState>;
+  onToggleRecordVisibility?: (id: string) => void;
   open: boolean;
   activeTab: 'alignment' | 'features';
   records: SeqRecord[];
@@ -81,6 +85,8 @@ export interface SidebarProps {
  */
 const Sidebar: React.FC<SidebarProps> = ({
   open,
+  hubState,
+  onToggleRecordVisibility,
   activeTab,
   records,
   transposedRecords,
@@ -169,6 +175,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
 
+      {activeTab === 'features' && hubState && <HubIndex records={records} state={hubState} onToggleRecordVisibility={onToggleRecordVisibility ?? (() => {})} />}
+      {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
@@ -383,6 +391,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         isProteinSession={isProteinSession}
       />
 
+      </>}
       {/* Log terminal */}
       <section className="h-48 flex flex-col shrink-0">
         <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>

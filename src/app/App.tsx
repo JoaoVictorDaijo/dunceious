@@ -75,7 +75,7 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
   // Session state belongs above the keyed workspace content so tab switches preserve it.
-  useHubState();
+  const hubState = useHubState();
   // The hub row a Focus jump left from: the viewport offers the way back while
   // `showHubReturn` holds, and the hub keeps marking the row after returning.
   const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
@@ -388,6 +388,8 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
+          hubState={hubState}
+          onToggleRecordVisibility={toggleRecordVisibility}
           open={sidebarOpen}
           activeTab={activeTab}
           records={records}

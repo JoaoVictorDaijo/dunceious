@@ -48,7 +48,7 @@ export function useHubState() {
   const [groupField, setGroupField] = useState<GroupField>('organism');
   const [sort, setSort] = useState<SortOrder>('load');
   const [{ filters, searchFolds }, dispatchFilters] = useReducer(filterReducer, undefined, () => ({
-    filters: { query: '', types: new Set<string>(), strand: 'all', sequenceQuery: '', needsAttention: false },
+    filters: { query: '', types: new Set<string>(), strand: 'all' as const, sequenceQuery: '', needsAttention: false },
     searchFolds: new Set<string>(),
   }));
   const setFilters = useCallback((value: SetStateAction<HubFilters>) => dispatchFilters({ kind: 'filters', value }), []);
@@ -61,7 +61,12 @@ export function useHubState() {
   const [menu, setMenu] = useState<HubMenu>(null);
   const [editingDetails, setEditingDetails] = useState<string | null>(null);
 
+  const [currentSectionKey, setCurrentSectionKey] = useState<string | null>(null);
+  const [jumpTarget, setJumpTarget] = useState<{ key: string; serial: number } | null>(null);
+  const [onlyProblems, setOnlyProblems] = useState(false);
+
   return {
+    currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
     selectedRecords, setSelectedRecords, selectedRows, setSelectedRows, scrollOffset, setScrollOffset,
