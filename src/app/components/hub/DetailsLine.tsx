@@ -31,8 +31,8 @@ export default function DetailsLine({ record }: { record: SeqRecord }) {
       const edited = isDetailEdited(record, key);
       const warning = edited ? validateDetail(key, details[key] ?? '') : null;
       return <span key={key} data-detail={key} className={`min-w-0 truncate ${warning ? 'text-amber-700' : ''}`}>
-        <span title={warning ?? `${label}: ${details[key] || 'Not specified'}`}>{details[key] || 'Not specified'}</span>
-        {edited && <span className="ml-1 text-[10px]">edited</span>}
+        <span title={warning ?? `${label}: ${details[key] || 'Not specified'}`}><span>{label}: </span><span>{details[key] || 'Not specified'}</span></span>
+        {edited && <span className="ml-1 text-[10px]">· edited</span>}
         {warning && <span aria-label={`Warning: ${warning}`} className="ml-1"><i aria-hidden="true" className="fas fa-exclamation-triangle" /></span>}
       </span>;
     }) : 'No details specified'}

@@ -53,7 +53,7 @@ describe('sequence details editing', () => {
     expect(screen.getByLabelText('Saved details').textContent).toBe('{"collectionDate":"March 2014"}');
     const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
     expect(pinned.getByText('March 2014').closest('[data-detail]')?.className).toContain('text-amber-');
-    expect(pinned.getByText('edited')).toBeTruthy();
+    expect(pinned.getByText('· edited')).toBeTruthy();
     expect(pinned.getByTitle(warning)).toBeTruthy();
   });
   it('reverts a changed field to its imported value and keeps other edits', () => {
@@ -69,7 +69,7 @@ describe('sequence details editing', () => {
     expect(screen.getByText('/organism')).toBeTruthy();
     expect(screen.getByText('/geo_loc_name')).toBeTruthy();
     const location = screen.getByLabelText('Location') as HTMLInputElement;
-    expect(location.placeholder).toContain('Saudi Arabia');
+    expect(location.placeholder).toBe('Country or Country:Region');
     expect(document.getElementById(location.getAttribute('list')!)?.querySelector('option[value="Oman"]')).toBeTruthy();
     expect(screen.getByText('camel.fa')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel' } });
@@ -109,4 +109,20 @@ it('saves only fields changed inline and keeps a subsequent bulk edit to an unto
   fireEvent.click(screen.getByText('Bulk host bat'));
   fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
   expect(screen.getByLabelText('Saved details').textContent).toBe('{"host":"bat","collectionDate":"2014"}');
+});
+
+it('uses neutral placeholders that describe the expected format', () => {
+  render(<Subject />); open();
+  expect((screen.getByLabelText('Organism') as HTMLInputElement).placeholder).toBe('Not specified');
+  expect((screen.getByLabelText('Host') as HTMLInputElement).placeholder).toBe('Not specified');
+  expect((screen.getByLabelText('Location') as HTMLInputElement).placeholder).toBe('Country or Country:Region');
+  expect((screen.getByLabelText('Collection date') as HTMLInputElement).placeholder).toBe('YYYY, Mon-YYYY or YYYY-MM-DD');
+});
+it('names each compact detail while omitting organism from the line', () => {
+  render(<Subject initial={writeDetails(fasta, { organism: 'MERS-CoV', host: 'camel', location: 'Oman', collectionDate: '2014' })} />);
+  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  expect(pinned.getByText('Host:')).toBeTruthy();
+  expect(pinned.getByText('Location:')).toBeTruthy();
+  expect(pinned.getByText('Collection date:')).toBeTruthy();
+  expect(pinned.queryByText('MERS-CoV')).toBeNull();
 });

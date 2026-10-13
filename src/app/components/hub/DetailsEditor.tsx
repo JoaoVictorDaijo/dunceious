@@ -23,10 +23,10 @@ import { DETAIL_QUALIFIER, readDetails, validateDetail } from '@/src/domain/bio/
 import { INSDC_COUNTRIES } from '@/src/domain/bio/insdcVocabulary';
 
 const fields: { key: DetailKey; label: string; placeholder: string }[] = [
-  { key: 'organism', label: 'Organism', placeholder: 'Middle East respiratory syndrome coronavirus' },
-  { key: 'host', label: 'Host', placeholder: 'Camelus dromedarius' },
-  { key: 'location', label: 'Location', placeholder: 'Saudi Arabia:Riyadh' },
-  { key: 'collectionDate', label: 'Collection date', placeholder: '2014, Mar-2014 or 21-Mar-2014' },
+  { key: 'organism', label: 'Organism', placeholder: 'Not specified' },
+  { key: 'host', label: 'Host', placeholder: 'Not specified' },
+  { key: 'location', label: 'Location', placeholder: 'Country or Country:Region' },
+  { key: 'collectionDate', label: 'Collection date', placeholder: 'YYYY, Mon-YYYY or YYYY-MM-DD' },
 ];
 export default function DetailsEditor({ record, draft, onChange, onSave, onCancel }: { record: SeqRecord; draft: SequenceDetails; onChange: (details: SequenceDetails) => void; onSave: (details: SequenceDetails) => void; onCancel: () => void }) {
   const details = { ...readDetails(record), ...draft };
