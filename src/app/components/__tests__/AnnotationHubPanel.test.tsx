@@ -36,10 +36,43 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportAllFasta={noop} onExportGenBank={noop} onExportGff={noop} onExportProjectJson={noop} onExportSubset={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
+  it('opens export from the selection bar with selected sequences and Esc leaves selection intact', () => {
+    render(<Subject />);
+    fireEvent.click(screen.getAllByLabelText('Select sequence seq0')[0]);
+    fireEvent.click(screen.getAllByLabelText('Select sequence seq1')[0]);
+    const bar = screen.getByLabelText('Selection actions');
+    fireEvent.click(within(bar).getByRole('button', { name: 'Export…' }));
+    expect((screen.getByLabelText('Export seq0') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Export seq1') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Export seq2') as HTMLInputElement).checked).toBe(false);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('2 sequences selected')).toBeTruthy();
+  });
+  it('routes missing-organism editing to bulk Organism for every affected sequence, focused and only empty', () => {
+    render(<Subject initial={[records[0], writeDetails(records[1], { organism: 'known virus' }), records[2]]} />);
+    fireEvent.click(screen.getAllByLabelText('Select sequence seq1')[0]);
+    const hub = screen.getByRole('region', { name: 'Annotation Hub' });
+    fireEvent.click(within(hub).getAllByRole('button', { name: 'Export…' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit details' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect((screen.getAllByLabelText('Select sequence seq0')[0] as HTMLInputElement).checked).toBe(true);
+    expect((screen.getAllByLabelText('Select sequence seq2')[0] as HTMLInputElement).checked).toBe(true);
+    expect((screen.getAllByLabelText('Select sequence seq1')[0] as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText('Detail field') as HTMLSelectElement).value).toBe('organism');
+    expect((screen.getByLabelText('only where empty') as HTMLInputElement).checked).toBe(true);
+    expect(document.activeElement).toBe(screen.getByLabelText('Detail value'));
+    fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'new virus' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByRole('status').textContent).toBe('Set Organism on 2 sequences');
+  });
+
   it('searches annotations and advances through matches with Enter', () => {
     render(<Subject />); const search = screen.getByRole('searchbox', { name: 'Search annotations' });
     fireEvent.change(search, { target: { value: 'ORF4b' } }); fireEvent.keyDown(search, { key: 'Enter' });

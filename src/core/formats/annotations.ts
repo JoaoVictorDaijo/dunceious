@@ -18,7 +18,7 @@
  */
 
 import type { QuantitativeTrack } from '@/src/domain/bio/types';
-export { parseGFF3, exportToGff, exportToGff3 } from './gff3';
+export { parseGFF3, exportToGff3 } from './gff3';
 
 /** Annotation track as returned by BED/BedGraph/GFF3 parsers (extends QuantitativeTrack). */
 export interface AnnotationTrack extends QuantitativeTrack {

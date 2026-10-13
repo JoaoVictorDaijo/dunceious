@@ -20,10 +20,8 @@
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
-import type { HubExportFormat } from '@/src/app/components/hub/SelectionBar';
-import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
-import { exportToGff } from '@/src/core/formats/annotations';
 import { downloadBlob } from '@/src/app/lib/download';
 import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
 
@@ -101,12 +99,9 @@ export interface UseFileHandlersReturn {
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleExportRecord: (recordId: string) => void;
-  exportSubset: (records: SeqRecord[], format: HubExportFormat) => void;
+  exportRecords: (ids: string[], format: HubExportFormat, options?: ExportOptions) => void;
   exportSelection: () => void;
   exportSelectionJson: () => void;
-  exportAllFasta: () => void;
-  exportGenBankFile: () => void;
-  exportGffFile: () => void;
   exportProjectJson: () => void;
   moleculeTypeMismatch: MoleculeTypeMismatchError | null;
   closeMismatchModal: () => void;
@@ -365,11 +360,6 @@ export function useFileHandlers(
     addLog(`Selection JSON exported (${start}-${end}).`);
   };
 
-  const exportAllFasta = () => {
-    downloadBlob(exportToFasta(records).text, 'all_sequences.fasta', 'text/plain');
-    addLog('Full FASTA (all records) exported.');
-  };
-
   const handleExportRecord = (recordId: string) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
@@ -379,22 +369,6 @@ export function useFileHandlers(
       'text/plain',
     );
     addLog(`Exported record ${record.id} to FASTA.`);
-  };
-
-  const exportGenBankFile = () => {
-    try {
-      downloadBlob(exportToGenBank(records).text, 'sequences_with_features.gb', 'text/plain');
-      addLog('GenBank file exported (includes new features).');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      addLog(`GenBank export stopped: ${message}`);
-      window.alert(message);
-    }
-  };
-
-  const exportGffFile = () => {
-    downloadBlob(exportToGff(records), 'annotations.gff', 'text/plain');
-    addLog('GFF3 exported.');
   };
 
   const saveProject = (selectedRecords: SeqRecord[]) => {
@@ -419,17 +393,21 @@ export function useFileHandlers(
   };
 
   const exportProjectJson = () => saveProject(records);
-  const exportSubset = (subset: SeqRecord[], format: HubExportFormat) => {
-    if (format === 'project') { saveProject(subset); return; }
+  const exportRecords = (ids: string[], format: HubExportFormat, options: ExportOptions = {}) => {
+    const requested = new Set(ids);
+    const subset = records.filter(record => requested.has(record.id));
+    if (!subset.length) return;
     try {
-      const result = format === 'fasta' ? exportToFasta(subset) : format === 'genbank' ? exportToGenBank(subset) : { text: exportToGff(subset) };
-      downloadBlob(result.text, `selected_sequences.${format === 'fasta' ? 'fasta' : format === 'genbank' ? 'gb' : 'gff3'}`, 'text/plain');
-      addLog(`Exported ${subset.length} selected sequences as ${format}.`);
+      const result = serializeExport(subset, format, { ...options,
+        projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
+      });
+      downloadBlob(result.text, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
+      addLog(`Exported ${subset.length} sequences as ${format}.`);
     } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
   return {
-    exportSubset,
+    exportRecords,
     handleDroppedFiles,
     handleFileUpload,
     handleAlignmentUpload,
@@ -438,9 +416,6 @@ export function useFileHandlers(
     handleExportRecord,
     exportSelection,
     exportSelectionJson,
-    exportAllFasta,
-    exportGenBankFile,
-    exportGffFile,
     exportProjectJson,
     moleculeTypeMismatch,
     closeMismatchModal: () => setMoleculeTypeMismatch(null),

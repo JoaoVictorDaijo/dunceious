@@ -24,7 +24,7 @@ import { useHubState } from '@/src/app/hooks/useHubState';
 import HubToolbar from '../HubToolbar';
 function Subject({ navigate = () => {}, exportFasta = () => {} }: { navigate?: (direction: number) => void; exportFasta?: () => void }) {
   const state = useHubState();
-  return <HubToolbar state={state} summary="3 annotations in 2 sequences" matchIndex={0} matchCount={3} onNavigate={navigate} onAdd={() => {}} onExportAllFasta={exportFasta} onExportGenBank={() => {}} onExportGff={() => {}} onExportProjectJson={() => {}} more={<span />} />;
+  return <HubToolbar state={state} summary="3 annotations in 2 sequences" matchIndex={0} matchCount={3} onNavigate={navigate} onAdd={() => {}} onExport={exportFasta} more={<span />} />;
 }
 describe('HubToolbar', () => {
   it('steps matches with Enter and Shift+Enter and keeps exports reachable', () => {
@@ -34,6 +34,6 @@ describe('HubToolbar', () => {
     fireEvent.keyDown(search, { key: 'Enter' }); expect(navigate).toHaveBeenLastCalledWith(1);
     expect(screen.getByText('1 / 3')).toBeTruthy();
     fireEvent.keyDown(search, { key: 'Enter', shiftKey: true }); expect(navigate).toHaveBeenLastCalledWith(-1);
-    fireEvent.click(screen.getByRole('button', { name: 'Export ▾' })); fireEvent.click(screen.getByRole('menuitem', { name: 'FASTA' })); expect(exportFasta).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' })); expect(exportFasta).toHaveBeenCalledOnce();
   });
 });

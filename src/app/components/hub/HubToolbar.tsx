@@ -19,13 +19,12 @@
 
 import { useRef, type ReactNode } from 'react';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import HubMenu from './HubMenu';
 export interface HubToolbarProps {
   state: ReturnType<typeof useHubState>; summary: string; matchIndex: number; matchCount: number;
   onNavigate: (direction: number) => void; onAdd: () => void; more: ReactNode; locked?: boolean;
-  onExportAllFasta: () => void; onExportGenBank: () => void; onExportGff: () => void; onExportProjectJson: () => void;
+  onExport: () => void;
 }
-export default function HubToolbar({ state, summary, matchIndex, matchCount, onNavigate, onAdd, more, locked, onExportAllFasta, onExportGenBank, onExportGff, onExportProjectJson }: HubToolbarProps) {
+export default function HubToolbar({ state, summary, matchIndex, matchCount, onNavigate, onAdd, more, locked, onExport }: HubToolbarProps) {
   const search = useRef<HTMLInputElement>(null);
   return <div className="flex flex-wrap items-center gap-4 border-b border-slate-200 px-5 py-4">
     <div className="mr-auto"><h1 className="text-lg font-semibold text-slate-900">Annotation Hub</h1><p className="text-xs text-slate-500">{summary}</p></div>
@@ -35,8 +34,6 @@ export default function HubToolbar({ state, summary, matchIndex, matchCount, onN
       <button aria-label="Previous match" disabled={!matchCount} onClick={() => onNavigate(-1)} className="p-1 disabled:opacity-40">↑</button><button aria-label="Next match" disabled={!matchCount} onClick={() => onNavigate(1)} className="p-1 disabled:opacity-40">↓</button>
     </div>
     <button disabled={locked} onClick={onAdd} className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 disabled:opacity-40">Add annotation</button>
-    <div className="relative"><button aria-haspopup="menu" aria-expanded={state.menu === 'export'} onClick={() => state.setMenu(state.menu === 'export' ? null : 'export')} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-white">Export ▾</button>
-      {state.menu === 'export' && <HubMenu label="Export workspace" onClose={() => state.setMenu(null)}>{[['FASTA', onExportAllFasta], ['GenBank', onExportGenBank], ['GFF3', onExportGff], ['Save project…', onExportProjectJson]].map(([label, action]) => <button role="menuitem" key={label as string} className="block w-full rounded px-3 py-2 text-left hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-amber-500" onClick={() => { state.setMenu(null); (action as () => void)(); }}>{label as string}</button>)}</HubMenu>}
-    </div>{more}
+    <button aria-haspopup="dialog" onClick={onExport} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-white">Export…</button>{more}
   </div>;
 }

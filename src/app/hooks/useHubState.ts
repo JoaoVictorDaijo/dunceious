@@ -21,7 +21,7 @@ import { useCallback, useReducer, useState, type SetStateAction } from 'react';
 import type { GroupField, HubFilters, SortOrder } from '@/src/app/logic/hubModel';
 
 export type HubTab = 'sequences' | 'features';
-export type HubMenu = 'more' | 'groupBy' | 'export' | null;
+export type HubMenu = 'more' | 'groupBy' | null;
 type FilterState = { filters: HubFilters; searchFolds: Set<string> };
 type FilterAction = { kind: 'filters'; value: SetStateAction<HubFilters> } | { kind: 'folds'; value: SetStateAction<Set<string>> };
 

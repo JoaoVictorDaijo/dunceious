@@ -37,7 +37,7 @@ const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSeq
     segments: [{ start: 2, end: 7 }] }] };
 
 function setup() {
-  return renderHook(() => useFileHandlers({ current: null }, [record], { start: 3, end: 8, recordIds: ['r'] }, {},
+  return renderHook(() => useFileHandlers({ current: null }, [record, { ...record, id: 'other' }], { start: 3, end: 8, recordIds: ['r'] }, {},
     { showAnnotations: true, showTranslation: true, showConservation: false },
     { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(),
       setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
@@ -55,31 +55,49 @@ describe('exports with aligned annotations', () => {
     expect(record.features[0].start).toBe(2);
   });
 
-  it('exports only the requested subset in each format and preserves whole-workspace exports', () => {
+  it('exports only requested workspace IDs in each format with the chosen filename', () => {
     const { result } = setup();
-    const subset = [{ ...record, id: 'chosen' }];
-    result.current.exportSubset(subset, 'fasta');
-    expect(vi.mocked(downloadBlob).mock.calls[0][0]).toBe('>chosen\nACGTACGT');
-    result.current.exportSubset(subset, 'genbank');
-    expect(vi.mocked(downloadBlob).mock.calls[1][0]).toMatch(/^LOCUS\s+chosen/m);
-    result.current.exportSubset(subset, 'gff3');
-    expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('chosen\tDunceious\tgene');
-    result.current.exportSubset(subset, 'project');
-    expect(JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string).records).toEqual(subset);
-    result.current.exportAllFasta();
-    expect(vi.mocked(downloadBlob).mock.calls[4][0]).toBe('>r\nACGTACGT');
+    result.current.exportRecords(['r'], 'fasta', { fileName: 'chosen.fasta' });
+    expect(vi.mocked(downloadBlob).mock.calls[0]).toEqual(['>r\nACGTACGT', 'chosen.fasta', 'text/plain']);
+    result.current.exportRecords(['r'], 'genbank', {});
+    expect(vi.mocked(downloadBlob).mock.calls[1][0]).toMatch(/^LOCUS\s+r\s/m);
+    expect(vi.mocked(downloadBlob).mock.calls[1][0]).not.toContain('other');
+    result.current.exportRecords(['r'], 'gff3', {});
+    expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('r\tDunceious\tgene');
+    expect(vi.mocked(downloadBlob).mock.calls[2][0]).not.toContain('other');
+    result.current.exportRecords(['r'], 'project', { fileName: 'subset.json' });
+    const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string);
+    expect(saved.records).toEqual([record]);
+    expect(saved.showTranslation).toBe(true);
+    expect(vi.mocked(downloadBlob).mock.calls[3][1]).toBe('subset.json');
+    expect(window.prompt).not.toHaveBeenCalled();
+  });
+  it('honours FASTA options and preserves per-record ungapped export', () => {
+    const { result } = setup();
+    result.current.exportRecords(['r'], 'fasta', { residues: 'aligned', header: 'id' });
+    expect(vi.mocked(downloadBlob).mock.calls[0][0]).toBe('>r\n--AC--GTACGT--');
+    result.current.handleExportRecord('r');
+    expect(vi.mocked(downloadBlob).mock.calls[1][0]).toBe('>r\nACGTACGT');
+  });
+  it('exports annotation selections without the other annotations', () => {
+    const { result } = setup();
+    result.current.exportRecords(['r'], 'gff3', { matchingKeys: new Set() });
+    expect(vi.mocked(downloadBlob).mock.calls[0][0]).toContain('gbkey=Src');
+    expect(vi.mocked(downloadBlob).mock.calls[0][0]).not.toContain('gapped');
+    result.current.exportRecords(['r'], 'gff3', { matchingKeys: new Set(['r:0']) });
+    expect(vi.mocked(downloadBlob).mock.calls[1][0]).toContain('Name=gapped');
   });
   it('exports GenBank and GFF coordinates in biological units and FASTA in aligned columns', () => {
     const { result } = setup();
-    result.current.exportGenBankFile();
+    result.current.exportRecords(['r'], 'genbank', {});
     expect(vi.mocked(downloadBlob).mock.calls[0][0]).toContain('3..7');
-    result.current.exportGffFile();
+    result.current.exportRecords(['r'], 'gff3', {});
     expect(vi.mocked(downloadBlob).mock.calls[1][0]).toContain('\tgene\t3\t7\t');
     result.current.exportSelection();
     expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('C--GT');
     result.current.exportProjectJson();
     const project = JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string);
     expect(project.format).toBe(2);
-    expect(project.records).toEqual([record]);
+    expect(project.records).toEqual([record, { ...record, id: 'other' }]);
   });
 });

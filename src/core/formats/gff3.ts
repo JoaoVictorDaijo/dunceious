@@ -108,10 +108,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
   return { text: lines.join('\n') + '\n', report };
 }
 
-/** @deprecated Use exportToGff3 to retain the export report. */
-export function exportToGff(records: SeqRecord[]): string {
-  return exportToGff3(records).text;
-}
+
 
 function decode(value: string): string {
   return decodeURIComponent(value);

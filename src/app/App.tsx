@@ -184,7 +184,7 @@ const App: React.FC = () => {
 
   const {
     handleDroppedFiles,
-    exportSubset,
+    exportRecords,
     handleFileUpload,
     handleAlignmentUpload,
     handleAnnotationUpload,
@@ -192,9 +192,6 @@ const App: React.FC = () => {
     handleExportRecord,
     exportSelection,
     exportSelectionJson,
-    exportAllFasta,
-    exportGenBankFile,
-    exportGffFile,
     exportProjectJson,
     moleculeTypeMismatch,
     closeMismatchModal,
@@ -509,7 +506,7 @@ const App: React.FC = () => {
                     onAlignmentUpload={handleAlignmentUpload}
                     onAnnotationUpload={handleAnnotationUpload}
                     onProjectUpload={handleProjectUpload}
-                    onExportSubset={exportSubset}
+                    onExportRecords={exportRecords}
                     onDeleteRows={removeFeatures}
                     undoAvailable={undoAvailable}
                     onUndoDelete={undoDelete}
@@ -530,9 +527,6 @@ const App: React.FC = () => {
                       focusOn(target);
                     }}
                     lastFocusedKey={hubFocus?.key ?? null}
-                    onExportAllFasta={exportAllFasta}
-                    onExportGenBank={exportGenBankFile}
-                    onExportGff={exportGffFile}
                     onExportProjectJson={exportProjectJson}
                     onClearAll={handleClearAll}
                     addLog={addLog}

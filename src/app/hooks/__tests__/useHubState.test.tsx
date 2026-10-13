@@ -85,14 +85,14 @@ describe('hub session state', () => {
     act(() => {
       result.current.setCollapsed(previous => ({ ...previous, features: new Set(['S']) }));
       result.current.setScrollOffset(previous => ({ ...previous, features: 456 }));
-      result.current.setMenu('export');
+      result.current.setMenu('more');
       result.current.setEditingDetails('seq');
       result.current.setTab('sequences');
     });
     expect(result.current.scrollOffset).toEqual({ sequences: 123, features: 456 });
     expect([...result.current.collapsed.sequences]).toEqual(['seq']);
     expect([...result.current.collapsed.features]).toEqual(['S']);
-    expect(result.current.menu).toBe('export');
+    expect(result.current.menu).toBe('more');
     expect(result.current.editingDetails).toBe('seq');
   });
   it('starts each new owner with independent List state', () => {

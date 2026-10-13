@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
-import { parseBED, parseGFF3, parseBedGraph, exportToGff } from '../annotations';
+import { parseBED, parseGFF3, parseBedGraph, exportToGff3 } from '../annotations';
 
 describe('parseBED', () => {
   it('parses a track grouped by chromosome with score from column 5', () => {
@@ -103,20 +103,20 @@ function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
   return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
 }
 
-describe('exportToGff', () => {
+describe('exportToGff3', () => {
   it('emits the version header and a tab-delimited feature line with 1-based start', () => {
-    const gff = exportToGff([record({
+    const gff = exportToGff3([record({
       features: [{ type: 'CDS', name: 'my gene', start: 9, end: 20, strand: 1 }],
-    })]);
+    })]).text;
     expect(gff.startsWith('##gff-version 3\n')).toBe(true);
     // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
     expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=REC1.1;Name=my%20gene');
   });
 
   it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
-    const gff = exportToGff([record({
+    const gff = exportToGff3([record({
       features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
-    })]);
+    })]).text;
     // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
     expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t.\tID=REC1.1;Name=g1');
   });
@@ -128,7 +128,7 @@ describe('GFF strand provenance roundtrip', () => {
     const features = parseGFF3(`REC1\tsynthetic\tmisc_feature\t2\t7\t.\t${strand}\t.\tID=synthetic;Name=Synthetic`).features.REC1;
     const source = record({ features });
     const snapshot = structuredClone(source);
-    const exported = exportToGff([source]);
+    const exported = exportToGff3([source]).text;
     expect(exported.split('\n').find(line => line.includes('\tsequence_feature\t'))!.split('\t')[6]).toBe(strand);
     const reparsed = parseGFF3(exported).features.REC1[0];
     expect(reparsed).toMatchObject({ name: 'Synthetic', start: 1, end: 7 });
