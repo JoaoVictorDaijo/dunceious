@@ -132,7 +132,7 @@ export function useFileHandlers(
   setters: ProjectSetters,
   addLog: (msg: string) => void,
   isAlignmentLocked: () => boolean = () => false,
-  dropImport?: { requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>; readText?: (file: File) => Promise<string> },
+  dropImport?: { getRecords: () => SeqRecord[]; requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>; readText?: (file: File) => Promise<string> },
 ): UseFileHandlersReturn {
   const {
     setRecords,
@@ -279,7 +279,6 @@ export function useFileHandlers(
         return;
       }
       setIsProcessing(true);
-      let category = recordsRef.current.length > 0 ? getLoadedCategory(recordsRef.current) : undefined;
       const request = async (message: BioWorkerRequest) => {
         if (isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
         if (!dropImport) throw new Error('The processing worker is unavailable.');
@@ -289,6 +288,8 @@ export function useFileHandlers(
         await importDroppedBatch<File>(route, {
           readText: dropImport?.readText ?? readFileAsText,
           importSequence: async (file, content) => {
+            const currentRecords = dropImport?.getRecords() ?? recordsRef.current;
+            const category = currentRecords.length > 0 ? getLoadedCategory(currentRecords) : undefined;
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
             const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
             if (category && category !== incoming) {
@@ -298,7 +299,6 @@ export function useFileHandlers(
             const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, ...(isFasta ? { asAlignment: false } : {}) });
             if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
             if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
-            if (Object.keys(response.idMap).length > 0) category = incoming;
             return response.idMap;
           },
           importAnnotations: async (file, content, idMap) => {

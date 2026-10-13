@@ -118,6 +118,7 @@ const App: React.FC = () => {
     setIsProcessing,
     bioWorkerRef,
     requestBio,
+    getRecords,
     applyAlignmentOverlay,
   } = useBioWorker(addLog);
 
@@ -199,7 +200,7 @@ const App: React.FC = () => {
     },
     addLog,
     remoteAlignment.isLocked,
-    { requestBio },
+    { requestBio, getRecords },
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────

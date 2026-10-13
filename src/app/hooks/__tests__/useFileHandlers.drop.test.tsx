@@ -46,7 +46,7 @@ function setup(readText: (file: File) => Promise<string>, locked = () => false) 
       { showAnnotations: true, showTranslation: false, showConservation: false },
       { setRecords: bio.setRecords, setIsProcessing: bio.setIsProcessing, setFeatureColors: vi.fn(), setActiveSelection: vi.fn(),
         setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn() }, log, locked,
-      { requestBio: bio.requestBio, readText });
+      { requestBio: bio.requestBio, getRecords: bio.getRecords, readText });
     return { bio, handlers };
   });
   return { ...hook, log };
@@ -128,4 +128,49 @@ it('rejects a worker error and stops the batch before annotations', async () => 
   expect(result.current.bio.records).toEqual([]);
   expect(log).toHaveBeenCalledWith('parse failed');
   expect(result.current.bio.isProcessing).toBe(false);
+});
+
+
+it('uses the current workspace category after a delayed read', async () => {
+  let finishRead!: (text: string) => void;
+  const text = new Promise<string>(resolve => { finishRead = resolve; });
+  const { result } = setup(() => text);
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa')]); });
+  act(() => { result.current.bio.setRecords([{ id: 'protein', name: 'protein', sequence: 'MEFW', moleculeType: 'protein', features: [] }]); });
+  await act(async () => { finishRead('>dna\nACGT'); });
+  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toEqual([]);
+  await pending;
+  expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'nucleotide', loaded: 'protein', fileName: 'dna.fa' });
+});
+
+it('checks queued drops against the preceding synchronous import commit', async () => {
+  const { result } = setup(async file => file.name === 'dna.fa' ? '>dna\nACGT' : '>protein\nMEFW');
+  let first!: Promise<void>;
+  let second!: Promise<void>;
+  await act(async () => {
+    first = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa')]);
+    second = result.current.handlers.handleDroppedFiles([new File([], 'protein.fa')]);
+  });
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); await first; });
+  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(1);
+  await second;
+  expect(result.current.bio.records.map(r => r.id)).toEqual(['dna']);
+});
+
+it('checks a sequence queued after project replacement against the new workspace', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const project = JSON.stringify({ format: 2, records: [{ id: 'protein', name: 'protein', sequence: 'MEFW', moleculeType: 'protein', features: [] }],
+    featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false });
+  const { result } = setup(async file => file.name.endsWith('.json') ? project : '>dna\nACGT');
+  let first!: Promise<void>;
+  let second!: Promise<void>;
+  await act(async () => {
+    first = result.current.handlers.handleDroppedFiles([new File([], 'workspace.json')]);
+    second = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa')]);
+    await first;
+  });
+  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toEqual([]);
+  await second;
+  expect(result.current.bio.records.map(r => r.id)).toEqual(['protein']);
 });

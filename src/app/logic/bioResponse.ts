@@ -93,7 +93,14 @@ export function applyAnnotations(
         for (const key of Object.keys(candidate.details) as DetailKey[]) {
           if (!current[key] && !isDetailEdited(record, key)) fills[key] = candidate.details[key];
         }
-        if (Object.keys(fills).length > 0) record = writeDetails(record, fills);
+        if (Object.keys(fills).length > 0) {
+          const fileDetails = { ...record.fileDetails };
+          for (const key of Object.keys(fills) as DetailKey[]) {
+            if (!fileDetails[key]) fileDetails[key] = fills[key];
+          }
+          record = { ...writeDetails(record, fills), fileDetails };
+        }
+        if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
       } else items.push(candidate.feature);
     }
     if (items.length > 0) {

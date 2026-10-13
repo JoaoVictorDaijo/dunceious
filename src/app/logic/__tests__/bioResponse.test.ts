@@ -25,6 +25,9 @@ import {
   applyFastaResponse,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
+import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 
@@ -292,11 +295,11 @@ describe('import provenance and annotation ownership', () => {
     expect(result.unmatched).toEqual(['a']);
   });
 
-  it('fills only empty unedited details and preserves the imported snapshot', () => {
+  it('fills only empty unedited details and preserves existing imported values', () => {
     const record = rec({ id: 'a', sequence: 'A'.repeat(1000), fileDetails: { host: 'original', location: 'Oman' }, features: [{ type: 'source', name: 'source', start: 0, end: 1000, strand: 1, metadata: { host: 'edited' } }] });
     const result = applyAnnotations([record], {}, { a: { ...region(1000), details: { host: 'camel', organism: 'virus', location: 'Egypt' } } });
     expect(result.next[0].features[0].metadata).toEqual({ host: 'edited', organism: 'virus' });
-    expect(result.next[0].fileDetails).toEqual({ host: 'original', location: 'Oman' });
+    expect(result.next[0].fileDetails).toEqual({ host: 'original', location: 'Oman', organism: 'virus' });
     expect(record.features[0].metadata).toEqual({ host: 'edited' });
     expect(result.unmatched).toEqual([]);
   });
@@ -319,4 +322,44 @@ it('keeps imported provenance and file values intact during an alignment overlay
   const record = rec({ id: 'a', sequence: 'ACGT', importedFrom: 'original.fa', fileDetails: { host: 'camel' } });
   const result = applyFastaResponse([record], [{ id: 'a', name: 'a', sequence: 'A--CGT', features: [], details: { host: 'human' } }], true, 'overlay.fa');
   expect(result.next[0]).toMatchObject({ importedFrom: 'original.fa', fileDetails: { host: 'camel' }, features: [], alignedSequence: 'A--CGT' });
+});
+
+
+it('preserves circular topology from a whole-length GFF source through interchange exports', () => {
+  const imported = applyFastaResponse([], [{ id: 'circle', name: 'circle', sequence: 'A'.repeat(1000), features: [] }], false, 'circle.fa');
+  const gff = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\ncircle\ts\tgene\t901\t1000\t.\t+\t.\tID=wrap\ncircle\ts\tgene\t1\t100\t.\t+\t.\tID=wrap');
+  const result = applyAnnotations(imported.next, gff.features, gff.details);
+  expect(result.next[0].isCircular).toBe(true);
+  expect(result.next[0].features.find(f => f.type === 'gene')?.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
+  expect(exportToGenBank(result.next).text).toMatch(/^LOCUS.*circular/m);
+  expect(exportToGff3(result.next).text).toContain('Is_circular=true');
+  const absent = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src');
+  expect(applyAnnotations(result.next, absent.features, absent.details).next[0].isCircular).toBe(true);
+  const explicitFalse = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=false');
+  expect(applyAnnotations(result.next, explicitFalse.features, explicitFalse.details).next[0].isCircular).toBe(true);
+});
+
+it('keeps a short circular Src candidate as an annotation without changing topology', () => {
+  const gff = parseGFF3('a\ts\tregion\t1\t100\t.\t+\t.\tgbkey=Src;Is_circular=true');
+  const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], gff.features, gff.details);
+  expect(result.next[0].isCircular).toBeUndefined();
+  expect(result.next[0].features[0].type).toBe('region');
+});
+
+it('treats GFF-filled historical details as file data and keeps them in every interchange export', () => {
+  const imported = applyFastaResponse([], [{ id: 'local', name: 'local', sequence: 'ACGT', features: [] }], false, 'local.fa');
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;geo_loc_name=USSR;collection_date=March%201914');
+  const record = applyAnnotations(imported.next, gff.features, gff.details).next[0];
+  expect(record.fileDetails).toEqual({ location: 'USSR', collectionDate: 'March 1914' });
+  expect(readDetails(record)).toEqual(record.fileDetails);
+  expect(isDetailEdited(record, 'location')).toBe(false);
+  expect(isDetailEdited(record, 'collectionDate')).toBe(false);
+  expect(imported.next[0].fileDetails).toEqual({});
+  expect(exportToGenBank([record]).text).toContain('/geo_loc_name="USSR"');
+  expect(exportToGff3([record]).text).toContain('geo_loc_name=USSR');
+  expect(exportToFasta([record], { residues: 'original', header: 'details' }).text).toContain('[geo-loc-name=USSR]');
+  const edited = writeDetails(record, { location: 'Atlantis' });
+  expect(isDetailEdited(edited, 'location')).toBe(true);
+  expect(exportToGenBank([edited]).text).not.toContain('Atlantis');
+  expect(readDetails(writeDetails(edited, { location: edited.fileDetails?.location })).location).toBe('USSR');
 });

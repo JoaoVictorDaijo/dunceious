@@ -49,3 +49,22 @@ describe('project format 2', () => {
     expect(parseProject(JSON.stringify({ ...invalid, format: 2 }))).toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
   });
 });
+
+
+it.each([
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, locationString: {} }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, translation: 42 }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, color: {} }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, segments: [{ start: 0, end: 4, strand: 'reverse' }] }] },
+  { tracks: [{ id: 't', name: 't', kind: 'invalid', data: [] }] },
+  { tracks: [{ id: 't', name: 't', color: {}, data: [] }] },
+  { metadata: [] },
+])('rejects malformed optional record fields %j', invalid => {
+  expect(parseProject(JSON.stringify({ ...state, format: 2, records: [{ ...record, ...invalid }] })))
+    .toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+});
+
+it.each([{ selectionRange: { start: '0', end: 4 } }, { exportedAt: {} }])('rejects malformed optional project fields %j', invalid => {
+  expect(parseProject(JSON.stringify({ ...state, format: 2, ...invalid })))
+    .toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+});

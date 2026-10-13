@@ -65,12 +65,17 @@ function validRecord(value: unknown): boolean {
   }
   if (value.moleculeType !== undefined && !['dna', 'rna', 'protein'].includes(value.moleculeType as string)) return false;
   if (value.locationQualifier !== undefined && !['country', 'geo_loc_name'].includes(value.locationQualifier as string)) return false;
+  if (value.metadata !== undefined && !isObject(value.metadata)) return false;
   if (!value.features.every(feature => isObject(feature) && coordinates(feature)
     && typeof feature.type === 'string' && typeof feature.name === 'string'
     && (feature.strand === 1 || feature.strand === -1)
+    && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.metadata === undefined || stringMap(feature.metadata))
-    && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(coordinates))))) return false;
+    && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
+      && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
   return value.tracks === undefined || (Array.isArray(value.tracks) && value.tracks.every(track => isObject(track)
+    && (track.kind === undefined || track.kind === 'line' || track.kind === 'interval')
+    && (track.color === undefined || typeof track.color === 'string')
     && typeof track.id === 'string' && typeof track.name === 'string' && Array.isArray(track.data)
     && track.data.every(item => isObject(item) && coordinates(item) && typeof item.value === 'number' && Number.isFinite(item.value))));
 }
@@ -85,6 +90,8 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
   if (!Array.isArray(value.records) || !value.records.every(validRecord) || !stringMap(value.featureColors)
     || !['showAnnotations', 'showTranslation', 'showConservation'].every(key => typeof value[key] === 'boolean')
     || (value.name !== undefined && typeof value.name !== 'string')
+    || (value.selectionRange !== undefined && !coordinates(value.selectionRange))
+    || (value.exportedAt !== undefined && typeof value.exportedAt !== 'string')
     || (value.version !== undefined && typeof value.version !== 'string')
     || (selection !== undefined && selection !== null && (!isObject(selection) || !coordinates(selection)
       || !Array.isArray(selection.recordIds) || !selection.recordIds.every(id => typeof id === 'string')))) {

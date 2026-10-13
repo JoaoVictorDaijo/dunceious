@@ -34,7 +34,7 @@ function setup(text: string) {
   const record: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', features: [], importedFrom: 'a.fa', fileDetails: {}, label: 'sample' };
   const hook = renderHook(() => useFileHandlers({ current: null }, [record], null, { gene: '#abc' },
     { showAnnotations: false, showTranslation: false, showConservation: true }, setters, log, () => false,
-    { requestBio: vi.fn(), readText: async () => text }));
+    { requestBio: vi.fn(), getRecords: () => [record], readText: async () => text }));
   return { ...hook, setters, log, record };
 }
 
@@ -60,5 +60,16 @@ it('refuses an earlier project before writing any workspace state', async () => 
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   await act(async () => { await result.current.handleDroppedFiles([new File([], 'old.json')]); });
   expect(log).toHaveBeenCalledWith("This project was saved by an earlier version of Dunceious and can't be opened.");
+  for (const [key, setter] of Object.entries(setters)) if (key !== 'setIsProcessing') expect(setter).not.toHaveBeenCalled();
+});
+
+
+it('rejects malformed optional feature values without replacing any workspace state', async () => {
+  const { result, setters, log } = setup(JSON.stringify({ format: 2, records: [{ id: 'a', name: 'a', sequence: 'ACGT',
+    features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, locationString: {} }] }],
+    featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false }));
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  await act(async () => { await result.current.handleDroppedFiles([new File([], 'broken.json')]); });
+  expect(log).toHaveBeenCalledWith('This project file contains invalid workspace data.');
   for (const [key, setter] of Object.entries(setters)) if (key !== 'setIsProcessing') expect(setter).not.toHaveBeenCalled();
 });

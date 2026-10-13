@@ -23,6 +23,7 @@ import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord } from '@/
 import { applyParseSuccess, applyAnnotations, applyFastaAndLog } from '@/src/app/logic/bioResponse';
 
 export interface UseBioWorkerReturn {
+  getRecords: () => SeqRecord[];
   requestBio: (request: BioWorkerRequest) => Promise<BioWorkerResponse>;
   applyAlignmentOverlay: (records: FastaAlignedRecord[]) => number;
   records: SeqRecord[];
@@ -55,6 +56,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     recordsRef.current = next;
     setRecordsState(next);
   }, []);
+  const getRecords = useCallback(() => recordsRef.current, []);
   const applyAlignmentOverlay = useCallback((aligned: FastaAlignedRecord[]) => {
     const result = applyFastaAndLog(recordsRef.current, aligned, true, addLog);
     if (result.kind !== 'overlay') throw new Error(`Alignment overlay rejected: ${result.kind}`);
@@ -177,6 +179,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   }, [records]);
 
   return {
+    getRecords,
     requestBio,
     applyAlignmentOverlay,
     records,
