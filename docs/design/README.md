@@ -105,6 +105,12 @@ Both are **live in the prototype** and marked in-file with revert instructions.
   `ENV_LAYERS.hex`, which is painted onto small text (wordmark accent, section labels).
   `#a78bfa` gives 6.56:1, matching sky's 6.44:1.
 
+**Superseded** in #141. The families are now generated rather than picked: every family sits
+at one OKLCH lightness (`env` 0.75, `env2` 0.86, `env3` 0.62) and chroma (0.125; 0.018 for
+`none`), varying only the hue (nucleotide 232°, protein 298°, hub 72°). Each `env` clears 7:1
+as text on the slate-900 chrome and under slate-950 text, and `theme.test.ts` pins that
+contrast rather than the hex values. `src/app/logic/theme.ts` holds the current values.
+
 ### 4. Rework the first-pass implementation
 
 **Resolved** on `feat/theme-switcher`. Outcome refined the notes below: `resolveEnvAccent` was
@@ -157,6 +163,18 @@ with child-combinator selectors, so the picker can render live miniatures of eac
 
 ### 5. Amber runs hot
 
-Measured across the styles, amber's additive-light budget is ~25% above sky and violet, which
-are at parity with each other. If the set ever needs levelling, trim amber's aurora/conic
-opacity rather than boosting the others.
+**Resolved** in #141 by the equal-lightness palette (item 3): amber no longer carries more
+light than sky or violet, so no per-style opacity trim is needed.
+
+Measured across the styles, amber's additive-light budget was ~25% above sky and violet, which
+were at parity with each other.
+
+### 8. The accent drives interactive chrome
+
+**Shipped** in #141. Interactive controls in the chrome follow the session accent instead of a
+hardcoded sky: the active workspace, the Pan/Select tool, focus rings, primary buttons, the
+selected record and the minimap window. Two Tailwind colours carry it: `env` (the accent
+itself) and `env-strong` (the same hue at OKLCH L 0.54, the fill that carries white text at
+≥4.8:1). The governing rule still holds, because these are frame controls. Sky stays wherever
+it encodes data: the selection on the canvas and its readouts, the IUPAC/fuzzy search-mode
+pair, and white modals.

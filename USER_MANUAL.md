@@ -8,12 +8,12 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 The **Ingestion** section of the sidebar has one card per kind of input. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).
 
-- **GenBank or FASTA (Drop Input Batch)**: Upload `.gb`, `.gbk`, `.fasta` or `.fa` files. Multi-record files add several sequences at once, and several files can be selected together. Both nucleotide and amino-acid (protein) GenBank records are supported. If a sequence ID already exists in the workspace, a numeric suffix is appended automatically (e.g., `seq1 → seq1 (1) → seq1 (2)`), preventing silent overwrites.
-- **Upload Pre-aligned FASTA (Alignment Overlay)**: Apply an externally computed alignment to already-loaded records. Every sequence in the file must match a loaded record, and all sequences must have equal lengths. A header matches when it starts with a loaded record's ID, so IDs with spaces such as `seq1 (1)` re-import correctly and a trailing description (`>seq1 reference strain`) is ignored. Mismatches are rejected and reported in the **Log Terminal**. This action updates the alignment of matching records without altering their features.
-- **Import Annotations**: Upload `.gff`, `.bed` or BedGraph files to merge additional features into loaded records. The importer matches by record ID, name, or accession; unmatched IDs are reported in the **Log Terminal**.
+- **GenBank or FASTA (Drop input batch)**: Upload `.gb`, `.gbk`, `.fasta` or `.fa` files. Multi-record files add several sequences at once, and several files can be selected together. Both nucleotide and amino-acid (protein) GenBank records are supported. If a sequence ID already exists in the workspace, a numeric suffix is appended automatically (e.g., `seq1 → seq1 (1) → seq1 (2)`), preventing silent overwrites.
+- **Upload pre-aligned FASTA (Alignment Overlay)**: Apply an externally computed alignment to already-loaded records. Every sequence in the file must match a loaded record, and all sequences must have equal lengths. A header matches when it starts with a loaded record's ID, so IDs with spaces such as `seq1 (1)` re-import correctly and a trailing description (`>seq1 reference strain`) is ignored. Mismatches are rejected and reported in the **Log Terminal**. This action updates the alignment of matching records without altering their features.
+- **Import annotations**: Upload `.gff`, `.bed` or BedGraph files to merge additional features into loaded records. The importer matches by record ID, name, or accession; unmatched IDs are reported in the **Log Terminal**.
   - A BED file with a numerical score in the 5th column is rendered as an **Interval Track**.
   - A BED file with many data points automatically packs overlapping intervals into multiple rows.
-- **Load Project JSON**: Restore a whole workspace saved with **Save Project**.
+- **Load project JSON**: Restore a whole workspace saved with **Save Project**.
 
 If you leave the page with unsaved work, the browser asks you to confirm first.
 
@@ -23,7 +23,7 @@ Dunceious enforces a homogeneous session: all records in a workspace must belong
 
 - The detected type of the first loaded file establishes the **session type**.
 - Subsequent uploads are checked against the active session type. An incompatible file (e.g., loading a protein FASTA when nucleotide records are already present) is rejected, and a dialog explains why. Clear all records first to switch types.
-- The current session type is shown in the **Status Bar** at the bottom of the screen (blue DNA helix for nucleotide, purple node icon for peptide), and the app chrome takes a matching accent.
+- The current session type is shown in the **Status Bar** at the bottom of the screen (blue DNA helix for nucleotide, purple node icon for peptide). The app chrome takes a matching accent, and so do its active controls: the selected workspace, the Pan/Select tool, focus rings, primary buttons and the selected record. In the Annotation Hub the accent is amber.
 - In a peptide session, the **Translation** toggle in the top bar is automatically disabled and translation rows are not displayed in the sequence viewer, as they are not applicable to amino-acid sequences.
 
 RNA sequences retain their original `U` residues. Uracil uses the same colour as
@@ -37,7 +37,7 @@ You can align in two ways. Both end in the same place: the alignment is overlaid
 **A. Align inside Dunceious with EMBL-EBI** (the **Alignment** section in the sidebar):
 
 1. Load at least two sequences.
-2. Click **Align Sequences**. The first time, read and tick the agreement: your sequences, your email and your IP address are sent to EMBL-EBI's servers and handled under its privacy notice and terms of use (job logs and your email are deleted after 7 days). Don't use this for data you are not allowed to share. The agreement lasts until you leave or reload the page; after a refresh or when you come back, Dunceious asks again. You can review or revoke it from the dialog at any time.
+2. Click **Align sequences**. The first time, read and tick the agreement: your sequences, your email and your IP address are sent to EMBL-EBI's servers and handled under its privacy notice and terms of use (job logs and your email are deleted after 7 days). Don't use this for data you are not allowed to share. The agreement lasts until you leave or reload the page; after a refresh or when you come back, Dunceious asks again. You can review or revoke it from the dialog at any time.
 3. Pick an algorithm. **MAFFT** is the default: accurate and quick on whole genomes. **Kalign** is the fastest but slightly less precise on divergent sequences. **Clustal Omega** takes the largest inputs. **MUSCLE** is accurate on small sets but slow on long sequences. An algorithm that cannot take your data (too many sequences or too large) is greyed out with the reason.
 4. Enter an email address (EMBL-EBI requires one per job; it is remembered in this browser) and click **Align**.
 5. Follow the job in the monitor: validated, submitted, queued, aligning, fetching, applied. **Minimize** keeps it as a small status pill while you keep browsing; drag the pill anywhere it is out of your way, or focus it and move it with the arrow keys (Shift for bigger steps). Click it to reopen the monitor. **Cancel** only stops Dunceious waiting; the job finishes at EMBL-EBI anyway.
@@ -48,7 +48,7 @@ While a job runs, anything that would change the loaded records (uploading, load
 
 1. Load sequences (GenBank or FASTA batch upload).
 2. Compute the alignment externally using a tool of your choice (e.g., MAFFT, MUSCLE, Clustal Omega).
-3. Upload the resulting aligned FASTA using **Upload Pre-aligned FASTA** (see section 1.1).
+3. Upload the resulting aligned FASTA using **Upload pre-aligned FASTA** (see section 1.1).
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
 
@@ -62,7 +62,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Scroll**: Use the horizontal scrollbar, Shift + mouse wheel, or the arrow keys. The column with sequence names is sticky and stays visible.
 - **Pan Mode**: Click and drag to move the viewport.
 - **Select Mode**: Click and drag to highlight a specific genomic region across all records. Double-click an annotation to select exactly its span. `Esc` clears the selection.
-- **Go to Position**: Type a base position in the sidebar's **Navigation** box and press Enter.
+- **Go to position**: Type a position in the sidebar's **Navigation** box and press Enter. The field shows its unit: `bp` in a nucleotide session, `aa` in a peptide session.
 - **Keyboard shortcuts** (when not typing in a field): `+` / `-` zoom, arrow keys pan and scroll, `Page Up` / `Page Down` scroll a screen of rows, `Home` / `End` jump to the start or end, `F` fits the whole alignment, `C` centres on the selection.
 
 ### 2.2 Semantic Zoom
@@ -124,13 +124,13 @@ All 20 standard one-letter amino acid codes are accepted literally. Additional a
 | `U`  | selenocysteine |
 | `O`  | pyrrolysine    |
 
-Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches. **Annotate** turns one hit into an annotation; **Join Selected** / **Join All** turn several hits into one.
+Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches. **Annotate** turns one hit into an annotation; **Join selected** / **Join all** turn several hits into one.
 
 #### Fuzzy Mode (Smith-Waterman)
 
 - Finds approximate matches using the Smith-Waterman local alignment algorithm with affine gap penalties.
 - Both the forward strand and its **reverse complement** are searched automatically for nucleotide sessions. Reverse-complement search is suppressed in peptide sessions, where strand orientation does not apply.
-- A **Min Match Confidence** slider (0–100 %) appears below the search bar. This filters results by the percentage of the best alignment score found in the current search — raise the threshold to see only high-quality matches, lower it to include more divergent hits.
+- A **Min match confidence** slider (0–100 %) appears below the search bar. This filters results by the percentage of the best alignment score found in the current search — raise the threshold to see only high-quality matches, lower it to include more divergent hits.
 - Results are sorted by alignment score (best match first).
 
 > **Tip**: Use IUPAC mode for known motifs or primer sequences, and Fuzzy mode to find similar but not identical sequences (e.g., for mutation detection or homology searches).
