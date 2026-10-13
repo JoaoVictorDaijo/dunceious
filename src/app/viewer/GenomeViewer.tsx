@@ -268,11 +268,11 @@ const GenomeViewer: React.FC<Props> = ({
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed
-  // track/fields vs raised segments. Sky = interactive, emerald = export.
+  // track/fields vs raised segments. Session accent = interactive, emerald = export.
   const segTrack = "flex items-stretch gap-[3px] bg-[#12203c] rounded-lg p-[3px]";
   const trackShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.2)' };
-  const segBtn = "px-2 py-1 rounded-md text-[8px] font-bold uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
-  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
+  const segBtn = "px-2 py-1 rounded-md text-[10px] leading-4 font-bold uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
+  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
   const segExport = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-emerald-400 border border-white/10 hover:bg-[#35497a] hover:text-emerald-300 transition-colors";
   const raisedShadow = { boxShadow: '0 1px 1.5px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' };
   const segField = "bg-[#0f1c37] border border-white/[0.07] rounded-md";
@@ -305,13 +305,13 @@ const GenomeViewer: React.FC<Props> = ({
           {/* Go to — recessed field */}
           <div className={`flex items-center ${segField}`} style={fieldShadow}>
             <div className="relative flex items-center">
-              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-[#7c8bb0]"></i>
+              <i className="fas fa-location-arrow absolute left-2 text-[10px] text-[#7c8bb0]"></i>
               <input
                 type="text"
                 placeholder="Go to..."
                 aria-label="Go to position"
                 data-tip="Type a base position and press Enter"
-                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-sky-500 rounded"
+                className="w-24 bg-transparent pl-5 pr-2 py-1 text-[11px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-env rounded"
                 value={gotoPos}
                 onChange={e => setGotoPos(e.target.value)}
                 onKeyDown={e => {
@@ -326,7 +326,7 @@ const GenomeViewer: React.FC<Props> = ({
           {activeSelection && (
             <>
               {/* Readout — twin of the Go-to field, tied to the selection by a sky left-rule */}
-              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[9px] font-bold text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
+              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[10px] font-bold text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
                 <i className="fas fa-vector-square text-[10px] text-sky-400/70"></i>
                 <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
                 <span className="text-[#8ea2c9]">|</span>
@@ -477,7 +477,7 @@ const GenomeViewer: React.FC<Props> = ({
           {/* Mouse Guide */}
           {mousePos && (
             <div className="absolute top-0 bottom-0 w-px bg-sky-500/30 z-40 pointer-events-none" style={{ left: mousePos.x }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[11px] leading-none font-bold px-1.5 py-0.5 rounded shadow-lg">
                 {(mousePos.bp + 1).toLocaleString()} bp
               </div>
             </div>
@@ -538,7 +538,7 @@ const GenomeViewer: React.FC<Props> = ({
           <div className="whitespace-pre font-bold leading-relaxed tracking-tight text-slate-100">
             {tooltip.content}
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-800 text-[9px] font-bold uppercase text-slate-500 tracking-widest">
+          <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] font-bold uppercase text-slate-500 tracking-widest">
             Double-click to select region
           </div>
         </div>
@@ -546,9 +546,9 @@ const GenomeViewer: React.FC<Props> = ({
 
       <style dangerouslySetInnerHTML={{ __html: `
         .brush .selection {
-          fill: #0ea5e9;
+          fill: var(--env);
           fill-opacity: 0.07;
-          stroke: #0ea5e9;
+          stroke: var(--env);
           stroke-width: 2px;
           stroke-dasharray: 4,2;
           cursor: grab;
@@ -558,12 +558,12 @@ const GenomeViewer: React.FC<Props> = ({
           fill-opacity: 0.14;
         }
         .brush .handle {
-          fill: #0ea5e9;
+          fill: var(--env);
           width: 6px;
           rx: 3;
         }
         .brush .handle:hover {
-          fill: #0284c7;
+          fill: var(--env3);
         }
 
         @keyframes selection-pulse {

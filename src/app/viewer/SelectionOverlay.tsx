@@ -60,7 +60,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
           className="absolute top-0 w-px h-full bg-slate-400/30 pointer-events-none z-40"
           style={{ left: mousePos.x }}
         >
-          <div className="absolute top-0 left-2 bg-slate-800 text-white text-[8px] font-mono px-1 rounded shadow-sm whitespace-nowrap">
+          <div className="absolute top-0 left-2 bg-slate-800 text-white text-[11px] leading-none font-mono px-1 rounded shadow-sm whitespace-nowrap">
             {(mousePos.bp + 1).toLocaleString()} bp
           </div>
         </div>
@@ -155,11 +155,11 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
           <div key="drag" className="absolute top-0 pointer-events-none border-x-2 border-emerald-400 bg-emerald-400/15 z-20" style={{ left: left + SIDEBAR_WIDTH, width, height: '100%' }} />
           {dragCursorPos && (
             <div 
-              className="fixed pointer-events-none z-[110] bg-emerald-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-lg shadow-xl border border-emerald-400/50 animate-in fade-in zoom-in-95 duration-100"
+              className="fixed pointer-events-none z-[110] bg-emerald-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xl border border-emerald-400/50 animate-in fade-in zoom-in-95 duration-100"
               style={{ left: dragCursorPos.x + 15, top: dragCursorPos.y - 40 }}
             >
               <div className="flex items-center gap-2">
-                <i className="fas fa-arrows-left-right text-[8px] opacity-70"></i>
+                <i className="fas fa-arrows-left-right text-[10px] opacity-70"></i>
                 <span>{Math.min(dragSelection.start, dragSelection.end).toLocaleString()}</span>
                 <span className="opacity-50">→</span>
                 <span>{Math.max(dragSelection.start, dragSelection.end).toLocaleString()}</span>

@@ -54,7 +54,7 @@ function EnginePicker({ verdicts, engineId, onEngineChange }: Pick<AlignRemoteMo
             <span className="min-w-0">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
                 {engine.label}
-                {engine.id === 'mafft' && <span className="rounded-full border border-[var(--env)] px-2 py-0.5 text-[9px] font-medium tracking-wide text-[var(--env)]">Default</span>}
+                {engine.id === 'mafft' && <span className="rounded-full border border-[var(--env)] px-2 py-0.5 text-[11px] font-medium tracking-wide text-[var(--env)]">Default</span>}
               </span>
               <span className="mt-1 block text-xs text-slate-400">{reason ?? engine.subtext}</span>
               <span className="mt-1.5 block text-[10px] font-mono text-slate-500">≤ {engine.maxSequences} seqs · {engine.maxBytes / 1_000_000} MB</span>

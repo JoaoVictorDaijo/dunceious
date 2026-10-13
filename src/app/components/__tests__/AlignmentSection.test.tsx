@@ -30,7 +30,7 @@ describe('Alignment section', () => {
   it('disables alignment with no records and opens configuration when records are loaded', () => {
     const onOpen = vi.fn();
     const view = render(<AlignmentSection count={0} onOpen={onOpen} />);
-    const button = screen.getByRole('button', { name: 'Align Sequences' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Align sequences' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     fireEvent.click(button);
     expect(onOpen).not.toHaveBeenCalled();
@@ -61,6 +61,6 @@ describe('Alignment section', () => {
     expect(onOpen).toHaveBeenCalledOnce();
     view.rerender(<AlignmentSection count={2} state={{ phase: 'idle' }} onOpen={onOpen} />);
     expect(screen.queryByRole('status')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Align Sequences' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Align sequences' })).toBeTruthy();
   });
 });

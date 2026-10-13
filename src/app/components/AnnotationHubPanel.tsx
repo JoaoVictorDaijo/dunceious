@@ -151,7 +151,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
       const record = records.find(r => r.id === item.recordId);
       const isVisible = record?.visible !== false;
       return (
-        <div style={style} className="bg-slate-100/50 border-b border-slate-200 px-8 py-4 flex items-center justify-between z-10">
+        <div style={style} className="group bg-slate-100/50 border-b border-slate-200 px-8 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-4">
             <input
               type="checkbox"
@@ -164,11 +164,11 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600">
                 {record?.name || item.recordId}
                 {record?.isCircular && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-bold border border-amber-200">CIRCULAR</span>
+                  <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">CIRCULAR</span>
                 )}
               </span>
               {record?.definition && (
-                <span className="text-[9px] font-bold text-slate-500 italic mt-0.5 line-clamp-1">{record.definition}</span>
+                <span className="text-[11px] font-bold text-slate-500 italic mt-0.5 line-clamp-1">{record.definition}</span>
               )}
             </div>
           </div>
@@ -182,7 +182,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
                   onRemoveRecord(item.recordId);
                 }
               }}
-              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 group-hover:text-rose-400/80 hover:bg-rose-500/15 hover:text-rose-400 focus-visible:text-rose-400 p-2.5 rounded-xl transition-all"
               aria-label={`Remove ${record?.name || item.recordId}`}
               data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence and its annotations from the project"}
             >
@@ -201,10 +201,10 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
       : '';
     const lastFocusedTag = isLastFocused && (
       <span
-        className="ml-2 align-middle inline-flex items-center gap-1 px-1.5 py-px rounded bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wider animate-in fade-in duration-300"
+        className="ml-2 align-middle inline-flex items-center gap-1 px-1.5 py-px rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider animate-in fade-in duration-300"
         data-tip="You last focused this row in the viewport"
       >
-        <i className="fas fa-location-crosshairs text-[7px]"></i> Last focused
+        <i className="fas fa-location-crosshairs text-[10px]"></i> Last focused
       </span>
     );
 
@@ -216,7 +216,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         <div style={style} className={`border-b border-slate-100 hover:bg-indigo-50/30 transition-all group flex items-center px-8 ${returnMark}`}>
           <div className="w-[15%] shrink-0">
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
+              <span className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
               <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-bold text-slate-400">~</span>
             </div>
           </div>
@@ -264,7 +264,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
         <div className="w-[15%] shrink-0">
           <div className="flex items-center gap-3">
             <span
-              className="px-3 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter"
+              className="px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-tighter"
               style={{
                 backgroundColor: `${f.color || getFeatureColor(f.type, featureColors)}15`,
                 color: f.color || getFeatureColor(f.type, featureColors),
@@ -317,7 +317,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             </button>
             <button
               onClick={() => onRemoveFeature(recordId, f.index)}
-              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
+              className="disabled:opacity-30 disabled:cursor-not-allowed text-slate-500 group-hover:text-rose-400/80 hover:bg-rose-500/15 hover:text-rose-400 focus-visible:text-rose-400 p-2.5 rounded-xl transition-all"
               aria-label="Delete"
               data-tip="Delete this annotation"
             >
@@ -364,21 +364,21 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
           <button
             onClick={onStartNewFeature}
             data-tip="Create a new annotation (prefilled from the current selection)"
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-plus mr-1.5"></i> Add Feature
           </button>
           <div className="flex bg-slate-800 rounded-xl p-1 shadow-md">
-            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all" data-tip="Download every record as one multi-FASTA file">
+            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all" data-tip="Download every record as one multi-FASTA file">
               <i className="fas fa-file-export mr-1.5"></i> FASTA
             </button>
-            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download every record with its annotations as GenBank">
+            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download every record with its annotations as GenBank">
               <i className="fas fa-dna mr-1.5"></i> GenBank
             </button>
-            <button onClick={onExportGff} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download all annotations as GFF3">
+            <button onClick={onExportGff} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download all annotations as GFF3">
               <i className="fas fa-file-code mr-1.5"></i> GFF3
             </button>
-            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Save the whole workspace (records, annotations, colours) as JSON">
+            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Save the whole workspace (records, annotations, colours) as JSON">
               <i className="fas fa-save mr-1.5"></i> Save Project
             </button>
           </div>
@@ -386,7 +386,7 @@ const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
             disabled={isAlignmentLocked}
             onClick={() => { if (!isAlignmentLocked) onClearAll(); }}
             data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove every record and annotation from the workspace"}
-            className="disabled:opacity-30 disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
+            className="disabled:opacity-30 disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md"
           >
             <i className="fas fa-trash-alt mr-1.5"></i> Clear All
           </button>

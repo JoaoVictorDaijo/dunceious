@@ -70,7 +70,7 @@ async function loadApp() {
   return view;
 }
 async function beginAlignment() {
-  fireEvent.click(screen.getByRole('button', { name: /Align Sequences/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Align sequences/ }));
   expect(captured.client!.submit).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -166,7 +166,7 @@ describe('file reads started before the lock', () => {
 
 it('reopens consent after revocation without sending a request', async () => {
   await loadApp();
-  const alignCard = screen.getByRole('button', { name: /Align Sequences/ });
+  const alignCard = screen.getByRole('button', { name: /Align sequences/ });
   expect(alignCard.getAttribute('data-tip')).toBe("Send the loaded sequences to EMBL-EBI's servers for alignment, then overlay the result");
   fireEvent.click(alignCard);
   fireEvent.click(screen.getByRole('checkbox'));
@@ -187,7 +187,7 @@ it('places a dedicated Alignment section immediately above Sequence Search, outs
   const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
   expect(search?.previousElementSibling).toBe(alignment);
   expect(within(alignment).getByRole('heading', { name: 'Alignment' })).toBeTruthy();
-  expect(within(alignment).getByRole('button', { name: 'Align Sequences' })).toBeTruthy();
-  expect(within(ingestion).queryByRole('button', { name: 'Align Sequences' })).toBeNull();
-  expect(screen.getAllByRole('button', { name: 'Align Sequences' })).toHaveLength(1);
+  expect(within(alignment).getByRole('button', { name: 'Align sequences' })).toBeTruthy();
+  expect(within(ingestion).queryByRole('button', { name: 'Align sequences' })).toBeNull();
+  expect(screen.getAllByRole('button', { name: 'Align sequences' })).toHaveLength(1);
 });
