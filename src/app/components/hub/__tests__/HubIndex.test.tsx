@@ -38,7 +38,7 @@ describe('HubIndex', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
     expect(toggle).toHaveBeenCalledWith('a');
   });
-  it('reveals the current entry from resize measurements without layout reads during scroll spy', () => {
+  it('reveals only the current entry and refreshes container size on resize', () => {
     let resize = () => {};
     vi.stubGlobal('ResizeObserver', class {
       constructor(callback: () => void) { resize = callback; }
@@ -56,6 +56,9 @@ describe('HubIndex', () => {
     Object.defineProperties(container, { clientHeight: { get: () => 100, configurable: true }, offsetTop: { get: () => 40, configurable: true } });
     Object.defineProperties(active, { offsetTop: { get: () => 240, configurable: true }, offsetHeight: { get: () => 30, configurable: true }, offsetParent: { value: container } });
     resize();
+    const untouched = screen.getByRole('button', { name: 'Jump to sequence a' });
+    Object.defineProperty(untouched, 'offsetTop', { configurable: true, get: () => 0 });
+    const untouchedTop = vi.spyOn(untouched, 'offsetTop', 'get');
     const offsetTop = vi.spyOn(active, 'offsetTop', 'get');
     const offsetHeight = vi.spyOn(active, 'offsetHeight', 'get');
     const containerHeight = vi.spyOn(container, 'clientHeight', 'get');
@@ -66,14 +69,31 @@ describe('HubIndex', () => {
     expect(container.scrollTop).toBe(170);
     expect(containerBounds).not.toHaveBeenCalled();
     expect(activeBounds).not.toHaveBeenCalled();
-    expect(offsetTop).not.toHaveBeenCalled();
-    expect(offsetHeight).not.toHaveBeenCalled();
+    expect(offsetTop).toHaveBeenCalledTimes(1);
+    expect(offsetHeight).toHaveBeenCalledTimes(1);
+    expect(untouchedTop).not.toHaveBeenCalled();
     expect(containerHeight).not.toHaveBeenCalled();
     offsetTop.mockReturnValue(400);
     resize();
     expect(container.scrollTop).toBe(330);
     containerBounds.mockRestore();
     activeBounds.mockRestore();
+  });
+  it('does not measure every index entry after an annotation filter changes', () => {
+    function FilterSubject() {
+      const state = useHubState();
+      return <><button onClick={() => state.setFilters(previous => ({ ...previous, query: 'spike' }))}>Filter annotations</button>
+        <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} /></>;
+    }
+    render(<FilterSubject />);
+    const entries = screen.getAllByRole('button', { name: /^Jump to sequence/ });
+    const reads = entries.map(entry => {
+      Object.defineProperty(entry, 'offsetTop', { configurable: true, get: () => 0 });
+      return vi.spyOn(entry, 'offsetTop', 'get');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter annotations' }));
+    expect(screen.getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(2);
+    reads.forEach(read => expect(read).not.toHaveBeenCalled());
   });
   it('does not recompute untouched entries when scroll spy changes the current sequence', () => {
     const definition = vi.fn(() => 'Unchanged isolate');

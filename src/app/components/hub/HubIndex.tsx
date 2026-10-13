@@ -59,30 +59,24 @@ export default function HubIndex({ records, state, onToggleRecordVisibility, fea
   const folds = state.indexFolds;
   const setFolds = state.setIndexFolds;
   const container = useRef<HTMLDivElement>(null);
-  const geometry = useRef({ height: 0, entries: new Map<string, { top: number; bottom: number }>() });
+  const containerHeight = useRef(0);
   const currentKey = useRef(state.currentSectionKey);
   const reveal = useCallback((key: string | null) => {
     const el = container.current;
-    const entry = key ? geometry.current.entries.get(key) : undefined;
+    const entry = key ? el?.querySelector<HTMLElement>('[data-section-key][aria-current="true"]') : null;
     if (!el || !entry) return;
-    if (entry.top < el.scrollTop) el.scrollTop = entry.top;
-    else if (entry.bottom > el.scrollTop + geometry.current.height) el.scrollTop = entry.bottom - geometry.current.height;
+    // Measuring all entries forces layout after every search-driven DOM update.
+    let top = entry.offsetTop;
+    let parent = entry.offsetParent as HTMLElement | null;
+    while (parent && parent !== el) { top += parent.offsetTop; parent = parent.offsetParent as HTMLElement | null; }
+    const bottom = top + entry.offsetHeight;
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (bottom > el.scrollTop + containerHeight.current) el.scrollTop = bottom - containerHeight.current;
   }, []);
   useEffect(() => {
     const el = container.current;
     if (!el) return;
-    // Layout reads stay outside scroll spy, which runs for every section transition.
-    const measure = () => {
-      const entries = new Map<string, { top: number; bottom: number }>();
-      for (const entry of el.querySelectorAll<HTMLElement>('[data-section-key]')) {
-        let top = entry.offsetTop;
-        let parent = entry.offsetParent as HTMLElement | null;
-        while (parent && parent !== el) { top += parent.offsetTop; parent = parent.offsetParent as HTMLElement | null; }
-        entries.set(entry.dataset.sectionKey!, { top, bottom: top + entry.offsetHeight });
-      }
-      geometry.current = { height: el.clientHeight, entries };
-      reveal(currentKey.current);
-    };
+    const measure = () => { containerHeight.current = el.clientHeight; reveal(currentKey.current); };
     measure();
     if (typeof ResizeObserver === 'undefined') {
       window.addEventListener('resize', measure);
@@ -91,13 +85,16 @@ export default function HubIndex({ records, state, onToggleRecordVisibility, fea
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [sections, features, folds, reveal]);
+  }, [reveal]);
   useEffect(() => {
     currentKey.current = state.currentSectionKey;
     reveal(state.currentSectionKey);
   }, [state.currentSectionKey, reveal]);
   const setJumpTarget = state.setJumpTarget;
-  const jump = useCallback((key: string) => setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })), [setJumpTarget]);
+  const jump = useCallback((key: string) => {
+    if (key === currentKey.current) reveal(key);
+    setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 }));
+  }, [setJumpTarget, reveal]);
   const groups = state.tab === 'features' ? [...new Set(features.map(f => f.organism))] : [...new Set(sections.map(s => s.group))];
   return <section aria-label="Hub index" data-hub-focus tabIndex={0} className="flex min-h-0 flex-col gap-4 text-xs text-slate-300">
     <label>{state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'}<input className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 focus-visible:ring-2 focus-visible:ring-env" value={state.filters.sequenceQuery} onChange={e => state.setFilters(f => ({ ...f, sequenceQuery: e.target.value }))} /></label>
