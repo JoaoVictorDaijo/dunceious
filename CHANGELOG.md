@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Circular wrapping segments retain their biological length after coordinate edits.
+
 - Large quantitative tracks render in the Hub without overflowing the call stack.
 
 - Hub current-group highlights switch at the reading line while the preceding

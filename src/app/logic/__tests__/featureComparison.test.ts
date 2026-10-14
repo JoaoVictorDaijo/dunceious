@@ -20,6 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { HubFilters } from '../hubModel';
+import { featureCoordPatch, featureLength } from '../viewModel';
 import { buildFeatureGroups, countFeatureGroups, featureIdentity } from '../featureComparison';
 
 const f = (name = 'S', type = 'CDS', length = 100, metadata: Record<string, string> = {}): BioFeature => ({ name, type, start: 10, end: 10 + length, strand: 1, metadata });
@@ -184,4 +185,14 @@ describe('feature comparison', () => {
     const records = [r('a', [f('normal'), f('odd'), f('missing')]), r('b', [f('normal'), f('odd')]), r('c', [f('normal'), f('odd', 'CDS', 104), f('missing')])];
     expect(groups(records, {}, true).map(g => g.identity)).toEqual(['missing', 'odd']);
   });
+});
+
+
+it('keeps unchanged circular start edits at 200 bases without biological outliers', () => {
+  const feature = { ...f(), start: 900, end: 100 };
+  const records = ['a', 'b', 'c'].map(id => r(id, [feature], 'virus', { isCircular: true }));
+  const edited = { ...feature, ...featureCoordPatch(feature, 'start', '900') };
+  records[2] = { ...records[2], features: [records[2].features[0], edited] };
+  expect(states(records)).toEqual([['a', 'present'], ['b', 'present'], ['c', 'present']]);
+  expect(featureLength(1000, edited.start, edited.end, edited.segments)).toBe(200);
 });
