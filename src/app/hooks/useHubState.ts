@@ -76,7 +76,14 @@ export function useHubState() {
 
   const [currentRow, setCurrentRow] = useState<string | null>(null);
   const [searchKey, setSearchKey] = useState<string | null>(null);
-  const [currentSectionKey, setCurrentSectionKey] = useState<string | null>(null);
+  const [{ key: currentSectionKey, revealRevision: currentSectionRevealRevision }, setCurrentSection] = useState({ key: null as string | null, revealRevision: 0 });
+  const setCurrentSectionKey = useCallback((value: SetStateAction<string | null>, reveal = true) => {
+    setCurrentSection(previous => {
+      const key = typeof value === 'function' ? value(previous.key) : value;
+      if (key === previous.key) return previous;
+      return { key, revealRevision: previous.revealRevision + (reveal ? 1 : 0) };
+    });
+  }, []);
   const [jumpTarget, setJumpTarget] = useState<{ key: string; serial: number } | null>(null);
   const [onlyProblems, setOnlyProblemsValue] = useState(false);
   const setOnlyProblems = useCallback((value: boolean) => {
@@ -114,7 +121,7 @@ export function useHubState() {
 
   return {
     hubHidden, setHubHidden, toggleHubHidden, showInHub, shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
-    currentRow, setCurrentRow, searchKey, setSearchKey, currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
+    currentRow, setCurrentRow, searchKey, setSearchKey, currentSectionKey, currentSectionRevealRevision, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     rowSort, setRowSort, tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
     selectedRecords, setSelectedRecords, selectedRows, setSelectedRows, scrollOffset, setScrollOffset,

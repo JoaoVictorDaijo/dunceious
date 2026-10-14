@@ -20,9 +20,12 @@
 // @vitest-environment jsdom
 import { useEffect } from 'react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent, within, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import HubIndex from '../HubIndex';
+import HubList from '../HubList';
+import { buildSequenceSections } from '@/src/app/logic/hubModel';
+import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
 import { createHub1000x10 } from '@/src/app/testing/fixtures/hub1000x10';
 import type { SeqRecord } from '@/src/domain/bio/types';
 const records: SeqRecord[] = ['a', 'b', 'c'].map((id, i) => ({ id, name: id, sequence: 'AAAA', fileDetails: i < 2 ? { organism: 'MERS-CoV', host: 'camel', location: 'Oman:Muscat' } : {}, features: i < 2 ? [{ type: 'gene', name: 'spike', start: 0, end: 2, strand: 1 }, { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'MERS-CoV', host: 'camel', geo_loc_name: 'Oman:Muscat' } }] : [] }));
@@ -302,4 +305,96 @@ it('saves and clears through workspace actions and disables clear when empty or 
     expect(screen.getByRole('menuitem', { name: 'Save project' })).toHaveProperty('disabled', false);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
   }
+});
+
+
+it.each(['sequences', 'features'] as const)('keeps the %s index offset through hide and show when the current section changes passively', tab => {
+  stubResizeObserver();
+  const values: SeqRecord[] = Array.from({ length: 60 }, (_, i) => {
+    const id = `seq${String(i + 1).padStart(3, '0')}`;
+    return { id, name: id, sequence: 'AAAA', features: [{ type: 'gene', name: id, start: 0, end: 2, strand: 1 }] };
+  });
+  function Workspace() {
+    const state = useHubState();
+    useEffect(() => state.setTab(tab), []);
+    const visible = values.filter(record => !state.hubHidden.has(record.id));
+    const items = tab === 'sequences' ? buildSequenceSections(visible, state.filters, { grouped: false }, 'load') : buildFeatureGroups(visible, state.filters, false);
+    return <><output aria-label="Current section">{state.currentSectionKey}</output>
+      <button onClick={() => state.toggleHubHidden('seq002')}>Toggle second sequence</button>
+      <button onClick={() => state.setJumpTarget({ key: 'seq050:0', serial: 1 })}>Jump far</button>
+      <HubIndex records={values} state={state} /><HubList records={values} state={state} kind={tab} items={items} height={180} /></>;
+  }
+  render(<Workspace />);
+  const index = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const main = screen.getByRole('region', { name: 'Annotations' });
+  Object.defineProperties(index, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 7080 } });
+  Object.defineProperties(main, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 20000 } });
+  fireEvent.scroll(main, { target: { scrollTop: 4000 } });
+  const current = screen.getByLabelText('Current section').textContent;
+  fireEvent.scroll(index, { target: { scrollTop: 118 } });
+  const toggle = (hidden: boolean) => fireEvent.click(screen.getByRole('button', { name: tab === 'sequences' ? `${hidden ? 'Show' : 'Hide'} seq002 in hub` : 'Toggle second sequence' }));
+  toggle(false);
+  expect(screen.getByLabelText('Current section').textContent).not.toBe(current);
+  expect(index.scrollTop).toBe(118);
+  toggle(true);
+  expect(screen.getByLabelText('Current section').textContent).toBe(current);
+  expect(index.scrollTop).toBe(118);
+  fireEvent.scroll(main, { target: { scrollTop: 5000 } });
+  expect(index.scrollTop).toBeGreaterThan(118);
+  fireEvent.scroll(index, { target: { scrollTop: 118 } });
+  fireEvent.click(screen.getByRole('button', { name: 'Jump far' }));
+  expect(index.scrollTop).toBeGreaterThan(118);
+});
+
+
+it.each([false, true])('keeps the index offset when toggling an eye with initially hidden=%s and a stable current section', hidden => {
+  const values = createHub1000x10();
+  function Workspace() {
+    const state = useHubState();
+    useEffect(() => { state.setCurrentSectionKey('index1000'); if (hidden) state.setHubHidden(new Set(['index0002'])); }, []);
+    return <HubIndex records={values} state={state} />;
+  }
+  render(<Workspace />);
+  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118000 } });
+  fireEvent.scroll(viewport, { target: { scrollTop: 118 } });
+  fireEvent.click(screen.getByRole('button', { name: `${hidden ? 'Show' : 'Hide'} index0002 in hub` }));
+  expect(viewport.scrollTop).toBe(118);
+});
+
+
+it('preserves the index offset for filters and folds but reveals after grouping changes', () => {
+  const values = createHub1000x10();
+  function Workspace() {
+    const state = useHubState();
+    useEffect(() => { state.setGrouped(true); state.setCurrentSectionKey('index1000'); }, []);
+    return <><button onClick={() => state.setFilters(previous => ({ ...previous, query: 'index-hit' }))}>Filter matches</button><HubIndex records={values} state={state} /></>;
+  }
+  render(<Workspace />);
+  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118072 } });
+  fireEvent.scroll(viewport, { target: { scrollTop: 118 } });
+  fireEvent.click(screen.getByRole('button', { name: 'Filter matches' }));
+  expect(viewport.scrollTop).toBe(118);
+  fireEvent.click(screen.getByRole('button', { name: 'Fold index group Fixture organism A' }));
+  expect(viewport.scrollTop).toBe(118);
+  fireEvent.click(screen.getByRole('button', { name: 'List' }));
+  expect(viewport.scrollTop).toBeGreaterThan(118);
+});
+
+
+it('reveals the current feature after changing tabs restores the main list position', () => {
+  stubResizeObserver();
+  const values = createHub1000x10().slice(0, 60).map(record => ({ ...record, features: record.features.map((feature, i) => ({ ...feature, metadata: { ...feature.metadata, gene: `${record.id}-${i}` } })) }));
+  function Workspace() {
+    const state = useHubState();
+    const items = state.tab === 'sequences' ? buildSequenceSections(values, state.filters, { grouped: false }, 'load') : buildFeatureGroups(values, state.filters, false);
+    return <><button onClick={() => { state.setScrollOffset({ sequences: 0, features: 4000 }); state.setTab('features'); }}>By feature</button>
+      <HubIndex records={values} state={state} /><HubList key={state.tab} records={values} state={state} kind={state.tab} items={items} height={180} /></>;
+  }
+  render(<Workspace />);
+  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  fireEvent.click(screen.getByRole('button', { name: 'By feature' }));
+  expect(viewport.scrollTop).toBeGreaterThan(0);
+  expect(screen.getByLabelText('Index entries').querySelector('[aria-current="true"]')).toBeTruthy();
 });
