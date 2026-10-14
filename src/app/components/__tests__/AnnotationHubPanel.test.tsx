@@ -489,7 +489,7 @@ it('gives the current feature card an amber full header', () => {
 
 it('explains an empty workspace and shares the Import menu sequence picker and upload handler', () => {
   const upload = vi.fn();
-  const { container } = render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
+  render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
   expect(screen.getByRole('heading', { name: 'No sequences yet' })).toBeTruthy();
   expect(screen.getByText('Drop GenBank or FASTA files anywhere on this panel, or import them.')).toBeTruthy();
   expect(screen.getByText('Annotations, pre-aligned FASTA and projects are in the Import menu')).toBeTruthy();
