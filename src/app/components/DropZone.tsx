@@ -97,7 +97,7 @@ export default function DropZone({
       style={{ '--drop-rgb': colors.rgb, ...(disabled ? { opacity: 0.35 } : {}) } as React.CSSProperties}
       className={`drop-zone bg-slate-900/40 rounded-3xl ${primary ? 'p-8' : 'p-6'} border-2 border-slate-800 border-dashed ${colors.border} relative cursor-pointer text-center group ${unavailable ? 'opacity-30 pointer-events-none' : ''} ${className}`}
     >
-      <input type="file" multiple={multiple} accept={accept} className="absolute inset-0 opacity-0 cursor-pointer" disabled={disabled} onChange={onChange} />
+      <input data-drop-input type="file" multiple={multiple} accept={accept} className="absolute inset-0 opacity-0 cursor-pointer" disabled={disabled} onChange={onChange} />
       <i className={`drop-zone-icon fas ${icon} text-slate-700 ${colors.icon} block ${primary ? 'mb-4 text-4xl' : 'mb-3 text-3xl'}`}></i>
       <p className="text-[11px] font-semibold text-slate-400 group-hover:text-slate-300">{title}</p>
       {state === 'over' ? (

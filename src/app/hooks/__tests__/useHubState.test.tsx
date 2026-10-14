@@ -26,7 +26,7 @@ import type { HubFilters } from '@/src/app/logic/hubModel';
 
 describe('hub session state', () => {
   it('keeps state in the owner when its tab consumer unmounts and remounts', () => {
-    const Consumer = ({ hub }: { hub: ReturnType<typeof useHubState> }) => <button onClick={() => {
+    const Consumer = ({ hub }: { hub: ReturnType<typeof useHubState> }) => <button aria-label="Update hub state" onClick={() => {
       hub.setFilters(previous => ({ ...previous, query: 'ORF4b' }));
       hub.setSelectedRows(new Set(['seq:2']));
       hub.setSelectedRecords(new Set(['seq']));
@@ -44,13 +44,13 @@ describe('hub session state', () => {
       return <><button onClick={() => setVisible(value => !value)}>Switch workspace</button>{visible && <Consumer hub={hub} />}</>;
     };
     render(<Owner />);
-    fireEvent.click(screen.getAllByRole('button')[1]);
-    const saved = screen.getAllByRole('button')[1].textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'Update hub state' }));
+    const saved = screen.getByRole('button', { name: 'Update hub state' }).textContent;
     expect(saved).toBe('["ORF4b",["seq:2"],["seq"],["seq"],["feature"],{"sequences":123,"features":456},true,"host","fewest","comfortable","features"]');
-    fireEvent.click(screen.getByText('Switch workspace'));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }));
     expect(screen.getAllByRole('button')).toHaveLength(1);
-    fireEvent.click(screen.getByText('Switch workspace'));
-    expect(screen.getAllByRole('button')[1].textContent).toBe(saved);
+    fireEvent.click(screen.getByRole('button', { name: 'Switch workspace' }));
+    expect(screen.getByRole('button', { name: 'Update hub state' }).textContent).toBe(saved);
   });
   it.each([
     ['query', { query: 'S' }], ['types', { types: new Set(['CDS']) }], ['strand', { strand: 'rev' }],

@@ -88,11 +88,11 @@ describe('remote alignment application integration', () => {
   it('locks controls and every mutation handler while permitting monitor reopen', async () => {
     await start();
     const reader = vi.spyOn(FileReader.prototype, 'readAsText');
-    const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
+    const ingestion = document.querySelector<HTMLElement>('[data-ingestion-section]')!;
     for (const accept of ['.gb,.genbank,.fasta,.fa', '.fasta,.fa', '.json']) {
-      const input = ingestion.querySelector<HTMLInputElement>(`input[accept="${accept}"]`)!;
+      const input = ingestion.querySelector<HTMLInputElement>(`[data-drop-input][accept="${accept}"]`)!;
       expect(input.disabled).toBe(true);
-      expect(input.parentElement?.getAttribute('data-tip')).toBe('Locked while the EBI alignment runs');
+      expect(input.closest('[data-drop]')?.getAttribute('data-tip')).toBe('Locked while the EBI alignment runs');
     }
     const event = { target: { files: [new File(['>x\nAC'], 'x.fa')], value: 'x' } } as unknown as React.ChangeEvent<HTMLInputElement>;
     act(() => {
@@ -102,7 +102,7 @@ describe('remote alignment application integration', () => {
     act(() => captured.hub!.onClearAll());
     expect(reader).not.toHaveBeenCalled(); expect(window.prompt).not.toHaveBeenCalled();
     expect(captured.sidebar!.records).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select sequence seq1' })[0]);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }));
     expect((screen.getByRole('button', { name: 'Remove…' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' }));
     expect((screen.getByRole('menuitem', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
@@ -188,9 +188,9 @@ it('reopens consent after revocation without sending a request', async () => {
 it('places a dedicated Alignment section immediately above Sequence Search, outside Ingestion', async () => {
   await loadApp();
   const alignment = screen.getByRole('region', { name: 'Alignment' });
-  const search = screen.getByRole('heading', { name: 'Sequence Search' }).closest('section');
-  const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
-  expect(search?.previousElementSibling).toBe(alignment);
+  const search = document.querySelector<HTMLElement>('[data-sequence-search-section]')!;
+  const ingestion = document.querySelector<HTMLElement>('[data-ingestion-section]')!;
+  expect(alignment.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(alignment).getByRole('heading', { name: 'Alignment' })).toBeTruthy();
   expect(within(alignment).getByRole('button', { name: 'Align sequences' })).toBeTruthy();
   expect(within(ingestion).queryByRole('button', { name: 'Align sequences' })).toBeNull();

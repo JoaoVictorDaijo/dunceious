@@ -85,7 +85,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   isProteinSession = false,
 }) => {
   return (
-    <section className="flex flex-col min-h-0 pt-4">
+    <section data-sequence-search-section className="flex flex-col min-h-0 pt-4">
       <SectionTitle icon="fa-search" trailing={
         <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
           <button
