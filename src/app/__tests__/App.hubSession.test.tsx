@@ -104,3 +104,28 @@ it('toggles viewport visibility from the navigator without hiding a hub section'
   fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
   expect(screen.getAllByRole('button', { name: 'Hide r in hub' }).length).toBeGreaterThan(0);
 });
+
+it('keeps the focused outline through earlier deletion and undo, and clears it on focused deletion', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+  const workers = await setup();
+  fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+  const features = ['red', 'blue', 'green'].map((color, i) => ({ name: `target${i}`, type: 'gene', start: i === 2 ? 2 : 0, end: i === 2 ? 3 : 2, strand: 1 as const, color }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'focus.fa', records: [{ ...record('target', 'unused'), features }] } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence target' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Open target1 on target in viewport' }));
+  const outlined = () => [...document.querySelectorAll('path[data-annotation-part][stroke="#000"]')].map(path => path.getAttribute('fill'));
+  expect(outlined()).toEqual(['blue']);
+  fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete target0 on target' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+  expect(outlined()).toEqual(['blue']);
+  fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+  expect(outlined()).toEqual(['blue']);
+  fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete target1 on target' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+  expect(outlined()).not.toContain('green');
+  expect(screen.queryByText('target1 · 2 bp')).toBeNull();
+});

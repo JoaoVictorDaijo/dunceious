@@ -131,6 +131,12 @@ const App: React.FC = () => {
   const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
 
   const remapHubRows = useCallback((remap: (key: string) => string | null) => {
+    const remapFocus = (previous: FocusTarget | null) => {
+      if (!previous || previous.featureIndex === undefined) return previous;
+      const key = remap(`${previous.recordId}:${previous.featureIndex}`);
+      return key ? { ...previous, featureIndex: Number(key.slice(key.lastIndexOf(':') + 1)) } : null;
+    };
+    setFocusedRegion(remapFocus); setPendingFocus(remapFocus);
     setHubFocus(previous => {
       if (!previous) return previous;
       const key = remap(previous.key);

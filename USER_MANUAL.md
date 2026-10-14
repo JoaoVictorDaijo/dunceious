@@ -186,7 +186,7 @@ Clicking an annotation (or **View details** in the Hub) shows its metadata, loca
 
 ## 4. Exporting Data
 
-Open **Export…** from the hub toolbar or sequence selection bar. The sequence tree follows the By sequence index grouping even from the By feature tab, with partial group checkboxes and Find. It starts with selected sequences, otherwise matching filters, otherwise all. Quick picks choose All, Selected in hub, Matching filters, Shown in hub, Shown in viewport or None. Selected in hub and Matching filters exclude sequences hidden in the hub. Shown in hub selects every hub-visible sequence; Shown in viewport follows the separate navigator eyes. All includes hidden sequences.
+Open **Export…** from the hub toolbar or sequence selection bar. The sequence tree follows the By sequence index grouping even from the By feature tab, with partial group checkboxes and Find. It starts with selected sequences, otherwise matching filters, otherwise all. Quick picks choose All, Selected in hub, Matching filters, Shown in hub, Shown in viewport or None. Selected in hub and Matching filters exclude sequences hidden in the hub. Shown in hub selects every hub-visible sequence; Shown in viewport follows the separate navigator eyes. All includes hidden sequences. If export warnings offer **Edit details**, that action unhides only the affected sequences so their bulk detail repair is available.
 
 Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the footer filename:
 

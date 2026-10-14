@@ -354,3 +354,21 @@ it('clears the current index window when the final hub section is hidden from it
   fireEvent.click(screen.getByRole('button', { name: '1 hidden · Show all' }));
   expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
 });
+
+it.each([1, 2])('reveals only the %i hidden affected sequences when repairing export organisms', hiddenCount => {
+  render(<Subject initial={[...records.slice(0, 2), writeDetails(records[2], { organism: 'already valid' })]} index />);
+  const index = within(screen.getByRole('region', { name: 'Hub index' }));
+  fireEvent.click(index.getByRole('button', { name: 'Hide seq2 in hub' }));
+  for (let i = 0; i < hiddenCount; i++) fireEvent.click(index.getByRole('button', { name: `Hide seq${i} in hub` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+  fireEvent.click(screen.getByRole('button', { name: 'All' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Export sequences' })).getByRole('button', { name: 'Edit details' }));
+  expect(screen.getByText(`Unhid ${hiddenCount} sequences to edit their details.`)).toBeTruthy();
+  expect((screen.getByLabelText('Detail field') as HTMLSelectElement).value).toBe('organism');
+  fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'virus' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(screen.getByText('Set Organism on 2 sequences')).toBeTruthy();
+  expect(index.getByRole('button', { name: 'Show seq2 in hub' })).toBeTruthy();
+  expect(index.getByRole('button', { name: '1 hidden · Show all' })).toBeTruthy();
+});

@@ -163,6 +163,9 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
     {items.length ? <HubList filtersPending={query !== state.filters.query} key={state.tab} items={items} kind={state.tab} state={displayState} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={removeFeature} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
     </div>
     {exportOpen && <ExportDialog featureColors={props.featureColors} records={records} state={state} onClose={() => setExportOpen(false)} onExport={props.onExportRecords} onEditDetails={ids => {
+      const hiddenCount = [...ids].filter(id => state.hubHidden.has(id)).length;
+      state.setHubHidden(previous => new Set([...previous].filter(id => !ids.has(id))));
+      if (hiddenCount) setNotice(`Unhid ${hiddenCount} sequences to edit their details.`);
       state.setSelectedRecords(ids); state.setSelectedRows(new Set());
       setOrganismEditRequest(request => request + 1);
     }} />}
