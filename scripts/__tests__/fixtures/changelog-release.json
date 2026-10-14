@@ -1,0 +1,19 @@
+{
+  "changelog": "# Changelog\n\n## [Unreleased]\n\n### Changed\n\n- Keep this pending entry.\n\n## [2.8.1] \u2014 2026-10-14\n\n### Fixed\n\n- Older fix.\n",
+  "fragments": {
+    "z-added.md": "---\ntype: Added\n---\nA new feature.\n",
+    "a-added.md": "---\ntype: Added\n---\nAnother feature\nwith a wrapped description.\n",
+    "change.md": "---\ntype: Changed\n---\nA changed workflow.\n",
+    "fix.md": "---\r\ntype: Fixed\r\n---\r\nA corrected behavior.\r\n",
+    "remove.md": "---\ntype: Removed\n---\nAn obsolete option.\n",
+    "secure.md": "---\ntype: Security\n---\nA security correction.\n"
+  },
+  "section": "## [2.9.0] \u2014 2026-10-15\n\n### Added\n\n- Another feature with a wrapped description.\n- A new feature.\n\n### Changed\n\n- A changed workflow.\n\n### Fixed\n\n- A corrected behavior.\n\n### Removed\n\n- An obsolete option.\n\n### Security\n\n- A security correction.\n\n",
+  "malformed": [
+    "type: Fixed\nMissing delimiters.",
+    "---\ntype: Unknown\n---\nInvalid type.",
+    "---\ntype: Fixed\n---\n   \n",
+    "---\ntype: Fixed\nextra: field\n---\nExtra front matter.",
+    "---\ntype: Fixed\n---\nOne\nTwo\nThree\n"
+  ]
+}

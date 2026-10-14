@@ -15,6 +15,20 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-10-14
+
+### Changed
+
+- The feature editor’s Display Name field is associated with its label for accessible editing.
+- CI verifies the production build in the browser, and release notes are assembled from per-PR fragments.
+- Offer Add sequences, Save project and Clear workspace beside the viewport’s Record Navigator title, matching the hub’s Sequence index.
+
+### Fixed
+
+- Keep both pieces of an origin-crossing annotation in one Hub genome-track lane, and include both pieces in the Hub’s visible-row track window.
+- Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
+- Clear sequence search state and discard pending search results when workspace records change.
+
 ## [2.8.1] — 2026-10-14
 
 ### Changed

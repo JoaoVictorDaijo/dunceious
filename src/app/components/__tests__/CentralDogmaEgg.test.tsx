@@ -19,12 +19,21 @@
 
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { act, fireEvent, render, screen, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { CLOSE_GUARD_MS, UNLOCK_TAPS } from '@/src/app/logic/easterEgg';
 import CentralDogmaEgg from '../CentralDogmaEgg';
 import StatusBar from '../StatusBar';
 
+let recorder: CanvasRecorder;
+beforeEach(() => { recorder = installCanvasRecorder(); });
+
 describe('CentralDogmaEgg', () => {
+
+  it('draws the transcribed mRNA on the replay canvas', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    act(() => { vi.advanceTimersByTime(32); });
+    expect(recorder.texts()).toContain("5′ mRNA");
+  });
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 

@@ -86,10 +86,11 @@ async function start() {
 
 describe('remote alignment application integration', () => {
   it('locks controls and every mutation handler while permitting monitor reopen', async () => {
-    const view = await start();
+    await start();
     const reader = vi.spyOn(FileReader.prototype, 'readAsText');
+    const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
     for (const accept of ['.gb,.genbank,.fasta,.fa', '.fasta,.fa', '.json']) {
-      const input = view.container.querySelector<HTMLInputElement>(`input[accept="${accept}"]`)!;
+      const input = ingestion.querySelector<HTMLInputElement>(`input[accept="${accept}"]`)!;
       expect(input.disabled).toBe(true);
       expect(input.parentElement?.getAttribute('data-tip')).toBe('Locked while the EBI alignment runs');
     }

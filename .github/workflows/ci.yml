@@ -43,7 +43,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -65,11 +65,27 @@ jobs:
 
       - name: Test
         if: ${{ !cancelled() }}
-        run: npm run test:coverage
+        run: npm run test:coverage -- --maxWorkers=25%
 
       - name: Build
         if: ${{ !cancelled() }}
         run: npm run build
+
+      - name: Install Chromium
+        if: ${{ success() }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser e2e on production build
+        if: ${{ success() }}
+        run: npm run test:e2e:run
+
+      - name: Upload browser failure results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: test-results/
+          if-no-files-found: ignore
 
   # Promotions to main must carry a version bump (see CLAUDE.md > Versioning
   # & releases). Runs only on develop -> main PRs; never nags develop PRs.
@@ -83,7 +99,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Fetch base branch
         env:
