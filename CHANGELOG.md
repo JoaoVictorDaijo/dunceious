@@ -15,6 +15,10 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the Hub sequence and feature index scroll position when hiding or showing sequences.
+
 ## [2.8.0] — 2026-10-14
 
 ### Added

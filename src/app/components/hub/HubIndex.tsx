@@ -132,7 +132,22 @@ export default function HubIndex({ records, state, featureColors, onAddSequences
     if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
     const observer = new ResizeObserver(measure); observer.observe(element); return () => observer.disconnect();
   }, []);
-  useLayoutEffect(() => { list.current?.resetAfterIndex(0); reveal(state.currentSectionKey); }, [entries, height, state.currentSectionKey, reveal]);
+  const previousReveal = useRef<{ revision: number; tab: typeof state.tab; grouped: boolean; groupField: typeof state.groupField } | null>(null);
+  const pendingContextReveal = useRef(true);
+  useLayoutEffect(() => { list.current?.resetAfterIndex(0); }, [entries, height]);
+  useLayoutEffect(() => {
+    const previous = previousReveal.current;
+    if (!previous || previous.tab !== state.tab || previous.grouped !== state.grouped || previous.groupField !== state.groupField) pendingContextReveal.current = true;
+    if (previous && previous.revision !== state.currentSectionRevealRevision) {
+      reveal(state.currentSectionKey);
+      pendingContextReveal.current = false;
+    } else if (pendingContextReveal.current && entries.some(entry => entry.key === state.currentSectionKey)) {
+      // A tab can restore its current section after the index has rendered its new entries.
+      reveal(state.currentSectionKey);
+      pendingContextReveal.current = false;
+    }
+    previousReveal.current = { revision: state.currentSectionRevealRevision, tab: state.tab, grouped: state.grouped, groupField: state.groupField };
+  }, [state.currentSectionKey, state.currentSectionRevealRevision, state.tab, state.grouped, state.groupField, entries, reveal]);
   const setJumpTarget = state.setJumpTarget;
   const showInHub = state.showInHub;
   const jump = useCallback((key: string) => { if (state.tab === 'sequences') { const record = records.find(record => key === record.id || record.features.some((_, index) => key === `${record.id}:${index}`)); if (record) showInHub(record.id); } reveal(key); setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); }, [setJumpTarget, reveal, state.tab, records, showInHub]);
