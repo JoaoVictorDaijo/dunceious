@@ -113,7 +113,7 @@ it('reports dangling GFF3 relationships removed by annotation subset filters in 
 });
 
 it('does not replace an excluded local GFF3 parent with a reused ID from another record', () => {
-  const input: SeqRecord[] = ['a', 'b'].map(id => ({ id, name: id, sequence: 'ATG', features: [
+  const input = ['a', 'b'].map((id): SeqRecord => ({ id, name: id, sequence: 'ATG', features: [
     { type: 'gene', name: 'g', start: 0, end: 3, strand: 1, metadata: { ID: 'g' } },
     { type: 'CDS', name: 'c', start: 0, end: 3, strand: 1, metadata: { ID: 'c', Parent: 'g' } },
   ] }));
