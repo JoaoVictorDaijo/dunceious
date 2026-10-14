@@ -31,7 +31,8 @@ import type { HubFocusOrigin } from '../AnnotationHubPanel';
 import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionHeader';
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
-import SlimSectionBar, { SLIM_BAR_HEIGHT, slimBarHeight } from './SlimSectionBar';
+import SlimSectionBar from './SlimSectionBar';
+import { HEADER_GAP, SLIM_BAR_HEIGHT, slimBarHeight, listBounds, sectionsAt as computeSections, cardBounds, pinnedGeometry, jumpOffset } from '@/src/app/logic/hubListGeometry';
 import GroupedInner, { CardContext } from './GroupedInner';
 import OverviewRail, { railThumb } from './OverviewRail';
 import DetailsEditor, { detailsEditorHeight } from './DetailsEditor';
@@ -79,10 +80,6 @@ const ScrollRegion = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElem
   return <div {...props} ref={ref} tabIndex={0} role="region" aria-label="Annotations" />;
 });
 
-// The well gap above each card, drawn as part of its header entry.
-const HEADER_GAP = 14;
-// Scroll distance over which the pinned header cross-fades into the compact bar.
-const COLLAPSE_FADE = 40;
 function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
   const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
   useEffect(() => {
@@ -160,21 +157,13 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     return result;
   }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, cardWidth]);
   const sectionKeys = useMemo(() => new Set(items.map(item => item.key)), [items]);
-  const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
-  const total = entries.reduce((sum, entry) => sum + entry.size, 0);
-  const maxOffset = Math.max(0, total - height);
+  const { starts, total, maxOffset } = useMemo(() => listBounds(entries, height), [entries, height]);
   const offset = Math.min(scrollOffset.current, maxOffset);
   scrollOffset.current = offset;
   const sectionsAt = (value: number) => {
-    const readingLine = value + Math.min(280, Math.max(SLIM_BAR_HEIGHT + 96, Math.round(height * 0.3)));
-    let barIndex = entries.findIndex(entry => entry.type === 'header');
-    let current = entries[barIndex]?.sectionKey ?? null;
-    for (let i = 0; i < entries.length && starts[i] <= readingLine; i++) {
-      if (starts[i] <= value && entries[i].type === 'header') barIndex = i;
-      current = entries[i].sectionKey;
-    }
-    if (jumpLanding.current && (Math.abs(value - jumpLanding.current.offset) > 2 || !sectionKeys.has(jumpLanding.current.key))) jumpLanding.current = null;
-    return { barIndex, bar: entries[barIndex]?.sectionKey ?? null, current: jumpLanding.current?.key ?? current };
+    const next = computeSections(entries, starts, sectionKeys, height, value, jumpLanding.current);
+    jumpLanding.current = next.jumpLanding;
+    return next;
   };
   const sections = sectionsAt(offset);
   const pinnedIndex = sections.barIndex;
@@ -192,29 +181,16 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveOffset();
   }, [saveOffset]);
-  const cards = useMemo(() => entries.flatMap((entry, first) => {
-    if (entry.type !== 'header') return [];
-    let last = first;
-    while (last + 1 < entries.length && !['header', 'divider', 'spacer'].includes(entries[last + 1].type)) last++;
-    return [{ key: entry.key, start: starts[first], size: starts[last] + entries[last].size - starts[first], first, last, folded: folded(entry.key) }];
-  }), [entries, starts, folded]);
+  const cards = useMemo(() => cardBounds(entries, starts, folded), [entries, starts, folded]);
   const barHeight = (index: number) => entries[index]?.type === 'header' ? slimBarHeight(entries[index].item as SequenceSection | FeatureGroup, kind, featureColors) : SLIM_BAR_HEIGHT;
-  // Collapsing header: once the full header's surface reaches the top edge, a pinned copy keeps its name in view and is exactly as tall as the
-  // part of the real header still on screen, so nothing shows twice. It shrinks with the scroll and cross-fades into the compact bar.
-  const overlayHeight = (index: number, value: number) => Math.max(barHeight(index), starts[index] + (entries[index]?.size ?? 0) - value);
-  const compactProgress = (index: number, value: number) => Math.min(1, Math.max(0, (barHeight(index) + COLLAPSE_FADE - overlayHeight(index, value)) / COLLAPSE_FADE));
-  const barPosition = (index: number, value: number) => {
-    const card = cards.find(card => card.first === index);
-    return card ? Math.min(0, card.start + card.size - value - overlayHeight(index, value)) : 0;
-  };
-  const barVisible = (index: number, value: number) => Boolean(entries[index]?.type === 'header' && !folded(entries[index].key) && value > starts[index] + HEADER_GAP);
+  const geometry = (index: number, value: number) => pinnedGeometry(entries, starts, cards, index, value, barHeight(index), entries[index] ? folded(entries[index].key) : false);
   const paintBar = (index: number, value: number) => {
     const element = pinnedElement.current;
     if (!element) return;
-    const progress = compactProgress(index, value);
-    element.style.display = barVisible(index, value) ? '' : 'none';
-    element.style.top = `${barPosition(index, value)}px`;
-    element.style.height = `${overlayHeight(index, value)}px`;
+    const { compactProgress: progress, visible, top, overlayHeight } = geometry(index, value);
+    element.style.display = visible ? '' : 'none';
+    element.style.top = `${top}px`;
+    element.style.height = `${overlayHeight}px`;
     element.dataset.compact = String(progress >= 0.5);
     if (expandedLayer.current) expandedLayer.current.style.opacity = String(1 - progress);
     if (compactLayer.current) compactLayer.current.style.opacity = String(progress);
@@ -222,7 +198,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const updateWindow = (index: number, value: number) => {
     const header = entries[index];
     if (kind !== 'sequences' || header?.type !== 'header' || folded(header.key)) { state.trackWindow.update(null); return; }
-    const top = Math.max(starts[index] + header.size, value + (barVisible(index, value) ? Math.max(0, overlayHeight(index, value) + barPosition(index, value)) : 0));
+    const bar = geometry(index, value);
+    const top = Math.max(starts[index] + header.size, value + (bar.visible ? Math.max(0, bar.overlayHeight + bar.top) : 0));
     const visible = entries.flatMap((entry, i) => entry.sectionKey === header.sectionKey && entry.type === 'row' && starts[i] + entry.size > top && starts[i] < value + height ? [entry.feature] : []);
     const record = (header.item as SequenceSection).record;
     const parts = visible.flatMap(feature => feature.segments?.length ? feature.segments : [feature])
@@ -278,8 +255,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       const entry = entries[index];
       const headerIndex = entries.findIndex(other => other.type === 'header' && other.key === entry.sectionKey);
       const headerHeight = barHeight(headerIndex);
-      const position = entry.type === 'header' ? starts[index] : starts[index] - headerHeight - Math.max(0, (height - headerHeight - entry.size) / 2);
-      landJump(entry.sectionKey, Math.max(starts[headerIndex] ?? 0, Math.min(position, maxOffset)));
+      landJump(entry.sectionKey, jumpOffset(entry, starts[index], starts[headerIndex] ?? 0, headerHeight, height, maxOffset));
     }
     state.setJumpTarget(null);
   }, [pending, filtersPending, state.tab, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
@@ -364,10 +340,11 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     });
     return result;
   }, [entries, starts, total, kind]);
+  const pinnedMetrics = geometry(pinnedIndex, offset);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
       <CardContext.Provider value={{ cards, current: currentSection }}><VariableSizeList outerElementType={ScrollRegion} innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="hub-scroll-region custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
-      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" data-compact={String(compactProgress(pinnedIndex, offset) >= 0.5)} className="hub-pinned absolute top-0 z-10 overflow-hidden border-x border-slate-300 bg-white shadow-sm" style={{ left: 14, right: 14, borderColor: pinned.sectionKey === currentSection ? 'color-mix(in srgb, var(--env) 70%, transparent)' : undefined, height: overlayHeight(pinnedIndex, offset), top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><div ref={expandedLayer} data-pinned-expanded aria-hidden="true" inert className="hub-pinned-expanded absolute inset-x-0 top-0" style={{ opacity: 1 - compactProgress(pinnedIndex, offset) }}>{header(pinned, 0)}</div><div ref={compactLayer} data-pinned-compact className="hub-pinned-compact absolute inset-x-0 top-0" style={{ opacity: compactProgress(pinnedIndex, offset) }}><SlimSectionBar current={pinned.sectionKey === currentSection} pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div></div>}
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" data-compact={String(pinnedMetrics.compactProgress >= 0.5)} className="hub-pinned absolute top-0 z-10 overflow-hidden border-x border-slate-300 bg-white shadow-sm" style={{ left: 14, right: 14, borderColor: pinned.sectionKey === currentSection ? 'color-mix(in srgb, var(--env) 70%, transparent)' : undefined, height: pinnedMetrics.overlayHeight, top: pinnedMetrics.top, display: pinnedMetrics.visible ? undefined : 'none' }}><div ref={expandedLayer} data-pinned-expanded aria-hidden="true" inert className="hub-pinned-expanded absolute inset-x-0 top-0" style={{ opacity: 1 - pinnedMetrics.compactProgress }}>{header(pinned, 0)}</div><div ref={compactLayer} data-pinned-compact className="hub-pinned-compact absolute inset-x-0 top-0" style={{ opacity: pinnedMetrics.compactProgress }}><SlimSectionBar current={pinned.sectionKey === currentSection} pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div></div>}
     </div>
     <OverviewRail scrollRef={scrollElement} indicatorRef={railIndicator} blocks={blocks} currentKey={currentSection ?? undefined} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={(value, key) => { state.setJumpTarget(null); if (key) landJump(key, value); else { jumpLanding.current = null; list.current?.scrollTo(value); } }} />
   </div>;
