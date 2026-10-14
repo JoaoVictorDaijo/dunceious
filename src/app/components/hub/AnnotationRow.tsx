@@ -22,6 +22,7 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { useEffect, useRef } from 'react';
+import { HubEditChip } from './HubEditMarks';
 import { useTrackTooltip } from './TrackTooltip';
 import { featureLength } from '@/src/app/logic/viewModel';
 
@@ -66,6 +67,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     <div data-name-cell className="flex min-w-0 flex-nowrap items-center gap-2">
       <div className={`flex min-w-0 items-center gap-2 ${kind === 'features' ? 'flex-nowrap' : 'flex-wrap'}`}>
         <strong className="min-w-0 truncate font-semibold text-slate-900">{kind === 'features' ? record.accession || record.id : feature.name}</strong>
+        <HubEditChip mark={feature.hubEdit} />
         {detail && <span data-row-subtext data-tip={detail} className="min-w-0 truncate text-slate-500">{detail}</span>}
         {lastFocused && <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-env bg-white px-2 text-[10px] text-amber-800"><i aria-hidden="true" className="fas fa-crosshairs" />Last focused</span>}
       </div>

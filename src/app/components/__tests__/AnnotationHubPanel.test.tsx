@@ -417,3 +417,26 @@ it('toggles the current row on repeat click and Escape while actions and checkbo
   fireEvent.keyDown(row, { key: 'Escape' });
   expect(row.getAttribute('aria-current')).toBe('false');
 });
+
+
+it('shows annotation edit chips, group counts and an edited-only filter in both pivots and export', () => {
+  const input = [{ ...records[0], features: [
+    { ...records[0].features[0], name: 'file' },
+    { ...records[0].features[0], name: 'edited row', hubEdit: 'edited' as const },
+    { ...records[0].features[0], name: 'added row', hubEdit: 'added' as const },
+  ] }];
+  const { container } = render(<Subject initial={input} index />);
+  expect(container.querySelector('[data-row-key="seq0:1"] [data-edit-chip]')?.textContent).toBe('edited');
+  expect(container.querySelector('[data-row-key="seq0:2"] [data-edit-chip]')?.textContent).toBe('added');
+  expect(screen.getAllByText('1 edited · 1 added').length).toBeGreaterThanOrEqual(2);
+  const filter = screen.getByRole('button', { name: 'Edited in Dunceious' });
+  fireEvent.click(filter);
+  expect(filter.getAttribute('aria-pressed')).toBe('true');
+  expect(container.querySelector('[data-row-key="seq0:0"]')).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')).toBeNull();
+  fireEvent.click(within(screen.getByLabelText('Header tools')).getByRole('button', { name: 'Export…' }));
+  expect(screen.getByLabelText('Export seq0').closest('label')?.querySelector('[data-edit-chip]')?.textContent).toBe('edited');
+  fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
+  expect(screen.getByText('2 edited or added')).toBeTruthy();
+});

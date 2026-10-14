@@ -24,7 +24,7 @@ import { featureLength } from './viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 
 export type GroupField = 'organism' | 'host' | 'location' | 'year' | 'file';
-export type HubFilters = { query: string; types: Set<string>; strand: 'all' | 'fwd' | 'rev'; sequenceQuery: string; needsAttention: boolean; onlyIds?: Set<string> };
+export type HubFilters = { query: string; types: Set<string>; strand: 'all' | 'fwd' | 'rev'; sequenceQuery: string; needsAttention: boolean; onlyIds?: Set<string>; editedOnly?: boolean };
 export type SortOrder = 'load' | 'accession' | 'fewest';
 export type SequenceSection = { key: string; group: string | null; record: SeqRecord; rows: BioFeature[]; total: number; tracks?: QuantitativeTrack[] };
 export type GroupMode = { grouped: false } | { grouped: true; field: GroupField };
@@ -66,11 +66,12 @@ export function matchesAnnotationFilters(feature: BioFeature, filters: HubFilter
   const strand = getFeatureStrand(feature);
   return matchesAnnotation(feature, filters.query)
     && (filters.types.size === 0 || filters.types.has(feature.type))
+    && (!filters.editedOnly || Boolean(feature.hubEdit))
     && (filters.strand === 'all' || strand === (filters.strand === 'fwd' ? 1 : -1));
 }
 
 export function hasAnnotationFilters(filters: HubFilters): boolean {
-  return Boolean(filters.query.trim()) || filters.types.size > 0 || filters.strand !== 'all';
+  return Boolean(filters.query.trim()) || filters.types.size > 0 || filters.strand !== 'all' || Boolean(filters.editedOnly);
 }
 
 export function buildSequenceSections(records: SeqRecord[], filters: HubFilters, mode: GroupMode, sort: SortOrder): SequenceSection[] {
@@ -78,7 +79,7 @@ export function buildSequenceSections(records: SeqRecord[], filters: HubFilters,
     const annotations = annotationFeatures(record);
     return {
       key: record.id, group: mode.grouped ? groupKeyOf(record, mode.field) : null,
-      tracks: (record.tracks ?? []).filter(track => track.name.toLowerCase().includes(filters.query.trim().toLowerCase()) && (!filters.types.size || filters.types.has('track')) && filters.strand === 'all'),
+      tracks: (record.tracks ?? []).filter(track => track.name.toLowerCase().includes(filters.query.trim().toLowerCase()) && (!filters.types.size || filters.types.has('track')) && filters.strand === 'all' && !filters.editedOnly),
       record, rows: annotations.filter(feature => matchesAnnotationFilters(feature, filters)), total: annotations.length,
     };
   }).filter(section => !hasAnnotationFilters(filters) || section.rows.length > 0 || section.tracks.length > 0);

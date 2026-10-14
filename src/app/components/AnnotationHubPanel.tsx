@@ -28,6 +28,7 @@ import type { useHubState } from '@/src/app/hooks/useHubState';
 import HubToolbar from './hub/HubToolbar';
 import HubTabs from './hub/HubTabs';
 import { withHiddenCells } from '@/src/app/logic/hubVisibility';
+import { hubEditSummary, hubEditCounts } from '@/src/app/logic/hubEdits';
 import FilterBar from './hub/FilterBar';
 import SelectionBar from './hub/SelectionBar';
 import ExportDialog from './hub/ExportDialog';
@@ -82,8 +83,8 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const [organismEditRequest, setOrganismEditRequest] = useState(0);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(timer); }, [notice]);
   const query = useDeferredValue(state.filters.query);
-  const { types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds } = state.filters;
-  const filters = useMemo(() => ({ query, types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds }), [query, filterTypes, strand, sequenceQuery, needsAttention, onlyIds]);
+  const { types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly } = state.filters;
+  const filters = useMemo(() => ({ query, types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly }), [query, filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly]);
   const hubRecords = useMemo(() => records.filter(record => !state.hubHidden.has(record.id)), [records, state.hubHidden]);
   const displayState = { ...state, filters };
   const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(hubRecords, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort).map(section => ({ ...section, rows: sortGroupRows(section.rows.map(feature => ({ record: section.record, feature })), state.rowSort.sequences).map(row => row.feature) })) : [], [hubRecords, filters, state.tab, state.grouped, state.groupField, state.sort, state.rowSort.sequences]);
@@ -93,6 +94,8 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const rows = useMemo(() => state.tab === 'sequences' ? searchHits(sections) : groups.flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)), [state.tab, sections, groups]);
   const annotationKeys = useMemo(() => new Set(state.tab === 'sequences' ? sections.flatMap(section => section.rows.map(f => `${section.record.id}:${section.record.features.indexOf(f)}`)) : rows), [state.tab, sections, rows]);
   const matches = query.trim() ? rows : [];
+  const editSummary = useMemo(() => hubEditSummary(hubRecords.flatMap(record => record.features)), [hubRecords]);
+  const markedCount = useMemo(() => hubRecords.reduce((sum, record) => sum + hubEditCounts(record.features).total, 0), [hubRecords]);
   const totalAnnotations = useMemo(() => records.reduce((count, record) => count + annotationFeatures(record).length, 0), [records]);
   const visibleAnnotations = annotationKeys.size;
   const visibleRecords = state.tab === 'sequences' ? sections.length : new Set(groups.flatMap(group => group.rows.map(row => row.record.id))).size;
@@ -139,7 +142,7 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
       const next = items[Math.max(0, Math.min(items.length - 1, index + (key === ']' ? 1 : -1)))];
       if (next) { state.setJumpTarget(prev => ({ key: next.key, serial: (prev?.serial ?? 0) + 1 })); setCurrentRow(null); }
     } else if (key === 'o' && state.currentSectionKey) {
-      const filtering = Boolean(state.filters.query || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && state.tab === 'features');
+      const filtering = Boolean(state.filters.query || state.filters.types.size || state.filters.strand !== 'all' || state.filters.editedOnly || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && state.tab === 'features');
       const sectionKey = state.currentSectionKey;
       if (filtering) state.setSearchFolds(prev => { const next = new Set(prev), target = `${state.tab}:${sectionKey}`; if (next.has(target)) next.delete(target); else next.add(target); return next; });
       else state.setCollapsed(prev => { const next = new Set(prev[state.tab]); if (next.has(sectionKey)) next.delete(sectionKey); else next.add(sectionKey); return { ...prev, [state.tab]: next }; });
@@ -156,9 +159,9 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
     <h1 className="sr-only">Annotation Hub</h1>
     {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onAdd={props.onStartNewFeature} locked={isAlignmentLocked} onExport={() => setExportOpen(true)} more={<MoreMenu state={state} locked={isAlignmentLocked} empty={!records.length} onSave={props.onExportProjectJson} onClear={props.onClearAll} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
-    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
+    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}${editSummary ? ` · ${editSummary}` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
     <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
-    <FilterBar groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
+    <FilterBar editedCount={markedCount} groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
     <SelectionBar records={hubRecords} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />
     {notice && <p role="status" className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-slate-700">{notice}</p>}
     <div className="hub-row-grid border-b border-slate-200 bg-slate-50 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">

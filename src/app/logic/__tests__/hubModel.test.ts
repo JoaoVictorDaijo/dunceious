@@ -135,3 +135,15 @@ describe('sorting within groups', () => {
     expect(sortGroupRows(rows, { column: 'length', direction: 'ascending' }).map(row => row.feature.name)).toEqual(['x', 'y']);
   });
 });
+
+
+it('combines the edited-only filter with type, strand and query as AND', () => {
+  const input = [record('marked', {}, [
+    { ...feature('edited', 'gene'), hubEdit: 'edited' as const },
+    { ...feature('added', 'CDS', -1), hubEdit: 'added' as const },
+    feature('file', 'CDS', -1),
+  ])];
+  expect(sections(input, { editedOnly: true })[0].rows.map(feature => feature.name)).toEqual(['edited', 'added']);
+  expect(sections(input, { editedOnly: true, types: new Set(['CDS']), strand: 'rev', query: 'added' })[0].rows.map(feature => feature.name)).toEqual(['added']);
+  expect(sections(input, { editedOnly: true, query: 'file' })).toEqual([]);
+});

@@ -33,7 +33,7 @@ function equalSets(a: Set<string> | undefined, b: Set<string> | undefined): bool
 
 function sameFilters(a: HubFilters, b: HubFilters): boolean {
   return a.query === b.query && a.strand === b.strand && a.sequenceQuery === b.sequenceQuery
-    && a.needsAttention === b.needsAttention && equalSets(a.types, b.types) && equalSets(a.onlyIds, b.onlyIds);
+    && a.editedOnly === b.editedOnly && a.needsAttention === b.needsAttention && equalSets(a.types, b.types) && equalSets(a.onlyIds, b.onlyIds);
 }
 
 function filterReducer(state: FilterState, action: FilterAction): FilterState {

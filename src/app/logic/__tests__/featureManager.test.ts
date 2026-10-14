@@ -125,3 +125,15 @@ it('marks inserted and edited annotations as edited', () => {
   expect(saveEditedFeature(input, 'r1', -1, feat({ name: 'b' }))[0].annotationsEdited).toBe(true);
   expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edited' }))[0].annotationsEdited).toBe(true);
 });
+
+
+it('marks new annotations added and keeps that provenance through later edits', () => {
+  const original = feat({ name: 'file' });
+  const input = [rec({ id: 'r1', features: [original] })];
+  const added = saveEditedFeature(input, 'r1', -1, feat({ name: 'new' }));
+  expect(added[0].features[1].hubEdit).toBe('added');
+  const edited = saveEditedFeature(added, 'r1', 1, feat({ name: 'changed' }));
+  expect(edited[0].features[1].hubEdit).toBe('added');
+  expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edit file' }))[0].features[0].hubEdit).toBe('edited');
+  expect(original.hubEdit).toBeUndefined();
+});

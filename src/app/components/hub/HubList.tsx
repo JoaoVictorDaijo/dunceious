@@ -103,7 +103,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const editor = useMemo(() => state.editingDetails ? { id: state.editingDetails, kind: 'details' as const } : editingName ? { id: editingName, kind: 'name' as const } : null, [state.editingDetails, editingName]);
   const closeEditor = () => { state.setEditingDetails(null); setEditingName(null); setDraft(null); };
   const height = providedHeight ?? measuredHeight;
-  const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
+  const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.editedOnly || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && kind === 'features');
   const folded = useCallback((key: string) => filtering ? state.searchFolds.has(`${kind}:${key}`) : state.collapsed[kind].has(key), [filtering, state.searchFolds, state.collapsed, kind]);
   const fold = useCallback((key: string) => {
     const toggle = (prev: Set<string>, target: string) => { const next = new Set(prev); if (next.has(target)) next.delete(target); else next.add(target); return next; };
@@ -235,7 +235,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       const annotationHidden = !buildSequenceSections([record], noSequenceFilters, { grouped: false }, 'load').length;
       if (sequenceHidden || annotationHidden) {
         state.setFilters(prev => ({ ...prev,
-          ...(annotationHidden ? { query: '', types: new Set<string>(), strand: 'all' as const } : {}),
+          ...(annotationHidden ? { query: '', types: new Set<string>(), strand: 'all', editedOnly: false as const } : {}),
           ...(sequenceHidden ? { sequenceQuery: '', needsAttention: false, onlyIds: undefined } : {}),
         }));
         const cleared = annotationHidden ? sequenceHidden ? 'Search, type and sequence filters' : 'Search and type filters' : 'Sequence filters';
@@ -264,7 +264,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       if (kind === 'sequences') { const section = item as SequenceSection;
         const record = section.record;
         if (!section.rows.includes(feature)) {
-          state.setFilters(prev => ({ ...prev, query: '', types: new Set<string>(), strand: 'all' }));
+          state.setFilters(prev => ({ ...prev, query: '', types: new Set<string>(), strand: 'all', editedOnly: false }));
           onNotice?.(`Search and type filters cleared to show ${record.label || record.accession || record.id}`);
         }
         jump(`${record.id}:${record.features.indexOf(feature)}`); }

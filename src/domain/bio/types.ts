@@ -46,6 +46,8 @@ export interface BioFeature {
   start: number;  // 0-based, inclusive
   end: number;    // 0-based, exclusive; end < start ⇒ circular wrap-around
   strand: 1 | -1; // 1 = forward/plus, -1 = reverse/minus
+  /** Workspace provenance survives projects but stays out of interchange files. */
+  hubEdit?: 'edited' | 'added';
   color?: string;
   metadata?: Record<string, string>;
   translation?: string;

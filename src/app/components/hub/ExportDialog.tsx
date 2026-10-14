@@ -29,6 +29,7 @@ import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
 import { describeExport, initialExportSelection, matchingExportIds, exportRecordsForOptions, EXPORT_EXTENSION, EXPORT_DETAIL_LABELS, type ExportOptions, type HubExportFormat } from '@/src/app/logic/exportPlan';
 import ExportSequenceTree from './ExportSequenceTree';
+import { hubEditCounts } from '@/src/app/logic/hubEdits';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 
 const formats: { format: HubExportFormat; label: string; icon: string; description: string }[] = [
@@ -122,6 +123,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     return { label, values, active: quickPick === label };
   });
   const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(chosen, format, options).reduce((count, record) => count + annotationFeatures(record).length, 0), [chosen, format, options]);
+  const exportedEditCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(chosen, format, options).reduce((count, record) => count + hubEditCounts(record.features).total, 0), [chosen, format, options]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
 
@@ -159,7 +161,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
             <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={onlyMatching} onChange={e => setOnlyMatching(e.target.checked)} />Only annotations matching hub search and filters</label>
           </div>}
           <div className="mt-3 rounded-lg border border-slate-200 border-l-[3px] border-l-env bg-slate-50 p-3">
-            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex gap-2"><CountPill>{chosen.length}</CountPill> {chosen.length === 1 ? 'sequence' : 'sequences'}<CountPill>{exportedAnnotationCount}</CountPill> annotations</p>
+            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex gap-2"><CountPill>{chosen.length}</CountPill> {chosen.length === 1 ? 'sequence' : 'sequences'}<CountPill>{exportedAnnotationCount}</CountPill> annotations<CountPill>{exportedEditCount} edited or added</CountPill></p>
             {preview.error ? <p role="alert" className="text-rose-700">{preview.error}</p> : <>
               {preview.summary.split('\n').map((line, index) => <p key={line} className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
               {Boolean(report?.missingOrganism) && <button className="mt-1 text-amber-800 underline" onClick={() => { onClose(); onEditDetails(missingIds); }}>Edit details</button>}

@@ -30,8 +30,10 @@ export function saveEditedFeature(
   return records.map(r => {
     if (r.id !== recordId) return r;
     const newFeatures = [...r.features];
-    if (featureIndex === -1) newFeatures.push(feature);
-    else newFeatures[featureIndex] = feature;
+    const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
+    const marked: BioFeature = { ...feature, hubEdit };
+    if (featureIndex === -1) newFeatures.push(marked);
+    else newFeatures[featureIndex] = marked;
     return { ...r, features: newFeatures, annotationsEdited: true };
   });
 }

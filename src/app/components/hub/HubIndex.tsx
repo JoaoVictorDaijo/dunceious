@@ -25,6 +25,7 @@ import { buildSequenceSections, type SequenceSection } from '@/src/app/logic/hub
 import { withHiddenCells } from '@/src/app/logic/hubVisibility';
 import { buildFeatureGroups, type FeatureGroup } from '@/src/app/logic/featureComparison';
 import { isEdited, isPartial, isUnannotated, isolateOf, needsAttention } from '@/src/domain/bio/recordStatus';
+import { hubEditSummary } from '@/src/app/logic/hubEdits';
 import SectionTitle from '../SectionTitle';
 import GroupByControl from './GroupByControl';
 import GenomeStrip from './GenomeStrip';
@@ -51,7 +52,7 @@ const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected,
       <button aria-label={`${hidden ? 'Show' : 'Hide'} ${record.id} in hub`} data-tip={hidden ? 'Show in hub' : 'Hide in hub'} onClick={() => onToggleHubHidden(record.id)} className="p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas ${hidden ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
     </div>
     <div className="min-w-0 text-[10px] text-slate-400"><p className="truncate">{isolateOf(record)} · <span className="font-mono">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span></p>
-      <div className="flex h-4 gap-1 overflow-hidden">{[isUnannotated(record) && 'Unannotated', isPartial(record) && 'Partial', isEdited(record) && 'Edited', hidden && 'Hidden in hub'].filter(Boolean).map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
+      <div className="flex h-4 gap-1 overflow-hidden"><span className="shrink-0 font-mono text-amber-200">{hubEditSummary(record.features)}</span>{[isUnannotated(record) && 'Unannotated', isPartial(record) && 'Partial', isEdited(record) && 'Edited', hidden && 'Hidden in hub'].filter(Boolean).map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
     </div>
     <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
   </div>;
@@ -80,6 +81,7 @@ const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump
         <span className="flex min-w-0 gap-1 overflow-hidden">{group.types.map(type => <span key={type} data-type-swatch data-tip={type} aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />)}</span>
         <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">{group.counts.present}/{group.counts.pool}</span>
       </span>
+      {hubEditSummary(group.rows.map(row => row.feature)) && <span className="font-mono text-[10px] text-amber-200">{hubEditSummary(group.rows.map(row => row.feature))}</span>}
       <span className="flex h-3 w-full items-center gap-0.5 overflow-hidden">
         {group.cells.slice(0, previewCount).map(cell => <span key={cell.recordId} data-presence-state={cell.state} data-tip={`${cell.recordId}: ${presenceLabel(cell.state)}`} aria-hidden="true" className={`shrink-0 rounded-sm ${PRESENCE_CLASSES[cell.state]}`} style={{ ...presenceStyle(cell.state, color), width: 8, height: 8 }} />)}
         {omitted > 0 && <span style={{ width: (String(omitted).length + 1) * 6 }} className="shrink-0 font-mono text-[9px] text-slate-400">+{omitted}</span>}
@@ -91,8 +93,8 @@ type IndexItem = { key: string; size: number } & ({ type: 'group'; group: string
 function IndexRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) { return data(index, style); }
 export default function HubIndex({ records, state, featureColors }: { records: SeqRecord[]; featureColors?: Record<string, string>; state: ReturnType<typeof useHubState> }) {
   const query = useDeferredValue(state.filters.query);
-  const { types, strand, sequenceQuery, needsAttention: attention, onlyIds } = state.filters;
-  const filters = useMemo(() => ({ query, types, strand, sequenceQuery, needsAttention: attention, onlyIds }), [query, types, strand, sequenceQuery, attention, onlyIds]);
+  const { types, strand, sequenceQuery, needsAttention: attention, onlyIds, editedOnly } = state.filters;
+  const filters = useMemo(() => ({ query, types, strand, sequenceQuery, needsAttention: attention, onlyIds, editedOnly }), [query, types, strand, sequenceQuery, attention, onlyIds, editedOnly]);
   const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(records, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort) : [], [records, filters, state.tab, state.grouped, state.groupField, state.sort]);
   const hubRecords = useMemo(() => records.filter(record => !state.hubHidden.has(record.id)), [records, state.hubHidden]);
   const features = useMemo(() => state.tab === 'features' ? withHiddenCells(buildFeatureGroups(hubRecords, filters, state.onlyProblems), records, state.hubHidden, filters) : [], [hubRecords, records, state.hubHidden, filters, state.tab, state.onlyProblems]);

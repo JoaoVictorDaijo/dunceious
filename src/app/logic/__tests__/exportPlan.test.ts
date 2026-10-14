@@ -86,3 +86,17 @@ describe('serializer previews', () => {
     expect(serializeExport([r], 'gff3', { types: new Set() }).report.writtenDetails.organism).toBe(1);
   });
 });
+
+
+it.each(['genbank', 'genpept', 'gff3', 'fasta'] as const)('does not leak annotation edit marks into %s', format => {
+  const original = { ...records[0], moleculeType: format === 'genpept' ? 'protein' as const : 'dna' as const };
+  const marked = { ...original, features: original.features.map((feature, index) => ({ ...feature, hubEdit: index ? 'added' as const : 'edited' as const })) };
+  const dispatch = format === 'genpept' ? 'genbank' : format;
+  expect(serializeExport([marked], dispatch).text).toBe(serializeExport([original], dispatch).text);
+  expect(serializeExport([marked], dispatch).text).not.toContain('hubEdit');
+});
+it('stores annotation edit marks in project format 2', () => {
+  const record = { ...records[0], features: [{ ...records[0].features[0], hubEdit: 'added' as const }] };
+  const saved = JSON.parse(serializeExport([record], 'project').text);
+  expect(saved.records[0].features[0].hubEdit).toBe('added');
+});

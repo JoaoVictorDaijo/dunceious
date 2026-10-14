@@ -217,3 +217,15 @@ it('keeps a detail edit queued before deletion in the same event', () => {
   expect(readDetails(result.current.value[0]).host).toBe('camel');
   expect(result.current.value[0].features.filter(f => f.type !== 'source').map(f => f.name)).toEqual(['b']);
 });
+
+
+it.each(['edited', 'added'] as const)('restores the %s annotation mark on undo-delete', hubEdit => {
+  const { result } = renderHook(() => {
+    const [value, setValue] = useState<SeqRecord[]>([{ ...records[0], features: [{ name: 'marked', type: 'gene', start: 0, end: 2, strand: 1, hubEdit }] }]);
+    return { value, manager: useFeatureManager(value, setValue, null, () => {}) };
+  });
+  act(() => result.current.manager.removeFeature('synthetic', 0));
+  expect(result.current.value[0].features).toEqual([]);
+  act(() => result.current.manager.undoDelete());
+  expect(result.current.value[0].features[0].hubEdit).toBe(hubEdit);
+});
