@@ -142,13 +142,15 @@ const App: React.FC = () => {
       const key = remap(previous.key);
       return key ? { ...previous, key } : null;
     });
+    hubState.setCurrentRow(previous => previous ? remap(previous) : null);
+    hubState.setSearchKey(previous => previous ? remap(previous) : null);
     hubState.setJumpTarget(previous => {
       if (!previous) return previous;
       const key = remap(previous.key);
       return key ? { ...previous, key } : null;
     });
     hubState.setSelectedRows(previous => new Set([...previous].flatMap(key => { const next = remap(key); return next ? [next] : []; })));
-  }, [hubState.setJumpTarget, hubState.setSelectedRows]);
+  }, [hubState.setJumpTarget, hubState.setSelectedRows, hubState.setCurrentRow, hubState.setSearchKey]);
 
   const {
     editing,

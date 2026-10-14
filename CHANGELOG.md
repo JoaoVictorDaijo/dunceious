@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted targets.
+
 - Circular wrapping segments retain their biological length after coordinate edits.
 
 - Large quantitative tracks render in the Hub without overflowing the call stack.
