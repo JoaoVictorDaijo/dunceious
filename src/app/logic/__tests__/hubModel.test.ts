@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { describe, expect, it } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { buildSequenceSections, groupKeyOf, groupPreview, matchesAnnotation, matchesSequence, searchHits, type HubFilters, cycleRowSort, sortGroupRows } from '../hubModel';
@@ -146,4 +147,15 @@ it('combines the edited-only filter with type, strand and query as AND', () => {
   expect(sections(input, { editedOnly: true })[0].rows.map(feature => feature.name)).toEqual(['edited', 'added']);
   expect(sections(input, { editedOnly: true, types: new Set(['CDS']), strand: 'rev', query: 'added' })[0].rows.map(feature => feature.name)).toEqual(['added']);
   expect(sections(input, { editedOnly: true, query: 'file' })).toEqual([]);
+});
+
+
+it('sorts origin-crossing annotations by biological start and summed length without changing load order', () => {
+  const record = createOriginCrossingRecord();
+  const rows = record.features.map(feature => ({ record, feature }));
+  expect(sortGroupRows(rows, { column: 'location', direction: 'ascending' }).map(row => row.feature.name)).toEqual(['peptide', 'core', 'polymerase', 'envelope']);
+  expect(sortGroupRows(rows, { column: 'location', direction: 'descending' }).map(row => row.feature.name)).toEqual(['envelope', 'polymerase', 'core', 'peptide']);
+  expect(sortGroupRows(rows, { column: 'length', direction: 'ascending' }).map(row => row.feature.name)).toEqual(['core', 'peptide', 'envelope', 'polymerase']);
+  expect(sortGroupRows(rows, { column: 'length', direction: 'descending' }).map(row => row.feature.name)).toEqual(['polymerase', 'envelope', 'peptide', 'core']);
+  expect(rows.map(row => row.feature.name)).toEqual(['polymerase', 'envelope', 'core', 'peptide']);
 });

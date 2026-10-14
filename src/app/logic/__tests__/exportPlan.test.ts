@@ -17,9 +17,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { writeDetails } from '@/src/domain/bio/details';
+import { parseGenBank } from '@/src/core/genbank';
+import { parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { initialExportSelection, describeExport, serializeExport } from '../exportPlan';
@@ -121,4 +124,35 @@ it('does not replace an excluded local GFF3 parent with a reused ID from another
   const { text, report } = serializeExport(input, 'gff3', options);
   expect(text).not.toContain('Parent=');
   expect(report.droppedAttributes).toBe(1);
+});
+
+
+it('preserves origin-crossing GenBank joins through export filtering and re-import', () => {
+  const record = writeDetails(createOriginCrossingRecord(), { organism: 'Hepatitis B virus' });
+  const before = structuredClone(record);
+  const result = serializeExport([record], 'genbank', { types: new Set(['CDS']) });
+  expect(result.text).toContain('join(2427..3308,1..1758)');
+  expect(result.text).toContain('join(2992..3308,1..964)');
+  expect(result.report.writtenDetails.organism).toBe(1);
+  const parsed = parseGenBank(result.text)[0];
+  expect(parsed.isCircular).toBe(true);
+  expect(parsed.features.filter(feature => feature.type === 'CDS').map(feature => feature.locationString)).toEqual(['join(2427..3308,1..1758)', 'join(2992..3308,1..964)', '2021..2587']);
+  expect(parsed.features.some(feature => feature.type === 'mat_peptide')).toBe(false);
+  expect(record).toEqual(before);
+});
+
+it('round-trips origin-crossing GFF3 parts with valid intervals and source qualifiers', () => {
+  const record = writeDetails(createOriginCrossingRecord(), { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: '2020' });
+  const result = serializeExport([record], 'gff3');
+  const rows = result.text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t'));
+  expect(rows.map(row => [row[2], Number(row[3]), Number(row[4])])).toEqual([
+    ['region', 1, 3308], ['CDS', 2427, 3308], ['CDS', 1, 1758],
+    ['CDS', 2992, 3308], ['CDS', 1, 964], ['CDS', 2021, 2587], ['mature_protein_region', 296, 961],
+  ]);
+  expect(result.report.writtenDetails).toEqual({ organism: 1, host: 1, location: 1, collectionDate: 1 });
+  const parsed = parseGFF3(result.text);
+  expect(parsed.features.J02442).toHaveLength(4);
+  expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'pol')?.segments).toEqual([{ start: 2426, end: 3308 }, { start: 0, end: 1758 }]);
+  expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'env')?.segments).toEqual([{ start: 2991, end: 3308 }, { start: 0, end: 964 }]);
+  expect(parsed.details.J02442).toMatchObject({ details: { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: '2020' } });
 });

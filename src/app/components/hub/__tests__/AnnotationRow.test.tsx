@@ -18,6 +18,7 @@
  */
 
 // @vitest-environment jsdom
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import AnnotationRow from '../AnnotationRow';
@@ -48,4 +49,12 @@ it('keeps actions and the last-focused chip inside a single-line feature name ce
   const row = container.querySelector<HTMLElement>('[data-row-key]')!;
   expect(row.className).toContain('bg-amber-50');
   expect(row.className).toContain('shadow-[inset_0_0_0_1.5px_var(--env)]');
+});
+
+
+it.each([['sequences', 0, 'join(2427..3308,1..1758)', '2,640 bp'], ['features', 1, 'join(2992..3308,1..964)', '1,281 bp']] as const)('shows the joined location and biological length in %s rows', (kind, index, location, length) => {
+  const record = createOriginCrossingRecord();
+  render(<AnnotationRow record={record} feature={record.features[index]} rowKey={`J02442:${index}`} kind={kind} selected={false} current={false} lastFocused={false} onSelect={noop} onInspect={noop} onEdit={noop} onFocus={noop} onDelete={noop} onCurrent={noop} onHover={noop} />);
+  expect(screen.getByLabelText(`Location: ${location}`).textContent).toBe(location);
+  expect(screen.getByText(length)).toBeTruthy();
 });

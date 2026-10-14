@@ -18,6 +18,7 @@
  */
 
 // @vitest-environment jsdom
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
@@ -300,4 +301,24 @@ it('lists written, empty and invalid detail counts directly in the GenBank previ
   expect(host.textContent).toContain('/host');
   expect(host.textContent).toContain('1 written · 1 empty · 0 invalid, left out');
   expect(date.textContent).toContain('0 written · 1 empty · 1 invalid, left out');
+});
+
+
+it('previews the circular record annotation count and each source qualifier independently', () => {
+  const record = writeDetails(createOriginCrossingRecord(), { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: 'invalid date' });
+  render(<Subject value={[record]} selected={['J02442']} />); open(); format('GenBank');
+  expect(paragraph('1 sequence · 4 annotations → sequences.gb')).toBeTruthy();
+  const table = screen.getByRole('table', { name: 'Detail qualifiers' });
+  for (const label of ['Organism', 'Host', 'Location']) {
+    const row = within(table).getByRole('rowheader', { name: label }).closest('tr')!;
+    expect(row.textContent).toContain('1 written · 0 empty · 0 invalid, left out');
+  }
+  const date = within(table).getByRole('rowheader', { name: 'Collection date' }).closest('tr')!;
+  expect(date.textContent).toContain('0 written · 0 empty · 1 invalid, left out');
+  fireEvent.click(screen.getByText('Annotation types · 2 of 2'));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'mat_peptide' }));
+  expect(paragraph('1 sequence · 3 annotations → sequences.gb')).toBeTruthy();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'CDS' }));
+  expect(paragraph('1 sequence · 0 annotations → sequences.gb')).toBeTruthy();
+  expect(within(table).getByRole('rowheader', { name: 'Organism' }).closest('tr')!.textContent).toContain('1 written');
 });
