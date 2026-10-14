@@ -59,6 +59,9 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Selection exports discard stale CDS translations and recalculate reading frames after clipping.
+- Selection exports clip actual annotation parts, retaining circular parts and excluding intron-only features.
+
 - GFF3 CDS exports recalculate imported phases after reading-frame or geometry edits.
 
 - Project loading rejects unsafe workspace IDs without changing stored references.
