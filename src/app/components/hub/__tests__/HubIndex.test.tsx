@@ -317,3 +317,13 @@ it('reserves the title row when hidden controls appear and keeps the list siblin
   expect(titleRow.style.height).toBe('24px');
   expect(index.previousElementSibling).toBe(preceding);
 });
+
+
+it('separates nonzero edit counts from sequence status flags', () => {
+  const values = [{ ...records[0], annotationsEdited: true, features: records[0].features.map(feature => feature.type === 'source' ? feature : { ...feature, hubEdit: 'edited' as const }) }];
+  function Counts() { const state = useHubState(); return <HubIndex records={values} state={state} />; }
+  const { container } = render(<Counts />);
+  const card = container.querySelector('[data-index-card]')!;
+  expect(card.textContent).toContain('1 edited · Edited');
+  expect(card.textContent).not.toContain('0 added');
+});

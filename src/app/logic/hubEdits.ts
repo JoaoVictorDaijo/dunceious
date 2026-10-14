@@ -29,6 +29,6 @@ export function hubEditCounts(features: BioFeature[]) {
   return { edited, added, total: edited + added };
 }
 export function hubEditSummary(features: BioFeature[]): string {
-  const { edited, added, total } = hubEditCounts(features);
-  return total ? `${edited} edited · ${added} added` : '';
+  const { edited, added } = hubEditCounts(features);
+  return [edited ? `${edited} edited` : '', added ? `${added} added` : ''].filter(Boolean).join(' · ');
 }

@@ -40,6 +40,8 @@ type IndexEntryProps = {
 };
 const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected, current, featureColors, setSelectedRecords, jump, hidden, onToggleHubHidden, position, count, trackWindow }: IndexEntryProps) {
   const { record, rows, total } = section;
+  const editSummary = hubEditSummary(record.features);
+  const flags = [isUnannotated(record) && 'Unannotated', isPartial(record) && 'Partial', isEdited(record) && 'Edited', hidden && 'Hidden in hub'].filter(Boolean);
   const highlight = useCallback((feature: BioFeature) => rows.includes(feature), [rows]);
   const pick = useCallback((feature: BioFeature) => jump(`${record.id}:${record.features.indexOf(feature)}`), [record, jump]);
   return <div data-index-card onClick={event => { if (!(event.target as Element).closest('input, button')) jump(record.id); }} role="listitem" aria-current={current} aria-setsize={count} aria-posinset={position} className={`relative mx-0.5 mb-2 flex cursor-pointer h-[110px] flex-col gap-1 rounded-2xl border bg-slate-900 p-2.5 transition-transform hover:-translate-y-0.5 motion-reduce:transition-none ${current ? 'border-amber-500/65 shadow-lg shadow-amber-500/15' : 'border-slate-800'} ${hidden ? 'opacity-60' : ''}`}>
@@ -52,7 +54,7 @@ const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected,
       <button aria-label={`${hidden ? 'Show' : 'Hide'} ${record.id} in hub`} data-tip={hidden ? 'Show in hub' : 'Hide in hub'} onClick={() => onToggleHubHidden(record.id)} className="p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas ${hidden ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
     </div>
     <div className="min-w-0 text-[10px] text-slate-400"><p className="truncate">{isolateOf(record)} · <span className="font-mono">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span></p>
-      <div className="flex h-4 gap-1 overflow-hidden"><span className="shrink-0 font-mono text-amber-200">{hubEditSummary(record.features)}</span>{[isUnannotated(record) && 'Unannotated', isPartial(record) && 'Partial', isEdited(record) && 'Edited', hidden && 'Hidden in hub'].filter(Boolean).map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
+      <div className="flex h-4 gap-1 overflow-hidden">{editSummary && <span className="shrink-0 font-mono text-amber-200">{editSummary}{flags.length > 0 && ' · '}</span>}{flags.map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
     </div>
     <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
   </div>;
