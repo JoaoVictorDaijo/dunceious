@@ -282,13 +282,13 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const motionClass = showTranslation && moleculeType !== 'protein' ? 'translation-motion' : undefined;
 
   return <>
-    <canvas ref={canvasRef} className={motionClass} data-sequence-band=""
+    <canvas ref={canvasRef} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
     {moleculeType !== 'protein' && <>
-      <canvas ref={forwardRef} className="translation-band" aria-hidden={!translationVisible}
+      <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${bandTop + (translationVisible ? 0 : 3)}px)` }} />
-      <canvas ref={reverseRef} className="translation-band" aria-hidden={!translationVisible}
+      <canvas ref={reverseRef} data-translation-band="reverse" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: reverseHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${y + NT_ROW_HEIGHT}px)` }} />
     </>}
