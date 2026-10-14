@@ -77,6 +77,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
   // Session state belongs above the keyed workspace content so tab switches preserve it.
   const hubState = useHubState();
+  const [hubToolsSlot, setHubToolsSlot] = useState<HTMLDivElement | null>(null);
   // The hub row a Focus jump left from: the viewport offers the way back while
   // `showHubReturn` holds, and the hub keeps marking the row after returning.
   const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
@@ -400,6 +401,7 @@ const App: React.FC = () => {
       {remoteAlignment.presentation === 'pill' && <AlignmentJobPill state={remoteAlignment.state} onOpen={remoteAlignment.open} />}
 
       <TopNav
+        toolsRef={setHubToolsSlot}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
@@ -522,6 +524,7 @@ const App: React.FC = () => {
                   />
                 ) : (
                   <AnnotationHubPanel
+                    toolsSlot={hubToolsSlot}
                     records={records}
                     state={hubState}
                     onDroppedFiles={handleDroppedFiles}

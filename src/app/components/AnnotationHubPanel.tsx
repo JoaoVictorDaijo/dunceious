@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { createPortal } from 'react-dom';
 import { useCallback, useDeferredValue, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import type { BioFeature, DetailKey, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { annotationFeatures } from '@/src/domain/bio/recordStatus';
@@ -38,6 +39,7 @@ import HubList from './hub/HubList';
 export interface HubFocusOrigin { key: string; label: string }
 
 export interface AnnotationHubPanelProps {
+  toolsSlot?: HTMLDivElement | null;
   records: SeqRecord[];
   state: ReturnType<typeof useHubState>;
   featureColors: Record<string, string>;
@@ -142,8 +144,9 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const importAnnotations = useCallback(() => document.querySelector<HTMLInputElement>('[aria-label="Import annotations files"]')?.click(), []);
   const removeFeature = useCallback((id: string, index: number) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }, [props.onRemoveFeature, state.setSelectedRows]);
   return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
-    <HubToolbar state={state} summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences`} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onAdd={props.onStartNewFeature} locked={isAlignmentLocked} onExport={() => setExportOpen(true)} more={<MoreMenu state={state} locked={isAlignmentLocked} empty={!records.length} onSave={props.onExportProjectJson} onClear={props.onClearAll} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />
-    <HubTabs state={state} sequences={records.length} features={featureCount} />
+    <h1 className="sr-only">Annotation Hub</h1>
+    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onAdd={props.onStartNewFeature} locked={isAlignmentLocked} onExport={() => setExportOpen(true)} more={<MoreMenu state={state} locked={isAlignmentLocked} empty={!records.length} onSave={props.onExportProjectJson} onClear={props.onClearAll} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
+    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences`} state={state} sequences={records.length} features={featureCount} />
     <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
     <FilterBar state={displayState} types={types} keys={items.map(item => item.key)} />
     <SelectionBar records={records} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onToggleVisibility={props.onToggleRecordVisibility} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />

@@ -18,12 +18,12 @@
  */
 
 import type { useHubState } from '@/src/app/hooks/useHubState';
-export default function HubTabs({ state, sequences, features }: { state: ReturnType<typeof useHubState>; sequences: number; features: number }) {
-  return <div role="tablist" aria-label="Hub view" className="flex gap-5 border-b border-slate-200 px-5">{(['sequences', 'features'] as const).map(tab => <button role="tab" id={`hub-tab-${tab}`} aria-controls={`hub-panel-${tab}`} tabIndex={state.tab === tab ? 0 : -1} aria-selected={state.tab === tab} key={tab} className={`border-b-2 px-2 py-3 text-sm ${state.tab === tab ? 'border-slate-700 font-semibold text-slate-900' : 'border-transparent text-slate-500'}`} onClick={() => state.setTab(tab)} onKeyDown={event => {
+export default function HubTabs({ state, sequences, features, summary }: { state: ReturnType<typeof useHubState>; sequences: number; features: number; summary?: string }) {
+  return <div className="flex items-center justify-between border-b border-slate-200"><div role="tablist" aria-label="Hub view" className="flex gap-5 px-5">{(['sequences', 'features'] as const).map(tab => <button role="tab" id={`hub-tab-${tab}`} aria-controls={`hub-panel-${tab}`} tabIndex={state.tab === tab ? 0 : -1} aria-selected={state.tab === tab} key={tab} className={`border-b-2 px-2 py-3 text-sm ${state.tab === tab ? 'border-slate-700 font-semibold text-slate-900' : 'border-transparent text-slate-500'}`} onClick={() => state.setTab(tab)} onKeyDown={event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const next = event.key === 'Home' ? 'sequences' : event.key === 'End' ? 'features' : tab === 'sequences' ? 'features' : 'sequences';
     state.setTab(next);
     document.getElementById(`hub-tab-${next}`)?.focus();
-  }}>{tab === 'sequences' ? `Sequences ${sequences}` : `Features ${features}`}</button>)}</div>;
+  }}>{tab === 'sequences' ? `Sequences ${sequences}` : `Features ${features}`}</button>)}</div><p className="ml-auto pr-5 text-xs text-slate-500">{summary}</p></div>;
 }

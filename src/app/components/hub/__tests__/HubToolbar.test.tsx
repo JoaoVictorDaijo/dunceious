@@ -24,7 +24,7 @@ import { useHubState } from '@/src/app/hooks/useHubState';
 import HubToolbar from '../HubToolbar';
 function Subject({ navigate = () => {}, exportFasta = () => {} }: { navigate?: (direction: number) => void; exportFasta?: () => void }) {
   const state = useHubState();
-  return <HubToolbar state={state} summary="3 annotations in 2 sequences" matchIndex={0} matchCount={3} onNavigate={navigate} onAdd={() => {}} onExport={exportFasta} more={<span />} />;
+  return <HubToolbar state={state} matchIndex={0} matchCount={3} onNavigate={navigate} onAdd={() => {}} onExport={exportFasta} more={<span />} />;
 }
 describe('HubToolbar', () => {
   it('steps matches with Enter and Shift+Enter and keeps exports reachable', () => {

@@ -32,15 +32,25 @@ const records: SeqRecord[] = Array.from({ length: 8 }, (_, i) => ({ id: `seq${i}
 const noop = () => {};
 function Subject({ initial = records, dropped = noop, focused = noop, locked = false, index = false }: { index?: boolean; initial?: SeqRecord[]; dropped?: (files: File[]) => void; focused?: (...args: unknown[]) => void; locked?: boolean }) {
   const state = useHubState();
+  const [toolsSlot, setToolsSlot] = useState<HTMLDivElement | null>(null);
   const [value, setValue] = useState(initial);
   const manager = useFeatureManager(value, setValue, null, noop);
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
+  it('portals the tools out of the panel and retains a hidden page heading', () => {
+    render(<Subject />);
+    const panel = screen.getByRole('region', { name: 'Annotation Hub' });
+    expect(within(panel).queryByRole('searchbox')).toBeNull();
+    expect(within(screen.getByLabelText('Header tools')).getByRole('searchbox')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Annotation Hub' }).className).toBe('sr-only');
+    expect(screen.getByText('8 of 8 annotations in 8 of 8 sequences')).toBeTruthy();
+  });
+
   it('counts feature identities without running comparisons until the Features tab opens', () => {
     const build = vi.spyOn(comparison, 'buildFeatureGroups');
     try {
@@ -72,8 +82,7 @@ describe('AnnotationHubPanel', () => {
   it('routes missing-organism editing to bulk Organism for every affected sequence, focused and only empty', () => {
     render(<Subject initial={[records[0], writeDetails(records[1], { organism: 'known virus' }), records[2]]} />);
     fireEvent.click(screen.getAllByLabelText('Select sequence seq1')[0]);
-    const hub = screen.getByRole('region', { name: 'Annotation Hub' });
-    fireEvent.click(within(hub).getAllByRole('button', { name: 'Export…' })[0]);
+    fireEvent.click(within(screen.getByLabelText('Header tools')).getByRole('button', { name: 'Export…' }));
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit details' }));
