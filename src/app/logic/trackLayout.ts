@@ -56,9 +56,12 @@ export function packTrack(record: SeqRecord, opts: { maxLanes: number; reverseLa
 export function trackMetrics(layout: TrackLayout, large: boolean) {
   const laneHeight = large ? 7 : layout.reverseLanes ? 4.2 : 5.6;
   const gap = large ? 2 : 1.2;
-  const axis = large ? 6 + layout.forwardLanes * (laneHeight + gap) + 2 : 3 + layout.forwardLanes * (laneHeight + gap);
+  const miniTop = layout.forwardLanes ? 3 : 4.8;
+  const miniBottom = layout.reverseLanes ? 3 + layout.forwardLanes * (laneHeight + gap) + 1.8 + (layout.reverseLanes - 1) * (laneHeight + gap) + laneHeight : 3 + Math.max(0, layout.forwardLanes - 1) * (laneHeight + gap) + laneHeight;
+  const miniShift = (30 - (miniBottom - miniTop)) / 2 - miniTop;
+  const axis = large ? 6 + layout.forwardLanes * (laneHeight + gap) + 2 : 3 + layout.forwardLanes * (laneHeight + gap) + miniShift;
   const height = large ? axis + 4 + layout.reverseLanes * (laneHeight + gap) + 4 : 30;
-  return { laneHeight, gap, axis, height, y: (part: TrackPart) => part.strand === -1 ? axis + (large ? 4 : 1.8) + part.lane * (laneHeight + gap) : large ? axis - 2 - (part.lane + 1) * (laneHeight + gap) + gap : 3 + part.lane * (laneHeight + gap) };
+  return { laneHeight, gap, axis, height, y: (part: TrackPart) => part.strand === -1 ? axis + (large ? 4 : 1.8) + part.lane * (laneHeight + gap) : large ? axis - 2 - (part.lane + 1) * (laneHeight + gap) + gap : 3 + part.lane * (laneHeight + gap) + miniShift };
 }
 export function rulerTicks(length: number): { position: number; label: string }[] {
   if (length <= 0) return [];

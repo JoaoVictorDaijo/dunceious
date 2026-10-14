@@ -34,6 +34,7 @@ import type { HubExportFormat, ExportOptions } from '@/src/app/logic/exportPlan'
 import MoreMenu from './hub/MoreMenu';
 import UndoToast from './hub/UndoToast';
 import HubList from './hub/HubList';
+import ShortcutsSheet from './hub/ShortcutsSheet';
 
 /** Where a Focus jump left from, so the viewport can offer the way back. */
 export interface HubFocusOrigin { key: string; label: string }
@@ -117,9 +118,10 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   };
   const keyboard = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
-    if (exportOpen || !target.closest('[data-hub-focus]') || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (exportOpen || state.shortcutsOpen || !target.closest('[data-hub-focus]') || event.altKey || event.ctrlKey || event.metaKey) return;
     if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
     const key = event.key.toLowerCase();
+    if (key === '?') { event.preventDefault(); state.setShortcutsOpen(true); return; }
     if (key === 'escape') { if (state.menu) { state.setMenu(null); return; } state.setSelectedRecords(new Set()); state.setSelectedRows(new Set()); return; }
     if (!['/', 'j', 'k', '[', ']', 'x', 'o'].includes(key)) return;
     event.preventDefault();
@@ -161,6 +163,7 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
       state.setSelectedRecords(ids); state.setSelectedRows(new Set());
       setOrganismEditRequest(request => request + 1);
     }} />}
+    {state.shortcutsOpen && <ShortcutsSheet onClose={() => state.setShortcutsOpen(false)} />}
     {props.undoAvailable && <UndoToast key={props.undoVersion} onUndo={props.onUndoDelete} onPause={props.onUndoPause} locked={isAlignmentLocked} />}
   </section>;
 }

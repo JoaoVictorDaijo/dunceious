@@ -276,3 +276,24 @@ it('clears unresolved jumps even when filters leave the list empty', () => {
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
   expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq0')).toBeTruthy();
 });
+
+it('opens help with ? and traps focus until Esc returns it to the opener', () => {
+  render(<Subject index />);
+  const hub = screen.getByRole('region', { name: 'Annotation Hub' });
+  hub.focus(); fireEvent.keyDown(hub, { key: '?', shiftKey: true });
+  const sheet = screen.getByRole('dialog', { name: 'Keyboard shortcuts' });
+  expect(sheet.getAttribute('aria-modal')).toBe('true');
+  const close = within(sheet).getByRole('button', { name: 'Close keyboard shortcuts' });
+  expect(document.activeElement).toBe(close);
+  fireEvent.keyDown(close, { key: 'Tab' }); expect(document.activeElement).toBe(close);
+  fireEvent.keyDown(close, { key: 'Tab', shiftKey: true }); expect(document.activeElement).toBe(close);
+  screen.getByRole('searchbox').focus(); expect(document.activeElement).toBe(close);
+  fireEvent.keyDown(close, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).toBeNull(); expect(document.activeElement).toBe(hub);
+  expect(screen.queryByText(/J\/K Rows/)).toBeNull();
+});
+it('ignores ? typed in annotation search', () => {
+  render(<Subject />); const search = screen.getByRole('searchbox'); search.focus();
+  fireEvent.keyDown(search, { key: '?', shiftKey: true });
+  expect(screen.queryByRole('dialog')).toBeNull();
+});

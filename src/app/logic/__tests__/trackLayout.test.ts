@@ -55,3 +55,10 @@ describe('strand track packing', () => {
     expect(rulerTicks(30000).map(t => t.label)).toEqual(['5 kb', '10 kb', '15 kb', '20 kb', '25 kb']);
   });
 });
+
+it('centres sparse mini lanes inside the fixed thirty-pixel box', () => {
+  const metrics = trackMetrics({ parts: [], forwardLanes: 1, reverseLanes: 0 }, false);
+  const y = metrics.y({ feature: record.features[1], index: 0, start: 0, end: 1, lane: 0, strand: 1 });
+  expect(y).toBeCloseTo(12.2); expect(y + metrics.laneHeight).toBeCloseTo(17.8);
+  expect(metrics.height).toBe(30);
+});

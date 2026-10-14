@@ -55,7 +55,7 @@ describe('genome strips', () => {
     const start = vi.spyOn(feature, 'start', 'get');
     const cachedRecord = { ...record, features: [feature] };
     const first = render(<GenomeStrip record={cachedRecord} highlight={() => true} />);
-    expect(first.container.querySelector('path')!.getAttribute('d')).toBe('M100 3h200v5.6h-200Z');
+    expect(first.container.querySelector('path')!.getAttribute('d')).toBe('M100 12.2h200v5.6h-200Z');
     start.mockClear();
     first.rerender(<GenomeStrip record={cachedRecord} highlight={() => false} />);
     expect(first.container.querySelector('path')!.getAttribute('opacity')).toBe('0.25');
