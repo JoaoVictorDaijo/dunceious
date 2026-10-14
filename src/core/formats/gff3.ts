@@ -43,6 +43,17 @@ function attributeText(attributes: Record<string, string | string[]>): string {
   return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${Array.isArray(value) ? value.map(encode).join(',') : encode(value)}`).join(';');
 }
 
+function attributeValues(metadata: Record<string, string>, key: string): string[] {
+  try {
+    const lists = JSON.parse(metadata._gffLists ?? '{}');
+    const values: unknown = lists?.[key];
+    if (Array.isArray(values) && values.every(value => typeof value === 'string') && values.join(',') === metadata[key]) return values;
+  } catch {
+    // Malformed project caches cannot override editable qualifier values.
+  }
+  return [metadata[key]];
+}
+
 function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
   return JSON.stringify([feature.start, feature.end, feature.strand, segments, feature.metadata?.codon_start]);
 }
@@ -101,7 +112,9 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
         const outputKey = ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
         const previous = attrs[outputKey];
         const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
-        if (!values.includes(value)) values.push(value);
+        for (const item of attributeValues(metadata, key)) {
+          if (!values.includes(item)) values.push(item);
+        }
         attrs[outputKey] = values.length === 1 ? values[0] : values;
       }
       if (so.original) attrs.insdc_type = so.original;
@@ -123,11 +136,17 @@ function decode(value: string): string {
 
 function parseAttributes(raw: string): Record<string, string> {
   const result: Record<string, string> = Object.create(null);
+  const lists: Record<string, string[]> = Object.create(null);
   for (const attribute of raw.split(';')) {
     const equals = attribute.indexOf('=');
     if (equals < 1) continue;
-    result[decode(attribute.slice(0, equals))] = decode(attribute.slice(equals + 1));
+    const key = decode(attribute.slice(0, equals));
+    if (key.startsWith('_')) continue;
+    const values = attribute.slice(equals + 1).split(',').map(decode);
+    result[key] = values.join(',');
+    if (values.length > 1) lists[key] = values;
   }
+  if (Object.keys(lists).length) result._gffLists = JSON.stringify(lists);
   return result;
 }
 

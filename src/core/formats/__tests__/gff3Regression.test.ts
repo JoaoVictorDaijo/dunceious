@@ -68,3 +68,19 @@ it('recalculates imported phases after a strand edit', () => {
   feature.strand = -1;
   expect(rows(exportToGff3([record([feature])]).text).slice(1).map(row => row[7])).toEqual(['0', '1']);
 });
+
+it('preserves GFF3 attribute lists and literal encoded commas independently', () => {
+  const [feature] = parseGFF3('s\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Parent=t1,t2;Dbxref=GeneID:1,DB:literal%2Ccomma;Alias=a,b').features.s;
+  const text = exportToGff3([record([feature])]).text;
+  expect(rows(text)[1][8]).toContain('Parent=t1,t2');
+  expect(rows(text)[1][8]).toContain('Dbxref=GeneID%3A1,DB%3Aliteral%2Ccomma');
+  expect(rows(text)[1][8]).toContain('Alias=a,b');
+  const reparsed = parseGFF3(text).features.s[0];
+  expect(reparsed.metadata?.Dbxref).toBe('GeneID:1,DB:literal,comma');
+});
+
+it('does not reuse imported list values after an attribute edit', () => {
+  const [feature] = parseGFF3('s\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Dbxref=DB:1,DB:2').features.s;
+  feature.metadata!.Dbxref = 'DB:new, literal';
+  expect(rows(exportToGff3([record([feature])]).text)[1][8]).toContain('Dbxref=DB%3Anew%2C%20literal');
+});
