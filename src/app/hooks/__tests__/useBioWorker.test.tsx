@@ -89,7 +89,9 @@ describe('deferred bio processing', () => {
     expect(h.result.current.consensus).toBe('CCCC');
     expect(h.result.current.isProcessing).toBe(false);
   });
+});
 
+describe('deferred bio processing across record identity and teardown', () => {
   it('invalidates processing immediately when records change before effects run', () => {
     const h = setup();
     const logCount = h.log.mock.calls.length;
