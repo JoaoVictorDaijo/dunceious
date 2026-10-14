@@ -89,6 +89,15 @@ describe('HubIndex', () => {
     expect(screen.getByText(/Unchanged isolate/)).toBeTruthy();
     expect(definition).not.toHaveBeenCalled();
   });
+  it('offers the sequence sort only where it orders sequences', () => {
+    const { unmount } = render(<Subject />);
+    const sort = screen.getByLabelText('Sort sequences') as HTMLSelectElement;
+    expect([...sort.options].map(option => option.text)).toEqual(['Load order', 'Accession (A–Z)', 'Fewest annotations first']);
+    expect(sort.closest('[data-tip]')?.getAttribute('data-tip')).toBe('Order of the sequences in the index and the list');
+    unmount();
+    render(<Subject features />);
+    expect(screen.queryByLabelText('Sort sequences')).toBeNull();
+  });
   it('indexes Features under organism headings with a sequence limit', () => {
     render(<Subject features />);
     expect(screen.getByLabelText('Limit to sequences')).toBeTruthy();
