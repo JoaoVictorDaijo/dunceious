@@ -17,11 +17,15 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Added
 
+- Per-annotation edited/added marks, counts and an edited-only Hub filter;
+  project files preserve the marks and interchange exports omit them.
+- Per-tab three-state column sorting within Hub groups, preserving group order
+  and restoring file order when switched off.
 - Strand-packed Hub genome tracks with hover and keyboard details, a base/kilobase
   ruler, and amber windows linking visible rows to the header and index.
 - Keyboard shortcuts sheet opened with `?` or the sidebar button.
 - Annotation Hub index with List/Grouped modes, sequence and feature tabs,
-  pinned virtualized headers, genome strips, overview navigation, annotation
+  virtualized groups, genome strips, overview navigation, annotation
   search stepping, filters, keyboard controls and persistent session state.
 - Sequence details editing with imported-value provenance and Revert, bulk
   fill-empty edits, project-only display names, and annotation deletion Undo.
@@ -30,6 +34,14 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Changed
 
+- Hub groups share rounded cards; full headers scroll away into slim live-track
+  bars. Group navigation, search ticks and a draggable thumb share one scroll rail.
+- Row actions sit inline in the name cell; repeat clicking or Escape clears the
+  current row, whose track highlight stays pinned while other tooltips appear.
+  Viewport return rows carry an amber Last focused chip.
+- Hidden-sequence controls sit in the index title without shifting cards. Export
+  has purpose/destination format cards, counted quick picks, qualifier tables and
+  a filename field under the summary.
 - The workspace switcher stays centred; Hub search, Add, Export and More move into
   the header. Viewport layers collapse into a popover when toolbar space is limited.
 - Hub index uses windowed track cards, attention counts and an amber current card.
