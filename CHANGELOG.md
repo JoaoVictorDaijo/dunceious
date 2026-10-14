@@ -62,6 +62,11 @@ All notable changes to Dunceious. Format loosely follows
 - Focus uses authoritative annotation segments, and saving segment edits synchronizes the envelope used for culling and packing while preserving circular joins.
 - Frameshift badges and tooltip summaries use biological junctions, so alignment gaps neither invent nor hide shifts.
 - Codons crossing splice junctions or the circular origin draw and pack only their biological pieces, while alignment gaps remain continuous.
+- Remote protein alignments restore terminal stops with gap padding, preserving stop annotations and aligned FASTA residues.
+- Removing a sequence discards its inline detail and display-name drafts before its ID can be reused.
+- Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted annotations and removed records.
+- Circular wrapping segments retain their biological length after coordinate edits.
+- Large quantitative tracks render in the Hub without overflowing the call stack.
 - GFF3 round trips preserve partial GenBank location endpoints on individual feature parts.
 - GFF3 source regions preserve non-detail qualifiers, flags and lists on export and annotation import.
 - GFF3 exports remap feature relationships and report references omitted by subset filters.
