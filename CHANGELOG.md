@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 source regions preserve non-detail qualifiers, flags and lists on export and annotation import.
+
 - GFF3 exports remap feature relationships and report references omitted by subset filters.
 
 - GFF3 exports retain canonical INSDC qualifier spelling for subsequent GenBank export.

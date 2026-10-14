@@ -114,3 +114,15 @@ it('omits only absent relationship targets and reports each affected attribute',
   expect(attrs).not.toContain('Derives_from');
   expect(report.droppedAttributes).toBe(2);
 });
+
+it('exports source qualifiers beyond editable details without bypassing detail validation', () => {
+  const input = record([{ type: 'source', name: 'source', start: 0, end: 10, strand: 1,
+    metadata: { isolate: 'K1', strain: 'S1', environmental_sample: '', collection_date: 'bad edit', organism: 'virus' } }]);
+  input.fileDetails = { organism: 'virus', collectionDate: '2014' };
+  const { text, report } = exportToGff3([input]);
+  const metadata = parseGFF3(text).details.s.feature.metadata;
+  expect(metadata).toMatchObject({ isolate: 'K1', strain: 'S1', environmental_sample: '', organism: 'virus' });
+  expect(metadata).not.toHaveProperty('collection_date');
+  expect(report.invalidDetailsOmitted.collectionDate).toBe(1);
+  expect(rows(text)).toHaveLength(1);
+});

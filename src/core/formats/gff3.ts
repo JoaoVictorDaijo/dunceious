@@ -21,7 +21,7 @@ import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/s
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { detailsForExport, emptyReport, type ExportResult } from '../exportReport';
+import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS } from '../genbank/qualifierRules';
 
@@ -86,6 +86,31 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   return result;
 }
 
+function addQualifiers(
+  attrs: Record<string, string | string[]>,
+  metadata: Record<string, string>,
+  oldIds: Map<string, string | null>,
+  report: ExportReport,
+): void {
+  for (const key of Object.keys(metadata)) {
+    if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
+    const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
+    const previous = attrs[outputKey];
+    const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
+    let items = attributeValues(metadata, key);
+    if (key === 'Parent' || key === 'Derives_from') {
+      const mapped = items.map(item => oldIds.get(item)).filter((item): item is string => typeof item === 'string');
+      if (mapped.length !== items.length) report.droppedAttributes++;
+      items = mapped;
+      if (!items.length) continue;
+    }
+    for (const item of items) {
+      if (!values.includes(item)) values.push(item);
+    }
+    attrs[outputKey] = values.length === 1 ? values[0] : values;
+  }
+}
+
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
@@ -105,7 +130,10 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     const length = record.sequence.length;
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);
-    const attributes: Record<string, string> = { ID: `${record.id}.0`, gbkey: 'Src' };
+    const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
+    const sourceMetadata = { ...record.features.find(feature => feature.type === 'source')?.metadata };
+    for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
+    addQualifiers(attributes, sourceMetadata, oldIds, report);
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, 'Dunceious', 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
@@ -117,23 +145,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
-      for (const [key, value] of Object.entries(metadata)) {
-        if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
-        const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
-        const previous = attrs[outputKey];
-        const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
-        let items = attributeValues(metadata, key);
-        if (key === 'Parent' || key === 'Derives_from') {
-          const mapped = items.map(item => oldIds.get(item)).filter((item): item is string => typeof item === 'string');
-          if (mapped.length !== items.length) report.droppedAttributes++;
-          items = mapped;
-          if (!items.length) continue;
-        }
-        for (const item of items) {
-          if (!values.includes(item)) values.push(item);
-        }
-        attrs[outputKey] = values.length === 1 ? values[0] : values;
-      }
+      addQualifiers(attrs, metadata, oldIds, report);
       if (so.original) attrs.insdc_type = so.original;
       segments.forEach((segment, index) => {
         const direction = segment.strand ?? getFeatureStrand(feature);
