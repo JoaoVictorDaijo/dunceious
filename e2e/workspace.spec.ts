@@ -57,7 +57,7 @@ test('built workers, annotations and exports preserve biological coordinates and
   await page.getByRole('button', { name: 'Close export dialog' }).click();
 
   await page.getByRole('button', { name: 'Edit marker on sample', exact: true }).click();
-  await page.getByText('Display Name', { exact: true }).locator('..').locator('input').fill('edited marker');
+  await page.getByLabel('Display Name', { exact: true }).fill('edited marker');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Search annotations' }).fill('edited marker');
   await page.getByRole('button', { name: 'Next match', exact: true }).click();
