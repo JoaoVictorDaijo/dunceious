@@ -105,3 +105,8 @@
 .hub-select-column { display: flex; align-items: center; justify-content: center; height: 100%; border-right: 1px solid theme('colors.slate.100'); }
 .hub-group-card { position: absolute; left: 14px; right: 14px; border: 1px solid theme('colors.slate.300'); border-radius: 16px; background: white; box-shadow: 0 1px 2px theme('colors.slate.900 / 5%'), 0 6px 18px -14px theme('colors.slate.900 / 35%'); overflow: hidden; }
 .hub-group-current { border-color: theme('colors.env / 70%'); box-shadow: 0 0 0 3px theme('colors.env / 16%'), 0 6px 18px -14px theme('colors.slate.900 / 35%'); }
+
+.hub-scroll-region { scrollbar-width: none; }
+.hub-scroll-region::-webkit-scrollbar { display: none; }
+.hub-scroll-thumb { cursor: grab; touch-action: none; }
+.hub-scroll-thumb[data-dragging] { cursor: grabbing; background: theme('colors.slate.900 / 20%'); }

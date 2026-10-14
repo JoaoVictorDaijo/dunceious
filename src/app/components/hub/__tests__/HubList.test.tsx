@@ -187,12 +187,7 @@ it('separates cards by a twelve-pixel gap and marks the current rail block', () 
   expect(pinned.style.top).toBe('197px');
   expect(pinned.querySelector<HTMLElement>('[data-section-gap]')!.style.height).toBe('14px');
 });
-it('insets the pinned header by the measured list scrollbar width', () => {
-  const offset = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800);
-  const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(783);
-  try { render(<Subject />); expect(document.querySelector<HTMLElement>('[aria-label="Pinned section"]')!.style.right).toBe('17px'); }
-  finally { offset.mockRestore(); client.mockRestore(); }
-});
+
 
 
 it.each([
@@ -241,4 +236,32 @@ it('shows a slim live bar only after the full header is gone and pushes it out a
   expect(bar.style.top).toBe('-25px');
   fireEvent.scroll(viewport, { target: { scrollTop: 670 } });
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+});
+
+
+it('uses one rail with proportional blocks, a draggable thumb, paging and hidden native scrollbar', () => {
+  const sequence = { ...records[0], features: Array.from({ length: 20 }, (_, i) => ({ name: `f${i}`, type: 'gene', start: i * 4, end: i * 4 + 3, strand: 1 as const })) };
+  function Rail() { const state = useHubState(); return <HubList state={state} kind="sequences" height={180} items={buildSequenceSections([sequence, records[1]], state.filters, { grouped: false }, 'load')} />; }
+  const { container } = render(<Rail />);
+  const viewport = container.querySelector<HTMLElement>('.scrollbar-on-light')!;
+  expect(viewport.classList.contains('hub-scroll-region')).toBe(true);
+  expect(viewport.tabIndex).toBe(0);
+  const rail = screen.getByLabelText('Overview rail');
+  const first = within(rail).getByRole('button', { name: 'Jump to one' });
+  expect(first.tabIndex).toBe(-1);
+  expect(first.style.top).toBe('6px');
+  const thumb = rail.querySelector<HTMLElement>('[data-scroll-thumb]')!;
+  expect(Number.parseFloat(thumb.style.height)).toBeGreaterThanOrEqual(24);
+  fireEvent(thumb, new MouseEvent('pointerdown', { bubbles: true, clientY: 10 }));
+  fireEvent(thumb, new MouseEvent('pointermove', { bubbles: true, clientY: 60 }));
+  expect(viewport.scrollTop).toBeGreaterThan(0);
+  const moved = viewport.scrollTop;
+  fireEvent(thumb, new MouseEvent('pointerup', { bubbles: true }));
+  fireEvent(thumb, new MouseEvent('pointermove', { bubbles: true, clientY: 90 }));
+  expect(viewport.scrollTop).toBe(moved);
+  fireEvent.click(rail, { clientY: 179 });
+  expect(viewport.scrollTop).toBeGreaterThan(moved);
+  fireEvent.click(within(rail).getByRole('button', { name: 'Jump to two' }));
+  expect(viewport.scrollTop).toBe(1021);
+  expect(within(rail).getByRole('button', { name: 'Jump to two' }).getAttribute('aria-current')).toBe('true');
 });

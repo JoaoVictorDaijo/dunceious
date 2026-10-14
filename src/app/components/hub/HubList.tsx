@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
@@ -32,7 +32,7 @@ import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHead
 import AnnotationRow from './AnnotationRow';
 import SlimSectionBar, { SLIM_BAR_HEIGHT } from './SlimSectionBar';
 import GroupedInner, { CardContext } from './GroupedInner';
-import OverviewRail from './OverviewRail';
+import OverviewRail, { railThumb } from './OverviewRail';
 import DetailsEditor, { detailsEditorHeight } from './DetailsEditor';
 import { DisplayNameEditor } from './DisplayName';
 
@@ -59,6 +59,10 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
   return data(index, style);
 }
 
+const ScrollRegion = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function ScrollRegion(props, ref) {
+  return <div {...props} ref={ref} tabIndex={0} role="region" aria-label="Annotations" />;
+});
+
 function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
   const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
   useEffect(() => {
@@ -75,8 +79,6 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinnedElement = useRef<HTMLDivElement>(null);
   const scrollElement = useRef<HTMLDivElement>(null);
-  const [scrollbarWidth, setScrollbarWidth] = useState(0);
-  useLayoutEffect(() => { const element = scrollElement.current; if (element) setScrollbarWidth(element.offsetWidth - element.clientWidth); }, []);
   const railIndicator = useRef<HTMLDivElement>(null);
   const [, setPinnedSection] = useState<string | null>(null);
   if (state.scrollOffset !== savedOffsets.current) {
@@ -189,7 +191,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       setPinnedSection(section);
     }
     paintBar(index, scrollOffset.current);
-    if (railIndicator.current) railIndicator.current.style.top = `${scrollOffset.current / total * 100}%`;
+    if (railIndicator.current) { const thumb = railThumb(total, height, scrollOffset.current); railIndicator.current.style.top = `${thumb.top}px`; railIndicator.current.style.height = `${thumb.size}px`; }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(saveOffset, 150);
   };
@@ -304,10 +306,10 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }, [entries, starts, total, kind]);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
-      <CardContext.Provider value={{ cards, current: pinned?.sectionKey ?? null }}><VariableSizeList innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
-      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ right: scrollbarWidth, height: SLIM_BAR_HEIGHT, top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
+      <CardContext.Provider value={{ cards, current: pinned?.sectionKey ?? null }}><VariableSizeList outerElementType={ScrollRegion} innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="hub-scroll-region custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: SLIM_BAR_HEIGHT, top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
     </div>
-    <OverviewRail indicatorRef={railIndicator} blocks={blocks} currentKey={pinned?.sectionKey} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
+    <OverviewRail scrollRef={scrollElement} indicatorRef={railIndicator} blocks={blocks} currentKey={pinned?.sectionKey} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
   </div>;
 }
 
