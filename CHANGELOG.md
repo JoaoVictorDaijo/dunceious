@@ -15,6 +15,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-10-14
+
 ### Added
 
 - Per-annotation edited/added marks, counts and an edited-only Hub filter;
@@ -31,6 +33,27 @@ All notable changes to Dunceious. Format loosely follows
   fill-empty edits, project-only display names, and annotation deletion Undo.
 - Subset export dialog with per-format options and a contents/omissions preview;
   ordered sequence/annotation drops with collision-aware batch routing.
+- Align inside Dunceious through EMBL-EBI's Job Dispatcher (MAFFT by default,
+  Kalign, Clustal Omega or MUSCLE) from a new **Alignment** sidebar section. It
+  is opt-in behind an explicit data-sharing agreement, checks every input
+  locally before sending, follows the job in a step-by-step monitor, and locks
+  record-changing actions while a job runs. The result goes through the same
+  overlay as an uploaded pre-aligned FASTA (#120).
+- Drag the minimized alignment job pill anywhere on screen, or move it with the
+  arrow keys; it always stays inside the window (#124).
+- Light up the Ingestion cards while files are dragged over the window, each in
+  its own accent, with "Release to load" on the card under the cursor (#127).
+- Focus flies to the whole annotation (every part of a joined feature), framing
+  it in the viewport with a zoom-out/pan/zoom-in path, and labels it with an
+  amber `name · N bp` tag; any input takes the view back mid-flight (#130).
+- Step translation rows at programmed ribosomal frameshifts (e.g. SARS-CoV-2
+  ORF1ab): each codon sits in the row of its own reading frame, and the
+  annotation bar shows a tick, a `−1`/`+1` badge and a tooltip line at the
+  slip (#126, #131).
+- Pack translation rows into only the lanes each record uses instead of always
+  reserving six; records without a CDS reserve none (#128).
+- The easter egg can be replayed with one tap, ignores stray unlock taps and
+  credits the authors on its final frame (#115, #129, #132).
 
 ### Changed
 
@@ -69,6 +92,11 @@ All notable changes to Dunceious. Format loosely follows
   workspace switches.
 - The Annotation Hub's Sequence index has a **+** button that adds GenBank or
   FASTA files without switching to the viewport.
+- Translation rows open only at a zoom where amino acids are drawn, with a short
+  animation (#122).
+- Amino-acid boxes get the same white hairline as nucleotide cells, separating
+  codons and stacked frames (#131).
+- Brighten the dark chrome along its slate hue (#116).
 
 ### Fixed
 
@@ -97,40 +125,6 @@ All notable changes to Dunceious. Format loosely follows
 - The index Sort control appears only in By sequence, where it orders the
   sequences, sits beside Needs attention, and names its options plainly
   (Load order, Accession (A–Z), Fewest annotations first).
-
-## [2.8.0] — 2026-10-09
-
-### Added
-- Align inside Dunceious through EMBL-EBI's Job Dispatcher (MAFFT by default,
-  Kalign, Clustal Omega or MUSCLE) from a new **Alignment** sidebar section. It
-  is opt-in behind an explicit data-sharing agreement, checks every input
-  locally before sending, follows the job in a step-by-step monitor, and locks
-  record-changing actions while a job runs. The result goes through the same
-  overlay as an uploaded pre-aligned FASTA (#120).
-- Drag the minimized alignment job pill anywhere on screen, or move it with the
-  arrow keys; it always stays inside the window (#124).
-- Light up the Ingestion cards while files are dragged over the window, each in
-  its own accent, with "Release to load" on the card under the cursor (#127).
-- Focus flies to the whole annotation (every part of a joined feature), framing
-  it in the viewport with a zoom-out/pan/zoom-in path, and labels it with an
-  amber `name · N bp` tag; any input takes the view back mid-flight (#130).
-- Step translation rows at programmed ribosomal frameshifts (e.g. SARS-CoV-2
-  ORF1ab): each codon sits in the row of its own reading frame, and the
-  annotation bar shows a tick, a `−1`/`+1` badge and a tooltip line at the
-  slip (#126, #131).
-- Pack translation rows into only the lanes each record uses instead of always
-  reserving six; records without a CDS reserve none (#128).
-- The easter egg can be replayed with one tap, ignores stray unlock taps and
-  credits the authors on its final frame (#115, #129, #132).
-
-### Changed
-- Translation rows open only at a zoom where amino acids are drawn, with a short
-  animation (#122).
-- Amino-acid boxes get the same white hairline as nucleotide cells, separating
-  codons and stacked frames (#131).
-- Brighten the dark chrome along its slate hue (#116).
-
-### Fixed
 - Annotations stay one continuous bar across alignment gaps instead of breaking
   at every gap (#119).
 - Pre-aligned FASTA files whose IDs contain spaces, such as the `seq1 (1)` IDs
