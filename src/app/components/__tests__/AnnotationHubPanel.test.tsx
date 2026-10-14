@@ -193,7 +193,7 @@ describe('AnnotationHubPanel', () => {
   it('exposes the full long location to tooltip and assistive technology', () => {
     const location = 'complement(join(97999..98793,69611..69724))';
     render(<Subject initial={[{ ...records[0], features: [{ ...records[0].features[0], locationString: location }] }]} />);
-    expect(screen.getByLabelText(`Location: ${location}`).getAttribute('title')).toBe(location);
+    expect(screen.getByLabelText(`Location: ${location}`).getAttribute('data-tip')).toBe(location);
   });
   it('shows biological lengths with thousands separators', () => {
     render(<Subject initial={[{ ...records[0], sequence: 'A'.repeat(30000), features: [{ name: 'long', type: 'CDS', start: 0, end: 21290, strand: 1 }] }]} />);
@@ -399,4 +399,21 @@ it('keeps sorting per tab, cycles off to file order and moves J/K in displayed o
   fireEvent.click(screen.getByRole('button', { name: 'Location' }));
   fireEvent.click(screen.getByRole('tab', { name: /By sequence/ }));
   expect(screen.getByRole('button', { name: 'Name / Product' }).getAttribute('aria-sort')).toBe('ascending');
+});
+
+
+it('toggles the current row on repeat click and Escape while actions and checkboxes leave it alone', () => {
+  const { container } = render(<Subject initial={[records[0]]} />);
+  const row = container.querySelector<HTMLElement>('[data-row-key="seq0:0"]')!;
+  fireEvent.click(row);
+  expect(row.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select annotation ORF4b on seq0' }));
+  expect(row.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Inspect ORF4b on seq0' }));
+  expect(row.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(row);
+  expect(row.getAttribute('aria-current')).toBe('false');
+  fireEvent.click(row);
+  fireEvent.keyDown(row, { key: 'Escape' });
+  expect(row.getAttribute('aria-current')).toBe('false');
 });

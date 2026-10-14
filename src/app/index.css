@@ -92,7 +92,7 @@
 
 .hub-row-grid {
   display: grid;
-  grid-template-columns: 44px 110px 22px minmax(0, 1fr) minmax(140px, 26ch) 80px 126px;
+  grid-template-columns: 44px 110px 22px minmax(0, 1fr) minmax(160px, 28ch) 96px;
   align-items: center;
   column-gap: 12px;
   padding-left: 0;

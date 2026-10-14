@@ -263,3 +263,20 @@ it('ignores Shift arrows instead of moving the row window or keyboard cursor', (
   expect(screen.getByRole('status').textContent).toContain('custom type');
   expect(pick).not.toHaveBeenCalled();
 });
+
+
+it('keeps a pinned annotation outlined while hovering a different feature', () => {
+  const record: SeqRecord = { id: 'pins', name: 'pins', sequence: 'A'.repeat(100), features: [
+    { name: 'pin', type: 'gene', start: 10, end: 20, strand: 1 },
+    { name: 'hover', type: 'CDS', start: 40, end: 50, strand: 1 },
+  ] };
+  const { container } = render(<GenomeStrip record={record} large pinned={record.features[0]} onPick={() => {}} />);
+  const strip = container.querySelector('svg')!;
+  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 29 } as DOMRect);
+  const outline = () => strip.querySelector('[data-strip-focus]')?.getAttribute('d');
+  const original = outline();
+  expect(original).toBeTruthy();
+  fireEvent.mouseMove(strip, { clientX: 450, clientY: 7 });
+  expect(outline()).toBe(original);
+  expect([...strip.querySelectorAll('path')].some(path => path.getAttribute('opacity') === '0.25')).toBe(true);
+});

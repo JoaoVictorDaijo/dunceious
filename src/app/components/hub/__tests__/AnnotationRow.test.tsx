@@ -32,3 +32,18 @@ it('keeps hover actions focusable, named and in details-edit-viewport-delete ord
   fireEvent.click(screen.getByRole('button', { name: 'Open gene on x in viewport' })); expect(open).toHaveBeenCalledOnce();
   expect(screen.getByLabelText('Forward strand').className).toContain('bg-emerald-50');
 });
+
+
+it('keeps actions and the last-focused chip inside a single-line feature name cell', () => {
+  const record = { id: 'x', accession: 'NC_x', label: 'A very long display name '.repeat(20), name: 'x', sequence: 'AAAAAA', features: [] };
+  const { container } = render(<AnnotationRow record={record} feature={{ name: 'A very long annotation name '.repeat(20), type: 'CDS', start: 0, end: 6, strand: 1 }} rowKey="x:0" kind="features" selected={false} current={false} lastFocused onSelect={noop} onInspect={noop} onEdit={noop} onFocus={noop} onDelete={noop} onCurrent={noop} onHover={noop} />);
+  const cell = container.querySelector('[data-name-cell]')!;
+  expect(cell).not.toBeNull();
+  expect(cell.contains(container.querySelector('[data-row-actions]'))).toBe(true);
+  expect(cell.contains(screen.getByText('Last focused'))).toBe(true);
+  expect(cell.className).toContain('flex-nowrap');
+  expect(cell.querySelector('[data-row-subtext]')?.className).toContain('truncate');
+  const row = container.querySelector<HTMLElement>('[data-row-key]')!;
+  expect(row.className).toContain('bg-amber-50');
+  expect(row.className).toContain('shadow-[inset_0_0_0_1.5px_var(--env)]');
+});

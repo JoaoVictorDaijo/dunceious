@@ -28,14 +28,14 @@ import { PRESENCE_CLASSES, presenceLabel, presenceStyle } from './presence';
 import type { TrackWindow } from './trackWindow';
 
 export const SLIM_BAR_HEIGHT = 44;
-export default function SlimSectionBar({ item, kind, onFold, onPick, featureColors, trackWindow, highlight }: { item: SequenceSection | FeatureGroup; kind: 'sequences' | 'features'; onFold: () => void; onPick: (feature: BioFeature) => void; featureColors?: Record<string, string>; trackWindow: TrackWindow; highlight?: BioFeature | null }) {
+export default function SlimSectionBar({ item, kind, onFold, onPick, featureColors, trackWindow, highlight, pinned }: { item: SequenceSection | FeatureGroup; kind: 'sequences' | 'features'; onFold: () => void; onPick: (feature: BioFeature) => void; featureColors?: Record<string, string>; trackWindow: TrackWindow; highlight?: BioFeature | null; pinned?: BioFeature | null }) {
   const root = useRef<HTMLDivElement>(null);
   const section = kind === 'sequences' ? item as SequenceSection : null;
   useEffect(() => { if (root.current && section) return trackWindow.register(section.record.id, root.current); }, [section?.record.id, trackWindow]);
   let content: ReactNode;
   if (section) {
     const record = section.record;
-    content = <><strong className="shrink-0 font-mono text-amber-800">{record.accession || record.id}</strong><span className="max-w-[160px] truncate font-semibold">{record.label || isolateOf(record)}</span><div className="min-w-[320px] flex-1"><GenomeStrip record={record} large slim featureColors={featureColors} trackWindow={trackWindow} highlight={feature => highlight ? feature === highlight : section.rows.includes(feature)} onPick={onPick} /></div><span hidden data-track-window-label className="shrink-0 font-mono text-amber-800" /><span className="ml-auto shrink-0 font-mono">{section.rows.length} annotations</span></>;
+    content = <><strong className="shrink-0 font-mono text-amber-800">{record.accession || record.id}</strong><span className="max-w-[160px] truncate font-semibold">{record.label || isolateOf(record)}</span><div className="min-w-[320px] flex-1"><GenomeStrip pinned={pinned} record={record} large slim featureColors={featureColors} trackWindow={trackWindow} highlight={feature => highlight ? feature === highlight : section.rows.includes(feature)} onPick={onPick} /></div><span hidden data-track-window-label className="shrink-0 font-mono text-amber-800" /><span className="ml-auto shrink-0 font-mono">{section.rows.length} annotations</span></>;
   } else {
     const group = item as FeatureGroup;
     const color = group.types.length === 1 ? getFeatureColor(group.types[0], featureColors) : undefined;

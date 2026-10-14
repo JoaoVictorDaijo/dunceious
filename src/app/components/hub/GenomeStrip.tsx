@@ -67,7 +67,7 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
 export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact'): number {
   return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
 }
-function GenomeStrip({ record, highlight, large = false, slim = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; slim?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
+function GenomeStrip({ record, highlight, pinned, large = false, slim = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; pinned?: BioFeature | null; large?: boolean; slim?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
   const geometry = stripGeometry(record, large, featureColors, density);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
@@ -94,7 +94,8 @@ function GenomeStrip({ record, highlight, large = false, slim = false, onPick, f
   const current = ordered[index];
   const hovered = pointer?.record === record ? pointer.feature : null;
   const active = hovered || (focused ? current : null);
-  const mask = useCallback((feature: BioFeature) => active ? feature === active : !highlight || highlight(feature), [active, highlight]);
+  const outlined = pinned || active;
+  const mask = useCallback((feature: BioFeature) => outlined ? feature === outlined : !highlight || highlight(feature), [outlined, highlight]);
   const paths = stripPaths(geometry, mask);
   const interactive = Boolean(onPick) && Boolean(current);
   useLayoutEffect(() => {
@@ -164,7 +165,7 @@ function GenomeStrip({ record, highlight, large = false, slim = false, onPick, f
         className={`block w-full rounded ${large ? 'border border-slate-200 bg-white' : ''} ${interactive ? 'cursor-crosshair outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500' : ''}`}>
         <line x1="0" x2={viewWidth} y1={metrics.axis} y2={metrics.axis} className={large ? 'stroke-slate-300' : 'stroke-slate-700'} vectorEffect="non-scaling-stroke" />
         {paths.map(path => <path key={path.key} d={path.d} fill={path.color} opacity={path.opacity} />)}
-        {active && <path data-strip-focus d={geometry.parts.filter(part => part.feature === active).map(part => part.path).join('')} fill="none" className="stroke-slate-900" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />}
+        {outlined && <path data-strip-focus d={geometry.parts.filter(part => part.feature === outlined).map(part => part.path).join('')} fill="none" className="stroke-slate-900" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />}
       </svg>
       <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-env/[0.07]' : 'border-2 border-dashed border-env bg-env/10'}`}>
         {large && <>
