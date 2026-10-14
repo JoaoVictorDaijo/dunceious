@@ -126,3 +126,15 @@ it('exports source qualifiers beyond editable details without bypassing detail v
   expect(report.invalidDetailsOmitted.collectionDate).toBe(1);
   expect(rows(text)).toHaveLength(1);
 });
+
+it.each(['<1..>10', 'complement(<1..>10)', 'join(<1..3,7..>10)', 'complement(join(<1..3,7..>10))', 'join(complement(<1..3),7..>10)'])
+('preserves partial endpoints through GenBank and GFF3 for %s', locationString => {
+  const gb = `LOCUS       s 10 bp DNA linear\nFEATURES             Location/Qualifiers\n     CDS             ${locationString}\nORIGIN\n        1 aatgaaaccc\n//`;
+  const input = parseGenBank(gb)[0];
+  const gff = exportToGff3([input]).text;
+  const features = parseGFF3(gff).features.s;
+  const result = parseGenBank(exportToGenBank([record(features)]).text)[0];
+  expect(result.features.find(f => f.type === 'CDS')?.locationString).toBe(locationString);
+  expect(gff).toContain('insdc_partial_start=%3C');
+  expect(gff).toContain('insdc_partial_end=%3E');
+});

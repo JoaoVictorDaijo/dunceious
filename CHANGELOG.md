@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 round trips preserve partial GenBank location endpoints on individual feature parts.
+
 - GFF3 source regions preserve non-detail qualifiers, flags and lists on export and annotation import.
 
 - GFF3 exports remap feature relationships and report references omitted by subset filters.
