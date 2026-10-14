@@ -402,9 +402,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       </>}
       {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
-      {activeTab === 'features' ? <details className="shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
-        <summary className="cursor-pointer rounded px-1 py-1 focus-visible:ring-2 focus-visible:ring-env">Log</summary>
-        <div className="mt-2 flex h-48 flex-col">{logOutput}</div>
+      {activeTab === 'features' ? <details className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
+        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
+        <div className="flex h-48 flex-col">{logOutput}</div>
       </details> : <section className="h-48 flex flex-col shrink-0">
         <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
         {logOutput}

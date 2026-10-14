@@ -68,9 +68,9 @@ describe('hub workspace identity', () => {
     expect(screen.queryByLabelText('Selection actions')).toBeNull();
   });
   it('keeps the hub log collapsed until requested and preserves the viewport log', async () => {
-    await setup(); const disclosure = screen.getByText('Log').closest('details');
+    await setup(); const disclosure = screen.getByText('Log Terminal').closest('details');
     expect(disclosure).not.toBeNull(); expect(disclosure?.open).toBe(false);
-    fireEvent.click(screen.getByText('Log')); expect(disclosure?.open).toBe(true);
+    fireEvent.click(screen.getByText('Log Terminal')); expect(disclosure?.open).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
     expect(screen.getByText('Log Terminal')).toBeTruthy();
   });
