@@ -18,6 +18,7 @@ All notable changes to Dunceious. Format loosely follows
 ### Fixed
 
 - Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
+- Clear sequence search state and discard pending search results when workspace records change.
 
 ## [2.8.1] — 2026-10-14
 
