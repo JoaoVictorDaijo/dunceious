@@ -169,3 +169,26 @@ it('clears a deleted search cursor and steps from the first remaining match', as
   expect(screen.getByText('match-A').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
 });
 
+
+it.each(['details', 'name'])('discards the removed record %s editor and draft before ID reuse', async kind => {
+  const workers = await setup();
+  if (kind === 'details') {
+    fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'stale host' } });
+  } else {
+    fireEvent.click(screen.getByRole('button', { name: 'Rename r' }));
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'stale name' } });
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'reuse.fa', records: [record('r', 'replacement')] } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence r' }));
+  expect(screen.queryByRole('form', { name: 'Details for r' })).toBeNull();
+  expect(screen.queryByLabelText('Display name')).toBeNull();
+  if (kind === 'details') {
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit details' })[0]);
+    expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('');
+  } else {
+    fireEvent.click(screen.getAllByRole('button', { name: 'Rename r' })[0]);
+    expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('');
+  }
+});
