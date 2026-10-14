@@ -330,7 +330,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Tailwind CSS 3**: Utility-first styling, compiled at build time (self-hosted, no CDN).
 - **Font Awesome 6**: Icon library (self-hosted, no CDN).
 - **Inter & JetBrains Mono**: UI and monospace typefaces (self-hosted).
-- **Vite 6**: Build tool and dev server.
+- **Vite 8**: Rolldown/Oxc build pipeline and dev server; explicit build targets retain Vite 6 browser compilation targets.
 - **Vitest 4 + Testing Library**: Unit, component and canvas render tests (jsdom with a canvas-2D recorder), behind a v8 coverage ratchet.
 
 Render tests opt into jsdom per file and use `src/app/testing/renderHarness.tsx` for explicit
