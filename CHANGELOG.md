@@ -65,6 +65,8 @@ All notable changes to Dunceious. Format loosely follows
 - The Log Terminal is one collapsible section in both workspaces, closed by
   default, with the same title, icon and chevron; its open state carries across
   workspace switches.
+- The Annotation Hub's Sequence index has a **+** button that adds GenBank or
+  FASTA files without switching to the viewport.
 
 ### Fixed
 

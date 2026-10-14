@@ -137,6 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
+  const addSequencesInput = useRef<HTMLInputElement>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -183,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
-      {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} />}
+      {activeTab === 'features' && hubState && <><input ref={addSequencesInput} aria-label="Add sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} /><HubIndex records={records} featureColors={featureColors} state={hubState} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (

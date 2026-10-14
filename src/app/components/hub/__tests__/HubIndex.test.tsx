@@ -89,6 +89,16 @@ describe('HubIndex', () => {
     expect(screen.getByText(/Unchanged isolate/)).toBeTruthy();
     expect(definition).not.toHaveBeenCalled();
   });
+  it('adds sequences from the index title unless an alignment job holds the lock', () => {
+    const add = vi.fn();
+    function AddSubject({ locked }: { locked: boolean }) { const state = useHubState(); return <HubIndex records={records} state={state} onAddSequences={add} addLocked={locked} />; }
+    const { rerender } = render(<AddSubject locked={false} />);
+    const button = within(screen.getByRole('heading', { name: 'Sequence index' }).parentElement!).getByRole('button', { name: 'Add sequences…' });
+    fireEvent.click(button);
+    expect(add).toHaveBeenCalledTimes(1);
+    rerender(<AddSubject locked />);
+    expect(screen.getByRole('button', { name: 'Add sequences…' })).toHaveProperty('disabled', true);
+  });
   it('offers the sequence sort only where it orders sequences', () => {
     const { unmount } = render(<Subject />);
     const sort = screen.getByLabelText('Sort sequences') as HTMLSelectElement;
