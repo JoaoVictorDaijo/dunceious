@@ -154,7 +154,7 @@ describe('AnnotationHubPanel', () => {
     const focused = vi.fn(); render(<Subject focused={focused} index />);
     fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq7' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open gene7 on seq7 in viewport' }));
-    expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
+    expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', featureIndex: 0, start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
     fireEvent.click(screen.getByText('Return to hub')); expect(screen.getByText('Last focused')).toBeTruthy();
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq7')).toBeTruthy();
   });
@@ -210,7 +210,7 @@ describe('AnnotationHubPanel', () => {
     const focused = vi.fn();
     render(<Subject focused={focused} initial={[{ id: 'gap', name: 'gap', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--', features: [{ name: 'joined', type: 'gene', start: 0, end: 8, strand: 1, segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] }]} />);
     expect(screen.getByText('7 bp')).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Open joined on gap in viewport' }));
-    expect(focused).toHaveBeenCalledWith({ recordId: 'gap', start: 2, end: 16, label: 'joined', length: 7 }, { key: 'gap:0', label: 'joined' });
+    expect(focused).toHaveBeenCalledWith({ recordId: 'gap', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 }, { key: 'gap:0', label: 'joined' });
   });
 });
 

@@ -24,6 +24,7 @@ import { featureLength } from './viewModel';
 /** An annotation the viewport should frame: aligned columns, plus its name and biological length for the label. */
 export interface FocusTarget {
   recordId: string;
+  featureIndex?: number;
   start: number;
   end: number;
   label: string;
@@ -37,6 +38,7 @@ export function featureFocusTarget(record: SeqRecord, feature: BioFeature): Focu
     : feature;
   return {
     recordId: record.id,
+    featureIndex: record.features.indexOf(feature),
     start,
     end,
     label: feature.name,
