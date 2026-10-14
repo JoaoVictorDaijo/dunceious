@@ -20,7 +20,7 @@
 import { useCallback, useReducer, useRef, useState, type SetStateAction } from 'react';
 import { createTrackWindow } from '@/src/app/components/hub/trackWindow';
 import type { SequenceDetails } from '@/src/domain/bio/types';
-import type { GroupField, HubFilters, SortOrder } from '@/src/app/logic/hubModel';
+import type { GroupField, HubFilters, SortOrder, RowSort } from '@/src/app/logic/hubModel';
 
 export type HubTab = 'sequences' | 'features';
 export type HubMenu = 'more' | 'groupBy' | null;
@@ -53,6 +53,7 @@ export function useHubState() {
   const [tab, setTab] = useState<HubTab>('sequences');
   const [grouped, setGrouped] = useState(false);
   const [groupField, setGroupField] = useState<GroupField>('organism');
+  const [rowSort, setRowSort] = useState<Record<HubTab, RowSort>>({ sequences: null, features: null });
   const [sort, setSort] = useState<SortOrder>('load');
   const [{ filters, searchFolds }, dispatchFilters] = useReducer(filterReducer, undefined, (): FilterState => ({
     filters: { query: '', types: new Set<string>(), strand: 'all' as const, sequenceQuery: '', needsAttention: false },
@@ -103,13 +104,14 @@ export function useHubState() {
     setEditingName(null);
     setDraft(null);
     setOnlyProblemsValue(false);
+    setRowSort({ sequences: null, features: null });
     setTab('sequences');
   }, [setFilters, setSearchFolds, trackWindow]);
 
   return {
     hubHidden, setHubHidden, toggleHubHidden, showInHub, shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
-    tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
+    rowSort, setRowSort, tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
     selectedRecords, setSelectedRecords, selectedRows, setSelectedRows, scrollOffset, setScrollOffset,
     menu, setMenu, editingDetails, setEditingDetails, editingName, setEditingName, draft, setDraft,

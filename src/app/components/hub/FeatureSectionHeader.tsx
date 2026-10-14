@@ -46,8 +46,8 @@ function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [],
   const sequenceName = (id: string) => { const record = recordById.get(id); return record ? [record.accession || record.id, record.label].filter(Boolean).join(' · ') : id; };
   const color = group.types.length === 1 ? getFeatureColor(group.types[0], featureColors) : undefined;
   return <div style={{ height: featureSectionHeight(group, folded, width, gap) }}>
-    {gap > 0 && <div data-section-gap className="bg-slate-50" style={{ height: gap }} />}
-    <div data-feature-surface className="border-y border-slate-300 bg-slate-100 px-5 text-xs text-slate-600" style={{ paddingTop: layout.padding, paddingBottom: layout.padding, height: featureSectionHeight(group, folded, width) }}>
+    {gap > 0 && <div data-section-gap className="bg-transparent" style={{ height: gap }} />}
+    <div data-feature-surface className="border-b border-slate-100 bg-white px-5 text-xs text-slate-600" style={{ paddingTop: layout.padding, paddingBottom: layout.padding, height: featureSectionHeight(group, folded, width) }}>
       <div className="flex min-w-0 items-center gap-3" style={{ height: layout.title }}>
         <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${group.identity}`} aria-expanded={!folded} data-tip={folded ? 'Expand feature group' : 'Collapse feature group'} onClick={onFold} className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas fa-chevron-down transition-transform motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} /></button>
         <strong className="min-w-0 truncate font-mono font-bold text-slate-900" data-tip={group.identity}>{group.identity}</strong>

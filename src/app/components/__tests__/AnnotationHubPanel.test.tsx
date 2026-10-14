@@ -372,3 +372,31 @@ it.each([1, 2])('reveals only the %i hidden affected sequences when repairing ex
   expect(index.getByRole('button', { name: 'Show seq2 in hub' })).toBeTruthy();
   expect(index.getByRole('button', { name: '1 hidden · Show all' })).toBeTruthy();
 });
+
+
+it('keeps sorting per tab, cycles off to file order and moves J/K in displayed order', () => {
+  const input = [{ ...records[0], features: [
+    { ...records[0].features[0], name: 'zebra' },
+    { ...records[0].features[0], name: 'apple' },
+  ] }, { ...records[1], features: [{ ...records[1].features[0], name: 'pear' }] }];
+  const { container } = render(<Subject initial={input} />);
+  const keys = () => [...container.querySelectorAll('[data-row-key]')].map(row => row.getAttribute('data-row-key'));
+  const name = screen.getByRole('button', { name: 'Name / Product' });
+  expect(keys()).toEqual(['seq0:0', 'seq0:1', 'seq1:0']);
+  fireEvent.click(name);
+  expect(name.getAttribute('aria-sort')).toBe('ascending');
+  expect(keys()).toEqual(['seq0:1', 'seq0:0', 'seq1:0']);
+  fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'j' });
+  expect(container.querySelector('[data-row-key="seq0:1"]')?.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(name);
+  expect(keys()).toEqual(['seq0:0', 'seq0:1', 'seq1:0']);
+  fireEvent.click(name);
+  expect(name.getAttribute('aria-sort')).toBe('none');
+  expect(keys()).toEqual(['seq0:0', 'seq0:1', 'seq1:0']);
+  fireEvent.click(name);
+  fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
+  expect(screen.getByRole('button', { name: 'Sequence' }).getAttribute('aria-sort')).toBe('none');
+  fireEvent.click(screen.getByRole('button', { name: 'Location' }));
+  fireEvent.click(screen.getByRole('tab', { name: /By sequence/ }));
+  expect(screen.getByRole('button', { name: 'Name / Product' }).getAttribute('aria-sort')).toBe('ascending');
+});

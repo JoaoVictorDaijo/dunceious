@@ -19,7 +19,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { buildSequenceSections, groupKeyOf, groupPreview, matchesAnnotation, matchesSequence, searchHits, type HubFilters } from '../hubModel';
+import { buildSequenceSections, groupKeyOf, groupPreview, matchesAnnotation, matchesSequence, searchHits, type HubFilters, cycleRowSort, sortGroupRows } from '../hubModel';
 
 const feature = (name: string, type = 'CDS', strand: 1 | -1 = 1): BioFeature => ({ name, type, strand, start: 0, end: 10 });
 const record = (id: string, details: Record<string, string> = {}, features = [feature('spike')]): SeqRecord => ({
@@ -106,5 +106,32 @@ describe('hub tracks', () => {
     expect(hits).toHaveLength(1); expect(hits[0].total).toBe(0); expect(hits[0].tracks?.map(t => t.id)).toEqual(['depth']);
     expect(searchHits(hits)).toEqual(['coverage:track:depth']);
     expect(sections([r], { types: new Set(['CDS']) })).toEqual([]);
+  });
+});
+
+
+describe('sorting within groups', () => {
+  it('cycles a column ascending, descending and off, and starts a new column ascending', () => {
+    const ascending = cycleRowSort(null, 'name');
+    expect(ascending).toEqual({ column: 'name', direction: 'ascending' });
+    const descending = cycleRowSort(ascending, 'name');
+    expect(descending).toEqual({ column: 'name', direction: 'descending' });
+    expect(cycleRowSort(descending, 'name')).toBeNull();
+    expect(cycleRowSort(descending, 'length')).toEqual({ column: 'length', direction: 'ascending' });
+  });
+  it('sorts each sequence independently and restores original order with stable hit keys', () => {
+    const values = [record('z', {}, [feature('zebra'), feature('apple')]), record('a', {}, [feature('pear'), feature('banana')])];
+    const original = sections(values);
+    const sorted = original.map(section => ({ ...section, rows: sortGroupRows(section.rows.map(feature => ({ record: section.record, feature })), { column: 'name', direction: 'ascending' }).map(row => row.feature) }));
+    expect(sorted.map(section => section.key)).toEqual(['z', 'a']);
+    expect(searchHits(sorted)).toEqual(['z:2', 'z:1', 'a:2', 'a:1']);
+    expect(searchHits(original)).toEqual(['z:1', 'z:2', 'a:1', 'a:2']);
+    expect(sortGroupRows(original[0].rows.map(feature => ({ record: values[0], feature })), null).map(row => row.feature.name)).toEqual(['zebra', 'apple']);
+  });
+  it('sorts feature rows by accession and lengths by biological parts', () => {
+    const a = record('local-a'), z = { ...record('local-z'), accession: 'AAA' };
+    const rows = [{ record: a, feature: { ...feature('x'), start: 90, end: 10 } }, { record: z, feature: { ...feature('y'), start: 0, end: 40 } }];
+    expect(sortGroupRows(rows, { column: 'name', direction: 'ascending' }, 'features').map(row => row.record.id)).toEqual(['local-z', 'local-a']);
+    expect(sortGroupRows(rows, { column: 'length', direction: 'ascending' }).map(row => row.feature.name)).toEqual(['x', 'y']);
   });
 });

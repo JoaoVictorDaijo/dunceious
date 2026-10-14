@@ -20,6 +20,7 @@
 import type { BioFeature, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
 import { readDetails } from '@/src/domain/bio/details';
 import { annotationFeatures, isolateOf, needsAttention } from '@/src/domain/bio/recordStatus';
+import { featureLength } from './viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 
 export type GroupField = 'organism' | 'host' | 'location' | 'year' | 'file';
@@ -96,7 +97,29 @@ export function buildSequenceSections(records: SeqRecord[], filters: HubFilters,
 
 export function searchHits(sections: SequenceSection[]): string[] {
   return [...new Set(sections.flatMap(section => {
-    const visible = new Set(section.rows);
-    return [...(section.tracks ?? []).map(track => `${section.record.id}:track:${track.id}`), ...section.record.features.flatMap((feature, index) => visible.has(feature) ? [`${section.record.id}:${index}`] : [])];
+    return [...(section.tracks ?? []).map(track => `${section.record.id}:track:${track.id}`), ...section.rows.map(feature => `${section.record.id}:${section.record.features.indexOf(feature)}`)];
   }))];
+}
+
+export type RowSortColumn = 'type' | 'name' | 'location' | 'length';
+export type RowSort = { column: RowSortColumn; direction: 'ascending' | 'descending' } | null;
+
+export function cycleRowSort(sort: RowSort, column: RowSortColumn): RowSort {
+  if (sort?.column !== column) return { column, direction: 'ascending' };
+  return sort.direction === 'ascending' ? { column, direction: 'descending' } : null;
+}
+
+export function sortGroupRows<T extends { record: SeqRecord; feature: BioFeature }>(rows: T[], sort: RowSort, kind: 'sequences' | 'features' = 'sequences'): T[] {
+  if (!sort) return rows;
+  const value = ({ record, feature }: T) => {
+    if (sort.column === 'type') return feature.type;
+    if (sort.column === 'name') return kind === 'features' ? record.accession || record.id : feature.name || feature.metadata?.product || '';
+    if (sort.column === 'location') return feature.start;
+    return featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
+  };
+  return rows.slice().sort((a, b) => {
+    const left = value(a), right = value(b);
+    const result = typeof left === 'string' && typeof right === 'string' ? left.localeCompare(right, undefined, { sensitivity: 'base', numeric: true }) : Number(left) - Number(right);
+    return sort.direction === 'ascending' ? result : -result;
+  });
 }

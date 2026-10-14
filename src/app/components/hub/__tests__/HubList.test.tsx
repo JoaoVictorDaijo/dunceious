@@ -41,17 +41,17 @@ describe('HubList', () => {
     const pinned = screen.getByRole('region', { name: 'Pinned section' });
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe('127px');
-    expect(header.style.height).toBe('127px');
-    expect(row.style.top).toBe('127px');
+    expect(pinned.style.height).toBe('141px');
+    expect(header.style.height).toBe('141px');
+    expect(row.style.top).toBe('129px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
-    expect(pinned.style.height).toBe('82px');
-    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('82px');
+    expect(pinned.style.height).toBe('96px');
+    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('96px');
   });
 
   it('pins the section at the restored offset and recomputes after density and jumps', () => {
-    stubResizeObserver(); render(<Subject offset={200} />);
+    stubResizeObserver(); render(<Subject offset={210} />);
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Comfortable'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
@@ -60,7 +60,7 @@ describe('HubList', () => {
   });
   it('updates the pinned header after a scroll event', () => {
     render(<Subject />);
-    const viewport = screen.getByText('one-gene').closest('[data-row-key]')?.parentElement?.parentElement?.parentElement;
+    const viewport = screen.getByText('one-gene').closest('[data-row-key]')?.closest('.scrollbar-on-light');
     if (!viewport) throw new Error('Virtual viewport missing');
     Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 532 } });
     fireEvent.scroll(viewport, { target: { scrollTop: 190 } });
@@ -69,9 +69,9 @@ describe('HubList', () => {
   it('can pin the final short section and leaves its target row below the header', () => {
     render(<Subject />); fireEvent.click(screen.getByText('Jump third'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
-    const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement;
-    const viewport = row?.parentElement?.parentElement;
-    expect(Number.parseFloat(row?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
+    const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement as HTMLElement;
+    const viewport = row?.closest('.scrollbar-on-light');
+    expect(Number.parseFloat(row?.style.top ?? '0') + Number.parseFloat((row?.parentElement as HTMLElement)?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
   });
   it('folds rows and shows the composition summary', () => {
     render(<Subject />); fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Collapse one' }));
@@ -169,7 +169,7 @@ it('keeps list position when empty track space is clicked or Shift arrows are pr
   expect(viewport.scrollTop).toBe(0);
 });
 
-it('separates headers by an eight-pixel band and marks the current rail block', () => {
+it('separates cards by a twelve-pixel gap and marks the current rail block', () => {
   const values = [{ ...records[0], accession: 'NC_045512', label: 'Wuhan-Hu-1' }, records[1]];
   function Sections() { const state = useHubState(); return <HubList state={state} kind="sequences" height={400} items={buildSequenceSections(values, state.filters, { grouped: false }, 'load')} />; }
   render(<Sections />);
@@ -181,8 +181,8 @@ it('separates headers by an eight-pixel band and marks the current rail block', 
   fireEvent.click(rail.getByRole('button', { name: 'Jump to two' }));
   expect(rail.getByRole('button', { name: 'Jump to two' }).getAttribute('aria-current')).toBe('true');
   const pinned = screen.getByRole('region', { name: 'Pinned section' });
-  expect(pinned.style.height).toBe('135px');
-  expect(pinned.querySelector<HTMLElement>('[data-section-gap]')!.style.height).toBe('8px');
+  expect(pinned.style.height).toBe('141px');
+  expect(pinned.querySelector<HTMLElement>('[data-section-gap]')!.style.height).toBe('14px');
 });
 it('insets the pinned header by the measured list scrollbar width', () => {
   const offset = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800);
@@ -203,4 +203,15 @@ it.each([
   render(<Sections />);
   const block = within(screen.getByLabelText('Overview rail')).getByRole('button', { name: 'Jump to one' });
   expect(block.getAttribute('data-tip')).toBe(want ? `NC_045512 · ${want}` : 'NC_045512');
+});
+
+
+it('keeps a header and its rows inside one card with deterministic gaps and borders', () => {
+  const { container } = render(<Subject />);
+  const card = container.querySelector<HTMLElement>('[data-hub-card="one"]')!;
+  expect(card).not.toBeNull();
+  expect(within(card).getByText('one-gene')).toBeTruthy();
+  expect(card.style.top).toBe('12px');
+  expect(card.style.height).toBe('173px');
+  expect(container.querySelector<HTMLElement>('[data-hub-card="two"]')!.style.top).toBe('197px');
 });

@@ -55,8 +55,8 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
   return <div data-row-key={rowKey} aria-current={current} tabIndex={0} onFocus={onCurrent} onClick={onCurrent}
     onMouseEnter={() => onHover(feature)} onMouseLeave={() => onHover(null)}
     className={`hub-row-grid group relative h-full border-b border-slate-100 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${selected || current ? 'bg-amber-50' : 'bg-white hover:bg-slate-50'} ${current ? 'shadow-[inset_0_0_0_1.5px_var(--env)]' : ''}`}>
-    <span aria-hidden="true" className="absolute left-0 inset-y-[6px] w-[3px] rounded-r" style={{ backgroundColor: color }} />
-    <input type="checkbox" aria-label={`Select annotation ${feature.name} on ${record.id}`} checked={selected} onChange={onSelect} />
+    <span aria-hidden="true" className="absolute left-[8px] inset-y-[8px] w-[3px] rounded-full" style={{ backgroundColor: color }} />
+    <span className="hub-select-column"><input type="checkbox" aria-label={`Select annotation ${feature.name} on ${record.id}`} checked={selected} onChange={onSelect} /></span>
     <span className="flex h-[22px] max-w-full items-center truncate rounded-md border px-2 font-mono text-[11.5px]" style={{ background: `color-mix(in srgb, ${color} 13%, white)`, borderColor: `color-mix(in srgb, ${color} 28%, white)`, color: `color-mix(in srgb, ${color} 62%, #0f172a)` }}>{feature.type}</span>
     <span aria-label={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} data-tip={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} className={`flex h-[22px] w-[22px] items-center justify-center rounded-md ${strand === -1 ? 'text-rose-600 bg-rose-50' : strand === 1 ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>{strand === -1 ? '←' : strand === 1 ? '→' : '?'}</span>
     <div className="min-w-0 flex-1">
