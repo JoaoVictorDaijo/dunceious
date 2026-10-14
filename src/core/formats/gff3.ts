@@ -89,7 +89,18 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
-  for (const record of records) {
+  const oldIds = new Map<string, string | null>();
+  const plans = records.map(record => {
+    let number = 0;
+    const ids = record.features.map(feature => {
+      const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
+      const old = feature.metadata?.ID;
+      if (old) oldIds.set(old, oldIds.has(old) && oldIds.get(old) !== id ? null : id);
+      return id;
+    });
+    return { record, ids };
+  });
+  for (const { record, ids } of plans) {
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
     lines.push(`##sequence-region ${id} 1 ${length}`);
@@ -99,21 +110,26 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, 'Dunceious', 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
-    let number = 0;
-    for (const feature of record.features) {
+    for (const [featureIndex, feature] of record.features.entries()) {
       if (feature.type === 'source') continue;
-      number++;
       const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, length);
       const phases = partPhases(feature, segments);
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
-      const attrs: Record<string, string | string[]> = { ID: `${record.id}.${number}`, Name: feature.name };
+      const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
       for (const [key, value] of Object.entries(metadata)) {
         if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
         const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
         const previous = attrs[outputKey];
         const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
-        for (const item of attributeValues(metadata, key)) {
+        let items = attributeValues(metadata, key);
+        if (key === 'Parent' || key === 'Derives_from') {
+          const mapped = items.map(item => oldIds.get(item)).filter((item): item is string => typeof item === 'string');
+          if (mapped.length !== items.length) report.droppedAttributes++;
+          items = mapped;
+          if (!items.length) continue;
+        }
+        for (const item of items) {
           if (!values.includes(item)) values.push(item);
         }
         attrs[outputKey] = values.length === 1 ? values[0] : values;

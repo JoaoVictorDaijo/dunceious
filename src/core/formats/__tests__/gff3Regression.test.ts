@@ -71,8 +71,9 @@ it('recalculates imported phases after a strand edit', () => {
 
 it('preserves GFF3 attribute lists and literal encoded commas independently', () => {
   const [feature] = parseGFF3('s\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Parent=t1,t2;Dbxref=GeneID:1,DB:literal%2Ccomma;Alias=a,b').features.s;
-  const text = exportToGff3([record([feature])]).text;
-  expect(rows(text)[1][8]).toContain('Parent=t1,t2');
+  const targets = ['t1', 't2'].map(ID => ({ ...feature, type: 'mRNA', metadata: { ID } }));
+  const text = exportToGff3([record([feature, ...targets])]).text;
+  expect(rows(text)[1][8]).toContain('Parent=s.2,s.3');
   expect(rows(text)[1][8]).toContain('Dbxref=GeneID%3A1,DB%3Aliteral%2Ccomma');
   expect(rows(text)[1][8]).toContain('Alias=a,b');
   const reparsed = parseGFF3(text).features.s[0];
@@ -94,4 +95,22 @@ it('preserves canonical INSDC qualifier spelling through GFF3 and GenBank', () =
   expect(gb).toContain('/EC_number="1.2.3.4"');
   expect(gb).toContain('/circular_RNA\n');
   expect(parsed[0].metadata?.custom_key).toBe('custom');
+});
+
+it('remaps GFF3 relationships after allocating all feature IDs', () => {
+  const parsed = parseGFF3('s\tx\tmRNA\t1\t10\t.\t+\t.\tID=t;Parent=g\ns\tx\tgene\t1\t10\t.\t+\t.\tID=g\ns\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Parent=t;Derives_from=g');
+  const data = rows(exportToGff3([record(parsed.features.s)]).text);
+  expect(data[1][8]).toContain('Parent=s.2');
+  expect(data[3][8]).toContain('Parent=s.1');
+  expect(data[3][8]).toContain('Derives_from=s.2');
+});
+
+it('omits only absent relationship targets and reports each affected attribute', () => {
+  const parsed = parseGFF3('s\tx\tmRNA\t1\t10\t.\t+\t.\tID=t\ns\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Parent=t,missing;Derives_from=absent');
+  const { text, report } = exportToGff3([record(parsed.features.s)]);
+  const attrs = rows(text)[2][8];
+  expect(attrs).toContain('Parent=s.1');
+  expect(attrs).not.toContain('missing');
+  expect(attrs).not.toContain('Derives_from');
+  expect(report.droppedAttributes).toBe(2);
 });

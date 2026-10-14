@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 exports remap feature relationships and report references omitted by subset filters.
+
 - GFF3 exports retain canonical INSDC qualifier spelling for subsequent GenBank export.
 
 - GFF3 round trips preserve attribute lists separately from percent-encoded literal commas.
