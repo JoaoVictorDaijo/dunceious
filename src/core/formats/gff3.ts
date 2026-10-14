@@ -21,8 +21,9 @@ import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/s
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { detailsForExport, emptyReport, type ExportResult } from '../exportReport';
+import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
+import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS } from '../genbank/qualifierRules';
 
 export interface GffSourceRegion {
   details: SequenceDetails;
@@ -43,10 +44,48 @@ function attributeText(attributes: Record<string, string | string[]>): string {
   return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${Array.isArray(value) ? value.map(encode).join(',') : encode(value)}`).join(';');
 }
 
+function attributeValues(metadata: Record<string, string>, key: string): string[] {
+  try {
+    const lists = JSON.parse(metadata._gffLists ?? '{}');
+    const values: unknown = lists?.[key];
+    if (Array.isArray(values) && values.every(value => typeof value === 'string') && values.join(',') === metadata[key]) return values;
+  } catch {
+    // Malformed project caches cannot override editable qualifier values.
+  }
+  return [metadata[key]];
+}
+
+type PartialPart = [number, number, string, string];
+
+function partialParts(feature: BioFeature): PartialPart[] {
+  return Array.from((feature.locationString ?? '').matchAll(/([<>]?)([0-9]+)(?:\.\.([<>]?)([0-9]+))?/g), match =>
+    [Number(match[2]) - 1, Number(match[4] ?? match[2]), match[1], match[3] ?? ''] as PartialPart);
+}
+
+function restorePartialLocation(feature: BioFeature): void {
+  const saved = feature.metadata?._gffPartialEnds;
+  if (!saved) return;
+  const partials: PartialPart[] = JSON.parse(saved);
+  delete feature.metadata!._gffPartialEnds;
+  const mixed = feature.segments!.some(part => part.strand !== undefined);
+  const locations = feature.segments!.map(part => {
+    const markers = partials.find(([start, end]) => start === part.start && end === part.end);
+    const location = `${markers?.[2] ?? ''}${part.start + 1}..${markers?.[3] ?? ''}${part.end}`;
+    return mixed && part.strand === -1 ? `complement(${location})` : location;
+  });
+  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
+  feature.locationString = !mixed && feature.strand === -1 ? `complement(${location})` : location;
+}
+
+function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
+  return JSON.stringify([feature.start, feature.end, feature.strand, segments, feature.metadata?.codon_start]);
+}
+
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
-  if (imported) {
+  const legacy = !feature.metadata?._gffPhaseState && feature.metadata?.codon_start === undefined;
+  if (imported && (legacy || feature.metadata?._gffPhaseState === phaseState(feature, segments))) {
     try {
       const phases: unknown = JSON.parse(imported);
       if (Array.isArray(phases) && phases.length === segments.length && phases.every(p => /^[012]$/.test(String(p)))) {
@@ -56,9 +95,9 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
       // Invalid imported phase data falls back to the feature's reading frame.
     }
   }
-  if (segments.length === 1 && /^[012]$/.test(feature.metadata?.phase ?? '')) return [feature.metadata!.phase];
 
-  let phase = Math.max(0, Math.min(2, Number(feature.metadata?.codon_start ?? 1) - 1));
+  const initial = legacy && /^[012]$/.test(feature.metadata?.phase ?? '') ? Number(feature.metadata!.phase) : 0;
+  let phase = Math.max(0, Math.min(2, Number(feature.metadata?.codon_start ?? initial + 1) - 1));
   if (!Number.isInteger(phase)) phase = 0;
   const result = segments.map(() => '0');
   const order = segments.map((_, i) => i);
@@ -71,41 +110,79 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   return result;
 }
 
+function addQualifiers(
+  attrs: Record<string, string | string[]>,
+  metadata: Record<string, string>,
+  oldIds: Map<string, string | null>,
+  report: ExportReport,
+): void {
+  for (const key of Object.keys(metadata)) {
+    if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
+    const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
+    const previous = attrs[outputKey];
+    const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
+    let items = attributeValues(metadata, key);
+    if (key === 'Parent' || key === 'Derives_from') {
+      const mapped = items.map(item => oldIds.get(item)).filter((item): item is string => typeof item === 'string');
+      if (mapped.length !== items.length) report.droppedAttributes++;
+      items = mapped;
+      if (!items.length) continue;
+    }
+    for (const item of items) {
+      if (!values.includes(item)) values.push(item);
+    }
+    attrs[outputKey] = values.length === 1 ? values[0] : values;
+  }
+}
+
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
-  for (const record of records) {
+  const plans = records.map(record => {
+    let number = 0;
+    const localIds = new Map<string, string | null>();
+    const ids = record.features.map(feature => {
+      const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
+      const old = feature.metadata?.ID;
+      if (old) {
+        localIds.set(old, localIds.has(old) && localIds.get(old) !== id ? null : id);
+      }
+      return id;
+    });
+    return { record, ids, localIds };
+  });
+  for (const { record, ids, localIds } of plans) {
+    const referenceIds = localIds;
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);
-    const attributes: Record<string, string> = { ID: `${record.id}.0`, gbkey: 'Src' };
+    const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
+    const sourceMetadata = { ...record.features.find(feature => feature.type === 'source')?.metadata };
+    for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
+    addQualifiers(attributes, sourceMetadata, referenceIds, report);
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, 'Dunceious', 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
-    let number = 0;
-    for (const feature of record.features) {
+    for (const [featureIndex, feature] of record.features.entries()) {
       if (feature.type === 'source') continue;
-      number++;
       const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, length);
       const phases = partPhases(feature, segments);
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
-      const attrs: Record<string, string | string[]> = { ID: `${record.id}.${number}`, Name: feature.name };
-      for (const [key, value] of Object.entries(metadata)) {
-        if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
-        const outputKey = ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
-        const previous = attrs[outputKey];
-        const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
-        if (!values.includes(value)) values.push(value);
-        attrs[outputKey] = values.length === 1 ? values[0] : values;
-      }
+      const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
+      addQualifiers(attrs, metadata, referenceIds, report);
       if (so.original) attrs.insdc_type = so.original;
+      const partials = partialParts(feature);
       segments.forEach((segment, index) => {
+        const partAttrs = { ...attrs };
+        const markers = partials.find(([start, end]) => start === segment.start && end === segment.end);
+        if (markers?.[2]) partAttrs.insdc_partial_start = markers[2];
+        if (markers?.[3]) partAttrs.insdc_partial_end = markers[3];
         const direction = segment.strand ?? getFeatureStrand(feature);
         const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, 'Dunceious', so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(attrs)].join('\t'));
+        lines.push([id, 'Dunceious', so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
       });
     }
   }
@@ -120,11 +197,17 @@ function decode(value: string): string {
 
 function parseAttributes(raw: string): Record<string, string> {
   const result: Record<string, string> = Object.create(null);
+  const lists: Record<string, string[]> = Object.create(null);
   for (const attribute of raw.split(';')) {
     const equals = attribute.indexOf('=');
     if (equals < 1) continue;
-    result[decode(attribute.slice(0, equals))] = decode(attribute.slice(equals + 1));
+    const key = decode(attribute.slice(0, equals));
+    if (key.startsWith('_')) continue;
+    const values = attribute.slice(equals + 1).split(',').map(decode);
+    result[key] = values.join(',');
+    if (values.length > 1) lists[key] = values;
   }
+  if (Object.keys(lists).length) result._gffLists = JSON.stringify(lists);
   return result;
 }
 
@@ -170,12 +253,18 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) continue;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
+    const partialStart = /^[<>]$/.test(metadata.insdc_partial_start ?? '') ? metadata.insdc_partial_start : '';
+    const partialEnd = /^[<>]$/.test(metadata.insdc_partial_end ?? '') ? metadata.insdc_partial_end : '';
+    delete metadata.insdc_partial_start;
+    delete metadata.insdc_partial_end;
+    if (partialStart || partialEnd) metadata._gffPartialEnds = JSON.stringify([[start, end, partialStart, partialEnd]]);
     metadata.source = source;
     metadata.phase = phase;
     if (score !== '.') metadata.score = score;
     // Strand and per-part phases come from columns, never user-provided attributes.
     delete metadata._gffStrand;
     delete metadata._gffPhases;
+    delete metadata._gffPhaseState;
     if (strand !== '+' && strand !== '-') metadata._gffStrand = strand === '.' ? '.' : '?';
     const feature: BioFeature = {
       type: metadata.insdc_type || type,
@@ -232,6 +321,11 @@ export function parseGFF3(content: string): {
       const end = feature.end - length;
       feature.segments = splitWrapAround(feature.start, end, length);
       feature.end = end;
+      if (metadata._gffPartialEnds) {
+        const [[, , left, right]]: PartialPart[] = JSON.parse(metadata._gffPartialEnds);
+        metadata._gffPartialEnds = JSON.stringify(feature.segments.map((part, index, parts) =>
+          [part.start, part.end, index === 0 ? left : '', index === parts.length - 1 ? right : '']));
+      }
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }
@@ -246,6 +340,11 @@ export function parseGFF3(content: string): {
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         previous.strand = 1;
       }
+      if (metadata._gffPartialEnds) {
+        previous.metadata!._gffPartialEnds = JSON.stringify([
+          ...JSON.parse(previous.metadata!._gffPartialEnds ?? '[]'), ...JSON.parse(metadata._gffPartialEnds),
+        ]);
+      }
       previous.segments!.push(...feature.segments!);
       previous.start = Math.min(previous.start, feature.start);
       previous.end = Math.max(previous.end, feature.end);
@@ -257,9 +356,16 @@ export function parseGFF3(content: string): {
     }
   }
   for (const [seqid, values] of Object.entries(features)) {
-    if (!circular.has(seqid)) continue;
-    const length = lengths.get(seqid)!;
-    for (const feature of values) normalizeCircularParts(feature, length);
+    for (const feature of values) {
+      if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
+      restorePartialLocation(feature);
+      if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
+      const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
+      const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
+      const phase = phases[reverse ? phases.length - 1 : 0];
+      if (/^[012]$/.test(phase)) feature.metadata!.codon_start = String(Number(phase) + 1);
+      feature.metadata!._gffPhaseState = phaseState(feature, feature.segments!);
+    }
   }
   return { features, details };
 }

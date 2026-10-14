@@ -60,10 +60,18 @@ All notable changes to Dunceious. Format loosely follows
 ### Fixed
 
 - Focus uses authoritative annotation segments, and saving segment edits synchronizes the envelope used for culling and packing while preserving circular joins.
-
 - Frameshift badges and tooltip summaries use biological junctions, so alignment gaps neither invent nor hide shifts.
-
 - Codons crossing splice junctions or the circular origin draw and pack only their biological pieces, while alignment gaps remain continuous.
+- GFF3 round trips preserve partial GenBank location endpoints on individual feature parts.
+- GFF3 source regions preserve non-detail qualifiers, flags and lists on export and annotation import.
+- GFF3 exports remap feature relationships and report references omitted by subset filters.
+- GFF3 exports retain canonical INSDC qualifier spelling for subsequent GenBank export.
+- GFF3 round trips preserve attribute lists separately from percent-encoded literal commas.
+- Selection exports discard stale CDS translations and recalculate reading frames after clipping.
+- Selection exports clip actual annotation parts, retaining circular parts and excluding intron-only features.
+- GFF3 CDS exports recalculate imported phases after reading-frame or geometry edits.
+- Project loading rejects unsafe workspace IDs without changing stored references.
+- GFF3 imports initialize CDS reading frames from the first transcription part phase.
 
 - Hub current-group highlights switch at the reading line while the preceding
   card is still visible; jumps retain their target until scrolling, and trailing
