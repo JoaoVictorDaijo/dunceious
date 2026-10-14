@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Project loading rejects unsafe workspace IDs without changing stored references.
+
 - GFF3 imports initialize CDS reading frames from the first transcription part phase.
 
 - Hub current-group highlights switch at the reading line while the preceding

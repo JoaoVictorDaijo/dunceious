@@ -75,3 +75,18 @@ it.each(['local_1', 'LOCAL_1'])('rejects duplicate workspace ID %s without a par
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.message).toMatch(/duplicate.*record ID/i);
 });
+
+it.each(['a\n>b', '', 'my sequence', 'seq\t1', 'seq\r1', 'seq;1', 'seq=1', 'seq&1',
+  'seq,1', 'seq%1', 'seq[1]', 'seq(1)', 'seq"1', "seq'1", '_seq', 'seq_', 'seq__1'])
+('rejects project workspace ID %j outside the workspace ID contract', id => {
+  const project = { ...state, records: [{ ...record, id }],
+    activeSelection: { start: 0, end: 4, recordIds: [id] } };
+  expect(parseProject(serializeProject(project)))
+    .toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+});
+
+it.each(['local_1', 'NC_001.2:ref-3', 'Seq|1+2/3'])('preserves safe workspace ID %s and selection references', id => {
+  const project = { ...state, records: [{ ...record, id }],
+    activeSelection: { start: 0, end: 4, recordIds: [id] } };
+  expect(parseProject(serializeProject(project))).toEqual({ ok: true, project: { ...project, format: 2 } });
+});
