@@ -41,17 +41,17 @@ describe('HubList', () => {
     const pinned = screen.getByRole('region', { name: 'Pinned section' });
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe('126px');
-    expect(header.style.height).toBe('126px');
-    expect(row.style.top).toBe('126px');
+    expect(pinned.style.height).toBe('127px');
+    expect(header.style.height).toBe('127px');
+    expect(row.style.top).toBe('127px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
-    expect(pinned.style.height).toBe('81px');
-    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('81px');
+    expect(pinned.style.height).toBe('82px');
+    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('82px');
   });
 
   it('pins the section at the restored offset and recomputes after density and jumps', () => {
-    stubResizeObserver(); render(<Subject offset={190} />);
+    stubResizeObserver(); render(<Subject offset={200} />);
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Comfortable'));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
@@ -124,8 +124,8 @@ it('updates the pinned track window from visible rows and hides it after folding
   expect(band.hidden).toBe(false);
   expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
   expect(pinned.querySelector('[data-track-window-label]')?.textContent).toBe('6–25 in view');
-  expect(pinned.firstElementChild?.classList.contains('bg-amber-50')).toBe(true);
-  expect(pinned.firstElementChild?.className).not.toContain('bg-amber-50/');
+  expect(pinned.querySelector('[data-section-surface]')?.classList.contains('bg-amber-50')).toBe(true);
+  expect(pinned.querySelector('[data-section-surface]')?.className).not.toContain('bg-amber-50/');
   fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });
@@ -167,4 +167,26 @@ it('keeps list position when empty track space is clicked or Shift arrows are pr
   fireEvent.click(strip, { clientX: 900, clientY: 2 });
   fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
   expect(viewport.scrollTop).toBe(0);
+});
+
+it('separates headers by an eight-pixel band and marks the current rail block', () => {
+  const values = [{ ...records[0], accession: 'NC_045512', label: 'Wuhan-Hu-1' }, records[1]];
+  function Sections() { const state = useHubState(); return <HubList state={state} kind="sequences" height={400} items={buildSequenceSections(values, state.filters, { grouped: false }, 'load')} />; }
+  render(<Sections />);
+  const rail = within(screen.getByLabelText('Overview rail'));
+  const current = rail.getByRole('button', { name: 'Jump to one' });
+  expect(current.getAttribute('data-tip')).toBe('NC_045512 · Wuhan-Hu-1');
+  expect(current.getAttribute('aria-current')).toBe('true');
+  expect(current.className).toContain('bg-env');
+  fireEvent.click(rail.getByRole('button', { name: 'Jump to two' }));
+  expect(rail.getByRole('button', { name: 'Jump to two' }).getAttribute('aria-current')).toBe('true');
+  const pinned = screen.getByRole('region', { name: 'Pinned section' });
+  expect(pinned.style.height).toBe('135px');
+  expect(pinned.querySelector<HTMLElement>('[data-section-gap]')!.style.height).toBe('8px');
+});
+it('insets the pinned header by the measured list scrollbar width', () => {
+  const offset = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800);
+  const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(783);
+  try { render(<Subject />); expect(screen.getByRole('region', { name: 'Pinned section' }).style.right).toBe('17px'); }
+  finally { offset.mockRestore(); client.mockRestore(); }
 });

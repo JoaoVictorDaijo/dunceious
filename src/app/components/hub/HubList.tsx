@@ -63,6 +63,9 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const savedOffsets = useRef(state.scrollOffset);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinnedElement = useRef<HTMLDivElement>(null);
+  const scrollElement = useRef<HTMLDivElement>(null);
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  useLayoutEffect(() => { const element = scrollElement.current; if (element) setScrollbarWidth(element.offsetWidth - element.clientWidth); }, []);
   const railIndicator = useRef<HTMLDivElement>(null);
   const [, setPinnedSection] = useState<string | null>(null);
   if (state.scrollOffset !== savedOffsets.current) {
@@ -87,13 +90,13 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const entries = useMemo(() => {
     const result: Entry[] = [];
     let previousGroup: string | null = null;
-    for (const item of items) {
+    for (const [itemIndex, item] of items.entries()) {
       const group = kind === 'sequences' ? (item as SequenceSection).group : (item as FeatureGroup).organism;
       if (group && group !== previousGroup) {
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density), item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, itemIndex ? 8 : 0), item });
       if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? 440 : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
@@ -232,7 +235,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader density={state.density} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
+    return <SequenceSectionHeader gap={items[0]?.key === entry.key ? 0 : 8} density={state.density} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
@@ -250,21 +253,21 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     return <div style={style}><AnnotationRow record={entry.record} feature={entry.feature} rowKey={entry.key} kind={kind} selected={state.selectedRows.has(entry.key)} current={currentRowKey === entry.key} lastFocused={lastFocusedKey === entry.key} featureColors={featureColors} locked={isAlignmentLocked} onCurrent={() => onCurrentRow?.(entry.key)} onHover={setHovered} onSelect={() => state.setSelectedRows(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} onInspect={() => onViewFeatureDetails?.(entry.record.id, entry.feature)} onEdit={() => onEditFeature?.(entry.record.id, indexOfFeature, entry.feature)} onDelete={() => onRemoveFeature?.(entry.record.id, indexOfFeature)} onFocus={() => onFocusItem?.(featureFocusTarget(entry.record, entry.feature), { key: entry.key, label: entry.feature.name })} /></div>;
   };
   const blocks = useMemo(() => {
-    const result: { key: string; label: string; start: number; size: number }[] = [];
+    const result: { key: string; label: string; tip: string; start: number; size: number }[] = [];
     entries.forEach((entry, index) => {
       if (entry.type !== 'header') return;
       const previous = result.at(-1);
       if (previous) previous.size = starts[index] - previous.start;
-      result.push({ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, start: starts[index], size: total - starts[index] });
+      result.push({ key: entry.key, label: kind === 'sequences' ? (entry.item as SequenceSection).record.id : (entry.item as FeatureGroup).identity, tip: kind === 'sequences' ? [(entry.item as SequenceSection).record.accession || (entry.item as SequenceSection).record.id, (entry.item as SequenceSection).record.label].filter(Boolean).join(' · ') : (entry.item as FeatureGroup).identity, start: starts[index], size: total - starts[index] });
     });
     return result;
   }, [entries, starts, total, kind]);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
-      <VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>
-      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ height: pinned.size, top: Math.max(0, starts[pinnedIndex] - offset) }}>{header(pinned)}</div>}
+      <VariableSizeList ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="custom-scrollbar-pro scrollbar-on-light">{VirtualRow}</VariableSizeList>
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute left-0 right-0 top-0 z-10 shadow-sm" style={{ right: scrollbarWidth, height: pinned.size, top: Math.max(0, starts[pinnedIndex] - offset) }}>{header(pinned)}</div>}
     </div>
-    <OverviewRail indicatorRef={railIndicator} blocks={blocks} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
+    <OverviewRail indicatorRef={railIndicator} blocks={blocks} currentKey={pinned?.sectionKey} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
   </div>;
 }
 

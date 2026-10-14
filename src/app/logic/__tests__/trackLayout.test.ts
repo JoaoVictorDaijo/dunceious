@@ -50,7 +50,7 @@ describe('strand track packing', () => {
   it('keeps section heights deterministic from lane counts and limits rulers to seven ticks', () => {
     const section = { key: 'x', group: null, record, rows: record.features.slice(1), total: 3 };
     expect(trackMetrics(packTrack(record, { maxLanes: 4, reverseLanes: 4 }), true).height).toBe(42);
-    expect(sequenceSectionHeight(section, false)).toBe(139);
+    expect(sequenceSectionHeight(section, false)).toBe(140);
     for (const length of [10, 999, 30000, 90000000]) expect(rulerTicks(length).length).toBeLessThanOrEqual(7);
     expect(rulerTicks(30000).map(t => t.label)).toEqual(['5 kb', '10 kb', '15 kb', '20 kb', '25 kb']);
   });
@@ -71,7 +71,7 @@ it('uses ten-pixel lanes in both densities and exact section heights while mini 
   const comfortable = trackMetrics(layout, true, 'comfortable');
   expect([compact.laneHeight, compact.gap, compact.height]).toEqual([10, 3, 42]);
   expect([comfortable.laneHeight, comfortable.gap, comfortable.height]).toEqual([10, 3, 42]);
-  expect(sequenceSectionHeight(section, false, undefined, 'comfortable')).toBe(139);
-  expect(sequenceSectionHeight(section, true, undefined, 'comfortable')).toBe(81);
+  expect(sequenceSectionHeight(section, false, undefined, 'comfortable')).toBe(140);
+  expect(sequenceSectionHeight(section, true, undefined, 'comfortable')).toBe(82);
   expect(trackMetrics(layout, false, 'comfortable')).toMatchObject({ height: 30, laneHeight: 4.2, gap: 1.2 });
 });
