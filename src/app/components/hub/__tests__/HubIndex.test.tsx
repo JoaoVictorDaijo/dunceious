@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import { useEffect } from 'react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent, within, act } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import HubIndex from '../HubIndex';
 import { createHub1000x10 } from '@/src/app/testing/fixtures/hub1000x10';
@@ -178,4 +178,119 @@ it('reserves space for the index scrollbar beside the cards', () => {
   expect(viewport.classList.contains('custom-scrollbar-pro')).toBe(true);
   expect(viewport.style.scrollbarGutter).toBe('stable');
   expect(viewport.style.paddingRight).toBe('8px');
+});
+
+
+it('styles feature identities, type swatches and compact presence without changing the jump', () => {
+  const values = records.slice(0, 2).map(record => ({ ...record, features: [...record.features, { ...record.features[0], type: 'CDS' }] }));
+  function Features() {
+    const state = useHubState();
+    useEffect(() => { state.setTab('features'); state.setCurrentSectionKey('["MERS-CoV","spike"]'); }, []);
+    return <><output aria-label="Feature jump">{state.jumpTarget?.key}</output><HubIndex records={values} state={state} featureColors={{ gene: 'blue', CDS: 'purple' }} /></>;
+  }
+  render(<Features />);
+  const button = screen.getByRole('button', { name: 'spike · in 2 of 2' });
+  expect(within(button).getByText('2/2').className).toContain('font-mono');
+  const identity = within(button).getByText('spike');
+  expect(identity.className).toContain('font-mono');
+  expect(identity.className).toContain('font-semibold');
+  expect(identity.className).toContain('text-amber-200');
+  expect(button.className).toContain('border-amber-500/65');
+  expect(button.className).toContain('shadow-amber-500/15');
+  expect(button.querySelector('.w-\\[3px\\]')).toBeTruthy();
+  const swatches = [...button.querySelectorAll<HTMLElement>('[data-type-swatch]')];
+  expect(swatches.map(swatch => swatch.style.backgroundColor)).toEqual(['purple', 'blue']);
+  const cells = button.querySelectorAll<HTMLElement>('[data-presence-state]');
+  expect(cells).toHaveLength(2);
+  for (const cell of cells) {
+    expect(cell.dataset.presenceState).toBe('present');
+    expect(cell.style.width).toBe('8px');
+    expect(cell.style.height).toBe('8px');
+    expect(cell.className).toContain('bg-slate-500');
+    expect(cell.style.backgroundColor).toBe('');
+  }
+  fireEvent.click(button);
+  expect(screen.getByLabelText('Feature jump').textContent).toBe('["MERS-CoV","spike"]');
+});
+
+it.each([24, 25, 30])('caps the feature presence preview at 24 for a pool of %s', size => {
+  const values = Array.from({ length: size }, (_, index) => ({ ...records[0], id: `pool${index}` }));
+  function Features() { const state = useHubState(); useEffect(() => state.setTab('features'), []); return <HubIndex records={values} state={state} featureColors={{ gene: 'blue' }} />; }
+  render(<Features />);
+  const button = screen.getByRole('button', { name: `spike · in ${size} of ${size}` });
+  const cells = button.querySelectorAll<HTMLElement>('[data-presence-state]');
+  expect(cells).toHaveLength(24);
+  expect(cells[0].style.backgroundColor).toBe('blue');
+  expect(within(button).queryByText(`+${size - 24}`) !== null).toBe(size > 24);
+});
+
+it('uses hidden, empty and comparison state styles in feature previews', () => {
+  const source = records[0].features[1];
+  const gene = records[0].features[0];
+  const values: SeqRecord[] = [
+    { ...records[0], id: 'present' },
+    { ...records[0], id: 'duplicate', features: [source, gene, { ...gene }] },
+    { ...records[0], id: 'missing', features: [source, { ...gene, name: 'other' }] },
+    { ...records[0], id: 'unannotated', features: [source] },
+    { ...records[0], id: 'hidden' },
+  ];
+  function Features() {
+    const state = useHubState();
+    useEffect(() => { state.setTab('features'); state.setHubHidden(new Set(['hidden'])); }, []);
+    return <HubIndex records={values} state={state} featureColors={{ gene: 'blue' }} />;
+  }
+  render(<Features />);
+  const button = screen.getByRole('button', { name: 'spike · in 2 of 4' });
+  const cells = button.querySelectorAll<HTMLElement>('[data-presence-state]');
+  expect([...cells].map(cell => cell.dataset.presenceState)).toEqual(['duplicate', 'hidden', 'missing', 'present', 'unannotated']);
+  expect(cells[0].className).toContain('ring-inset');
+  expect(cells[0].style.backgroundColor).toBe('blue');
+  expect(cells[1].className).toContain('bg-slate-200');
+  expect(cells[1].getAttribute('data-tip')).toBe('hidden: hidden');
+  expect(cells[2].className).toContain('border-rose-500');
+  expect(cells[4].className).toContain('border-slate-300');
+});
+
+it('spaces feature index entries at their fixed windowing height', () => {
+  const values = [{ ...records[0], features: [...records[0].features, { ...records[0].features[0], name: 'other' }] }];
+  function Features() { const state = useHubState(); useEffect(() => state.setTab('features'), []); return <HubIndex records={values} state={state} />; }
+  render(<Features />);
+  const first = screen.getByRole('button', { name: 'other · in 1 of 1' }).closest('[role="listitem"]')!.parentElement!;
+  const second = screen.getByRole('button', { name: 'spike · in 1 of 1' }).closest('[role="listitem"]')!.parentElement!;
+  expect(first.style.height).toBe('64px');
+  expect(second.style.height).toBe('64px');
+  expect(Number.parseFloat(second.style.top) - Number.parseFloat(first.style.top)).toBe(64);
+});
+
+
+it('resizes presence previews from one index observer and counts every omitted cell', () => {
+  const values = Array.from({ length: 30 }, (_, index) => ({ ...records[0], id: `pool${index}` }));
+  let width = 280;
+  let resize: () => void = () => {};
+  const observe = vi.fn();
+  const measure = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+    if (this.getAttribute('aria-label') === 'Index entries') return width;
+    expect(this.classList.contains('custom-scrollbar-pro')).toBe(true);
+    return width - 15;
+  });
+  const outerWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => width);
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(callback: () => void) { resize = callback; }
+    observe = observe;
+    disconnect() {}
+  });
+  function Features() { const state = useHubState(); useEffect(() => state.setTab('features'), []); return <HubIndex records={values} state={state} />; }
+  try {
+    render(<Features />);
+    const button = screen.getByRole('button', { name: 'spike · in 30 of 30' });
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe).toHaveBeenCalledWith(screen.getByLabelText('Index entries'));
+    for (const [nextWidth, count, omitted] of [[280, 21, 9], [160, 9, 21], [520, 24, 6]]) {
+      width = nextWidth;
+      act(() => resize());
+      expect(button.querySelectorAll('[data-presence-state]')).toHaveLength(count);
+      expect(within(button).getByText(`+${omitted}`)).toBeTruthy();
+      expect(button.style.height).toBe('56px');
+    }
+  } finally { measure.mockRestore(); outerWidth.mockRestore(); vi.unstubAllGlobals(); }
 });

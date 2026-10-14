@@ -190,3 +190,17 @@ it('insets the pinned header by the measured list scrollbar width', () => {
   try { render(<Subject />); expect(screen.getByRole('region', { name: 'Pinned section' }).style.right).toBe('17px'); }
   finally { offset.mockRestore(); client.mockRestore(); }
 });
+
+
+it.each([
+  { label: 'Display name', definition: 'Definition', isolate: 'Isolate', want: 'Display name' },
+  { label: '', definition: 'Definition', isolate: 'Isolate', want: 'Isolate' },
+  { label: '', definition: 'Definition', isolate: '', want: 'Definition' },
+  { label: '', definition: '', isolate: '', want: '' },
+])('uses the export tree name fallback for rail tooltips: $want', ({ label, definition, isolate, want }) => {
+  const values = [{ ...records[0], accession: 'NC_045512', label, definition, features: [...records[0].features, { type: 'source', name: 'source', start: 0, end: 100, strand: 1 as const, metadata: { isolate } }] }];
+  function Sections() { const state = useHubState(); return <HubList state={state} kind="sequences" height={400} items={buildSequenceSections(values, state.filters, { grouped: false }, 'load')} />; }
+  render(<Sections />);
+  const block = within(screen.getByLabelText('Overview rail')).getByRole('button', { name: 'Jump to one' });
+  expect(block.getAttribute('data-tip')).toBe(want ? `NC_045512 · ${want}` : 'NC_045512');
+});
