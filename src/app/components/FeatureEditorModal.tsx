@@ -127,8 +127,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
           {/* Name */}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Display Name</label>
+            <label htmlFor="feature-display-name" className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Display Name</label>
             <input
+              id="feature-display-name"
               type="text"
               value={feature.name}
               onChange={e => setFeature({ name: e.target.value })}

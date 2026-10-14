@@ -157,6 +157,10 @@ export function useSearchWorker(
     setIsSearching(false);
   }, [cancelPendingSearch]);
 
+  useEffect(() => {
+    clearSearch();
+  }, [records, clearSearch]);
+
   const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
     setIsSearching(false);
     const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;

@@ -202,6 +202,7 @@ const App: React.FC = () => {
   };
 
   const resetHubWorkspace = () => {
+    handleClearSearch();
     hubState.resetWorkspace();
     dismissUndo();
     setHubFocus(null);

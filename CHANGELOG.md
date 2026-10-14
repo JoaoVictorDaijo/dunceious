@@ -15,15 +15,10 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
-### Changed
-
-- Offer Add sequences, Save project and Clear workspace beside the viewport’s Record Navigator title as well as the hub’s Sequence index.
-
 ### Fixed
 
-- Disable the viewport title’s sequence picker while an alignment job runs.
-- Keep both parts of each origin-crossing annotation in the same Hub genome-track lane.
-- Enclose both origin-crossing pieces in the Hub’s visible-row track window.
+- Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
+- Clear sequence search state and discard pending search results when workspace records change.
 
 ## [2.8.1] — 2026-10-14
 
