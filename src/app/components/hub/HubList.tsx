@@ -55,6 +55,21 @@ export interface HubListProps {
   onImportAnnotations?: () => void;
   onCurrentRow?: (key: string) => void; addLog?: (message: string) => void;
 }
+const trackBoundsCache = new WeakMap<QuantitativeTrack, { start: number; end: number }>();
+function trackBounds(track: QuantitativeTrack) {
+  const cached = trackBoundsCache.get(track);
+  if (cached) return cached;
+  let start = track.data.length ? Infinity : 0;
+  let end = track.data.length ? -Infinity : 0;
+  for (const point of track.data) {
+    start = Math.min(start, point.start);
+    end = Math.max(end, point.end);
+  }
+  const bounds = { start, end };
+  trackBoundsCache.set(track, bounds);
+  return bounds;
+}
+
 function VirtualRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) {
   return data(index, style);
 }
@@ -306,8 +321,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (entry.type === 'divider') return <div style={style} className="bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-600">{entry.label} · {entry.count}</div>;
     if (entry.type === 'empty') return <div style={style} className="px-5 py-4 text-xs text-slate-500">No annotations on this sequence <button className="ml-3 text-amber-700 underline" onClick={onImportAnnotations}>Import annotations…</button></div>;
     if (entry.type === 'track') {
-      const start = entry.track.data.length ? Math.min(...entry.track.data.map(point => point.start)) : 0;
-      const end = entry.track.data.length ? Math.max(...entry.track.data.map(point => point.end)) : 0;
+      const { start, end } = trackBounds(entry.track);
       return <div style={style} data-row-key={entry.key} className="flex items-center gap-4 border-b border-slate-100 px-5 text-xs text-slate-600"><span>track</span><strong className="flex-1">{entry.track.name}{lastFocusedKey === entry.key && <span className="ml-2 text-amber-700">Last focused</span>}</strong><span>{entry.track.data.length} data points</span><button aria-label={`Inspect track ${entry.track.name}`} onClick={() => addLog?.(`Track: ${entry.track.name} · ${entry.track.data.length} data points`)}>Inspect</button><button onClick={() => onFocusItem?.({ recordId: entry.record.id, start, end, label: entry.track.name, length: end - start }, { key: entry.key, label: entry.track.name })}>Open in viewport</button></div>;
     }
     const indexOfFeature = entry.record.features.indexOf(entry.feature);
