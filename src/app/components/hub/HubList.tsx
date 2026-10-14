@@ -30,7 +30,7 @@ import type { HubFocusOrigin } from '../AnnotationHubPanel';
 import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionHeader';
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
-import SlimSectionBar, { SLIM_BAR_HEIGHT } from './SlimSectionBar';
+import SlimSectionBar, { SLIM_BAR_HEIGHT, slimBarHeight } from './SlimSectionBar';
 import GroupedInner, { CardContext } from './GroupedInner';
 import OverviewRail, { railThumb } from './OverviewRail';
 import DetailsEditor, { detailsEditorHeight } from './DetailsEditor';
@@ -176,11 +176,13 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     while (last + 1 < entries.length && !['header', 'divider', 'spacer'].includes(entries[last + 1].type)) last++;
     return [{ key: entry.key, start: starts[first], size: starts[last] + entries[last].size - starts[first], first, last, folded: folded(entry.key) }];
   }), [entries, starts, folded]);
+  const barHeight = (index: number) => entries[index]?.type === 'header' ? slimBarHeight(entries[index].item as SequenceSection | FeatureGroup, kind, featureColors) : SLIM_BAR_HEIGHT;
   const barPosition = (index: number, value: number) => {
     const card = cards.find(card => card.first === index);
-    return card ? Math.min(0, card.start + card.size - value - SLIM_BAR_HEIGHT) : 0;
+    return card ? Math.min(0, card.start + card.size - value - barHeight(index)) : 0;
   };
-  const barVisible = (index: number, value: number) => Boolean(entries[index]?.type === 'header' && !folded(entries[index].key) && value >= starts[index] + entries[index].size);
+  // The compact bar takes over as soon as the full header starts to scroll under the top edge, so the header is never seen half cut.
+  const barVisible = (index: number, value: number) => Boolean(entries[index]?.type === 'header' && !folded(entries[index].key) && value > starts[index]);
   const paintBar = (index: number, value: number) => {
     if (!pinnedElement.current) return;
     pinnedElement.current.style.display = barVisible(index, value) ? '' : 'none';
@@ -189,7 +191,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const updateWindow = (index: number, value: number) => {
     const header = entries[index];
     if (kind !== 'sequences' || header?.type !== 'header' || folded(header.key)) { state.trackWindow.update(null); return; }
-    const top = Math.max(starts[index] + header.size, value + (barVisible(index, value) ? Math.max(0, SLIM_BAR_HEIGHT + barPosition(index, value)) : 0));
+    const top = Math.max(starts[index] + header.size, value + (barVisible(index, value) ? Math.max(0, barHeight(index) + barPosition(index, value)) : 0));
     const visible = entries.flatMap((entry, i) => entry.sectionKey === header.sectionKey && entry.type === 'row' && starts[i] + entry.size > top && starts[i] < value + height ? [entry.feature] : []);
     const record = (header.item as SequenceSection).record;
     state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: Math.min(...visible.map(feature => feature.start)), end: visible.some(feature => feature.start > feature.end || feature.segments?.some(part => part.start > part.end)) ? record.sequence.length : Math.max(...visible.map(feature => feature.end)) } : null);
@@ -238,7 +240,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (index >= 0) {
       const entry = entries[index];
       const headerIndex = entries.findIndex(other => other.type === 'header' && other.key === entry.sectionKey);
-      const headerHeight = SLIM_BAR_HEIGHT;
+      const headerHeight = barHeight(headerIndex);
       const position = entry.type === 'header' ? starts[index] : starts[index] - headerHeight - Math.max(0, (height - headerHeight - entry.size) / 2);
       landJump(entry.sectionKey, Math.max(starts[headerIndex] ?? 0, Math.min(position, maxOffset)));
     }
@@ -329,7 +331,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
       <CardContext.Provider value={{ cards, current: currentSection }}><VariableSizeList outerElementType={ScrollRegion} innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="hub-scroll-region custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
-      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute top-0 z-10 border-x border-slate-300 shadow-sm" style={{ left: 14, right: 14, borderColor: pinned.sectionKey === currentSection ? 'color-mix(in srgb, var(--env) 70%, transparent)' : undefined, height: SLIM_BAR_HEIGHT, top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar current={pinned.sectionKey === currentSection} pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute top-0 z-10 border-x border-slate-300 shadow-sm" style={{ left: 14, right: 14, borderColor: pinned.sectionKey === currentSection ? 'color-mix(in srgb, var(--env) 70%, transparent)' : undefined, height: barHeight(pinnedIndex), top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar current={pinned.sectionKey === currentSection} pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
     </div>
     <OverviewRail scrollRef={scrollElement} indicatorRef={railIndicator} blocks={blocks} currentKey={currentSection ?? undefined} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={(value, key) => { state.setJumpTarget(null); if (key) landJump(key, value); else { jumpLanding.current = null; list.current?.scrollTo(value); } }} />
   </div>;

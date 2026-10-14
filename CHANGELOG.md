@@ -58,6 +58,11 @@ All notable changes to Dunceious. Format loosely follows
   modifiers; earlier project formats are rejected without migration.
 - The By feature index shows one compact row per feature instead of a card with
   a presence strip, fitting about three times as many features on screen.
+- The slim pinned bar shows the full packed track between the sequence name and
+  its counts, and takes over as soon as the full header starts to scroll away,
+  so the header is never seen half cut.
+- The Annotation Hub's collapsible log uses the viewport's Log Terminal title and
+  icon.
 
 ### Fixed
 

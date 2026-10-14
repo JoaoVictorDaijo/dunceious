@@ -217,15 +217,15 @@ it('keeps a header and its rows inside one card with deterministic gaps and bord
 });
 
 
-it('shows a slim live bar only after the full header is gone and pushes it out at the card end', () => {
+it('pins the slim live bar as soon as the full header starts to scroll away and pushes it out at the card end', () => {
   const sequence = { ...records[0], features: Array.from({ length: 12 }, (_, i) => ({ name: `row${i}`, type: 'gene', start: i * 5, end: i * 5 + 4, strand: 1 as const })) };
   function Slim() { const state = useHubState(); return <HubList state={state} kind="sequences" height={180} items={buildSequenceSections([sequence, records[1]], state.filters, { grouped: false }, 'load')} />; }
   const { container } = render(<Slim />);
   const viewport = container.querySelector<HTMLElement>('.scrollbar-on-light')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 1000 } });
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
-  fireEvent.scroll(viewport, { target: { scrollTop: 140 } });
-  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 1 } });
+  expect(screen.getByRole('region', { name: 'Pinned section' }).style.display).toBe('');
   fireEvent.scroll(viewport, { target: { scrollTop: 141 } });
   const bar = screen.getByRole('region', { name: 'Pinned section' });
   expect(bar.style.height).toBe('44px');
@@ -240,7 +240,9 @@ it('shows a slim live bar only after the full header is gone and pushes it out a
   fireEvent.scroll(viewport, { target: { scrollTop: 650 } });
   expect(bar.style.top).toBe('-25px');
   fireEvent.scroll(viewport, { target: { scrollTop: 670 } });
-  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  const next = screen.getByRole('region', { name: 'Pinned section' });
+  expect(within(next).queryByRole('button', { name: 'Collapse one' })).toBeNull();
+  expect(next.style.top).toBe('0px');
 });
 
 
