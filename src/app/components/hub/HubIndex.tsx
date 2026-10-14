@@ -21,7 +21,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMem
 import { VariableSizeList } from 'react-window';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import { buildSequenceSections, type SequenceSection } from '@/src/app/logic/hubModel';
+import { buildSequenceSections, type SequenceSection, type SortOrder } from '@/src/app/logic/hubModel';
 import { withHiddenCells } from '@/src/app/logic/hubVisibility';
 import { buildFeatureGroups, type FeatureGroup } from '@/src/app/logic/featureComparison';
 import { isEdited, isPartial, isUnannotated, isolateOf, needsAttention } from '@/src/domain/bio/recordStatus';
@@ -92,6 +92,14 @@ const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump
   </div>;
 });
 type IndexItem = { key: string; size: number } & ({ type: 'group'; group: string; count: number; foldKey: string } | { type: 'sequence'; section: SequenceSection; position: number } | { type: 'feature'; group: FeatureGroup; position: number });
+const SEQUENCE_SORTS: [SortOrder, string][] = [['load', 'Load order'], ['accession', 'Accession (A–Z)'], ['fewest', 'Fewest annotations first']];
+function SequenceSort({ state }: { state: ReturnType<typeof useHubState> }) {
+  return <label data-tip="Order of the sequences in the index and the list" className="ml-auto flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900 pl-2.5 pr-1 text-slate-400 focus-within:outline focus-within:outline-2 focus-within:outline-amber-500">
+    <i aria-hidden="true" className="fas fa-arrow-down-wide-short text-[11px]" />
+    <select aria-label="Sort sequences" className="min-w-0 max-w-full cursor-pointer truncate bg-transparent pr-1 text-xs text-slate-200 focus:outline-none" value={state.sort} onChange={e => state.setSort(e.target.value as SortOrder)}>{SEQUENCE_SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+  </label>;
+}
+
 function IndexRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) { return data(index, style); }
 export default function HubIndex({ records, state, featureColors }: { records: SeqRecord[]; featureColors?: Record<string, string>; state: ReturnType<typeof useHubState> }) {
   const query = useDeferredValue(state.filters.query);
@@ -160,8 +168,7 @@ export default function HubIndex({ records, state, featureColors }: { records: S
     <SectionTitle fixedHeight icon="fa-list-ul" trailing={<span className="flex min-w-0 items-center gap-1 whitespace-nowrap font-mono text-[11px] text-slate-500">{state.hubHidden.size > 0 && <button aria-label="Show all" data-tip="Show all" onClick={() => state.setHubHidden(new Set())} className="hub-hidden-chip inline-flex h-[22px] shrink-0 items-center gap-1 rounded-full border border-env/50 bg-env/10 px-1.5 font-sans text-[10px] text-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className="fas fa-eye-slash" /><span>{state.hubHidden.size}<span className="hub-hidden-words"> hidden</span></span><span className="hub-hidden-words font-semibold text-white underline">Show all</span></button>}<span>{state.hubHidden.size ? `${visibleCount}/${records.length}` : visibleCount}</span></span>}>Sequence index</SectionTitle>
     <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3"><i className="fas fa-magnifying-glass text-slate-500" aria-hidden="true" /><input aria-label={state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'} placeholder={state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'} className="h-9 min-w-0 flex-1 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" value={state.filters.sequenceQuery} onChange={e => state.setFilters(f => ({ ...f, sequenceQuery: e.target.value }))} /></div>
     {state.tab === 'sequences' && <GroupByControl records={records} state={state} />}
-    <div className="flex flex-wrap items-center gap-2"><button aria-label="Needs attention" aria-pressed={state.filters.needsAttention} onClick={() => state.setFilters(f => ({ ...f, needsAttention: !f.needsAttention }))} className={`flex items-center gap-1.5 rounded-full border px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.needsAttention ? 'border-amber-500/60 bg-amber-500/10 text-amber-200' : 'border-slate-800 text-slate-400'}`}><i className="fas fa-triangle-exclamation" aria-hidden="true" />Needs attention <span className="font-mono">{attentionCount}</span></button>
-    <label className="ml-auto text-slate-500">Sort <select aria-label="Sort" className="rounded-lg border border-slate-800 bg-slate-900 p-1 text-[10px] text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" value={state.sort} onChange={e => state.setSort(e.target.value as typeof state.sort)}><option value="load">Load order</option><option value="accession">Accession</option><option value="fewest">Fewest annotations</option></select></label></div>
+    <div className="flex items-center gap-2"><button aria-label="Needs attention" aria-pressed={state.filters.needsAttention} onClick={() => state.setFilters(f => ({ ...f, needsAttention: !f.needsAttention }))} className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.needsAttention ? 'border-amber-500/60 bg-amber-500/10 text-amber-200' : 'border-slate-800 text-slate-400'}`}><i className="fas fa-triangle-exclamation" aria-hidden="true" />Needs attention <span className="font-mono">{attentionCount}</span></button>{state.tab === 'sequences' && <SequenceSort state={state} />}</div>
 
     <div ref={container} className="relative min-h-0 flex-1" aria-label="Index entries"><VariableSizeList ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} itemData={renderEntry} overscanCount={4} className="custom-scrollbar-pro" style={{ scrollbarGutter: 'stable', paddingRight: 8 }}>{IndexRow}</VariableSizeList></div>
   </section>;

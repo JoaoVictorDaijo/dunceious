@@ -57,6 +57,14 @@ All notable changes to Dunceious. Format loosely follows
 - Project format 2 preserves detail originals, edit markers, display names and
   modifiers; earlier project formats are rejected without migration.
 
+### Fixed
+
+- Hub current-group highlights switch at the reading line while the preceding
+  card is still visible; jumps retain their target until scrolling, and trailing
+  slim bars use neutral styling.
+- The index Sort control appears only in By sequence, where it orders the
+  sequences, sits beside Needs attention, and names its options plainly
+  (Load order, Accession (A–Z), Fewest annotations first).
 
 ## [2.8.0] — 2026-10-09
 
