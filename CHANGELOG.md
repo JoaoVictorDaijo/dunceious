@@ -15,6 +15,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [2.8.1] — 2026-10-14
+
+### Changed
+
+- The Import button in the Annotation Hub top bar drops its chevron.
+
 ### Fixed
 
 - Keep the Hub sequence and feature index scroll position when hiding or showing sequences.
