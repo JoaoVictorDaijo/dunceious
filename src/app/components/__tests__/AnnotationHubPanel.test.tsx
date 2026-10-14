@@ -62,7 +62,7 @@ describe('AnnotationHubPanel', () => {
       expect(build).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
       expect(build).toHaveBeenCalled();
-      expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('not compared: organism unknown')).toBeTruthy();
+      expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('not compared: organism unknown')).toBeTruthy();
     } finally { build.mockRestore(); }
   });
 
@@ -156,7 +156,7 @@ describe('AnnotationHubPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open gene7 on seq7 in viewport' }));
     expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', featureIndex: 0, start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
     fireEvent.click(screen.getByText('Return to hub')); expect(screen.getByText('Last focused')).toBeTruthy();
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq7')).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq7')).toBeTruthy();
   });
   it('preserves the current scroll position on ordinary tab switches after a focus return', () => {
     render(<Subject index />); fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq7' }));
@@ -164,18 +164,18 @@ describe('AnnotationHubPanel', () => {
     fireEvent.click(screen.getByText('Return to hub'));
     fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq0' }));
     fireEvent.click(screen.getByText('Visit viewport')); fireEvent.click(screen.getByText('Switch back normally'));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq0')).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq0')).toBeTruthy();
   });
   it('keeps annotation selection on its feature when bulk details create source data', () => {
     render(<Subject initial={[{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]} />);
     fireEvent.click(screen.getByLabelText('Select annotation b on seq0'));
-    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByLabelText('Select sequence seq0'));
+    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByLabelText('Select sequence seq0'));
     fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'camel' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect((screen.getByLabelText('Select annotation b on seq0') as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Delete with undo' }));
     expect(screen.queryByText('b')).toBeNull(); expect(screen.getByText('a')).toBeTruthy();
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('camel')).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('camel')).toBeTruthy();
   });
   it('reveals a missing sequence after a filtered Features jump and explains the cleared filters', () => {
     const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus' } };
@@ -185,8 +185,8 @@ describe('AnnotationHubPanel', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
     fireEvent.click(screen.getByRole('button', { name: 'CDS 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Forward strand only' }));
-    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'seq1' }));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq1')).toBeTruthy();
+    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'seq1' }));
+    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq1')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Search and type filters cleared to show seq1');
     expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   });
@@ -217,7 +217,7 @@ describe('AnnotationHubPanel', () => {
 
 it.each(['tabs', 'focus'])('keeps typed details through a %s round trip', route => {
   render(<Subject initial={[records[0]]} />);
-  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Edit details' }));
   fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
   if (route === 'tabs') {
     fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
@@ -233,9 +233,9 @@ it('confirms before replacing a dirty details draft with another editor', () => 
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
   try {
     render(<Subject initial={records.slice(0, 2)} />);
-    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
+    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Edit details' }));
     fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
-    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Rename seq0' }));
+    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Rename seq0' }));
     expect(confirm).toHaveBeenCalled();
     expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel draft');
   } finally { confirm.mockRestore(); }
@@ -261,7 +261,7 @@ it('makes only the selected hub tab a tab stop and connects its panel', () => {
 it('reveals an annotation hidden by search when picked on a header strip', () => {
   render(<Subject initial={[{ ...records[0], features: [{ ...records[0].features[0], name: 'hidden' }, { ...records[0].features[0], name: 'visible', start: 30, end: 40 }] }]} />);
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'visible' } });
-  fireEvent.keyDown(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
+  fireEvent.keyDown(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
   expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   expect(screen.getAllByRole('status').some(status => /cleared to show/.test(status.textContent ?? ''))).toBe(true);
   expect(screen.getByText('hidden')).toBeTruthy();
@@ -274,7 +274,7 @@ it('clears unresolved jumps even when filters leave the list empty', () => {
   fireEvent.click(screen.getByText('Request hidden jump'));
   expect(screen.getByLabelText('Pending hub jump').textContent).toBe('none');
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
-  expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq0')).toBeTruthy();
+  expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq0')).toBeTruthy();
 });
 
 it('opens help with ? and traps focus until Esc returns it to the opener', () => {
@@ -322,7 +322,7 @@ it('hides hub sections and search matches, persists across tabs, and restores fr
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
   expect(screen.getByText('0 / 1')).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  const presence = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('group', { name: 'Presence' });
+  const presence = within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('group', { name: 'Presence' });
   expect(within(presence).getByRole('button', { name: 'seq0: hidden' })).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /By sequence/ }));
   fireEvent.click(index.getByRole('button', { name: 'Jump to sequence seq0' }));
@@ -337,7 +337,7 @@ it('excludes hidden sequences from comparison baselines, positions, counts and t
   render(<Subject initial={values} index />);
   fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Hide seq2 in hub' }));
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  const pinned = within(document.querySelector<HTMLElement>('.hub-group-current')!);
   expect(pinned.getByText('in 2 of 2 sequences · 1 hidden')).toBeTruthy();
   expect(pinned.getByText('Median position 6 · 10–10 bp')).toBeTruthy();
   expect(pinned.queryByText(/odd length/)).toBeNull();
@@ -346,7 +346,7 @@ it('excludes hidden sequences from comparison baselines, positions, counts and t
 
 it('clears the current index window when the final hub section is hidden from its header', () => {
   render(<Subject initial={records.slice(0, 1)} index />);
-  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Hide seq0 in hub' }));
+  fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Hide seq0 in hub' }));
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
   const card = screen.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
   expect(card.getAttribute('aria-current')).toBe('false');

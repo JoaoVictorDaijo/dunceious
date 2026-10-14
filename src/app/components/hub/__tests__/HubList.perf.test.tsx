@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { useState } from 'react';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections, searchHits } from '@/src/app/logic/hubModel';
 import { createHub100x60 } from '@/src/app/testing/fixtures/hub100x60';
@@ -52,7 +52,7 @@ function Subject() {
 }
 
 function expectPinned(id: string) {
-  expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('checkbox', { name: `Select sequence ${id}` })).toBeTruthy();
+  expect(document.querySelector('.hub-group-current')?.getAttribute('data-hub-card')).toBe(id);
 }
 
 describe('100×60 hub acceptance fixture', () => {
@@ -134,8 +134,8 @@ describe('100×60 hub acceptance fixture', () => {
     expectPinned('hub098');
     const lastRow = container.querySelector<HTMLElement>('[data-row-key="hub098:60"]');
     expect(lastRow).not.toBeNull();
-    const top = Number.parseFloat(lastRow!.parentElement!.style.top) - viewport.scrollTop;
-    expect(top).toBeGreaterThanOrEqual(149);
+    const top = Number.parseFloat(lastRow!.parentElement!.style.top) + Number.parseFloat((lastRow!.parentElement!.parentElement as HTMLElement).style.top) - viewport.scrollTop;
+    expect(top).toBeGreaterThanOrEqual(44);
     expect(top + 64).toBeLessThanOrEqual(height);
     expect(container.querySelectorAll('[data-row-key]').length).toBeLessThan(100);
   });

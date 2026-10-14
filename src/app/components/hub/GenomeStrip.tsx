@@ -67,7 +67,7 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
 export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact'): number {
   return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
 }
-function GenomeStrip({ record, highlight, large = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
+function GenomeStrip({ record, highlight, large = false, slim = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; slim?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
   const geometry = stripGeometry(record, large, featureColors, density);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
@@ -154,10 +154,10 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
     if (event.key === 'Enter' || event.key === ' ') onPick?.(current);
     else setCursor({ record, index: Math.max(0, Math.min(ordered.length - 1, index + (event.key === 'ArrowRight' ? 1 : -1))) });
   };
-  return <div ref={root} className={large ? 'hub-track-large relative ml-7' : 'relative overflow-hidden rounded-md border border-slate-800 bg-slate-950'}>
-    {large && <><span aria-hidden="true" className="absolute -left-5 top-1 font-mono text-[10px]">+</span>{geometry.reverseLanes > 0 && <span aria-hidden="true" className="absolute -left-5 font-mono text-[10px]" style={{ top: metrics.axis + 3 }}>−</span>}</>}
-    <div className="relative" style={{ height: metrics.height }}>
-      <svg ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: metrics.height }}
+  return <div ref={root} className={large ? `hub-track-large relative ${slim ? '' : 'ml-7'}` : 'relative overflow-hidden rounded-md border border-slate-800 bg-slate-950'}>
+    {large && !slim && <><span aria-hidden="true" className="absolute -left-5 top-1 font-mono text-[10px]">+</span>{geometry.reverseLanes > 0 && <span aria-hidden="true" className="absolute -left-5 font-mono text-[10px]" style={{ top: metrics.axis + 3 }}>−</span>}</>}
+    <div className="relative" style={{ height: slim ? 20 : metrics.height }}>
+      <svg ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: slim ? 20 : metrics.height }}
         role={large && interactive ? 'button' : undefined} aria-hidden={large && interactive ? undefined : true}
         aria-label={large && interactive ? `Genome strip for ${record.id}: ${ordered.length} ${ordered.length === 1 ? 'annotation' : 'annotations'}` : undefined}
         tabIndex={large && interactive ? 0 : undefined} onPointerDown={() => { keyboardFocus.current = false; setFocused(false); }} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { const part = hit(event); if (part) { event.stopPropagation(); setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(keyboardFocus.current)} onBlur={() => setFocused(false)}
@@ -172,7 +172,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
         </>}
       </div>
     </div>
-    {large && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-amber-50 text-amber-800" /></div>}
+    {large && !slim && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-amber-50 text-amber-800" /></div>}
     {large && interactive && focused && <span role="status" aria-live="polite" className="sr-only">{current.name} · {current.locationString || `${current.start + 1}..${current.end}`}</span>}
   </div>;
 }

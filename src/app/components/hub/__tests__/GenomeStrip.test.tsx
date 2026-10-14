@@ -83,13 +83,13 @@ describe('genome strips', () => {
   });
   it('passes configured colours to decorative index and interactive pinned-header strips', () => {
     render(<Subject />);
-    for (const root of [screen.getByRole('region', { name: 'Pinned section' }), screen.getByRole('region', { name: 'Hub index' })]) {
+    for (const root of [document.querySelector<HTMLElement>('.hub-group-current')!, screen.getByRole('region', { name: 'Hub index' })]) {
       expect([...root.querySelectorAll('svg path')].map(path => path.getAttribute('fill'))).toEqual(['#123456', '#abcdef']);
     }
     const indexStrip = screen.getByRole('region', { name: 'Hub index' }).querySelector('svg')!;
     expect(indexStrip.getAttribute('aria-hidden')).toBe('true');
     expect(indexStrip.hasAttribute('tabindex')).toBe(false);
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Genome strip for contig: 2 annotations' })).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Genome strip for contig: 2 annotations' })).toBeTruthy();
   });
   it('bounds SVG elements by lanes and distinct colours rather than annotation count', () => {
     const many = createHub100x60()[0];

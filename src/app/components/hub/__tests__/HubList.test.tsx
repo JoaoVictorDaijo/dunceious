@@ -34,29 +34,32 @@ function Subject({ kind = 'sequences', offset = 0 }: { kind?: 'sequences' | 'fea
   const sections = buildSequenceSections(records, state.filters, { grouped: false }, 'load');
   return <><button onClick={() => state.setDensity('comfortable')}>Comfortable</button><button onClick={() => state.setJumpTarget({ key: 'three:0', serial: 1 })}>Jump third</button><HubList state={state} kind={kind} items={kind === 'sequences' ? sections : buildFeatureGroups(records, state.filters, false)} height={180} /></>;
 }
+function currentCard(): HTMLElement {
+  return document.querySelector<HTMLElement>('.hub-group-current')!;
+}
 describe('HubList', () => {
   it.each(['compact', 'comfortable'])('uses the rendered content height for %s sequence headers', density => {
     render(<Subject />);
     if (density === 'comfortable') fireEvent.click(screen.getByText('Comfortable'));
-    const pinned = screen.getByRole('region', { name: 'Pinned section' });
+    const pinned = currentCard();
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe('141px');
+    expect(pinned.style.height).toBe(density === 'comfortable' ? '193px' : '173px');
     expect(header.style.height).toBe('141px');
     expect(row.style.top).toBe('129px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
-    expect(pinned.style.height).toBe('96px');
+    expect(pinned.style.height).toBe('84px');
     expect((pinned.firstElementChild as HTMLElement).style.height).toBe('96px');
   });
 
   it('pins the section at the restored offset and recomputes after density and jumps', () => {
     stubResizeObserver(); render(<Subject offset={210} />);
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
+    expect(within(currentCard()).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Comfortable'));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
+    expect(within(currentCard()).getByText('two')).toBeTruthy();
     fireEvent.click(screen.getByText('Jump third'));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
+    expect(within(currentCard()).getByText('three')).toBeTruthy();
   });
   it('updates the pinned header after a scroll event', () => {
     render(<Subject />);
@@ -64,19 +67,19 @@ describe('HubList', () => {
     if (!viewport) throw new Error('Virtual viewport missing');
     Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 532 } });
     fireEvent.scroll(viewport, { target: { scrollTop: 190 } });
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('two')).toBeTruthy();
+    expect(within(currentCard()).getByText('two')).toBeTruthy();
   });
   it('can pin the final short section and leaves its target row below the header', () => {
     render(<Subject />); fireEvent.click(screen.getByText('Jump third'));
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
+    expect(within(currentCard()).getByText('three')).toBeTruthy();
     const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement as HTMLElement;
     const viewport = row?.closest('.scrollbar-on-light');
     expect(Number.parseFloat(row?.style.top ?? '0') + Number.parseFloat((row?.parentElement as HTMLElement)?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
   });
   it('folds rows and shows the composition summary', () => {
-    render(<Subject />); fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Collapse one' }));
+    render(<Subject />); fireEvent.click(within(currentCard()).getByRole('button', { name: 'Collapse one' }));
     expect(screen.queryByText('one-gene')).toBeNull();
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('1 CDS')).toBeTruthy();
+    expect(within(currentCard()).getByText('1 CDS')).toBeTruthy();
   });
   it('uses the reverse strand for both glyph and colour', () => {
     render(<Subject />); const arrow = screen.getAllByLabelText('Reverse strand')[0];
@@ -84,7 +87,7 @@ describe('HubList', () => {
   });
   it('shows an unknown-organism comparison without missing tags and with a cell per pool record', () => {
     render(<Subject kind="features" />);
-    const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+    const pinned = within(currentCard());
     expect(pinned.getByText('not compared: organism unknown')).toBeTruthy();
     expect(pinned.queryByText(/missing in/)).toBeNull();
     const cells = within(pinned.getByRole('group', { name: 'Presence' })).getAllByRole('button');
@@ -117,9 +120,9 @@ it('keeps other sequence strips bright when one annotation is hovered', () => {
   expect([...other.querySelectorAll('path')].every(path => path.getAttribute('opacity') === '1')).toBe(true);
 });
 
-it('updates the pinned track window from visible rows and hides it after folding', () => {
+it('updates the full track window from visible rows and hides it after folding', () => {
   render(<Subject />);
-  const pinned = screen.getByRole('region', { name: 'Pinned section' });
+  const pinned = currentCard();
   const band = pinned.querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.hidden).toBe(false);
   expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
@@ -134,7 +137,7 @@ it('extends an origin-crossing visible feature window to the sequence end', () =
   const crossing = { ...records[0], isCircular: true, features: [{ name: 'wrap', type: 'gene', start: 90, end: 10, strand: 1 as const }] };
   function Wrap() { const state = useHubState(); return <HubList state={state} kind="sequences" height={300} items={buildSequenceSections([crossing], state.filters, { grouped: false }, 'load')} />; }
   render(<Wrap />);
-  const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
+  const band = currentCard().querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.style.left).toBe('90%'); expect(band.style.width).toBe('10%');
 });
 
@@ -145,7 +148,7 @@ it('spans the minimum start and maximum end when visible rows stay in file order
   ] };
   function Wrap() { const state = useHubState(); return <HubList state={state} kind="sequences" height={400} items={buildSequenceSections([unordered], state.filters, { grouped: false }, 'load')} />; }
   render(<Wrap />);
-  const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
+  const band = currentCard().querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.style.left).toBe('10%'); expect(band.style.width).toBe('80%');
 });
 
@@ -158,7 +161,7 @@ it('keeps list position when empty track space is clicked or Shift arrows are pr
     return <HubList state={state} kind="sequences" height={160} items={buildSequenceSections([sequence], state.filters, { grouped: false }, 'load')} />;
   }
   const { container } = render(<Indicator />);
-  const strip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ });
+  const strip = within(currentCard()).getByRole('button', { name: /Genome strip/ });
   vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 29 } as DOMRect);
   const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
   fireEvent.pointerDown(strip, { clientX: 900, clientY: 2, button: 0, pointerId: 1 });
@@ -180,14 +183,14 @@ it('separates cards by a twelve-pixel gap and marks the current rail block', () 
   expect(current.className).toContain('bg-env');
   fireEvent.click(rail.getByRole('button', { name: 'Jump to two' }));
   expect(rail.getByRole('button', { name: 'Jump to two' }).getAttribute('aria-current')).toBe('true');
-  const pinned = screen.getByRole('region', { name: 'Pinned section' });
-  expect(pinned.style.height).toBe('141px');
+  const pinned = currentCard();
+  expect(pinned.style.top).toBe('197px');
   expect(pinned.querySelector<HTMLElement>('[data-section-gap]')!.style.height).toBe('14px');
 });
 it('insets the pinned header by the measured list scrollbar width', () => {
   const offset = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800);
   const client = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(783);
-  try { render(<Subject />); expect(screen.getByRole('region', { name: 'Pinned section' }).style.right).toBe('17px'); }
+  try { render(<Subject />); expect(document.querySelector<HTMLElement>('[aria-label="Pinned section"]')!.style.right).toBe('17px'); }
   finally { offset.mockRestore(); client.mockRestore(); }
 });
 
@@ -214,4 +217,28 @@ it('keeps a header and its rows inside one card with deterministic gaps and bord
   expect(card.style.top).toBe('12px');
   expect(card.style.height).toBe('173px');
   expect(container.querySelector<HTMLElement>('[data-hub-card="two"]')!.style.top).toBe('197px');
+});
+
+
+it('shows a slim live bar only after the full header is gone and pushes it out at the card end', () => {
+  const sequence = { ...records[0], features: Array.from({ length: 12 }, (_, i) => ({ name: `row${i}`, type: 'gene', start: i * 5, end: i * 5 + 4, strand: 1 as const })) };
+  function Slim() { const state = useHubState(); return <HubList state={state} kind="sequences" height={180} items={buildSequenceSections([sequence, records[1]], state.filters, { grouped: false }, 'load')} />; }
+  const { container } = render(<Slim />);
+  const viewport = container.querySelector<HTMLElement>('.scrollbar-on-light')!;
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 1000 } });
+  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 140 } });
+  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 141 } });
+  const bar = screen.getByRole('region', { name: 'Pinned section' });
+  expect(bar.style.height).toBe('44px');
+  expect(bar.querySelector('[data-section-surface]')).toBeNull();
+  const fullBand = container.querySelector<HTMLElement>('[data-hub-card="one"] [data-track-window]')!;
+  const band = bar.querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.style.left).toBe(fullBand.style.left);
+  expect(band.style.width).toBe(fullBand.style.width);
+  fireEvent.scroll(viewport, { target: { scrollTop: 650 } });
+  expect(bar.style.top).toBe('-25px');
+  fireEvent.scroll(viewport, { target: { scrollTop: 670 } });
+  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
 });
