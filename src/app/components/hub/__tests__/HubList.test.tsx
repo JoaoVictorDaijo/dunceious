@@ -202,7 +202,7 @@ it.each(['ArrowLeft', 'ArrowRight'])('pins a focused noncurrent strip on first S
   const { container } = render(<Tracks />);
   fireEvent.keyDown(document, { key: 'Tab' });
   const other = screen.getByRole('button', { name: /Genome strip for two/ });
-  act(() => (other as SVGSVGElement).focus());
+  act(() => other.focus());
   fireEvent.keyDown(other, { key, shiftKey: true });
   const pinned = screen.getByRole('region', { name: 'Pinned section' });
   const strip = within(pinned).getByRole('button', { name: /Genome strip for two/ });
