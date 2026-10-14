@@ -63,7 +63,7 @@ All notable changes to Dunceious. Format loosely follows
 
 - Removing a sequence discards its inline detail and display-name drafts before its ID can be reused.
 
-- Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted targets.
+- Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted annotations and removed records.
 
 - Circular wrapping segments retain their biological length after coordinate edits.
 

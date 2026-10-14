@@ -192,3 +192,21 @@ it.each(['details', 'name'])('discards the removed record %s editor and draft be
     expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('');
   }
 });
+
+
+it.each(['keyboard', 'search'])('clears the removed record %s cursor before ID reuse', async kind => {
+  const workers = await setup();
+  if (kind === 'search') {
+    const search = screen.getByRole('searchbox', { name: 'Search annotations' });
+    fireEvent.change(search, { target: { value: 'old' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(screen.getByText('1 / 1')).toBeTruthy();
+  } else {
+    fireEvent.click(screen.getByText('old').closest('[data-row-key]')!);
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'reuse.fa', records: [record('r', 'old')] } }));
+  if (kind === 'search') expect(screen.getByText('0 / 1')).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'x' });
+  expect((screen.getByLabelText('Select annotation old on r') as HTMLInputElement).checked).toBe(false);
+});

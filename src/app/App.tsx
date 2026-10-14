@@ -287,6 +287,8 @@ const App: React.FC = () => {
 
     const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
     record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
+    hubState.setCurrentRow(previous => previous && keys.has(previous) ? null : previous);
+    hubState.setSearchKey(previous => previous && keys.has(previous) ? null : previous);
     hubState.setEditingDetails(previous => previous === recordId ? null : previous);
     hubState.setEditingName(previous => previous === recordId ? null : previous);
     hubState.setDraft(previous => previous?.id === recordId ? null : previous);
