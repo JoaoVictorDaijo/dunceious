@@ -328,7 +328,7 @@ it('hides hub sections and search matches, persists across tabs, and restores fr
   fireEvent.click(index.getByRole('button', { name: 'Jump to sequence seq0' }));
   expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
   fireEvent.click(index.getByRole('button', { name: 'Hide seq0 in hub' }));
-  fireEvent.click(index.getByRole('button', { name: '1 hidden · Show all' }));
+  fireEvent.click(index.getByRole('button', { name: 'Show all' }));
   expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
 });
 
@@ -351,7 +351,7 @@ it('clears the current index window when the final hub section is hidden from it
   const card = screen.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
   expect(card.getAttribute('aria-current')).toBe('false');
   expect(card.querySelector<HTMLElement>('[data-track-window]')!.hidden).toBe(true);
-  fireEvent.click(screen.getByRole('button', { name: '1 hidden · Show all' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
   expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
 });
 
@@ -370,7 +370,7 @@ it.each([1, 2])('reveals only the %i hidden affected sequences when repairing ex
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   expect(screen.getByText('Set Organism on 2 sequences')).toBeTruthy();
   expect(index.getByRole('button', { name: 'Show seq2 in hub' })).toBeTruthy();
-  expect(index.getByRole('button', { name: '1 hidden · Show all' })).toBeTruthy();
+  expect(index.getByRole('button', { name: 'Show all' })).toBeTruthy();
 });
 
 

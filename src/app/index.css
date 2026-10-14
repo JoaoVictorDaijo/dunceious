@@ -110,3 +110,8 @@
 .hub-scroll-region::-webkit-scrollbar { display: none; }
 .hub-scroll-thumb { cursor: grab; touch-action: none; }
 .hub-scroll-thumb[data-dragging] { cursor: grabbing; background: theme('colors.slate.900 / 20%'); }
+
+.hub-index { container-type: inline-size; }
+@container (max-width: 380px) {
+  .hub-hidden-words { display: none; }
+}

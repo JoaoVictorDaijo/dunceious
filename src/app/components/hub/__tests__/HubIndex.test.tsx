@@ -294,3 +294,26 @@ it('resizes presence previews from one index observer and counts every omitted c
     }
   } finally { measure.mockRestore(); outerWidth.mockRestore(); vi.unstubAllGlobals(); }
 });
+
+
+it('reserves the title row when hidden controls appear and keeps the list siblings in place', () => {
+  render(<Subject />);
+  const heading = screen.getByRole('heading', { name: 'Sequence index' });
+  const titleRow = heading.parentElement!;
+  const index = screen.getByLabelText('Index entries');
+  const preceding = index.previousElementSibling;
+  const siblings = index.parentElement!.children.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Hide a in hub' }));
+  const show = screen.getByRole('button', { name: 'Show all' });
+  expect(titleRow.contains(show)).toBe(true);
+  expect(titleRow.style.height).toBe('24px');
+  expect(heading.className).toContain('whitespace-nowrap');
+  expect(within(titleRow).getByText('2/3')).toBeTruthy();
+  expect(index.previousElementSibling).toBe(preceding);
+  expect(index.parentElement!.children.length).toBe(siblings);
+  expect(show.getAttribute('data-tip')).toBe('Show all');
+  fireEvent.click(show);
+  expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull();
+  expect(titleRow.style.height).toBe('24px');
+  expect(index.previousElementSibling).toBe(preceding);
+});
