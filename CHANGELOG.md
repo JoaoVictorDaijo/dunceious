@@ -56,6 +56,8 @@ All notable changes to Dunceious. Format loosely follows
   selected aligned columns.
 - Project format 2 preserves detail originals, edit markers, display names and
   modifiers; earlier project formats are rejected without migration.
+- The By feature index shows one compact row per feature instead of a card with
+  a presence strip, fitting about three times as many features on screen.
 
 ### Fixed
 

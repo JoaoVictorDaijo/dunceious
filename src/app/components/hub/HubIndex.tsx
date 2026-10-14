@@ -32,7 +32,6 @@ import GenomeStrip from './GenomeStrip';
 import DisplayName from './DisplayName';
 import type { TrackWindow } from './trackWindow';
 import { getFeatureColor } from '@/src/app/viewer/colors';
-import { PRESENCE_CLASSES, presenceLabel, presenceStyle } from './presence';
 type IndexEntryProps = {
   section: SequenceSection; selected: boolean; current: boolean; featureColors?: Record<string, string>; position: number; count: number; trackWindow: TrackWindow;
   setSelectedRecords: ReturnType<typeof useHubState>['setSelectedRecords'];
@@ -59,35 +58,16 @@ const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected,
     <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
   </div>;
 });
-const FEATURE_INDEX_HEIGHT = 64;
-function presencePreviewCount(total: number, width: number): number {
-  let count = Math.min(total, 24);
-  while (count > 0) {
-    const omitted = total - count;
-    const suffixWidth = omitted ? (String(omitted).length + 1) * 6 + 2 : 0;
-    if (count * 8 + (count - 1) * 2 + suffixWidth <= width) break;
-    count--;
-  }
-  return count;
-}
-const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump, position, count, featureColors, width }: { group: FeatureGroup; current: boolean; jump: (key: string) => void; position: number; count: number; featureColors?: Record<string, string>; width: number }) {
-  const color = group.types.length === 1 ? getFeatureColor(group.types[0], featureColors) : undefined;
-  // Reserve the list gutter and card chrome so the overflow count stays visible.
-  const previewCount = presencePreviewCount(group.cells.length, width - 34);
-  const omitted = group.cells.length - previewCount;
+// One compact line per feature: about three times as many fit on screen as the earlier cards.
+const FEATURE_INDEX_HEIGHT = 32;
+const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump, position, count, featureColors }: { group: FeatureGroup; current: boolean; jump: (key: string) => void; position: number; count: number; featureColors?: Record<string, string> }) {
+  const edits = hubEditSummary(group.rows.map(row => row.feature));
   return <div role="listitem" aria-setsize={count} aria-posinset={position}>
-    <button aria-label={`${group.identity} · in ${group.counts.present} of ${group.counts.pool}`} aria-current={current} data-section-key={group.key} onClick={() => jump(group.key)} style={{ height: FEATURE_INDEX_HEIGHT - 8 }} className={`relative mx-0.5 mb-2 flex w-[calc(100%-4px)] flex-col justify-center gap-1.5 rounded-2xl border bg-slate-900 px-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${current ? 'border-amber-500/65 shadow-lg shadow-amber-500/15' : 'border-slate-800 hover:border-slate-700'}`}>
-      {current && <span aria-hidden="true" className="absolute inset-y-3 left-0 w-[3px] rounded-r bg-env" />}
-      <span className="flex w-full min-w-0 items-center gap-1.5">
-        <span data-tip={group.identity} className={`min-w-0 flex-1 truncate font-mono font-semibold ${current ? 'text-amber-200' : 'text-slate-100'}`}>{group.identity}</span>
-        <span className="flex min-w-0 gap-1 overflow-hidden">{group.types.map(type => <span key={type} data-type-swatch data-tip={type} aria-hidden="true" className="h-[9px] w-[9px] shrink-0 rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />)}</span>
-        <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">{group.counts.present}/{group.counts.pool}</span>
-      </span>
-      {hubEditSummary(group.rows.map(row => row.feature)) && <span className="font-mono text-[10px] text-amber-200">{hubEditSummary(group.rows.map(row => row.feature))}</span>}
-      <span className="flex h-3 w-full items-center gap-0.5 overflow-hidden">
-        {group.cells.slice(0, previewCount).map(cell => <span key={cell.recordId} data-presence-state={cell.state} data-tip={`${cell.recordId}: ${presenceLabel(cell.state)}`} aria-hidden="true" className={`shrink-0 rounded-sm ${PRESENCE_CLASSES[cell.state]}`} style={{ ...presenceStyle(cell.state, color), width: 8, height: 8 }} />)}
-        {omitted > 0 && <span style={{ width: (String(omitted).length + 1) * 6 }} className="shrink-0 font-mono text-[9px] text-slate-400">+{omitted}</span>}
-      </span>
+    <button aria-label={`${group.identity} · in ${group.counts.present} of ${group.counts.pool}`} aria-current={current} data-section-key={group.key} data-tip={group.identity} onClick={() => jump(group.key)} style={{ height: FEATURE_INDEX_HEIGHT - 2 }} className={`mx-0.5 flex w-[calc(100%-4px)] items-center gap-2 rounded-lg border px-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${current ? 'border-env bg-env/10' : 'border-transparent hover:bg-slate-900'}`}>
+      <span className={`min-w-0 flex-1 truncate font-mono font-semibold ${current ? 'text-amber-200' : 'text-slate-100'}`}>{group.identity}</span>
+      {edits && <i data-edit-mark data-tip={edits} aria-label={edits} className="fas fa-pen shrink-0 text-[9px] text-amber-300" />}
+      <span className="flex shrink-0 gap-1">{group.types.map(type => <span key={type} data-type-swatch data-tip={type} aria-hidden="true" className="h-[7px] w-[7px] rounded-full" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />)}</span>
+      <span className="w-8 shrink-0 text-right font-mono text-[10px] text-slate-400">{group.counts.present}/{group.counts.pool}</span>
     </button>
   </div>;
 });
@@ -133,7 +113,6 @@ export default function HubIndex({ records, state, featureColors }: { records: S
   const container = useRef<HTMLDivElement>(null);
   const list = useRef<VariableSizeList>(null);
   const scrollElement = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(320);
   const [height, setHeight] = useState(600);
   const reveal = useCallback((key: string | null) => {
     const index = entries.findIndex(entry => entry.key === key);
@@ -146,9 +125,6 @@ export default function HubIndex({ records, state, featureColors }: { records: S
     if (!element) return;
     const measure = () => {
       if (element.clientHeight) setHeight(element.clientHeight);
-      const viewport = scrollElement.current;
-      const scrollbarWidth = viewport ? Math.max(0, viewport.offsetWidth - viewport.clientWidth) : 0;
-      if (element.clientWidth) setWidth(element.clientWidth - scrollbarWidth);
     };
     measure();
     if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
@@ -161,7 +137,7 @@ export default function HubIndex({ records, state, featureColors }: { records: S
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
     if (entry.type === 'group') return <div style={style}><button aria-label={`Fold index group ${entry.group}`} aria-expanded={!folds.has(entry.foldKey)} data-tip={entry.group} className="flex h-9 w-full items-center gap-2 text-left font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => state.setIndexFolds(prev => { const next = new Set(prev); if (next.has(entry.foldKey)) next.delete(entry.foldKey); else next.add(entry.foldKey); return next; })}><i aria-hidden="true" className={`fas fa-chevron-down text-[9px] transition-transform motion-reduce:transition-none ${folds.has(entry.foldKey) ? '-rotate-90' : ''}`} /><span className="min-w-0 flex-1 truncate">{entry.group}</span><span className="rounded-full bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400">{entry.count}</span></button></div>;
-    if (entry.type === 'feature') return <div style={style}><FeatureIndexEntry group={entry.group} width={width} featureColors={featureColors} current={state.currentSectionKey === entry.key} jump={jump} position={entry.position} count={features.length} /></div>;
+    if (entry.type === 'feature') return <div style={style}><FeatureIndexEntry group={entry.group} featureColors={featureColors} current={state.currentSectionKey === entry.key} jump={jump} position={entry.position} count={features.length} /></div>;
     return <div style={style}><SequenceIndexEntry section={entry.section} selected={state.selectedRecords.has(entry.key)} current={state.currentSectionKey === entry.key} setSelectedRecords={state.setSelectedRecords} jump={jump} hidden={state.hubHidden.has(entry.key)} onToggleHubHidden={state.toggleHubHidden} featureColors={featureColors} trackWindow={state.trackWindow} position={entry.position} count={sections.length} /></div>;
   };
   return <section aria-label="Hub index" data-hub-focus tabIndex={0} className="hub-index flex min-h-0 flex-1 flex-col gap-3 text-xs text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">
