@@ -15,6 +15,10 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
+
 ## [2.8.1] — 2026-10-14
 
 ### Changed
