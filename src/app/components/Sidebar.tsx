@@ -18,7 +18,7 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
 import HubIndex from './hub/HubIndex';
@@ -144,10 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => { dragCleanup.current?.(); }, []);
   const addSequencesInput = useRef<HTMLInputElement>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    dragCleanup.current?.();
     const startX = e.clientX;
     const startWidth = widthRef.current;
     if (sidebarRef.current) sidebarRef.current.style.transition = 'none';
@@ -161,10 +164,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     const onMouseUp = () => {
       if (sidebarRef.current) sidebarRef.current.style.transition = '';
       setWidth(widthRef.current);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current?.();
     };
 
+    dragCleanup.current = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current = null;
+    };
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }, []);

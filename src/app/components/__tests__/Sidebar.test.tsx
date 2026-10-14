@@ -70,4 +70,17 @@ describe('sidebar resize', () => {
     fireEvent.mouseUp(document);
     expect(sidebar.style.width).toBe('440px');
   });
+  it('removes both document listeners when unmounted during a drag', () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    const { handle, unmount } = setup();
+    fireEvent.mouseDown(handle, { clientX: 320 });
+    const move = add.mock.calls.find(([event]) => event === 'mousemove')![1];
+    const up = add.mock.calls.find(([event]) => event === 'mouseup')![1];
+    unmount();
+    expect(remove).toHaveBeenCalledWith('mousemove', move);
+    expect(remove).toHaveBeenCalledWith('mouseup', up);
+    fireEvent.mouseMove(document, { clientX: 500 });
+    fireEvent.mouseUp(document);
+  });
 });
