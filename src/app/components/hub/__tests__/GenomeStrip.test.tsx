@@ -305,6 +305,8 @@ it('uses two eight-pixel slim lanes without changing the packed full-track geome
   rerender(<GenomeStrip record={crowded} large slim />);
   const strip = container.querySelector('svg')!;
   expect(strip.getAttribute('viewBox')).toBe('0 0 1000 20');
+  expect(strip.classList.contains('border')).toBe(false);
+  expect(strip.classList.contains('ring-1')).toBe(true);
   const rectangles = [...strip.querySelectorAll('path[fill]:not([fill="none"])')].flatMap(path => [...(path.getAttribute('d') ?? '').matchAll(/M[\d.]+ ([\d.]+)h[\d.]+v([\d.]+)/g)]);
   expect(new Set(rectangles.map(match => Number(match[1])))).toEqual(new Set([1, 11]));
   expect(rectangles.every(match => Number(match[2]) === 8)).toBe(true);
