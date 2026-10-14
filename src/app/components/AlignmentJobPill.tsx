@@ -32,10 +32,10 @@ export default function AlignmentJobPill({ state, onOpen }: { state: RemoteAlign
   const { ref, position, dragging, handlers } = useDraggableJobPill(onOpen);
 
   return (
-    <div ref={ref}
+    <div data-alignment-job-pill="" ref={ref}
       style={position ? { left: position.x, top: position.y } : { bottom: 32, right: 20 }}
       className={`fixed z-40 max-h-[100vh] max-w-[100vw] overflow-hidden rounded-full border bg-slate-900/95 p-1 shadow-2xl backdrop-blur-md ${state.phase === 'failed' ? 'border-rose-500/60 text-rose-300' : 'border-slate-600 text-[var(--env)]'}`}>
-      <button type="button" {...handlers} aria-label={`${label} — Open alignment job monitor`} aria-describedby={descriptionId}
+      <button type="button" data-state={dragging ? 'dragging' : 'idle'} {...handlers} aria-label={`${label} — Open alignment job monitor`} aria-describedby={descriptionId}
         className={`flex max-w-full touch-none select-none items-center gap-2 rounded-full px-4 py-2 text-xs hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--env)] ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}>
         <i aria-hidden="true" className="fas fa-grip-vertical shrink-0 text-slate-500" />
         <i aria-hidden="true" className={`fas shrink-0 ${state.phase === 'done' ? 'fa-check' : state.phase === 'failed' ? 'fa-triangle-exclamation' : 'fa-circle'} ${active ? 'text-[8px] motion-safe:animate-pulse' : ''}`} />

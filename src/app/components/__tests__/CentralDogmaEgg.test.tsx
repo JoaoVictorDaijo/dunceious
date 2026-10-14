@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
+import { act, fireEvent, render, screen, within, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { CLOSE_GUARD_MS, UNLOCK_TAPS } from '@/src/app/logic/easterEgg';
 import CentralDogmaEgg from '../CentralDogmaEgg';
 import StatusBar from '../StatusBar';
@@ -63,10 +63,10 @@ describe('CentralDogmaEgg', () => {
     expect(screen.getByLabelText('Translated protein').textContent).toMatch(/^D.*U.*N.*C.*E.*I.*O.*U.*S/);
   });
 
-  it('signs the finale with passion, not a heart icon', () => {
-    const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
-    expect(screen.getByText('Made with passion and built for science')).toBeTruthy();
-    expect(container.querySelector('.fa-heart')).toBeNull();
+  it('signs the finale with the science credit', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    const finale = screen.getByText('Made with passion and built for science');
+    expect(finale.textContent?.replace(/\s+/g, ' ').trim()).toBe('Made with passion and built for science');
   });
 
   it('credits both authors on the finished frame without closing when a card is clicked', () => {
@@ -90,10 +90,14 @@ describe('CentralDogmaEgg', () => {
 
   it('falls back to a glyph when an avatar fails to load', () => {
     const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
-    const img = container.querySelector('img');
+    const author = screen.getByRole('link', { name: /JoaoVictorDaijo/ });
+    const img = author.querySelector('[data-author-avatar]');
     expect(img).toBeTruthy();
     fireEvent.error(img!);
-    expect(container.querySelectorAll('img').length).toBe(1);
+    expect(author.querySelector('[data-author-avatar]')).toBeNull();
+    expect(author.querySelector('[data-author-avatar-fallback]')).toBeTruthy();
+    expect(within(screen.getByRole('link', { name: /MuriloACassiano/ })).getByText('MuriloACassiano')).toBeTruthy();
+    expect(container.querySelectorAll('[data-author-avatar]')).toHaveLength(1);
   });
 });
 

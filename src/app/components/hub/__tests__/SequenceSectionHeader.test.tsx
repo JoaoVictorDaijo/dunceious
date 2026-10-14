@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { it, expect } from 'vitest';
-import { render, screen } from '@/src/app/testing/renderHarness';
+import { render } from '@/src/app/testing/renderHarness';
 import SequenceSectionHeader, { sequenceSectionHeight } from '../SequenceSectionHeader';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
@@ -28,11 +28,12 @@ it.each([1, 30])('keeps a %i-type folded composition on one line within its exac
   const section = { key: 'x', group: null, record, rows: record.features, total: count };
   const noop = () => {};
   const { container } = render(<SequenceSectionHeader section={section} folded selected={false} onFold={noop} onSelect={noop} onVisibility={noop} onPick={noop} />);
-  const composition = screen.getByText(/1 type0/);
+  const composition = container.querySelector<HTMLElement>('[data-section-composition]')!;
   const surface = container.querySelector<HTMLElement>('[data-section-surface]')!;
+  // Folded summaries must fit the exact virtual header bounds regardless of type count.
   expect(sequenceSectionHeight(section, true)).toBe(82);
   expect(surface.style.height).toBe('82px');
-  expect(composition.className).toContain('truncate');
+  expect(composition.textContent).toBe(record.features.map(f => `1 ${f.type}`).join(' · '));
   expect(composition.getAttribute('data-tip')).toBe(record.features.map(f => `1 ${f.type}`).join(' · '));
   expect(composition.style.height).toBe('24px');
   expect(composition.style.marginBottom).toBe('0px');

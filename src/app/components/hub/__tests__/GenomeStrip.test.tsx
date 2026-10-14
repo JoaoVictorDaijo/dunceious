@@ -50,7 +50,7 @@ function mockBounds(svg: Element, height = 6) {
 describe('genome strips', () => {
   it('uses configured type colours while individual feature colours take precedence', () => {
     const { container } = render(<GenomeStrip record={record} featureColors={featureColors} />);
-    expect([...container.querySelectorAll('path')].map(path => path.getAttribute('fill'))).toEqual(['#123456', '#abcdef']);
+    expect([...container.querySelectorAll('[data-strip-features]')].map(path => path.getAttribute('fill'))).toEqual(['#123456', '#abcdef']);
   });
   it('reuses geometry across highlight changes and remounts of an immutable record', () => {
     const feature = { type: 'gene', name: 'cached', start: 10, end: 30, strand: 1 as const };
@@ -58,13 +58,14 @@ describe('genome strips', () => {
     const start = vi.spyOn(feature, 'start', 'get');
     const cachedRecord = { ...record, features: [feature] };
     const first = render(<GenomeStrip record={cachedRecord} highlight={() => true} />);
-    expect(first.container.querySelector('path')!.getAttribute('d')).toBe('M100 12.2h200v5.6h-200Z');
+    // Biological coordinates must retain their lane geometry when cached records remount.
+    expect(first.container.querySelector('[data-strip-features]')!.getAttribute('d')).toBe('M100 12.2h200v5.6h-200Z');
     start.mockClear();
     first.rerender(<GenomeStrip record={cachedRecord} highlight={() => false} />);
-    expect(first.container.querySelector('path')!.getAttribute('opacity')).toBe('0.25');
+    expect(first.container.querySelector('[data-strip-features]')!.getAttribute('opacity')).toBe('0.25');
     first.unmount();
     const second = render(<GenomeStrip record={cachedRecord} highlight={() => true} />);
-    expect(second.container.querySelector('path')!.getAttribute('opacity')).toBe('1');
+    expect(second.container.querySelector('[data-strip-features]')!.getAttribute('opacity')).toBe('1');
     expect(start).not.toHaveBeenCalled();
     start.mockRestore();
   });
@@ -74,35 +75,36 @@ describe('genome strips', () => {
     const updated = { ...record, features: [{ ...record.features[0], start: 40, end: 60 }] };
     first.rerender(<GenomeStrip record={updated} featureColors={{ gene: '#654321' }} large onPick={pick} />);
     const strip = screen.getByRole('button', { name: 'Genome strip for contig: 1 annotation' });
-    const path = strip.querySelector('path')!;
+    const path = strip.querySelector('[data-strip-features]')!;
     expect(path.getAttribute('d')).toBe('M400 9h200v10h-200Z');
     expect(path.getAttribute('fill')).toBe('#654321');
     mockBounds(strip, 25);
     fireEvent.click(strip, { clientX: 500, clientY: 10 });
     expect(pick).toHaveBeenCalledWith(updated.features[0]);
     first.rerender(<GenomeStrip record={updated} featureColors={{ gene: '#abcdef' }} large onPick={pick} />);
-    expect(strip.querySelector('path')!.getAttribute('fill')).toBe('#abcdef');
+    expect(strip.querySelector('[data-strip-features]')!.getAttribute('fill')).toBe('#abcdef');
   });
   it('passes configured colours to decorative index and interactive pinned-header strips', () => {
     render(<Subject />);
-    for (const root of [document.querySelector<HTMLElement>('.hub-group-current')!, screen.getByRole('region', { name: 'Hub index' })]) {
-      expect([...root.querySelectorAll('svg path')].map(path => path.getAttribute('fill'))).toEqual(['#123456', '#abcdef']);
+    for (const root of [document.querySelector<HTMLElement>("[data-section-surface][data-state='current']")!, screen.getByRole('region', { name: 'Hub index' })]) {
+      expect([...root.querySelectorAll('[data-strip-features]')].map(path => path.getAttribute('fill'))).toEqual(['#123456', '#abcdef']);
     }
-    const indexStrip = screen.getByRole('region', { name: 'Hub index' }).querySelector('svg')!;
+    const indexStrip = screen.getByRole('region', { name: 'Hub index' }).querySelector('[data-genome-strip]')!;
     expect(indexStrip.getAttribute('aria-hidden')).toBe('true');
     expect(indexStrip.hasAttribute('tabindex')).toBe(false);
-    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Genome strip for contig: 2 annotations' })).toBeTruthy();
+    expect(within(document.querySelector<HTMLElement>("[data-section-surface][data-state='current']")!).getByRole('button', { name: 'Genome strip for contig: 2 annotations' })).toBeTruthy();
   });
   it('bounds SVG elements by lanes and distinct colours rather than annotation count', () => {
     const many = createHub100x60()[0];
     const highlight = (feature: typeof many.features[number]) => feature.start % 900 === 0;
     const { container, rerender } = render(<GenomeStrip record={many} highlight={highlight} />);
-    expect(container.querySelectorAll('svg')).toHaveLength(1);
-    expect(container.querySelectorAll('path').length).toBeLessThanOrEqual(8);
-    expect(container.querySelectorAll('button')).toHaveLength(0);
+    // Batched biological paths must stay bounded as the annotation count grows.
+    expect(container.querySelectorAll('[data-genome-strip]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-strip-features]').length).toBeLessThanOrEqual(8);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
     const overridden = { ...many, features: many.features.map((feature, i) => i === 1 ? { ...feature, color: '#ff0000' } : feature) };
     rerender(<GenomeStrip record={overridden} highlight={highlight} />);
-    expect(container.querySelectorAll('path').length).toBeLessThanOrEqual(10);
+    expect(container.querySelectorAll('[data-strip-features]').length).toBeLessThanOrEqual(10);
   });
   it('hit-tests both circular parts, authoritative joins and separate lanes', () => {
     const crossing = { name: 'wrap', type: 'gene', start: 90, end: 10, strand: 1 as const, segments: [{ start: 90, end: 100 }, { start: 0, end: 10 }] };
@@ -182,10 +184,10 @@ it('releases the old hover when an immutable record is replaced', () => {
   const replacement = { ...record, features: [{ ...record.features[0], name: 'replacement' }] };
   rerender(<TrackTooltipProvider><GenomeStrip record={replacement} large onPick={noop} /></TrackTooltipProvider>);
   expect(screen.queryByRole('tooltip')).toBeNull();
-  expect(strip.querySelector('path')?.getAttribute('opacity')).toBe('1');
+  expect(strip.querySelector('[data-strip-features]')?.getAttribute('opacity')).toBe('1');
 });
 
-it('keeps ruler labels on one line and hides collisions on window changes and resize', () => {
+it('shows ruler labels and hides collisions on window changes and resize', () => {
   let resized = () => {};
   const observer = globalThis.ResizeObserver;
   globalThis.ResizeObserver = class { constructor(callback: () => void) { resized = callback; } observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -194,7 +196,7 @@ it('keeps ruler labels on one line and hides collisions on window changes and re
     const ruler = container.querySelector<HTMLElement>('[data-track-ruler]')!;
     expect(ruler).toBeTruthy();
     const ticks = [...ruler.querySelectorAll<HTMLElement>('[data-track-tick]')];
-    expect(ticks.every(tick => tick.className.includes('whitespace-nowrap'))).toBe(true);
+    expect(ticks.map(tick => tick.textContent)).toEqual(['25 kb', '50 kb', '75 kb', '100 kb', '125 kb', '150 kb']);
     let right = 200;
     vi.spyOn(ruler, 'getBoundingClientRect').mockImplementation(() => ({ left: 0, right, width: right } as DOMRect));
     const spans = [[20, 50], [55, 85], [90, 120], [125, 155], [155, 185], [175, 215]];
@@ -234,8 +236,8 @@ it('shows cursor details after keyboard Tab focus', () => {
 it('draws the brush only over lanes with dashed borders and no handles', () => {
   const { container } = render(<GenomeStrip record={record} large onPick={noop} />);
   const band = container.querySelector('[data-track-window]')!;
-  expect(band.parentElement?.contains(container.querySelector('[data-track-ruler]'))).toBe(false);
-  expect(band.querySelector('[stroke-dasharray="4 2"]')).toBeTruthy();
+  expect(container.querySelector('[data-track-lanes]')?.contains(container.querySelector('[data-track-ruler]'))).toBe(false);
+  expect(band.querySelector('[data-track-window-border]')?.getAttribute('stroke-dasharray')).toBe('4 2');
   expect(band.querySelectorAll('[data-window-handle]')).toHaveLength(0);
 });
 
@@ -272,23 +274,23 @@ it('keeps a pinned annotation outlined while hovering a different feature', () =
     { name: 'pin', type: 'gene', start: 10, end: 20, strand: 1 },
     { name: 'hover', type: 'CDS', start: 40, end: 50, strand: 1 },
   ] };
-  const { container } = render(<GenomeStrip record={record} large pinned={record.features[0]} onPick={() => {}} />);
-  const strip = container.querySelector('svg')!;
+  render(<GenomeStrip record={record} large pinned={record.features[0]} onPick={() => {}} />);
+  const strip = screen.getByRole('button', { name: 'Genome strip for pins: 2 annotations' });
   vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 29 } as DOMRect);
   const outline = () => strip.querySelector('[data-strip-focus]')?.getAttribute('d');
   const original = outline();
   expect(original).toBeTruthy();
   fireEvent.mouseMove(strip, { clientX: 450, clientY: 7 });
   expect(outline()).toBe(original);
-  expect([...strip.querySelectorAll('path')].some(path => path.getAttribute('opacity') === '0.25')).toBe(true);
+  expect([...strip.querySelectorAll('[data-strip-features]')].some(path => path.getAttribute('opacity') === '0.25')).toBe(true);
 });
 
 
 it('keeps the slim window dashed border inside its twenty-pixel lanes', () => {
   const { container } = render(<GenomeStrip record={record} large slim />);
   const band = container.querySelector<HTMLElement>('[data-track-window]')!;
-  expect(band.parentElement!.style.height).toBe('20px');
-  const border = band.querySelector('rect')!;
+  expect(container.querySelector<HTMLElement>('[data-track-lanes]')!.style.height).toBe('20px');
+  const border = band.querySelector('[data-track-window-border]')!;
   expect(border.getAttribute('y')).toBe('1');
   expect(border.getAttribute('height')).toBe('18');
 });
@@ -302,11 +304,12 @@ const crowded: SeqRecord = { id: 'crowded', name: 'crowded', sequence: 'A'.repea
 ] };
 it('draws the full packed track without ruler or strand labels in the slim bar', () => {
   const { container, rerender } = render(<GenomeStrip record={crowded} large />);
-  const packedBox = container.querySelector('svg')!.getAttribute('viewBox');
+  const packedBox = container.querySelector('[data-genome-strip]')!.getAttribute('viewBox');
   expect(container.querySelector('[data-track-ruler]')).toBeTruthy();
   rerender(<GenomeStrip record={crowded} large bare />);
-  const strip = container.querySelector('svg')!;
+  const strip = container.querySelector('[data-genome-strip]')!;
   expect(strip.getAttribute('viewBox')).toBe(packedBox);
+  // A one-pixel ring preserves the track edge when switching between pinned and bare views.
   expect(strip.classList.contains('ring-1')).toBe(true);
   expect(container.querySelector('[data-track-ruler]')).toBeNull();
   expect(container.textContent).not.toMatch(/[+−]/);
@@ -317,44 +320,45 @@ it('draws the full packed track without ruler or strand labels in the slim bar',
 
 it('uses two eight-pixel slim lanes without changing the packed full-track geometry', () => {
   const { container, rerender } = render(<GenomeStrip record={crowded} large />);
-  const packedBox = container.querySelector('svg')!.getAttribute('viewBox');
+  const packedBox = container.querySelector('[data-genome-strip]')!.getAttribute('viewBox');
   expect(Number(packedBox?.split(' ')[3])).toBeGreaterThanOrEqual(60);
   rerender(<GenomeStrip record={crowded} large slim />);
-  const strip = container.querySelector('svg')!;
+  const strip = container.querySelector('[data-genome-strip]')!;
   expect(strip.getAttribute('viewBox')).toBe('0 0 1000 20');
+  // Slim lanes keep their biological height without an inset border consuming a pixel.
   expect(strip.classList.contains('border')).toBe(false);
   expect(strip.classList.contains('ring-1')).toBe(true);
-  const rectangles = [...strip.querySelectorAll('path[fill]:not([fill="none"])')].flatMap(path => [...(path.getAttribute('d') ?? '').matchAll(/M[\d.]+ ([\d.]+)h[\d.]+v([\d.]+)/g)]);
+  const rectangles = [...strip.querySelectorAll('[data-strip-features]')].flatMap(path => [...(path.getAttribute('d') ?? '').matchAll(/M[\d.]+ ([\d.]+)h[\d.]+v([\d.]+)/g)]);
   expect(new Set(rectangles.map(match => Number(match[1])))).toEqual(new Set([1, 11]));
   expect(rectangles.every(match => Number(match[2]) === 8)).toBe(true);
   const separators = strip.querySelectorAll('[data-strip-separators]');
   expect(separators.length).toBeGreaterThan(0);
   expect([...separators].every(path => path.getAttribute('stroke-width') === '1' && path.getAttribute('vector-effect') === 'non-scaling-stroke')).toBe(true);
   rerender(<GenomeStrip record={crowded} large />);
-  expect(container.querySelector('svg')!.getAttribute('viewBox')).toBe(packedBox);
+  expect(container.querySelector('[data-genome-strip]')!.getAttribute('viewBox')).toBe(packedBox);
 });
 it('picks and reports the topmost slim feature, and keeps pinned or visible features above filtered ones', () => {
   const pick = vi.fn();
   const { container, rerender } = render(<TrackTooltipProvider><GenomeStrip record={crowded} large slim onPick={pick} /></TrackTooltipProvider>);
-  const bounds = () => vi.spyOn(container.querySelector('svg')!, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 20 } as DOMRect);
+  const bounds = () => vi.spyOn(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 20 } as DOMRect);
   bounds();
-  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
-  expect(within(screen.getByRole('tooltip')).getByText('unknown', { selector: 'strong' })).toBeTruthy();
-  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  fireEvent.mouseMove(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
+  expect(screen.getByRole('tooltip').querySelector('[data-tooltip-feature]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('unknown');
+  fireEvent.click(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(pick).toHaveBeenLastCalledWith(crowded.features[6]);
-  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 15 });
+  fireEvent.mouseMove(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 15 });
   expect(within(screen.getByRole('tooltip')).getByText('reverse-last')).toBeTruthy();
-  fireEvent.mouseLeave(container.querySelector('svg')!);
+  fireEvent.mouseLeave(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }));
   rerender(<TrackTooltipProvider><GenomeStrip record={crowded} large slim pinned={crowded.features[0]} onPick={pick} /></TrackTooltipProvider>);
   bounds();
-  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  fireEvent.mouseMove(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(within(screen.getByRole('tooltip')).getByText('forward-0')).toBeTruthy();
-  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  fireEvent.click(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(pick).toHaveBeenLastCalledWith(crowded.features[0]);
   expect(container.querySelector('[data-strip-focus]')).not.toBeNull();
-  fireEvent.mouseLeave(container.querySelector('svg')!);
+  fireEvent.mouseLeave(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }));
   rerender(<TrackTooltipProvider><GenomeStrip record={crowded} large slim highlight={feature => feature === crowded.features[1]} onPick={pick} /></TrackTooltipProvider>);
   bounds();
-  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  fireEvent.click(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(pick).toHaveBeenLastCalledWith(crowded.features[1]);
 });

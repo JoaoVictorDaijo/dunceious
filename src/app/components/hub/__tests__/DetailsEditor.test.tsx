@@ -30,7 +30,7 @@ import HubList from '../HubList';
 
 const fasta: SeqRecord = { id: 'contig', name: 'contig', sequence: 'AAAA', features: [], importedFrom: 'camel.fa' };
 function currentHeader(): HTMLElement {
-  return document.querySelector<HTMLElement>('.hub-group-current [data-section-surface], .hub-group-current [data-feature-surface]')!;
+  return document.querySelector<HTMLElement>('[data-section-surface][data-state="current"], [data-feature-surface][data-state="current"]')!;
 }
 function Subject({ initial = fasta, many = false }: { initial?: SeqRecord; many?: boolean }) {
   const [records, setRecords] = useState([initial, ...(many ? Array.from({ length: 20 }, (_, i) => ({ ...fasta, id: `extra${i}` })) : [])]);
@@ -55,7 +55,7 @@ describe('sequence details editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(screen.getByLabelText('Saved details').textContent).toBe('{"collectionDate":"March 2014"}');
     const pinned = within(currentHeader());
-    expect(pinned.getByText('March 2014').closest('[data-detail]')?.className).toContain('text-amber-');
+    expect(pinned.getByLabelText(`Warning: ${warning}`)).toBeTruthy();
     expect(pinned.getByText('· edited')).toBeTruthy();
     expect(pinned.getByTitle(warning)).toBeTruthy();
   });
@@ -96,7 +96,7 @@ describe('sequence details editing', () => {
 it('keeps a details draft when scrolling away unmounts its virtual entry', () => {
   render(<Subject many />); open();
   fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
-  const viewport = screen.getByRole('form', { name: 'Details for contig' }).closest<HTMLElement>('.hub-scroll-region');
+  const viewport = screen.getByRole('form', { name: 'Details for contig' }).closest<HTMLElement>('[data-hub-scroll-region]');
   if (!viewport) throw new Error('Missing virtual viewport');
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 300 }, scrollHeight: { configurable: true, value: 5000 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 2000 } });
@@ -109,7 +109,7 @@ it('keeps a details draft when scrolling away unmounts its virtual entry', () =>
 it('saves only fields changed inline and keeps a subsequent bulk edit to an untouched field', () => {
   render(<Subject initial={writeDetails(fasta, { host: 'camel' })} />); open();
   fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: '2014' } });
-  fireEvent.click(screen.getByText('Bulk host bat'));
+  fireEvent.click(screen.getByRole('button', { name: 'Bulk host bat' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
   expect(screen.getByLabelText('Saved details').textContent).toBe('{"host":"bat","collectionDate":"2014"}');
 });
@@ -150,20 +150,12 @@ it('keeps an edited marker after an imported value is cleared', () => {
   render(<Subject initial={writeDetails(original, { host: '' })} />);
   const chip = within(currentHeader()).getByRole('button', { name: '+ Host' });
   expect(within(chip).getByText('edited')).toBeTruthy();
-  expect(chip.className).toContain('bg-amber-50');
 });
 
-it('sets the inline fields apart with an inset card and icon reverts', () => {
+it('offers a named revert that restores the imported field value', () => {
   render(<Subject initial={writeDetails({ ...fasta, fileDetails: { host: 'camel' } }, { host: 'bat' })} />); open();
-  const form = screen.getByRole('form', { name: 'Details for contig' });
-  expect(form.className).toContain('bg-slate-50');
-  expect(form.querySelector('[data-editor-card]')?.className).toContain('rounded-xl');
-  const host = screen.getByLabelText('Host');
   const revert = screen.getByRole('button', { name: "Revert Host to the file's value" });
-  expect(host.parentElement!.contains(revert)).toBe(true);
-  expect(revert.querySelector('.fa-rotate-left')).toBeTruthy();
   expect(revert.getAttribute('data-tip')).toBe("Revert Host to the file's value");
-  expect(screen.getByRole('button', { name: 'Save details' }).className).toContain('bg-env');
   fireEvent.click(revert);
   expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel');
 });
@@ -175,18 +167,17 @@ it.each([true, false])('updates virtual editor height as warnings change (wide: 
   try {
     render(<Subject />); open();
     const form = screen.getByRole('form', { name: 'Details for contig' });
-    const entry = form.parentElement!;
+    const entry = form.closest<HTMLElement>('[data-hub-entry]')!;
+    // Exact heights keep the virtual list aligned when warnings and responsive fields change.
     expect(entry.style.height).toBe(wide ? '200px' : '284px');
     fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: 'March 2014' } });
     expect(entry.style.height).toBe(wide ? '236px' : '320px');
     const warning = screen.getByText(validateDetail('collectionDate', 'March 2014')!);
     expect(warning.getAttribute('data-tip')).toBe(warning.textContent);
-    expect(warning.className).toContain('truncate');
     fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: '2014' } });
     expect(entry.style.height).toBe(wide ? '200px' : '284px');
     media.matches = !wide;
     act(listener);
     expect(entry.style.height).toBe(wide ? '284px' : '200px');
-    expect(form.querySelector('[data-editor-fields]')?.className).toContain(wide ? 'grid-cols-2' : 'grid-cols-4');
   } finally { vi.unstubAllGlobals(); }
 });

@@ -28,7 +28,7 @@ export default function UndoToast({ onUndo, onPause, locked }: { onUndo: () => v
     return () => clearTimeout(timer);
   }, []);
   useEffect(() => () => onPause?.(false), [onPause]);
-  return <div onMouseEnter={() => { hovered.current = true; onPause?.(true); }} onMouseLeave={() => { hovered.current = false; onPause?.(focused.current); }} onFocus={() => { focused.current = true; onPause?.(true); }} onBlur={event => {
+  return <div data-undo-toast onMouseEnter={() => { hovered.current = true; onPause?.(true); }} onMouseLeave={() => { hovered.current = false; onPause?.(focused.current); }} onFocus={() => { focused.current = true; onPause?.(true); }} onBlur={event => {
     if (event.currentTarget.contains(event.relatedTarget as Node)) return;
     focused.current = false; onPause?.(hovered.current);
   }} className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-5 rounded-lg bg-slate-900 px-5 py-3 text-sm text-white shadow-lg"><span role="status" aria-live="polite">{message}</span><button disabled={locked} className="font-semibold text-amber-300 underline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-40" onClick={onUndo}>Undo</button></div>;
