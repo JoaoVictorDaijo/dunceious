@@ -82,3 +82,16 @@ export function annotationBarPath(x: number, y: number, w: number, h: number, st
   if (pointed && strand === -1) return `M${x + w},${y}H${x + head}L${x},${mid}L${x + head},${y + h}H${x + w}Z`;
   return `M${x},${y}H${x + w}V${y + h}H${x}Z`;
 }
+
+/**
+ * Index of the segment holding the feature's 3′ end, the only piece that takes the arrow head.
+ * Segments keep join order: a whole-feature reverse strand reads them backwards, so its 3′ end is the
+ * first segment; per-segment strands read in join order. Coordinates can't decide this, because a join
+ * that crosses the origin of a circular sequence has its 3′ end at a low coordinate.
+ */
+export function terminalSegmentIndex(feature: Pick<BioFeature, 'segments' | 'strand' | 'metadata'>): number {
+  const segments = feature.segments ?? [];
+  if (segments.length === 0) return -1;
+  const perSegment = segments.some(segment => segment.strand !== undefined);
+  return !perSegment && getFeatureStrand(feature as BioFeature) === -1 ? 0 : segments.length - 1;
+}

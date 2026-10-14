@@ -24,7 +24,7 @@ import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases } from './annotationPresentation';
+import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { alignedToOriginalPositions, getOriginalPos } from '@/src/domain/bio/sequence';
@@ -409,6 +409,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 }
                 
                 const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
+                const crossesOrigin = f.segments.some((s1, k) => k < f.segments!.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > f.segments![k + 1].start);
+                const terminalIdx = terminalSegmentIndex(f);
                 const displayStarts = new Map(f.segments.map(segment => [
                   originalPositions ? originalPositions[segment.start] : segment.start,
                   segment.start,
@@ -429,14 +432,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return place(
                   <>
                     {connectingLines}
-                    {f.segments.map((seg: FeatureSegment, idx: number) => {
-                      // Only the piece where the feature ends (its 3′ side) gets the arrow head.
-                      const segStrand = seg.strand ?? getFeatureStrand(f);
-                      const terminal = segStrand === -1
-                        ? seg.start === Math.min(...f.segments!.map(x => x.start))
-                        : seg.end === Math.max(...f.segments!.map(x => x.end));
-                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal, idx === labelIdx);
-                    })}
+                    {f.segments.map((seg: FeatureSegment, idx: number) =>
+                      renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, idx === terminalIdx, idx === labelIdx || crossesOrigin))}
                     {marks}
                   </>
                 );
@@ -446,7 +443,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return place(
                   <>
                     {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
-                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1, !partVisible(f.start, seq.length))}
+                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
                   </>
                 );
               }
