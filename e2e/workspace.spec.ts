@@ -83,7 +83,7 @@ test('built workers, annotations and exports preserve biological coordinates and
     features: [expect.objectContaining({ name: 'edited marker', start: 3, end: 9, strand: -1, hubEdit: 'edited' })] });
 
   await page.getByLabel('Load project file', { exact: true }).setInputFiles(file('obsolete.json', JSON.stringify({ ...project, format: 1 })));
-  await page.getByText('Log', { exact: true }).click();
+  await page.getByText('Log Terminal', { exact: true }).click();
   await expect(page.getByText("This project was saved by an earlier version of Dunceious and can't be opened.")).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit edited marker on sample', exact: true })).toBeVisible();
   await page.getByLabel('Load project file', { exact: true }).setInputFiles(file('restored.json', projectText));
