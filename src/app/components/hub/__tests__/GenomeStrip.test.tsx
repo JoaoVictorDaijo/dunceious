@@ -290,3 +290,52 @@ it('keeps the slim window dashed border inside its twenty-pixel lanes', () => {
   expect(border.getAttribute('y')).toBe('1');
   expect(border.getAttribute('height')).toBe('18');
 });
+
+
+const crowded: SeqRecord = { id: 'crowded', name: 'crowded', sequence: 'A'.repeat(100), features: [
+  ...[0, 10, 20, 30].map((start, i) => ({ name: `forward-${i}`, type: 'gene', start, end: 90, strand: 1 as const, color: ['red', 'blue', 'red', 'green'][i] })),
+  { name: 'reverse-first', type: 'CDS', start: 10, end: 90, strand: -1 },
+  { name: 'reverse-last', type: 'gene', start: 20, end: 80, strand: -1 },
+  { name: 'unknown', type: 'gene', start: 40, end: 90, strand: 1, metadata: { _gffStrand: '?' } },
+] };
+it('uses two eight-pixel slim lanes without changing the packed full-track geometry', () => {
+  const { container, rerender } = render(<GenomeStrip record={crowded} large />);
+  const packedBox = container.querySelector('svg')!.getAttribute('viewBox');
+  expect(Number(packedBox?.split(' ')[3])).toBeGreaterThanOrEqual(60);
+  rerender(<GenomeStrip record={crowded} large slim />);
+  const strip = container.querySelector('svg')!;
+  expect(strip.getAttribute('viewBox')).toBe('0 0 1000 20');
+  const rectangles = [...strip.querySelectorAll('path[fill]:not([fill="none"])')].flatMap(path => [...(path.getAttribute('d') ?? '').matchAll(/M[\d.]+ ([\d.]+)h[\d.]+v([\d.]+)/g)]);
+  expect(new Set(rectangles.map(match => Number(match[1])))).toEqual(new Set([1, 11]));
+  expect(rectangles.every(match => Number(match[2]) === 8)).toBe(true);
+  const separators = strip.querySelectorAll('[data-strip-separators]');
+  expect(separators.length).toBeGreaterThan(0);
+  expect([...separators].every(path => path.getAttribute('stroke-width') === '1' && path.getAttribute('vector-effect') === 'non-scaling-stroke')).toBe(true);
+  rerender(<GenomeStrip record={crowded} large />);
+  expect(container.querySelector('svg')!.getAttribute('viewBox')).toBe(packedBox);
+});
+it('picks and reports the topmost slim feature, and keeps pinned or visible features above filtered ones', () => {
+  const pick = vi.fn();
+  const { container, rerender } = render(<TrackTooltipProvider><GenomeStrip record={crowded} large slim onPick={pick} /></TrackTooltipProvider>);
+  const bounds = () => vi.spyOn(container.querySelector('svg')!, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 20 } as DOMRect);
+  bounds();
+  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  expect(within(screen.getByRole('tooltip')).getByText('unknown', { selector: 'strong' })).toBeTruthy();
+  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  expect(pick).toHaveBeenLastCalledWith(crowded.features[6]);
+  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 15 });
+  expect(within(screen.getByRole('tooltip')).getByText('reverse-last')).toBeTruthy();
+  fireEvent.mouseLeave(container.querySelector('svg')!);
+  rerender(<TrackTooltipProvider><GenomeStrip record={crowded} large slim pinned={crowded.features[0]} onPick={pick} /></TrackTooltipProvider>);
+  bounds();
+  fireEvent.mouseMove(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  expect(within(screen.getByRole('tooltip')).getByText('forward-0')).toBeTruthy();
+  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  expect(pick).toHaveBeenLastCalledWith(crowded.features[0]);
+  expect(container.querySelector('[data-strip-focus]')).not.toBeNull();
+  fireEvent.mouseLeave(container.querySelector('svg')!);
+  rerender(<TrackTooltipProvider><GenomeStrip record={crowded} large slim highlight={feature => feature === crowded.features[1]} onPick={pick} /></TrackTooltipProvider>);
+  bounds();
+  fireEvent.click(container.querySelector('svg')!, { clientX: 450, clientY: 5 });
+  expect(pick).toHaveBeenLastCalledWith(crowded.features[1]);
+});

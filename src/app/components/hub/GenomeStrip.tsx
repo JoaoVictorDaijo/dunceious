@@ -17,33 +17,34 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { packTrack, rulerTicks, trackMetrics, type TrackPart } from '@/src/app/logic/trackLayout';
 import { trackFeatureColor, useTrackTooltip } from './TrackTooltip';
 import type { TrackWindow } from './trackWindow';
 type StripPart = TrackPart & { x: number; endX: number; y: number; color: string; path: string };
-type StripPath = { key: string; d: string; color: string; opacity: number };
-type StripGeometry = { parts: StripPart[]; ordered: BioFeature[]; metrics: ReturnType<typeof trackMetrics>; reverseLanes: number; views: { mask: string; paths: StripPath[] } | null };
+type StripPath = { key: string; d: string; separators?: string; color: string; opacity: number };
+type StripGeometry = { slim: boolean; parts: StripPart[]; ordered: BioFeature[]; metrics: ReturnType<typeof trackMetrics>; reverseLanes: number; views: { mask: string; paths: StripPath[] } | null };
 const defaultColors = {};
 const viewWidth = 1000;
 // Immutable records and colour maps keep resize and hover from rebuilding geometry.
 const geometryCache = new WeakMap<SeqRecord, WeakMap<Record<string, string>, Map<string, StripGeometry>>>();
-function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors, density: 'compact' | 'comfortable' = 'compact'): StripGeometry {
+function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors, density: 'compact' | 'comfortable' = 'compact', slim = false): StripGeometry {
   let byColors = geometryCache.get(record);
   let bySize = byColors?.get(colors);
-  const key = String(large);
+  const key = slim ? 'slim' : String(large);
   const cached = bySize?.get(key);
   if (cached) return cached;
   const layout = packTrack(record, { maxLanes: large ? 4 : 3, reverseLanes: large ? 4 : 1 });
-  const metrics = trackMetrics(layout, large, density);
-  const parts = layout.parts.map(part => {
+  const metrics = slim ? { laneHeight: 8, gap: 2, axis: 10, height: 20, y: (part: TrackPart) => part.strand === -1 ? 11 : 1 } : trackMetrics(layout, large, density);
+  const trackParts = slim ? layout.parts.slice().sort((a, b) => a.index - b.index) : layout.parts;
+  const parts = trackParts.map(part => {
     const x = part.start / record.sequence.length * viewWidth, endX = part.end / record.sequence.length * viewWidth;
     const y = metrics.y(part), width = endX - x;
     return { ...part, x, endX, y, color: trackFeatureColor(part.feature, colors), path: `M${x} ${y}h${width}v${metrics.laneHeight}h${-width}Z` };
   });
   const ordered = [...new Set(parts.map(part => part.feature))];
-  const result = { parts, ordered, metrics, reverseLanes: layout.reverseLanes, views: null };
+  const result = { slim, parts, ordered, metrics, reverseLanes: layout.reverseLanes, views: null };
   if (!byColors) { byColors = new WeakMap(); geometryCache.set(record, byColors); }
   if (!bySize) { bySize = new Map(); byColors.set(colors, bySize); }
   bySize.set(key, result);
@@ -53,14 +54,29 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
   const mask = geometry.ordered.map(feature => !highlight || highlight(feature) ? '1' : '0').join('');
   if (geometry.views?.mask === mask) return geometry.views.paths;
   const selected = new Map(geometry.ordered.map((feature, index) => [feature, mask[index] === '1']));
-  const groups = new Map<string, StripPath>();
-  for (const part of geometry.parts) {
-    const opacity = selected.get(part.feature) ? 1 : .25;
-    const key = JSON.stringify([part.color, opacity]);
-    const group = groups.get(key) ?? { key, d: '', color: part.color, opacity };
-    group.d += part.path; groups.set(key, group);
+  const paths: StripPath[] = [];
+  if (geometry.slim) {
+    const ordered = [...geometry.parts.filter(part => !selected.get(part.feature)), ...geometry.parts.filter(part => selected.get(part.feature))];
+    for (const part of ordered) {
+      const opacity = selected.get(part.feature) ? 1 : .25;
+      let group = paths.at(-1);
+      if (!group || group.color !== part.color || group.opacity !== opacity) {
+        group = { key: String(paths.length), d: '', separators: '', color: part.color, opacity };
+        paths.push(group);
+      }
+      group.d += part.path;
+      group.separators += `M${part.x} ${part.y}v${geometry.metrics.laneHeight}`;
+    }
+  } else {
+    const groups = new Map<string, StripPath>();
+    for (const part of geometry.parts) {
+      const opacity = selected.get(part.feature) ? 1 : .25;
+      const key = JSON.stringify([part.color, opacity]);
+      const group = groups.get(key) ?? { key, d: '', color: part.color, opacity };
+      group.d += part.path; groups.set(key, group);
+    }
+    paths.push(...groups.values());
   }
-  const paths = [...groups.values()];
   geometry.views = { mask, paths };
   return paths;
 }
@@ -68,7 +84,7 @@ export function genomeStripHeight(record: SeqRecord, large = false, featureColor
   return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
 }
 function GenomeStrip({ record, highlight, pinned, large = false, slim = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; pinned?: BioFeature | null; large?: boolean; slim?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
-  const geometry = stripGeometry(record, large, featureColors, density);
+  const geometry = stripGeometry(record, large, featureColors, density, slim);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
   const [pointer, setPointer] = useState<{ record: SeqRecord; feature: BioFeature; x: number; y: number } | null>(null);
@@ -97,6 +113,7 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, o
   const outlined = pinned || active;
   const mask = useCallback((feature: BioFeature) => outlined ? feature === outlined : !highlight || highlight(feature), [outlined, highlight]);
   const paths = stripPaths(geometry, mask);
+  const paintedParts = slim ? [...geometry.parts.filter(part => !mask(part.feature)), ...geometry.parts.filter(part => mask(part.feature))] : geometry.parts;
   const interactive = Boolean(onPick) && Boolean(current);
   useLayoutEffect(() => {
     const element = ruler.current;
@@ -137,7 +154,7 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, o
     if (!bounds.width || !bounds.height) return null;
     const x = (event.clientX - bounds.left) / bounds.width * viewWidth;
     const y = (event.clientY - bounds.top) / bounds.height * metrics.height;
-    for (let i = geometry.parts.length - 1; i >= 0; i--) { const part = geometry.parts[i]; if (x >= part.x && x < part.endX && y >= part.y && y < part.y + metrics.laneHeight) return part; }
+    for (let i = paintedParts.length - 1; i >= 0; i--) { const part = paintedParts[i]; if (x >= part.x && x < part.endX && y >= part.y && y < part.y + metrics.laneHeight) return part; }
     return null;
   };
   const move = (event: MouseEvent<SVGSVGElement>) => {
@@ -164,7 +181,7 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, o
         tabIndex={large && interactive ? 0 : undefined} onPointerDown={() => { keyboardFocus.current = false; setFocused(false); }} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { const part = hit(event); if (part) { event.stopPropagation(); setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(keyboardFocus.current)} onBlur={() => setFocused(false)}
         className={`block w-full rounded ${large ? 'border border-slate-200 bg-white' : ''} ${interactive ? 'cursor-crosshair outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500' : ''}`}>
         <line x1="0" x2={viewWidth} y1={metrics.axis} y2={metrics.axis} className={large ? 'stroke-slate-300' : 'stroke-slate-700'} vectorEffect="non-scaling-stroke" />
-        {paths.map(path => <path key={path.key} d={path.d} fill={path.color} opacity={path.opacity} />)}
+        {paths.map(path => <Fragment key={path.key}><path d={path.d} fill={path.color} opacity={path.opacity} />{path.separators && <path data-strip-separators opacity={path.opacity} d={path.separators} fill="none" className="stroke-white" strokeWidth="1" vectorEffect="non-scaling-stroke" />}</Fragment>)}
         {outlined && <path data-strip-focus d={geometry.parts.filter(part => part.feature === outlined).map(part => part.path).join('')} fill="none" className="stroke-slate-900" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />}
       </svg>
       <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-env/[0.07]' : 'border-2 border-dashed border-env bg-env/10'}`}>

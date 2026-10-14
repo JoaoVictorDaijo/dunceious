@@ -227,6 +227,9 @@ it('shows a slim live bar only after the full header is gone and pushes it out a
   fireEvent.scroll(viewport, { target: { scrollTop: 141 } });
   const bar = screen.getByRole('region', { name: 'Pinned section' });
   expect(bar.style.height).toBe('44px');
+  expect(bar.style.left).toBe('14px');
+  expect(bar.style.right).toBe('14px');
+  expect(bar.className).toContain('border-x');
   expect(bar.querySelector('[data-section-surface]')).toBeNull();
   const fullBand = container.querySelector<HTMLElement>('[data-hub-card="one"] [data-track-window]')!;
   const band = bar.querySelector<HTMLElement>('[data-track-window]')!;
