@@ -222,3 +222,30 @@ it('retains both translation canvases for the closing fade without drawing at lo
   expect(recorder.texts()).toEqual(['M']);
   expect(container.querySelector('[data-sequence-band]')?.classList.contains('translation-motion')).toBe(true);
 });
+
+
+describe('discontinuous codon geometry', () => {
+  it.each([1, -1] as const)('splits an origin-crossing codon on strand %s', strand => {
+    const recorder = installCanvasRecorder();
+    const feature: BioFeature = { type: 'CDS', name: 'origin', start: 98, end: 4, strand,
+      segments: [{ start: 98, end: 100 }, { start: 0, end: 4 }] };
+    const context = document.createElement('canvas').getContext('2d')!;
+    const labels = vi.spyOn(context, 'fillText');
+    render(<SequenceTrack {...props('A'.repeat(100), [feature])} />);
+    const aminoAcids = labels.mock.calls.filter(([text]) => text === (strand === 1 ? 'K' : 'F'));
+    expect(aminoAcids.map(([, x]) => x).sort((a, b) => a - b)).toEqual([50, 1980]);
+    const boxes = recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT);
+    expect(boxes.map(([x, , w]) => [x, w]).sort((a, b) => a[0] - b[0])).toEqual(
+      [[0, 20], [20, 60], [1960, 40]],
+    );
+  });
+
+  it('splits a splice-crossing codon without painting the intron', () => {
+    const recorder = installCanvasRecorder();
+    const feature: BioFeature = { type: 'CDS', name: 'splice', start: 0, end: 12, strand: 1,
+      segments: [{ start: 0, end: 2 }, { start: 8, end: 12 }] };
+    render(<SequenceTrack {...props('A'.repeat(12), [feature])} />);
+    expect(recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([x, , w]) => [x, w]))
+      .toEqual([[0, 40], [160, 20], [180, 60]]);
+  });
+});

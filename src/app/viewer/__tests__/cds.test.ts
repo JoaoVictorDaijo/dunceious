@@ -151,3 +151,10 @@ describe('assignTranslationLanes', () => {
     expect(assignTranslationLanes([cds({ start: 0, end: 9 })], seq, 'protein')).toMatchObject({ forward: 0, reverse: 0 });
   });
 });
+
+
+it('shares a translation lane with a different-frame feature inside a circular join gap', () => {
+  const wrap = cds({ start: 98, end: 4, segments: [{ start: 98, end: 100 }, { start: 0, end: 4 }] });
+  const middle = cds({ start: 30, end: 36 });
+  expect(assignTranslationLanes([wrap, middle], 'A'.repeat(100)).forward).toBe(1);
+});

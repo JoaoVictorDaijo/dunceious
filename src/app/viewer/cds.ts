@@ -65,6 +65,21 @@ export const codonFrame = (firstBase: number, strand: 1 | -1): 0 | 1 | 2 => {
   return (((anchor % 3) + 3) % 3) as 0 | 1 | 2;
 };
 
+/** Codon pieces follow biological adjacency; inserted alignment gaps stay inside a piece. */
+export function codonSpans(indices: number[], strand: 1 | -1, positions: ArrayLike<number> | null): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = [];
+  indices.forEach((index, i) => {
+    const previous = indices[i - 1];
+    const adjacent = i > 0 && (positions ? positions[index] - positions[previous] : index - previous) === strand;
+    const span = adjacent ? spans[spans.length - 1] : undefined;
+    if (span) {
+      span.start = Math.min(span.start, index);
+      span.end = Math.max(span.end, index + 1);
+    } else spans.push({ start: index, end: index + 1 });
+  });
+  return spans;
+}
+
 type Frame = 0 | 1 | 2;
 
 /** Amino-acid row assignment for a record's translated CDS/ORF features. */
@@ -94,28 +109,36 @@ export const assignTranslationLanes = (
   const positions = seq.includes('-') ? alignedToOriginalPositions(seq) : null;
   const laneOf = new Map<BioFeature, Map<Frame, number>>();
   const pack = (strand: 1 | -1) => {
-    const units: { feature: BioFeature; frame: Frame; start: number; end: number }[] = [];
+    const units: { feature: BioFeature; frame: Frame; spans: { start: number; end: number }[] }[] = [];
     features
       .filter(f => CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
       .forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
-        const spans = new Map<Frame, { start: number; end: number }>();
+        const spans = new Map<Frame, { start: number; end: number }[]>();
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const startIdx = alignedIndices[j];
           const endIdx = alignedIndices[j + 2];
           if (startIdx === undefined || endIdx === undefined) continue;
           const frame = codonFrame(positions ? positions[startIdx] : startIdx, strand);
-          const lo = Math.min(startIdx, endIdx);
-          const hi = Math.max(startIdx, endIdx) + 1;
-          const span = spans.get(frame);
-          spans.set(frame, span ? { start: Math.min(span.start, lo), end: Math.max(span.end, hi) } : { start: lo, end: hi });
+          const pieces = codonSpans(alignedIndices.slice(j, j + 3), strand, positions);
+          const frameSpans = spans.get(frame) ?? [];
+          frameSpans.push(...pieces);
+          spans.set(frame, frameSpans);
         }
-        spans.forEach((span, frame) => units.push({ feature: f, frame, ...span }));
+        spans.forEach((pieces, frame) => {
+          const merged: { start: number; end: number }[] = [];
+          pieces.sort((a, b) => a.start - b.start).forEach(piece => {
+            const last = merged[merged.length - 1];
+            if (last && piece.start <= last.end) last.end = Math.max(last.end, piece.end);
+            else merged.push({ ...piece });
+          });
+          units.push({ feature: f, frame, spans: merged });
+        });
       });
     const lanes: (typeof units)[] = [];
-    units.sort((a, b) => a.start - b.start).forEach(unit => {
+    units.sort((a, b) => a.spans[0].start - b.spans[0].start).forEach(unit => {
       let lane = lanes.findIndex(placed => placed.every(p =>
-        p.frame === unit.frame || unit.end <= p.start || p.end <= unit.start));
+        p.frame === unit.frame || unit.spans.every(a => p.spans.every(b => a.end <= b.start || b.end <= a.start))));
       if (lane < 0) lane = lanes.push([]) - 1;
       lanes[lane].push(unit);
       const frames = laneOf.get(unit.feature) ?? new Map<Frame, number>();

@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Codons crossing splice junctions or the circular origin draw and pack only their biological pieces, while alignment gaps remain continuous.
+
 - Hub current-group highlights switch at the reading line while the preceding
   card is still visible; jumps retain their target until scrolling, and trailing
   slim bars use neutral styling.
