@@ -42,6 +42,7 @@ it('keeps actions and the last-focused chip inside a single-line feature name ce
   expect(cell.contains(container.querySelector('[data-row-actions]'))).toBe(true);
   expect(cell.contains(screen.getByText('Last focused'))).toBe(true);
   expect(cell.className).toContain('flex-nowrap');
+  expect(cell.querySelector('[data-row-display-name]')?.textContent).toBe(record.label);
   expect(cell.querySelector('[data-row-subtext]')?.className).toContain('truncate');
   expect(cell.querySelector('strong')?.className).toContain('shrink-0');
   const row = container.querySelector<HTMLElement>('[data-row-key]')!;

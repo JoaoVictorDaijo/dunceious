@@ -67,8 +67,10 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     <div data-name-cell className="flex min-w-0 flex-nowrap items-center gap-2">
       <div className={`flex min-w-0 items-center gap-2 ${kind === 'features' ? 'flex-1 flex-nowrap' : 'flex-wrap'}`}>
         <strong className={`font-semibold text-slate-900 ${kind === 'features' ? 'shrink-0 whitespace-nowrap font-mono' : 'min-w-0 truncate'}`}>{kind === 'features' ? record.accession || record.id : feature.name}</strong>
-        <HubEditChip mark={feature.hubEdit} />
+        {kind === 'features' && record.label && record.label !== (record.accession || record.id) && <span data-row-display-name data-tip={record.label} className="min-w-0 max-w-[35%] truncate font-mono text-[10px] text-slate-500">{record.label}</span>}
+        {kind === 'sequences' && <HubEditChip mark={feature.hubEdit} />}
         {detail && <span data-row-subtext data-tip={detail} className="min-w-0 flex-1 truncate text-slate-500">{detail}</span>}
+        {kind === 'features' && <HubEditChip mark={feature.hubEdit} />}
         {lastFocused && <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-env bg-white px-2 text-[10px] text-amber-800"><i aria-hidden="true" className="fas fa-crosshairs" />Last focused</span>}
       </div>
     <div data-row-actions className={`hub-row-actions ml-auto flex shrink-0 justify-end gap-0.5 text-slate-500 ${selected || current || lastFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'} transition-opacity motion-reduce:transition-none`}>
