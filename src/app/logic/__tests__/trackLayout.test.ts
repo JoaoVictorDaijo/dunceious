@@ -62,3 +62,16 @@ it('centres sparse mini lanes inside the fixed thirty-pixel box', () => {
   expect(y).toBeCloseTo(12.2); expect(y + metrics.laneHeight).toBeCloseTo(17.8);
   expect(metrics.height).toBe(30);
 });
+
+
+it('uses ten-pixel comfortable lanes and exact section heights while mini tracks stay unchanged', () => {
+  const section = { key: 'x', group: null, record, rows: record.features.slice(1), total: 3 };
+  const layout = packTrack(record, { maxLanes: 4, reverseLanes: 4 });
+  const compact = trackMetrics(layout, true, 'compact');
+  const comfortable = trackMetrics(layout, true, 'comfortable');
+  expect([compact.laneHeight, compact.gap, compact.height]).toEqual([7, 2, 34]);
+  expect([comfortable.laneHeight, comfortable.gap, comfortable.height]).toEqual([10, 3, 42]);
+  expect(sequenceSectionHeight(section, false, undefined, 'comfortable')).toBe(139);
+  expect(sequenceSectionHeight(section, true, undefined, 'comfortable')).toBe(81);
+  expect(trackMetrics(layout, false, 'comfortable')).toMatchObject({ height: 30, laneHeight: 4.2, gap: 1.2 });
+});

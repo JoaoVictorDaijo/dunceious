@@ -47,3 +47,19 @@ describe('filter segments', () => {
     fireEvent.click(chip); expect(chip.getAttribute('aria-pressed')).toBe('false');
   });
 });
+
+
+it('keeps fold-all names and tooltips with stacked-box SVG icons', () => {
+  render(<Subject />);
+  for (const name of ['Expand all', 'Collapse all']) {
+    const button = screen.getByRole('button', { name });
+    expect(button.getAttribute('data-tip')).toBe(name);
+    const icon = button.querySelector('svg')!;
+    expect(icon).toBeTruthy();
+    expect(icon.getAttribute('width')).toBe('16');
+    expect(icon.getAttribute('stroke')).toBe('currentColor');
+    expect(icon.getAttribute('stroke-width')).toBe('1.5');
+    expect(icon.querySelectorAll('rect')).toHaveLength(2);
+    expect(icon.querySelector('[data-plus]') !== null).toBe(name === 'Expand all');
+  }
+});

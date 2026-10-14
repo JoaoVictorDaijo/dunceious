@@ -41,9 +41,9 @@ describe('HubList', () => {
     const pinned = screen.getByRole('region', { name: 'Pinned section' });
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe('122px');
-    expect(header.style.height).toBe('122px');
-    expect(row.style.top).toBe('122px');
+    expect(pinned.style.height).toBe(density === 'comfortable' ? '126px' : '122px');
+    expect(header.style.height).toBe(density === 'comfortable' ? '126px' : '122px');
+    expect(row.style.top).toBe(density === 'comfortable' ? '126px' : '122px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
     expect(pinned.style.height).toBe('81px');

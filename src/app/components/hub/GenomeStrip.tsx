@@ -28,14 +28,15 @@ type StripGeometry = { parts: StripPart[]; ordered: BioFeature[]; metrics: Retur
 const defaultColors = {};
 const viewWidth = 1000;
 // Immutable records and colour maps keep resize and hover from rebuilding geometry.
-const geometryCache = new WeakMap<SeqRecord, WeakMap<Record<string, string>, Map<boolean, StripGeometry>>>();
-function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors): StripGeometry {
+const geometryCache = new WeakMap<SeqRecord, WeakMap<Record<string, string>, Map<string, StripGeometry>>>();
+function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors, density: 'compact' | 'comfortable' = 'compact'): StripGeometry {
   let byColors = geometryCache.get(record);
   let bySize = byColors?.get(colors);
-  const cached = bySize?.get(large);
+  const key = `${large}:${large ? density : 'compact'}`;
+  const cached = bySize?.get(key);
   if (cached) return cached;
   const layout = packTrack(record, { maxLanes: large ? 4 : 3, reverseLanes: large ? 4 : 1 });
-  const metrics = trackMetrics(layout, large);
+  const metrics = trackMetrics(layout, large, density);
   const parts = layout.parts.map(part => {
     const x = part.start / record.sequence.length * viewWidth, endX = part.end / record.sequence.length * viewWidth;
     const y = metrics.y(part), width = endX - x;
@@ -45,7 +46,7 @@ function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors
   const result = { parts, ordered, metrics, reverseLanes: layout.reverseLanes, views: null };
   if (!byColors) { byColors = new WeakMap(); geometryCache.set(record, byColors); }
   if (!bySize) { bySize = new Map(); byColors.set(colors, bySize); }
-  bySize.set(large, result);
+  bySize.set(key, result);
   return result;
 }
 function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) => boolean): StripPath[] {
@@ -63,11 +64,11 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
   geometry.views = { mask, paths };
   return paths;
 }
-export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>): number {
-  return stripGeometry(record, large, featureColors).metrics.height + (large ? 16 : 0);
+export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact'): number {
+  return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
 }
-function GenomeStrip({ record, highlight, large = false, onPick, featureColors, trackWindow, onWindowMove, onWindowStep }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; trackWindow?: TrackWindow; onWindowMove?: (start: number) => void; onWindowStep?: (direction: 1 | -1) => void }) {
-  const geometry = stripGeometry(record, large, featureColors);
+function GenomeStrip({ record, highlight, large = false, onPick, featureColors, density = 'compact', trackWindow, onWindowMove, onWindowStep }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow; onWindowMove?: (start: number) => void; onWindowStep?: (direction: 1 | -1) => void }) {
+  const geometry = stripGeometry(record, large, featureColors, density);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
   const [pointer, setPointer] = useState<{ record: SeqRecord; feature: BioFeature; x: number; y: number } | null>(null);

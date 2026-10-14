@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { ExpandAllIcon, CollapseAllIcon } from './icons';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 export default function FilterBar({ state, types, keys, featureColors }: { state: ReturnType<typeof useHubState>; types: Map<string, number>; keys: string[]; featureColors?: Record<string, string> }) {
@@ -34,7 +35,7 @@ export default function FilterBar({ state, types, keys, featureColors }: { state
       {(['compact', 'comfortable'] as const).map(value => <button key={value} aria-pressed={state.density === value} onClick={() => state.setDensity(value)} className={`h-6 rounded-md px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.density === value ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>{value === 'compact' ? 'Compact' : 'Comfortable'}</button>)}
     </div>
     {state.tab === 'features' && <button aria-pressed={state.onlyProblems} onClick={() => state.setOnlyProblems(!state.onlyProblems)} className={`rounded-full border px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.onlyProblems ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300'}`}>Only missing or odd length</button>}
-    <button aria-label="Expand all" data-tip="Expand all" onClick={() => foldAll(false)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-angles-down" aria-hidden="true" /></button>
-    <button aria-label="Collapse all" data-tip="Collapse all" onClick={() => foldAll(true)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-angles-up" aria-hidden="true" /></button>
+    <button aria-label="Expand all" data-tip="Expand all" onClick={() => foldAll(false)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><ExpandAllIcon /></button>
+    <button aria-label="Collapse all" data-tip="Collapse all" onClick={() => foldAll(true)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><CollapseAllIcon /></button>
   </div>;
 }
