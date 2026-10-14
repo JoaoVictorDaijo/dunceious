@@ -150,3 +150,34 @@ it('shows only the number in group count pills', () => {
   const group = screen.getByRole('button', { name: 'Fold index group MERS-CoV' });
   expect(group.lastElementChild?.textContent).toBe('2');
 });
+
+it('jumps from card content while preserving its separate controls and feature jump', () => {
+  const toggle = vi.fn();
+  function Cards() {
+    const state = useHubState();
+    return <><output aria-label="Jump">{state.jumpTarget?.key ?? 'none'}:{state.jumpTarget?.serial ?? 0}</output><HubIndex records={records} state={state} onToggleRecordVisibility={toggle} /></>;
+  }
+  render(<Cards />);
+  const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
+  fireEvent.click(card.querySelector('p')!);
+  expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence a' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
+  expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
+  expect(toggle).toHaveBeenCalledWith('a');
+  const strip = card.querySelector('svg')!;
+  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 30 } as DOMRect);
+  fireEvent.click(strip, { clientX: 100, clientY: 14 });
+  expect(screen.getByLabelText('Jump').textContent).toBe('a:0:2');
+  fireEvent.click(strip, { clientX: 800, clientY: 14 });
+  expect(screen.getByLabelText('Jump').textContent).toBe('a:3');
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence a' }));
+  expect(screen.getByLabelText('Jump').textContent).toBe('a:4');
+});
+it('reserves space for the index scrollbar beside the cards', () => {
+  render(<Subject />);
+  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  expect(viewport.classList.contains('custom-scrollbar-pro')).toBe(true);
+  expect(viewport.style.scrollbarGutter).toBe('stable');
+  expect(viewport.style.paddingRight).toBe('8px');
+});

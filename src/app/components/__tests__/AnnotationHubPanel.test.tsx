@@ -55,12 +55,12 @@ describe('AnnotationHubPanel', () => {
     const build = vi.spyOn(comparison, 'buildFeatureGroups');
     try {
       render(<Subject index />);
-      expect(screen.getByRole('tab', { name: 'Features 6' })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'By feature 6' })).toBeTruthy();
       expect(build).not.toHaveBeenCalled();
       fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
-      expect(screen.getByRole('tab', { name: 'Features 1' })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'By feature 1' })).toBeTruthy();
       expect(build).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
       expect(build).toHaveBeenCalled();
       expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('not compared: organism unknown')).toBeTruthy();
     } finally { build.mockRestore(); }
@@ -181,7 +181,7 @@ describe('AnnotationHubPanel', () => {
     const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus' } };
     const initial = [{ ...records[0], features: [source, records[0].features[0]] }, { ...records[1], features: [source, { ...records[1].features[0], name: 'other' }] }];
     render(<Subject initial={initial} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Features 2' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'By feature 2' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
     fireEvent.click(screen.getByRole('button', { name: 'CDS 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Forward strand only' }));
@@ -202,7 +202,7 @@ describe('AnnotationHubPanel', () => {
   it('identifies each Features row by accession, annotation and isolate', () => {
     const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus', isolate: 'camel-1' } };
     render(<Subject initial={[{ ...records[0], features: [source, { name: 'gene S', type: 'gene', start: 0, end: 30, strand: 1, metadata: { gene: 'S' } }, { name: 'spike', type: 'CDS', start: 0, end: 30, strand: 1, metadata: { gene: 'S', product: 'surface protein' } }] }]} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
     expect(screen.getByText('gene S · camel-1')).toBeTruthy();
     expect(screen.getByText('spike · surface protein · camel-1')).toBeTruthy();
   });
@@ -220,8 +220,8 @@ it.each(['tabs', 'focus'])('keeps typed details through a %s round trip', route 
   fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
   fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
   if (route === 'tabs') {
-    fireEvent.click(screen.getByRole('tab', { name: 'Features 1' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Sequences 1' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'By sequence 1' }));
   } else {
     fireEvent.click(screen.getByRole('button', { name: 'Open ORF4b on seq0 in viewport' }));
     fireEvent.click(screen.getByText('Return to hub'));
