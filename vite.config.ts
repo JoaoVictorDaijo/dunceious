@@ -48,6 +48,7 @@ export default defineConfig(() => {
       environment: "node",
       exclude: [
         "perf/**",
+        "e2e/**",
         "bench/**",
         "**/node_modules/**",
       ],
