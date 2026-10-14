@@ -91,6 +91,9 @@ All notable changes to Dunceious. Format loosely follows
 - Brighten the dark chrome along its slate hue (#116).
 
 ### Fixed
+- Hub current-group highlights switch at the reading line while the preceding
+  card is still visible; jumps retain their target until scrolling, and trailing
+  slim bars use neutral styling.
 - Annotations stay one continuous bar across alignment gaps instead of breaking
   at every gap (#119).
 - Pre-aligned FASTA files whose IDs contain spaces, such as the `seq1 (1)` IDs

@@ -80,7 +80,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const pinnedElement = useRef<HTMLDivElement>(null);
   const scrollElement = useRef<HTMLDivElement>(null);
   const railIndicator = useRef<HTMLDivElement>(null);
-  const [, setPinnedSection] = useState<string | null>(null);
+  const [, setSections] = useState<{ bar: string | null; current: string | null } | null>(null);
+  const jumpLanding = useRef<{ key: string; offset: number } | null>(null);
   if (state.scrollOffset !== savedOffsets.current) {
     savedOffsets.current = state.scrollOffset;
     scrollOffset.current = state.scrollOffset[kind];
@@ -136,16 +137,29 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
   }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, cardWidth]);
+  const sectionKeys = useMemo(() => new Set(items.map(item => item.key)), [items]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
   const offset = Math.min(scrollOffset.current, maxOffset);
   scrollOffset.current = offset;
-  let pinnedIndex = entries.findIndex(entry => entry.type === 'header');
-  for (let i = 0; i < entries.length; i++) if (starts[i] <= offset && entries[i].type === 'header') pinnedIndex = i;
+  const sectionsAt = (value: number) => {
+    const readingLine = value + Math.min(280, Math.max(SLIM_BAR_HEIGHT + 96, Math.round(height * 0.3)));
+    let barIndex = entries.findIndex(entry => entry.type === 'header');
+    let current = entries[barIndex]?.sectionKey ?? null;
+    for (let i = 0; i < entries.length && starts[i] <= readingLine; i++) {
+      if (starts[i] <= value && entries[i].type === 'header') barIndex = i;
+      current = entries[i].sectionKey;
+    }
+    if (jumpLanding.current && (Math.abs(value - jumpLanding.current.offset) > 2 || !sectionKeys.has(jumpLanding.current.key))) jumpLanding.current = null;
+    return { barIndex, bar: entries[barIndex]?.sectionKey ?? null, current: jumpLanding.current?.key ?? current };
+  };
+  const sections = sectionsAt(offset);
+  const pinnedIndex = sections.barIndex;
   const pinned = entries[pinnedIndex];
-  const activeSection = useRef(pinned?.sectionKey ?? null);
-  activeSection.current = pinned?.sectionKey ?? null;
+  const currentSection = sections.current;
+  const activeSections = useRef(sections);
+  activeSections.current = sections;
   const saveOffset = useCallback(() => {
     // A reset can unmount the list before it receives the new workspace offsets.
     if (workspaceRevision.current !== state.workspaceRevision.current) return;
@@ -183,15 +197,13 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   useLayoutEffect(() => { updateWindow(pinnedIndex, offset); paintBar(pinnedIndex, offset); }, [entries, offset, pinnedIndex]);
   const onScroll = ({ scrollOffset: value }: { scrollOffset: number }) => {
     scrollOffset.current = Math.min(value, maxOffset);
-    let index = entries.findIndex(entry => entry.type === 'header');
-    for (let i = 0; i < entries.length && starts[i] <= scrollOffset.current; i++) if (entries[i].type === 'header') index = i;
-    updateWindow(index, scrollOffset.current);
-    const section = entries[index]?.sectionKey ?? null;
-    if (section !== activeSection.current) {
-      activeSection.current = section;
-      setPinnedSection(section);
+    const next = sectionsAt(scrollOffset.current);
+    updateWindow(next.barIndex, scrollOffset.current);
+    if (next.bar !== activeSections.current.bar || next.current !== activeSections.current.current) {
+      activeSections.current = next;
+      setSections(next);
     }
-    paintBar(index, scrollOffset.current);
+    paintBar(next.barIndex, scrollOffset.current);
     if (railIndicator.current) { const thumb = railThumb(total, height, scrollOffset.current); railIndicator.current.style.top = `${thumb.top}px`; railIndicator.current.style.height = `${thumb.size}px`; }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(saveOffset, 150);
@@ -203,11 +215,16 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }, [providedHeight]);
   useLayoutEffect(() => { list.current?.resetAfterIndex(0); }, [entries]);
   useLayoutEffect(() => { list.current?.scrollTo(offset); }, [offset]);
-  useEffect(() => { state.setCurrentSectionKey(pinned?.sectionKey ?? null); }, [pinned?.sectionKey, state.setCurrentSectionKey]);
+  useEffect(() => { state.setCurrentSectionKey(currentSection); }, [currentSection, state.setCurrentSectionKey]);
   const open = useCallback((key: string) => {
     state.setCollapsed(prev => { const next = new Set(prev[kind]); next.delete(key); return { ...prev, [kind]: next }; });
     state.setSearchFolds(prev => { const next = new Set(prev); next.delete(`${kind}:${key}`); return next; });
   }, [kind, state.setCollapsed, state.setSearchFolds]);
+  const landJump = (key: string, value: number) => {
+    jumpLanding.current = { key, offset: value };
+    onScroll({ scrollOffset: value });
+    list.current?.scrollTo(value);
+  };
   const pending = state.jumpTarget?.key;
   useEffect(() => {
     if (!pending || filtersPending || kind !== state.tab) return;
@@ -223,7 +240,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       const headerIndex = entries.findIndex(other => other.type === 'header' && other.key === entry.sectionKey);
       const headerHeight = SLIM_BAR_HEIGHT;
       const position = entry.type === 'header' ? starts[index] : starts[index] - headerHeight - Math.max(0, (height - headerHeight - entry.size) / 2);
-      list.current?.scrollTo(Math.max(starts[headerIndex] ?? 0, Math.min(position, maxOffset)));
+      landJump(entry.sectionKey, Math.max(starts[headerIndex] ?? 0, Math.min(position, maxOffset)));
     }
     state.setJumpTarget(null);
   }, [pending, filtersPending, state.tab, state.jumpTarget?.serial, entries, items, kind, folded, open, starts, height, maxOffset, state.setJumpTarget]);
@@ -277,9 +294,9 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
-    if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} current={entry.key === pinned?.sectionKey} width={cardWidth} gap={14} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
+    if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} current={entry.key === currentSection} width={cardWidth} gap={14} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader pinned={pinnedFeature(section)} gap={14} density={state.density} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
+    return <SequenceSectionHeader pinned={pinnedFeature(section)} gap={14} density={state.density} current={entry.key === currentSection} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
@@ -311,10 +328,10 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }, [entries, starts, total, kind]);
   return <div ref={container} className="relative flex min-h-0 flex-1" style={providedHeight ? { height } : undefined}>
     <div className="relative min-w-0 flex-1">
-      <CardContext.Provider value={{ cards, current: pinned?.sectionKey ?? null }}><VariableSizeList outerElementType={ScrollRegion} innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="hub-scroll-region custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
-      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute top-0 z-10 border-x border-slate-300 shadow-sm" style={{ left: 14, right: 14, borderColor: 'color-mix(in srgb, var(--env) 70%, transparent)', height: SLIM_BAR_HEIGHT, top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
+      <CardContext.Provider value={{ cards, current: currentSection }}><VariableSizeList outerElementType={ScrollRegion} innerElementType={GroupedInner} ref={list} outerRef={scrollElement} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} initialScrollOffset={offset} itemData={renderEntry} onScroll={onScroll} className="hub-scroll-region custom-scrollbar-pro scrollbar-on-light bg-slate-100">{VirtualRow}</VariableSizeList></CardContext.Provider>
+      {pinned?.type === 'header' && <div ref={pinnedElement} role="region" aria-label="Pinned section" className="absolute top-0 z-10 border-x border-slate-300 shadow-sm" style={{ left: 14, right: 14, borderColor: pinned.sectionKey === currentSection ? 'color-mix(in srgb, var(--env) 70%, transparent)' : undefined, height: SLIM_BAR_HEIGHT, top: barPosition(pinnedIndex, offset), display: barVisible(pinnedIndex, offset) ? undefined : 'none' }}><SlimSectionBar current={pinned.sectionKey === currentSection} pinned={kind === 'sequences' ? pinnedFeature(pinned.item as SequenceSection) : null} kind={kind} item={pinned.item} featureColors={featureColors} trackWindow={state.trackWindow} onFold={headerActions.get(pinned.key)!.onFold} onPick={headerActions.get(pinned.key)!.onPick} highlight={kind === 'sequences' && hovered && (pinned.item as SequenceSection).record.features.includes(hovered) ? hovered : null} /></div>}
     </div>
-    <OverviewRail scrollRef={scrollElement} indicatorRef={railIndicator} blocks={blocks} currentKey={pinned?.sectionKey} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={value => { state.setJumpTarget(null); list.current?.scrollTo(value); }} />
+    <OverviewRail scrollRef={scrollElement} indicatorRef={railIndicator} blocks={blocks} currentKey={currentSection ?? undefined} total={total} offset={offset} height={height} hits={state.filters.query ? entries.flatMap((entry, i) => entry.type === 'row' || entry.type === 'track' ? [starts[i]] : []) : []} onJump={(value, key) => { state.setJumpTarget(null); if (key) landJump(key, value); else { jumpLanding.current = null; list.current?.scrollTo(value); } }} />
   </div>;
 }
 

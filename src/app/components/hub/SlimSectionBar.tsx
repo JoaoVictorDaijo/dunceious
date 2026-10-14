@@ -29,7 +29,7 @@ import { PRESENCE_CLASSES, presenceLabel, presenceStyle } from './presence';
 import type { TrackWindow } from './trackWindow';
 
 export const SLIM_BAR_HEIGHT = 44;
-export default function SlimSectionBar({ item, kind, onFold, onPick, featureColors, trackWindow, highlight, pinned }: { item: SequenceSection | FeatureGroup; kind: 'sequences' | 'features'; onFold: () => void; onPick: (feature: BioFeature) => void; featureColors?: Record<string, string>; trackWindow: TrackWindow; highlight?: BioFeature | null; pinned?: BioFeature | null }) {
+export default function SlimSectionBar({ current = false, item, kind, onFold, onPick, featureColors, trackWindow, highlight, pinned }: { current?: boolean; item: SequenceSection | FeatureGroup; kind: 'sequences' | 'features'; onFold: () => void; onPick: (feature: BioFeature) => void; featureColors?: Record<string, string>; trackWindow: TrackWindow; highlight?: BioFeature | null; pinned?: BioFeature | null }) {
   const root = useRef<HTMLDivElement>(null);
   const section = kind === 'sequences' ? item as SequenceSection : null;
   useEffect(() => { if (root.current && section) return trackWindow.register(section.record.id, root.current); }, [section?.record.id, trackWindow]);
@@ -42,5 +42,5 @@ export default function SlimSectionBar({ item, kind, onFold, onPick, featureColo
     const color = group.types.length === 1 ? getFeatureColor(group.types[0], featureColors) : undefined;
     content = <><strong className="min-w-0 truncate font-mono text-amber-800">{group.identity}</strong>{group.types.map(type => <span key={type} className="shrink-0 rounded-md bg-white px-2 font-mono" style={{ color: getFeatureColor(type, featureColors) }}>{type}</span>)}<HubEditCounts followed features={group.rows.map(row => row.feature)} /><span className="shrink-0 font-mono">in {group.counts.present} of {group.counts.pool}</span><div aria-label="Presence" className="flex min-w-0 flex-1 gap-1 overflow-hidden">{group.cells.map(cell => <span key={cell.recordId} data-tip={`${cell.recordId}: ${presenceLabel(cell.state)}`} className={`shrink-0 rounded-[3px] ${PRESENCE_CLASSES[cell.state]}`} style={presenceStyle(cell.state, color)} />)}</div></>;
   }
-  return <div ref={root} className="flex h-11 items-center gap-2 overflow-hidden border-b border-amber-200 bg-amber-50 px-4 text-xs text-slate-600"><button aria-label={`Collapse ${section ? section.record.id : (item as FeatureGroup).identity}`} data-tip="Collapse group" onClick={onFold} className="shrink-0 p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className="fas fa-chevron-down" /></button>{content}</div>;
+  return <div ref={root} className={`flex h-11 items-center gap-2 overflow-hidden border-b px-4 text-xs text-slate-600 ${current ? 'border-env bg-amber-50' : 'border-slate-300 bg-white'}`}><button aria-label={`Collapse ${section ? section.record.id : (item as FeatureGroup).identity}`} data-tip="Collapse group" onClick={onFold} className="shrink-0 p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className="fas fa-chevron-down" /></button>{content}</div>;
 }

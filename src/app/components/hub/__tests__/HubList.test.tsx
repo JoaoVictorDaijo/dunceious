@@ -77,9 +77,11 @@ describe('HubList', () => {
     expect(Number.parseFloat(row?.style.top ?? '0') + Number.parseFloat((row?.parentElement as HTMLElement)?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
   });
   it('folds rows and shows the composition summary', () => {
-    render(<Subject />); fireEvent.click(within(currentCard()).getByRole('button', { name: 'Collapse one' }));
+    render(<Subject />);
+    const first = currentCard();
+    fireEvent.click(within(first).getByRole('button', { name: 'Collapse one' }));
     expect(screen.queryByText('one-gene')).toBeNull();
-    expect(within(currentCard()).getByText('1 CDS')).toBeTruthy();
+    expect(within(first).getByText('1 CDS')).toBeTruthy();
   });
   it('uses the reverse strand for both glyph and colour', () => {
     render(<Subject />); const arrow = screen.getAllByLabelText('Reverse strand')[0];
