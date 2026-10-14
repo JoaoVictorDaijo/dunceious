@@ -20,7 +20,8 @@
     "version:minor": "npm version minor --no-git-tag-version",
     "version:major": "npm version major --no-git-tag-version",
     "test:e2e": "npm run build && npm run test:e2e:run",
-    "test:e2e:run": "playwright test"
+    "test:e2e:run": "playwright test",
+    "changelog:release": "node scripts/changelog-release.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

@@ -74,14 +74,18 @@ takes a patch. `version-guard` in CI enforces a strict increase.
 Cloudflare Pages actually deploys, so the version means "what is live." Do not
 bump per feature-PR into `develop`.
 
+Each PR adds one `changes/unreleased/<short-slug>.md` fragment; see
+[`changes/README.md`](changes/README.md). Leave existing Unreleased entries in place.
+
 **Release checklist** (run at every `develop` → `main` promotion):
 
 ```
 1. Decide the bump from commits since the last release tag:
      git log "$(git tag --list 'v*' --sort=-v:refname | head -1)"..develop --no-merges --format='%s'
-2. On develop, bump package.json + lock (no tag):
+2. On develop, bump package.json + lock (no tag) and assemble the changelog:
      npm run version:minor      # or version:patch / version:major
-   Commit: chore(release): vX.Y.Z  — and add the entry to CHANGELOG.md
+     npm run changelog:release -- X.Y.Z  # optional second argument: YYYY-MM-DD
+   Commit: chore(release): vX.Y.Z  — include CHANGELOG.md and fragment deletions
 3. Open the develop → main promotion PR; CI must be green.
 4. After merge, tag the MAIN merge commit and push:
      git tag -a vX.Y.Z <main-merge-sha> -m "Release vX.Y.Z"
