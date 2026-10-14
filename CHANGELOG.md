@@ -34,6 +34,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Changed
 
+- Hub Import and Export sit side by side; Add annotation moves to the filter bar, Save/Clear to the Sequence index, and search gains calmer focus and query-only match controls.
+
 - Hub groups share rounded cards; full headers scroll away into slim live-track
   bars. Group navigation, search ticks and a draggable thumb share one scroll rail.
 - Row actions sit inline in the name cell; repeat clicking or Escape clears the

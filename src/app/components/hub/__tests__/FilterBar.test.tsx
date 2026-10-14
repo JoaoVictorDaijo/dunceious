@@ -18,7 +18,7 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import FilterBar from '../FilterBar';
@@ -90,4 +90,21 @@ it('keeps controls together beside a wrapping type zone on both tabs', () => {
     expect(types.className).toContain('flex-1');
     expect(controls.parentElement!.classList.contains('flex-wrap')).toBe(false);
   }
+});
+
+it('adds an annotation before the strand controls and respects the lock', () => {
+  const add = vi.fn();
+  function AddSubject({ locked }: { locked: boolean }) {
+    const state = useHubState();
+    return <FilterBar state={state} types={new Map()} keys={[]} onStartNewFeature={add} locked={locked} />;
+  }
+  const { rerender } = render(<AddSubject locked={false} />);
+  const button = screen.getByRole('button', { name: 'Add annotation' });
+  expect(button.nextElementSibling).toBe(screen.getByRole('group', { name: 'Strand' }));
+  fireEvent.click(button);
+  expect(add).toHaveBeenCalledOnce();
+  rerender(<AddSubject locked />);
+  expect(button).toHaveProperty('disabled', true);
+  fireEvent.click(button);
+  expect(add).toHaveBeenCalledOnce();
 });

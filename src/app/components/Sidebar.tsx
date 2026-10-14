@@ -41,6 +41,9 @@ export interface SidebarProps {
   onSetActiveSelection: (sel: SelectionArea | null) => void;
   alignmentLength: number;
   onSetJumpTo: (pos: number) => void;
+  onExportProjectJson?: () => void;
+  onClearAll?: () => void;
+  workspaceEmpty?: boolean;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAlignRemote?: () => void;
@@ -96,6 +99,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSetActiveSelection,
   alignmentLength,
   onSetJumpTo,
+  onExportProjectJson,
+  onClearAll,
+  workspaceEmpty,
   onFileUpload,
   onAlignmentUpload,
   onAlignRemote,
@@ -184,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
-      {activeTab === 'features' && hubState && <><input ref={addSequencesInput} aria-label="Add sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} /><HubIndex records={records} featureColors={featureColors} state={hubState} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
+      {activeTab === 'features' && hubState && <><input ref={addSequencesInput} aria-label="Add sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} /><HubIndex records={records} featureColors={featureColors} state={hubState} onExportProjectJson={onExportProjectJson} onClearAll={onClearAll} empty={workspaceEmpty} locked={isAlignmentLocked} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (

@@ -33,7 +33,7 @@ import FilterBar from './hub/FilterBar';
 import SelectionBar from './hub/SelectionBar';
 import ExportDialog from './hub/ExportDialog';
 import type { HubExportFormat, ExportOptions } from '@/src/app/logic/exportPlan';
-import MoreMenu from './hub/MoreMenu';
+import ImportMenu from './hub/ImportMenu';
 import UndoToast from './hub/UndoToast';
 import HubEmptyState from './hub/HubEmptyState';
 import HubList from './hub/HubList';
@@ -177,10 +177,10 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const removeFeature = useCallback((id: string, index: number) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }, [props.onRemoveFeature, state.setSelectedRows]);
   return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
     <h1 className="sr-only">Annotation Hub</h1>
-    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onAdd={props.onStartNewFeature} locked={isAlignmentLocked} onExport={() => setExportOpen(true)} more={<MoreMenu sequenceInputRef={sequenceInput} onImportSequences={importSequences} state={state} locked={isAlignmentLocked} empty={!records.length} onSave={props.onExportProjectJson} onClear={props.onClearAll} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
+    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onExport={() => setExportOpen(true)} imports={<ImportMenu sequenceInputRef={sequenceInput} onImportSequences={importSequences} state={state} locked={isAlignmentLocked} empty={!records.length} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
     <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}${editSummary ? ` · ${editSummary}` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
     <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
-    <FilterBar empty={!records.length} editedCount={markedCount} groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
+    <FilterBar onStartNewFeature={props.onStartNewFeature} locked={isAlignmentLocked} empty={!records.length} editedCount={markedCount} groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
     <SelectionBar records={hubRecords} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />
     {notice && <p role="status" className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-slate-700">{notice}</p>}
     {records.length > 0 && <div className="hub-row-grid border-b border-slate-200 bg-slate-50 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">
