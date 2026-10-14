@@ -67,7 +67,9 @@ src/
 │
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
-    ├── App.tsx          # composition root
+    ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
+    ├── greeter/         # phone landing page and tour; never imports the workbench UI
+    ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     │   ├── trackLayout.ts # cached strand-lane packing, deterministic track metrics/ruler
@@ -109,6 +111,10 @@ decisions and phase history.
 
 These boundaries are **enforced by an import-boundary ESLint rule** (`no-restricted-imports`,
 per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 600 lines.
+
+Inside `app/`, `greeter/` is a separate UI: it may import `domain`, `core` and its own files,
+never `App`, `components/`, `hooks/`, `viewer/`, `logic/` or `lib/`, so its chunk stays small
+and the workbench can change without touching it (also an ESLint rule).
 
 ### Extension rules — where does new code go?
 
@@ -251,6 +257,16 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 ---
 
 ## 5. Component Hierarchy
+
+### `src/app/shell/` (Entry Shell)
+
+- `main.tsx` renders `ShellRoot`, which lazy-loads one UI. `pickShell` sends a device with a coarse pointer and a shorter screen side under 600 px (a phone, in either orientation) to the greeter, and everything else, tablets included, to `App`. It reads the device screen, not the viewport, so rotating or resizing never swaps the UI.
+- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). The greeter's *Open the workbench anyway* stores `dunceious.shell=desktop` in `sessionStorage`, so the choice lasts for the tab's session and a later visit starts on the greeter again.
+
+### `src/app/greeter/` (Phone Landing Page)
+
+- `Greeter` switches between `GreeterHome` (pitch, tappable SARS-CoV-2 gene ring, feature cards, privacy and source links, *Open it on your computer* card) and `GreeterTour` (four steps). *Send to my computer* opens the Web Share sheet when the browser has one; otherwise it scrolls to the card with Copy and *Email it to me*.
+- Genomic facts in `greeterContent.ts` are real NC_045512.2 values; `greeterContent.test.ts` checks them against `examples/sars-cov-2-NC_045512.gb`.
 
 ### `src/app/App.tsx` (Composition Root)
 

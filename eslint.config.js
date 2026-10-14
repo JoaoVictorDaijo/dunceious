@@ -105,6 +105,17 @@ export default tseslint.config(
       ] }],
     },
   },
+  // The greeter is a separate UI from the workbench; keep it out of the workbench's code.
+  {
+    files: ['src/app/greeter/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { group: ['@/src/app/*', '@/src/app/**', '../*', '../**', '!@/src/app/greeter/**'],
+          message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
+      ] }],
+    },
+  },
   {
     ignores: ['dist/**', 'node_modules/**'],
   },
