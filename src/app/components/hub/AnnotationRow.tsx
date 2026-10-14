@@ -57,7 +57,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     : product !== feature.name ? product : undefined;
   const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
-  return <div data-row-key={rowKey} aria-current={current} tabIndex={0} onClick={event => { if (!(event.target as HTMLElement).closest('button, input')) onCurrent(); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onCurrent(); } }}
+  return <div data-row-key={rowKey} data-state={current ? 'current' : lastFocused ? 'last-focused' : selected ? 'selected' : 'idle'} aria-current={current} tabIndex={0} onClick={event => { if (!(event.target as HTMLElement).closest('button, input')) onCurrent(); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onCurrent(); } }}
     onMouseEnter={event => { onHover(feature); tooltip({ record, feature, color, x: event.clientX, y: event.clientY }, owner.current); }} onMouseLeave={() => { onHover(null); tooltip(null, owner.current); }}
     className={`hub-row-grid group relative h-full border-b border-slate-100 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${selected || current || lastFocused ? 'bg-amber-50' : 'bg-white hover:bg-slate-50'} ${current || lastFocused ? 'shadow-[inset_0_0_0_1.5px_var(--env)]' : ''}`}>
     <span aria-hidden="true" className="absolute left-[8px] inset-y-[8px] w-[3px] rounded-full" style={{ backgroundColor: color }} />
