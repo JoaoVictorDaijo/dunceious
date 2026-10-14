@@ -66,7 +66,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(
 
 async function loadApp() {
   const view = render(<App />);
-  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', records } }));
+  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records } }));
   return view;
 }
 async function beginAlignment() {
@@ -101,8 +101,12 @@ describe('remote alignment application integration', () => {
     act(() => captured.hub!.onClearAll());
     expect(reader).not.toHaveBeenCalled(); expect(window.prompt).not.toHaveBeenCalled();
     expect(captured.sidebar!.records).toHaveLength(2);
-    expect((screen.getByRole('button', { name: /Clear All/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByRole('button', { name: /^Remove / }).every(button => (button as HTMLButtonElement).disabled)).toBe(true);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select sequence seq1' })[0]);
+    expect((screen.getByRole('button', { name: 'Remove…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+    expect((screen.getByRole('menuitem', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
     const alignmentSection = screen.getByRole('region', { name: 'Alignment' });
     expect(within(alignmentSection).getByRole('status').textContent).toBe('MAFFT · Checking job status');
     fireEvent.click(within(alignmentSection).getByRole('button', { name: 'Alignment running' }));
@@ -115,7 +119,7 @@ describe('remote alignment application integration', () => {
   it('applies exact IDs through the shared reducer and fades the successful pill', async () => {
     await start(); vi.useFakeTimers();
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 bp).'))).toBe(true);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
     expect(screen.getByRole('button', { name: /Aligned/ })).toBeTruthy();
@@ -141,7 +145,7 @@ describe('remote alignment application integration', () => {
     expect(captured.client!.submit).toHaveBeenCalledTimes(2);
     expect(captured.sidebar!.isAlignmentLocked).toBe(true);
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
   });
 });

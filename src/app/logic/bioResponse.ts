@@ -17,9 +17,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
-import { makeUniqueId } from '@/src/app/logic/idHelpers';
-import type { FastaAlignedRecord } from '@/src/workers/protocol';
+import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
+import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
+import { readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
+import type { GffSourceRegion } from '@/src/core/formats/gff3';
+import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
 
 /**
  * The longest whitespace-bounded prefix of the FASTA header that names a loaded
@@ -27,7 +29,7 @@ import type { FastaAlignedRecord } from '@/src/workers/protocol';
  * "seq1 (1)" whole, and an external header may append a description after the ID.
  */
 function resolveHeaderId(record: FastaAlignedRecord, currentIds: ReadonlySet<string>): string {
-  const tokens = record.header?.split(/\s+/) ?? [];
+  const tokens = `${record.id} ${record.header ?? ''}`.trim().split(/\s+/);
   for (let end = tokens.length; end > 1; end--) {
     const candidate = tokens.slice(0, end).join(' ');
     if (currentIds.has(candidate)) return candidate;
@@ -35,105 +37,102 @@ function resolveHeaderId(record: FastaAlignedRecord, currentIds: ReadonlySet<str
   return record.id;
 }
 
-/** Accession precedence: trimmed incoming accession > incoming id (unless 'Unknown') > uniqueId. */
-export function resolveAccession(
-  incomingAccession: string | undefined,
-  incomingId: string,
-  uniqueId: string,
-): string {
-  const normalizedAccession = incomingAccession?.trim();
-  if (normalizedAccession) return normalizedAccession;
-  if (incomingId && incomingId !== 'Unknown') return incomingId;
-  return uniqueId;
+/** Local identifiers are not database accessions. */
+export function resolveAccession(incomingAccession: string | undefined): string | undefined {
+  return incomingAccession?.trim() || undefined;
 }
 
-/** Batch-append parsed records with id dedup + accession resolution + visible:true. */
 export function applyParseSuccess(
-  prev: SeqRecord[],
-  incoming: SeqRecord[],
-): { next: SeqRecord[]; count: number } {
+  prev: SeqRecord[], incoming: SeqRecord[], filename?: string,
+): { next: SeqRecord[]; count: number; idMap: BatchIdMap } {
   const existingIds = prev.map(r => r.id);
+  const idMap: BatchIdMap = Object.create(null);
   const newRecords = incoming.map(r => {
     const uniqueId = makeUniqueId(r.id, existingIds);
     existingIds.push(uniqueId);
+    idMap[r.id] = Object.hasOwn(idMap, r.id) ? null : uniqueId;
     return {
-      ...r,
-      id: uniqueId,
-      name: uniqueId,
-      accession: resolveAccession(r.accession, r.id, uniqueId),
-      visible: true,
+      ...r, id: uniqueId, name: uniqueId,
+      accession: resolveAccession(r.accession), visible: true,
+      importedFrom: filename, fileDetails: readDetails(r),
     };
   });
-  return { next: [...prev, ...newRecords], count: newRecords.length };
+  return { next: [...prev, ...newRecords], count: newRecords.length, idMap };
 }
 
-/** Merge annotation items into matching records, splitting features vs tracks by the `'data' in item` discriminant. */
+/** Batch ownership takes precedence over workspace aliases; ambiguous matches are refused. */
 export function applyAnnotations(
   prev: SeqRecord[],
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
+  details: Record<string, GffSourceRegion> = {},
+  idMap?: BatchIdMap,
 ): { next: SeqRecord[]; totalAdded: number; unmatched: string[] } {
   let totalAdded = 0;
-
-  const lookupItems = (r: SeqRecord) =>
-    annotations[r.id] ??
-    annotations[r.name] ??
-    (r.accession ? annotations[r.accession] : undefined) ??
-    [];
-
-  const next = prev.map(r => {
-    const items = lookupItems(r);
-    if (items.length > 0) {
-      const newFeats = items.filter((i): i is BioFeature => !('data' in i));
-      const newTracks = items.filter((i): i is QuantitativeTrack => 'data' in i);
-      totalAdded += items.length;
-      return {
-        ...r,
-        features: [...r.features, ...newFeats],
-        tracks: [...(r.tracks ?? []), ...newTracks],
-      };
+  const next = [...prev];
+  const unmatched: string[] = [];
+  for (const id of new Set([...Object.keys(annotations), ...Object.keys(details)])) {
+    let matches: SeqRecord[];
+    if (idMap && Object.hasOwn(idMap, id)) {
+      matches = idMap[id] === null ? [] : prev.filter(r => r.id === idMap[id]);
+    } else {
+      matches = prev.filter(r => r.id === id);
+      if (matches.length === 0) matches = prev.filter(r => r.name === id || r.accession === id);
+      if (matches.length === 0) matches = prev.filter(r => r.id === sanitizeId(id));
     }
-    return r;
-  });
-
-  const fileIds = Object.keys(annotations);
-  const unmatched = fileIds.filter(
-    id => !prev.some(r => r.id === id || r.name === id || r.accession === id),
-  );
+    if (matches.length !== 1) {
+      unmatched.push(id);
+      continue;
+    }
+    const index = prev.indexOf(matches[0]);
+    let record = next[index];
+    const items = [...(annotations[id] ?? [])];
+    const candidate = details[id];
+    if (candidate) {
+      if (candidate.start === 0 && candidate.end === record.sequence.length) {
+        const current = readDetails(record);
+        const fills: SequenceDetails = {};
+        for (const key of Object.keys(candidate.details) as DetailKey[]) {
+          if (!current[key] && !isDetailEdited(record, key)) fills[key] = candidate.details[key];
+        }
+        if (Object.keys(fills).length > 0) {
+          const fileDetails = { ...record.fileDetails };
+          for (const key of Object.keys(fills) as DetailKey[]) {
+            if (!fileDetails[key]) fileDetails[key] = fills[key];
+          }
+          record = { ...writeDetails(record, fills), fileDetails };
+        }
+        if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
+      } else items.push(candidate.feature);
+    }
+    if (items.length > 0) {
+      record = {
+        ...record,
+        features: [...record.features, ...items.filter((i): i is BioFeature => !('data' in i))],
+        tracks: [...(record.tracks ?? []), ...items.filter((i): i is QuantitativeTrack => 'data' in i)],
+      };
+      totalAdded += items.length;
+    }
+    next[index] = record;
+  }
   return { next, totalAdded, unmatched };
 }
 
-/**
- * FASTA_SUCCESS reducer. When !asAlignment: batch-append with dedup (like
- * applyParseSuccess but accession resolves from undefined). When asAlignment:
- * validate exact ID match (missing/extra), reject any overlay with an empty
- * sequence, and validate uniform length, then overlay alignedSequence onto
- * matching records.
- * Returns a discriminated `kind`.
- */
+/** Alignment overlays change only aligned residues; batch loads capture file provenance. */
 export function applyFastaResponse(
   prev: SeqRecord[],
   alignedData: FastaAlignedRecord[],
   asAlignment: boolean | undefined,
+  filename?: string,
 ):
-  | ({ next: SeqRecord[]; kind: 'batch'; count: number })
+  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
   | ({ next: SeqRecord[]; kind: 'reject-empty' }) {
   if (!asAlignment) {
-    const existingIds = prev.map(r => r.id);
-    const newRecords = alignedData.map(({ header: _header, ...r }) => {
-      const uniqueId = makeUniqueId(r.id, existingIds);
-      existingIds.push(uniqueId);
-      return {
-        ...r,
-        id: uniqueId,
-        name: uniqueId,
-        accession: resolveAccession(undefined, r.id, uniqueId),
-        visible: true,
-      };
-    });
-    return { next: [...prev, ...newRecords], kind: 'batch', count: newRecords.length };
+    const incoming = alignedData.map(({ header: _header, details, ...r }) =>
+      details && Object.keys(details).length > 0 ? writeDetails(r, details) : r);
+    return { ...applyParseSuccess(prev, incoming, filename), kind: 'batch' };
   }
 
   const currentIds = new Set(prev.map(r => r.id));
@@ -163,9 +162,9 @@ export function applyFastaResponse(
 }
 
 export function applyFastaAndLog(
-  records: SeqRecord[], alignedData: FastaAlignedRecord[], asAlignment: boolean | undefined, addLog: (message: string) => void,
+  records: SeqRecord[], alignedData: FastaAlignedRecord[], asAlignment: boolean | undefined, addLog: (message: string) => void, filename?: string,
 ): ReturnType<typeof applyFastaResponse> {
-  const result = applyFastaResponse(records, alignedData, asAlignment);
+  const result = applyFastaResponse(records, alignedData, asAlignment, filename);
   switch (result.kind) {
     case 'batch': addLog(`Batch ingestion complete: ${result.count} records added.`); break;
     case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;

@@ -21,7 +21,7 @@ import * as d3 from 'd3';
 import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
-import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases } from './annotationPresentation';
@@ -272,7 +272,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const place = (node: React.ReactNode) => (
                 <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
-              const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
+              const isSelected = focusedRegion?.featureIndex !== undefined && isFocusedSelection(focusedRegion, persistentSelection)
+                ? l.id === focusedRegion.recordId && l.record.features[focusedRegion.featureIndex] === f
+                : persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
               const isBroken = brokenFeatureMap.get(f) ?? false;

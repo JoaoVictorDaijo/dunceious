@@ -21,6 +21,8 @@ import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/r
 import React, { useState, useRef, useCallback } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
+import HubIndex from './hub/HubIndex';
+import type { useHubState } from '@/src/app/hooks/useHubState';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 import SectionTitle from './SectionTitle';
 import AlignmentSection from './AlignmentSection';
@@ -28,6 +30,9 @@ import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  featureColors?: Record<string, string>;
+  hubState?: ReturnType<typeof useHubState>;
+  onToggleRecordVisibility?: (id: string) => void;
   open: boolean;
   activeTab: 'alignment' | 'features';
   records: SeqRecord[];
@@ -81,6 +86,9 @@ export interface SidebarProps {
  */
 const Sidebar: React.FC<SidebarProps> = ({
   open,
+  hubState,
+  featureColors,
+  onToggleRecordVisibility,
   activeTab,
   records,
   transposedRecords,
@@ -153,6 +161,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
+  const logOutput = <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
+    {logs.map((log, i) => <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
+      <span className="text-emerald-500 font-bold">#</span><span className="flex-1">{log}</span>
+    </div>)}
+  </div>;
+
   return (
   <aside
     ref={sidebarRef}
@@ -167,8 +181,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
-    <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
+    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
+      {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} />}
+      {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
@@ -253,9 +269,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             {records.map(r => (
               <div
                 key={r.id}
-                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all group"
+                className={`w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all motion-reduce:transition-none group ${r.visible === false ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-2">
+                  <button aria-label={`${r.visible === false ? 'Show' : 'Hide'} ${r.id} in viewport`} data-tip={r.visible === false ? 'Show in viewport' : 'Hide in viewport'} onClick={() => onToggleRecordVisibility?.(r.id)} className="h-7 w-7 shrink-0 rounded-lg text-slate-400 hover:bg-env/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className={`fas ${r.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
                   <button
                     onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
                     data-tip={r.name && r.name !== r.id ? `${r.name}: select this record` : 'Select this record'}
@@ -383,18 +400,15 @@ const Sidebar: React.FC<SidebarProps> = ({
         isProteinSession={isProteinSession}
       />
 
-      {/* Log terminal */}
-      <section className="h-48 flex flex-col shrink-0">
+      </>}
+      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
+      {activeTab === 'features' ? <details className="shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
+        <summary className="cursor-pointer rounded px-1 py-1 focus-visible:ring-2 focus-visible:ring-env">Log</summary>
+        <div className="mt-2 flex h-48 flex-col">{logOutput}</div>
+      </details> : <section className="h-48 flex flex-col shrink-0">
         <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
-          {logs.map((log, i) => (
-            <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
-              <span className="text-emerald-500 font-bold">#</span>
-              <span className="flex-1">{log}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        {logOutput}
+      </section>}
 
     </div>
   </aside>

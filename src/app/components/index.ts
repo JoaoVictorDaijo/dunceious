@@ -24,7 +24,6 @@
  * import { TopNav, Sidebar, StatusBar } from '@/src/app/components';
  */
 export { default as AnnotationHubPanel } from './AnnotationHubPanel';
-export type { FlatItem } from './AnnotationHubPanel';
 
 export { default as FeatureEditorModal } from './FeatureEditorModal';
 export type { EditingFeatureState } from './FeatureEditorModal';

@@ -98,7 +98,8 @@ describe('parseHeader – SOURCE fallback', () => {
 
     it('falls back to VERSION when ACCESSION is absent', () => {
       const lines = ['LOCUS       T1   10 bp', 'VERSION     NM_123456.1  GI:11111'];
-      expect(parseHeader(lines).accession).toBe('NM_123456.1');
+      expect(parseHeader(lines).accession).toBe('NM_123456');
+      expect(parseHeader(lines).version).toBe('NM_123456.1');
     });
   });
 
@@ -136,4 +137,14 @@ describe('parseHeader – moleculeType', () => {
   it('defaults to "dna" when no LOCUS line is present', () => {
     expect(parseHeader([]).moleculeType).toBe('dna');
   });
+});
+
+
+it('keeps ACCESSION and VERSION distinct regardless of header order', () => {
+  for (const lines of [
+    ['ACCESSION   U49845', 'VERSION     U49845.2'],
+    ['VERSION     U49845.2', 'ACCESSION   U49845'],
+  ]) {
+    expect(parseHeader(lines)).toMatchObject({ accession: 'U49845', version: 'U49845.2' });
+  }
 });

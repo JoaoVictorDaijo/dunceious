@@ -20,6 +20,9 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
+import { emptyReport, detailsForExport, type ExportResult } from '../exportReport';
+import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
 
 /** Rebuild an edited/custom location from its existing segments, preserving
  * their order. This serializes coordinates; it does not extract a spliced product.
@@ -37,106 +40,84 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
   return !mixed && feature.strand === -1 ? `complement(${location})` : location;
 }
 
-/**
- * Serializes records to GenBank flat-file text.
- *
- * Reconstructs 1-based coordinates from the 0-based half-open model for FEATURES
- * locations (`f.start + 1..f.end`), preferring a preserved `locationString`
- * (keeps partial/join syntax). The DEFINITION line is stamped with the
- * ` Exported by Dunceious.` marker, stripping any pre-existing copy first so
- * repeated exports don't accumulate duplicates. The LOCUS line differs by
- * molecule type: protein records use the `aa` unit and omit the molecule-type
- * field; nucleotide records use `bp` with `RNA` or `DNA`. Metadata keys prefixed
- * with `_` are internal and omitted as qualifiers. ORIGIN lowercases the
- * sequence, 60 chars/line grouped
- * by 10 with a 1-based position gutter.
- */
-/**
- * INSDC qualifiers that carry no value (the parser stores them as ''). They are
- * written as a bare `/key`; any other empty value is dropped as noise.
- */
-const FLAG_QUALIFIERS = new Set([
-  'circular_RNA', 'environmental_sample', 'focus', 'germline', 'macronuclear', 'partial',
-  'proviral', 'pseudo', 'rearranged', 'ribosomal_slippage', 'trans_splicing', 'transgenic',
-]);
-
-export const exportToGenBank = (records: SeqRecord[]): string => {
+export function exportToGenBank(records: SeqRecord[]): ExportResult {
   if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
     throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
   }
-  return records.map(r => {
-    const escapeQualifierValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const report = emptyReport();
+  const text = records.map(r => {
     const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase().replace(/ /g, '-');
-    const seq = r.sequence;
-    const length = seq.length;
+    const length = r.sequence.length;
     const topology = r.isCircular ? 'circular' : 'linear  ';
     const isProtein = r.moleculeType === 'protein';
+    const molecule = r.moleculeType === 'rna' ? 'RNA' : 'DNA';
+    const rules = isProtein ? PROTEIN_QUALIFIERS : NUCLEOTIDE_QUALIFIERS;
+    const details = detailsForExport(r, report);
+    if (!isProtein && !details.organism) report.missingOrganism++;
 
-    let gb = '';
+    let gb = isProtein
+      ? `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} aa            ${topology}   UNK ${date}\n`
+      : `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    ${molecule}     ${topology}   UNK ${date}\n`;
+    const marker = ' Exported by Dunceious.';
+    const definition = (r.definition || r.name || r.id).replace(marker, '');
+    gb += `DEFINITION  ${definition}${marker}\nACCESSION   ${r.accession ?? '.'}\n`;
+    if (r.version) gb += `VERSION     ${r.version}\n`;
+    gb += `KEYWORDS    .\nSOURCE      ${details.organism || '.'}\n  ORGANISM  ${details.organism || '.'}\nFEATURES             Location/Qualifiers\n`;
 
-    // LOCUS – protein records use "aa" as the unit and omit the molecule type
-    if (isProtein) {
-      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} aa            ${topology}   UNK ${date}\n`;
-    } else {
-      const molecule = r.moleculeType === 'rna' ? 'RNA' : 'DNA';
-      gb += `LOCUS       ${r.id.padEnd(12)} ${length.toString().padStart(7)} bp    ${molecule}     ${topology}   UNK ${date}\n`;
+    const features = [...r.features.filter(f => f.type === 'source'), ...r.features.filter(f => f.type !== 'source')];
+    if (!isProtein && !features.some(f => f.type === 'source')) {
+      features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
     }
-
-    // DEFINITION – always stamped with the Dunceious exporter marker.
-    // Strip any existing marker first so repeated exports don't accumulate duplicates.
-    const DUNCEIOUS_MARKER = ' Exported by Dunceious.';
-    const rawDefinition = (r.definition || r.name || r.id).replace(DUNCEIOUS_MARKER, '');
-    gb += `DEFINITION  ${rawDefinition}${DUNCEIOUS_MARKER}\n`;
-
-    // ACCESSION / VERSION
-    gb += `ACCESSION   ${r.id}\n`;
-    gb += `VERSION     ${r.id}\n`;
-    gb += `KEYWORDS    .\n`;
-
-    // SOURCE / ORGANISM from source feature when available
-    const sourceFeature = r.features.find(f => f.type === 'source');
-    const organism = sourceFeature?.metadata?.['organism'] ?? '.';
-    gb += `SOURCE      ${organism}\n`;
-    gb += `  ORGANISM  ${organism}\n`;
-
-    // FEATURES
-    gb += `FEATURES             Location/Qualifiers\n`;
-    r.features.forEach(f => {
-      const location = featureLocation(f, length);
-      gb += `     ${f.type.padEnd(15)} ${location}\n`;
-      // Custom features may have no name-bearing qualifier. Keep their visible
-      // name without changing any qualifiers on existing imported features.
-      const namedQualifiers = ['gene', 'product', 'label', 'locus_tag'];
-      if (!namedQualifiers.some(key => f.metadata?.[key])) {
-        gb += `                     /label="${escapeQualifierValue(f.name)}"\n`;
-      }
-      if (f.metadata) {
-        Object.entries(f.metadata).forEach(([k, v]) => {
-          // Keys prefixed with '_' are internal Dunceious fields, not GenBank qualifiers
-          if (k.startsWith('_')) return;
-          if (v === '' && FLAG_QUALIFIERS.has(k)) {
-            gb += `                     /${k}\n`;
-            return;
+    for (const feature of features) {
+      gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
+      const metadata = { ...feature.metadata };
+      if (feature.translation && metadata.translation === undefined) metadata.translation = feature.translation;
+      if (feature.type === 'source') {
+        for (const [key, qualifier] of Object.entries(DETAIL_QUALIFIER)) {
+          const value = details[key as keyof typeof details];
+          if (!value) {
+            delete metadata[qualifier];
+            if (key === 'location') delete metadata.country;
           }
-          if (v !== undefined && v !== null && v !== '') {
-            gb += `                     /${k}="${escapeQualifierValue(String(v))}"\n`;
+        }
+        if (!isProtein) metadata.mol_type ||= `unassigned ${molecule}`;
+      }
+      // A valid name-bearing qualifier keeps custom annotations identifiable after import.
+      if (!isProtein && feature.type !== 'source' && feature.name && feature.name !== feature.type && !['gene', 'product', 'locus_tag', 'standard_name'].some(key => metadata[key])) {
+        metadata.standard_name = feature.name;
+      }
+      if (feature.type === 'CDS' && !metadata.codon_start) {
+        let phase = metadata.phase;
+        if (metadata._gffPhases) {
+          try {
+            const phases: unknown = JSON.parse(metadata._gffPhases);
+            if (Array.isArray(phases)) {
+              const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
+              phase = String(phases[reverse ? phases.length - 1 : 0]);
+            }
+          } catch {
+            // Malformed part phases retain the single-feature phase fallback.
           }
-        });
+        }
+        if (/^[012]$/.test(phase ?? '')) metadata.codon_start = String(Number(phase) + 1);
       }
-    });
-
-    // ORIGIN
-    gb += `ORIGIN\n`;
-    const originSeq = seq.toLowerCase();
-    for (let i = 0; i < originSeq.length; i += 60) {
-      const lineSeq = originSeq.substring(i, i + 60);
-      const groups: string[] = [];
-      for (let j = 0; j < lineSeq.length; j += 10) {
-        groups.push(lineSeq.substring(j, j + 10));
+      for (const [key, value] of Object.entries(metadata)) {
+        if (key.startsWith('_')) continue;
+        const syntax = rules.get(key);
+        if (!syntax || (isProtein && key === 'mol_type') || (syntax !== 'flag' && !value)) {
+          report.droppedAttributes++;
+          continue;
+        }
+        gb += formatQualifier(key, value, syntax).map(line => line + '\n').join('');
       }
+    }
+    gb += 'ORIGIN\n';
+    const residues = r.sequence.toLowerCase();
+    for (let i = 0; i < residues.length; i += 60) {
+      const groups = residues.slice(i, i + 60).match(/.{1,10}/g) ?? [];
       gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
     }
-    gb += `//\n`;
-    return gb;
+    return gb + '//\n';
   }).join('\n');
-};
+  return { text, report };
+}

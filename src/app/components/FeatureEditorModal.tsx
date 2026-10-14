@@ -84,6 +84,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   const updateRow = (id: number, patch: Partial<QualifierRow>) =>
     commitRows(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
 
+  if (feature.type === 'source' || records.find(record => record.id === recordId)?.features[featureIndex]?.type === 'source') return null;
+
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out my-auto">

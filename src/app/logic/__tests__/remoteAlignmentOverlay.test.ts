@@ -40,15 +40,15 @@ describe('remote alignment through the existing worker pipe', () => {
     ]);
   });
   it('retains first-token matching for external FASTA descriptions', () => {
-    const message = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1 external description\nA-C\n>other description\nAGC', asAlignment: true });
+    const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1 external description\nA-C\n>other description\nAGC', asAlignment: true });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA response');
     const result = applyFastaResponse([records[0], { ...records[1], id: 'other' }], message.alignedData, true);
     expect(result.kind).toBe('overlay');
     expect(result.next.map(r => r.alignedSequence)).toEqual(['A-C', 'AGC']);
   });
   it('leaves normal batch parsing unchanged', () => {
-    const response = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1 external description\nAC' });
-    expect(response).toMatchObject({ type: 'FASTA_SUCCESS', alignedData: [{ id: 'seq1', name: 'seq1' }] });
+    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1 external description\nAC' });
+    expect(response).toMatchObject({ type: 'FASTA_SUCCESS', filename: 'fixture.fa', alignedData: [{ id: 'seq1', name: 'seq1' }] });
   });
 });
 
@@ -58,7 +58,7 @@ describe('shared FASTA outcome logs', () => {
     ['>seq1\nAC\n>seq1-other\nACG', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: [seq1-other]'],
     ['>a\nAC', false, 'Batch ingestion complete: 1 records added.'],
   ])('preserves logging for %s', (content, asAlignment, expected) => {
-    const message = handleBioMessage({ type: 'PARSE_FASTA', content });
+    const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA');
     const logs: string[] = []; applyFastaAndLog(records, message.alignedData, asAlignment, message => logs.push(message));
     expect(logs).toEqual([expected]);

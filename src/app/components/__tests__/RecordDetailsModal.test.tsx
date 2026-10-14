@@ -33,6 +33,6 @@ describe('RecordDetailsModal biological coordinates', () => {
       onFocusFeature={onFocusFeature} onExportRecord={() => {}} onCopyLog={() => {}} />);
     expect(screen.getByText('7 bp')).toBeTruthy();
     fireEvent.click(screen.getByText(/Focus/));
-    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', start: 2, end: 16, label: 'joined', length: 7 });
+    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
   });
 });

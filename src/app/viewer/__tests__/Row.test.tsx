@@ -472,3 +472,25 @@ describe('record selection and focus label', () => {
       .queryByText('spike · 20 bp')).toBeNull();
   });
 });
+
+it.each([true, false])('outlines only the identified annotation on focus, and both on a manual selection (focused: %s)', focused => {
+  const record = rec([
+    { type: 'gene', name: 'same gene', start: 10, end: 30, strand: 1 },
+    { type: 'CDS', name: 'same CDS', start: 10, end: 30, strand: 1 },
+    { type: 'gene', name: 'earlier', start: 0, end: 5, strand: 1 },
+  ]);
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: focused ? { recordId: 'r', start: 10, end: 30, featureIndex: 1, label: 'same CDS', length: 20 } : null });
+  const outlined = [...container.querySelectorAll('path[data-annotation-part][stroke="#000"]')];
+  expect(outlined).toHaveLength(focused ? 1 : 2);
+  if (focused) expect(outlined[0].getAttribute('fill')).toBe(glyphs(container)[2].getAttribute('fill'));
+});
+it('retains coordinate outlines for a focused region without an annotation identity', () => {
+  const record = rec([{ type: 'gene', name: 'one', start: 10, end: 30, strand: 1 }, { type: 'CDS', name: 'two', start: 10, end: 30, strand: 1 }]);
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: { recordId: 'r', start: 10, end: 30, label: 'track', length: 20 } });
+  expect(container.querySelectorAll('path[data-annotation-part][stroke="#000"]')).toHaveLength(2);
+});
+it('does not outline another record at the focused feature coordinates', () => {
+  const record = { ...rec([{ type: 'gene', name: 'other', start: 10, end: 30, strand: 1 }]), id: 'other' };
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: { recordId: 'r', start: 10, end: 30, featureIndex: 0, label: 'focused', length: 20 } });
+  expect(container.querySelectorAll('path[data-annotation-part][stroke="#000"]')).toHaveLength(0);
+});

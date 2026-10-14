@@ -18,8 +18,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { SeqRecord } from '@/src/domain/bio/types';
+import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { featureFocusTarget, isFocusedSelection } from '../focusTarget';
+
+const targetFor = (r: SeqRecord, feature: BioFeature) => featureFocusTarget({ ...r, features: [feature] }, feature);
 
 const record = (over: Partial<SeqRecord>): SeqRecord =>
   ({ id: 'r', name: 'r', sequence: 'ACGTACGT', features: [], ...over }) as SeqRecord;
@@ -27,24 +29,24 @@ const record = (over: Partial<SeqRecord>): SeqRecord =>
 describe('featureFocusTarget', () => {
   it('targets every part of an aligned joined feature, with its biological length', () => {
     const r = record({ alignedSequence: '--A-CG--TA-C--GT--' });
-    const target = featureFocusTarget(r, { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
+    const target = targetFor(r, { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
       segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] });
-    expect(target).toEqual({ recordId: 'r', start: 2, end: 16, label: 'joined', length: 7 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
   });
 
   it('keeps raw coordinates on an unaligned record', () => {
-    const target = featureFocusTarget(record({}), { type: 'gene', name: 'g', start: 2, end: 6, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', start: 2, end: 6, label: 'g', length: 4 });
+    const target = targetFor(record({}), { type: 'gene', name: 'g', start: 2, end: 6, strand: 1 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 6, label: 'g', length: 4 });
   });
 
   it('keeps the wrap order of a feature crossing the origin', () => {
-    const target = featureFocusTarget(record({ isCircular: true }), { type: 'gene', name: 'ori', start: 6, end: 2, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', start: 6, end: 2, label: 'ori', length: 4 });
+    const target = targetFor(record({ isCircular: true }), { type: 'gene', name: 'ori', start: 6, end: 2, strand: 1 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 6, end: 2, label: 'ori', length: 4 });
   });
 });
 
 describe('isFocusedSelection', () => {
-  const target = { recordId: 'r', start: 2, end: 16, label: 'joined', length: 7 };
+  const target = { recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 };
 
   it('holds while the selection is exactly the focused region', () => {
     expect(isFocusedSelection(target, { start: 2, end: 16, recordIds: ['r'] })).toBe(true);
@@ -57,4 +59,10 @@ describe('isFocusedSelection', () => {
     expect(isFocusedSelection(target, null)).toBe(false);
     expect(isFocusedSelection(null, { start: 2, end: 16, recordIds: ['r'] })).toBe(false);
   });
+});
+
+it('carries the source feature index even when features share a span', () => {
+  const gene = { type: 'gene', name: 'gene', start: 2, end: 6, strand: 1 as const };
+  const cds = { ...gene, type: 'CDS', name: 'protein' };
+  expect(featureFocusTarget(record({ features: [gene, cds] }), cds)).toMatchObject({ featureIndex: 1, start: 2, end: 6 });
 });

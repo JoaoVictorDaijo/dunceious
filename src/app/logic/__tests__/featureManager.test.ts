@@ -22,8 +22,6 @@ import {
   saveEditedFeature,
   removeFeature,
   toggleRecordVisibility,
-  groupFeaturesBySearch,
-  buildFlattenedFeatures,
   newFeatureFromSelection,
   annotationCoords,
 } from '../featureManager';
@@ -70,45 +68,8 @@ describe('toggleRecordVisibility', () => {
   it('flips an explicit true to false', () => {
     expect(toggleRecordVisibility([rec({ id: 'r1', visible: true })], 'r1')[0].visible).toBe(false);
   });
-  it('treats undefined visibility as flipping to true', () => {
-    expect(toggleRecordVisibility([rec({ id: 'r1' })], 'r1')[0].visible).toBe(true);
-  });
-});
-
-describe('groupFeaturesBySearch', () => {
-  it('attaches the original index and filters case-insensitively by name', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'GeneAlpha' }), feat({ name: 'other' })] })];
-    const out = groupFeaturesBySearch(recs, 'alpha');
-    expect(out.r1.map(f => ({ name: f.name, index: f.index }))).toEqual([{ name: 'GeneAlpha', index: 0 }]);
-  });
-  it('matches on type, definition, and metadata values', () => {
-    const recs = [rec({ id: 'r1', definition: 'plasmid', features: [feat({ name: 'x', metadata: { note: 'HELLO' } })] })];
-    expect(groupFeaturesBySearch(recs, 'plasmid').r1).toHaveLength(1); // via definition
-    expect(groupFeaturesBySearch(recs, 'hello').r1).toHaveLength(1);   // via metadata (case-insensitive)
-  });
-  it('excludes a feature whose metadata is present but no value contains the search term', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'x', type: 'y', metadata: { note: 'zzz' } })] })];
-    expect(groupFeaturesBySearch(recs, 'qqq').r1).toEqual([]);
-  });
-});
-
-describe('buildFlattenedFeatures', () => {
-  it('orders header, then tracks, then features; header count = features + tracks', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'g1' }), feat({ name: 'g2' })], tracks: [{ id: 't1', name: 'trk', data: [] }] })];
-    const out = buildFlattenedFeatures(recs, '');
-    expect(out.map(i => i.type)).toEqual(['header', 'track', 'feature', 'feature']);
-    expect(out[0]).toMatchObject({ type: 'header', count: 3 });
-  });
-  it('drops a record whose features+tracks are empty when a search filter is active', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'x' })], tracks: [] })];
-    expect(buildFlattenedFeatures(recs, 'zzz')).toEqual([]);
-    expect(buildFlattenedFeatures(recs, '').map(i => i.type)).toEqual(['header', 'feature']);
-  });
-  it('still pushes header+track when features is empty, tracks is non-empty, and a search is active', () => {
-    const recs = [rec({ id: 'r1', features: [], tracks: [{ id: 't1', name: 'trk', data: [] }] })];
-    const out = buildFlattenedFeatures(recs, 'zzz');
-    expect(out.map(i => i.type)).toEqual(['header', 'track']);
-    expect(out[0]).toMatchObject({ type: 'header', count: 1 });
+  it('hides a record whose visibility is implicitly true', () => {
+    expect(toggleRecordVisibility([rec({ id: 'r1' })], 'r1')[0].visible).toBe(false);
   });
 });
 
@@ -157,4 +118,22 @@ describe('annotationCoords', () => {
       start: 0, end: 6, segments: [{ start: 0, end: 1 }, { start: 3, end: 4 }],
     });
   });
+});
+
+it('marks inserted and edited annotations as edited', () => {
+  const input = [rec({ id: 'r1', features: [feat({ name: 'a' })] })];
+  expect(saveEditedFeature(input, 'r1', -1, feat({ name: 'b' }))[0].annotationsEdited).toBe(true);
+  expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edited' }))[0].annotationsEdited).toBe(true);
+});
+
+
+it('marks new annotations added and keeps that provenance through later edits', () => {
+  const original = feat({ name: 'file' });
+  const input = [rec({ id: 'r1', features: [original] })];
+  const added = saveEditedFeature(input, 'r1', -1, feat({ name: 'new' }));
+  expect(added[0].features[1].hubEdit).toBe('added');
+  const edited = saveEditedFeature(added, 'r1', 1, feat({ name: 'changed' }));
+  expect(edited[0].features[1].hubEdit).toBe('added');
+  expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edit file' }))[0].features[0].hubEdit).toBe('edited');
+  expect(original.hubEdit).toBeUndefined();
 });

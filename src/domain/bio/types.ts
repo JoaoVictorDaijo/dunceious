@@ -46,6 +46,8 @@ export interface BioFeature {
   start: number;  // 0-based, inclusive
   end: number;    // 0-based, exclusive; end < start ⇒ circular wrap-around
   strand: 1 | -1; // 1 = forward/plus, -1 = reverse/minus
+  /** Workspace provenance survives projects but stays out of interchange files. */
+  hubEdit?: 'edited' | 'added';
   color?: string;
   metadata?: Record<string, string>;
   translation?: string;
@@ -69,11 +71,21 @@ export interface QuantitativeTrack {
   color?: string;
 }
 
+export type DetailKey = 'organism' | 'host' | 'location' | 'collectionDate';
+export type SequenceDetails = Partial<Record<DetailKey, string>>;
+
 export interface SeqRecord {
   id: string;
   name: string;
   definition?: string;
   accession?: string;
+  version?: string;
+  importedFrom?: string;
+  label?: string;
+  fileDetails?: SequenceDetails;
+  locationQualifier?: 'geo_loc_name' | 'country';
+  fastaModifiers?: Record<string, string>;
+  annotationsEdited?: boolean;
   /** Raw, ungapped residue string — always the coordinate space of source-record features. */
   sequence: string;
   moleculeType?: 'dna' | 'rna' | 'protein'; // governs reverse-strand search & translation availability

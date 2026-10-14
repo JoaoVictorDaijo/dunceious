@@ -17,65 +17,87 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { SeqRecord, SequenceDetails, DetailKey } from '@/src/domain/bio/types';
 import { detectMoleculeType } from '@/src/domain/bio';
+import { emptyReport, detailsForExport, type ExportResult } from '../exportReport';
+import { parseModifiers, DETAIL_TO_MODIFIER, MODIFIER_TO_DETAIL, DEPRECATED_MODIFIERS } from './ncbiModifiers';
 
-/** Minimal FASTA record (subset of SeqRecord). */
-export interface FastaRecord {
-  id: string;
-  name: string;
-  sequence: string;
-  features: BioFeature[];
+export type FastaRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'definition' | 'fastaModifiers'> & {
   moleculeType: 'dna' | 'rna' | 'protein';
-  /** The header line after `>`, trimmed; `id` is only its first token. */
   header: string;
-}
+  details: SequenceDetails;
+};
 
-/**
- * Parses FASTA content into simple record objects.
- */
-export const parseFasta = (content: string): FastaRecord[] => {
-  const lines = content.split('\n');
+export function parseFasta(content: string): FastaRecord[] {
   const results: FastaRecord[] = [];
   let currentId = '';
-  let currentHeader = '';
+  let currentRest = '';
   let currentSeq = '';
-
-  lines.forEach(line => {
+  const flush = () => {
+    if (!currentId) return;
+    const modifiers = parseModifiers(currentRest);
+    results.push({
+      id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq),
+      header: modifiers.text, definition: modifiers.text, details: modifiers.details, fastaModifiers: modifiers.unknown,
+    });
+  };
+  for (const line of content.split('\n')) {
     const trimmed = line.trim();
     if (trimmed.startsWith('>')) {
-      if (currentId) {
-        results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq), header: currentHeader });
-      }
-      currentHeader = trimmed.substring(1).trim();
-      currentId = currentHeader.split(/\s+/)[0];
+      flush();
+      const header = trimmed.slice(1).trim();
+      currentId = header.split(/\s+/)[0];
+      currentRest = header.slice(currentId.length).trim();
       currentSeq = '';
-    } else if (trimmed) {
-      currentSeq += trimmed;
-    }
-  });
-
-  if (currentId) {
-    results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [], moleculeType: detectMoleculeType(currentSeq), header: currentHeader });
+    } else if (trimmed) currentSeq += trimmed;
   }
+  flush();
   return results;
+}
+
+export type FastaExportOptions = {
+  residues: 'original' | 'aligned';
+  header: 'id' | 'details';
+  slice?: { start: number; end: number };
 };
 
-/**
- * Serializes records to FASTA, using `alignedSequence || sequence`.
- *
- * When both `start` and `end` are given, emits only the half-open slice
- * `[start, end)` (clamped to the sequence bounds); otherwise the full sequence.
- * A `[Slice: start-end]` tag is appended to the header whenever `start` is
- * provided. Wrapped at 60 chars/line.
- */
-export const exportToFasta = (records: SeqRecord[], start?: number, end?: number): string => {
-  return records.map(r => {
-    const seq = r.alignedSequence || r.sequence;
-    const finalSeq = (start !== undefined && end !== undefined) 
-      ? seq.substring(Math.max(0, start), Math.min(seq.length, end)) 
-      : seq;
-    const formattedSeq = finalSeq.match(/.{1,60}/g)?.join('\n') || '';
-    return `>${r.id}${start !== undefined ? ` [Slice: ${start}-${end}]` : ''}\n${formattedSeq}`;
+function cleanHeaderValue(value: string): string {
+  return value.replace(/[[\]\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** A slice is expressed in the chosen residue string's coordinates, including alignment gaps. */
+export function exportToFasta(records: SeqRecord[], options: FastaExportOptions = { residues: 'original', header: 'id' }): ExportResult {
+  const report = emptyReport();
+  const text = records.map(record => {
+    const residues = options.residues === 'aligned' ? record.alignedSequence || record.sequence : record.sequence;
+    const slice = options.slice;
+    const sequence = slice ? residues.substring(Math.max(0, slice.start), Math.min(residues.length, slice.end)) : residues;
+    let header = record.id;
+    if (options.header === 'details') {
+      const details = detailsForExport(record, report);
+      for (const [key, value] of Object.entries(details)) {
+        const cleaned = cleanHeaderValue(value);
+        if (cleaned) header += ` [${DETAIL_TO_MODIFIER[key as DetailKey]}=${cleaned}]`;
+      }
+      const source = record.features.find(feature => feature.type === 'source')?.metadata;
+      const written = new Set<string>();
+      for (const key of ['isolate', 'strain']) {
+        const value = source?.[key];
+        if (!value || !cleanHeaderValue(value)) continue;
+        header += ` [${key}=${cleanHeaderValue(value)}]`;
+        written.add(key);
+      }
+      for (const [key, value] of Object.entries(record.fastaModifiers ?? {})) {
+        if (DEPRECATED_MODIFIERS.has(key.toLowerCase().replace(/_/g, '-'))) {
+          report.deprecatedModifiersOmitted++;
+          continue;
+        }
+        if (Object.hasOwn(MODIFIER_TO_DETAIL, key.toLowerCase()) || written.has(key.toLowerCase())) continue;
+        if (cleanHeaderValue(key) && cleanHeaderValue(value)) header += ` [${cleanHeaderValue(key)}=${cleanHeaderValue(value)}]`;
+      }
+    }
+    if (slice) header += ` [Slice: ${slice.start}-${slice.end}]`;
+    return `>${header}\n${sequence.match(/.{1,60}/g)?.join('\n') || ''}`;
   }).join('\n\n');
-};
+  return { text, report };
+}

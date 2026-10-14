@@ -46,7 +46,7 @@ describe('aligned annotation details', () => {
     const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--AC--GT--',
       features: [{ type: 'gene', name: 'gapped', start: 0, end: 4, strand: 1 }] };
     const { container } = render(<App />);
-    act(() => { workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', records: [record] } }); });
+    act(() => { workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records: [record] } }); });
     const bar = container.querySelector('[data-annotation-part]');
     expect(bar).not.toBeNull();
     fireEvent.click(bar!);
