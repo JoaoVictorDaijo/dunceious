@@ -53,15 +53,19 @@ export default function Greeter({ onOpenWorkbench }: { onOpenWorkbench: () => vo
     setView('tour');
   };
 
-  // The share sheet needs the tap's user activation, so it opens before any state change.
-  const send = () => {
-    if (link.canShare) {
-      void link.share();
-      if (view === 'tour') setView('home');
-      return;
-    }
+  const showSendSection = () => {
     setArrival('send-section');
     setView('home');
+  };
+
+  // navigator.share needs the tap's user activation, so it is called synchronously in the handler.
+  const send = () => {
+    if (!link.canShare) {
+      showSendSection();
+      return;
+    }
+    void link.share().then((ok) => { if (!ok) showSendSection(); });
+    if (view === 'tour') showSendSection();
   };
 
   return (

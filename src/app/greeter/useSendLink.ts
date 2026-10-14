@@ -29,7 +29,8 @@ export interface SendLink {
   /** The URL without its scheme, for display. */
   label: string;
   canShare: boolean;
-  share: () => Promise<void>;
+  /** Resolves false when the browser refused to share, so the caller can offer copy and email instead. */
+  share: () => Promise<boolean>;
   copy: () => Promise<void>;
   copyState: CopyState;
   mailto: string;
@@ -48,8 +49,10 @@ export function useSendLink(url: string = `${window.location.origin}/`): SendLin
   const share = async () => {
     try {
       await navigator.share({ title: 'Dunceious', text: SHARE_TEXT, url });
-    } catch {
-      // Dismissing the share sheet rejects too; there is nothing to report.
+      return true;
+    } catch (e) {
+      // Dismissing the sheet rejects with AbortError; that is the user's choice, not a failure.
+      return e instanceof DOMException && e.name === 'AbortError';
     }
   };
 

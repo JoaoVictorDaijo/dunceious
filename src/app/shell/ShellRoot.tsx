@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Suspense, lazy, useState } from 'react';
+import { Component, Suspense, lazy, useState, type ReactNode } from 'react';
 import { pickShell, readShellEnv, rememberShell, type Shell, type ShellEnv } from './pickShell';
 
 // Each UI is its own chunk, so a phone never downloads the workbench and a
@@ -34,6 +34,29 @@ function Loading() {
   );
 }
 
+// A tab opened before a deploy asks for chunk hashes that no longer exist, and a
+// phone can drop its connection before "Open the workbench anyway" loads App.
+// Either way a reload recovers, which beats a blank page.
+class ShellErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 px-6 text-center text-slate-200" role="alert">
+        <p className="m-0 text-base">Something went wrong loading Dunceious. Check your connection and reload.</p>
+        <button type="button" onClick={() => window.location.reload()} className="h-12 rounded-xl bg-sky-700 px-6 font-bold text-white">
+          Reload
+        </button>
+      </div>
+    );
+  }
+}
+
 export default function ShellRoot({ env }: { env?: ShellEnv }) {
   const [shellEnv] = useState(() => env ?? readShellEnv());
   const [shell, setShell] = useState<Shell>(() => pickShell(shellEnv));
@@ -45,8 +68,10 @@ export default function ShellRoot({ env }: { env?: ShellEnv }) {
   };
 
   return (
-    <Suspense fallback={<Loading />}>
-      {shell === 'greeter' ? <Greeter onOpenWorkbench={openWorkbench} /> : <App />}
-    </Suspense>
+    <ShellErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        {shell === 'greeter' ? <Greeter onOpenWorkbench={openWorkbench} /> : <App />}
+      </Suspense>
+    </ShellErrorBoundary>
   );
 }

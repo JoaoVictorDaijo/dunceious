@@ -111,7 +111,9 @@ export default tseslint.config(
     ignores: ['**/__tests__/**', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [
-        { group: ['@/src/app/*', '@/src/app/**', '../*', '../**', '!@/src/app/greeter/**'],
+        { regex: '^@/src/app/(?!greeter(/|$))',
+          message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
+        { regex: '^(\\.\\./)+(App|components|hooks|viewer|logic|lib|shell|testing|recordRemoval)(/|\\.|$)',
           message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
       ] }],
     },

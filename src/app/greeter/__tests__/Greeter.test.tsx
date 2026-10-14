@@ -50,6 +50,15 @@ describe('Greeter home', () => {
     expect(screen.getByText('E, envelope protein, bases 26,245 to 26,472.')).toBeTruthy();
   });
 
+  it('steps through the genes, wrapping at both ends', () => {
+    render(<Greeter onOpenWorkbench={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Previous gene' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous gene' }));
+    expect(screen.getByText('ORF10, ORF10 protein, bases 29,558 to 29,674.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Next gene' }));
+    expect(screen.getByText('ORF1ab, ORF1ab polyprotein, bases 266 to 21,555.')).toBeTruthy();
+  });
+
   it('opens the workbench on request', () => {
     const onOpenWorkbench = vi.fn();
     render(<Greeter onOpenWorkbench={onOpenWorkbench} />);
@@ -91,6 +100,20 @@ describe('Greeter home', () => {
     expect(share).toHaveBeenCalledWith(expect.objectContaining({ url: `${window.location.origin}/` }));
   });
 
+  it('falls back to the address card when the browser refuses to share', async () => {
+    stubNavigator('share', vi.fn().mockRejectedValue(new DOMException('blocked', 'NotAllowedError')));
+    render(<Greeter onOpenWorkbench={() => {}} />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send to my computer' })); });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Copy' }));
+  });
+
+  it('stays put when the user dismisses the share sheet', async () => {
+    stubNavigator('share', vi.fn().mockRejectedValue(new DOMException('dismissed', 'AbortError')));
+    render(<Greeter onOpenWorkbench={() => {}} />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send to my computer' })); });
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it('falls back to the address card without a share sheet', () => {
     render(<Greeter onOpenWorkbench={() => {}} />);
     expect(screen.queryByRole('button', { name: 'Share…' })).toBeNull();
@@ -124,6 +147,17 @@ describe('Greeter tour', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close tour' }));
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Take the 60-second tour' }));
+  });
+
+  it('shares from the last step and lands on the address card', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    stubNavigator('share', share);
+    render(<Greeter onOpenWorkbench={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Take the 60-second tour' }));
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send it to my computer' })); });
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Copy' }));
   });
 
   it('ends on the address card when there is no share sheet', () => {
