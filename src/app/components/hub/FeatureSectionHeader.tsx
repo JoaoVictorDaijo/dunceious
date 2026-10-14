@@ -40,7 +40,7 @@ export function featureSectionHeight(group: FeatureGroup, folded: boolean, width
     + (hasComparisonTags(group) ? layout.tags + layout.gap : 0) + (!folded && group.counts.missing ? layout.missing + layout.gap : 0);
 }
 
-function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [], featureColors, width = 1000, gap = 0 }: { width?: number; gap?: number; featureColors?: Record<string, string>; records?: SeqRecord[]; group: FeatureGroup; folded: boolean; onFold: () => void; onSequence: (id: string) => void }) {
+function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [], featureColors, width = 1000, gap = 0, current = false }: { current?: boolean; width?: number; gap?: number; featureColors?: Record<string, string>; records?: SeqRecord[]; group: FeatureGroup; folded: boolean; onFold: () => void; onSequence: (id: string) => void }) {
   const lengths = useMemo(() => group.rows.map(({ record, feature }) => featureLength(record.sequence.length, feature.start, feature.end, feature.segments)), [group]);
   const counts = group.counts;
   const recordById = useMemo(() => new Map(records.map(record => [record.id, record])), [records]);
@@ -48,7 +48,7 @@ function FeatureSectionHeader({ group, folded, onFold, onSequence, records = [],
   const color = group.types.length === 1 ? getFeatureColor(group.types[0], featureColors) : undefined;
   return <div style={{ height: featureSectionHeight(group, folded, width, gap) }}>
     {gap > 0 && <div data-section-gap className="bg-transparent" style={{ height: gap }} />}
-    <div data-feature-surface className="border-b border-slate-100 bg-white px-5 text-xs text-slate-600" style={{ paddingTop: layout.padding, paddingBottom: layout.padding, height: featureSectionHeight(group, folded, width) }}>
+    <div data-feature-surface className={`border-b border-slate-100 px-5 text-xs text-slate-600 ${current ? 'bg-amber-50' : 'bg-white'}`} style={{ paddingTop: layout.padding, paddingBottom: layout.padding, height: featureSectionHeight(group, folded, width) }}>
       <div className="flex min-w-0 items-center gap-3" style={{ height: layout.title }}>
         <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${group.identity}`} aria-expanded={!folded} data-tip={folded ? 'Expand feature group' : 'Collapse feature group'} onClick={onFold} className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas fa-chevron-down transition-transform motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} /></button>
         <strong className="min-w-0 truncate font-mono font-bold text-slate-900" data-tip={group.identity}>{group.identity}</strong>

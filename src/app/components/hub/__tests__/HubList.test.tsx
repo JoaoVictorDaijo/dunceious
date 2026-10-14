@@ -265,3 +265,18 @@ it('uses one rail with proportional blocks, a draggable thumb, paging and hidden
   expect(viewport.scrollTop).toBe(1021);
   expect(within(rail).getByRole('button', { name: 'Jump to two' }).getAttribute('aria-current')).toBe('true');
 });
+
+
+it('sizes feature presence rows from the card content width after margins and borders', () => {
+  const values: SeqRecord[] = Array.from({ length: 52 }, (_, i) => ({ id: `pool${i}`, name: `pool${i}`, sequence: 'A'.repeat(100), features: [
+    { type: 'source', name: 'source', start: 0, end: 100, strand: 1, metadata: { organism: 'Virus' } },
+    { type: 'gene', name: 'shared', start: 10, end: 20, strand: 1 },
+  ] }));
+  function Cards() { const state = useHubState(); return <HubList kind="features" state={state} records={values} height={400} items={buildFeatureGroups(values, state.filters, false)} />; }
+  const { container } = render(<Cards />);
+  const presence = screen.getByRole('group', { name: 'Presence' });
+  expect(presence.style.height).toBe('32px');
+  expect(container.querySelector<HTMLElement>('[data-feature-surface]')!.style.height).toBe('106px');
+  const row = container.querySelector<HTMLElement>('[data-row-key="pool0:1"]')!.parentElement!;
+  expect(row.style.top).toBe('108px');
+});

@@ -440,3 +440,27 @@ it('shows annotation edit chips, group counts and an edited-only filter in both 
   fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
   expect(screen.getByText('2 edited or added')).toBeTruthy();
 });
+
+
+it('keeps the active search match by identity when sorting changes its displayed index', () => {
+  const values = [{ ...records[0], features: [
+    { ...records[0].features[0], name: 'hit zebra' },
+    { ...records[0].features[0], name: 'hit apple' },
+  ] }];
+  const { container } = render(<Subject initial={values} />);
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'hit' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
+  expect(screen.getByText('1 / 2')).toBeTruthy();
+  expect(container.querySelector('[data-row-key="seq0:1"]')!.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
+  expect(screen.getByText('2 / 2')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')!.getAttribute('aria-current')).toBe('true');
+  expect(screen.getByText('1 / 2')).toBeTruthy();
+});
+it('gives the current feature card an amber full header', () => {
+  render(<Subject initial={[records[0]]} />);
+  fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
+  expect(document.querySelector<HTMLElement>('.hub-group-current [data-feature-surface]')!.classList.contains('bg-amber-50')).toBe(true);
+});

@@ -169,7 +169,7 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, o
       </svg>
       <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-env/[0.07]' : 'border-2 border-dashed border-env bg-env/10'}`}>
         {large && <>
-          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={metrics.height - 2} fill="none" stroke="var(--env)" strokeWidth="2" strokeDasharray="4 2" /></svg>
+          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={(slim ? 20 : metrics.height) - 2} fill="none" stroke="var(--env)" strokeWidth="2" strokeDasharray="4 2" /></svg>
         </>}
       </div>
     </div>

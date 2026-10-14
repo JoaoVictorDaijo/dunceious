@@ -97,6 +97,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const observer = new ResizeObserver(measure); observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  const cardWidth = Math.max(0, listWidth - 30);
   const [measuredHeight, setMeasuredHeight] = useState(600);
   const [hovered, setHovered] = useState<BioFeature | null>(null);
   const { editingName, setEditingName, draft, setDraft } = state;
@@ -119,7 +120,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key), listWidth, 14) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, 14), item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key), cardWidth, 14) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, 14), item });
       if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? detailsEditorHeight((item as SequenceSection).record, draft?.id === item.key ? draft.details ?? {} : {}, wideDetails) : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
@@ -134,7 +135,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, listWidth]);
+  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, cardWidth]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
@@ -276,7 +277,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
-    if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} width={listWidth} gap={14} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
+    if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} current={entry.key === pinned?.sectionKey} width={cardWidth} gap={14} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
     return <SequenceSectionHeader pinned={pinnedFeature(section)} gap={14} density={state.density} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };

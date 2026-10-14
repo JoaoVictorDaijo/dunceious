@@ -280,3 +280,13 @@ it('keeps a pinned annotation outlined while hovering a different feature', () =
   expect(outline()).toBe(original);
   expect([...strip.querySelectorAll('path')].some(path => path.getAttribute('opacity') === '0.25')).toBe(true);
 });
+
+
+it('keeps the slim window dashed border inside its twenty-pixel lanes', () => {
+  const { container } = render(<GenomeStrip record={record} large slim />);
+  const band = container.querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.parentElement!.style.height).toBe('20px');
+  const border = band.querySelector('rect')!;
+  expect(border.getAttribute('y')).toBe('1');
+  expect(border.getAttribute('height')).toBe('18');
+});

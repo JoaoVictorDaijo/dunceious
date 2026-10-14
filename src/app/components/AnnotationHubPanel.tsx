@@ -76,7 +76,7 @@ export interface AnnotationHubPanelProps {
 export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const { records, state, isAlignmentLocked, lastFocusedKey } = props;
   const [currentRow, setCurrentRow] = useState<string | null>(null);
-  const [searchIndex, setSearchIndex] = useState(-1);
+  const [searchKey, setSearchKey] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [notice, setNotice] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
@@ -94,6 +94,7 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const rows = useMemo(() => state.tab === 'sequences' ? searchHits(sections) : groups.flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)), [state.tab, sections, groups]);
   const annotationKeys = useMemo(() => new Set(state.tab === 'sequences' ? sections.flatMap(section => section.rows.map(f => `${section.record.id}:${section.record.features.indexOf(f)}`)) : rows), [state.tab, sections, rows]);
   const matches = query.trim() ? rows : [];
+  const searchIndex = searchKey ? matches.indexOf(searchKey) : -1;
   const editSummary = useMemo(() => hubEditSummary(hubRecords.flatMap(record => record.features)), [hubRecords]);
   const markedCount = useMemo(() => hubRecords.reduce((sum, record) => sum + hubEditCounts(record.features).total, 0), [hubRecords]);
   const totalAnnotations = useMemo(() => records.reduce((count, record) => count + annotationFeatures(record).length, 0), [records]);
@@ -113,14 +114,14 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
     }
   }, [items.length, query, state.filters.query, state.jumpTarget, state.setJumpTarget, state.setCurrentSectionKey, state.trackWindow]);
   const jump = (key: string) => { setCurrentRow(key); state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); };
-  useEffect(() => { setSearchIndex(-1); }, [filters, state.tab, state.onlyProblems, state.hubHidden]);
+  useEffect(() => { setSearchKey(null); }, [filters, state.tab, state.onlyProblems, state.hubHidden]);
   useEffect(() => {
     if (state.jumpTarget && rows.includes(state.jumpTarget.key)) setCurrentRow(state.jumpTarget.key);
   }, [state.jumpTarget, rows]);
   const navigate = (direction: number) => {
     if (!matches.length) return;
     const index = searchIndex < 0 ? direction > 0 ? 0 : matches.length - 1 : (searchIndex + direction + matches.length) % matches.length;
-    setSearchIndex(index); jump(matches[index]);
+    setSearchKey(matches[index]); jump(matches[index]);
   };
   const keyboard = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;

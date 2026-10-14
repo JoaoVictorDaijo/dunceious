@@ -65,10 +65,10 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     <span className="flex h-[22px] max-w-full items-center truncate rounded-md border px-2 font-mono text-[11.5px]" style={{ background: `color-mix(in srgb, ${color} 13%, white)`, borderColor: `color-mix(in srgb, ${color} 28%, white)`, color: `color-mix(in srgb, ${color} 62%, #0f172a)` }}>{feature.type}</span>
     <span aria-label={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} data-tip={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} className={`flex h-[22px] w-[22px] items-center justify-center rounded-md ${strand === -1 ? 'text-rose-600 bg-rose-50' : strand === 1 ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>{strand === -1 ? '←' : strand === 1 ? '→' : '?'}</span>
     <div data-name-cell className="flex min-w-0 flex-nowrap items-center gap-2">
-      <div className={`flex min-w-0 items-center gap-2 ${kind === 'features' ? 'flex-nowrap' : 'flex-wrap'}`}>
-        <strong className="min-w-0 truncate font-semibold text-slate-900">{kind === 'features' ? record.accession || record.id : feature.name}</strong>
+      <div className={`flex min-w-0 items-center gap-2 ${kind === 'features' ? 'flex-1 flex-nowrap' : 'flex-wrap'}`}>
+        <strong className={`font-semibold text-slate-900 ${kind === 'features' ? 'shrink-0 whitespace-nowrap font-mono' : 'min-w-0 truncate'}`}>{kind === 'features' ? record.accession || record.id : feature.name}</strong>
         <HubEditChip mark={feature.hubEdit} />
-        {detail && <span data-row-subtext data-tip={detail} className="min-w-0 truncate text-slate-500">{detail}</span>}
+        {detail && <span data-row-subtext data-tip={detail} className="min-w-0 flex-1 truncate text-slate-500">{detail}</span>}
         {lastFocused && <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-env bg-white px-2 text-[10px] text-amber-800"><i aria-hidden="true" className="fas fa-crosshairs" />Last focused</span>}
       </div>
     <div data-row-actions className={`hub-row-actions ml-auto flex shrink-0 justify-end gap-0.5 text-slate-500 ${selected || current || lastFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'} transition-opacity motion-reduce:transition-none`}>
