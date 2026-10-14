@@ -249,3 +249,15 @@ describe('discontinuous codon geometry', () => {
       .toEqual([[0, 40], [160, 20], [180, 60]]);
   });
 });
+
+
+it('keeps reverse-oriented pieces continuous inside a mixed-strand codon', () => {
+  const recorder = installCanvasRecorder();
+  const labels = vi.spyOn(document.createElement('canvas').getContext('2d')!, 'fillText');
+  const feature: BioFeature = { type: 'CDS', name: 'mixed', start: 0, end: 6, strand: 1,
+    segments: [{ start: 0, end: 1, strand: 1 }, { start: 4, end: 6, strand: -1 }] };
+  render(<SequenceTrack {...props('AAAAAA', [feature])} />);
+  expect(recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([x, , w]) => [x, w]))
+    .toEqual([[0, 20], [80, 40]]);
+  expect(labels.mock.calls.filter(([text]) => text === 'I').map(([, x]) => x)).toEqual([100]);
+});

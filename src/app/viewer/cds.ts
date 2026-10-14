@@ -66,11 +66,11 @@ export const codonFrame = (firstBase: number, strand: 1 | -1): 0 | 1 | 2 => {
 };
 
 /** Codon pieces follow biological adjacency; inserted alignment gaps stay inside a piece. */
-export function codonSpans(indices: number[], strand: 1 | -1, positions: ArrayLike<number> | null): { start: number; end: number }[] {
+export function codonSpans(indices: number[], positions: ArrayLike<number> | null): { start: number; end: number }[] {
   const spans: { start: number; end: number }[] = [];
   indices.forEach((index, i) => {
     const previous = indices[i - 1];
-    const adjacent = i > 0 && (positions ? positions[index] - positions[previous] : index - previous) === strand;
+    const adjacent = i > 0 && Math.abs(positions ? positions[index] - positions[previous] : index - previous) === 1;
     const span = adjacent ? spans[spans.length - 1] : undefined;
     if (span) {
       span.start = Math.min(span.start, index);
@@ -120,7 +120,7 @@ export const assignTranslationLanes = (
           const endIdx = alignedIndices[j + 2];
           if (startIdx === undefined || endIdx === undefined) continue;
           const frame = codonFrame(positions ? positions[startIdx] : startIdx, strand);
-          const pieces = codonSpans(alignedIndices.slice(j, j + 3), strand, positions);
+          const pieces = codonSpans(alignedIndices.slice(j, j + 3), positions);
           const frameSpans = spans.get(frame) ?? [];
           frameSpans.push(...pieces);
           spans.set(frame, frameSpans);

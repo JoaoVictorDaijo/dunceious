@@ -242,7 +242,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           if (startIdx === undefined || endIdx === undefined) continue;
 
-          const pieces = codonSpans(alignedIndices.slice(j, j + 3), f.strand, originalPositions);
+          const pieces = codonSpans(alignedIndices.slice(j, j + 3), originalPositions);
           const labelPiece = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
           const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
           // Each codon sits in the row of its own frame, so a ribosomal frameshift
