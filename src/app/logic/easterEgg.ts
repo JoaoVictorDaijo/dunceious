@@ -23,6 +23,12 @@ export const UNLOCK_TAPS = 7;
 const COUNTDOWN_FROM = 3;
 /** Taps further apart than this restart the count. */
 export const TAP_WINDOW_MS = 1500;
+/**
+ * Backdrop clicks are ignored this long after the egg opens: unlocking takes
+ * rapid taps, and the surplus ones land on the overlay. A straggler can arrive
+ * as late as a tap that would still have counted, hence the same window.
+ */
+export const CLOSE_GUARD_MS = TAP_WINDOW_MS;
 
 /**
  * The coding strand that spells the app's name. U (selenocysteine) and O
@@ -57,11 +63,11 @@ export type TapOutcome =
   | { kind: 'silent' }
   | { kind: 'countdown'; remaining: number }
   | { kind: 'unlock' }
-  | { kind: 'already' };
+  | { kind: 'replay' };
 
-/** What the Nth consecutive tap does, Android-style. */
+/** What the Nth consecutive tap does, Android-style; once unlocked, any tap reopens the finale. */
 export function tapOutcome(taps: number, unlocked: boolean): TapOutcome {
-  if (unlocked) return { kind: 'already' };
+  if (unlocked) return { kind: 'replay' };
   const remaining = UNLOCK_TAPS - taps;
   if (remaining <= 0) return { kind: 'unlock' };
   if (remaining <= COUNTDOWN_FROM) return { kind: 'countdown', remaining };

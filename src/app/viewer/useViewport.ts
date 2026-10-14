@@ -21,8 +21,10 @@ import * as d3 from 'd3';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { VariableSizeList } from 'react-window';
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { SIDEBAR_WIDTH } from './constants';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import { MAX_ZOOM, SIDEBAR_WIDTH } from './constants';
 import { centeredScroll, pixelToColumn, selectionExtent } from './coordinates';
+import { useFocusFlight } from './useFocusFlight';
 
 export interface UseViewportParams {
   records: SeqRecord[];
@@ -31,10 +33,13 @@ export interface UseViewportParams {
   onSelectionChange: (s: SelectionArea | null) => void;
   jumpTo?: number | null;
   onJumpComplete?: () => void;
+  /** Frame this region once; `onFocusComplete` fires when it has been handled. */
+  focusRequest?: FocusTarget | null;
+  onFocusComplete?: () => void;
 }
 
 export function useViewport(params: UseViewportParams) {
-  const { records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete } = params;
+  const { records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete, focusRequest, onFocusComplete } = params;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const horizontalScrollRef = useRef<HTMLDivElement>(null);
@@ -54,7 +59,7 @@ export function useViewport(params: UseViewportParams) {
 
   const fitZoom = useMemo(() => {
     if (alignmentLength > 0 && viewportWidth > 0) {
-      return Math.min(150, Math.max(0.001, (viewportWidth - 40) / alignmentLength));
+      return Math.min(MAX_ZOOM, Math.max(0.001, (viewportWidth - 40) / alignmentLength));
     }
     return 0.001;
   }, [alignmentLength, viewportWidth]);
@@ -70,7 +75,7 @@ export function useViewport(params: UseViewportParams) {
   }, []);
 
   const applyZoom = useCallback((zoom: number, left: number) => {
-    const next = Math.min(150, Math.max(fitZoom, zoom));
+    const next = Math.min(MAX_ZOOM, Math.max(fitZoom, zoom));
     if (next === zoomLevel) {
       scrollTo(left);
     } else {
@@ -95,7 +100,7 @@ export function useViewport(params: UseViewportParams) {
     const left = horizontalScrollRef.current?.scrollLeft ?? 0;
     const anchor = mouseBp ?? (left + viewportWidth / 2) / zoomLevel;
     const anchorX = anchor * zoomLevel - left;
-    const next = Math.min(150, Math.max(fitZoom, zoomLevel * (delta > 0 ? 1.2 : 1 / 1.2)));
+    const next = Math.min(MAX_ZOOM, Math.max(fitZoom, zoomLevel * (delta > 0 ? 1.2 : 1 / 1.2)));
     applyZoom(next, anchor * next - anchorX);
   }, [fitZoom, zoomLevel, viewportWidth, applyZoom]);
 
@@ -131,17 +136,18 @@ export function useViewport(params: UseViewportParams) {
   const handleZoomToSelection = useCallback((selection: SelectionArea | null = activeSelection) => {
     if (selection && viewportWidth > 0) {
       const [start, end] = selectionExtent(selection, alignmentLength);
-      const targetZoom = Math.min(150, Math.max(fitZoom, (viewportWidth - 120) / Math.max(1, end - start)));
+      const targetZoom = Math.min(MAX_ZOOM, Math.max(fitZoom, (viewportWidth - 120) / Math.max(1, end - start)));
       applyZoom(targetZoom, centeredScroll(start, end, targetZoom, viewportWidth));
     }
   }, [activeSelection, viewportWidth, fitZoom, alignmentLength, applyZoom]);
 
   // External selections (search/inspector) reveal their target. A manual drag or
-  // handle edit already occurs in view and must stay under the pointer.
-  const selectionView = useRef({ zoomLevel, viewportWidth, alignmentLength, records });
-  selectionView.current = { zoomLevel, viewportWidth, alignmentLength, records };
+  // handle edit already occurs in view and must stay under the pointer. A focused
+  // selection is revealed by its flight instead.
+  const selectionView = useRef({ zoomLevel, viewportWidth, alignmentLength, records, focusRequest });
+  selectionView.current = { zoomLevel, viewportWidth, alignmentLength, records, focusRequest };
   useEffect(() => {
-    if (activeSelection && activeSelection !== localSelection.current) {
+    if (activeSelection && activeSelection !== localSelection.current && !selectionView.current.focusRequest) {
       const view = selectionView.current;
       const [start, end] = selectionExtent(activeSelection, view.alignmentLength);
       scrollTo(centeredScroll(start, end, view.zoomLevel, view.viewportWidth));
@@ -150,6 +156,11 @@ export function useViewport(params: UseViewportParams) {
     }
     localSelection.current = null;
   }, [activeSelection, scrollTo]);
+
+  useFocusFlight({
+    focusRequest, onFocusComplete, records, alignmentLength, viewportWidth, fitZoom, zoomLevel,
+    applyZoom, containerRef, horizontalScrollRef, listRef,
+  });
 
   const listContainerRef = useRef<HTMLDivElement>(null);
 

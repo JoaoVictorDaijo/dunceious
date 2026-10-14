@@ -22,8 +22,8 @@ import { handleBioMessage } from '../bio';
 
 describe('handleBioMessage — PARSE_FASTA', () => {
   it('returns FASTA_SUCCESS with parsed records and echoes asAlignment', () => {
-    const res = handleBioMessage({ type: 'PARSE_FASTA', content: '>a\nACGT', asAlignment: true });
-    expect(res).toMatchObject({ type: 'FASTA_SUCCESS', asAlignment: true });
+    const res = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>a\nACGT', asAlignment: true });
+    expect(res).toMatchObject({ type: 'FASTA_SUCCESS', filename: 'fixture.fa', asAlignment: true });
     if (res.type === 'FASTA_SUCCESS') {
       expect(res.alignedData).toHaveLength(1);
       expect(res.alignedData[0].id).toBe('a');
@@ -77,11 +77,11 @@ describe('handleBioMessage — records & genbank routing', () => {
   });
   it('routes PARSE_GENBANK to the GenBank parser', () => {
     const gb = 'LOCUS       TEST        10 bp    DNA     linear   UNK 01-JAN-2020\nORIGIN\n        1 atgcaaatag\n//\n';
-    const res = handleBioMessage({ type: 'PARSE_GENBANK', content: gb });
+    const res = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'fixture.fa', content: gb });
     expect(res.type).toBe('PARSE_SUCCESS');
   });
   it('echoes asAlignment=false on FASTA_SUCCESS', () => {
-    const res = handleBioMessage({ type: 'PARSE_FASTA', content: '>a\nACGT', asAlignment: false });
-    expect(res).toMatchObject({ type: 'FASTA_SUCCESS', asAlignment: false });
+    const res = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>a\nACGT', asAlignment: false });
+    expect(res).toMatchObject({ type: 'FASTA_SUCCESS', filename: 'fixture.fa', asAlignment: false });
   });
 });

@@ -142,3 +142,30 @@ describe('parseQualifiers – malformed / skip branches', () => {
     expect(lastIdx).toBe(1);
   });
 });
+
+
+describe('INSDC qualifier values', () => {
+  const indent = ' '.repeat(21);
+  const parse = (...values: string[]) => parseQualifiers(values.map(v => indent + v), 0).qualifiers;
+
+  it('unescapes doubled quotes while preserving literal embedded quotes', () => {
+    expect(parse('/note="isolate ""A"" from camel"').note).toBe('isolate "A" from camel');
+    expect(parse('/note="literal "A" inside"').note).toBe('literal "A" inside');
+  });
+
+  it('joins three text lines with spaces without stripping embedded quotes', () => {
+    expect(parse('/note="isolate ""A""', 'from camel in', 'Saudi Arabia"').note).toBe('isolate "A" from camel in Saudi Arabia');
+  });
+
+  it('retains slash-leading text inside an open quoted value', () => {
+    expect(parse('/note="first line', '/not_a_qualifier text"', '/gene="X"')).toEqual({ note: 'first line /not_a_qualifier text', gene: 'X' });
+  });
+
+  it('joins translations without whitespace and parses unquoted values and flags', () => {
+    expect(parse('/translation="MAST', 'FPPW"', '/codon_start=2', '/pseudo')).toEqual({ translation: 'MASTFPPW', codon_start: '2', pseudo: '' });
+  });
+
+  it('keeps the last repeated qualifier value', () => {
+    expect(parse('/note="first"', '/note="last"').note).toBe('last');
+  });
+});

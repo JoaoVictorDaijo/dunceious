@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest';
 import { clipAndRebaseInterval, sliceRecordsBySelection } from '../intervals';
 import type { SeqRecord, BioFeature } from '../types';
+import { extractCodingSequence, translateFeature } from '../sequence';
 
 // ---------------------------------------------------------------------------
 // clipAndRebaseInterval – half-open [start, end) boundary semantics
@@ -214,7 +215,7 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
     expect(result.features[0].segments).toEqual([{ start: 2, end: 8 }]);
   });
 
-  it('sets segments to undefined when all sub-intervals are outside', () => {
+  it('discards a feature when the selection intersects only its intron', () => {
     const feature: BioFeature = {
       type: 'gene',
       name: 'no_overlap',
@@ -227,10 +228,28 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
       ],
     };
     const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
-    // Parent still overlaps → feature kept, but segments cleared
-    expect(result.features).toHaveLength(1);
-    expect(result.features[0].segments).toBeUndefined();
+    expect(result.features).toEqual([]);
   });
+
+  it('derives the selected envelope from surviving authoritative parts', () => {
+    const feature: BioFeature = {
+      type: 'gene', name: 'joined', start: 0, end: 30, strand: 1,
+      segments: [{ start: 0, end: 8 }, { start: 12, end: 18 }, { start: 22, end: 30 }],
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    expect(result.features[0]).toMatchObject({ start: 2, end: 8 });
+  });
+
+  it.each([{ segments: undefined }, { segments: [{ start: 25, end: 30 }, { start: 0, end: 5 }] }])(
+    'retains origin-crossing parts when selecting the full circular sequence: %j', ({ segments }) => {
+      const feature: BioFeature = { type: 'gene', name: 'origin', start: 25, end: 5, strand: 1, segments };
+      const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 0, 30);
+      expect(result.features).toHaveLength(1);
+      expect(result.features[0]).toMatchObject({
+        start: 0, end: 30, segments: [{ start: 25, end: 30 }, { start: 0, end: 5 }],
+      });
+    },
+  );
 
   it('preserves undefined segments on a simple feature', () => {
     const feature: BioFeature = { type: 'CDS', name: 'simple', start: 12, end: 18, strand: 1 };
@@ -318,5 +337,55 @@ describe('sliceRecordsBySelection – output structure', () => {
   it('handles records with no tracks gracefully', () => {
     const [result] = sliceRecordsBySelection([makeRecord()], 10, 20);
     expect(result.tracks).toBeUndefined();
+  });
+});
+
+describe('sliceRecordsBySelection – clipped CDS translation', () => {
+  it('recomputes the selected protein instead of retaining the full annotation', () => {
+    const feature: BioFeature = {
+      type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1,
+      translation: 'MKP', metadata: { translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' },
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9);
+    const selected = result.features[0];
+    expect(selected.translation).toBeUndefined();
+    expect(selected.metadata?.translation).toBeUndefined();
+    expect(selected.metadata?._gffPhases).toBeUndefined();
+    expect(selected.metadata?.phase).toBeUndefined();
+    expect(translateFeature(selected, extractCodingSequence(selected, result.sequence).codingSeq)).toBe('KP');
+    expect(feature.translation).toBe('MKP');
+    expect(feature.metadata?.translation).toBe('MKP');
+  });
+
+  it.each([
+    { strand: 1 as const, start: 1, end: 9, codonStart: '1', want: '3' },
+    { strand: -1 as const, start: 0, end: 8, codonStart: '1', want: '3' },
+    { strand: 1 as const, start: 1, end: 9, codonStart: '2', want: '1' },
+  ])('preserves the codon boundary after clipping strand $strand with codon_start $codonStart to [$start,$end)', ({ strand, start, end, codonStart, want }) => {
+    const feature: BioFeature = {
+      type: 'CDS', name: 'coding', start: 0, end: 9, strand,
+      metadata: { codon_start: codonStart },
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], start, end);
+    expect(result.features[0].metadata?.codon_start).toBe(want);
+  });
+
+  it('recalculates SO CDS phase after clipping and invalidates its phase snapshot', () => {
+    const feature: BioFeature = {
+      type: 'SO:0000316', name: 'coding', start: 0, end: 9, strand: 1,
+      metadata: { codon_start: '1', _gffPhaseState: 'imported' },
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 1, 9);
+    expect(result.features[0].metadata?.codon_start).toBe('3');
+    expect(result.features[0].metadata?._gffPhaseState).toBeUndefined();
+  });
+
+  it('counts removed spliced biological bases instead of genomic distance or gap columns', () => {
+    const feature: BioFeature = {
+      type: 'CDS', name: 'joined', start: 0, end: 15, strand: 1,
+      segments: [{ start: 0, end: 4 }, { start: 10, end: 15 }], metadata: { codon_start: '1' },
+    };
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'A--TNNNNNNGAAAC', features: [feature] })], 10, 15);
+    expect(result.features[0].metadata?.codon_start).toBe('2');
   });
 });

@@ -31,7 +31,7 @@ export function pixelToColumn(x: number, scrollLeft: number, zoom: number, lengt
 }
 
 /** A wrapped interval occupies both ends of the existing linear viewport. */
-export function selectionExtent(selection: SelectionArea, length: number): [number, number] {
+export function selectionExtent(selection: Pick<SelectionArea, 'start' | 'end'>, length: number): [number, number] {
   return selection.start > selection.end ? [0, length] : [selection.start, selection.end];
 }
 

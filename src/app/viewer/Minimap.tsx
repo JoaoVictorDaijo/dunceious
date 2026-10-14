@@ -259,7 +259,7 @@ export const Minimap: React.FC<MinimapProps> = ({
         <canvas ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
         <svg ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
-          <span className="text-[8px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
+          <span className="text-[11px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
         </div>
       </div>
     </div>

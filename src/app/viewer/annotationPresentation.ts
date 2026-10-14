@@ -20,6 +20,7 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { reverseComplement } from '@/src/domain/bio/sequence';
+import { segmentFrameshifts, type FrameShift } from '@/src/domain/bio/frameshift';
 
 export function annotationDirection(feature: BioFeature, moleculeType?: SeqRecord['moleculeType'], strand?: 1 | -1): string {
   if (moleculeType === 'protein') return 'Protein region';
@@ -38,6 +39,13 @@ export function annotationBase(base: string, strand: ReturnType<typeof getFeatur
   if (strand !== -1 || moleculeType === 'protein') return base;
   return reverseComplement(base, moleculeType);
 }
+
+/** `−1` / `+1`: a true minus sign, as the badge and the step label read it. */
+export const frameshiftLabel = (shift: FrameShift): string => `${shift < 0 ? '−' : '+'}${Math.abs(shift)}`;
+
+/** One tooltip line per ribosomal frameshift of a joined feature, in 1-based coordinates. */
+export const frameshiftSummary = (feature: BioFeature): string[] =>
+  segmentFrameshifts(feature).map(j => `Ribosomal frameshift: ${frameshiftLabel(j.shift)} at ${j.position + 1}`);
 
 export function fitAnnotationText(text: string, width: number, charWidth: number): string {
   const capacity = Math.max(0, Math.floor((width - 8) / charWidth));

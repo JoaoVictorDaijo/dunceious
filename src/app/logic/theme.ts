@@ -41,16 +41,19 @@ export interface Theme {
 
 /**
  * The shipped accent palette — the single source of truth for the env tokens.
- * Values are the prototype's tuned families with both approved retunes:
- * nucleotide.env3 teal (#0d9488) and protein.env #a78bfa (WCAG AA on the chrome).
- * `none` is a luminance-matched neutral family, not eyeballed grey — it keeps the
- * no-session chrome from dropping below any contrast the coloured families survive.
+ * Every family is generated at the same OKLCH lightness (env 0.75, env2 0.86,
+ * env3 0.62) and chroma (0.125; 0.018 for `none`), varying only the hue
+ * (nucleotide 232°, protein 298°, hub 72°). Equal lightness is what keeps one
+ * session from reading hotter than another — the old Tailwind-500 set let amber
+ * run ~25% brighter. `env` doubles as the fill of active controls, so it must
+ * carry slate-950 text and stay legible as text on the slate-900 chrome
+ * (both above 7:1; pinned in theme.test.ts).
  */
 export const DEFAULT_PALETTE: Record<EnvAccentKey, EnvPalette> = {
-  nucleotide: { env: '#0ea5e9', env2: '#22d3ee', env3: '#0d9488' },
-  protein:    { env: '#a78bfa', env2: '#d8b4fe', env3: '#c026d3' },
-  hub:        { env: '#f59e0b', env2: '#fbbf24', env3: '#f97316' },
-  none:       { env: '#929ba8', env2: '#b8bec7', env3: '#6e7684' },
+  nucleotide: { env: '#4bbbef', env2: '#95dcff', env3: '#2b91be' },
+  protein:    { env: '#b89cf3', env2: '#d7c5ff', env3: '#8f76c1' },
+  hub:        { env: '#dfa04b', env2: '#f5c891', env3: '#b07a2e' },
+  none:       { env: '#a7afb9', env2: '#ccd2d9', env3: '#808790' },
 };
 
 export const DEFAULT_THEME_KEY: ThemeKey = 'clean';

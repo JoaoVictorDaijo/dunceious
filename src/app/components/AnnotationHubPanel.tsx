@@ -17,398 +17,185 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { getFeatureStrand } from '@/src/domain/bio/strand';
-import React, { useRef, useCallback, useEffect, useState } from 'react';
-import { VariableSizeList } from 'react-window';
-import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
-import { getFeatureColor } from '@/src/app/viewer/colors';
-import { featureLength } from '@/src/app/logic/viewModel';
-
-export type FlatItem =
-  | { type: 'header'; recordId: string; count: number }
-  | { type: 'track'; recordId: string; track: any }
-  | { type: 'feature'; recordId: string; feature: BioFeature & { index: number } };
-
-/** Stable identity of a hub row across tab switches, used to find it again after Focus. */
-export function hubRowKey(item: FlatItem): string {
-  if (item.type === 'header') return `${item.recordId}:record`;
-  if (item.type === 'track') return `${item.recordId}:track:${item.track.name}`;
-  return `${item.recordId}:feature:${item.feature.index}`;
-}
+import { createPortal } from 'react-dom';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import type { BioFeature, DetailKey, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
+import { annotationFeatures } from '@/src/domain/bio/recordStatus';
+import { buildSequenceSections, searchHits, sortGroupRows, cycleRowSort, type RowSortColumn } from '@/src/app/logic/hubModel';
+import { buildFeatureGroups, countFeatureGroups } from '@/src/app/logic/featureComparison';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import type { useHubState } from '@/src/app/hooks/useHubState';
+import HubToolbar from './hub/HubToolbar';
+import HubTabs from './hub/HubTabs';
+import { withHiddenCells } from '@/src/app/logic/hubVisibility';
+import { hubEditSummary, hubEditCounts } from '@/src/app/logic/hubEdits';
+import FilterBar from './hub/FilterBar';
+import SelectionBar from './hub/SelectionBar';
+import ExportDialog from './hub/ExportDialog';
+import type { HubExportFormat, ExportOptions } from '@/src/app/logic/exportPlan';
+import ImportMenu from './hub/ImportMenu';
+import UndoToast from './hub/UndoToast';
+import HubEmptyState from './hub/HubEmptyState';
+import HubList from './hub/HubList';
+import ShortcutsSheet from './hub/ShortcutsSheet';
 
 /** Where a Focus jump left from, so the viewport can offer the way back. */
-export interface HubFocusOrigin {
-  key: string;
-  label: string;
-}
-
-/** How long a returned-to row glows before settling to its "last focused" marker. */
-const RETURN_FLASH_MS = 1600;
+export interface HubFocusOrigin { key: string; label: string }
 
 export interface AnnotationHubPanelProps {
+  toolsSlot?: HTMLDivElement | null;
   records: SeqRecord[];
-  flattenedFeatures: FlatItem[];
-  allFeaturesCount: number;
-  featureSearch: string;
-  onFeatureSearchChange: (q: string) => void;
+  state: ReturnType<typeof useHubState>;
   featureColors: Record<string, string>;
-  activeSelection: SelectionArea | null;
   onStartNewFeature: () => void;
-  onToggleRecordVisibility: (recordId: string) => void;
+  isAlignmentLocked?: boolean;
   onRemoveRecord: (recordId: string) => void;
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
   onEditFeature: (recordId: string, featureIndex: number, feature: BioFeature) => void;
   onRemoveFeature: (recordId: string, featureIndex: number) => void;
-  onFocusItem: (recordId: string, start: number, end: number, origin: HubFocusOrigin) => void;
-  /** The row the last Focus jump came from: scrolled into view and marked on mount. */
+  onDeleteRows: (keys: Set<string>) => void;
+  undoAvailable: boolean;
+  undoVersion?: number;
+  onUndoPause?: (paused: boolean) => void;
+  onUndoDelete: () => void;
+  onSetRecordDetails: (id: string, details: SequenceDetails) => void;
+  onSetRecordLabel: (id: string, label: string) => void;
+  onSetDetail: (ids: Set<string>, key: DetailKey, value: string) => void;
+  onFocusItem: (target: FocusTarget, origin: HubFocusOrigin) => void;
   lastFocusedKey?: string | null;
-  onExportAllFasta: () => void;
-  onExportGenBank: () => void;
-  onExportGff: () => void;
   onExportProjectJson: () => void;
+  onExportRecords: (ids: string[], format: HubExportFormat, options: ExportOptions) => void;
   onClearAll: () => void;
   addLog: (msg: string) => void;
+  onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onAlignmentUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onAnnotationUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onProjectUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onDroppedFiles: (files: File[]) => void;
 }
 
-/**
- * The "Annotation Hub" panel shown when the features tab is active.
- * Renders a virtualised list of all records, their tracks, and annotations.
- */
-const AnnotationHubPanel: React.FC<AnnotationHubPanelProps> = ({
-  records,
-  flattenedFeatures,
-  allFeaturesCount,
-  featureSearch,
-  onFeatureSearchChange,
-  featureColors,
-  activeSelection,
-  onStartNewFeature,
-  onToggleRecordVisibility,
-  onRemoveRecord,
-  onViewFeatureDetails,
-  onEditFeature,
-  onRemoveFeature,
-  onFocusItem,
-  lastFocusedKey = null,
-  onExportAllFasta,
-  onExportGenBank,
-  onExportGff,
-  onExportProjectJson,
-  onClearAll,
-  addLog,
-}) => {
-  const hubListRef = useRef<VariableSizeList>(null);
-  const listContainerRef = useRef<HTMLDivElement>(null);
-  const [listHeight, setListHeight] = useState(600);
-  const [flashKey, setFlashKey] = useState<string | null>(lastFocusedKey);
-
-  // Coming back from a Focus jump: bring the origin row to the middle of the list
-  // and let it glow once. Runs on mount only — the hub remounts on every return.
-  useEffect(() => {
-    if (!lastFocusedKey) return;
-    const index = flattenedFeatures.findIndex(item => hubRowKey(item) === lastFocusedKey);
-    if (index >= 0) hubListRef.current?.scrollToItem(index, 'center');
-    const timer = setTimeout(() => setFlashKey(null), RETURN_FLASH_MS);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const el = listContainerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        setListHeight(entry.contentRect.height);
-      }
+export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
+  const { records, state, isAlignmentLocked, lastFocusedKey } = props;
+  const sequenceInput = useRef<HTMLInputElement>(null);
+  const { currentRow, setCurrentRow, searchKey, setSearchKey } = state;
+  const [dragOver, setDragOver] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [organismEditRequest, setOrganismEditRequest] = useState(0);
+  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(timer); }, [notice]);
+  const query = useDeferredValue(state.filters.query);
+  const { types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly } = state.filters;
+  const filters = useMemo(() => ({ query, types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly }), [query, filterTypes, strand, sequenceQuery, needsAttention, onlyIds, editedOnly]);
+  const hubRecords = useMemo(() => records.filter(record => !state.hubHidden.has(record.id)), [records, state.hubHidden]);
+  const displayState = { ...state, filters };
+  const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(hubRecords, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort).map(section => ({ ...section, rows: sortGroupRows(section.rows.map(feature => ({ record: section.record, feature })), state.rowSort.sequences).map(row => row.feature) })) : [], [hubRecords, filters, state.tab, state.grouped, state.groupField, state.sort, state.rowSort.sequences]);
+  const groups = useMemo(() => state.tab === 'features' ? withHiddenCells(buildFeatureGroups(hubRecords, filters, state.onlyProblems), records, state.hubHidden, filters).map(group => ({ ...group, rows: sortGroupRows(group.rows, state.rowSort.features, 'features') })) : [], [hubRecords, records, state.hubHidden, filters, state.tab, state.onlyProblems, state.rowSort.features]);
+  const featureCount = useMemo(() => state.tab === 'features' ? groups.length : countFeatureGroups(hubRecords, filters), [hubRecords, filters, state.tab, groups]);
+  const items = state.tab === 'sequences' ? sections : groups;
+  const allMatchingHidden = useMemo(() => {
+    if (items.length || !state.hubHidden.size) return false;
+    const matchingIds = state.tab === 'sequences'
+      ? buildSequenceSections(records, filters, { grouped: false }, 'load').map(section => section.record.id)
+      : buildFeatureGroups(records, filters, state.onlyProblems).flatMap(group => group.rows.map(row => row.record.id));
+    return matchingIds.length > 0 && matchingIds.every(id => state.hubHidden.has(id));
+  }, [items.length, records, filters, state.tab, state.onlyProblems, state.hubHidden]);
+  const rows = useMemo(() => state.tab === 'sequences' ? searchHits(sections) : groups.flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)), [state.tab, sections, groups]);
+  const annotationKeys = useMemo(() => new Set(state.tab === 'sequences' ? sections.flatMap(section => section.rows.map(f => `${section.record.id}:${section.record.features.indexOf(f)}`)) : rows), [state.tab, sections, rows]);
+  const matches = query.trim() ? rows : [];
+  const searchIndex = searchKey ? matches.indexOf(searchKey) : -1;
+  const editSummary = useMemo(() => hubEditSummary(hubRecords.flatMap(record => record.features)), [hubRecords]);
+  const markedCount = useMemo(() => hubRecords.reduce((sum, record) => sum + hubEditCounts(record.features).total, 0), [hubRecords]);
+  const totalAnnotations = useMemo(() => records.reduce((count, record) => count + annotationFeatures(record).length, 0), [records]);
+  const visibleAnnotations = annotationKeys.size;
+  const visibleRecords = state.tab === 'sequences' ? sections.length : new Set(groups.flatMap(group => group.rows.map(row => row.record.id))).size;
+  const types = useMemo(() => {
+    const result = new Map<string, number>();
+    hubRecords.forEach(record => {
+      annotationFeatures(record).forEach(feature => result.set(feature.type, (result.get(feature.type) ?? 0) + 1));
+      if (state.tab === 'sequences' && record.tracks?.length) result.set('track', (result.get('track') ?? 0) + record.tracks.length);
     });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const isFeatureInSelection = useCallback((f: BioFeature) => {
-    if (!activeSelection) return false;
-    return f.start === activeSelection.start && f.end === activeSelection.end;
-  }, [activeSelection]);
-
-  const getHubRowHeight = useCallback((index: number) => {
-    const item = flattenedFeatures[index];
-    if (!item) return 0;
-    return item.type === 'header' ? 60 : 70;
-  }, [flattenedFeatures]);
-
+    return result;
+  }, [hubRecords, state.tab]);
   useEffect(() => {
-    if (hubListRef.current) hubListRef.current.resetAfterIndex(0);
-  }, [flattenedFeatures]);
-
-  const HubRow = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const item = flattenedFeatures[index];
-    if (!item) return null;
-
-    if (item.type === 'header') {
-      const record = records.find(r => r.id === item.recordId);
-      const isVisible = record?.visible !== false;
-      return (
-        <div style={style} className="bg-slate-100/50 border-b border-slate-200 px-8 py-4 flex items-center justify-between z-10">
-          <div className="flex items-center gap-4">
-            <input
-              type="checkbox"
-              checked={isVisible}
-              onChange={() => onToggleRecordVisibility(item.recordId)}
-              data-tip={isVisible ? 'Hide this record in the viewport' : 'Show this record in the viewport'}
-              className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-            />
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600">
-                {record?.name || item.recordId}
-                {record?.isCircular && (
-                  <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[8px] font-bold border border-amber-200">CIRCULAR</span>
-                )}
-              </span>
-              {record?.definition && (
-                <span className="text-[9px] font-bold text-slate-500 italic mt-0.5 line-clamp-1">{record.definition}</span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">({item.count} annotations)</span>
-            <button
-              onClick={() => {
-                if (window.confirm(`Remove sequence "${record?.name || item.recordId}" from project?`)) {
-                  onRemoveRecord(item.recordId);
-                }
-              }}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
-              aria-label={`Remove ${record?.name || item.recordId}`}
-              data-tip="Remove this sequence and its annotations from the project"
-            >
-              <i className="fas fa-trash-alt"></i>
-            </button>
-          </div>
-        </div>
-      );
+    if (!items.length && query === state.filters.query) {
+      state.setJumpTarget(null); state.setCurrentSectionKey(null); state.trackWindow.update(null);
     }
-
-    const rowKey = hubRowKey(item);
-    const isLastFocused = rowKey === lastFocusedKey;
-    // An accent bar plus tag marks the origin row; the glow plays only right after returning.
-    const returnMark = isLastFocused
-      ? `relative shadow-[inset_3px_0_0_0_#f59e0b] ${flashKey === rowKey ? 'animate-row-return motion-reduce:animate-none' : ''}`
-      : '';
-    const lastFocusedTag = isLastFocused && (
-      <span
-        className="ml-2 align-middle inline-flex items-center gap-1 px-1.5 py-px rounded bg-amber-100 text-amber-700 text-[8px] font-bold uppercase tracking-wider animate-in fade-in duration-300"
-        data-tip="You last focused this row in the viewport"
-      >
-        <i className="fas fa-location-crosshairs text-[7px]"></i> Last focused
-      </span>
-    );
-
-    if (item.type === 'track') {
-      const { recordId, track: t } = item;
-      const start = Math.min(...t.data.map((d: any) => d.start));
-      const end = Math.max(...t.data.map((d: any) => d.end));
-      return (
-        <div style={style} className={`border-b border-slate-100 hover:bg-indigo-50/30 transition-all group flex items-center px-8 ${returnMark}`}>
-          <div className="w-[15%] shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">track</span>
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-bold text-slate-400">~</span>
-            </div>
-          </div>
-          <div className="w-[35%] shrink-0 px-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}{lastFocusedTag}</span>
-              <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{t.data.length} data points</span>
-            </div>
-          </div>
-          <div className="w-[20%] shrink-0 px-4">
-            <span className="text-[11px] font-mono text-slate-600 font-bold">
-              {(start + 1).toLocaleString()}..{end.toLocaleString()}
-            </span>
-          </div>
-          <div className="w-[10%] shrink-0 px-4 text-right font-mono text-slate-500 font-bold">
-            {(end - start).toLocaleString()}
-          </div>
-          <div className="w-[20%] shrink-0 text-right pl-4">
-            <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-              <button
-                onClick={() => addLog(`Track: ${t.name} selected.`)}
-                className="text-slate-400 hover:text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-50 transition-all"
-                aria-label="Track info"
-                data-tip="Log this track's summary"
-              >
-                <i className="fas fa-info-circle"></i>
-              </button>
-              <button
-                onClick={() => onFocusItem(recordId, start, end, { key: rowKey, label: t.name })}
-                data-tip="Open this track's span in the viewport"
-                className="text-[10px] font-bold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 transition-all tracking-widest shadow-sm"
-              >
-                Focus
-              </button>
-            </div>
-          </div>
-        </div>
-      );
+  }, [items.length, query, state.filters.query, state.jumpTarget, state.setJumpTarget, state.setCurrentSectionKey, state.trackWindow]);
+  const jump = (key: string) => { setCurrentRow(key); state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); };
+  useEffect(() => { setSearchKey(null); }, [filters, state.tab, state.onlyProblems, state.hubHidden]);
+  useEffect(() => {
+    if (state.jumpTarget && rows.includes(state.jumpTarget.key)) setCurrentRow(state.jumpTarget.key);
+  }, [state.jumpTarget, rows]);
+  const navigate = (direction: number) => {
+    if (!matches.length) return;
+    const index = searchIndex < 0 ? direction > 0 ? 0 : matches.length - 1 : (searchIndex + direction + matches.length) % matches.length;
+    setSearchKey(matches[index]); jump(matches[index]);
+  };
+  const keyboard = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    if (exportOpen || state.shortcutsOpen || !target.closest('[data-hub-focus]') || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const key = event.key.toLowerCase();
+    if (key === '?') { event.preventDefault(); state.setShortcutsOpen(true); return; }
+    if (key === 'escape') { if (state.menu) { state.setMenu(null); return; } state.setSelectedRecords(new Set()); state.setSelectedRows(new Set()); setCurrentRow(null); return; }
+    if (!['/', 'j', 'k', '[', ']', 'x', 'o'].includes(key)) return;
+    event.preventDefault();
+    if (key === '/') { document.getElementById('hub-annotation-search')?.focus(); return; }
+    const currentIndex = currentRow ? rows.indexOf(currentRow) : -1;
+    if (key === 'j' || key === 'k') {
+      const next = currentIndex < 0 ? key === 'j' ? 0 : rows.length - 1 : Math.max(0, Math.min(rows.length - 1, currentIndex + (key === 'j' ? 1 : -1)));
+      if (rows[next]) jump(rows[next]);
+    } else if (key === 'x' && currentRow && annotationKeys.has(currentRow)) state.setSelectedRows(prev => { const next = new Set(prev); if (next.has(currentRow)) next.delete(currentRow); else next.add(currentRow); return next; });
+    else if (key === '[' || key === ']') {
+      const index = items.findIndex(item => item.key === state.currentSectionKey);
+      const next = items[Math.max(0, Math.min(items.length - 1, index + (key === ']' ? 1 : -1)))];
+      if (next) { state.setJumpTarget(prev => ({ key: next.key, serial: (prev?.serial ?? 0) + 1 })); setCurrentRow(null); }
+    } else if (key === 'o' && state.currentSectionKey) {
+      const filtering = Boolean(state.filters.query || state.filters.types.size || state.filters.strand !== 'all' || state.filters.editedOnly || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && state.tab === 'features');
+      const sectionKey = state.currentSectionKey;
+      if (filtering) state.setSearchFolds(prev => { const next = new Set(prev), target = `${state.tab}:${sectionKey}`; if (next.has(target)) next.delete(target); else next.add(target); return next; });
+      else state.setCollapsed(prev => { const next = new Set(prev[state.tab]); if (next.has(sectionKey)) next.delete(sectionKey); else next.add(sectionKey); return { ...prev, [state.tab]: next }; });
     }
-
-    const { recordId, feature: f } = item;
-    const isSelected = isFeatureInSelection(f);
-    return (
-      <div style={style} className={`border-b border-slate-100 hover:bg-slate-50 transition-all group flex items-center px-8 ${isSelected ? 'bg-amber-50' : ''} ${returnMark}`}>
-        <div className="w-[15%] shrink-0">
-          <div className="flex items-center gap-3">
-            <span
-              className="px-3 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter"
-              style={{
-                backgroundColor: `${f.color || getFeatureColor(f.type, featureColors)}15`,
-                color: f.color || getFeatureColor(f.type, featureColors),
-                border: `1px solid ${f.color || getFeatureColor(f.type, featureColors)}25`,
-              }}
-            >
-              {f.type}
-            </span>
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded bg-slate-100 text-[10px] font-bold ${f.strand === 1 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {getFeatureStrand(f) === 1 ? '+' : getFeatureStrand(f) === -1 ? '−' : getFeatureStrand(f)}
-            </span>
-          </div>
-        </div>
-        <div className="w-[35%] shrink-0 px-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-1">{f.name}{lastFocusedTag}</span>
-            {f.metadata?.product && <span className="text-[10px] font-bold text-slate-500 line-clamp-1">{f.metadata.product}</span>}
-          </div>
-        </div>
-        <div className="w-[20%] shrink-0 px-4">
-          <span className="text-[11px] font-mono text-slate-600 font-bold">
-            {f.locationString
-              ? f.locationString.length > 30 ? f.locationString.substring(0, 27) + '...' : f.locationString
-              : `${(f.start + 1).toLocaleString()}..${f.end.toLocaleString()}`}
-          </span>
-        </div>
-        <div className="w-[10%] shrink-0 px-4 text-right font-mono text-slate-500 font-bold">
-          {(() => {
-            const record = records.find(r => r.id === recordId);
-            return featureLength(record?.sequence.length, f.start, f.end, f.segments).toLocaleString();
-          })()}
-        </div>
-        <div className="w-[20%] shrink-0 text-right pl-4">
-          <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-            <button
-              onClick={() => onViewFeatureDetails(recordId, f)}
-              className="text-slate-400 hover:text-amber-600 p-2.5 rounded-xl hover:bg-amber-50 transition-all"
-              aria-label="View details"
-              data-tip="Inspect this annotation: qualifiers, sequence, export"
-            >
-              <i className="fas fa-eye"></i>
-            </button>
-            <button
-              onClick={() => onEditFeature(recordId, f.index, f)}
-              className="text-slate-400 hover:text-amber-600 p-2.5 rounded-xl hover:bg-amber-50 transition-all"
-              aria-label="Edit"
-              data-tip="Edit name, type, strand, coordinates and qualifiers"
-            >
-              <i className="fas fa-edit"></i>
-            </button>
-            <button
-              onClick={() => onRemoveFeature(recordId, f.index)}
-              className="text-slate-400 hover:text-rose-600 p-2.5 rounded-xl hover:bg-rose-50 transition-all"
-              aria-label="Delete"
-              data-tip="Delete this annotation"
-            >
-              <i className="fas fa-trash-alt"></i>
-            </button>
-            <button
-              onClick={() => {
-                const focusStart = f.segments && f.segments.length > 0 ? f.segments[0].start : f.start;
-                const focusEnd = f.segments && f.segments.length > 0 ? f.segments[0].end : f.end;
-                onFocusItem(recordId, focusStart, focusEnd, { key: rowKey, label: f.name });
-                addLog(`Jump to ${f.name}`);
-              }}
-              data-tip="Open this annotation in the viewport, selected"
-              className="text-[10px] font-bold uppercase bg-white px-5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-amber-500 hover:text-slate-950 hover:border-amber-400 transition-all tracking-widest shadow-sm"
-            >
-              Focus
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }, [flattenedFeatures, records, isFeatureInSelection, addLog, featureColors, onToggleRecordVisibility, onRemoveRecord, onViewFeatureDetails, onEditFeature, onRemoveFeature, onFocusItem, lastFocusedKey, flashKey]);
-
-  return (
-    <div className="flex-1 p-6 flex flex-col min-h-0 bg-amber-50/50 overflow-hidden">
-      <div className="flex justify-between items-end mb-6">
-        <div>
-          <h2 className="text-2xl font-extrabold uppercase tracking-tighter text-slate-900">Annotation Hub</h2>
-          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.3em] mt-1">
-            {records.length} Sequences • {allFeaturesCount} Annotations
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <div className="relative">
-            <i className="fas fa-search absolute left-4 top-3 text-slate-400 text-sm"></i>
-            <input
-              type="text"
-              placeholder="Global search..."
-              className="bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-2.5 text-xs w-[280px] outline-none focus:border-amber-500 shadow-sm transition-all font-bold text-slate-900"
-              value={featureSearch}
-              onChange={e => onFeatureSearchChange(e.target.value)}
-            />
-          </div>
-          <button
-            onClick={onStartNewFeature}
-            data-tip="Create a new annotation (prefilled from the current selection)"
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
-          >
-            <i className="fas fa-plus mr-1.5"></i> Add Feature
-          </button>
-          <div className="flex bg-slate-800 rounded-xl p-1 shadow-md">
-            <button onClick={onExportAllFasta} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all" data-tip="Download every record as one multi-FASTA file">
-              <i className="fas fa-file-export mr-1.5"></i> FASTA
-            </button>
-            <button onClick={onExportGenBank} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download every record with its annotations as GenBank">
-              <i className="fas fa-dna mr-1.5"></i> GenBank
-            </button>
-            <button onClick={onExportGff} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Download all annotations as GFF3">
-              <i className="fas fa-file-code mr-1.5"></i> GFF3
-            </button>
-            <button onClick={onExportProjectJson} className="hover:bg-slate-700 text-slate-200 hover:text-white px-4 py-2 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border-l border-slate-700" data-tip="Save the whole workspace (records, annotations, colours) as JSON">
-              <i className="fas fa-save mr-1.5"></i> Save Project
-            </button>
-          </div>
-          <button
-            onClick={onClearAll}
-            data-tip="Remove every record and annotation from the workspace"
-            className="bg-rose-600 hover:bg-rose-500 text-white px-5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-md"
-          >
-            <i className="fas fa-trash-alt mr-1.5"></i> Clear All
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden border border-slate-200 rounded-3xl bg-white shadow-inner flex flex-col">
-        <div className="bg-slate-50 border-b border-slate-200 z-10 shadow-sm flex items-center px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          <div className="w-[15%]">Type / Strand</div>
-          <div className="w-[35%] px-4">Descriptor</div>
-          <div className="w-[20%] px-4">Location</div>
-          <div className="w-[10%] px-4 text-right">Length (bp)</div>
-          <div className="w-[20%] text-right">Actions</div>
-        </div>
-        <div className="flex-1" ref={listContainerRef}>
-          <VariableSizeList
-            ref={hubListRef}
-            height={listHeight || 600}
-            width="100%"
-            itemCount={flattenedFeatures.length}
-            itemSize={getHubRowHeight}
-            className="custom-scrollbar-pro scrollbar-on-light"
-          >
-            {HubRow}
-          </VariableSizeList>
-        </div>
-      </div>
+  };
+  useEffect(() => { document.addEventListener('keydown', keyboard); return () => document.removeEventListener('keydown', keyboard); }, [keyboard]);
+  const sortButton = (column: RowSortColumn, label: string) => {
+    const active = state.rowSort[state.tab];
+    const direction = active?.column === column ? active.direction : 'none';
+    return <button aria-sort={direction} data-tip={`Sort within each ${state.tab === 'sequences' ? 'sequence' : 'feature'}`} onClick={() => state.setRowSort(previous => ({ ...previous, [state.tab]: cycleRowSort(previous[state.tab], column) }))} className="flex items-center gap-1 text-left uppercase focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">{label}<i aria-hidden="true" className={`fas ${direction === 'none' ? 'fa-sort opacity-40' : direction === 'ascending' ? 'fa-arrow-up text-amber-800' : 'fa-arrow-down text-amber-800'}`} /></button>;
+  };
+  const importSequences = useCallback(() => {
+    if (isAlignmentLocked) return;
+    state.setMenu(null);
+    sequenceInput.current?.click();
+  }, [isAlignmentLocked, state.setMenu]);
+  const clearFilters = () => {
+    state.setFilters({ query: '', types: new Set(), strand: 'all', editedOnly: false, sequenceQuery: '', needsAttention: false });
+    state.setOnlyProblems(false);
+  };
+  const importAnnotations = useCallback(() => document.querySelector<HTMLInputElement>('[aria-label="Import annotations files"]')?.click(), []);
+  const removeFeature = useCallback((id: string, index: number) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }, [props.onRemoveFeature, state.setSelectedRows]);
+  return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
+    <h1 className="sr-only">Annotation Hub</h1>
+    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onExport={() => setExportOpen(true)} imports={<ImportMenu sequenceInputRef={sequenceInput} onImportSequences={importSequences} state={state} locked={isAlignmentLocked} empty={!records.length} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
+    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}${editSummary ? ` · ${editSummary}` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
+    <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
+    <FilterBar onStartNewFeature={props.onStartNewFeature} locked={isAlignmentLocked} empty={!records.length} editedCount={markedCount} groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
+    <SelectionBar records={hubRecords} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />
+    {notice && <p role="status" className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-slate-700">{notice}</p>}
+    {records.length > 0 && <div className="hub-row-grid border-b border-slate-200 bg-slate-50 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">
+      <span className="hub-select-column"><input type="checkbox" aria-label="Select all visible annotations" checked={annotationKeys.size > 0 && [...annotationKeys].every(key => state.selectedRows.has(key))} ref={input => { if (input) input.indeterminate = [...annotationKeys].some(key => state.selectedRows.has(key)) && ![...annotationKeys].every(key => state.selectedRows.has(key)); }} onChange={event => state.setSelectedRows(prev => { const next = new Set(prev); annotationKeys.forEach(key => { if (event.target.checked) next.add(key); else next.delete(key); }); return next; })} /></span>
+      {sortButton('type', 'Type')}<span aria-label="Strand column" />{sortButton('name', state.tab === 'features' ? 'Sequence' : 'Name / Product')}{sortButton('location', 'Location')}{sortButton('length', 'Length')}
+    </div>}
+    {items.length ? <HubList filtersPending={query !== state.filters.query} key={state.tab} items={items} kind={state.tab} state={displayState} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={key => setCurrentRow(previous => previous === key ? null : key)} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={removeFeature} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <HubEmptyState kind={!records.length ? 'workspace' : allMatchingHidden ? 'hidden' : 'filtered'} locked={isAlignmentLocked} onImport={importSequences} onClearFilters={clearFilters} onShowAll={() => state.setHubHidden(new Set())} />}
     </div>
-  );
-};
-
-export default AnnotationHubPanel;
+    {exportOpen && <ExportDialog featureColors={props.featureColors} records={records} state={state} onClose={() => setExportOpen(false)} onExport={props.onExportRecords} onEditDetails={ids => {
+      const hiddenCount = [...ids].filter(id => state.hubHidden.has(id)).length;
+      state.setHubHidden(previous => new Set([...previous].filter(id => !ids.has(id))));
+      if (hiddenCount) setNotice(`Unhid ${hiddenCount} sequences to edit their details.`);
+      state.setSelectedRecords(ids); state.setSelectedRows(new Set());
+      setOrganismEditRequest(request => request + 1);
+    }} />}
+    {state.shortcutsOpen && <ShortcutsSheet onClose={() => state.setShortcutsOpen(false)} />}
+    {props.undoAvailable && <UndoToast key={props.undoVersion} onUndo={props.onUndoDelete} onPause={props.onUndoPause} locked={isAlignmentLocked} />}
+  </section>;
+}

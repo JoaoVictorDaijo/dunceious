@@ -84,6 +84,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   const updateRow = (id: number, patch: Partial<QualifierRow>) =>
     commitRows(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
 
+  if (feature.type === 'source' || records.find(record => record.id === recordId)?.features[featureIndex]?.type === 'source') return null;
+
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out my-auto">
@@ -98,7 +100,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             <i className="fas fa-circle-notch text-sm"></i>
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest">Circular wrap-around</div>
-              <div className="text-[9px] opacity-70 mt-0.5">
+              <div className="text-[11px] opacity-70 mt-0.5">
                 This feature crosses the genome origin (start &gt; end).
                 Editing start/end here preserves the wrap-around semantics.
                 {/* TODO: Full circular annotation editing (graphical segment drag) is not yet
@@ -116,7 +118,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <select
                 value={recordId}
                 onChange={e => onChange({ ...editing, recordId: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
               >
                 {records.map(r => <option key={r.id} value={r.id}>{r.id}</option>)}
               </select>
@@ -130,7 +132,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               type="text"
               value={feature.name}
               onChange={e => setFeature({ name: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 transition-all text-slate-200"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env transition-all text-slate-200"
             />
           </div>
 
@@ -141,7 +143,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <select
                 value={feature.type}
                 onChange={e => setFeature({ type: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
               >
                 {!FEATURE_TYPES.includes(feature.type) && <option value={feature.type}>{feature.type}</option>}
                 {FEATURE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -156,7 +158,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   delete metadata._gffStrand;
                   setFeature({ strand: Number(e.target.value) as 1 | -1, metadata, locationString: undefined });
                 }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-sky-500 text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
               >
                 {(getFeatureStrand(feature) === '.' || getFeatureStrand(feature) === '?') && (
                   <option value={getFeatureStrand(feature)} disabled>
@@ -189,7 +191,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <button
                 onClick={() => setFeature({ color: undefined })}
                 data-tip="Use the global colour for this feature type"
-                className="ml-auto text-[8px] font-bold text-slate-500 uppercase hover:text-rose-500 transition-colors"
+                className="ml-auto text-[10px] font-bold text-slate-500 uppercase hover:text-rose-500 transition-colors"
               >
                 Reset to Default
               </button>
@@ -239,7 +241,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     setGeometry({ segments: newSegs });
                   }}
                   data-tip="Append a new segment after the last one"
-                  className="text-[8px] font-bold text-sky-500 uppercase hover:text-sky-300 transition-colors"
+                  className="text-[10px] font-bold text-env uppercase hover:text-env/80 transition-colors"
                 >
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
@@ -247,7 +249,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
-                    <span className="text-[8px] font-bold text-slate-600 uppercase w-4">#{idx + 1}</span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase w-5">#{idx + 1}</span>
                     <input
                       type="number"
                       value={seg.start}
@@ -256,7 +258,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         newSegs[idx] = { ...newSegs[idx], start: parseInt(e.target.value) };
                         setGeometry({ segments: newSegs });
                       }}
-                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-sky-500"
+                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-env"
                     />
                     <span className="text-slate-700">..</span>
                     <input
@@ -267,7 +269,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         newSegs[idx] = { ...newSegs[idx], end: parseInt(e.target.value) };
                         setGeometry({ segments: newSegs });
                       }}
-                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-sky-500"
+                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-env"
                     />
                     <button
                       onClick={() => {
@@ -308,7 +310,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <button
                 onClick={() => commitRows([...rows, { id: nextRowId.current++, key: '', value: '' }])}
                 data-tip="Add a /qualifier=&quot;value&quot; pair"
-                className="text-[8px] font-bold text-sky-500 uppercase hover:text-sky-300 transition-colors"
+                className="text-[10px] font-bold text-env uppercase hover:text-env/80 transition-colors"
               >
                 <i className="fas fa-plus mr-1"></i> Add Qualifier
               </button>
@@ -322,7 +324,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 {rows.map(row => {
                   const issue = qualifierIssue(row, rows);
                   return (
-                    <div key={row.id} className="group bg-slate-950/50 p-2 rounded-lg border border-slate-800/50 hover:border-slate-700 focus-within:border-sky-500/50 transition-colors animate-in fade-in duration-200">
+                    <div key={row.id} className="group bg-slate-950/50 p-2 rounded-lg border border-slate-800/50 hover:border-slate-700 focus-within:border-env/50 transition-colors animate-in fade-in duration-200">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-slate-600">/</span>
                         <input
@@ -350,7 +352,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         onChange={e => updateRow(row.id, { value: e.target.value })}
                         className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-none break-words"
                       />
-                      {issue && <p className="text-[9px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
+                      {issue && <p className="text-[11px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
                     </div>
                   );
                 })}
@@ -371,7 +373,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           <button
             onClick={onSave}
             data-tip={isNew ? 'Add this annotation to the record' : 'Save the changes to this annotation'}
-            className="flex-1 py-4 rounded-2xl bg-sky-600 hover:bg-sky-500 text-xs font-bold uppercase transition-all shadow-xl shadow-sky-900/40 tracking-widest"
+            className="flex-1 py-4 rounded-2xl bg-env-strong hover:bg-env-strong/90 text-white text-xs font-bold uppercase transition-all shadow-xl tracking-widest"
           >
             {isNew ? 'Create' : 'Apply'}
           </button>

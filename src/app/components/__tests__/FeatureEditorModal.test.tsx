@@ -77,3 +77,9 @@ describe('qualifier editing', () => {
     expect(change.mock.calls[0][0].feature).toMatchObject({ start: 3, locationString: undefined });
   });
 });
+
+it('refuses to render a source feature in the generic editor', () => {
+  show({ ...editing, feature: { ...editing.feature, type: 'source' } });
+  expect(screen.queryByText('Create Feature')).toBeNull();
+  expect(screen.queryByText('Feature Key')).toBeNull();
+});

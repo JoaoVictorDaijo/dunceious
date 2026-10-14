@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export { transposeCoordinates, buildAlignedSegments, processTransposition } from './coordinate';
+export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
 export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
@@ -33,13 +33,14 @@ export {
   removeGapsWithMap,
   mapUngappedRangeToAligned,
   getOriginalPos,
+  alignedToOriginalPositions,
   isProteinSession,
 } from './sequence';
 
-// Expose the deduped `buildAlignedSegments` under the name the search code
-// imports it by (`getNonGapSegments` from '@/src/domain/bio').
 export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
+  DetailKey,
+  SequenceDetails,
   FeatureSegment,
   BioFeature,
   QuantitativeTrack,
@@ -50,3 +51,11 @@ export type {
 } from './types';
 
 export { getFeatureStrand } from './strand';
+export { segmentFrameshifts } from './frameshift';
+export type { FrameShift, SegmentFrameshift } from './frameshift';
+
+export { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited, validateDetail } from './details';
+export { INSDC_COUNTRIES, INSDC_MISSING_TERMS } from './insdcVocabulary';
+export { isSourceFeature, annotationFeatures, isUnannotated, isPartial, isEdited, needsAttention, isolateOf } from './recordStatus';
+
+export { featureEnvelope } from './featureEnvelope';

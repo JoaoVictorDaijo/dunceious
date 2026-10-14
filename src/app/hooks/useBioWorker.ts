@@ -17,12 +17,15 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
+import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord } from '@/src/domain/bio/types';
-import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaResponse } from '@/src/app/logic/bioResponse';
+import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord } from '@/src/workers/protocol';
+import { applyParseSuccess, applyAnnotations, applyFastaAndLog } from '@/src/app/logic/bioResponse';
 
 export interface UseBioWorkerReturn {
+  getRecords: () => SeqRecord[];
+  requestBio: (request: BioWorkerRequest, shouldCommit?: () => boolean) => Promise<BioWorkerResponse | 'stale'>;
+  applyAlignmentOverlay: (records: FastaAlignedRecord[]) => number;
   records: SeqRecord[];
   setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
   transposedRecords: SeqRecord[];
@@ -43,12 +46,49 @@ export interface UseBioWorkerReturn {
  * @param addLog - Callback to append a timestamped message to the activity log.
  */
 export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn {
-  const [records, setRecords] = useState<SeqRecord[]>([]);
+  const [records, setRecordsState] = useState<SeqRecord[]>([]);
+  const recordsRef = useRef(records);
+  const silentProcessing = useRef(false);
+  // The remote monitor needs the reducer outcome synchronously, including
+  // record edits queued earlier in the same event.
+  const setRecords = useCallback<Dispatch<SetStateAction<SeqRecord[]>>>(update => {
+    const next = typeof update === 'function' ? update(recordsRef.current) : update;
+    recordsRef.current = next;
+    setRecordsState(next);
+  }, []);
+  const getRecords = useCallback(() => recordsRef.current, []);
+  const applyAlignmentOverlay = useCallback((aligned: FastaAlignedRecord[]) => {
+    const result = applyFastaAndLog(recordsRef.current, aligned, true, addLog);
+    if (result.kind !== 'overlay') throw new Error(`Alignment overlay rejected: ${result.kind}`);
+    silentProcessing.current = true;
+    setRecords(result.next);
+    return result.length;
+  }, [addLog, setRecords]);
   const [transposedRecords, setTransposedRecords] = useState<SeqRecord[]>([]);
   const [consensus, setConsensus] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const bioWorkerRef = useRef<Worker | null>(null);
+
+  const requestCounter = useRef(0);
+  const pendingRequests = useRef(new Map<number, {
+    resolve: (response: BioWorkerResponse | 'stale') => void;
+    shouldCommit?: () => boolean;
+    reject: (error: Error) => void;
+  }>());
+  const requestBio = useCallback((request: BioWorkerRequest, shouldCommit?: () => boolean): Promise<BioWorkerResponse | 'stale'> => {
+    const worker = bioWorkerRef.current;
+    if (!worker) return Promise.reject(new Error('The processing worker is unavailable.'));
+    const requestId = ++requestCounter.current;
+    return new Promise((resolve, reject) => {
+      pendingRequests.current.set(requestId, { resolve, reject, shouldCommit });
+      try { worker.postMessage({ ...request, requestId }); }
+      catch (error) {
+        pendingRequests.current.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }, []);
 
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -58,7 +98,13 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     );
 
     bioWorkerRef.current.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
-      const msg = e.data;
+      let msg = e.data;
+      const pending = msg.requestId === undefined ? undefined : pendingRequests.current.get(msg.requestId);
+      if (pending?.shouldCommit && !pending.shouldCommit()) {
+        pendingRequests.current.delete(msg.requestId!);
+        pending.resolve('stale');
+        return;
+      }
 
       if (msg.type === 'SUCCESS') {
         setTransposedRecords(msg.records);
@@ -67,17 +113,17 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
 
       } else if (msg.type === 'PARSE_SUCCESS') {
-        setRecords(prev => {
-          const { next, count } = applyParseSuccess(prev, msg.records);
-          addLog(`Batch ingestion complete: ${count} records added.`);
-          return next;
-        });
+        const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
+        setRecords(result.next);
+        addLog(`Batch ingestion complete: ${result.count} records added.`);
+        msg = { ...msg, idMap: result.idMap };
         setIsProcessing(false);
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
+        const annotationResponse = msg;
         const annotations = msg.annotations;
         setRecords(prev => {
-          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations);
+          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations, annotationResponse.details, annotationResponse.idMap);
           if (unmatched.length > 0) {
             addLog(
               `WARNING: Some IDs in file did not match active records: [${unmatched
@@ -91,49 +137,35 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         setIsProcessing(false);
 
       } else if (msg.type === 'FASTA_SUCCESS') {
-        const { alignedData, asAlignment } = msg;
-        setRecords(prev => {
-          const res = applyFastaResponse(prev, alignedData, asAlignment);
-          switch (res.kind) {
-            case 'batch':
-              addLog(`Batch ingestion complete: ${res.count} records added.`);
-              break;
-            case 'reject-mismatch':
-              addLog(
-                `ERROR: Sequence mismatch. Missing: [${res.missing.join(', ')}], Extra: [${res.extra.join(', ')}]`,
-              );
-              break;
-            case 'reject-length':
-              addLog(
-                `ERROR: Aligned sequences must have identical lengths. Found: ${res.lengths.join(', ')}`,
-              );
-              break;
-            case 'reject-empty':
-              addLog('ERROR: Aligned sequences cannot be empty.');
-              break;
-            case 'overlay':
-              addLog(`External alignment applied successfully (${res.length} bp).`);
-              break;
-            default: {
-              // Exhaustiveness guard: adding a new `kind` without a case here is a
-              // compile error, and any unhandled kind still surfaces a logged error
-              // instead of silently dropping (never reached today).
-              const _exhaustive: never = res;
-              addLog(`ERROR: Unhandled FASTA response kind: ${JSON.stringify(_exhaustive)}`);
-              break;
-            }
-          }
-          return res.next;
-        });
+        const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
+        setRecords(result.next);
+        if (result.kind === 'batch') msg = { ...msg, idMap: result.idMap };
         setIsProcessing(false);
 
       } else if (msg.type === 'ERROR') {
         setIsProcessing(false);
         addLog(`Processing Error: ${msg.error}`);
       }
+      if (msg.requestId !== undefined) {
+        const pending = pendingRequests.current.get(msg.requestId);
+        pendingRequests.current.delete(msg.requestId);
+        if (msg.type === 'ERROR') pending?.reject(new Error(msg.error));
+        else pending?.resolve(msg);
+      }
     };
 
-    return () => { bioWorkerRef.current?.terminate(); };
+    bioWorkerRef.current.onerror = event => {
+      for (const pending of pendingRequests.current.values()) pending.reject(new Error(event.message || 'Worker failed.'));
+      pendingRequests.current.clear();
+      setIsProcessing(false);
+      addLog(`Processing Error: ${event.message || 'Worker failed.'}`);
+    };
+    return () => {
+      bioWorkerRef.current?.terminate();
+      bioWorkerRef.current = null;
+      for (const pending of pendingRequests.current.values()) pending.reject(new Error('Worker terminated.'));
+      pendingRequests.current.clear();
+    };
     // addLog identity is stable (defined once in useAppLogger) so it is safe
     // to omit from deps without triggering stale-closure bugs.
   }, []);
@@ -141,8 +173,10 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   // ── Auto-dispatch PROCESS_RECORDS when records change ─────────────────────
   useEffect(() => {
     const visibleRecords = records.filter(r => r.visible !== false);
+    const silent = silentProcessing.current;
+    silentProcessing.current = false;
     if (visibleRecords.length > 0) {
-      setIsProcessing(true);
+      if (!silent) setIsProcessing(true);
       const request: BioWorkerRequest = { type: 'PROCESS_RECORDS', records: visibleRecords };
       bioWorkerRef.current?.postMessage(request);
     } else {
@@ -152,6 +186,9 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   }, [records]);
 
   return {
+    getRecords,
+    requestBio,
+    applyAlignmentOverlay,
     records,
     setRecords,
     transposedRecords,

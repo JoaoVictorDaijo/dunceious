@@ -117,22 +117,69 @@ export function clipAndRebaseInterval(
  */
 function clipFeature(
   feature: BioFeature,
+  seq: string,
   selStart: number,
   selEnd: number
 ): BioFeature | null {
-  const clipped = clipAndRebaseInterval(feature.start, feature.end, selStart, selEnd);
-  if (!clipped) return null;
-  const newSegments = feature.segments
-    ?.map(s => {
-      const clippedSeg = clipAndRebaseInterval(s.start, s.end, selStart, selEnd);
-      return clippedSeg && s.strand !== undefined ? { ...clippedSeg, strand: s.strand } : clippedSeg;
-    })
-    .filter((s): s is FeatureSegment => s !== null);
-  return {
+  const segments = feature.segments?.length
+    ? feature.segments
+    : splitWrapAround(feature.start, feature.end, seq.length);
+  const newSegments = segments.flatMap(segment => {
+    const clipped = clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
+    return clipped ? [{ ...segment, ...clipped }] : [];
+  });
+  if (!newSegments.length) return null;
+
+  const result: BioFeature = {
     ...feature,
-    ...clipped,
-    segments: newSegments?.length ? newSegments : undefined,
+    start: Math.min(...newSegments.map(segment => segment.start)),
+    end: Math.max(...newSegments.map(segment => segment.end)),
+    segments: feature.segments?.length || feature.start > feature.end ? newSegments : undefined,
   };
+  if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
+    delete result.locationString;
+  }
+
+  const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
+  if (!clipped) return result;
+  delete result.translation;
+  if (feature.metadata) {
+    result.metadata = { ...feature.metadata };
+    delete result.metadata.translation;
+    delete result.metadata._gffPhases;
+    delete result.metadata._gffPhaseState;
+    delete result.metadata.phase;
+  }
+  if (feature.type === 'CDS' || feature.type === 'SO:0000316') {
+    const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
+    const codonStart = Number(feature.metadata?.codon_start ?? 1);
+    const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
+    result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
+  }
+  return result;
+}
+
+/** Counts only biological bases preceding the first selected part in transcription order. */
+function removedTranscriptionBases(
+  segments: FeatureSegment[],
+  strand: 1 | -1,
+  seq: string,
+  selStart: number,
+  selEnd: number
+): number {
+  const mixed = segments.some(segment => segment.strand !== undefined);
+  const ordered = !mixed && strand === -1 ? [...segments].reverse() : segments;
+  let removed = 0;
+  for (const segment of ordered) {
+    const reverse = mixed ? segment.strand === -1 : strand === -1;
+    const overlap = clipInterval(segment.start, segment.end, selStart, selEnd);
+    const start = overlap && !reverse ? overlap.start : segment.end;
+    const end = overlap && reverse ? overlap.end : segment.start;
+    const prefix = reverse ? seq.slice(end, segment.end) : seq.slice(segment.start, start);
+    removed += prefix.replace(/-/g, '').length;
+    if (overlap) break;
+  }
+  return removed;
 }
 
 /**
@@ -149,7 +196,7 @@ export function sliceRecordsBySelection(
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
 
     const slicedFeatures = record.features
-      .map(f => clipFeature(f, selStart, selEnd))
+      .map(f => clipFeature(f, seq, selStart, selEnd))
       .filter((f): f is BioFeature => f !== null);
 
     const slicedTracks = record.tracks?.map(track => ({

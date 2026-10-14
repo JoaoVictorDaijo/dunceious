@@ -33,6 +33,19 @@ it from any existing source file, e.g. `vite.config.ts`). `.md`, `.json`, and bi
 exempt. `npm run lint:headers` enforces this in CI; auto-insert with
 `node scripts/check-license-headers.mjs --fix`. See [`CLAUDE.md`](CLAUDE.md) for the full rule.
 
+## Pushes and Cloudflare Pages builds
+
+Every push can trigger a Cloudflare Pages build. Batch pushes and follow the `[CF-Pages-Skip]` rules in [`CLAUDE.md`](CLAUDE.md#pushes-and-cloudflare-pages-builds).
+
 ## Before you claim done
 
 `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` · `npm run lint:headers` — all green.
+
+## Project documents
+
+Track durable documentation and historical design specs. Commit specs in `docs/specs/`
+as `YYYY-MM-DD-<area>-<topic>.md` with YAML front matter; follow
+[`docs/specs/README.md`](docs/specs/README.md) for metadata and lifecycle. Keep implementation
+plans, review/IAR ledgers, handoffs and session notes untracked in `.code/docs/<task>/`
+at the primary repository root. Put outcomes and verification evidence in the PR description
+or comments; fold lasting decisions, invariants and limitations into the living docs.

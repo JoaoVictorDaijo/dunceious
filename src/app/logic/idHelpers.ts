@@ -17,18 +17,17 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/**
- * Generate a unique ID by appending a numeric suffix if the base ID collides
- * with any existing ID (case-insensitive). Preserves the original case of baseId.
- *
- * @param baseId - The desired ID
- * @param existingIds - Array of existing IDs to check against (case-insensitive)
- * @returns The baseId if unique, or baseId with a (n) suffix
- */
+export function sanitizeId(raw: string): string {
+  return raw.replace(/[\s;=&,%[\]()"']/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'seq';
+}
+
+/** IDs share one namespace across formats and records, including generated suffixes. */
 export function makeUniqueId(baseId: string, existingIds: string[]): string {
+  const base = sanitizeId(baseId);
   const existing = new Set(existingIds.map(id => id.toLowerCase()));
-  if (!existing.has(baseId.toLowerCase())) return baseId;
+  if (!existing.has(base.toLowerCase())) return base;
+
   let n = 1;
-  while (existing.has(`${baseId.toLowerCase()} (${n})`)) n++;
-  return `${baseId} (${n})`;
+  while (existing.has(`${base.toLowerCase()}_${n}`)) n++;
+  return `${base}_${n}`;
 }

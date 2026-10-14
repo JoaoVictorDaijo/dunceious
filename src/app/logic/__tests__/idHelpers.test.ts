@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { makeUniqueId } from '../idHelpers';
+import { makeUniqueId, sanitizeId } from '../idHelpers';
 
 describe('makeUniqueId', () => {
   it('returns the baseId if it is unique (case-insensitive)', () => {
@@ -27,22 +27,22 @@ describe('makeUniqueId', () => {
     expect(result).toBe('seq4');
   });
 
-  it('appends (1) if the baseId already exists', () => {
+  it('appends _1 if the baseId already exists', () => {
     const existing = ['seq1', 'seq2', 'seq1'];
     const result = makeUniqueId('seq1', existing);
-    expect(result).toBe('seq1 (1)');
+    expect(result).toBe('seq1_1');
   });
 
   it('uses case-insensitive collision detection', () => {
     const existing = ['SEQ1', 'seq2'];
     const result = makeUniqueId('seq1', existing);
-    expect(result).toBe('seq1 (1)');
+    expect(result).toBe('seq1_1');
   });
 
   it('increments the suffix until finding an available name', () => {
-    const existing = ['seq1', 'seq1 (1)', 'seq1 (2)', 'seq1 (3)'];
+    const existing = ['seq1', 'seq1_1', 'seq1_2', 'seq1_3'];
     const result = makeUniqueId('seq1', existing);
-    expect(result).toBe('seq1 (4)');
+    expect(result).toBe('seq1_4');
   });
 
   it('handles empty existing ID list', () => {
@@ -53,12 +53,30 @@ describe('makeUniqueId', () => {
   it('preserves the original case of the baseId', () => {
     const existing = ['Seq1', 'Seq2'];
     const result = makeUniqueId('Seq1', existing);
-    expect(result).toBe('Seq1 (1)');
+    expect(result).toBe('Seq1_1');
   });
 
   it('handles mixed case in existing IDs', () => {
-    const existing = ['SeQ1', 'SEQ2', 'seq1 (1)'];
+    const existing = ['SeQ1', 'SEQ2', 'seq1_1'];
     const result = makeUniqueId('seq1', existing);
-    expect(result).toBe('seq1 (2)');
+    expect(result).toBe('seq1_2');
+  });
+});
+
+
+describe('sanitizeId', () => {
+  it.each([
+    ['my seq (A)', 'my_seq_A'],
+    [' __a;=b&,%[c]"\'\t ', 'a_b_c'],
+    ['___ ;[]()', 'seq'],
+    ['', 'seq'],
+    ['NC_001.2:ref-3', 'NC_001.2:ref-3'],
+  ])('sanitizes %j to %j', (raw, expected) => {
+    expect(sanitizeId(raw)).toBe(expected);
+  });
+
+  it('checks suffixes against every existing ID case-insensitively', () => {
+    expect(makeUniqueId('seq1', ['seq1', 'SEQ1_1'])).toBe('seq1_2');
+    expect(makeUniqueId('my seq (A)', [])).toBe('my_seq_A');
   });
 });

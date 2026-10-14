@@ -18,17 +18,20 @@
  */
 
 
+import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
+import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { BioFeature, SearchResult, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { RULER_HEIGHT, SIDEBAR_WIDTH } from './constants';
 import { computeRecordLayouts } from './layout';
-import { ANNOT_BASES_MIN_ZOOM } from './constants';
+import { ANNOT_BASES_MIN_ZOOM, TRANSLATION_MIN_ZOOM } from './constants';
 import { Ruler } from './Ruler';
 import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
 import { Minimap } from './Minimap';
 import { useViewport } from './useViewport';
+import { useBasesOpenness } from './useBasesOpenness';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
 
@@ -71,6 +74,7 @@ interface Props {
   onAddAnnotation: (recordId: string, start: number, end: number, name: string) => void;
   onExportRecord?: (recordId: string) => void;
   onViewDetails?: (recordId: string, feature?: BioFeature) => void;
+  isAlignmentLocked?: boolean;
   onRemoveRecord?: (recordId: string) => void;
   searchResults: SearchResult[];
   currentSearchIdx: number;
@@ -78,6 +82,11 @@ interface Props {
   customColors?: Record<string, string>;
   jumpTo?: number | null;
   onJumpComplete?: () => void;
+  /** A region to fly to and frame once; `onFocusComplete` reports it handled. */
+  focusRequest?: FocusTarget | null;
+  onFocusComplete?: () => void;
+  /** The last focused annotation, labelled while the selection is still exactly that region. */
+  focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
 }
@@ -95,12 +104,16 @@ const GenomeViewer: React.FC<Props> = ({
   onExportRecord,
   onViewDetails,
   onRemoveRecord,
+  isAlignmentLocked = false,
   searchResults,
   currentSearchIdx,
   selectedSearchIndices = new Set(),
   customColors,
   jumpTo,
   onJumpComplete,
+  focusRequest = null,
+  onFocusComplete,
+  focusedRegion = null,
   showConservation,
   showTracks
 }) => {
@@ -158,7 +171,7 @@ const GenomeViewer: React.FC<Props> = ({
     viewportWidth, chartWidth, fitZoom, xScaleGlobal,
     handleZoom, handleFit, handleCenterOnSelection, handleGoto, handleZoomToSelection,
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
-  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete });
+  } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete, focusRequest, onFocusComplete });
 
   const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange: handleSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
@@ -206,9 +219,11 @@ const GenomeViewer: React.FC<Props> = ({
 
   // A boolean, so the layout recomputes only when zoom crosses the threshold.
   const basesVisible = zoomLevel > ANNOT_BASES_MIN_ZOOM;
+  const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM;
+  const basesOpenness = useBasesOpenness(basesVisible);
   const recordLayouts = useMemo(
-    () => computeRecordLayouts(records, { showAnnotations, showTranslation, showTracks, basesVisible }),
-    [records, showAnnotations, showTranslation, showTracks, basesVisible],
+    () => computeRecordLayouts(records, { showAnnotations, translationVisible, showTracks, basesVisible }),
+    [records, showAnnotations, translationVisible, showTracks, basesVisible],
   );
 
   useEffect(() => {
@@ -216,6 +231,9 @@ const GenomeViewer: React.FC<Props> = ({
       listRef.current.resetAfterIndex(0);
     }
   }, [recordLayouts]);
+
+  // Shown once the flight has landed, and only until the selection is edited away from the region.
+  const focusLabel = !focusRequest && isFocusedSelection(focusedRegion, activeSelection) ? focusedRegion : null;
 
   // Main Tracks + Ruler Render (Now handled per row for virtualization)
   const itemData = useMemo<RowData>(() => ({
@@ -238,21 +256,23 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation,
     conservationScores,
     quantValueRanges,
-    showTracks
+    showTracks,
+    basesOpenness,
+    focusedRegion: focusLabel
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks
+    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed
-  // track/fields vs raised segments. Sky = interactive, emerald = export.
+  // track/fields vs raised segments. Session accent = interactive, emerald = export.
   const segTrack = "flex items-stretch gap-[3px] bg-[#12203c] rounded-lg p-[3px]";
   const trackShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.2)' };
-  const segBtn = "px-2 py-1 rounded-md text-[8px] font-bold uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
-  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-sky-300 transition-colors";
+  const segBtn = "px-2 py-1 rounded-md text-[10px] leading-4 font-bold uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
+  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
   const segExport = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-emerald-400 border border-white/10 hover:bg-[#35497a] hover:text-emerald-300 transition-colors";
   const raisedShadow = { boxShadow: '0 1px 1.5px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' };
   const segField = "bg-[#0f1c37] border border-white/[0.07] rounded-md";
@@ -285,13 +305,13 @@ const GenomeViewer: React.FC<Props> = ({
           {/* Go to — recessed field */}
           <div className={`flex items-center ${segField}`} style={fieldShadow}>
             <div className="relative flex items-center">
-              <i className="fas fa-location-arrow absolute left-2 text-[8px] text-[#7c8bb0]"></i>
+              <i className="fas fa-location-arrow absolute left-2 text-[10px] text-[#7c8bb0]"></i>
               <input
                 type="text"
                 placeholder="Go to..."
                 aria-label="Go to position"
                 data-tip="Type a base position and press Enter"
-                className="w-20 bg-transparent pl-5 pr-2 py-1 text-[9px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-sky-500 rounded"
+                className="w-24 bg-transparent pl-5 pr-2 py-1 text-[11px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-env rounded"
                 value={gotoPos}
                 onChange={e => setGotoPos(e.target.value)}
                 onKeyDown={e => {
@@ -306,7 +326,7 @@ const GenomeViewer: React.FC<Props> = ({
           {activeSelection && (
             <>
               {/* Readout — twin of the Go-to field, tied to the selection by a sky left-rule */}
-              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[9px] font-bold text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
+              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[10px] font-bold text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
                 <i className="fas fa-vector-square text-[10px] text-sky-400/70"></i>
                 <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
                 <span className="text-[#8ea2c9]">|</span>
@@ -402,15 +422,16 @@ const GenomeViewer: React.FC<Props> = ({
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
             {onRemoveRecord && (
-              <button
+              <button disabled={isAlignmentLocked} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence"}
                 onClick={() => {
+                  if (isAlignmentLocked) return;
                   const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
                   if (window.confirm(`Remove sequence "${label}" from project?`)) {
-                    onRemoveRecord(contextMenu.recordId);
+                    if (!isAlignmentLocked) onRemoveRecord(contextMenu.recordId);
                   }
                   setContextMenu(null);
                 }}
-                className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
+                className="disabled:opacity-30 disabled:cursor-not-allowed w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-600 flex items-center gap-3 transition-colors"
               >
                 <i className="fas fa-trash-alt w-4 text-center opacity-50"></i> Remove Sequence
               </button>
@@ -456,7 +477,7 @@ const GenomeViewer: React.FC<Props> = ({
           {/* Mouse Guide */}
           {mousePos && (
             <div className="absolute top-0 bottom-0 w-px bg-sky-500/30 z-40 pointer-events-none" style={{ left: mousePos.x }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[11px] leading-none font-bold px-1.5 py-0.5 rounded shadow-lg">
                 {(mousePos.bp + 1).toLocaleString()} bp
               </div>
             </div>
@@ -517,7 +538,7 @@ const GenomeViewer: React.FC<Props> = ({
           <div className="whitespace-pre font-bold leading-relaxed tracking-tight text-slate-100">
             {tooltip.content}
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-800 text-[9px] font-bold uppercase text-slate-500 tracking-widest">
+          <div className="mt-2 pt-2 border-t border-slate-800 text-[10px] font-bold uppercase text-slate-500 tracking-widest">
             Double-click to select region
           </div>
         </div>
@@ -525,9 +546,9 @@ const GenomeViewer: React.FC<Props> = ({
 
       <style dangerouslySetInnerHTML={{ __html: `
         .brush .selection {
-          fill: #0ea5e9;
+          fill: var(--env);
           fill-opacity: 0.07;
-          stroke: #0ea5e9;
+          stroke: var(--env);
           stroke-width: 2px;
           stroke-dasharray: 4,2;
           cursor: grab;
@@ -537,12 +558,12 @@ const GenomeViewer: React.FC<Props> = ({
           fill-opacity: 0.14;
         }
         .brush .handle {
-          fill: #0ea5e9;
+          fill: var(--env);
           width: 6px;
           rx: 3;
         }
         .brush .handle:hover {
-          fill: #0284c7;
+          fill: var(--env3);
         }
 
         @keyframes selection-pulse {

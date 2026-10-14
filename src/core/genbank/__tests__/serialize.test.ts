@@ -34,21 +34,38 @@ describe('exportToGenBank', () => {
         type: 'source', name: 'source', start: 0, end: 10, strand: 1,
         metadata: { organism: 'E. coli', _internal: 'hidden', empty: '' },
       }],
-    })]);
+    })]).text;
     expect(gb).toContain('LOCUS');
     expect(gb).toContain('bp    DNA');
     // Marker must appear exactly once (not accumulated on re-export).
     expect(gb.match(/Exported by Dunceious\./g)).toHaveLength(1);
     expect(gb).toContain('ORGANISM  E. coli');
-    // '_'-prefixed and empty metadata are omitted; real qualifier is kept.
+    // '_'-prefixed and empty non-flag metadata are omitted; real qualifier is kept.
     expect(gb).toContain('/organism="E. coli"');
     expect(gb).not.toContain('_internal');
     expect(gb).not.toContain('/empty=');
     expect(gb.trimEnd().endsWith('//')).toBe(true);
   });
 
+  it('writes INSDC flag qualifiers bare and still drops other empty values', () => {
+    const gb = exportToGenBank([record({
+      features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
+        metadata: { ribosomal_slippage: '', pseudo: '', note: '' } }],
+    })]).text;
+    expect(gb).toContain('                     /ribosomal_slippage\n');
+    expect(gb).toContain('                     /pseudo\n');
+    expect(gb).not.toContain('/note');
+  });
+
+  it('round-trips the /ribosomal_slippage flag through parse and export', () => {
+    const gb = exportToGenBank([record({ features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
+      metadata: { ribosomal_slippage: '' } }] })]).text;
+    const [rec] = parseGenBank(gb);
+    expect(rec.features.find(f => f.type === 'CDS')?.metadata?.ribosomal_slippage).toBe('');
+  });
+
   it('writes a protein LOCUS using "aa" units', () => {
-    const gb = exportToGenBank([record({ moleculeType: 'protein', sequence: 'MKV' })]);
+    const gb = exportToGenBank([record({ moleculeType: 'protein', sequence: 'MKV' })]).text;
     expect(gb).toContain(' aa ');
     expect(gb).not.toContain('DNA');
   });
@@ -61,7 +78,7 @@ describe('exportToGenBank', () => {
         { type: 'CDS', name: 'rev', start: 2, end: 8, strand: -1 },
         { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1, locationString: 'join(1..3,6..8)' },
       ],
-    })]);
+    })]).text;
     // ORIGIN: 1-based line number right-justified to width 9, then the
     // lowercased sequence in 10-base groups.
     expect(gb).toContain('        1 atgcaaatag');
@@ -78,8 +95,8 @@ describe('custom annotation roundtrip', () => {
   it.each([1, -1] as const)('retains a custom primer name, region and strand %s', strand => {
     const source = record({ features: [{ type: 'primer', name: 'Synthetic primer', start: 1, end: 8, strand }] });
     const snapshot = structuredClone(source);
-    const parsed = parseGenBank(exportToGenBank([source]));
-    expect(parsed[0].features[0]).toMatchObject(source.features[0]);
+    const parsed = parseGenBank(exportToGenBank([source]).text);
+    expect(parsed[0].features.find(f => f.type === 'primer')).toMatchObject(source.features[0]);
     expect(parsed[0].sequence).toBe(source.sequence);
     expect(source).toEqual(snapshot);
   });
@@ -88,12 +105,12 @@ describe('custom annotation roundtrip', () => {
 
 it.each(['.', '?'])('refuses to invent a GenBank location strand for GFF %s', raw => {
   const source = record({ features: [{ type: 'misc_feature', name: 'Unknown synthetic', start: 1, end: 8, strand: 1, metadata: { _gffStrand: raw } }] });
-  expect(() => exportToGenBank([source])).toThrow(/Export GFF3 or project JSON/);
+  expect(() => exportToGenBank([source]).text).toThrow(/Export GFF3 or project JSON/);
 });
 
 it('roundtrips a newly created reverse annotation with separate segments', () => {
   const source = record({ features: [{ type: 'misc_feature', name: 'Joined synthetic', start: 1, end: 9, strand: -1, segments: [{ start: 1, end: 3 }, { start: 6, end: 9 }] }] });
-  const exported = exportToGenBank([source]);
+  const exported = exportToGenBank([source]).text;
   expect(exported).toContain('complement(join(2..3,7..9))');
-  expect(parseGenBank(exported)[0].features[0]).toMatchObject(source.features[0]);
+  expect(parseGenBank(exported)[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
 });

@@ -26,6 +26,11 @@ import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/
 
 /** Pure router for bio-worker messages: maps a request to its response. */
 export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
+  const response = routeBioMessage(msg);
+  return msg.requestId === undefined ? response : { ...response, requestId: msg.requestId };
+}
+
+function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
   if (msg.type === 'PROCESS_RECORDS') {
     try {
       const transposed = processTransposition(msg.records);
@@ -36,13 +41,13 @@ export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     }
   } else if (msg.type === 'PARSE_GENBANK') {
     try {
-      return { type: 'PARSE_SUCCESS', records: parseGenBank(msg.content) };
+      return { type: 'PARSE_SUCCESS', filename: msg.filename, records: parseGenBank(msg.content) };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }
   } else if (msg.type === 'PARSE_FASTA') {
     try {
-      return { type: 'FASTA_SUCCESS', alignedData: parseFasta(msg.content), asAlignment: msg.asAlignment };
+      return { type: 'FASTA_SUCCESS', filename: msg.filename, alignedData: parseFasta(msg.content), asAlignment: msg.asAlignment };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }
@@ -51,15 +56,21 @@ export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     try {
       const ext = msg.filename.split('.').pop()?.toLowerCase();
       let parsed: Record<string, AnnotationTrack[] | BioFeature[]>;
+      let details: ReturnType<typeof parseGFF3>['details'] = {};
+      const parseGff = () => {
+        const result = parseGFF3(msg.content);
+        details = result.details;
+        return result.features;
+      };
       if (ext === 'bed') parsed = parseBED(msg.content, msg.filename);
-      else if (ext === 'gff' || ext === 'gff3') parsed = parseGFF3(msg.content);
+      else if (ext === 'gff' || ext === 'gff3') parsed = parseGff();
       else if (ext === 'bedgraph') parsed = parseBedGraph(msg.content, msg.filename);
       else if (msg.content.includes('\t') && msg.content.split('\n')[0].split('\t').length === 9) {
-        parsed = parseGFF3(msg.content);
+        parsed = parseGff();
       } else {
         parsed = parseBED(msg.content, msg.filename);
       }
-      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed };
+      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details, idMap: msg.idMap };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

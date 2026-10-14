@@ -20,13 +20,14 @@
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
-import { getDisplaySeq } from '@/src/app/logic/viewModel';
+import { featureLength, getDisplaySeq } from '@/src/app/logic/viewModel';
+import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
   feature: BioFeature | null;
   onClose: () => void;
-  onFocusFeature: (recordId: string, start: number, end: number) => void;
+  onFocusFeature: (target: FocusTarget) => void;
   onExportRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
@@ -57,9 +58,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleFocus = () => {
     if (!feature) return;
-    const focusStart = feature.segments && feature.segments.length > 0 ? feature.segments[0].start : feature.start;
-    const focusEnd = feature.segments && feature.segments.length > 0 ? feature.segments[0].end : feature.end;
-    onFocusFeature(record.id, focusStart, focusEnd);
+    onFocusFeature(featureFocusTarget(record, feature));
     onClose();
     onCopyLog(`Focusing on ${feature.name}`);
   };
@@ -103,25 +102,25 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {feature ? (
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Type</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</label>
                 <p className="text-sm font-bold text-slate-700">{feature.type}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {feature.locationString || `${feature.start + 1}..${feature.end}`}
                 </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Strand</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Strand</label>
                 <p className="text-sm font-bold text-slate-700">
                   {annotationDirection(feature, record.moleculeType)}
                 </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {(feature.end - feature.start).toLocaleString()} bp
+                  {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
                 </p>
               </div>
               {onSetShowBases && (
@@ -148,23 +147,23 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           ) : (
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Definition</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Definition</label>
                 <p className="text-sm font-bold text-slate-700">{record.definition || 'N/A'}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {record.accession?.trim() || record.id || 'N/A'}
                 </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {(record.alignedSequence || record.sequence).length.toLocaleString()} bp
                 </p>
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
                 <p className="text-sm font-bold text-slate-700">{record.features.length} annotations</p>
               </div>
             </div>
@@ -173,13 +172,13 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {/* Sequence viewer */}
           <div className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex justify-between items-center">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 {feature ? 'Reference envelope' : 'Record Sequence (Raw)'}
               </label>
               <button
                 onClick={handleCopy}
                 data-tip="Copy these bases to the clipboard"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-50 text-sky-600 text-[9px] font-bold uppercase hover:bg-sky-100 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-sky-50 text-sky-600 text-[10px] font-bold uppercase hover:bg-sky-100 transition-colors"
               >
                 <i className="fas fa-copy"></i> Copy Sequence
               </button>
@@ -197,7 +196,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[8px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
                   {displaySeq.length} bp
                 </span>
               </div>
@@ -208,14 +207,14 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {feature?.translation && (
             <div className="space-y-3 pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(feature.translation!);
                     onCopyLog(`Translation for ${feature.name} copied.`);
                   }}
                   data-tip="Copy the protein sequence to the clipboard"
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[9px] font-bold uppercase hover:bg-emerald-100 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase hover:bg-emerald-100 transition-colors"
                 >
                   <i className="fas fa-copy"></i> Copy AA
                 </button>
@@ -231,7 +230,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {/* Additional metadata */}
           {((feature?.metadata) || (record.metadata && !feature)) && (
             <div className="space-y-3 pt-4 border-t border-slate-100">
-              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
                 {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">

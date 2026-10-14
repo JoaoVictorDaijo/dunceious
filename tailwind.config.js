@@ -33,8 +33,14 @@ export default {
         mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
       },
       colors: {
+        // The three darkest slates are the app chrome; lifted from Tailwind's stock
+        // values along the same hue so the dark surfaces read less like black.
+        slate: { 800: '#243146', 900: '#151e34', 950: '#091023' },
         // The environment accent set by the active theme (see src/app/logic/theme.ts).
         env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
+        // The same hue pulled down to OKLCH L 0.54: every palette family sits at
+        // L 0.75, so this is the fill that carries white text (≥4.8:1 in all four).
+        'env-strong': 'oklch(from var(--env) 0.54 c h / <alpha-value>)',
       },
       keyframes: {
         'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },

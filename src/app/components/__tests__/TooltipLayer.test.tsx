@@ -47,6 +47,16 @@ describe('TooltipLayer', () => {
     expect(plus.getAttribute('aria-describedby')).toBe(tip.id);
   });
 
+  it('appears in place instead of sliding in from its off-screen measuring spot', () => {
+    // The entry animation's duration class also sets transition-duration, and CSS's
+    // default transition-property is `all`, so the jump from (-9999, -9999) to the
+    // anchor would otherwise animate across the screen.
+    const { plus } = setup();
+    fireEvent.pointerOver(plus);
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(screen.getByRole('tooltip').style.transitionProperty).toBe('none');
+  });
+
   it('hides on press and unlinks the trigger', () => {
     const { plus } = setup();
     fireEvent.pointerOver(plus);

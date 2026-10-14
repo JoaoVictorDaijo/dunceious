@@ -20,13 +20,19 @@
 
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { writeDetails } from '@/src/domain/bio/details';
 import AnnotationHubPanel, { type HubFocusOrigin } from './components/AnnotationHubPanel';
 import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
 import ProcessingOverlay from './components/ProcessingOverlay';
+import AlignRemoteModal from './components/AlignRemoteModal';
+import AlignmentJobPill from './components/AlignmentJobPill';
+import { useRemoteAlignment } from './hooks/useRemoteAlignment';
+import { useHubState } from './hooks/useHubState';
 import RecordDetailsModal from './components/RecordDetailsModal';
+import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
@@ -40,6 +46,7 @@ import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
 import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
+import { TrackTooltipProvider } from './components/hub/TrackTooltip';
 import {
     useAppLogger,
     useBioWorker,
@@ -69,6 +76,9 @@ const App: React.FC = () => {
   // ── Layout ────────────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'alignment' | 'features'>('alignment');
+  // Session state belongs above the keyed workspace content so tab switches preserve it.
+  const hubState = useHubState();
+  const [hubToolsSlot, setHubToolsSlot] = useState<HTMLDivElement | null>(null);
   // The hub row a Focus jump left from: the viewport offers the way back while
   // `showHubReturn` holds, and the hub keeps marking the row after returning.
   const [hubFocus, setHubFocus] = useState<HubFocusOrigin | null>(null);
@@ -92,6 +102,16 @@ const App: React.FC = () => {
     setActiveTab('alignment');
     setActiveSelection(selection);
   };
+  // `focusedRegion` names the selection while it stands; `pendingFocus` asks the
+  // viewport to frame it once and is cleared when handled, so a remount does not replay it.
+  const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<FocusTarget | null>(null);
+  const focusOn = useCallback((target: FocusTarget) => {
+    setActiveTab('alignment');
+    setActiveSelection({ start: target.start, end: target.end, recordIds: [target.recordId] });
+    setFocusedRegion(target);
+    setPendingFocus(target);
+  }, []);
   const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
@@ -103,21 +123,52 @@ const App: React.FC = () => {
     isProcessing,
     setIsProcessing,
     bioWorkerRef,
+    requestBio,
+    getRecords,
+    applyAlignmentOverlay,
   } = useBioWorker(addLog);
+
+  const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
+
+  const remapHubRows = useCallback((remap: (key: string) => string | null) => {
+    const remapFocus = (previous: FocusTarget | null) => {
+      if (!previous || previous.featureIndex === undefined) return previous;
+      const key = remap(`${previous.recordId}:${previous.featureIndex}`);
+      return key ? { ...previous, featureIndex: Number(key.slice(key.lastIndexOf(':') + 1)) } : null;
+    };
+    setFocusedRegion(remapFocus); setPendingFocus(remapFocus);
+    setHubFocus(previous => {
+      if (!previous) return previous;
+      const key = remap(previous.key);
+      return key ? { ...previous, key } : null;
+    });
+    hubState.setCurrentRow(previous => previous ? remap(previous) : null);
+    hubState.setSearchKey(previous => previous ? remap(previous) : null);
+    hubState.setJumpTarget(previous => {
+      if (!previous) return previous;
+      const key = remap(previous.key);
+      return key ? { ...previous, key } : null;
+    });
+    hubState.setSelectedRows(previous => new Set([...previous].flatMap(key => { const next = remap(key); return next ? [next] : []; })));
+  }, [hubState.setJumpTarget, hubState.setSelectedRows, hubState.setCurrentRow, hubState.setSearchKey]);
 
   const {
     editing,
     setEditing,
-    featureSearch,
-    setFeatureSearch,
-    flattenedFeatures,
-    allFeaturesCount,
+    setRecordDetails,
+    setRecordLabel,
+    undoAvailable,
+    undoVersion,
+    setUndoPaused,
+    undoDelete,
+    dismissUndo,
+    removeFeatures,
     saveEditedFeature,
     startNewFeature,
     addAnnotationFromSearch,
     removeFeature,
     toggleRecordVisibility,
-  } = useFeatureManager(records, setRecords, activeSelection, addLog);
+  } = useFeatureManager(records, setRecords, activeSelection, addLog, { isLocked: remoteAlignment.isLocked, onRemapRows: remapHubRows });
 
   const {
     searchQuery,
@@ -150,7 +201,16 @@ const App: React.FC = () => {
     searchSelectionRef.current = null;
   };
 
+  const resetHubWorkspace = () => {
+    hubState.resetWorkspace();
+    dismissUndo();
+    setHubFocus(null);
+    setShowHubReturn(false);
+  };
+
   const {
+    handleDroppedFiles,
+    exportRecords,
     handleFileUpload,
     handleAlignmentUpload,
     handleAnnotationUpload,
@@ -158,9 +218,6 @@ const App: React.FC = () => {
     handleExportRecord,
     exportSelection,
     exportSelectionJson,
-    exportAllFasta,
-    exportGenBankFile,
-    exportGffFile,
     exportProjectJson,
     moleculeTypeMismatch,
     closeMismatchModal,
@@ -171,6 +228,7 @@ const App: React.FC = () => {
     featureColors,
     { showAnnotations, showTranslation, showConservation },
     {
+      onWorkspaceReplaced: resetHubWorkspace,
       setRecords,
       setFeatureColors,
       setActiveSelection,
@@ -180,26 +238,36 @@ const App: React.FC = () => {
       setIsProcessing,
     },
     addLog,
+    remoteAlignment.isLocked,
+    { requestBio, getRecords, getWorkspaceRevision: () => hubState.workspaceRevision.current },
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
   // aligned copy, same order as the record's features), so resolve by position.
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
-  const featureIndexOf = (recordId: string, feature: BioFeature): number => {
+  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number => {
     const hubIndex = (feature as BioFeature & { index?: number }).index;
     if (typeof hubIndex === 'number') return hubIndex;
     const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
     return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-  };
+  }, [records, transposedRecords]);
 
-  const handleViewDetails = (recordId: string, feature?: BioFeature) => {
+  const handleViewDetails = useCallback((recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
+    const index = feature ? featureIndexOf(recordId, feature) : -1;
     setViewingRecordDetails(record);
-    setViewingFeatureDetails(feature || null);
-    setViewingFeatureIndex(feature ? featureIndexOf(recordId, feature) : -1);
-  };
+    setViewingFeatureDetails(record.features[index] ?? null);
+    setViewingFeatureIndex(index);
+  }, [records, featureIndexOf]);
+
+  const editHubFeature = useCallback((recordId: string, featureIndex: number, feature: BioFeature) => setEditing({ recordId, featureIndex, feature }), [setEditing]);
+  const focusHubFeature = useCallback((target: FocusTarget, origin: HubFocusOrigin) => {
+    setHubFocus(origin);
+    setShowHubReturn(true);
+    focusOn(target);
+  }, [focusOn]);
 
   const handleSetShowBases = (show: boolean) => {
     const recordId = viewingRecordDetails?.id;
@@ -213,20 +281,32 @@ const App: React.FC = () => {
   };
 
   const handleRemoveRecord = (recordId: string) => {
+    if (remoteAlignment.isLocked()) return;
     const record = records.find(r => r.id === recordId);
     if (!record) return;
 
+    const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
+    record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
+    hubState.setCurrentRow(previous => previous && keys.has(previous) ? null : previous);
+    hubState.setSearchKey(previous => previous && keys.has(previous) ? null : previous);
+    hubState.setEditingDetails(previous => previous === recordId ? null : previous);
+    hubState.setEditingName(previous => previous === recordId ? null : previous);
+    hubState.setDraft(previous => previous?.id === recordId ? null : previous);
+    hubState.setHubHidden(prev => new Set([...prev].filter(id => id !== recordId)));
+    hubState.setSelectedRecords(prev => new Set([...prev].filter(id => id !== recordId)));
+    hubState.setSelectedRows(prev => new Set([...prev].filter(key => !keys.has(key))));
+    hubState.setFilters(prev => {
+      if (!prev.onlyIds?.has(recordId)) return prev;
+      const onlyIds = new Set([...prev.onlyIds].filter(id => id !== recordId));
+      return { ...prev, onlyIds: onlyIds.size ? onlyIds : undefined };
+    });
+    if (hubFocus && keys.has(hubFocus.key)) { setHubFocus(null); setShowHubReturn(false); }
+    if (hubState.jumpTarget && (hubState.jumpTarget.key === recordId || keys.has(hubState.jumpTarget.key))) hubState.setJumpTarget(null);
     setRecords(prev => removeRecordFromProject(prev, recordId));
     setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
 
-    const nextSearchState = sanitizeSearchStateAfterRecordRemoval(
-      filteredResults,
-      currentSearchIdx,
-      selectedSearchIndices,
-      recordId,
-    );
-    setCurrentSearchIdx(nextSearchState.currentSearchIdx);
-    setSelectedSearchIndices(nextSearchState.selectedSearchIndices);
+    setCurrentSearchIdx(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, prev, selectedSearchIndices, recordId).currentSearchIdx);
+    setSelectedSearchIndices(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, currentSearchIdx, prev, recordId).selectedSearchIndices);
 
     if (viewingRecordDetails?.id === recordId) {
       setViewingRecordDetails(null);
@@ -261,32 +341,32 @@ const App: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    if (remoteAlignment.isLocked()) return;
     if (records.length === 0) return;
     // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
     const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
     if (choice?.trim().toUpperCase() !== 'CLEAR') return;
+    resetHubWorkspace();
     setRecords([]);
     addLog('Workspace cleared.');
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <TrackTooltipProvider>
     <div
-      className="app-root flex flex-col h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans select-none"
+      className="app-root flex flex-col h-screen bg-slate-900 text-slate-200 overflow-hidden font-sans select-none"
       data-env={envAccent}
       style={themeStyle}
     >
-      <ProcessingOverlay isProcessing={isProcessing} />
+      <ProcessingOverlay isProcessing={isProcessing && !remoteAlignment.isAlignmentLocked} />
 
       {viewingRecordDetails && (
         <RecordDetailsModal
           record={viewingRecordDetails}
           feature={viewingFeatureDetails}
           onClose={() => { setViewingRecordDetails(null); setViewingFeatureDetails(null); }}
-          onFocusFeature={(recordId, start, end) => {
-            setActiveTab('alignment');
-            setActiveSelection({ start, end, recordIds: [recordId] });
-          }}
+          onFocusFeature={focusOn}
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
           onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
@@ -314,7 +394,30 @@ const App: React.FC = () => {
         />
       )}
 
+      {remoteAlignment.presentation === 'dialog' && (
+        <AlignRemoteModal
+          state={remoteAlignment.state}
+          count={records.length}
+          bytes={remoteAlignment.bytes}
+          moleculeKind={remoteAlignment.moleculeKind}
+          hasAlignment={records.some(record => !!record.alignedSequence)}
+          engineId={remoteAlignment.engineId}
+          email={remoteAlignment.email}
+          verifiedEmail={remoteAlignment.verifiedEmail}
+          verdicts={remoteAlignment.verdicts}
+          onMinimize={remoteAlignment.minimize}
+          onEngineChange={remoteAlignment.setEngineId}
+          onEmailChange={remoteAlignment.setEmail}
+          onSubmit={() => { void remoteAlignment.submit(); }}
+          onCancel={remoteAlignment.cancel}
+          onRetry={remoteAlignment.retry}
+        />
+      )}
+
+      {remoteAlignment.presentation === 'pill' && <AlignmentJobPill state={remoteAlignment.state} onOpen={remoteAlignment.open} />}
+
       <TopNav
+        toolsRef={setHubToolsSlot}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         activeTab={activeTab}
@@ -342,6 +445,12 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
+          onExportProjectJson={exportProjectJson}
+          onClearAll={handleClearAll}
+          workspaceEmpty={!records.length}
+          hubState={hubState}
+          featureColors={featureColors}
+          onToggleRecordVisibility={toggleRecordVisibility}
           open={sidebarOpen}
           activeTab={activeTab}
           records={records}
@@ -352,6 +461,8 @@ const App: React.FC = () => {
           onSetJumpTo={setJumpTo}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
+          onAlignRemote={remoteAlignment.open} remoteAlignmentState={remoteAlignment.state}
+          isAlignmentLocked={remoteAlignment.isAlignmentLocked}
           onAnnotationUpload={handleAnnotationUpload}
           onProjectUpload={handleProjectUpload}
           onExportSelection={exportSelection}
@@ -385,8 +496,8 @@ const App: React.FC = () => {
           isProteinSession={isProteinSession}
         />
 
-        <main className="flex-1 bg-[#0f172a] relative flex flex-col min-h-0 min-w-0 p-1.5">
-          {records.length === 0 ? (
+        <main className="flex-1 bg-slate-900 relative flex flex-col min-h-0 min-w-0 p-1.5">
+          {records.length === 0 && activeTab === 'alignment' ? (
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-slate-800 animate-in fade-in duration-700">
               <i className="fas fa-dna text-9xl opacity-10 animate-pulse mb-10"></i>
               <p className="text-[12px] font-bold uppercase tracking-[0.8em] text-slate-700">Workspace Empty</p>
@@ -397,7 +508,7 @@ const App: React.FC = () => {
               {activeTab === 'alignment' && showHubReturn && hubFocus && (
                 <HubReturnPill
                   label={hubFocus.label}
-                  onReturn={() => changeTab('features')}
+                  onReturn={() => { hubState.setJumpTarget(prev => ({ key: hubFocus.key, serial: (prev?.serial ?? 0) + 1 })); changeTab('features'); }}
                   onDismiss={() => setShowHubReturn(false)}
                 />
               )}
@@ -421,36 +532,43 @@ const App: React.FC = () => {
                     selectedSearchIndices={selectedSearchIndices}
                     customColors={featureColors}
                     jumpTo={jumpTo}
+                    focusRequest={pendingFocus}
+                    onFocusComplete={() => setPendingFocus(null)}
+                    focusedRegion={focusedRegion}
                     onJumpComplete={() => setJumpTo(null)}
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                   />
                 ) : (
                   <AnnotationHubPanel
+                    toolsSlot={hubToolsSlot}
                     records={records}
-                    flattenedFeatures={flattenedFeatures}
-                    allFeaturesCount={allFeaturesCount}
-                    featureSearch={featureSearch}
-                    onFeatureSearchChange={setFeatureSearch}
+                    state={hubState}
+                    onDroppedFiles={handleDroppedFiles}
+                    onFileUpload={handleFileUpload}
+                    onAlignmentUpload={handleAlignmentUpload}
+                    onAnnotationUpload={handleAnnotationUpload}
+                    onProjectUpload={handleProjectUpload}
+                    onExportRecords={exportRecords}
+                    onDeleteRows={removeFeatures}
+                    undoAvailable={undoAvailable}
+                    undoVersion={undoVersion}
+                    onUndoPause={setUndoPaused}
+                    onUndoDelete={undoDelete}
+                    onSetRecordDetails={setRecordDetails}
+                    onSetRecordLabel={setRecordLabel}
+                    onSetDetail={(ids, key, value) => { if (remoteAlignment.isLocked()) return; setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); }}
                     featureColors={featureColors}
-                    activeSelection={activeSelection}
                     onStartNewFeature={startNewFeature}
-                    onToggleRecordVisibility={toggleRecordVisibility}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}
-                    onEditFeature={(recordId, featureIndex, feature) => setEditing({ recordId, featureIndex, feature })}
+                    onEditFeature={editHubFeature}
                     onRemoveFeature={removeFeature}
-                    onFocusItem={(recordId, start, end, origin) => {
-                      setHubFocus(origin);
-                      setShowHubReturn(true);
-                      setActiveTab('alignment');
-                      setActiveSelection({ start, end, recordIds: [recordId] });
-                    }}
+                    onFocusItem={focusHubFeature}
                     lastFocusedKey={hubFocus?.key ?? null}
-                    onExportAllFasta={exportAllFasta}
-                    onExportGenBank={exportGenBankFile}
-                    onExportGff={exportGffFile}
                     onExportProjectJson={exportProjectJson}
                     onClearAll={handleClearAll}
                     addLog={addLog}
@@ -467,6 +585,7 @@ const App: React.FC = () => {
       <TooltipLayer />
 
     </div>
+    </TrackTooltipProvider>
   );
 };
 

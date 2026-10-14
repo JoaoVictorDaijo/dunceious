@@ -22,12 +22,16 @@ import {
   saveEditedFeature,
   removeFeature,
   toggleRecordVisibility,
-  groupFeaturesBySearch,
-  buildFlattenedFeatures,
   newFeatureFromSelection,
   annotationCoords,
 } from '../featureManager';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
+
+import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { parseGenBank } from '@/src/core/genbank';
+import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { metadataFromRows, qualifierRows } from '../qualifiers';
 
 const feat = (o: Partial<BioFeature> & { name: string }): BioFeature => ({
   type: 'misc_feature', start: 0, end: 5, strand: 1, ...o,
@@ -70,45 +74,8 @@ describe('toggleRecordVisibility', () => {
   it('flips an explicit true to false', () => {
     expect(toggleRecordVisibility([rec({ id: 'r1', visible: true })], 'r1')[0].visible).toBe(false);
   });
-  it('treats undefined visibility as flipping to true', () => {
-    expect(toggleRecordVisibility([rec({ id: 'r1' })], 'r1')[0].visible).toBe(true);
-  });
-});
-
-describe('groupFeaturesBySearch', () => {
-  it('attaches the original index and filters case-insensitively by name', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'GeneAlpha' }), feat({ name: 'other' })] })];
-    const out = groupFeaturesBySearch(recs, 'alpha');
-    expect(out.r1.map(f => ({ name: f.name, index: f.index }))).toEqual([{ name: 'GeneAlpha', index: 0 }]);
-  });
-  it('matches on type, definition, and metadata values', () => {
-    const recs = [rec({ id: 'r1', definition: 'plasmid', features: [feat({ name: 'x', metadata: { note: 'HELLO' } })] })];
-    expect(groupFeaturesBySearch(recs, 'plasmid').r1).toHaveLength(1); // via definition
-    expect(groupFeaturesBySearch(recs, 'hello').r1).toHaveLength(1);   // via metadata (case-insensitive)
-  });
-  it('excludes a feature whose metadata is present but no value contains the search term', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'x', type: 'y', metadata: { note: 'zzz' } })] })];
-    expect(groupFeaturesBySearch(recs, 'qqq').r1).toEqual([]);
-  });
-});
-
-describe('buildFlattenedFeatures', () => {
-  it('orders header, then tracks, then features; header count = features + tracks', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'g1' }), feat({ name: 'g2' })], tracks: [{ id: 't1', name: 'trk', data: [] }] })];
-    const out = buildFlattenedFeatures(recs, '');
-    expect(out.map(i => i.type)).toEqual(['header', 'track', 'feature', 'feature']);
-    expect(out[0]).toMatchObject({ type: 'header', count: 3 });
-  });
-  it('drops a record whose features+tracks are empty when a search filter is active', () => {
-    const recs = [rec({ id: 'r1', features: [feat({ name: 'x' })], tracks: [] })];
-    expect(buildFlattenedFeatures(recs, 'zzz')).toEqual([]);
-    expect(buildFlattenedFeatures(recs, '').map(i => i.type)).toEqual(['header', 'feature']);
-  });
-  it('still pushes header+track when features is empty, tracks is non-empty, and a search is active', () => {
-    const recs = [rec({ id: 'r1', features: [], tracks: [{ id: 't1', name: 'trk', data: [] }] })];
-    const out = buildFlattenedFeatures(recs, 'zzz');
-    expect(out.map(i => i.type)).toEqual(['header', 'track']);
-    expect(out[0]).toMatchObject({ type: 'header', count: 1 });
+  it('hides a record whose visibility is implicitly true', () => {
+    expect(toggleRecordVisibility([rec({ id: 'r1' })], 'r1')[0].visible).toBe(false);
   });
 });
 
@@ -157,4 +124,73 @@ describe('annotationCoords', () => {
       start: 0, end: 6, segments: [{ start: 0, end: 1 }, { start: 3, end: 4 }],
     });
   });
+});
+
+it('marks inserted and edited annotations as edited', () => {
+  const input = [rec({ id: 'r1', features: [feat({ name: 'a' })] })];
+  expect(saveEditedFeature(input, 'r1', -1, feat({ name: 'b' }))[0].annotationsEdited).toBe(true);
+  expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edited' }))[0].annotationsEdited).toBe(true);
+});
+
+
+it('marks new annotations added and keeps that provenance through later edits', () => {
+  const original = feat({ name: 'file' });
+  const input = [rec({ id: 'r1', features: [original] })];
+  const added = saveEditedFeature(input, 'r1', -1, feat({ name: 'new' }));
+  expect(added[0].features[1].hubEdit).toBe('added');
+  const edited = saveEditedFeature(added, 'r1', 1, feat({ name: 'changed' }));
+  expect(edited[0].features[1].hubEdit).toBe('added');
+  expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edit file' }))[0].features[0].hubEdit).toBe('edited');
+  expect(original.hubEdit).toBeUndefined();
+});
+
+
+it('synchronizes the envelope after extending an edited segment', () => {
+  const original = feat({ name: 'joined', start: 100, end: 200,
+    segments: [{ start: 100, end: 130 }, { start: 180, end: 200 }] });
+  const edited = { ...original, segments: [{ start: 100, end: 130 }, { start: 180, end: 900 }] };
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(1000), features: [original] })];
+  const saved = saveEditedFeature(records, 'r1', 0, edited)[0].features[0];
+  expect(saved).toMatchObject({ start: 100, end: 900, segments: edited.segments, hubEdit: 'edited' });
+  expect(original.end).toBe(200);
+});
+
+it('synchronizes an edited circular join without flattening its wrap', () => {
+  const feature = feat({ name: 'origin', start: 80, end: 20,
+    segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] });
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(100), isCircular: true, features: [feature] })];
+  expect(saveEditedFeature(records, 'r1', 0, feature)[0].features[0]).toMatchObject({ start: 70, end: 30 });
+});
+it('does not revive an imported phase after deleting codon_start in the editor', () => {
+  const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
+  const input = [rec({ id: 'r1', sequence: 'AATGAAACCC', features: [feature] })];
+  const metadata = metadataFromRows(feature.metadata, qualifierRows(feature.metadata).filter(row => row.key !== 'codon_start'));
+  const saved = saveEditedFeature(input, 'r1', 0, { ...feature, metadata });
+  const cds = saved[0].features[0];
+  expect(extractCodingSequence(cds, saved[0].sequence).codingSeq).toBe('AATGAAACCC');
+  const gb = parseGenBank(exportToGenBank(saved).text)[0];
+  const gbCds = gb.features.find(f => f.type === 'CDS')!;
+  expect(extractCodingSequence(gbCds, gb.sequence).codingSeq).toBe('AATGAAACCC');
+  expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('0');
+  expect(cds.metadata).not.toHaveProperty('_gffPhases');
+  expect(cds.metadata).not.toHaveProperty('phase');
+  expect(feature.metadata?.phase).toBe('1');
+});
+
+it.each(['start', 'end', 'strand', 'segments'] as const)('invalidates imported phase caches after editing %s', key => {
+  const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
+  const patch: Partial<BioFeature> = key === 'segments' ? { segments: [{ start: 1, end: 10 }] }
+    : key === 'strand' ? { strand: -1 } : { [key]: key === 'start' ? 1 : 9 };
+  const saved = saveEditedFeature([rec({ id: 'r1', features: [feature] })], 'r1', 0, { ...feature, ...patch })[0].features[0];
+  expect(saved.metadata).not.toHaveProperty('phase');
+  expect(saved.metadata).not.toHaveProperty('_gffPhases');
+  expect(saved.metadata).not.toHaveProperty('_gffPhaseState');
+  expect(saved.metadata?.codon_start).toBe('2');
+});
+
+it('retains an untouched legacy project phase when saving an unrelated feature name', () => {
+  const feature = feat({ type: 'CDS', name: 'legacy', end: 10, metadata: { phase: '1', _gffPhases: '["1"]' } });
+  const saved = saveEditedFeature([rec({ id: 'r1', sequence: 'AATGAAACCC', features: [feature] })], 'r1', 0, { ...feature, name: 'renamed' });
+  expect(exportToGenBank(saved).text).toContain('/codon_start=2');
+  expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('1');
 });

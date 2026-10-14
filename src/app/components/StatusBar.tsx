@@ -39,7 +39,7 @@ const linkClass =
 const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) => {
   const taps = useRef({ count: 0, last: 0 });
   const [unlocked, setUnlocked] = useState(false);
-  const [showEgg, setShowEgg] = useState(false);
+  const [egg, setEgg] = useState<"closed" | "play" | "replay">("closed");
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
 
   useEffect(() => {
@@ -60,9 +60,9 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
       t.count = 0;
       setToast(null);
       setUnlocked(true);
-      setShowEgg(true);
-    } else if (outcome.kind === "already") {
-      setToast({ id: now, text: "Already expressed. Refresh the page to replay it" });
+      setEgg("play");
+    } else if (outcome.kind === "replay") {
+      setEgg("replay");
     }
   };
 
@@ -74,13 +74,13 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, themeKey }) 
       role="status"
       className="fixed bottom-12 left-6 z-[200] px-3.5 py-2 rounded-xl bg-slate-800/95 border border-slate-700 shadow-xl text-[11px] font-medium text-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-200"
     >
-      <i className="fas fa-dna mr-2 text-sky-400"></i>{toast.text}
+      <i className="fas fa-dna mr-2 text-env"></i>{toast.text}
     </div>
   )}
-  {showEgg && <CentralDogmaEgg onClose={() => setShowEgg(false)} />}
+  {egg !== "closed" && <CentralDogmaEgg replay={egg === "replay"} onClose={() => setEgg("closed")} />}
   <div data-theme={themeKey} className="app-status relative bg-slate-950 border-t border-slate-800/80 overflow-hidden">
     <div className="hf-env" aria-hidden="true" />
-    <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
+    <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
       <div className="flex gap-4 items-center">
         {/* Tap seven times, as with Android's build number. */}
         <button

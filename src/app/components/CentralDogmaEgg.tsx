@@ -20,7 +20,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { MONO_STACK } from '@/src/app/viewer/constants';
-import { CODING_STRAND, CODONS, templateStrand, transcribe } from '@/src/app/logic/easterEgg';
+import { CLOSE_GUARD_MS, CODING_STRAND, CODONS, templateStrand, transcribe } from '@/src/app/logic/easterEgg';
 
 /** Act timings in ms: spin, unzip, transcribe, then translate. */
 const UNZIP_AT = 1600;
@@ -30,6 +30,7 @@ const BASE_MS = 70;
 const TRANSLATE_AT = TRANSCRIBE_AT + CODING_STRAND.length * BASE_MS + 250;
 const CODON_MS = 240;
 const FINALE_AT = TRANSLATE_AT + CODONS.length * CODON_MS + 300;
+const FINAL_FRAME = FINALE_AT + 1;
 
 const TEMPLATE = templateStrand(CODING_STRAND);
 const MRNA = transcribe(CODING_STRAND);
@@ -155,8 +156,50 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+const AUTHORS = ['JoaoVictorDaijo', 'MuriloACassiano'] as const;
+
+const AuthorCard: React.FC<{ login: string }> = ({ login }) => {
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  return (
+    <a
+      href={`https://github.com/${login}`}
+      target="_blank"
+      rel="noreferrer"
+      // The backdrop closes on click; following a profile link must not.
+      onClick={e => e.stopPropagation()}
+      className="group flex items-center gap-3 pl-2.5 pr-4 py-2 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/50 hover:bg-slate-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+    >
+      {avatarFailed ? (
+        <span className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400" aria-hidden="true">
+          <i className="fab fa-github text-lg"></i>
+        </span>
+      ) : (
+        // Offline or blocked? The glyph above takes over rather than a broken image.
+        <img
+          src={`https://github.com/${login}.png?size=80`}
+          alt=""
+          width={40}
+          height={40}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setAvatarFailed(true)}
+          className="w-10 h-10 rounded-full bg-slate-800 ring-1 ring-slate-700 group-hover:ring-sky-500/60 transition-shadow"
+        />
+      )}
+      <span className="flex flex-col items-start text-left">
+        <span className="text-sm font-bold text-slate-100">{login}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 group-hover:text-sky-400 transition-colors">
+          <i className="fab fa-github mr-1.5"></i>GitHub
+        </span>
+      </span>
+    </a>
+  );
+};
+
 interface CentralDogmaEggProps {
   onClose: () => void;
+  /** Open on the finished picture instead of playing the whole animation. */
+  replay?: boolean;
 }
 
 /**
@@ -164,10 +207,16 @@ interface CentralDogmaEggProps {
  * and the ribosome reads codons that spell the app's name — two of them only
  * because the cell recodes a stop codon.
  */
-const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
+const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(replay ? FINAL_FRAME : 0);
+  const [backdropArmed, setBackdropArmed] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setBackdropArmed(true), CLOSE_GUARD_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -180,7 +229,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const still = replay || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
     let frame = 0;
     const start = performance.now();
     const render = (now: number) => {
@@ -191,15 +240,15 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
         canvas.height = Math.round(height * dpr);
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // Reduced motion lands on the finished picture with a still helix.
-      const t = reduced ? FINALE_AT + 1 : now - start;
+      // Replays and reduced motion land on the finished picture with a still helix.
+      const t = still ? FINAL_FRAME : now - start;
       drawFrame(ctx, width, height, t);
       setElapsed(t);
-      if (!reduced) frame = requestAnimationFrame(render);
+      if (!still) frame = requestAnimationFrame(render);
     };
     frame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [replay]);
 
   const shown = elapsed < TRANSLATE_AT ? 0 : Math.min(CODONS.length, Math.floor((elapsed - TRANSLATE_AT) / CODON_MS) + 1);
   const caption =
@@ -210,8 +259,8 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
       role="dialog"
       aria-modal="true"
       aria-label="DUNCEIOUS gene expression easter egg"
-      onClick={onClose}
-      className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 select-none"
+      onClick={() => { if (backdropArmed) onClose(); }}
+      className="fixed inset-0 z-[300] bg-slate-950/95 backdrop-blur-md flex flex-col items-center overflow-y-auto p-6 animate-in fade-in duration-500 select-none"
     >
       <button
         ref={closeRef}
@@ -224,7 +273,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
         <i className="fas fa-xmark"></i>
       </button>
 
-      <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
+      <p className="mt-auto text-[10px] font-bold uppercase tracking-[0.4em] text-sky-400/80 mb-2 transition-opacity" aria-live="polite">{caption}</p>
       <canvas ref={canvasRef} className="w-full max-w-[1000px] h-[260px]" aria-hidden="true" />
 
       <div className="flex gap-2 mt-2 min-h-[92px]" aria-label="Translated protein">
@@ -244,16 +293,23 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose }) => {
       </div>
 
       {/* Space is reserved up front so the strands don't jump when the finale lands. */}
-      <div className="mt-8 min-h-[150px] text-center max-w-xl">
+      <div className="mt-6 mb-auto min-h-[200px] text-center max-w-xl">
       {elapsed >= FINALE_AT && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
           <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">DUNCEIOUS expressed</h2>
-          <p className="mt-3 text-[13px] text-slate-400 leading-relaxed">
-            Nine codons, one very small protein. Two of them are stop codons the cell reads anyway:
-            <span className="text-amber-400"> U</span> is selenocysteine (UGA) and
-            <span className="text-amber-400"> O</span> is pyrrolysine (UAG).
+          <p
+            className="mt-3 text-sm text-slate-400 animate-in fade-in duration-700 fill-mode-backwards"
+            style={{ animationDelay: '400ms' }}
+          >
+            Made with passion and built for science
           </p>
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
+          <div
+            className="mt-4 flex flex-wrap justify-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700 fill-mode-backwards"
+            style={{ animationDelay: '700ms' }}
+          >
+            {AUTHORS.map(login => <AuthorCard key={login} login={login} />)}
+          </div>
+          <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
         </div>
       )}
       </div>

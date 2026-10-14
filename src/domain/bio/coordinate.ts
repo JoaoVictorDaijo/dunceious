@@ -44,7 +44,7 @@ export const transposeCoordinates = (
   return alignedSeq.length;
 };
 
-function createCoordinateLookup(alignedSeq: string): (position: number) => number {
+function createCoordinateLookup(alignedSeq: string): (start: number, end: number) => FeatureSegment {
   const boundaries = new Uint32Array(alignedSeq.length + 1);
   let ungappedLength = 0;
 
@@ -55,31 +55,40 @@ function createCoordinateLookup(alignedSeq: string): (position: number) => numbe
     }
   }
 
-  return (position) =>
+  const transposeEnd = (position: number) =>
     Number.isInteger(position) && position >= 0 && position <= ungappedLength
       ? boundaries[position]
       : alignedSeq.length;
+
+  return (start, end) => ({
+    // Empty intervals stay empty; a nonempty part starts on its first real base.
+    start: start !== end && Number.isInteger(start) && start >= 0 && start < ungappedLength
+      ? boundaries[start + 1] - 1
+      : transposeEnd(start),
+    end: transposeEnd(end),
+  });
 }
 
 /**
- * Given two aligned positions `alignedStart` (inclusive) and `alignedEnd`
- * (exclusive) in an aligned sequence, returns the non-gap sub-segments
- * between those positions.
- *
- * Gaps inside the region produce separate segments so that rendered
- * features skip over inserted gaps from other sequences.
+ * Maps an ungapped half-open interval to aligned columns, excluding flanking
+ * gaps but retaining internal gaps. A descending interval keeps its wrap order.
+ * Empty intervals retain their boundary before following gaps.
+ */
+export function transposeInterval(start: number, end: number, alignedSeq: string): FeatureSegment {
+  return createCoordinateLookup(alignedSeq)(start, end);
+}
+
+/**
+ * Non-gap pieces of an aligned half-open search window. Search highlighting
+ * excludes inserted gaps; annotation bars instead use continuous intervals.
  */
 export const buildAlignedSegments = (
   alignedSeq: string,
   alignedStart: number,
   alignedEnd: number,
-  strand?: 1 | -1,
 ): FeatureSegment[] => {
   const segments: FeatureSegment[] = [];
   let currentStart: number | null = null;
-
-  const push = (start: number, end: number) =>
-    segments.push(strand !== undefined ? { start, end, strand } : { start, end });
 
   for (let i = alignedStart; i < alignedEnd; i++) {
     if (alignedSeq[i] !== "-") {
@@ -88,14 +97,14 @@ export const buildAlignedSegments = (
       }
     } else {
       if (currentStart !== null) {
-        push(currentStart, i);
+        segments.push({ start: currentStart, end: i });
         currentStart = null;
       }
     }
   }
 
   if (currentStart !== null) {
-    push(currentStart, alignedEnd);
+    segments.push({ start: currentStart, end: alignedEnd });
   }
 
   return segments;
@@ -105,8 +114,9 @@ export const buildAlignedSegments = (
  * Processes a list of SeqRecords, transposing all their features from raw
  * sequence coordinates into aligned sequence coordinates.
  *
- * Features that span wrap-around junctions (start > end on circular
- * sequences) are split into two coordinate ranges before transposition.
+ * Each original part stays continuous across inserted gaps, excluding gaps
+ * before its first or after its last base. Only circular origin crossings
+ * split a part; joins retain their original part order and strands.
  */
 export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
   return records.map((record) => {
@@ -128,18 +138,13 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
         const parts = splitWrapAround(seg.start, seg.end, record.sequence.length);
 
         for (const part of parts) {
-          const alignedStart = transpose(part.start);
-          const alignedEnd = transpose(part.end);
-          newSegments.push(
-            ...buildAlignedSegments(alignedSeq, alignedStart, alignedEnd, seg.strand),
-          );
+          const aligned = transpose(part.start, part.end);
+          if (aligned.end <= aligned.start || alignedSeq[aligned.start] === "-") continue;
+          newSegments.push(seg.strand === undefined ? aligned : { ...aligned, strand: seg.strand });
         }
       }
 
-      const newStart = transpose(feat.start);
-      const newEnd = transpose(feat.end);
-
-      return { ...feat, start: newStart, end: newEnd, segments: newSegments };
+      return { ...feat, ...transpose(feat.start, feat.end), segments: newSegments };
     });
 
     return { ...record, features: transposedFeatures };

@@ -24,7 +24,7 @@ const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
 import { computeRecordLayouts } from './layout';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
-const ALL = { showAnnotations: true, showTranslation: true, showTracks: true };
+const ALL = { showAnnotations: true, translationVisible: true, showTracks: true };
 function rec(o: Partial<SeqRecord> & Pick<SeqRecord, 'id' | 'sequence'>): SeqRecord {
   return { name: o.id, features: [], ...o } as SeqRecord;
 }
@@ -112,11 +112,12 @@ describe('computeRecordLayouts', () => {
   });
 
   it('applies the translation band only for non-protein records', () => {
-    const dna = computeRecordLayouts([rec({ id: 'd', sequence: 'ACGT', moleculeType: 'dna' })], ALL)[0];
-    const pro = computeRecordLayouts([rec({ id: 'p', sequence: 'MKV', moleculeType: 'protein' })], ALL)[0];
-    // seqBaseY = 0 + 0 + 0 + (effectiveTranslation ? 18*3 : 0)
-    expect(dna.seqBaseY).toBe(18 * 3);
-    expect(dna.height).toBe(18 * 3 + 18 * 3 + 22 + 20);
+    const features = [{ type: 'CDS', name: 'c', start: 0, end: 3, strand: 1 as const }];
+    const dna = computeRecordLayouts([rec({ id: 'd', sequence: 'ACGT', moleculeType: 'dna', features })], { ...ALL, showAnnotations: false })[0];
+    const pro = computeRecordLayouts([rec({ id: 'p', sequence: 'MKV', moleculeType: 'protein', features })], { ...ALL, showAnnotations: false })[0];
+    // One forward lane above the bases, no reverse lane below.
+    expect(dna.seqBaseY).toBe(18);
+    expect(dna.height).toBe(18 + 22 + 20);
     expect(pro.seqBaseY).toBe(0);
     expect(pro.height).toBe(22 + 20);
   });
@@ -130,4 +131,38 @@ it('packs a circular aligned feature using the aligned coordinate length', () =>
   ] });
   const [layout] = computeRecordLayouts([record], ALL);
   expect(layout.placements.map(p => p.row)).toEqual([0, 1]);
+});
+
+
+describe('translation row visibility', () => {
+  const coding = [
+    { type: 'CDS', name: 'f0', start: 0, end: 30, strand: 1 as const },
+    { type: 'CDS', name: 'f1', start: 10, end: 40, strand: 1 as const },
+    { type: 'CDS', name: 'r', start: 0, end: 30, strand: -1 as const },
+  ];
+  const opts = { showAnnotations: false, translationVisible: true, showTracks: false };
+
+  it.each([false, true])('reserves rows only for effective visibility %s', (translationVisible) => {
+    const [layout] = computeRecordLayouts([rec({ id: 'dna', sequence: 'A'.repeat(60), features: coding })], { ...opts, translationVisible });
+    expect(layout.seqBaseY).toBe(translationVisible ? 2 * 18 : 0);
+    expect(layout.height).toBe(translationVisible ? 3 * 18 + 42 : 42);
+    expect(layout.translationVisible).toBe(translationVisible);
+  });
+
+  it('reserves no rows for a record without coding features', () => {
+    const [layout] = computeRecordLayouts([rec({ id: 'dna', sequence: 'ATG' })], opts);
+    expect(layout).toMatchObject({ translationVisible: true, seqBaseY: 0, height: 42 });
+  });
+
+  it('keeps the lanes after hiding so the closing fade keeps its rows', () => {
+    const record = rec({ id: 'dna', sequence: 'A'.repeat(60), features: coding });
+    computeRecordLayouts([record], opts);
+    const [hidden] = computeRecordLayouts([record], { ...opts, translationVisible: false });
+    expect(hidden).toMatchObject({ seqBaseY: 0, height: 42, translationLanes: { forward: 2, reverse: 1 } });
+  });
+
+  it('rejects translation visibility for a protein record', () => {
+    const [layout] = computeRecordLayouts([rec({ id: 'protein', sequence: 'MPE', moleculeType: 'protein' })], ALL);
+    expect(layout).toMatchObject({ translationVisible: false, seqBaseY: 0, height: 42 });
+  });
 });

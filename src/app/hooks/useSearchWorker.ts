@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, type Dispatch, type SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
@@ -43,9 +43,9 @@ export interface UseSearchWorkerReturn {
   /** Fuzzy results filtered by minScore; equals searchResults for exact mode. */
   filteredResults: SearchResult[];
   currentSearchIdx: number;
-  setCurrentSearchIdx: (idx: number) => void;
+  setCurrentSearchIdx: Dispatch<SetStateAction<number>>;
   selectedSearchIndices: Set<number>;
-  setSelectedSearchIndices: (next: Set<number>) => void;
+  setSelectedSearchIndices: Dispatch<SetStateAction<Set<number>>>;
   maxScoreFound: number;
   isSearching: boolean;
   isProteinSession: boolean;

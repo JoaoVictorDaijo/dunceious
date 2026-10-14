@@ -31,35 +31,47 @@
 
 import type {
   SeqRecord,
+  SequenceDetails,
   BioFeature,
   QuantitativeTrack,
   SearchResult,
   SearchableRecord,
 } from '../domain/bio/types';
+import type { GffSourceRegion } from '../core/formats/gff3';
 
 // ---------------------------------------------------------------------------
 // Bio Worker — Requests (main → worker)
 // ---------------------------------------------------------------------------
 
-export interface ProcessRecordsRequest {
+export interface BioRequestContext {
+  requestId?: number;
+}
+
+export interface ProcessRecordsRequest extends BioRequestContext {
   type: 'PROCESS_RECORDS';
   records: SeqRecord[];
 }
 
-export interface ParseGenBankRequest {
+/** null marks an incoming ID shared by multiple records in one drop. */
+export type BatchIdMap = Record<string, string | null>;
+
+export interface ParseGenBankRequest extends BioRequestContext {
   type: 'PARSE_GENBANK';
+  filename: string;
   content: string;
 }
 
-export interface ParseFastaRequest {
+export interface ParseFastaRequest extends BioRequestContext {
   type: 'PARSE_FASTA';
+  filename: string;
   content: string;
   /** When true the FASTA is an external pre-aligned overlay; otherwise it is a batch load. */
   asAlignment?: boolean;
 }
 
-export interface ParseAnnotationsRequest {
+export interface ParseAnnotationsRequest extends BioRequestContext {
   type: 'PARSE_ANNOTATIONS';
+  idMap?: BatchIdMap;
   filename: string;
   content: string;
 }
@@ -75,32 +87,43 @@ export type BioWorkerRequest =
 // Bio Worker — Responses (worker → main)
 // ---------------------------------------------------------------------------
 
-export interface ProcessRecordsSuccessResponse {
+export interface ProcessRecordsSuccessResponse extends BioRequestContext {
   type: 'SUCCESS';
   records: SeqRecord[];
   consensus: string;
 }
 
-export interface ParseGenBankSuccessResponse {
+export interface ParseGenBankSuccessResponse extends BioRequestContext {
   type: 'PARSE_SUCCESS';
+  /** Workspace assignments supplied by the main-thread acknowledgment. */
+  idMap?: BatchIdMap;
+  filename: string;
   records: SeqRecord[];
 }
 
 /** The record shape carried in a FASTA_SUCCESS response's alignedData. */
-export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType'>;
+export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'features' | 'moleculeType' | 'definition' | 'fastaModifiers'> & {
+  details?: SequenceDetails;
+  /** Cleaned description text can complete a whitespace-containing alignment ID. */
+  header?: string;
+};
 
-export interface ParseFastaSuccessResponse {
+export interface ParseFastaSuccessResponse extends BioRequestContext {
   type: 'FASTA_SUCCESS';
+  idMap?: BatchIdMap;
+  filename: string;
   alignedData: FastaAlignedRecord[];
   asAlignment?: boolean;
 }
 
-export interface AnnotationsSuccessResponse {
+export interface AnnotationsSuccessResponse extends BioRequestContext {
   type: 'ANNOTATIONS_SUCCESS';
+  idMap?: BatchIdMap;
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>;
+  details: Record<string, GffSourceRegion>;
 }
 
-export interface WorkerErrorResponse {
+export interface WorkerErrorResponse extends BioRequestContext {
   type: 'ERROR';
   error: string;
 }

@@ -8,9 +8,9 @@ Console output only — no artifacts, not a CI gate.
 
 | File | Covers |
 | --- | --- |
-| `searchLogic.perf.ts` | `services/searchLogic` — reverseComplement, smithWaterman, degenerateToRegex |
-| `bioUtils.perf.ts` | `services/bioUtils` — translateSequence, sliceRecordsBySelection, exportToGenBank |
-| `parseGenBank.perf.ts` | `services/genbank` — parseGenBank |
+| `searchLogic.perf.ts` | `src/domain/bio/sequence`, `src/core/search` — reverseComplement, smithWaterman, degenerateToRegex |
+| `bioUtils.perf.ts` | `src/domain/bio`, `src/core/genbank/serialize` — translateSequence, sliceRecordsBySelection, exportToGenBank |
+| `parseGenBank.perf.ts` | `src/core/genbank` — parseGenBank |
 | `grid2d.perf.ts` | `src/domain/bio` — transposeCoordinates, buildAlignedSegments, processTransposition, clipSegments, calculateConsensus |
 | `coordinateTransposition.perf.ts` | `src/domain/bio/coordinate` — complete 154,478-base chloroplast transposition, 259 features, p95 below 100 ms |
 
