@@ -48,6 +48,7 @@ export interface ExportDialogProps {
 export default function ExportDialog({ featureColors, records, state, onClose, onExport, onEditDetails }: ExportDialogProps) {
   const [initial] = useState(() => initialExportSelection({ ...state, records }));
   const [ids, setIds] = useState(initial.ids);
+  const [quickPick, setQuickPick] = useState<string | null>(() => initial.ids.size === records.length ? 'All' : initial.preset === 'selected' ? 'Selected in hub' : 'Matching filters');
   const [format, setFormat] = useState<HubExportFormat>('fasta');
   const [keepGaps, setKeepGaps] = useState(false);
   const [details, setDetails] = useState(false);
@@ -116,7 +117,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     : pick === 'Shown in viewport' ? new Set(records.filter(record => record.visible !== false).map(record => record.id)) : new Set<string>());
   const quickPicks = ['All', 'Selected in hub', 'Matching filters', 'Shown in viewport', 'None'].map(label => {
     const values = pickIds(label);
-    return { label, values, active: ids.size === values.size && [...ids].every(id => values.has(id)) };
+    return { label, values, active: quickPick === label };
   });
   const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(chosen, format, options).reduce((count, record) => count + annotationFeatures(record).length, 0), [chosen, format, options]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
@@ -128,8 +129,8 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)] max-sm:grid-cols-1">
         <section className="flex min-h-0 flex-col border-r border-slate-200 p-4">
           <StepHeading number={1} label="Sequences" />
-          <div className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-pressed={pick.active} onClick={() => setIds(pick.values)} className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}</button>)}</div>
-          <ExportSequenceTree records={records} state={state} ids={ids} onChange={setIds} />
+          <div className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-pressed={pick.active} onClick={() => { setQuickPick(pick.label); setIds(pick.values); }} className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}</button>)}</div>
+          <ExportSequenceTree records={records} state={state} ids={ids} onChange={values => { setQuickPick(null); setIds(values); }} />
         </section>
         <section aria-label="Export options" className="min-h-0 p-4 text-xs">
           <StepHeading number={2} label="Format" />

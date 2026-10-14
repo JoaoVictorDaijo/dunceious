@@ -39,7 +39,7 @@ function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, on
     return [...counts].map(([type, count]) => `${count} ${type}`).join(' · ');
   }, [record]);
   const highlighted = useCallback((feature: BioFeature) => highlight ? feature === highlight : rows.includes(feature), [highlight, rows]);
-  return <div className={`border-b border-slate-200 px-5 text-xs text-slate-600 ${current ? 'bg-amber-50/95 shadow-[inset_4px_0_0_var(--env)]' : 'bg-slate-50'}`} style={{ height: sequenceSectionHeight(section, folded, featureColors, density), paddingTop: layout.padding, paddingBottom: layout.padding, lineHeight: `${layout.line}px`, borderBottomWidth: layout.border, boxSizing: 'border-box' }}>
+  return <div className={`border-b border-slate-200 px-5 text-xs text-slate-600 ${current ? 'bg-amber-50 shadow-[inset_4px_0_0_var(--env)]' : 'bg-slate-50'}`} style={{ height: sequenceSectionHeight(section, folded, featureColors, density), paddingTop: layout.padding, paddingBottom: layout.padding, lineHeight: `${layout.line}px`, borderBottomWidth: layout.border, boxSizing: 'border-box' }}>
     <div className="flex items-center gap-3" style={{ height: layout.title }}>
       <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${record.id}`} aria-expanded={!folded} data-tip={folded ? 'Expand sequence' : 'Collapse sequence'} data-tip-kbd="O" onClick={onFold} className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas fa-chevron-down transition-transform motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} /></button>
       <input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={onSelect} />

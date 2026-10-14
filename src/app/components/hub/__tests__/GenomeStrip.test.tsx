@@ -295,3 +295,20 @@ it('keeps a drag owned by its initiating pointer until that pointer ends it', ()
   fireEvent.pointerMove(strip, { clientX: 650, clientY: 2, pointerId: 1 });
   expect(move).toHaveBeenCalledOnce();
 });
+
+
+it('suppresses the browser outline on pointer focus while retaining the amber keyboard focus style', () => {
+  const trackWindow = createTrackWindow();
+  render(<GenomeStrip record={record} large onPick={noop} trackWindow={trackWindow} onWindowMove={noop} />);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  act(() => trackWindow.update({ id: record.id, length: 100, start: 0, end: 30 }));
+  fireEvent.pointerDown(strip, { clientX: 150, clientY: 2, button: 0, pointerId: 1 });
+  expect(document.activeElement).toBe(strip);
+  expect(strip.classList.contains('outline-none')).toBe(true);
+  fireEvent.pointerUp(strip, { pointerId: 1 });
+  expect(strip.classList.contains('outline-none')).toBe(true);
+  fireEvent.keyDown(strip, { key: 'ArrowRight' });
+  expect(strip.classList.contains('focus-visible:outline')).toBe(true);
+  expect(strip.classList.contains('focus-visible:outline-amber-500')).toBe(true);
+});

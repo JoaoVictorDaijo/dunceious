@@ -124,7 +124,8 @@ it('updates the pinned track window from visible rows and hides it after folding
   expect(band.hidden).toBe(false);
   expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
   expect(pinned.querySelector('[data-track-window-label]')?.textContent).toBe('6–25 in view');
-  expect(pinned.firstElementChild?.className).toContain('bg-amber-50/95');
+  expect(pinned.firstElementChild?.classList.contains('bg-amber-50')).toBe(true);
+  expect(pinned.firstElementChild?.className).not.toContain('bg-amber-50/');
   fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });

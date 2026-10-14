@@ -200,15 +200,38 @@ it('describes disabled gaps through both the wrapper tooltip and input descripti
   expect(gaps.closest('[data-tip]')?.getAttribute('data-tip')).toBe(reason?.textContent);
 });
 
-it('marks every quick pick that matches the selected sequence set', () => {
+function activeQuickPicks() {
+  return ['All', 'Selected in hub', 'Matching filters', 'Shown in viewport', 'None'].filter(name => screen.getByRole('button', { name }).getAttribute('aria-pressed') === 'true');
+}
+
+it('highlights only the last quick pick even when several select the same sequences', () => {
   render(<Subject />); open();
-  expect(screen.getByRole('button', { name: 'Selected in hub' }).getAttribute('aria-pressed')).toBe('true');
-  expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('false');
+  expect(activeQuickPicks()).toEqual(['Selected in hub']);
   fireEvent.click(screen.getByRole('button', { name: 'All' }));
-  expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true');
-  expect(screen.getByRole('button', { name: 'Shown in viewport' }).getAttribute('aria-pressed')).toBe('true');
+  expect(activeQuickPicks()).toEqual(['All']);
+  fireEvent.click(screen.getByRole('button', { name: 'Matching filters' }));
+  expect(activeQuickPicks()).toEqual(['Matching filters']);
+  fireEvent.click(screen.getByRole('button', { name: 'Shown in viewport' }));
+  expect(activeQuickPicks()).toEqual(['Shown in viewport']);
   fireEvent.click(screen.getByRole('button', { name: 'None' }));
-  expect(screen.getByRole('button', { name: 'None' }).getAttribute('aria-pressed')).toBe('true');
+  expect(activeQuickPicks()).toEqual(['None']);
+});
+
+it('defaults the quick pick to All when all sequences are initially selected', () => {
+  render(<Subject selected={['a', 'b', 'c']} />); open();
+  expect(activeQuickPicks()).toEqual(['All']);
+});
+
+it('clears the quick pick on manual sequence and group edits, even if the selection matches a pick again', () => {
+  render(<Subject />); open();
+  fireEvent.click(screen.getByRole('button', { name: 'All' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export c' }));
+  expect(activeQuickPicks()).toEqual([]);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export c' }));
+  expect(activeQuickPicks()).toEqual([]);
+  fireEvent.click(screen.getByRole('button', { name: 'All' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export group All sequences' }));
+  expect(activeQuickPicks()).toEqual([]);
 });
 
 it('shows accessions, display names, lengths and annotation counts in selected tree rows', () => {
