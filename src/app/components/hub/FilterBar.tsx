@@ -17,10 +17,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { FeatureGroup } from '@/src/app/logic/featureComparison';
+import { PresenceLegend } from './presence';
 import { ExpandAllIcon, CollapseAllIcon } from './icons';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-export default function FilterBar({ state, types, keys, featureColors }: { state: ReturnType<typeof useHubState>; types: Map<string, number>; keys: string[]; featureColors?: Record<string, string> }) {
+export default function FilterBar({ state, types, keys, featureColors, groups = [] }: { state: ReturnType<typeof useHubState>; types: Map<string, number>; keys: string[]; featureColors?: Record<string, string>; groups?: FeatureGroup[] }) {
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && state.tab === 'features');
   const foldAll = (fold: boolean) => {
     if (filtering) state.setSearchFolds(new Set(fold ? keys.map(key => `${state.tab}:${key}`) : []));
@@ -28,6 +30,7 @@ export default function FilterBar({ state, types, keys, featureColors }: { state
   };
   return <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-600">
     {[...types].map(([type, count]) => <button key={type} aria-pressed={state.filters.types.has(type)} onClick={() => state.setFilters(prev => { const next = new Set(prev.types); if (next.has(type)) next.delete(type); else next.add(type); return { ...prev, types: next }; })} className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.types.has(type) ? 'border-amber-400 bg-amber-50 text-slate-800' : 'border-slate-200 bg-white'}`}><span data-type-swatch aria-hidden="true" className="h-[9px] w-[9px] rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />{type} <span className="font-mono text-[11px] text-slate-500">{count}</span></button>)}
+    {state.tab === 'features' && <PresenceLegend groups={groups} featureColors={featureColors} />}
     <div role="group" aria-label="Strand" className="ml-auto flex rounded-lg border border-slate-300 bg-white p-0.5">
       {([['all', 'All', 'All strands'], ['fwd', '→', 'Forward strand only'], ['rev', '←', 'Reverse strand only']] as const).map(([value, glyph, label]) => <button key={value} aria-label={label} data-tip={label} aria-pressed={state.filters.strand === value} onClick={() => state.setFilters(filters => ({ ...filters, strand: value }))} className={`h-6 min-w-7 rounded-md px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.strand === value ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>{glyph}</button>)}
     </div>

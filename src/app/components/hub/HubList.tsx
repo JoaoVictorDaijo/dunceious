@@ -82,6 +82,16 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }
   const list = useRef<VariableSizeList>(null);
   const container = useRef<HTMLDivElement>(null);
+  const [listWidth, setListWidth] = useState(1000);
+  useLayoutEffect(() => {
+    const element = scrollElement.current;
+    if (!element) return;
+    const measure = () => { if (element.clientWidth) setListWidth(element.clientWidth); };
+    measure();
+    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
+    const observer = new ResizeObserver(measure); observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const [measuredHeight, setMeasuredHeight] = useState(600);
   const [hovered, setHovered] = useState<BioFeature | null>(null);
   const { editingName, setEditingName, draft, setDraft } = state;
@@ -104,7 +114,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, itemIndex ? 8 : 0), item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key), listWidth, itemIndex ? 8 : 0) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, itemIndex ? 8 : 0), item });
       if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? detailsEditorHeight((item as SequenceSection).record, draft?.id === item.key ? draft.details ?? {} : {}, wideDetails) : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
@@ -119,7 +129,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails]);
+  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, listWidth]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
@@ -241,7 +251,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump, state.setFilters, onNotice]);
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
-    if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
+    if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} width={listWidth} gap={items[0]?.key === entry.key ? 0 : 8} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
     return <SequenceSectionHeader gap={items[0]?.key === entry.key ? 0 : 8} density={state.density} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
@@ -258,7 +268,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       return <div style={style} data-row-key={entry.key} className="flex items-center gap-4 border-b border-slate-100 px-5 text-xs text-slate-600"><span>track</span><strong className="flex-1">{entry.track.name}{lastFocusedKey === entry.key && <span className="ml-2 text-amber-700">Last focused</span>}</strong><span>{entry.track.data.length} data points</span><button aria-label={`Inspect track ${entry.track.name}`} onClick={() => addLog?.(`Track: ${entry.track.name} · ${entry.track.data.length} data points`)}>Inspect</button><button onClick={() => onFocusItem?.({ recordId: entry.record.id, start, end, label: entry.track.name, length: end - start }, { key: entry.key, label: entry.track.name })}>Open in viewport</button></div>;
     }
     const indexOfFeature = entry.record.features.indexOf(entry.feature);
-    return <div style={style}><AnnotationRow record={entry.record} feature={entry.feature} rowKey={entry.key} kind={kind} selected={state.selectedRows.has(entry.key)} current={currentRowKey === entry.key} lastFocused={lastFocusedKey === entry.key} featureColors={featureColors} locked={isAlignmentLocked} onCurrent={() => onCurrentRow?.(entry.key)} onHover={setHovered} onSelect={() => state.setSelectedRows(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} onInspect={() => onViewFeatureDetails?.(entry.record.id, entry.feature)} onEdit={() => onEditFeature?.(entry.record.id, indexOfFeature, entry.feature)} onDelete={() => onRemoveFeature?.(entry.record.id, indexOfFeature)} onFocus={() => onFocusItem?.(featureFocusTarget(entry.record, entry.feature), { key: entry.key, label: entry.feature.name })} /></div>;
+    return <div style={style} className={kind === 'features' ? 'pl-3' : undefined}><AnnotationRow record={entry.record} feature={entry.feature} rowKey={entry.key} kind={kind} selected={state.selectedRows.has(entry.key)} current={currentRowKey === entry.key} lastFocused={lastFocusedKey === entry.key} featureColors={featureColors} locked={isAlignmentLocked} onCurrent={() => onCurrentRow?.(entry.key)} onHover={setHovered} onSelect={() => state.setSelectedRows(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} onInspect={() => onViewFeatureDetails?.(entry.record.id, entry.feature)} onEdit={() => onEditFeature?.(entry.record.id, indexOfFeature, entry.feature)} onDelete={() => onRemoveFeature?.(entry.record.id, indexOfFeature)} onFocus={() => onFocusItem?.(featureFocusTarget(entry.record, entry.feature), { key: entry.key, label: entry.feature.name })} /></div>;
   };
   const blocks = useMemo(() => {
     const result: { key: string; label: string; tip: string; start: number; size: number }[] = [];
