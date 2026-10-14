@@ -121,7 +121,7 @@ describe('100×60 hub acceptance fixture', () => {
     expectPinned('hub100');
     expect(container.querySelectorAll('[data-row-key]')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Expand all' }));
-    expectPinned('hub003');
+    expectPinned('hub004');
     expect(container.querySelectorAll('[data-row-key]').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
     expectPinned('hub003');
