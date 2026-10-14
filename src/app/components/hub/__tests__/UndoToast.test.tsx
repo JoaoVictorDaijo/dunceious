@@ -46,10 +46,10 @@ it.each(['hover', 'focus'])('pauses Undo expiry while the toast has %s', mode =>
     }
     render(<Subject />); fireEvent.click(screen.getByText('Delete'));
     const undo = screen.getByRole('button', { name: 'Undo' });
-    if (mode === 'hover') fireEvent.mouseEnter(undo.parentElement!); else fireEvent.focus(undo);
+    if (mode === 'hover') fireEvent.mouseEnter(document.querySelector('[data-undo-toast]')!); else fireEvent.focus(undo);
     act(() => vi.advanceTimersByTime(10000));
     expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
-    if (mode === 'hover') fireEvent.mouseLeave(undo.parentElement!); else fireEvent.blur(undo);
+    if (mode === 'hover') fireEvent.mouseLeave(document.querySelector('[data-undo-toast]')!); else fireEvent.blur(undo);
     act(() => vi.advanceTimersByTime(8000));
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
   } finally { vi.useRealTimers(); }

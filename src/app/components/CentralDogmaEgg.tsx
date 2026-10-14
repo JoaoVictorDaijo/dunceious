@@ -170,12 +170,13 @@ const AuthorCard: React.FC<{ login: string }> = ({ login }) => {
       className="group flex items-center gap-3 pl-2.5 pr-4 py-2 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/50 hover:bg-slate-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
     >
       {avatarFailed ? (
-        <span className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400" aria-hidden="true">
+        <span data-author-avatar-fallback={login} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400" aria-hidden="true">
           <i className="fab fa-github text-lg"></i>
         </span>
       ) : (
         // Offline or blocked? The glyph above takes over rather than a broken image.
         <img
+          data-author-avatar={login}
           src={`https://github.com/${login}.png?size=80`}
           alt=""
           width={40}
