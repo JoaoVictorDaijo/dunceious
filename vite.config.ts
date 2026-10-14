@@ -25,6 +25,88 @@ import { defineConfig } from "vite";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
+// Coverage floors only rise. Per-file floors leave about three points
+// for v8 jitter and defensive branches; global floors still cover every
+// included file, including those with an individual floor.
+const COVERAGE_THRESHOLDS = {
+  lines: 95,
+  branches: 87,
+  functions: 94,
+  statements: 93,
+  "src/app/viewer/cds.ts": {
+    lines: 97,
+    branches: 92,
+    functions: 97,
+    statements: 95,
+  },
+  "src/app/viewer/coordinates.ts": {
+    lines: 97,
+    branches: 84,
+    functions: 97,
+    statements: 84,
+  },
+  "src/app/viewer/colors.ts": {
+    lines: 97,
+    branches: 97,
+    functions: 97,
+    statements: 97,
+  },
+  "src/app/viewer/annotationPresentation.ts": {
+    lines: 97,
+    branches: 92,
+    functions: 88,
+    statements: 92,
+  },
+  "src/app/lib/ebiClient.ts": {
+    lines: 97,
+    branches: 90,
+    functions: 97,
+    statements: 94,
+  },
+  "src/app/hooks/useBioWorker.ts": {
+    lines: 90,
+    branches: 70,
+    functions: 97,
+    statements: 89,
+  },
+  "src/app/hooks/useSearchWorker.ts": {
+    lines: 67,
+    branches: 45,
+    functions: 83,
+    statements: 64,
+  },
+  "src/app/hooks/useRemoteAlignment.ts": {
+    lines: 97,
+    branches: 84,
+    functions: 97,
+    statements: 96,
+  },
+  "src/app/App.tsx": {
+    lines: 85,
+    branches: 70,
+    functions: 72,
+    statements: 80,
+  },
+  "src/app/hooks/useFileHandlers.ts": {
+    lines: 77,
+    branches: 53,
+    functions: 77,
+    statements: 73,
+  },
+  "src/app/hooks/useFeatureManager.ts": {
+    lines: 97,
+    branches: 84,
+    functions: 97,
+    statements: 95,
+  },
+  "src/app/hooks/useHubState.ts": {
+    lines: 97,
+    branches: 94,
+    functions: 97,
+    statements: 97,
+  },
+};
+
 export default defineConfig(() => {
   // Single source of truth for the app version: read from package.json and
   // injected as the `__APP_VERSION__` global so every UI/provenance string reads
@@ -63,7 +145,6 @@ export default defineConfig(() => {
       ],
       coverage: {
         provider: "v8" as const,
-        all: true,
         include: [
           "src/core/**",
           "src/workers/handlers/**",
@@ -71,6 +152,18 @@ export default defineConfig(() => {
           "src/app/viewer/layout.ts",
           "src/app/logic/**",
           "src/domain/**",
+          "src/app/viewer/cds.ts",
+          "src/app/viewer/coordinates.ts",
+          "src/app/viewer/colors.ts",
+          "src/app/viewer/annotationPresentation.ts",
+          "src/app/lib/ebiClient.ts",
+          "src/app/hooks/useBioWorker.ts",
+          "src/app/hooks/useSearchWorker.ts",
+          "src/app/hooks/useRemoteAlignment.ts",
+          "src/app/App.tsx",
+          "src/app/hooks/useFileHandlers.ts",
+          "src/app/hooks/useFeatureManager.ts",
+          "src/app/hooks/useHubState.ts",
         ],
         exclude: [
           "**/__tests__/**",
@@ -79,17 +172,7 @@ export default defineConfig(() => {
           "**/types.ts",
         ],
         reporter: ["text", "text-summary", "json-summary"],
-        // Thresholds are a RATCHET: set a few points below achieved (lines
-        // 98.3 / branches 90.0 / functions 97.6 / statements 96.6 as of Phase C
-        // PR1, after relocating the genbank read+write parsers into src/core) so
-        // normal v8 jitter and hard-to-hit defensive branches don't break CI.
-        // Raise (never lower); the ~3pt buffer holds.
-        thresholds: {
-          lines: 95,
-          branches: 87,
-          functions: 94,
-          statements: 93,
-        },
+        thresholds: COVERAGE_THRESHOLDS,
       },
     },
   };
