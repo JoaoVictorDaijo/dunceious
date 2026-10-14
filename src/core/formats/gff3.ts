@@ -257,9 +257,14 @@ export function parseGFF3(content: string): {
     }
   }
   for (const [seqid, values] of Object.entries(features)) {
-    if (!circular.has(seqid)) continue;
-    const length = lengths.get(seqid)!;
-    for (const feature of values) normalizeCircularParts(feature, length);
+    for (const feature of values) {
+      if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
+      if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
+      const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
+      const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
+      const phase = phases[reverse ? phases.length - 1 : 0];
+      if (/^[012]$/.test(phase)) feature.metadata!.codon_start = String(Number(phase) + 1);
+    }
   }
   return { features, details };
 }

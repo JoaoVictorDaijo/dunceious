@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 imports initialize CDS reading frames from the first transcription part phase.
+
 - Hub current-group highlights switch at the reading line while the preceding
   card is still visible; jumps retain their target until scrolling, and trailing
   slim bars use neutral styling.
