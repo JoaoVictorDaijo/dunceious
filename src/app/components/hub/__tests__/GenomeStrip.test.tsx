@@ -275,3 +275,23 @@ it('centres an outside jump, preserves feature clicks and steps the window with 
   fireEvent.keyDown(strip, { key: 'ArrowLeft', shiftKey: true });
   expect(step.mock.calls).toEqual([[1], [-1]]);
 });
+
+
+it('keeps a drag owned by its initiating pointer until that pointer ends it', () => {
+  const trackWindow = createTrackWindow();
+  const move = vi.fn();
+  render(<GenomeStrip record={record} large onPick={noop} trackWindow={trackWindow} onWindowMove={move} />);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  act(() => trackWindow.update({ id: record.id, length: 100, start: 0, end: 30 }));
+  fireEvent.pointerDown(strip, { clientX: 150, clientY: 2, button: 0, pointerId: 1 });
+  fireEvent.pointerUp(strip, { pointerId: 2 });
+  fireEvent.pointerCancel(strip, { pointerId: 2 });
+  fireEvent.lostPointerCapture(strip, { pointerId: 2 });
+  fireEvent.pointerDown(strip, { clientX: 700, clientY: 2, button: 0, pointerId: 2 });
+  fireEvent.pointerMove(strip, { clientX: 550, clientY: 2, pointerId: 1 });
+  expect(move).toHaveBeenLastCalledWith(40);
+  fireEvent.pointerUp(strip, { pointerId: 1 });
+  fireEvent.pointerMove(strip, { clientX: 650, clientY: 2, pointerId: 1 });
+  expect(move).toHaveBeenCalledOnce();
+});

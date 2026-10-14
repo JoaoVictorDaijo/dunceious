@@ -62,6 +62,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const scrollOffset = useRef(state.scrollOffset[kind]);
   const savedOffsets = useRef(state.scrollOffset);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const windowFocusTarget = useRef<string | null>(null);
   const pinnedElement = useRef<HTMLDivElement>(null);
   const railIndicator = useRef<HTMLDivElement>(null);
   const [, setPinnedSection] = useState<string | null>(null);
@@ -235,11 +236,18 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (!rows.length || headerIndex < 0) return;
     const top = scrollOffset.current + entries[headerIndex].size;
     const firstVisible = rows.find(row => starts[row.index] + entries[row.index].size > top && starts[row.index] < scrollOffset.current + height);
-    const target = direction
+    const noncurrent = sectionKey !== activeSection.current;
+    if (direction && noncurrent) windowFocusTarget.current = sectionKey;
+    const target = direction && noncurrent ? rows[0] : direction
       ? rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(firstVisible ?? rows[0]) + direction))]
       : rows.find(row => row.feature.start >= start) ?? rows[rows.length - 1];
     list.current?.scrollTo(Math.max(starts[headerIndex], Math.min(maxOffset, starts[target.index] - entries[headerIndex].size)));
   };
+  useLayoutEffect(() => {
+    if (windowFocusTarget.current !== pinned?.sectionKey) return;
+    pinnedElement.current?.querySelector<SVGSVGElement>('svg[role="button"]')?.focus();
+    windowFocusTarget.current = null;
+  }, [pinned?.sectionKey]);
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;

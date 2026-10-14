@@ -159,13 +159,14 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
     trackWindow?.begin({ id: record.id, length: record.sequence.length, start, end: start + value.width });
     onWindowMove?.(start);
   };
-  const endDrag = () => {
-    if (!drag.current) return;
+  const endDrag = (event: PointerEvent<SVGSVGElement>) => {
+    if (!drag.current || drag.current.pointerId !== event.pointerId) return;
     drag.current = null;
     root.current?.removeAttribute('data-dragging');
     trackWindow?.end();
   };
   const down = (event: PointerEvent<SVGSVGElement>) => {
+    if (drag.current) return;
     keyboardFocus.current = false;
     setFocused(false);
     suppressClick.current = false;

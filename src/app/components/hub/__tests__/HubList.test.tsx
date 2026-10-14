@@ -188,3 +188,28 @@ it('jumps empty track space to the qualifying filtered row and falls back at the
   expect(viewport.scrollTop).toBe(88);
   fireEvent.pointerUp(strip, { pointerId: 1 });
 });
+
+
+it.each(['ArrowLeft', 'ArrowRight'])('pins a focused noncurrent strip on first Shift+%s and retains focus at the end clamp', key => {
+  const values = [records[0], { ...records[1], features: [
+    { name: 'second-early', type: 'gene', start: 10, end: 20, strand: 1 as const },
+    { name: 'second-late', type: 'gene', start: 30, end: 40, strand: 1 as const },
+  ] }];
+  function Tracks() {
+    const state = useHubState();
+    return <HubList state={state} kind="sequences" height={300} items={buildSequenceSections(values, state.filters, { grouped: false }, 'load')} />;
+  }
+  const { container } = render(<Tracks />);
+  fireEvent.keyDown(document, { key: 'Tab' });
+  const other = screen.getByRole('button', { name: /Genome strip for two/ });
+  act(() => (other as SVGSVGElement).focus());
+  fireEvent.keyDown(other, { key, shiftKey: true });
+  const pinned = screen.getByRole('region', { name: 'Pinned section' });
+  const strip = within(pinned).getByRole('button', { name: /Genome strip for two/ });
+  expect(document.activeElement).toBe(strip);
+  const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
+  expect(viewport.scrollTop).toBe(166);
+  fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
+  expect(viewport.scrollTop).toBe(166);
+  expect(document.activeElement).toBe(strip);
+});
