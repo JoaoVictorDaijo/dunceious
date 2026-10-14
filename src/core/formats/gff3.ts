@@ -84,7 +84,8 @@ function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
-  if (imported && feature.metadata?._gffPhaseState === phaseState(feature, segments)) {
+  const legacy = !feature.metadata?._gffPhaseState && feature.metadata?.codon_start === undefined;
+  if (imported && (legacy || feature.metadata?._gffPhaseState === phaseState(feature, segments))) {
     try {
       const phases: unknown = JSON.parse(imported);
       if (Array.isArray(phases) && phases.length === segments.length && phases.every(p => /^[012]$/.test(String(p)))) {
@@ -95,7 +96,8 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
     }
   }
 
-  let phase = Math.max(0, Math.min(2, Number(feature.metadata?.codon_start ?? 1) - 1));
+  const initial = legacy && /^[012]$/.test(feature.metadata?.phase ?? '') ? Number(feature.metadata!.phase) : 0;
+  let phase = Math.max(0, Math.min(2, Number(feature.metadata?.codon_start ?? initial + 1) - 1));
   if (!Number.isInteger(phase)) phase = 0;
   const result = segments.map(() => '0');
   const order = segments.map((_, i) => i);
