@@ -23,8 +23,9 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import HubIndex from '../HubIndex';
+import { createHub1000x10 } from '@/src/app/testing/fixtures/hub1000x10';
 import type { SeqRecord } from '@/src/domain/bio/types';
-const records: SeqRecord[] = ['a', 'b', 'c'].map((id, i) => ({ id, name: id, sequence: 'AAAA', features: i < 2 ? [{ type: 'gene', name: 'spike', start: 0, end: 2, strand: 1 }, { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'MERS-CoV', host: 'camel', geo_loc_name: 'Oman:Muscat' } }] : [] }));
+const records: SeqRecord[] = ['a', 'b', 'c'].map((id, i) => ({ id, name: id, sequence: 'AAAA', fileDetails: i < 2 ? { organism: 'MERS-CoV', host: 'camel', location: 'Oman:Muscat' } : {}, features: i < 2 ? [{ type: 'gene', name: 'spike', start: 0, end: 2, strand: 1 }, { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'MERS-CoV', host: 'camel', geo_loc_name: 'Oman:Muscat' } }] : [] }));
 function Subject({ toggle = () => {}, features = false }: { toggle?: (id: string) => void; features?: boolean }) {
   const state = useHubState();
   useEffect(() => { if (features) state.setTab('features'); }, [features]);
@@ -38,46 +39,22 @@ describe('HubIndex', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
     expect(toggle).toHaveBeenCalledWith('a');
   });
-  it('reveals only the current entry and refreshes container size on resize', () => {
-    let resize = () => {};
-    vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) { resize = callback; }
-      observe() {}
-      disconnect() {}
-    });
+  it('reveals a far current card through the windowed list without DOM measurements', () => {
+    const many = createHub1000x10();
     function ScrollSubject() {
       const state = useHubState();
-      return <><button onClick={() => state.setCurrentSectionKey('b')}>Track b</button>
-        <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} /></>;
+      return <><button onClick={() => state.setCurrentSectionKey('index1000')}>Track last</button><HubIndex records={many} state={state} onToggleRecordVisibility={() => {}} /></>;
     }
-    render(<ScrollSubject />);
-    const container = screen.getByLabelText('Index entries');
-    const active = screen.getByRole('button', { name: 'Jump to sequence b' });
-    Object.defineProperties(container, { clientHeight: { get: () => 100, configurable: true }, offsetTop: { get: () => 40, configurable: true } });
-    Object.defineProperties(active, { offsetTop: { get: () => 240, configurable: true }, offsetHeight: { get: () => 30, configurable: true }, offsetParent: { value: container } });
-    resize();
-    const untouched = screen.getByRole('button', { name: 'Jump to sequence a' });
-    Object.defineProperty(untouched, 'offsetTop', { configurable: true, get: () => 0 });
-    const untouchedTop = vi.spyOn(untouched, 'offsetTop', 'get');
-    const offsetTop = vi.spyOn(active, 'offsetTop', 'get');
-    const offsetHeight = vi.spyOn(active, 'offsetHeight', 'get');
-    const containerHeight = vi.spyOn(container, 'clientHeight', 'get');
-    const containerBounds = vi.spyOn(container, 'getBoundingClientRect');
-    const activeBounds = vi.spyOn(active, 'getBoundingClientRect');
-    fireEvent.click(screen.getByRole('button', { name: 'Track b' }));
-    expect(active.getAttribute('aria-current')).toBe('true');
-    expect(container.scrollTop).toBe(170);
-    expect(containerBounds).not.toHaveBeenCalled();
-    expect(activeBounds).not.toHaveBeenCalled();
-    expect(offsetTop).toHaveBeenCalledTimes(1);
-    expect(offsetHeight).toHaveBeenCalledTimes(1);
-    expect(untouchedTop).not.toHaveBeenCalled();
-    expect(containerHeight).not.toHaveBeenCalled();
-    offsetTop.mockReturnValue(400);
-    resize();
-    expect(container.scrollTop).toBe(330);
-    containerBounds.mockRestore();
-    activeBounds.mockRestore();
+    const { container } = render(<ScrollSubject />);
+    expect(container.querySelectorAll('[data-index-card]').length).toBeLessThan(40);
+    expect(screen.queryByRole('button', { name: 'Jump to sequence index1000' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Track last' }));
+    const last = screen.getByRole('button', { name: 'Jump to sequence index1000' });
+    expect(last.getAttribute('aria-current')).toBe('true');
+    const card = last.closest('[data-index-card]')!;
+    expect(card.getAttribute('aria-setsize')).toBe('1000');
+    expect(card.getAttribute('aria-posinset')).toBe('1000');
+    expect(container.querySelectorAll('[data-index-card]').length).toBeLessThan(40);
   });
   it('does not measure every index entry after an annotation filter changes', () => {
     function FilterSubject() {
@@ -110,7 +87,7 @@ describe('HubIndex', () => {
     definition.mockClear();
     fireEvent.click(screen.getByRole('button', { name: 'Track next' }));
     expect(screen.getByRole('button', { name: 'Jump to sequence b' }).getAttribute('aria-current')).toBe('true');
-    expect(screen.getByText('Unchanged isolate')).toBeTruthy();
+    expect(screen.getByText(/Unchanged isolate/)).toBeTruthy();
     expect(definition).not.toHaveBeenCalled();
   });
   it('indexes Features under organism headings with a sequence limit', () => {
@@ -131,4 +108,23 @@ describe('HubIndex', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: /Host ·/ }));
     expect(screen.getAllByRole('button', { name: /^Fold index group/ }).map(el => el.textContent)).toEqual(['camel · 2', 'Not specified · 1']);
   });
+});
+
+it('folds windowed groups and toggles attention through the chip', () => {
+  render(<Subject />);
+  const chip = screen.getByRole('button', { name: 'Needs attention' });
+  expect(chip.getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(chip); expect(chip.getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(1);
+  fireEvent.click(chip); fireEvent.click(screen.getByRole('button', { name: 'Grouped' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Fold index group MERS-CoV' }));
+  expect(screen.queryByRole('button', { name: 'Jump to sequence a' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Jump to sequence c' })).toBeTruthy();
+});
+it('shows the current mini-track window through the shared scroll controller', () => {
+  function WindowSubject() { const state = useHubState(); useEffect(() => { state.trackWindow.update({ id: 'a', length: 4, start: 1, end: 3 }); state.setCurrentSectionKey('a'); }, []); return <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} />; }
+  render(<WindowSubject />);
+  const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
+  const band = card.querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.hidden).toBe(false); expect(band.style.left).toBe('25%'); expect(band.style.width).toBe('50%');
 });

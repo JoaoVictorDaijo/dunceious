@@ -30,7 +30,7 @@ export interface MoreMenuProps {
 }
 export default function MoreMenu({ state, locked, empty, onSave, onClear, onFileUpload, onAlignmentUpload, onAnnotationUpload, onProjectUpload }: MoreMenuProps) {
   const sequence = useRef<HTMLInputElement>(null), alignment = useRef<HTMLInputElement>(null), annotation = useRef<HTMLInputElement>(null), project = useRef<HTMLInputElement>(null);
-  return <div className="relative">
+  return <div className="relative shrink-0">
     <button aria-label="More workspace actions" data-tip="Import, save or clear the workspace" aria-haspopup="menu" aria-expanded={state.menu === 'more'} onClick={() => state.setMenu(state.menu === 'more' ? null : 'more')} className="h-10 w-10 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-ellipsis" aria-hidden="true" /></button>
     <input ref={sequence} aria-label="Import sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
     <input ref={alignment} aria-label="Import pre-aligned FASTA file" hidden type="file" accept=".fasta,.fa" onChange={onAlignmentUpload} />

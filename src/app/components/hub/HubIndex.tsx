@@ -17,96 +17,103 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { VariableSizeList } from 'react-window';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections, type SequenceSection } from '@/src/app/logic/hubModel';
 import { buildFeatureGroups, type FeatureGroup } from '@/src/app/logic/featureComparison';
-import { isEdited, isPartial, isUnannotated, isolateOf } from '@/src/domain/bio/recordStatus';
+import { isEdited, isPartial, isUnannotated, isolateOf, needsAttention } from '@/src/domain/bio/recordStatus';
+import SectionTitle from '../SectionTitle';
 import GroupByControl from './GroupByControl';
 import GenomeStrip from './GenomeStrip';
 import DisplayName from './DisplayName';
+import type { TrackWindow } from './trackWindow';
 type IndexEntryProps = {
-  section: SequenceSection; selected: boolean; current: boolean; featureColors?: Record<string, string>;
+  section: SequenceSection; selected: boolean; current: boolean; featureColors?: Record<string, string>; position: number; count: number; trackWindow: TrackWindow;
   setSelectedRecords: ReturnType<typeof useHubState>['setSelectedRecords'];
   jump: (key: string) => void; onToggleRecordVisibility: (id: string) => void;
 };
-const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected, current, featureColors, setSelectedRecords, jump, onToggleRecordVisibility }: IndexEntryProps) {
+const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected, current, featureColors, setSelectedRecords, jump, onToggleRecordVisibility, position, count, trackWindow }: IndexEntryProps) {
   const { record, rows, total } = section;
   const highlight = useCallback((feature: BioFeature) => rows.includes(feature), [rows]);
   const pick = useCallback((feature: BioFeature) => jump(`${record.id}:${record.features.indexOf(feature)}`), [record, jump]);
-  return <div className={`mb-2 rounded-lg border border-slate-800 p-3 ${record.visible === false ? 'opacity-60' : ''}`}>
-          <div className="flex items-center gap-2"><input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={() => setSelectedRecords(prev => { const next = new Set(prev); if (next.has(record.id)) next.delete(record.id); else next.add(record.id); return next; })} />
-            <button aria-label={`Jump to sequence ${record.id}`} aria-current={current} data-section-key={record.id} onClick={() => jump(record.id)} className="min-w-0 flex-1 text-left font-semibold aria-[current=true]:text-env"><DisplayName record={record} /></button>
-            <button aria-label={`${record.visible === false ? 'Show' : 'Hide'} ${record.id} in viewport`} onClick={() => onToggleRecordVisibility(record.id)} className="p-1"><i aria-hidden="true" className={`fas ${record.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button></div>
-          <p className="mt-1 truncate text-slate-400">{isolateOf(record)}</p>
-          <p className="my-2 text-slate-400">{rows.length === total ? total : `${rows.length}/${total}`} annotations {isUnannotated(record) && '· Unannotated'} {isPartial(record) && '· Partial'} {isEdited(record) && '· Edited'} {record.visible === false && '· hidden in viewport'}</p>
-          <GenomeStrip record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
-        </div>;
+  return <div data-index-card role="listitem" aria-current={current} aria-setsize={count} aria-posinset={position} className={`relative mx-0.5 mb-2 flex h-[132px] flex-col gap-1.5 rounded-2xl border bg-slate-900 p-3 transition-transform hover:-translate-y-0.5 motion-reduce:transition-none ${current ? 'border-amber-500/65 shadow-lg shadow-amber-500/15' : 'border-slate-800'} ${record.visible === false ? 'opacity-60' : ''}`}>
+    {current && <span aria-hidden="true" className="absolute inset-y-3 left-0 w-[3px] rounded-r bg-env" />}
+    <div className="flex min-w-0 items-center gap-1.5">
+      <input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={() => setSelectedRecords(prev => { const next = new Set(prev); if (next.has(record.id)) next.delete(record.id); else next.add(record.id); return next; })} />
+      <button aria-label={`Jump to sequence ${record.id}`} aria-current={current} data-section-key={record.id} onClick={() => jump(record.id)} className={`min-w-0 flex-1 text-left font-mono font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${current ? 'text-amber-200' : 'text-slate-100'}`}><DisplayName record={record} /></button>
+      {needsAttention(record) && <span aria-label="Needs attention" data-tip="This sequence needs attention" className="text-[10px] text-amber-300"><i aria-hidden="true" className="fas fa-triangle-exclamation" /></span>}
+      <span className="whitespace-nowrap font-mono text-[10px] text-slate-400">{rows.length === total ? total : `${rows.length}/${total}`} annot.</span>
+      <button aria-label={`${record.visible === false ? 'Show' : 'Hide'} ${record.id} in viewport`} data-tip={record.visible === false ? 'Show in viewport' : 'Hide in viewport'} onClick={() => onToggleRecordVisibility(record.id)} className="p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas ${record.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
+    </div>
+    <div className="min-w-0 text-[10px] text-slate-400"><p className="truncate">{isolateOf(record)} · <span className="font-mono">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span></p>
+      <div className="flex h-4 gap-1 overflow-hidden">{[isUnannotated(record) && 'Unannotated', isPartial(record) && 'Partial', isEdited(record) && 'Edited', record.visible === false && 'hidden in viewport'].filter(Boolean).map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
+    </div>
+    <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
+  </div>;
 });
-
-const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump }: { group: FeatureGroup; current: boolean; jump: (key: string) => void }) {
-  return <button aria-current={current} data-section-key={group.key} onClick={() => jump(group.key)} className="block w-full rounded-lg p-3 text-left aria-[current=true]:bg-slate-800">{group.identity} · in {group.counts.present} of {group.counts.pool}</button>;
+const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump, position, count }: { group: FeatureGroup; current: boolean; jump: (key: string) => void; position: number; count: number }) {
+  return <div role="listitem" aria-setsize={count} aria-posinset={position}><button aria-current={current} data-section-key={group.key} onClick={() => jump(group.key)} className="block h-12 w-full truncate rounded-lg px-3 text-left aria-[current=true]:bg-slate-800 aria-[current=true]:text-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">{group.identity} · in {group.counts.present} of {group.counts.pool}</button></div>;
 });
-
+type IndexItem = { key: string; size: number } & ({ type: 'group'; group: string; count: number; foldKey: string } | { type: 'sequence'; section: SequenceSection; position: number } | { type: 'feature'; group: FeatureGroup; position: number });
+function IndexRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) { return data(index, style); }
 export default function HubIndex({ records, state, onToggleRecordVisibility, featureColors }: { records: SeqRecord[]; featureColors?: Record<string, string>; state: ReturnType<typeof useHubState>; onToggleRecordVisibility: (id: string) => void }) {
   const query = useDeferredValue(state.filters.query);
-  const { types, strand, sequenceQuery, needsAttention, onlyIds } = state.filters;
-  const filters = useMemo(() => ({ query, types, strand, sequenceQuery, needsAttention, onlyIds }), [query, types, strand, sequenceQuery, needsAttention, onlyIds]);
+  const { types, strand, sequenceQuery, needsAttention: attention, onlyIds } = state.filters;
+  const filters = useMemo(() => ({ query, types, strand, sequenceQuery, needsAttention: attention, onlyIds }), [query, types, strand, sequenceQuery, attention, onlyIds]);
   const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(records, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort) : [], [records, filters, state.tab, state.grouped, state.groupField, state.sort]);
   const features = useMemo(() => state.tab === 'features' ? buildFeatureGroups(records, filters, state.onlyProblems) : [], [records, filters, state.tab, state.onlyProblems]);
-  const foldKey = (group: string) => `${state.tab}:${state.groupField}:${group}`;
   const folds = state.indexFolds;
-  const setFolds = state.setIndexFolds;
-  const container = useRef<HTMLDivElement>(null);
-  const containerHeight = useRef(0);
-  const currentKey = useRef(state.currentSectionKey);
-  const reveal = useCallback((key: string | null) => {
-    const el = container.current;
-    const entry = key ? el?.querySelector<HTMLElement>('[data-section-key][aria-current="true"]') : null;
-    if (!el || !entry) return;
-    // Measuring all entries forces layout after every search-driven DOM update.
-    let top = entry.offsetTop;
-    let parent = entry.offsetParent as HTMLElement | null;
-    while (parent && parent !== el) { top += parent.offsetTop; parent = parent.offsetParent as HTMLElement | null; }
-    const bottom = top + entry.offsetHeight;
-    if (top < el.scrollTop) el.scrollTop = top;
-    else if (bottom > el.scrollTop + containerHeight.current) el.scrollTop = bottom - containerHeight.current;
-  }, []);
-  useEffect(() => {
-    const el = container.current;
-    if (!el) return;
-    const measure = () => { containerHeight.current = el.clientHeight; reveal(currentKey.current); };
-    measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () => window.removeEventListener('resize', measure);
+  const attentionCount = useMemo(() => records.filter(needsAttention).length, [records]);
+  const visibleCount = state.tab === 'sequences' ? sections.length : new Set(features.flatMap(group => group.rows.map(row => row.record.id))).size;
+  const entries = useMemo(() => {
+    const buckets = new Map<string | null, (SequenceSection | FeatureGroup)[]>();
+    for (const item of state.tab === 'sequences' ? sections : features) {
+      const group = state.tab === 'sequences' ? (item as SequenceSection).group : (item as FeatureGroup).organism;
+      const values = buckets.get(group) ?? []; values.push(item); buckets.set(group, values);
     }
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [reveal]);
+    const result: IndexItem[] = [];
+    let position = 0;
+    for (const [group, values] of buckets) {
+      const foldKey = `${state.tab}:${state.groupField}:${group}`;
+      if (group) result.push({ type: 'group', key: `group:${group}`, group, foldKey, count: values.length, size: 36 });
+      for (const item of values) {
+        position++;
+        if (group && folds.has(foldKey)) continue;
+        result.push(state.tab === 'sequences' ? { type: 'sequence', key: item.key, section: item as SequenceSection, position, size: 140 } : { type: 'feature', key: item.key, group: item as FeatureGroup, position, size: 52 });
+      }
+    }
+    return result;
+  }, [sections, features, state.tab, state.groupField, folds]);
+  const container = useRef<HTMLDivElement>(null);
+  const list = useRef<VariableSizeList>(null);
+  const [height, setHeight] = useState(600);
+  const reveal = useCallback((key: string | null) => { const index = entries.findIndex(entry => entry.key === key); if (index >= 0) list.current?.scrollToItem(index, 'smart'); }, [entries]);
   useEffect(() => {
-    currentKey.current = state.currentSectionKey;
-    reveal(state.currentSectionKey);
-  }, [state.currentSectionKey, reveal]);
+    const element = container.current;
+    if (!element) return;
+    const measure = () => { if (element.clientHeight) setHeight(element.clientHeight); };
+    measure();
+    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
+    const observer = new ResizeObserver(measure); observer.observe(element); return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => { list.current?.resetAfterIndex(0); reveal(state.currentSectionKey); }, [entries, height, state.currentSectionKey, reveal]);
   const setJumpTarget = state.setJumpTarget;
-  const jump = useCallback((key: string) => {
-    if (key === currentKey.current) reveal(key);
-    setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 }));
-  }, [setJumpTarget, reveal]);
-  const groups = state.tab === 'features' ? [...new Set(features.map(f => f.organism))] : [...new Set(sections.map(s => s.group))];
-  return <section aria-label="Hub index" data-hub-focus tabIndex={0} className="flex min-h-0 flex-col gap-4 text-xs text-slate-300">
-    <label>{state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'}<input className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 p-2 focus-visible:ring-2 focus-visible:ring-env" value={state.filters.sequenceQuery} onChange={e => state.setFilters(f => ({ ...f, sequenceQuery: e.target.value }))} /></label>
+  const jump = useCallback((key: string) => { reveal(key); setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); }, [setJumpTarget, reveal]);
+  const renderEntry = (index: number, style: React.CSSProperties) => {
+    const entry = entries[index];
+    if (entry.type === 'group') return <div style={style}><button aria-label={`Fold index group ${entry.group}`} aria-expanded={!folds.has(entry.foldKey)} data-tip={entry.group} className="flex h-9 w-full items-center gap-2 text-left font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => state.setIndexFolds(prev => { const next = new Set(prev); if (next.has(entry.foldKey)) next.delete(entry.foldKey); else next.add(entry.foldKey); return next; })}><i aria-hidden="true" className={`fas fa-chevron-down text-[9px] transition-transform motion-reduce:transition-none ${folds.has(entry.foldKey) ? '-rotate-90' : ''}`} /><span className="min-w-0 flex-1 truncate">{entry.group}</span><span className="rounded-full bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400"> · {entry.count}</span></button></div>;
+    if (entry.type === 'feature') return <div style={style}><FeatureIndexEntry group={entry.group} current={state.currentSectionKey === entry.key} jump={jump} position={entry.position} count={features.length} /></div>;
+    return <div style={style}><SequenceIndexEntry section={entry.section} selected={state.selectedRecords.has(entry.key)} current={state.currentSectionKey === entry.key} setSelectedRecords={state.setSelectedRecords} jump={jump} onToggleRecordVisibility={onToggleRecordVisibility} featureColors={featureColors} trackWindow={state.trackWindow} position={entry.position} count={sections.length} /></div>;
+  };
+  return <section aria-label="Hub index" data-hub-focus tabIndex={0} className="flex min-h-0 flex-1 flex-col gap-3 text-xs text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">
+    <SectionTitle icon="fa-list-ul" trailing={<span className="font-mono text-[11px] text-slate-500">{visibleCount}</span>}>Sequence index</SectionTitle>
+    <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3"><i className="fas fa-magnifying-glass text-slate-500" aria-hidden="true" /><input aria-label={state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'} placeholder={state.tab === 'features' ? 'Limit to sequences' : 'Find sequence'} className="h-9 min-w-0 flex-1 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" value={state.filters.sequenceQuery} onChange={e => state.setFilters(f => ({ ...f, sequenceQuery: e.target.value }))} /></div>
     {state.tab === 'sequences' && <GroupByControl records={records} state={state} />}
-    <label className="flex gap-2"><input type="checkbox" checked={state.filters.needsAttention} onChange={e => state.setFilters(f => ({ ...f, needsAttention: e.target.checked }))} />Needs attention</label>
-    <label>Sort <select className="bg-slate-900 p-1" value={state.sort} onChange={e => state.setSort(e.target.value as typeof state.sort)}><option value="load">Load order</option><option value="accession">Accession</option><option value="fewest">Fewest annotations</option></select></label>
-    <div ref={container} className="relative max-h-[55vh] overflow-y-auto custom-scrollbar-pro" aria-label="Index entries">
-      {groups.map(group => <div key={group ?? 'list'}>
-        {group && <button aria-label={`Fold index group ${group}`} aria-expanded={!folds.has(foldKey(group))} className="w-full py-3 text-left font-semibold" onClick={() => setFolds(prev => { const next = new Set(prev); if (next.has(foldKey(group))) next.delete(foldKey(group)); else next.add(foldKey(group)); return next; })}>{group} · {state.tab === 'features' ? features.filter(f => f.organism === group).length : sections.filter(s => s.group === group).length}</button>}
-        {(!group || !folds.has(foldKey(group))) && (state.tab === 'features' ? features.filter(f => f.organism === group).map(f => <FeatureIndexEntry key={f.key} group={f} current={state.currentSectionKey === f.key} jump={jump} />) : sections.filter(s => s.group === group).map(section => <SequenceIndexEntry key={section.record.id} section={section} selected={state.selectedRecords.has(section.record.id)} current={state.currentSectionKey === section.record.id} setSelectedRecords={state.setSelectedRecords} jump={jump} onToggleRecordVisibility={onToggleRecordVisibility} featureColors={featureColors} />))}
-      </div>)}
-    </div>
+    <div className="flex flex-wrap items-center gap-2"><button aria-label="Needs attention" aria-pressed={state.filters.needsAttention} onClick={() => state.setFilters(f => ({ ...f, needsAttention: !f.needsAttention }))} className={`flex items-center gap-1.5 rounded-full border px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.needsAttention ? 'border-amber-500/60 bg-amber-500/10 text-amber-200' : 'border-slate-800 text-slate-400'}`}><i className="fas fa-triangle-exclamation" aria-hidden="true" />Needs attention <span className="font-mono">{attentionCount}</span></button>
+    <label className="ml-auto text-slate-500">Sort <select aria-label="Sort" className="rounded-lg border border-slate-800 bg-slate-900 p-1 text-[10px] text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" value={state.sort} onChange={e => state.setSort(e.target.value as typeof state.sort)}><option value="load">Load order</option><option value="accession">Accession</option><option value="fewest">Fewest annotations</option></select></label></div>
+    <div ref={container} className="relative min-h-0 flex-1" aria-label="Index entries"><VariableSizeList ref={list} height={height} width="100%" itemCount={entries.length} itemSize={index => entries[index].size} itemKey={index => entries[index].key} itemData={renderEntry} overscanCount={4} className="custom-scrollbar-pro">{IndexRow}</VariableSizeList></div>
     <p className="text-slate-500">/ Search · J/K Rows · [/ ] Groups · X Select · O Fold · Esc Clear</p>
   </section>;
 }

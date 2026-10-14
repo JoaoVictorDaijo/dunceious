@@ -136,3 +136,14 @@ it('extends an origin-crossing visible feature window to the sequence end', () =
   const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.style.left).toBe('90%'); expect(band.style.width).toBe('10%');
 });
+
+it('spans the minimum start and maximum end when visible rows stay in file order', () => {
+  const unordered = { ...records[0], features: [
+    { name: 'late', type: 'gene', start: 60, end: 90, strand: 1 as const },
+    { name: 'early', type: 'gene', start: 10, end: 30, strand: 1 as const },
+  ] };
+  function Wrap() { const state = useHubState(); return <HubList state={state} kind="sequences" height={400} items={buildSequenceSections([unordered], state.filters, { grouped: false }, 'load')} />; }
+  render(<Wrap />);
+  const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.style.left).toBe('10%'); expect(band.style.width).toBe('80%');
+});

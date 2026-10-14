@@ -181,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
-    <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
+    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
       {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} onToggleRecordVisibility={onToggleRecordVisibility ?? (() => {})} />}
       {activeTab === 'alignment' && <>
@@ -400,7 +400,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       </>}
-      {activeTab === 'features' ? <details className="border-t border-slate-800 pt-3 text-xs text-slate-400">
+      {activeTab === 'features' ? <details className="shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
         <summary className="cursor-pointer rounded px-1 py-1 focus-visible:ring-2 focus-visible:ring-env">Log</summary>
         <div className="mt-2 flex h-48 flex-col">{logOutput}</div>
       </details> : <section className="h-48 flex flex-col shrink-0">
