@@ -25,6 +25,9 @@ import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { serializeProject } from '@/src/app/logic/projectFile';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 import type { SeqRecord } from '@/src/domain/bio/types';
+
+// These tests mount the whole App with its workers; under CI coverage the heaviest take about 6 s, past Vitest's 5 s default.
+vi.setConfig({ testTimeout: 20_000 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const record = (id: string, name: string): SeqRecord => ({ id, name: id, sequence: 'AAAA', features: [{ name, type: 'gene', start: 0, end: 2, strand: 1 }] });
 async function setup() {
