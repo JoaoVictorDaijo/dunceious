@@ -24,7 +24,7 @@ import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, type TranslationLanes } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   seq: string;
@@ -242,32 +242,35 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           if (startIdx === undefined || endIdx === undefined) continue;
 
-          const lo = Math.min(startIdx, endIdx);
-          const aX = xScale(lo) - scrollX;
-          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(lo);
+          const pieces = codonSpans(alignedIndices.slice(j, j + 3), originalPositions);
+          const labelPiece = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
           const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
           // Each codon sits in the row of its own frame, so a ribosomal frameshift
           // inside a join steps rows exactly where translation changes frame.
           const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
 
-          if (aX + aW < 0 || aX > viewportWidth) continue;
-
           // An early stop is a stop codon that is NOT the last codon in the sequence
           const isEarlyStop = isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
 
-          ctx.globalAlpha = 0.9;
-          ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
-          ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+          for (const piece of pieces) {
+            const aX = xScale(piece.start) - scrollX;
+            const aW = xScale(piece.end) - xScale(piece.start);
+            if (aX + aW < 0 || aX > viewportWidth) continue;
 
-          // The nucleotide cells' white hairline: it parts codons in a row and,
-          // where a frameshift stacks two frames, the rows themselves.
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
+            ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
 
-          ctx.fillStyle = '#fff';
-          ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+            // The nucleotide cells' white hairline: it parts codons in a row and,
+            // where a frameshift stacks two frames, the rows themselves.
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+
+            ctx.fillStyle = '#fff';
+            if (piece === labelPiece) ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+          }
         }
       });
     }

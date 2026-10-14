@@ -18,6 +18,7 @@
  */
 
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { getOriginalPos } from '@/src/domain/bio';
 
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
@@ -31,7 +32,7 @@ export function saveEditedFeature(
     if (r.id !== recordId) return r;
     const newFeatures = [...r.features];
     const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
-    const marked: BioFeature = { ...feature, hubEdit };
+    const marked: BioFeature = { ...feature, ...featureEnvelope(feature), hubEdit };
     const previous = r.features[featureIndex];
     if (previous && (previous.start !== feature.start || previous.end !== feature.end
       || previous.strand !== feature.strand || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments)

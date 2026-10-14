@@ -494,3 +494,30 @@ it('does not outline another record at the focused feature coordinates', () => {
   const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: { recordId: 'r', start: 10, end: 30, featureIndex: 0, label: 'focused', length: 20 } });
   expect(container.querySelectorAll('path[data-annotation-part][stroke="#000"]')).toHaveLength(0);
 });
+
+
+describe('biological frameshifts in aligned annotations', () => {
+  it('does not invent a frameshift between abutting source segments', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAA', alignedSequence: 'ATG--AAA',
+      features: [{ type: 'CDS', name: 'abutting', start: 0, end: 6, strand: 1,
+        segments: [{ start: 0, end: 3 }, { start: 3, end: 6 }] }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { setTooltip });
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+    fireEvent.mouseOver(glyphs(container)[0]);
+    expect(setTooltip.mock.calls.at(-1)?.[0].content).not.toContain('Ribosomal frameshift');
+  });
+
+  it.each([1, -1] as const)('preserves a real +1 shift and biological tooltip position on strand %s', strand => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGCAAA', alignedSequence: '--ATG--CAAA',
+      features: [{ type: 'CDS', name: 'skip', start: 0, end: 7, strand,
+        segments: [{ start: 0, end: 3 }, { start: 4, end: 7 }] }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { setTooltip });
+    const mark = container.querySelector('[data-frameshift]');
+    expect(mark?.getAttribute('data-frameshift')).toBe('1');
+    expect(Number(mark?.getAttribute('data-x'))).toBeCloseTo(8 * ZOOM);
+    fireEvent.mouseOver(glyphs(container)[0]);
+    expect(setTooltip.mock.calls.at(-1)?.[0].content).toContain('Ribosomal frameshift: +1 at 5');
+  });
+});
