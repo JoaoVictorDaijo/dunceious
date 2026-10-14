@@ -176,7 +176,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
         <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export</button>
       </footer>
     </div>
-  </div>, document.body);
+  </div>, document.querySelector('.app-root') ?? document.body);
 }
 
 

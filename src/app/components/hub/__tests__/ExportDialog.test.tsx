@@ -220,3 +220,13 @@ it('shows accessions, display names, lengths and annotation counts in selected t
   expect(within(row).getByText('0 annot.').className).toContain('font-mono');
   expect(row.className).toContain('bg-amber-50');
 });
+
+
+it('portals the export dialog inside the app root carrying the session accent', () => {
+  const { container } = render(<div className="app-root" data-env="hub" style={{ '--env': 'orange' } as React.CSSProperties}><Subject /></div>);
+  open();
+  const root = container.querySelector('.app-root')!;
+  const dialog = screen.getByRole('dialog', { name: 'Export sequences' });
+  expect(root.contains(dialog)).toBe(true);
+  expect(dialog.closest('.app-root')).toBe(root);
+});
