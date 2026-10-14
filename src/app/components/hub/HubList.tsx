@@ -228,11 +228,23 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         jump(`${record.id}:${record.features.indexOf(feature)}`); }
     },
   }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump, state.setFilters, onNotice]);
+  const scrollWindow = (sectionKey: string, start: number, direction?: 1 | -1) => {
+    const headerIndex = entries.findIndex(entry => entry.type === 'header' && entry.sectionKey === sectionKey);
+    const rows = entries.flatMap((entry, index) => entry.type === 'row' && entry.sectionKey === sectionKey ? [{ feature: entry.feature, index }] : [])
+      .sort((a, b) => a.feature.start - b.feature.start || a.index - b.index);
+    if (!rows.length || headerIndex < 0) return;
+    const top = scrollOffset.current + entries[headerIndex].size;
+    const firstVisible = rows.find(row => starts[row.index] + entries[row.index].size > top && starts[row.index] < scrollOffset.current + height);
+    const target = direction
+      ? rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(firstVisible ?? rows[0]) + direction))]
+      : rows.find(row => row.feature.start >= start) ?? rows[rows.length - 1];
+    list.current?.scrollTo(Math.max(starts[headerIndex], Math.min(maxOffset, starts[target.index] - entries[headerIndex].size)));
+  };
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
+    return <SequenceSectionHeader onWindowMove={start => scrollWindow(entry.key, start)} onWindowStep={direction => scrollWindow(entry.key, 0, direction)} current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];

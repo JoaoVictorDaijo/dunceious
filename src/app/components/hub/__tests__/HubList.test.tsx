@@ -18,7 +18,7 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { useLayoutEffect } from 'react';
 import { render, screen, fireEvent, within, stubResizeObserver, renderHook, act } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
@@ -146,4 +146,45 @@ it('spans the minimum start and maximum end when visible rows stay in file order
   render(<Wrap />);
   const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.style.left).toBe('10%'); expect(band.style.width).toBe('80%');
+});
+
+
+it('scrolls to the first row at or after the window start, or the last row, through the list API', () => {
+  const sequence = { ...records[0], features: [
+    { name: 'early', type: 'gene', start: 10, end: 20, strand: 1 as const },
+    { name: 'late', type: 'gene', start: 60, end: 70, strand: 1 as const },
+    { name: 'middle', type: 'gene', start: 30, end: 40, strand: 1 as const },
+  ] };
+  function Drag() {
+    const state = useHubState();
+    return <HubList state={state} kind="sequences" height={160} items={buildSequenceSections([sequence], state.filters, { grouped: false }, 'load')} />;
+  }
+  const { container } = render(<Drag />);
+  const strip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ });
+  const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
+  const rowTop = (name: string) => Number.parseFloat(screen.getByText(name).closest('[data-row-key]')!.parentElement!.style.top);
+  const headerHeight = Number.parseFloat(screen.getByRole('region', { name: 'Pinned section' }).style.height);
+  fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
+  expect(viewport.scrollTop).toBe(rowTop('middle') - headerHeight);
+  fireEvent.keyDown(strip, { key: 'ArrowLeft', shiftKey: true });
+  // The first visible row in start order determines the step, even in file order.
+  expect(viewport.scrollTop).toBe(rowTop('early') - headerHeight);
+});
+
+
+it('jumps empty track space to the qualifying filtered row and falls back at the sequence end', () => {
+  const sequence = { ...records[0], features: [10, 30, 60].map(start => ({ name: `row-${start}`, type: 'gene', start, end: start + 5, strand: 1 as const })) };
+  function Drag() {
+    const state = useHubState();
+    return <HubList state={state} kind="sequences" height={160} items={buildSequenceSections([sequence], state.filters, { grouped: false }, 'load')} />;
+  }
+  const { container } = render(<Drag />);
+  const strip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ });
+  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 25 } as DOMRect);
+  const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
+  fireEvent.pointerDown(strip, { clientX: 220, clientY: 2, button: 0, pointerId: 1 });
+  expect(viewport.scrollTop).toBe(44);
+  fireEvent.pointerMove(strip, { clientX: 1000, clientY: 2, pointerId: 1 });
+  expect(viewport.scrollTop).toBe(88);
+  fireEvent.pointerUp(strip, { pointerId: 1 });
 });

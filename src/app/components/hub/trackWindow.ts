@@ -17,21 +17,27 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+type WindowSpan = { id: string; length: number; start: number; end: number };
 export type TrackWindow = ReturnType<typeof createTrackWindow>;
 export function createTrackWindow() {
   const roots = new Map<string, Set<HTMLElement>>();
-  let current: { id: string; length: number; start: number; end: number } | null = null;
+  let current: WindowSpan | null = null;
+  let dragged: WindowSpan | null = null;
   const paint = (id: string, root: HTMLElement) => {
-    const visible = current?.id === id;
+    const value = dragged ?? current;
+    const visible = value?.id === id;
     const band = root.querySelector<HTMLElement>('[data-track-window]');
     const label = root.querySelector<HTMLElement>('[data-track-window-label]');
     if (band) {
       band.hidden = !visible;
-      if (visible && current) { band.style.left = `${current.start / current.length * 100}%`; band.style.width = `${Math.max(0, current.end - current.start) / current.length * 100}%`; }
+      if (visible && value) { band.style.left = `${value.start / value.length * 100}%`; band.style.width = `${Math.max(0, value.end - value.start) / value.length * 100}%`; }
     }
-    if (label) { label.hidden = !visible; if (visible && current) label.textContent = `${(current.start + 1).toLocaleString('en-US')}–${current.end.toLocaleString('en-US')} in view`; }
+    if (label) { label.hidden = !visible; if (visible && value) label.textContent = `${(value.start + 1).toLocaleString('en-US')}–${value.end.toLocaleString('en-US')} in view`; }
   };
   return {
+    get(id: string) { return current?.id === id ? current : null; },
+    begin(value: WindowSpan) { dragged = value; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
+    end() { dragged = null; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
     register(id: string, element: HTMLElement) { const set = roots.get(id) ?? new Set(); set.add(element); roots.set(id, set); paint(id, element); return () => { set.delete(element); if (!set.size) roots.delete(id); }; },
     update(value: typeof current) { current = value; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
   };

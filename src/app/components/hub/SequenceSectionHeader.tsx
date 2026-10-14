@@ -31,7 +31,7 @@ export function sequenceSectionHeight(section: SequenceSection, folded: boolean,
   return base + (folded ? layout.summaryGap + layout.line : layout.detailGap * 2 + layout.line + genomeStripHeight(section.record, true, featureColors));
 }
 
-function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails, onRename, featureColors, current, searching, trackWindow }: { current?: boolean; searching?: boolean; trackWindow?: import('./trackWindow').TrackWindow; section: SequenceSection; featureColors?: Record<string, string>; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: (field?: DetailKey) => void; onRename?: () => void }) {
+function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, onEditDetails, onRename, featureColors, current, searching, trackWindow, onWindowMove, onWindowStep }: { onWindowMove?: (start: number) => void; onWindowStep?: (direction: 1 | -1) => void; current?: boolean; searching?: boolean; trackWindow?: import('./trackWindow').TrackWindow; section: SequenceSection; featureColors?: Record<string, string>; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; onEditDetails?: (field?: DetailKey) => void; onRename?: () => void }) {
   const { record, rows, total } = section;
   const composition = useMemo(() => {
     const counts = new Map<string, number>();
@@ -50,7 +50,7 @@ function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, on
     {folded ? <p className="truncate" title={composition} style={{ height: layout.line, marginTop: layout.summaryGap }}>{composition}</p> : <>
       <div className="flex items-center gap-3" style={{ height: layout.line, marginTop: layout.detailGap, marginBottom: layout.detailGap }}><DetailsLine record={record} onAdd={onEditDetails} />{onEditDetails && <button onClick={() => onEditDetails()} className="whitespace-nowrap text-amber-800 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-pen mr-1" aria-hidden="true" />Edit details</button>}
       {record.isCircular && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">CIRCULAR</span>}{isPartial(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Partial</span>}{isUnannotated(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Unannotated</span>}{isEdited(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Edited</span>}<span className="rounded bg-slate-100 px-2 font-mono text-[10px]">{record.moleculeType || 'dna'}</span></div>
-      <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} large highlight={highlighted} onPick={onPick} />
+      <GenomeStrip onWindowMove={current ? onWindowMove : undefined} onWindowStep={current ? onWindowStep : undefined} trackWindow={trackWindow} record={record} featureColors={featureColors} large highlight={highlighted} onPick={onPick} />
     </>}
   </div>;
 }

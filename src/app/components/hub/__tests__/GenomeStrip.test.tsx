@@ -25,6 +25,7 @@ import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { createHub100x60 } from '@/src/app/testing/fixtures/hub100x60';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import GenomeStrip from '../GenomeStrip';
+import { createTrackWindow } from '../trackWindow';
 import { TrackTooltipProvider } from '../TrackTooltip';
 import HubIndex from '../HubIndex';
 import HubList from '../HubList';
@@ -206,4 +207,71 @@ it('keeps ruler labels on one line and hides collisions on window changes and re
     right = 400; act(resized);
     expect(ticks[5].style.visibility).toBe('visible');
   } finally { globalThis.ResizeObserver = observer; vi.restoreAllMocks(); }
+});
+
+
+it('hides hover details on empty space after pointer focus and click', () => {
+  render(<TrackTooltipProvider><GenomeStrip record={record} large onPick={noop} /></TrackTooltipProvider>);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  fireEvent.mouseMove(strip, { clientX: 50, clientY: 10 });
+  fireEvent.pointerDown(strip, { clientX: 50, clientY: 10, button: 0 });
+  fireEvent.focus(strip);
+  fireEvent.click(strip, { clientX: 50, clientY: 10 });
+  fireEvent.mouseMove(strip, { clientX: 500, clientY: 10 });
+  expect(screen.queryByRole('tooltip')).toBeNull();
+});
+
+it('shows cursor details after keyboard Tab focus', () => {
+  render(<TrackTooltipProvider><GenomeStrip record={record} large onPick={noop} /></TrackTooltipProvider>);
+  fireEvent.keyDown(document, { key: 'Tab' });
+  fireEvent.focus(screen.getByRole('button', { name: /Genome strip/ }));
+  expect(screen.getByRole('tooltip').textContent).toContain('custom type');
+});
+
+it('draws the brush only over lanes with dashed borders and side handles', () => {
+  const { container } = render(<GenomeStrip record={record} large onPick={noop} />);
+  const band = container.querySelector('[data-track-window]')!;
+  expect(band.parentElement?.contains(container.querySelector('[data-track-ruler]'))).toBe(false);
+  expect(band.querySelector('[stroke-dasharray="4 2"]')).toBeTruthy();
+  expect(band.querySelectorAll('[data-window-handle]')).toHaveLength(2);
+});
+
+it('drags a window through its controller, clamps to edges and restores the scroll span on release', () => {
+  const trackWindow = createTrackWindow();
+  const move = vi.fn();
+  render(<GenomeStrip record={record} large onPick={noop} trackWindow={trackWindow} onWindowMove={move} />);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  act(() => trackWindow.update({ id: record.id, length: 100, start: 0, end: 30 }));
+  fireEvent.pointerDown(strip, { clientX: 150, clientY: 2, button: 0, pointerId: 1 });
+  fireEvent.pointerMove(strip, { clientX: 550, clientY: 2, pointerId: 1 });
+  expect(move).toHaveBeenLastCalledWith(40);
+  const band = strip.parentElement!.querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.style.left).toBe('40%');
+  act(() => trackWindow.update({ id: record.id, length: 100, start: 60, end: 90 }));
+  expect(band.style.left).toBe('40%');
+  fireEvent.pointerMove(strip, { clientX: 1200, clientY: 2, pointerId: 1 });
+  expect(band.style.left).toBe('70%');
+  fireEvent.pointerUp(strip, { pointerId: 1 });
+  expect(band.style.left).toBe('60%');
+});
+
+it('centres an outside jump, preserves feature clicks and steps the window with Shift arrows', () => {
+  const trackWindow = createTrackWindow();
+  const move = vi.fn(), pick = vi.fn(), step = vi.fn();
+  render(<GenomeStrip record={record} large onPick={pick} trackWindow={trackWindow} onWindowMove={move} onWindowStep={step} />);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  act(() => trackWindow.update({ id: record.id, length: 100, start: 0, end: 20 }));
+  fireEvent.pointerDown(strip, { clientX: 600, clientY: 2, button: 0, pointerId: 1 });
+  expect(move).toHaveBeenLastCalledWith(50);
+  fireEvent.pointerUp(strip, { pointerId: 1 });
+  fireEvent.pointerDown(strip, { clientX: 50, clientY: 10, button: 0, pointerId: 2 });
+  fireEvent.click(strip, { clientX: 50, clientY: 10 });
+  expect(pick).toHaveBeenCalledWith(record.features[0]);
+  expect(move).toHaveBeenCalledOnce();
+  fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
+  fireEvent.keyDown(strip, { key: 'ArrowLeft', shiftKey: true });
+  expect(step.mock.calls).toEqual([[1], [-1]]);
 });
