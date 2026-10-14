@@ -227,9 +227,11 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: Math.min(...visible.map(feature => feature.start)), end: visible.some(feature => feature.start > feature.end || feature.segments?.some(part => part.start > part.end)) ? record.sequence.length : Math.max(...visible.map(feature => feature.end)) } : null);
   };
   useLayoutEffect(() => { updateWindow(pinnedIndex, offset); paintBar(pinnedIndex, offset); }, [entries, offset, pinnedIndex]);
-  const onScroll = ({ scrollOffset: value }: { scrollOffset: number }) => {
+  const onScroll = ({ scrollOffset: value, scrollUpdateWasRequested = false }: { scrollOffset: number; scrollUpdateWasRequested?: boolean }) => {
+    const navigated = value !== scrollOffset.current && !scrollUpdateWasRequested;
     scrollOffset.current = Math.min(value, maxOffset);
     const next = sectionsAt(scrollOffset.current);
+    if (navigated) state.setCurrentSectionKey(next.current);
     updateWindow(next.barIndex, scrollOffset.current);
     if (next.bar !== activeSections.current.bar || next.current !== activeSections.current.current) {
       activeSections.current = next;
@@ -247,7 +249,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }, [providedHeight]);
   useLayoutEffect(() => { list.current?.resetAfterIndex(0); }, [entries]);
   useLayoutEffect(() => { list.current?.scrollTo(offset); }, [offset]);
-  useEffect(() => { state.setCurrentSectionKey(currentSection); }, [currentSection, state.setCurrentSectionKey]);
+  useEffect(() => { state.setCurrentSectionKey(currentSection, false); }, [currentSection, state.setCurrentSectionKey]);
   const open = useCallback((key: string) => {
     state.setCollapsed(prev => { const next = new Set(prev[kind]); next.delete(key); return { ...prev, [kind]: next }; });
     state.setSearchFolds(prev => { const next = new Set(prev); next.delete(`${kind}:${key}`); return next; });
@@ -255,6 +257,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const landJump = (key: string, value: number) => {
     jumpLanding.current = { key, offset: value };
     onScroll({ scrollOffset: value });
+    state.setCurrentSectionKey(key);
     list.current?.scrollTo(value);
   };
   const pending = state.jumpTarget?.key;

@@ -17,6 +17,7 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Keep the Hub sequence and feature index scroll position when hiding or showing sequences.
 - Joins that cross the origin of a circular sequence draw their arrow head at
   the feature's true 3′ end instead of at the sequence end, and both pieces show
   the feature's name.
