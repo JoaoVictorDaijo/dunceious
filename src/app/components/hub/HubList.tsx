@@ -30,7 +30,7 @@ import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionH
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
 import OverviewRail from './OverviewRail';
-import DetailsEditor from './DetailsEditor';
+import DetailsEditor, { detailsEditorHeight } from './DetailsEditor';
 import { DisplayNameEditor } from './DisplayName';
 
 type HubState = ReturnType<typeof useHubState>;
@@ -57,6 +57,14 @@ function VirtualRow({ index, style, data }: { index: number; style: React.CSSPro
 }
 
 function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+  const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
+  useEffect(() => {
+    const media = window.matchMedia?.('(min-width: 1280px)');
+    if (!media) return;
+    const update = () => setWideDetails(media.matches);
+    update(); media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
   const workspaceRevision = useRef(state.workspaceRevision.current);
   workspaceRevision.current = state.workspaceRevision.current;
   const scrollOffset = useRef(state.scrollOffset[kind]);
@@ -97,7 +105,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
       }
       previousGroup = group;
       result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key)) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, itemIndex ? 8 : 0), item });
-      if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? 440 : 112, record: (item as SequenceSection).record, editor: editor.kind });
+      if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? detailsEditorHeight((item as SequenceSection).record, draft?.id === item.key ? draft.details ?? {} : {}, wideDetails) : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
       if (kind === 'sequences') {
@@ -111,7 +119,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height, editor, featureColors]);
+  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails]);
   const starts = useMemo(() => { let start = 0; return entries.map(entry => { const value = start; start += entry.size; return value; }); }, [entries]);
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   const maxOffset = Math.max(0, total - height);
@@ -239,7 +247,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
-    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor focusRequest={state.detailsFocusRequest} focusField={state.detailsField} record={entry.record} draft={draft?.id === entry.record.id ? draft.details ?? {} : {}} onChange={details => setDraft({ id: entry.record.id, details })} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} label={draft?.id === entry.record.id ? draft.label ?? entry.record.label ?? '' : entry.record.label ?? ''} onChange={label => setDraft({ id: entry.record.id, label })} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
+    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor wide={wideDetails} focusRequest={state.detailsFocusRequest} focusField={state.detailsField} record={entry.record} draft={draft?.id === entry.record.id ? draft.details ?? {} : {}} onChange={details => setDraft({ id: entry.record.id, details })} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} label={draft?.id === entry.record.id ? draft.label ?? entry.record.label ?? '' : entry.record.label ?? ''} onChange={label => setDraft({ id: entry.record.id, label })} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
     if (entry.type === 'spacer') return <div style={style} />;
     if (entry.type === 'header') return <div style={{ ...style, visibility: index === pinnedIndex ? 'hidden' : undefined }}>{header(entry)}</div>;
     if (entry.type === 'divider') return <div style={style} className="bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-600">{entry.label} · {entry.count}</div>;

@@ -19,8 +19,8 @@
 
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, within, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, within, act, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import { useFeatureManager } from '@/src/app/hooks/useFeatureManager';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections } from '@/src/app/logic/hubModel';
@@ -148,4 +148,42 @@ it('keeps an edited marker after an imported value is cleared', () => {
   const chip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' });
   expect(within(chip).getByText('edited')).toBeTruthy();
   expect(chip.className).toContain('bg-amber-50');
+});
+
+it('sets the inline fields apart with an inset card and icon reverts', () => {
+  render(<Subject initial={writeDetails({ ...fasta, fileDetails: { host: 'camel' } }, { host: 'bat' })} />); open();
+  const form = screen.getByRole('form', { name: 'Details for contig' });
+  expect(form.className).toContain('bg-slate-50');
+  expect(form.querySelector('[data-editor-card]')?.className).toContain('rounded-xl');
+  const host = screen.getByLabelText('Host');
+  const revert = screen.getByRole('button', { name: "Revert Host to the file's value" });
+  expect(host.parentElement!.contains(revert)).toBe(true);
+  expect(revert.querySelector('.fa-rotate-left')).toBeTruthy();
+  expect(revert.getAttribute('data-tip')).toBe("Revert Host to the file's value");
+  expect(screen.getByRole('button', { name: 'Save details' }).className).toContain('bg-env');
+  fireEvent.click(revert);
+  expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel');
+});
+
+it.each([true, false])('updates virtual editor height as warnings change (wide: %s)', wide => {
+  let listener = () => {};
+  const media = { matches: wide, addEventListener: (_: string, callback: () => void) => { listener = callback; }, removeEventListener: () => {} };
+  vi.stubGlobal('matchMedia', () => media);
+  try {
+    render(<Subject />); open();
+    const form = screen.getByRole('form', { name: 'Details for contig' });
+    const entry = form.parentElement!;
+    expect(entry.style.height).toBe(wide ? '200px' : '284px');
+    fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: 'March 2014' } });
+    expect(entry.style.height).toBe(wide ? '236px' : '320px');
+    const warning = screen.getByText(validateDetail('collectionDate', 'March 2014')!);
+    expect(warning.getAttribute('data-tip')).toBe(warning.textContent);
+    expect(warning.className).toContain('truncate');
+    fireEvent.change(screen.getByLabelText('Collection date'), { target: { value: '2014' } });
+    expect(entry.style.height).toBe(wide ? '200px' : '284px');
+    media.matches = !wide;
+    act(listener);
+    expect(entry.style.height).toBe(wide ? '284px' : '200px');
+    expect(form.querySelector('[data-editor-fields]')?.className).toContain(wide ? 'grid-cols-2' : 'grid-cols-4');
+  } finally { vi.unstubAllGlobals(); }
 });
