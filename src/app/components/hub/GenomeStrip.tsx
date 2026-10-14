@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { memo, useCallback, useEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { packTrack, rulerTicks, trackMetrics, type TrackPart } from '@/src/app/logic/trackLayout';
 import { trackFeatureColor, useTrackTooltip } from './TrackTooltip';
@@ -75,6 +75,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
   const hoveredRef = useRef<BioFeature | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
+  const ruler = useRef<HTMLDivElement>(null);
   const showTooltip = useTrackTooltip();
   const { ordered, metrics } = geometry;
   const index = cursor.record === record ? Math.min(cursor.index, ordered.length - 1) : 0;
@@ -84,6 +85,28 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
   const mask = useCallback((feature: BioFeature) => active ? feature === active : !highlight || highlight(feature), [active, highlight]);
   const paths = stripPaths(geometry, mask);
   const interactive = Boolean(onPick) && Boolean(current);
+  useLayoutEffect(() => {
+    const element = ruler.current;
+    if (!element) return;
+    const ticks = [...element.querySelectorAll<HTMLElement>('[data-track-tick]')];
+    const label = element.querySelector<HTMLElement>('[data-track-window-label]');
+    const measure = () => {
+      const edge = element.getBoundingClientRect().right;
+      const windowBounds = label && !label.hidden ? label.getBoundingClientRect() : null;
+      for (const tick of ticks) {
+        const bounds = tick.getBoundingClientRect();
+        const overlap = windowBounds && bounds.right > windowBounds.left && bounds.left < windowBounds.right;
+        tick.style.visibility = bounds.right > edge || overlap ? 'hidden' : 'visible';
+      }
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (label) observer.observe(label);
+    ticks.forEach(tick => observer.observe(tick));
+    return () => observer.disconnect();
+  }, [large, record.sequence.length]);
   useEffect(() => { if (root.current && trackWindow) return trackWindow.register(record.id, root.current); }, [record.id, trackWindow]);
   useEffect(() => {
     hoveredRef.current = null;
@@ -131,7 +154,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
       </svg>
       <div hidden data-track-window className="pointer-events-none absolute inset-y-0 border-x-[1.5px] border-amber-500 bg-env/15" />
     </div>
-    {large && <div className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span key={tick.position} className="absolute -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 bg-amber-50 text-amber-800" /></div>}
+    {large && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-amber-50 text-amber-800" /></div>}
     {large && interactive && focused && <span role="status" aria-live="polite" className="sr-only">{current.name} · {current.locationString || `${current.start + 1}..${current.end}`}</span>}
   </div>;
 }

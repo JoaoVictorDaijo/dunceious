@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
 import type { ThemeKey } from '@/src/app/logic/theme';
@@ -85,6 +85,37 @@ const TopNav: React.FC<TopNavProps> = ({
   sessionMoleculeType,
 }) => {
   const [layersOpen, setLayersOpen] = useState(false);
+  const [inlineLayers, setInlineLayers] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1536px)').matches ?? window.innerWidth >= 1536));
+  const cluster = useRef<HTMLDivElement>(null);
+  const workspaceTools = useRef<HTMLDivElement>(null);
+  const viewportControls = useRef<HTMLDivElement>(null);
+  const inlineTray = useRef<HTMLDivElement>(null);
+  const setToolsElement = useCallback((element: HTMLDivElement | null) => { workspaceTools.current = element; toolsRef?.(element); }, [toolsRef]);
+  useLayoutEffect(() => {
+    const bounded = cluster.current, tools = workspaceTools.current, controls = viewportControls.current, tray = inlineTray.current;
+    if (!showAlignmentControls || !bounded || !tools || !controls || !tray) return;
+    const measure = () => {
+      // A collapsed tray still needs its natural width to decide when it can return.
+      const previousDisplay = tray.style.display;
+      tray.style.display = 'flex';
+      const naturalWidth = tray.getBoundingClientRect().width;
+      tray.style.display = previousDisplay;
+      const available = tools.getBoundingClientRect().width;
+      if (!naturalWidth || !available) return;
+      const otherTools = [...controls.children].filter(element => element !== tray && element !== layersElement.current);
+      const gap = Number.parseFloat(getComputedStyle(controls).columnGap) || 8;
+      const required = naturalWidth + otherTools.reduce((sum, element) => sum + Math.max(element.getBoundingClientRect().width, (element as HTMLElement).offsetWidth), 0) + gap * otherTools.length;
+      const fits = required <= available;
+      setInlineLayers(fits);
+      if (fits) setLayersOpen(false);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
+    const observer = new ResizeObserver(measure);
+    observer.observe(bounded);
+    observer.observe(tray);
+    return () => observer.disconnect();
+  }, [activeSelection, showAlignmentControls]);
   const layersElement = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!layersOpen) return;
@@ -162,12 +193,12 @@ const TopNav: React.FC<TopNavProps> = ({
       </div>
 
     </div>
-    <div aria-label="Workspace tools and options" className="ml-auto flex min-w-0 items-center gap-2" style={{ maxWidth: 'calc(50% - 208px)' }}>
-      <div ref={toolsRef} aria-label="Workspace tools" data-hub-focus={activeTab === 'features' ? true : undefined} className="flex min-w-0 flex-1 items-center justify-end gap-2">
+    <div ref={cluster} aria-label="Workspace tools and options" className="ml-auto flex min-w-0 items-center justify-end gap-2" style={{ width: 'calc(50% - 208px)', maxWidth: 'calc(50% - 208px)' }}>
+      <div ref={setToolsElement} aria-label="Workspace tools" data-hub-focus={activeTab === 'features' ? true : undefined} className="flex min-w-0 flex-1 items-center justify-end gap-2">
       {/* Workspace tools share a bounded cluster to protect the centred switcher. */}
       {showAlignmentControls && (
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800" role="group" aria-label="Drag mode">
+        <div ref={viewportControls} className="flex min-w-0 items-center gap-2">
+          <div className="flex shrink-0 bg-slate-950 p-1 rounded-xl border border-slate-800" role="group" aria-label="Drag mode">
             {DRAG_MODES.map(m => (
               <button
                 key={m.mode}
@@ -185,14 +216,14 @@ const TopNav: React.FC<TopNavProps> = ({
           {activeSelection && (
             <button
               onClick={onClearSelection}
-              className="h-10 px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all motion-reduce:transition-none animate-in fade-in zoom-in-95 duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
+              className="h-10 shrink-0 px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all motion-reduce:transition-none animate-in fade-in zoom-in-95 duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
               data-tip="Clear the current selection"
             >
               <i className="fas fa-xmark mr-1.5"></i>Clear
             </button>
           )}
           {/* Layer toggles share one style; each layer keeps its identity colour as a dot. */}
-          <div className="hidden 2xl:flex bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1" role="group" aria-label="Viewport layers">
+          <div ref={inlineTray} style={{ display: inlineLayers ? undefined : 'none' }} className="flex w-max shrink-0 bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1" role="group" aria-label="Viewport layers">
             {layers.map(l => (
               <button
                 key={l.label}
@@ -217,7 +248,7 @@ const TopNav: React.FC<TopNavProps> = ({
               </button>
             ))}
           </div>
-          <div ref={layersElement} className="relative 2xl:hidden">
+          <div ref={layersElement} style={{ display: inlineLayers ? 'none' : undefined }} className="relative shrink-0">
             <button aria-label={`Layers ${layers.filter(layer => layer.on).length}/4`} aria-expanded={layersOpen} data-tip="Choose viewport layers" onClick={() => setLayersOpen(open => !open)} className="h-10 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">
               Layers {layers.filter(layer => layer.on).length}/4
               <span className="flex gap-1" aria-hidden="true">{layers.map(layer => <span key={layer.label} className={`h-1.5 w-1.5 rounded-full ${layer.on && !layer.disabledReason ? layer.dot : 'bg-slate-600'}`} />)}</span>
@@ -230,12 +261,12 @@ const TopNav: React.FC<TopNavProps> = ({
       )}
 
       </div>
-      <OptionsPanel
+      <div className="shrink-0"><OptionsPanel
         featureColors={featureColors}
         onSetFeatureColors={onSetFeatureColors}
         themeKey={themeKey}
         onSetThemeKey={onSetThemeKey}
-      />
+      /></div>
     </div>
     </div>
   </nav>

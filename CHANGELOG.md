@@ -31,7 +31,7 @@ All notable changes to Dunceious. Format loosely follows
 ### Changed
 
 - The workspace switcher stays centred; Hub search, Add, Export and More move into
-  the header. Viewport layers collapse into a popover below 1536 px.
+  the header. Viewport layers collapse into a popover when toolbar space is limited.
 - Hub index uses windowed track cards, attention counts and an amber current card.
   Rows, tabs, filters and selection actions use the session styling; row actions
   appear on hover or focus and stay visible on touch devices.

@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within, fireEvent } from '@/src/app/testing/renderHarness';
+import { render, screen, within, fireEvent, act } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { createHub100x60 } from '@/src/app/testing/fixtures/hub100x60';
@@ -180,4 +180,30 @@ it('releases the old hover when an immutable record is replaced', () => {
   rerender(<TrackTooltipProvider><GenomeStrip record={replacement} large onPick={noop} /></TrackTooltipProvider>);
   expect(screen.queryByRole('tooltip')).toBeNull();
   expect(strip.querySelector('path')?.getAttribute('opacity')).toBe('1');
+});
+
+it('keeps ruler labels on one line and hides collisions on window changes and resize', () => {
+  let resized = () => {};
+  const observer = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class { constructor(callback: () => void) { resized = callback; } observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+  try {
+    const { container } = render(<GenomeStrip record={{ ...record, sequence: 'A'.repeat(154000) }} large />);
+    const ruler = container.querySelector<HTMLElement>('[data-track-ruler]')!;
+    expect(ruler).toBeTruthy();
+    const ticks = [...ruler.querySelectorAll<HTMLElement>('[data-track-tick]')];
+    expect(ticks.every(tick => tick.className.includes('whitespace-nowrap'))).toBe(true);
+    let right = 200;
+    vi.spyOn(ruler, 'getBoundingClientRect').mockImplementation(() => ({ left: 0, right, width: right } as DOMRect));
+    const spans = [[20, 50], [55, 85], [90, 120], [125, 155], [155, 185], [175, 215]];
+    ticks.forEach((tick, i) => vi.spyOn(tick, 'getBoundingClientRect').mockImplementation(() => ({ left: spans[i][0], right: spans[i][1] } as DOMRect)));
+    const label = ruler.querySelector<HTMLElement>('[data-track-window-label]')!;
+    label.hidden = false;
+    vi.spyOn(label, 'getBoundingClientRect').mockReturnValue({ left: 160, right: 200 } as DOMRect);
+    act(resized);
+    expect(ticks.map(tick => tick.style.visibility)).toEqual(['visible', 'visible', 'visible', 'visible', 'hidden', 'hidden']);
+    label.hidden = true; act(resized);
+    expect(ticks[4].style.visibility).toBe('visible'); expect(ticks[5].style.visibility).toBe('hidden');
+    right = 400; act(resized);
+    expect(ticks[5].style.visibility).toBe('visible');
+  } finally { globalThis.ResizeObserver = observer; vi.restoreAllMocks(); }
 });

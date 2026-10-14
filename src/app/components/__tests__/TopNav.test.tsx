@@ -19,8 +19,8 @@
 
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, within, act } from '@/src/app/testing/renderHarness';
 import TopNav, { type TopNavProps } from '../TopNav';
 import HubToolbar from '../hub/HubToolbar';
 import MoreMenu from '../hub/MoreMenu';
@@ -61,5 +61,31 @@ describe('workspace header', () => {
     expect(within(popover).getByText(/Conservation needs an alignment/)).toBeTruthy();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole('group', { name: 'Layer options' })).toBeNull();
+  });
+});
+
+describe('layer tray fit', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  it('rechecks natural tray width on resize and selection changes', () => {
+    let available = 480;
+    let resized = () => {};
+    vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      const label = this.getAttribute('aria-label');
+      const width = label === 'Workspace tools' ? available : label === 'Viewport layers' ? 360 : label === 'Drag mode' ? 80 : this.textContent?.trim() === 'Clear' ? 80 : 600;
+      return { left: 0, right: width, top: 0, bottom: 40, width, height: 40 } as DOMRect;
+    });
+    const { rerender } = render(<TopNav {...defaults} />);
+    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Layers/ })).toBeNull();
+    rerender(<TopNav {...defaults} activeSelection={{ start: 0, end: 10, recordIds: ['a'] }} />);
+    expect(screen.getByRole('button', { name: /^Layers/ })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Viewport layers' })).toBeNull();
+    rerender(<TopNav {...defaults} />);
+    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
+    available = 400; act(resized);
+    expect(screen.getByRole('button', { name: /^Layers/ })).toBeTruthy();
+    available = 600; act(resized);
+    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
   });
 });

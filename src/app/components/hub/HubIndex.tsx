@@ -89,7 +89,12 @@ export default function HubIndex({ records, state, onToggleRecordVisibility, fea
   const container = useRef<HTMLDivElement>(null);
   const list = useRef<VariableSizeList>(null);
   const [height, setHeight] = useState(600);
-  const reveal = useCallback((key: string | null) => { const index = entries.findIndex(entry => entry.key === key); if (index >= 0) list.current?.scrollToItem(index, 'smart'); }, [entries]);
+  const reveal = useCallback((key: string | null) => {
+    const index = entries.findIndex(entry => entry.key === key);
+    if (index < 0) return;
+    const firstInGroup = entries[index - 1]?.type === 'group';
+    list.current?.scrollToItem(firstInGroup ? index - 1 : index, firstInGroup ? 'start' : 'smart');
+  }, [entries]);
   useEffect(() => {
     const element = container.current;
     if (!element) return;
@@ -103,7 +108,7 @@ export default function HubIndex({ records, state, onToggleRecordVisibility, fea
   const jump = useCallback((key: string) => { reveal(key); setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); }, [setJumpTarget, reveal]);
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
-    if (entry.type === 'group') return <div style={style}><button aria-label={`Fold index group ${entry.group}`} aria-expanded={!folds.has(entry.foldKey)} data-tip={entry.group} className="flex h-9 w-full items-center gap-2 text-left font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => state.setIndexFolds(prev => { const next = new Set(prev); if (next.has(entry.foldKey)) next.delete(entry.foldKey); else next.add(entry.foldKey); return next; })}><i aria-hidden="true" className={`fas fa-chevron-down text-[9px] transition-transform motion-reduce:transition-none ${folds.has(entry.foldKey) ? '-rotate-90' : ''}`} /><span className="min-w-0 flex-1 truncate">{entry.group}</span><span className="rounded-full bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400"> · {entry.count}</span></button></div>;
+    if (entry.type === 'group') return <div style={style}><button aria-label={`Fold index group ${entry.group}`} aria-expanded={!folds.has(entry.foldKey)} data-tip={entry.group} className="flex h-9 w-full items-center gap-2 text-left font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => state.setIndexFolds(prev => { const next = new Set(prev); if (next.has(entry.foldKey)) next.delete(entry.foldKey); else next.add(entry.foldKey); return next; })}><i aria-hidden="true" className={`fas fa-chevron-down text-[9px] transition-transform motion-reduce:transition-none ${folds.has(entry.foldKey) ? '-rotate-90' : ''}`} /><span className="min-w-0 flex-1 truncate">{entry.group}</span><span className="rounded-full bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400">{entry.count}</span></button></div>;
     if (entry.type === 'feature') return <div style={style}><FeatureIndexEntry group={entry.group} current={state.currentSectionKey === entry.key} jump={jump} position={entry.position} count={features.length} /></div>;
     return <div style={style}><SequenceIndexEntry section={entry.section} selected={state.selectedRecords.has(entry.key)} current={state.currentSectionKey === entry.key} setSelectedRecords={state.setSelectedRecords} jump={jump} onToggleRecordVisibility={onToggleRecordVisibility} featureColors={featureColors} trackWindow={state.trackWindow} position={entry.position} count={sections.length} /></div>;
   };

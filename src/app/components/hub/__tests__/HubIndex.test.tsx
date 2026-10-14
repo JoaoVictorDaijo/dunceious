@@ -93,7 +93,7 @@ describe('HubIndex', () => {
   it('indexes Features under organism headings with a sequence limit', () => {
     render(<Subject features />);
     expect(screen.getByLabelText('Limit to sequences')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Fold index group MERS-CoV' }).textContent).toBe('MERS-CoV · 1');
+    expect(within(screen.getByRole('button', { name: 'Fold index group MERS-CoV' })).getByText('1')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'spike · in 2 of 2' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Jump to sequence/ })).toBeNull();
   });
@@ -106,7 +106,7 @@ describe('HubIndex', () => {
     expect(within(menu).getByText('Location · 1 groups · 1 not specified')).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Collection year.*No data in these files/ }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(menu).getByRole('menuitem', { name: /Host ·/ }));
-    expect(screen.getAllByRole('button', { name: /^Fold index group/ }).map(el => el.textContent)).toEqual(['camel · 2', 'Not specified · 1']);
+    expect(screen.getAllByRole('button', { name: /^Fold index group/ }).map(el => [el.children[1].textContent, el.lastElementChild?.textContent])).toEqual([['camel', '2'], ['Not specified', '1']]);
   });
 });
 
@@ -127,4 +127,26 @@ it('shows the current mini-track window through the shared scroll controller', (
   const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
   const band = card.querySelector<HTMLElement>('[data-track-window]')!;
   expect(band.hidden).toBe(false); expect(band.style.left).toBe('25%'); expect(band.style.width).toBe('50%');
+});
+
+it('reveals the entire group header when its first card becomes current', () => {
+  const many = createHub1000x10();
+  function GroupedSubject() {
+    const state = useHubState();
+    useEffect(() => state.setGrouped(true), []);
+    return <><button onClick={() => state.setCurrentSectionKey('index0501')}>Track first in second group</button><HubIndex records={many} state={state} onToggleRecordVisibility={() => {}} /></>;
+  }
+  render(<GroupedSubject />);
+  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118072 } });
+  fireEvent.scroll(viewport, { target: { scrollTop: 59054 } });
+  fireEvent.click(screen.getByRole('button', { name: 'Track first in second group' }));
+  expect(viewport.scrollTop).toBe(59036);
+  expect(screen.getByRole('button', { name: 'Fold index group Fixture organism B' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Jump to sequence index0501' }).getAttribute('aria-current')).toBe('true');
+});
+it('shows only the number in group count pills', () => {
+  render(<Subject />); fireEvent.click(screen.getByRole('button', { name: 'Grouped' }));
+  const group = screen.getByRole('button', { name: 'Fold index group MERS-CoV' });
+  expect(group.lastElementChild?.textContent).toBe('2');
 });
