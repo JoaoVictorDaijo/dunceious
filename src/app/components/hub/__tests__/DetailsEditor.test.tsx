@@ -29,6 +29,9 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import HubList from '../HubList';
 
 const fasta: SeqRecord = { id: 'contig', name: 'contig', sequence: 'AAAA', features: [], importedFrom: 'camel.fa' };
+function currentHeader(): HTMLElement {
+  return document.querySelector<HTMLElement>('.hub-group-current [data-section-surface], .hub-group-current [data-feature-surface]')!;
+}
 function Subject({ initial = fasta, many = false }: { initial?: SeqRecord; many?: boolean }) {
   const [records, setRecords] = useState([initial, ...(many ? Array.from({ length: 20 }, (_, i) => ({ ...fasta, id: `extra${i}` })) : [])]);
   const manager = useFeatureManager(records, setRecords, null, () => {});
@@ -40,7 +43,7 @@ function Subject({ initial = fasta, many = false }: { initial?: SeqRecord; many?
 }
 function open() {
   stubResizeObserver();
-  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Edit details' }));
 }
 describe('sequence details editing', () => {
   it('saves an invalid edited date and displays its warning in the editor and details line', () => {
@@ -51,7 +54,7 @@ describe('sequence details editing', () => {
     expect(screen.getByRole('button', { name: 'Save details' }).hasAttribute('disabled')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(screen.getByLabelText('Saved details').textContent).toBe('{"collectionDate":"March 2014"}');
-    const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+    const pinned = within(currentHeader());
     expect(pinned.getByText('March 2014').closest('[data-detail]')?.className).toContain('text-amber-');
     expect(pinned.getByText('· edited')).toBeTruthy();
     expect(pinned.getByTitle(warning)).toBeTruthy();
@@ -76,7 +79,7 @@ describe('sequence details editing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(screen.getByLabelText('Saved details').textContent).toBe('{"host":"camel"}');
     expect(screen.getByLabelText('Feature count').textContent).toBe('1');
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText(/0 annotations/)).toBeTruthy();
+    expect(within(currentHeader()).getByText(/0 annotations/)).toBeTruthy();
     open(); fireEvent.click(screen.getByRole('button', { name: "Revert Host to the file's value" }));
     fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(screen.getByLabelText('Saved details').textContent).toBe('{}');
@@ -93,7 +96,7 @@ describe('sequence details editing', () => {
 it('keeps a details draft when scrolling away unmounts its virtual entry', () => {
   render(<Subject many />); open();
   fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
-  const viewport = screen.getByRole('form', { name: 'Details for contig' }).parentElement?.parentElement?.parentElement;
+  const viewport = screen.getByRole('form', { name: 'Details for contig' }).closest<HTMLElement>('.hub-scroll-region');
   if (!viewport) throw new Error('Missing virtual viewport');
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 300 }, scrollHeight: { configurable: true, value: 5000 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 2000 } });
@@ -120,7 +123,7 @@ it('uses neutral placeholders that describe the expected format', () => {
 });
 it('names each compact detail while omitting organism from the line', () => {
   render(<Subject initial={writeDetails(fasta, { organism: 'MERS-CoV', host: 'camel', location: 'Oman', collectionDate: '2014' })} />);
-  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  const pinned = within(currentHeader());
   expect(pinned.getByText('Host:')).toBeTruthy();
   expect(pinned.getByText('Location:')).toBeTruthy();
   expect(pinned.getByText('Collected:')).toBeTruthy();
@@ -129,13 +132,13 @@ it('names each compact detail while omitting organism from the line', () => {
 
 it('opens a missing detail chip with focus on that field', () => {
   render(<Subject />);
-  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' }));
+  fireEvent.click(within(currentHeader()).getByRole('button', { name: '+ Host' }));
   expect(document.activeElement).toBe(screen.getByLabelText('Host'));
 });
 
 it('refocuses missing fields in an editor that is already mounted', () => {
   render(<Subject />);
-  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  const pinned = within(currentHeader());
   fireEvent.click(pinned.getByRole('button', { name: '+ Host' }));
   fireEvent.click(pinned.getByRole('button', { name: '+ Location' }));
   expect(document.activeElement).toBe(screen.getByLabelText('Location'));
@@ -145,7 +148,7 @@ it('refocuses missing fields in an editor that is already mounted', () => {
 it('keeps an edited marker after an imported value is cleared', () => {
   const original = { ...writeDetails(fasta, { host: 'camel' }), fileDetails: { host: 'camel' } };
   render(<Subject initial={writeDetails(original, { host: '' })} />);
-  const chip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' });
+  const chip = within(currentHeader()).getByRole('button', { name: '+ Host' });
   expect(within(chip).getByText('edited')).toBeTruthy();
   expect(chip.className).toContain('bg-amber-50');
 });

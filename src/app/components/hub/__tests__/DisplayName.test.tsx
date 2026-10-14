@@ -29,6 +29,9 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import HubIndex from '../HubIndex';
 import HubList from '../HubList';
 const record: SeqRecord = { id: 'workspace', accession: 'NC_019843', name: 'definition', sequence: 'AAAA', features: [], label: 'EMC reference' };
+function currentHeader(): HTMLElement {
+  return document.querySelector<HTMLElement>('.hub-group-current [data-section-surface], .hub-group-current [data-feature-surface]')!;
+}
 function Subject({ initial = [record] }: { initial?: SeqRecord[] }) {
   const [records, setRecords] = useState(initial);
   const state = useHubState();
@@ -41,16 +44,16 @@ function Subject({ initial = [record] }: { initial?: SeqRecord[] }) {
 describe('display names', () => {
   it('shows the name first in the index and the accession first in the header', () => {
     render(<Subject />);
-    for (const root of [screen.getByRole('button', { name: 'Jump to sequence workspace' }), screen.getByRole('region', { name: 'Pinned section' })]) {
+    for (const root of [screen.getByRole('button', { name: 'Jump to sequence workspace' }), currentHeader()]) {
       const name = within(root).getByText('EMC reference');
       const accession = within(root).getByText('NC_019843');
       expect(accession.className).toContain('font-mono');
-      expect(name.compareDocumentPosition(accession) & (root.getAttribute('aria-label') === 'Pinned section' ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+      expect(name.compareDocumentPosition(accession) & (root.hasAttribute('data-section-surface') ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     }
   });
   it('renames without changing identity and Find sequence matches the new name', () => {
     render(<Subject />);
-    fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Rename workspace' }));
+    fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Rename workspace' }));
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Camel reference' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
     expect(within(screen.getByRole('button', { name: 'Jump to sequence workspace' })).getByText('Camel reference')).toBeTruthy();
@@ -69,7 +72,7 @@ it('keeps display names and accessions on Features rows and missing-sequence lin
   ] }));
   render(<Subject initial={initial} />); fireEvent.click(screen.getByText('Features view'));
   fireEvent.click(screen.getByRole('button', { name: 'spike · in 2 of 3' }));
-  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  const pinned = within(currentHeader());
   const missing = pinned.getByRole('button', { name: 'Isolate c ACC_c' });
   expect(within(missing).getByText('ACC_c').className).toContain('font-mono');
   expect(screen.getByText('Isolate a').closest('[data-row-key]')?.textContent).toContain('ACC_a');
@@ -77,9 +80,9 @@ it('keeps display names and accessions on Features rows and missing-sequence lin
 
 it('keeps a name draft when scrolling away unmounts its virtual entry', () => {
   render(<Subject initial={[record, ...Array.from({ length: 20 }, (_, i) => ({ ...record, id: `extra${i}`, label: undefined }))]} />);
-  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Rename workspace' }));
+  fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Rename workspace' }));
   fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'New draft' } });
-  const viewport = screen.getByLabelText('Display name').closest('form')?.parentElement?.parentElement?.parentElement;
+  const viewport = screen.getByLabelText('Display name').closest<HTMLElement>('.hub-scroll-region');
   if (!viewport) throw new Error('Missing virtual viewport');
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 500 }, scrollHeight: { configurable: true, value: 5000 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 2000 } });
