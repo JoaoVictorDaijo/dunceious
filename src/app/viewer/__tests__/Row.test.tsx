@@ -247,6 +247,26 @@ describe('thin annotation bars', () => {
     expect(last).toMatch(/L480,/);
   });
 
+  // join(81..100,1..20) on a 100 bp circular record: the 3′ end is at base 20, not at the sequence end.
+  it('points an origin-crossing forward join at its true 3′ end and names both pieces', () => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'origin', start: 80, end: 20, strand: 1, segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] },
+    ]), { viewportWidth: LEN * ZOOM });
+    const [tail, head] = d(container);
+    expect(tail).not.toMatch(/L/); // 81..100 continues at base 1, so it stays square
+    expect(head).toMatch(/L160,/); // the arrow tip sits at base 20 (20 bp × 8 px)
+    expect(container.querySelectorAll('[data-annotation-name]')).toHaveLength(2);
+  });
+
+  it('points an origin-crossing reverse join at its 3′ end on the high side', () => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'rev', start: 80, end: 20, strand: -1, segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] },
+    ]), { viewportWidth: LEN * ZOOM });
+    const [high, low] = d(container);
+    expect(high).toMatch(/L640,/); // complement(join(81..100,1..20)) ends at base 81
+    expect(low).not.toMatch(/L/);
+  });
+
   it('opens an opted-in bar only at a legible zoom, with its bases inside the bar', () => {
     const opted: BioFeature = { type: 'gene', name: 'o', start: 0, end: 4, strand: 1, metadata: { _showBases: '1' } };
     const closed = renderRow(rec([opted]), { zoomLevel: 8 });
