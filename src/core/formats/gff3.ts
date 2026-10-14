@@ -23,6 +23,7 @@ import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { detailsForExport, emptyReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
+import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS } from '../genbank/qualifierRules';
 
 export interface GffSourceRegion {
   details: SequenceDetails;
@@ -109,7 +110,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const attrs: Record<string, string | string[]> = { ID: `${record.id}.${number}`, Name: feature.name };
       for (const [key, value] of Object.entries(metadata)) {
         if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
-        const outputKey = ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
+        const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
         const previous = attrs[outputKey];
         const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
         for (const item of attributeValues(metadata, key)) {

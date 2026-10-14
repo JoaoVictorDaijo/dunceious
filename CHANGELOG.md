@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 exports retain canonical INSDC qualifier spelling for subsequent GenBank export.
+
 - GFF3 round trips preserve attribute lists separately from percent-encoded literal commas.
 
 - Selection exports discard stale CDS translations and recalculate reading frames after clipping.

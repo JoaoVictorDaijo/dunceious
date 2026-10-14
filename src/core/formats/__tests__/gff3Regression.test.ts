@@ -84,3 +84,14 @@ it('does not reuse imported list values after an attribute edit', () => {
   feature.metadata!.Dbxref = 'DB:new, literal';
   expect(rows(exportToGff3([record([feature])]).text)[1][8]).toContain('Dbxref=DB%3Anew%2C%20literal');
 });
+
+it('preserves canonical INSDC qualifier spelling through GFF3 and GenBank', () => {
+  const input = record([{ type: 'CDS', name: 'c', start: 0, end: 10, strand: 1,
+    metadata: { EC_number: '1.2.3.4', circular_RNA: '', Custom_Key: 'custom' } }]);
+  const gff = exportToGff3([input]).text;
+  const parsed = parseGFF3(gff).features.s;
+  const gb = exportToGenBank([record(parsed)]).text;
+  expect(gb).toContain('/EC_number="1.2.3.4"');
+  expect(gb).toContain('/circular_RNA\n');
+  expect(parsed[0].metadata?.custom_key).toBe('custom');
+});
