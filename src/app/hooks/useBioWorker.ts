@@ -48,11 +48,13 @@ export interface UseBioWorkerReturn {
 export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn {
   const [records, setRecordsState] = useState<SeqRecord[]>([]);
   const recordsRef = useRef(records);
+  const recordsGeneration = useRef(0);
   const silentProcessing = useRef(false);
   // The remote monitor needs the reducer outcome synchronously, including
   // record edits queued earlier in the same event.
   const setRecords = useCallback<Dispatch<SetStateAction<SeqRecord[]>>>(update => {
     const next = typeof update === 'function' ? update(recordsRef.current) : update;
+    if (next !== recordsRef.current) recordsGeneration.current++;
     recordsRef.current = next;
     setRecordsState(next);
   }, []);
@@ -80,8 +82,12 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     const worker = bioWorkerRef.current;
     if (!worker) return Promise.reject(new Error('The processing worker is unavailable.'));
     const requestId = ++requestCounter.current;
+    const generation = recordsGeneration.current;
+    const canCommit = request.type === 'PROCESS_RECORDS'
+      ? () => recordsGeneration.current === generation && (!shouldCommit || shouldCommit())
+      : shouldCommit;
     return new Promise((resolve, reject) => {
-      pendingRequests.current.set(requestId, { resolve, reject, shouldCommit });
+      pendingRequests.current.set(requestId, { resolve, reject, shouldCommit: canCommit });
       try { worker.postMessage({ ...request, requestId }); }
       catch (error) {
         pendingRequests.current.delete(requestId);
@@ -92,14 +98,18 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
-    bioWorkerRef.current = new Worker(
+    const worker = new Worker(
       new URL('@/src/workers/bio.worker.ts', import.meta.url),
       { type: 'module' },
     );
+    bioWorkerRef.current = worker;
+    let active = true;
 
-    bioWorkerRef.current.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
+    worker.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
+      if (!active) return;
       let msg = e.data;
       const pending = msg.requestId === undefined ? undefined : pendingRequests.current.get(msg.requestId);
+      if (msg.type === 'SUCCESS' && !pending) return;
       if (pending?.shouldCommit && !pending.shouldCommit()) {
         pendingRequests.current.delete(msg.requestId!);
         pending.resolve('stale');
@@ -154,14 +164,18 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       }
     };
 
-    bioWorkerRef.current.onerror = event => {
+    worker.onerror = event => {
+      if (!active) return;
       for (const pending of pendingRequests.current.values()) pending.reject(new Error(event.message || 'Worker failed.'));
       pendingRequests.current.clear();
       setIsProcessing(false);
       addLog(`Processing Error: ${event.message || 'Worker failed.'}`);
     };
     return () => {
-      bioWorkerRef.current?.terminate();
+      active = false;
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
       bioWorkerRef.current = null;
       for (const pending of pendingRequests.current.values()) pending.reject(new Error('Worker terminated.'));
       pendingRequests.current.clear();
@@ -178,12 +192,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     if (visibleRecords.length > 0) {
       if (!silent) setIsProcessing(true);
       const request: BioWorkerRequest = { type: 'PROCESS_RECORDS', records: visibleRecords };
-      bioWorkerRef.current?.postMessage(request);
+      // The message handler reports processing errors; automatic requests have no awaiting caller.
+      void requestBio(request).catch(() => {});
     } else {
       setTransposedRecords([]);
       setConsensus('');
+      setIsProcessing(false);
     }
-  }, [records]);
+  }, [records, requestBio]);
 
   return {
     getRecords,
