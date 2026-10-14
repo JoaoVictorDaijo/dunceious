@@ -38,6 +38,8 @@ node scripts/check-license-headers.mjs --fix
 
 When you create **any** new covered file, add the header (or run `--fix`) before committing.
 
+The ESLint warning ceiling in `npm run lint` only goes down; never raise it.
+
 ## Versioning & releases
 
 Dunceious follows **SemVer**. The single source of truth is `package.json`
