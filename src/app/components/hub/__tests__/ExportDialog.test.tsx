@@ -28,26 +28,29 @@ import * as exportPlan from '@/src/app/logic/exportPlan';
 import ExportDialog, { type ExportDialogProps } from '../ExportDialog';
 
 const records: SeqRecord[] = ['a', 'b', 'c'].map(id => ({ id, name: id, sequence: 'ACGT', features: [] }));
-function Subject({ value = records, selected = ['a', 'b'], onExport = vi.fn(), onEditDetails = vi.fn(), grouped = false, query = '' }: { value?: SeqRecord[]; selected?: string[]; onExport?: ExportDialogProps['onExport']; onEditDetails?: ExportDialogProps['onEditDetails']; grouped?: boolean; query?: string }) {
+function Subject({ value = records, selected = ['a', 'b'], onExport = vi.fn(), onEditDetails = vi.fn(), grouped = false, query = '', featureColors = {} }: { value?: SeqRecord[]; selected?: string[]; onExport?: ExportDialogProps['onExport']; onEditDetails?: ExportDialogProps['onEditDetails']; grouped?: boolean; query?: string; featureColors?: Record<string, string> }) {
   const state = useHubState();
   const [open, setOpen] = useState(false);
-  return <><button onClick={() => { state.setSelectedRecords(new Set(selected)); state.setGrouped(grouped); state.setFilters(prev => ({ ...prev, query })); setOpen(true); }}>Open export</button>{open && <ExportDialog records={value} state={state} onClose={() => setOpen(false)} onExport={onExport} onEditDetails={onEditDetails} />}</>;
+  return <><button onClick={() => { state.setSelectedRecords(new Set(selected)); state.setGrouped(grouped); state.setFilters(prev => ({ ...prev, query })); setOpen(true); }}>Open export</button>{open && <ExportDialog featureColors={featureColors} records={value} state={state} onClose={() => setOpen(false)} onExport={onExport} onEditDetails={onEditDetails} />}</>;
 }
 function open() { fireEvent.click(screen.getByRole('button', { name: 'Open export' })); }
+function paragraph(text: string | RegExp) {
+  return screen.getByText((_, element) => Boolean(element && ['P', 'LI'].includes(element.tagName) && (typeof text === 'string' ? element.textContent === text : text.test(element.textContent ?? ''))));
+}
 function format(name: string) { fireEvent.click(screen.getByRole('radio', { name })); }
 it('ticks the two selected sequences and exports that choice with a footer filename', () => {
   const onExport = vi.fn(); render(<Subject onExport={onExport} />); open();
   expect((screen.getByRole('checkbox', { name: 'Export a' }) as HTMLInputElement).checked).toBe(true);
   expect((screen.getByRole('checkbox', { name: 'Export b' }) as HTMLInputElement).checked).toBe(true);
   expect((screen.getByRole('checkbox', { name: 'Export c' }) as HTMLInputElement).checked).toBe(false);
-  expect(screen.getByText('2 sequences → sequences.fasta')).toBeTruthy();
+  expect(paragraph('2 sequences → sequences.fasta')).toBeTruthy();
   fireEvent.change(screen.getByRole('textbox', { name: 'File name' }), { target: { value: 'chosen' } });
   fireEvent.click(screen.getByRole('button', { name: 'Export' }));
   expect(onExport).toHaveBeenCalledWith(['a', 'b'], 'fasta', expect.objectContaining({ fileName: 'chosen.fasta', residues: 'original', header: 'id' }));
 });
 it('warns without blocking GenBank and offers bulk editing for every affected sequence', () => {
   const onEditDetails = vi.fn(); render(<Subject selected={['a', 'b', 'c']} onEditDetails={onEditDetails} />); open(); format('GenBank');
-  expect(screen.getByText('3 sequences have no organism; NCBI validation will reject this file, though most viewers open it')).toBeTruthy();
+  expect(paragraph('3 sequences have no organism; NCBI validation will reject this file, though most viewers open it')).toBeTruthy();
   expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
   expect(onEditDetails).toHaveBeenCalledWith(new Set(['a', 'b', 'c']));
@@ -67,10 +70,10 @@ it('exports explicit alignment and header choices', () => {
 });
 it('shows the real omitted edited detail count and its format spelling', () => {
   render(<Subject value={[writeDetails(records[0], { collectionDate: 'March 2014', host: 'camel' })]} selected={['a']} />); open(); format('GenBank');
-  expect(screen.getByText(/1 invalid edited detail left out/)).toBeTruthy();
+  expect(paragraph(/1 invalid edited detail left out/)).toBeTruthy();
   fireEvent.click(screen.getByText('Details and omissions'));
-  expect(screen.getByText(/Collection date.*collection_date.*0 written.*1 invalid value left out/)).toBeTruthy();
-  expect(screen.getByText(/Host.*host.*1 written/)).toBeTruthy();
+  expect(paragraph(/Collection date.*collection_date.*0 written.*1 invalid value left out/)).toBeTruthy();
+  expect(paragraph(/Host.*host.*1 written/)).toBeTruthy();
 });
 it('closes on Esc, traps Tab in both directions and restores focus to the opener', () => {
   render(<Subject />); const opener = screen.getByRole('button', { name: 'Open export' }); opener.focus(); open();
@@ -85,11 +88,11 @@ it('shows a partial group checkbox and retains hidden choices while finding a se
   expect(group.indeterminate).toBe(true);
   fireEvent.change(screen.getByRole('searchbox', { name: 'Find sequences to export' }), { target: { value: 'c' } });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Export c' }));
-  expect(screen.getByText('3 sequences → sequences.fasta')).toBeTruthy();
+  expect(paragraph('3 sequences → sequences.fasta')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'None' }));
   expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Selected in hub' }));
-  expect(screen.getByText('2 sequences → sequences.fasta')).toBeTruthy();
+  expect(paragraph('2 sequences → sequences.fasta')).toBeTruthy();
 });
 it('groups every sequence exactly once and puts missing organisms last', () => {
   render(<Subject grouped value={[writeDetails(records[0], { organism: 'virus' }), records[1], writeDetails(records[2], { organism: 'virus' })]} />); open();
@@ -100,14 +103,14 @@ it('offers exactly four formats and only the chosen description', () => {
   render(<Subject />); open();
   expect(screen.getAllByRole('radio')).toHaveLength(4);
   expect(screen.queryByText('Reopens only in Dunceious')).toBeNull(); format('Dunceious project');
-  expect(screen.getByText('Reopens only in Dunceious')).toBeTruthy();
+  expect(paragraph('Reopens only in Dunceious')).toBeTruthy();
   expect(screen.queryByRole('checkbox', { name: 'Keep alignment gaps' })).toBeNull();
 });
 
 it('includes invalid edited organisms in the bulk repair selection according to the real report', () => {
   const onEditDetails = vi.fn();
   render(<Subject value={[writeDetails(records[0], { organism: 'invalid\norganism' }), writeDetails(records[1], { organism: 'valid organism' })]} onEditDetails={onEditDetails} />); open(); format('GenBank');
-  expect(screen.getByText('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it')).toBeTruthy();
+  expect(paragraph('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
   expect(onEditDetails).toHaveBeenCalledWith(new Set(['a']));
 });
@@ -134,9 +137,9 @@ it('starts with matching sequences and sends the matching annotation keys only w
 it('toggles the whole group and picks only sequences shown in the viewport', () => {
   render(<Subject value={records.map(r => ({ ...r, visible: r.id !== 'b' }))} />); open();
   fireEvent.click(screen.getByRole('checkbox', { name: 'Export group All sequences' }));
-  expect(screen.getByText('3 sequences → sequences.fasta')).toBeTruthy();
+  expect(paragraph('3 sequences → sequences.fasta')).toBeTruthy();
   fireEvent.click(screen.getByRole('checkbox', { name: 'Export group All sequences' }));
-  expect(screen.getByText('0 sequences → sequences.fasta')).toBeTruthy();
+  expect(paragraph('0 sequences → sequences.fasta')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Shown in viewport' }));
   expect((screen.getByLabelText('Export a') as HTMLInputElement).checked).toBe(true);
   expect((screen.getByLabelText('Export b') as HTMLInputElement).checked).toBe(false);
@@ -151,6 +154,69 @@ it('does not rerun the export serializer when only the filename changes', () => 
     const count = describe.mock.calls.length;
     fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
     expect(describe.mock.calls.length).toBe(count);
-    expect(screen.getByText('2 sequences → new name.gb')).toBeTruthy();
+    expect(paragraph('2 sequences → new name.gb')).toBeTruthy();
   } finally { describe.mockRestore(); }
+});
+
+
+it('renders format cards with unchanged radio names, extensions and keyboard selection', () => {
+  render(<Subject />); open();
+  const choices = [['FASTA', '.fasta'], ['GenBank', '.gb'], ['GFF3', '.gff3'], ['Dunceious project', '.json']];
+  for (const [name, extension] of choices) {
+    const radio = screen.getByRole('radio', { name });
+    expect(within(radio).getByText(extension).className).toContain('font-mono');
+    expect(radio.querySelector('i')).toBeTruthy();
+  }
+  const fasta = screen.getByRole('radio', { name: 'FASTA' });
+  expect(fasta.className).toContain('border-env');
+  fireEvent.keyDown(fasta, { key: 'ArrowRight' });
+  const genbank = screen.getByRole('radio', { name: 'GenBank' });
+  expect(genbank.getAttribute('aria-checked')).toBe('true');
+  expect(document.activeElement).toBe(genbank);
+});
+
+it('shows user feature colours, annotation counts and selected-type swatches', () => {
+  const value = [{ ...records[0], features: [
+    { type: 'gene', name: 'gene', start: 0, end: 4, strand: 1 as const },
+    { type: 'CDS', name: 'CDS', start: 0, end: 3, strand: 1 as const },
+    { type: 'CDS', name: 'another CDS', start: 1, end: 4, strand: 1 as const },
+  ] }];
+  render(<Subject value={value} selected={['a']} featureColors={{ CDS: 'purple', gene: 'teal' }} />); open(); format('GenBank');
+  const summary = screen.getByText('Annotation types · 2 of 2');
+  expect(summary.querySelectorAll('[data-type-swatch]')).toHaveLength(2);
+  fireEvent.click(summary);
+  const cds = screen.getByRole('checkbox', { name: 'CDS' });
+  expect(cds.parentElement!.querySelector<HTMLElement>('[data-type-swatch]')!.style.backgroundColor).toBe('purple');
+  expect(within(cds.parentElement!).getByText('2').className).toContain('font-mono');
+  fireEvent.click(cds);
+  expect(screen.getByText('Annotation types · 1 of 2').querySelectorAll('[data-type-swatch]')).toHaveLength(1);
+});
+
+it('describes disabled gaps through both the wrapper tooltip and input description', () => {
+  render(<Subject />); open();
+  const gaps = screen.getByRole('checkbox', { name: 'Keep alignment gaps' });
+  const reason = document.getElementById(gaps.getAttribute('aria-describedby') ?? '');
+  expect(reason?.textContent).toBe('No alignment loaded. Upload a pre-aligned FASTA to keep gap characters.');
+  expect(gaps.closest('[data-tip]')?.getAttribute('data-tip')).toBe(reason?.textContent);
+});
+
+it('marks every quick pick that matches the selected sequence set', () => {
+  render(<Subject />); open();
+  expect(screen.getByRole('button', { name: 'Selected in hub' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(screen.getByRole('button', { name: 'All' }));
+  expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: 'Shown in viewport' }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'None' }));
+  expect(screen.getByRole('button', { name: 'None' }).getAttribute('aria-pressed')).toBe('true');
+});
+
+it('shows accessions, display names, lengths and annotation counts in selected tree rows', () => {
+  render(<Subject value={[{ ...records[0], accession: 'AC001', label: 'Sample A' }]} selected={['a']} />); open();
+  const row = screen.getByRole('checkbox', { name: 'Export a' }).parentElement!;
+  expect(within(row).getByText('AC001').className).toContain('font-mono');
+  expect(within(row).getByText('Sample A').className).toContain('text-slate-500');
+  expect(within(row).getByText('4 bp').className).toContain('font-mono');
+  expect(within(row).getByText('0 annot.').className).toContain('font-mono');
+  expect(row.className).toContain('bg-amber-50');
 });

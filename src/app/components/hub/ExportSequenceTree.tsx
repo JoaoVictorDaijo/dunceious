@@ -20,6 +20,7 @@
 import { useMemo, useState } from 'react';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { useHubState } from '@/src/app/hooks/useHubState';
+import { annotationFeatures, isolateOf } from '@/src/domain/bio/recordStatus';
 import { buildSequenceSections, matchesSequence } from '@/src/app/logic/hubModel';
 
 export default function ExportSequenceTree({ records, state, ids, onChange }: {
@@ -50,11 +51,12 @@ export default function ExportSequenceTree({ records, state, ids, onChange }: {
         return <div key={group}>
           <div className="sticky top-0 flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold">
             <input type="checkbox" aria-label={`Export group ${group}`} checked={checked} ref={input => { if (input) input.indeterminate = partial; }} onChange={e => toggle(members.map(record => record.id), e.target.checked)} />
-            <button aria-expanded={!folded} onClick={() => setFolds(prev => { const next = new Set(prev); if (next.has(group)) next.delete(group); else next.add(group); return next; })} className="flex flex-1 items-center gap-2 text-left"><span aria-hidden="true">{folded ? '▸' : '▾'}</span>{group}<span className="ml-auto text-slate-500">{members.length}</span></button>
+            <button aria-expanded={!folded} onClick={() => setFolds(prev => { const next = new Set(prev); if (next.has(group)) next.delete(group); else next.add(group); return next; })} className="flex flex-1 items-center gap-2 text-left"><span aria-hidden="true">{folded ? '▸' : '▾'}</span>{group}<span className="ml-auto rounded-full bg-white px-2 font-mono text-slate-500">{members.length}</span></button>
           </div>
-          {!folded && visible.map(record => <label key={record.id} className="flex items-center gap-3 border-b border-slate-100 px-4 py-2 text-xs hover:bg-slate-50">
+          {!folded && visible.map(record => <label key={record.id} className={`flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-xs ${ids.has(record.id) ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
             <input type="checkbox" aria-label={`Export ${record.id}`} checked={ids.has(record.id)} onChange={e => toggle([record.id], e.target.checked)} />
-            <span className="min-w-0 truncate">{record.label || record.accession || record.id}{record.label && <span className="ml-2 font-mono text-slate-500">{record.accession || record.id}</span>}</span>
+            <span className="min-w-0 flex-1"><span className="block truncate font-mono font-semibold">{record.accession || record.id}</span><span className="block truncate text-slate-500">{record.label || isolateOf(record)}</span></span>
+            <span className="shrink-0 text-right"><span className="block font-mono">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span><span className="block font-mono text-slate-500">{annotationFeatures(record).length.toLocaleString('en-US')} annot.</span></span>
           </label>)}
         </div>;
       })}

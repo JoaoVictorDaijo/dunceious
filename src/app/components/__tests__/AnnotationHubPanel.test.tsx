@@ -263,7 +263,7 @@ it('reveals an annotation hidden by search when picked on a header strip', () =>
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'visible' } });
   fireEvent.keyDown(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
   expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
-  expect(screen.getByRole('status').textContent).toMatch(/cleared to show/);
+  expect(screen.getAllByRole('status').some(status => /cleared to show/.test(status.textContent ?? ''))).toBe(true);
   expect(screen.getByText('hidden')).toBeTruthy();
 });
 
