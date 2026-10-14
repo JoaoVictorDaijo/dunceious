@@ -41,7 +41,7 @@ describe('annotation editor direction and name', () => {
     const state = { ...editing, feature: { ...editing.feature, metadata: { _gffStrand: '?', note: 'synthetic' } } };
     const change = show(state);
     expect(screen.getByDisplayValue('Unknown (?)')).toBeTruthy();
-    fireEvent.change(screen.getByDisplayValue('Synthetic element'), { target: { value: 'Renamed element' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Display Name' }), { target: { value: 'Renamed element' } });
     expect(change.mock.calls[0][0].feature).toMatchObject({ name: 'Renamed element', metadata: state.feature.metadata });
   });
   it('clears unknown provenance only when direction is explicitly chosen', () => {

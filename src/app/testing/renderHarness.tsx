@@ -28,7 +28,15 @@ export * from '@testing-library/react';
 // auto-cleanup (which only fires when a global `afterEach` exists) never runs.
 // Register it explicitly; imported here, it binds to each test file that imports
 // the harness.
-afterEach(cleanup);
+let restoreCanvas: (() => void) | undefined;
+afterEach(() => {
+  try {
+    cleanup();
+  } finally {
+    restoreCanvas?.();
+    restoreCanvas = undefined;
+  }
+});
 
 export interface CanvasRecorder {
   /** Ordered arguments passed to ctx.fillText — the glyphs/letters drawn. */
@@ -41,16 +49,12 @@ export interface CanvasRecorder {
   strokeRects(): Array<{ rect: [number, number, number, number]; color: string; width: number }>;
 }
 
-/**
- * Replace HTMLCanvasElement.prototype.getContext with a recording 2D context.
- * Records fillText / fillRect and fillStyle; every other method is a no-op and
- * other property assignments (font, …) are ignored, so these draw calls
- * exercise cannot throw. Call in each canvas test's beforeEach: the returned
- * recorder is fresh per call, and the getContext patch persists within a file
- * until the next install (it is not restored between tests) — vitest isolates
- * test files, so it never leaks across files.
- */
+/** A recording context lets jsdom exercise drawing without a native canvas dependency. */
 export function installCanvasRecorder(): CanvasRecorder {
+  if (!restoreCanvas) {
+    const original = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext')!;
+    restoreCanvas = () => Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', original);
+  }
   const texts: string[] = [];
   const fillRects: Array<[number, number, number, number]> = [];
   const fillColors: string[] = [];
