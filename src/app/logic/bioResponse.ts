@@ -19,9 +19,43 @@
 
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
-import { readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
+import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
 import type { GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
+
+const detailQualifiers = new Set([...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date']);
+
+function readSourceLists(text: string | undefined): Record<string, unknown> {
+  try {
+    const lists: unknown = JSON.parse(text ?? '{}');
+    return lists !== null && typeof lists === 'object' && !Array.isArray(lists) ? lists as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function mergeSourceQualifiers(record: SeqRecord, metadata: Record<string, string> = {}): SeqRecord {
+  const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists');
+  if (qualifiers.length === 0) return record;
+  const updated = writeDetails(record, {});
+  const sourceIndex = updated.features.findIndex(feature => feature.type === 'source');
+  const source = updated.features[sourceIndex];
+  const merged = { ...source.metadata };
+  const lists = readSourceLists(source.metadata?._gffLists);
+  const incomingLists = readSourceLists(metadata._gffLists);
+  let listsAdded = false;
+  for (const [key, value] of qualifiers) {
+    if (Object.hasOwn(merged, key)) continue;
+    merged[key] = value;
+    if (Object.hasOwn(incomingLists, key) && !Object.hasOwn(lists, key)) {
+      lists[key] = incomingLists[key];
+      listsAdded = true;
+    }
+  }
+  if (listsAdded) merged._gffLists = JSON.stringify(lists);
+  return { ...updated, features: updated.features.map((feature, index) =>
+    index === sourceIndex ? { ...source, metadata: merged } : feature) };
+}
 
 /**
  * The longest whitespace-bounded prefix of the FASTA header that names a loaded
@@ -101,6 +135,7 @@ export function applyAnnotations(
           }
           record = { ...writeDetails(record, fills), fileDetails };
         }
+        record = mergeSourceQualifiers(record, candidate.feature.metadata);
         if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
       } else items.push(candidate.feature);
     }
