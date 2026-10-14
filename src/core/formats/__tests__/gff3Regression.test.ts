@@ -137,3 +137,13 @@ it.each(['<1..>10', 'complement(<1..>10)', 'join(<1..3,7..>10)', 'complement(joi
   expect(gff).toContain('insdc_partial_start=%3C');
   expect(gff).toContain('insdc_partial_end=%3E');
 });
+
+it('remaps repeated imported IDs within each record independently', () => {
+  const inputs = ['a', 'b'].map(id => ({ ...record(parseGFF3(`${id}\tx\tgene\t1\t10\t.\t+\t.\tID=g\n${id}\tx\tCDS\t1\t10\t.\t+\t0\tID=c;Parent=g`).features[id]), id }));
+  const { text, report } = exportToGff3(inputs);
+  const cds = rows(text).filter(row => row[2] === 'CDS');
+  expect(cds.map(row => row[8])).toEqual([
+    expect.stringContaining('Parent=a.1'), expect.stringContaining('Parent=b.1'),
+  ]);
+  expect(report.droppedAttributes).toBe(0);
+});

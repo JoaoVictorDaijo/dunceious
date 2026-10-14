@@ -139,15 +139,20 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
   const oldIds = new Map<string, string | null>();
   const plans = records.map(record => {
     let number = 0;
+    const localIds = new Map<string, string | null>();
     const ids = record.features.map(feature => {
       const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
       const old = feature.metadata?.ID;
-      if (old) oldIds.set(old, oldIds.has(old) && oldIds.get(old) !== id ? null : id);
+      if (old) {
+        oldIds.set(old, oldIds.has(old) && oldIds.get(old) !== id ? null : id);
+        localIds.set(old, localIds.has(old) && localIds.get(old) !== id ? null : id);
+      }
       return id;
     });
-    return { record, ids };
+    return { record, ids, localIds };
   });
-  for (const { record, ids } of plans) {
+  for (const { record, ids, localIds } of plans) {
+    const referenceIds = new Map([...oldIds, ...localIds]);
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
     lines.push(`##sequence-region ${id} 1 ${length}`);
@@ -155,7 +160,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
     const sourceMetadata = { ...record.features.find(feature => feature.type === 'source')?.metadata };
     for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
-    addQualifiers(attributes, sourceMetadata, oldIds, report);
+    addQualifiers(attributes, sourceMetadata, referenceIds, report);
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, 'Dunceious', 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
@@ -167,7 +172,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
-      addQualifiers(attrs, metadata, oldIds, report);
+      addQualifiers(attrs, metadata, referenceIds, report);
       if (so.original) attrs.insdc_type = so.original;
       const partials = partialParts(feature);
       segments.forEach((segment, index) => {
