@@ -54,7 +54,10 @@ describe('hub workspace identity', () => {
     vi.spyOn(FileReader.prototype, 'readAsText').mockImplementation(function () {
       Object.defineProperty(this, 'result', { value: text }); this.onload?.call(this, new ProgressEvent('load'));
     });
-    fireEvent.change(screen.getByLabelText('Load project file'), { target: { files: [new File([text], 'new.json')] } });
+    // Project replacement resolves a FileReader promise before React commits it.
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Load project file'), { target: { files: [new File([text], 'new.json')] } });
+    });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Jump to sequence fresh' })).toBeTruthy());
     expect((screen.getByLabelText('Select annotation new on r') as HTMLInputElement).checked).toBe(false);
     expect(screen.queryByLabelText('Selection actions')).toBeNull();

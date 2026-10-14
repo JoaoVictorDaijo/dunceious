@@ -40,7 +40,7 @@ Example files to try are in [`examples/`](./examples/README.md).
 
 ## Run it locally
 
-You only need this to work offline or change the code. Install [Node.js](https://nodejs.org/) 20.19+ or 22.12+ (for example with [nvm](https://github.com/nvm-sh/nvm)), then:
+You only need this to run it yourself and work offline. Install [Node.js](https://nodejs.org/) 20.19+ or 22.12+ (for example with [nvm](https://github.com/nvm-sh/nvm)), then:
 
 ```bash
 git clone https://github.com/JoaoVictorDaijo/dunceious.git

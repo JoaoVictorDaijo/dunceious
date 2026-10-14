@@ -190,10 +190,10 @@ The canonical detail values are source-feature qualifiers: `organism`, `host`, `
 | 4–5, start/end | 1-based inclusive, one valid interval per segment; never start after end |
 | 6, score | Imported score or `.` |
 | 7, strand | `+`, `-`, `.` or `?`, including per-part strand |
-| 8, phase | CDS phase `0`/`1`/`2`, imported per part or computed from `codon_start` and cumulative biological lengths in transcription order; `.` otherwise |
-| 9, attributes | Unique generated `ID`, `Name`, gene/product/note and lower-case custom attributes; reserved characters (`; = & , %`, tabs, newlines and controls) percent-encoded |
+| 8, phase | CDS phase `0`/`1`/`2`, imported per part while frame and geometry match, otherwise computed from `codon_start` and cumulative biological lengths in transcription order; `.` otherwise |
+| 9, attributes | Unique generated `ID`, remapped `Parent`/`Derives_from`, `Name`, canonical INSDC qualifier spelling and lower-case custom attributes; lists encode each item separately; reserved characters (`; = & , %`, tabs, newlines and controls) percent-encoded |
 
-A file starts with `##gff-version 3` and includes `##sequence-region` per record. Its first data row per record is a full-length `region` carrying `gbkey=Src` and lower-case detail attributes (`organism`, `host`, `geo_loc_name`, `collection_date`). Circular regions carry `Is_circular=true`. Multipart annotations share an ID across lines; origin crossings are split into end/start parts. Import decodes attributes once and rebuilds shared-ID geometry and per-part phases. Only a full-length marked region becomes details; incoming details fill empty values without overwriting edits. GFF3 contains no residues or embedded `##FASTA` export and does not promise every qualifier.
+A file starts with `##gff-version 3` and includes `##sequence-region` per record. Its first data row per record is a full-length `region` carrying `gbkey=Src` and lower-case detail attributes (`organism`, `host`, `geo_loc_name`, `collection_date`). Circular regions carry `Is_circular=true`. Multipart annotations share an ID across lines; origin crossings are split into end/start parts. Import splits raw attribute lists before decoding each item once and rebuilds shared-ID geometry and per-part phases. The first transcription part's phase initializes `codon_start`; saved frame or geometry edits invalidate imported phase caches. Unsnapshotted legacy project phases remain available until such an edit. Relationship IDs resolve only within each record, matching the parser’s per-sequence identity; references to absent, ambiguous or nonlocal targets are omitted and counted per affected attribute in the export preview. Partial location endpoints use per-part `insdc_partial_start` and `insdc_partial_end` attributes containing `<` or `>`; import reconstructs the GenBank location. Only a full-length marked region becomes details; incoming details fill empty values without overwriting edits. Other source qualifiers, including flags and lists, survive export and fill absent source qualifiers on import. GFF3 contains no residues or embedded `##FASTA` export and does not promise every qualifier.
 
 **FASTA** (`src/core/formats/fasta.ts`, `ncbiModifiers.ts`):
 
@@ -330,7 +330,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Tailwind CSS 3**: Utility-first styling, compiled at build time (self-hosted, no CDN).
 - **Font Awesome 6**: Icon library (self-hosted, no CDN).
 - **Inter & JetBrains Mono**: UI and monospace typefaces (self-hosted).
-- **Vite 6**: Build tool and dev server.
+- **Vite 8**: Rolldown/Oxc build pipeline and dev server; explicit build targets retain Vite 6 browser compilation targets.
 - **Vitest 4 + Testing Library**: Unit, component and canvas render tests (jsdom with a canvas-2D recorder), behind a v8 coverage ratchet.
 
 Render tests opt into jsdom per file and use `src/app/testing/renderHarness.tsx` for explicit

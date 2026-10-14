@@ -372,6 +372,61 @@ it('attaches standalone annotations using a final sanitized-ID match', () => {
   expect(result.next[0].features).toEqual([feature]);
 });
 
+it('imports non-detail source qualifiers and empty flags from a full-length GFF region', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT' });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;strain=S1;environmental_sample=;geo_loc_name=USSR;collection_date=March%201914');
+  const result = applyAnnotations([original], gff.features, gff.details);
+  expect(result.next[0].features).toHaveLength(1);
+  expect(result.next[0].features[0]).toMatchObject({ type: 'source', start: 0, end: 4,
+    metadata: { isolate: 'K1', strain: 'S1', environmental_sample: '', geo_loc_name: 'USSR', collection_date: 'March 1914' } });
+  expect(result.next[0].fileDetails).toEqual({ location: 'USSR', collectionDate: 'March 1914' });
+  expect(isDetailEdited(result.next[0], 'location')).toBe(false);
+  expect(result.totalAdded).toBe(0);
+  expect(original.features).toEqual([]);
+});
+
+it('preserves existing source qualifiers and edited details while adding missing GFF source qualifiers', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT', fileDetails: { host: 'camel', location: 'Oman', collectionDate: '2014' },
+    features: [{ type: 'source', name: 'original source', start: 0, end: 4, strand: 1,
+      metadata: { isolate: 'original', environmental_sample: '', country: 'Atlantis' } }] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;strain=S1;environmental_sample=true;nat-host=human;geo_loc_name=Egypt;collection-date=2015');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features).toHaveLength(1);
+  expect(result.features[0]).toMatchObject({ type: 'source', name: 'original source',
+    metadata: { isolate: 'original', strain: 'S1', environmental_sample: '', country: 'Atlantis' } });
+  expect(readDetails(result)).toEqual({ location: 'Atlantis' });
+  expect(result.features[0].metadata).not.toHaveProperty('nat-host');
+  expect(result.features[0].metadata).not.toHaveProperty('geo_loc_name');
+  expect(result.features[0].metadata).not.toHaveProperty('collection-date');
+  expect(result.fileDetails).toEqual({ host: 'camel', location: 'Oman', collectionDate: '2014' });
+  expect(original.features[0].metadata).toEqual({ isolate: 'original', environmental_sample: '', country: 'Atlantis' });
+});
+
+it('creates a source for GFF qualifiers when there are no editable details', () => {
+  const gene: BioFeature = { type: 'gene', name: 'g', start: 0, end: 3, strand: 1 };
+  const original = rec({ id: 'local', sequence: 'ACGT', features: [gene] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;environmental_sample=');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features[0]).toEqual(gene);
+  expect(result.features[1]).toMatchObject({ type: 'source', start: 0, end: 4,
+    metadata: { isolate: 'K1', environmental_sample: '' } });
+  expect(result.fileDetails).toBeUndefined();
+  expect(original.features).toEqual([gene]);
+});
+
+it('merges list provenance for added source qualifiers while preserving existing source lists', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT', features: [{ type: 'source', name: 'source', start: 0, end: 4, strand: 1,
+    metadata: { note: 'first,second', _gffLists: '{"note":["first","second"]}' } }] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;note=overwrite,other;Dbxref=DB:1,DB:2');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features[0].metadata).toMatchObject({ note: 'first,second', Dbxref: 'DB:1,DB:2' });
+  expect(JSON.parse(result.features[0].metadata!._gffLists)).toEqual({ note: ['first', 'second'], Dbxref: ['DB:1', 'DB:2'] });
+  const exported = exportToGff3([result]).text;
+  expect(exported).toContain('note=first,second');
+  expect(exported).toContain('Dbxref=DB%3A1,DB%3A2');
+  expect(original.features[0].metadata!._gffLists).toBe('{"note":["first","second"]}');
+});
+
 it('does not use sanitized IDs to override ambiguous name matches or refused batch IDs', () => {
   const feature: BioFeature = { name: 'g', type: 'gene', start: 1, end: 3, strand: 1 };
   const records = [rec({ id: 'seq_1', name: 'seq(1)' }), rec({ id: 'other', name: 'seq(1)' })];

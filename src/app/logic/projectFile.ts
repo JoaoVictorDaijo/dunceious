@@ -18,6 +18,7 @@
  */
 
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { sanitizeId } from './idHelpers';
 
 export interface ProjectState {
   name?: string;
@@ -52,7 +53,7 @@ function coordinates(value: unknown): boolean {
 }
 
 function validRecord(value: unknown): boolean {
-  if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string'
+  if (!isObject(value) || typeof value.id !== 'string' || sanitizeId(value.id) !== value.id || typeof value.name !== 'string'
     || typeof value.sequence !== 'string' || !Array.isArray(value.features)) return false;
   for (const key of ['definition', 'accession', 'version', 'importedFrom', 'label', 'alignedSequence']) {
     if (value[key] !== undefined && typeof value[key] !== 'string') return false;

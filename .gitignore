@@ -53,3 +53,7 @@ coverage/
 # Playwright CLI scratch (snapshots, console logs, session config)
 .playwright-cli/
 .playwright/
+
+# Browser regression output
+test-results/
+playwright-report/

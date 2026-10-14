@@ -18,9 +18,12 @@
  */
 
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig } from "vite";
+
+const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig(() => {
   // Single source of truth for the app version: read from package.json and
@@ -28,11 +31,17 @@ export default defineConfig(() => {
   // one value. Applies to the build and (via this shared config) the tests.
   // Bump with `npm version`.
   const pkg = JSON.parse(
-    readFileSync(path.resolve(__dirname, "package.json"), "utf-8"),
+    readFileSync(path.resolve(ROOT, "package.json"), "utf-8"),
   ) as { version: string };
   return {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
+    },
+    // Keep Vite 6's compilation targets while upgrading the build pipeline.
+    // Vite 7/8 otherwise silently raise the minimum browser versions.
+    build: {
+      target: ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'],
+      cssTarget: ['chrome87', 'edge88', 'firefox78', 'safari14'],
     },
     server: {
       port: 3000,
@@ -41,13 +50,14 @@ export default defineConfig(() => {
     plugins: [react()],
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "."),
+        "@": path.resolve(ROOT, "."),
       },
     },
     test: {
       environment: "node",
       exclude: [
         "perf/**",
+        "e2e/**",
         "bench/**",
         "**/node_modules/**",
       ],
