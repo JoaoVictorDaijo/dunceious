@@ -28,6 +28,7 @@ import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSumm
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getOriginalPos } from '@/src/domain/bio/sequence';
+import { transposeInterval } from '@/src/domain/bio/coordinate';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
@@ -279,13 +280,22 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
               const isBroken = brokenFeatureMap.get(f) ?? false;
 
+              const biologicalFeature = l.record.alignedSequence ? {
+                ...f,
+                segments: f.segments?.map(segment => ({
+                  ...segment,
+                  start: getOriginalPos(seq, segment.start),
+                  end: getOriginalPos(seq, segment.end),
+                })),
+              } : f;
+
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
-                ...frameshiftSummary(f),
+                ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
@@ -398,8 +408,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 }
                 
                 const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
-                const marks = segmentFrameshifts(f).map(({ position, shift }) => {
-                  const mx = xScale(position) - scrollX;
+                const marks = segmentFrameshifts(biologicalFeature).map(({ position, shift }) => {
+                  const displayPosition = l.record.alignedSequence ? transposeInterval(position, position + 1, seq).start : position;
+                  const mx = xScale(displayPosition) - scrollX;
                   if (mx < -30 || mx > viewportWidth + 30) return null;
                   // A tick on the shared (or skipped) base and a badge naming the shift.
                   return (

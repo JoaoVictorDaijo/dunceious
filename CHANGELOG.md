@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Frameshift badges and tooltip summaries use biological junctions, so alignment gaps neither invent nor hide shifts.
+
 - Codons crossing splice junctions or the circular origin draw and pack only their biological pieces, while alignment gaps remain continuous.
 
 - Hub current-group highlights switch at the reading line while the preceding
