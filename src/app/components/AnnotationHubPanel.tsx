@@ -77,8 +77,7 @@ export interface AnnotationHubPanelProps {
 export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const { records, state, isAlignmentLocked, lastFocusedKey } = props;
   const sequenceInput = useRef<HTMLInputElement>(null);
-  const [currentRow, setCurrentRow] = useState<string | null>(null);
-  const [searchKey, setSearchKey] = useState<string | null>(null);
+  const { currentRow, setCurrentRow, searchKey, setSearchKey } = state;
   const [dragOver, setDragOver] = useState(false);
   const [notice, setNotice] = useState('');
   const [exportOpen, setExportOpen] = useState(false);

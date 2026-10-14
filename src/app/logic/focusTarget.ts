@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { transposeInterval } from '@/src/domain/bio/coordinate';
 import type { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import { featureLength } from './viewModel';
@@ -33,9 +34,10 @@ export interface FocusTarget {
 
 /** Frames the feature's whole envelope, so every part of a joined feature is in view. */
 export function featureFocusTarget(record: SeqRecord, feature: BioFeature): FocusTarget {
+  const bounds = featureEnvelope(feature);
   const { start, end } = record.alignedSequence
-    ? transposeInterval(feature.start, feature.end, record.alignedSequence)
-    : feature;
+    ? transposeInterval(bounds.start, bounds.end, record.alignedSequence)
+    : bounds;
   return {
     recordId: record.id,
     featureIndex: record.features.indexOf(feature),

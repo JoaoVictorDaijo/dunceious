@@ -64,8 +64,10 @@ export function preflightAlignment(records: readonly AlignmentInput[], engineId:
   const stops: string[] = [];
   const characters = new Set<string>();
   const bytes = measureAlignmentBytes(records);
+  const terminalStops = new Set<string>();
   const normalized = records.map(record => {
     const sequence = normalizeSequence(record.sequence, protein);
+    if (protein && record.sequence.replace(/[-.\s]/g, '').endsWith('*')) terminalStops.add(record.id);
     if (!sequence) empty.push(record.id);
     if (protein && sequence.includes('*')) stops.push(record.id);
     const bad = [...new Set([...sequence].filter(char => !alphabet.test(char) && !(protein && char === '*')))];
@@ -79,5 +81,8 @@ export function preflightAlignment(records: readonly AlignmentInput[], engineId:
   if (invalid.length) issues.push({ code: 'invalid-characters', recordIds: invalid.slice(0, 5), characters: [...characters], message: `Dunceious alphabet guard: invalid characters ${[...characters].join(', ')} in ${invalid.slice(0, 5).join(', ')}.` });
   if (stops.length) issues.push({ code: 'internal-stop', recordIds: stops, message: `Dunceious protein guard: internal stop in ${stops.slice(0, 5).join(', ')}.` });
 
-  return issues.length ? { ok: false, issues } : { ok: true, submission: buildSubmission(normalized) };
+  if (issues.length) return { ok: false, issues };
+  const submission = buildSubmission(normalized);
+  if (terminalStops.size) submission.terminalStops = terminalStops;
+  return { ok: true, submission };
 }

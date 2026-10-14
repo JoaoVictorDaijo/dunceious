@@ -291,3 +291,20 @@ it('sizes feature presence rows from the card content width after margins and bo
   const row = container.querySelector<HTMLElement>('[data-row-key="pool0:1"]')!.parentElement!;
   expect(row.style.top).toBe('108px');
 });
+
+
+it('mounts a 200,000-interval track and focuses its full bounds', () => {
+  const focused = vi.fn();
+  const record: SeqRecord = { ...records[0], sequence: 'A'.repeat(400001), features: [], tracks: [{
+    id: 'large', name: 'large signal', kind: 'line',
+    data: Array.from({ length: 200000 }, (_, i) => ({ start: i * 2 + 1, end: i * 2 + 3, value: i })),
+  }] };
+  function LargeTrack() {
+    const state = useHubState();
+    return <HubList state={state} kind="sequences" height={400} onFocusItem={focused} items={buildSequenceSections([record], state.filters, { grouped: false }, 'load')} />;
+  }
+  render(<LargeTrack />);
+  expect(screen.getByText('200000 data points')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Open in viewport' }));
+  expect(focused).toHaveBeenCalledWith({ recordId: 'one', start: 1, end: 400001, label: 'large signal', length: 400000 }, { key: 'one:track:large', label: 'large signal' });
+});

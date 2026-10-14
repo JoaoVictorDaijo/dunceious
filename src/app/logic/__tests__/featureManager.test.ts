@@ -27,6 +27,12 @@ import {
 } from '../featureManager';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
+import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { parseGenBank } from '@/src/core/genbank';
+import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { metadataFromRows, qualifierRows } from '../qualifiers';
+
 const feat = (o: Partial<BioFeature> & { name: string }): BioFeature => ({
   type: 'misc_feature', start: 0, end: 5, strand: 1, ...o,
 });
@@ -136,4 +142,55 @@ it('marks new annotations added and keeps that provenance through later edits', 
   expect(edited[0].features[1].hubEdit).toBe('added');
   expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edit file' }))[0].features[0].hubEdit).toBe('edited');
   expect(original.hubEdit).toBeUndefined();
+});
+
+
+it('synchronizes the envelope after extending an edited segment', () => {
+  const original = feat({ name: 'joined', start: 100, end: 200,
+    segments: [{ start: 100, end: 130 }, { start: 180, end: 200 }] });
+  const edited = { ...original, segments: [{ start: 100, end: 130 }, { start: 180, end: 900 }] };
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(1000), features: [original] })];
+  const saved = saveEditedFeature(records, 'r1', 0, edited)[0].features[0];
+  expect(saved).toMatchObject({ start: 100, end: 900, segments: edited.segments, hubEdit: 'edited' });
+  expect(original.end).toBe(200);
+});
+
+it('synchronizes an edited circular join without flattening its wrap', () => {
+  const feature = feat({ name: 'origin', start: 80, end: 20,
+    segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] });
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(100), isCircular: true, features: [feature] })];
+  expect(saveEditedFeature(records, 'r1', 0, feature)[0].features[0]).toMatchObject({ start: 70, end: 30 });
+});
+it('does not revive an imported phase after deleting codon_start in the editor', () => {
+  const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
+  const input = [rec({ id: 'r1', sequence: 'AATGAAACCC', features: [feature] })];
+  const metadata = metadataFromRows(feature.metadata, qualifierRows(feature.metadata).filter(row => row.key !== 'codon_start'));
+  const saved = saveEditedFeature(input, 'r1', 0, { ...feature, metadata });
+  const cds = saved[0].features[0];
+  expect(extractCodingSequence(cds, saved[0].sequence).codingSeq).toBe('AATGAAACCC');
+  const gb = parseGenBank(exportToGenBank(saved).text)[0];
+  const gbCds = gb.features.find(f => f.type === 'CDS')!;
+  expect(extractCodingSequence(gbCds, gb.sequence).codingSeq).toBe('AATGAAACCC');
+  expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('0');
+  expect(cds.metadata).not.toHaveProperty('_gffPhases');
+  expect(cds.metadata).not.toHaveProperty('phase');
+  expect(feature.metadata?.phase).toBe('1');
+});
+
+it.each(['start', 'end', 'strand', 'segments'] as const)('invalidates imported phase caches after editing %s', key => {
+  const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
+  const patch: Partial<BioFeature> = key === 'segments' ? { segments: [{ start: 1, end: 10 }] }
+    : key === 'strand' ? { strand: -1 } : { [key]: key === 'start' ? 1 : 9 };
+  const saved = saveEditedFeature([rec({ id: 'r1', features: [feature] })], 'r1', 0, { ...feature, ...patch })[0].features[0];
+  expect(saved.metadata).not.toHaveProperty('phase');
+  expect(saved.metadata).not.toHaveProperty('_gffPhases');
+  expect(saved.metadata).not.toHaveProperty('_gffPhaseState');
+  expect(saved.metadata?.codon_start).toBe('2');
+});
+
+it('retains an untouched legacy project phase when saving an unrelated feature name', () => {
+  const feature = feat({ type: 'CDS', name: 'legacy', end: 10, metadata: { phase: '1', _gffPhases: '["1"]' } });
+  const saved = saveEditedFeature([rec({ id: 'r1', sequence: 'AATGAAACCC', features: [feature] })], 'r1', 0, { ...feature, name: 'renamed' });
+  expect(exportToGenBank(saved).text).toContain('/codon_start=2');
+  expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('1');
 });

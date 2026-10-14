@@ -133,3 +133,84 @@ it('keeps the focused outline through earlier deletion and undo, and clears it o
   expect(outlined()).not.toContain('green');
   expect(screen.queryByText('target1 · 2 bp')).toBeNull();
 });
+
+
+async function loadCursorRows() {
+  const workers = await setup();
+  fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'cursor.fa', records: [{ ...record('cursor', 'unused'), features: ['match-A', 'match-B', 'match-C'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 as const })) }] } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence cursor' }));
+}
+
+it('clears a deleted keyboard cursor before X can select its successor', async () => {
+  await loadCursorRows();
+  fireEvent.click(screen.getByText('match-B').closest('[data-row-key]')!);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete match-B on cursor' }));
+  fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'x' });
+  expect((screen.getByLabelText('Select annotation match-C on cursor') as HTMLInputElement).checked).toBe(false);
+  expect(screen.getByText('match-C').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('false');
+});
+
+it('keeps a surviving keyboard cursor on its annotation through deletion and undo', async () => {
+  await loadCursorRows();
+  fireEvent.click(screen.getByText('match-C').closest('[data-row-key]')!);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete match-B on cursor' }));
+  expect(screen.getByText('match-C').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(screen.getByText('match-C').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
+});
+
+it('clears a deleted search cursor and steps from the first remaining match', async () => {
+  await loadCursorRows();
+  const search = screen.getByRole('searchbox', { name: 'Search annotations' });
+  fireEvent.change(search, { target: { value: 'match-' } });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  fireEvent.keyDown(search, { key: 'Enter' });
+  expect(screen.getByText('2 / 3')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete match-B on cursor' }));
+  expect(screen.getByText('0 / 2')).toBeTruthy();
+  fireEvent.keyDown(search, { key: 'Enter' });
+  expect(screen.getByText('match-A').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
+});
+
+
+it.each(['details', 'name'])('discards the removed record %s editor and draft before ID reuse', async kind => {
+  const workers = await setup();
+  if (kind === 'details') {
+    fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'stale host' } });
+  } else {
+    fireEvent.click(screen.getByRole('button', { name: 'Rename r' }));
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'stale name' } });
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'reuse.fa', records: [record('r', 'replacement')] } }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence r' }));
+  expect(screen.queryByRole('form', { name: 'Details for r' })).toBeNull();
+  expect(screen.queryByLabelText('Display name')).toBeNull();
+  if (kind === 'details') {
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit details' })[0]);
+    expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('');
+  } else {
+    fireEvent.click(screen.getAllByRole('button', { name: 'Rename r' })[0]);
+    expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('');
+  }
+});
+
+
+it.each(['keyboard', 'search'])('clears the removed record %s cursor before ID reuse', async kind => {
+  const workers = await setup();
+  if (kind === 'search') {
+    const search = screen.getByRole('searchbox', { name: 'Search annotations' });
+    fireEvent.change(search, { target: { value: 'old' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(screen.getByText('1 / 1')).toBeTruthy();
+  } else {
+    fireEvent.click(screen.getByText('old').closest('[data-row-key]')!);
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
+  await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'reuse.fa', records: [record('r', 'old')] } }));
+  if (kind === 'search') expect(screen.getByText('0 / 1')).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'x' });
+  expect((screen.getByLabelText('Select annotation old on r') as HTMLInputElement).checked).toBe(false);
+});

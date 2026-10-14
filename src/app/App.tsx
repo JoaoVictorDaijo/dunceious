@@ -142,13 +142,15 @@ const App: React.FC = () => {
       const key = remap(previous.key);
       return key ? { ...previous, key } : null;
     });
+    hubState.setCurrentRow(previous => previous ? remap(previous) : null);
+    hubState.setSearchKey(previous => previous ? remap(previous) : null);
     hubState.setJumpTarget(previous => {
       if (!previous) return previous;
       const key = remap(previous.key);
       return key ? { ...previous, key } : null;
     });
     hubState.setSelectedRows(previous => new Set([...previous].flatMap(key => { const next = remap(key); return next ? [next] : []; })));
-  }, [hubState.setJumpTarget, hubState.setSelectedRows]);
+  }, [hubState.setJumpTarget, hubState.setSelectedRows, hubState.setCurrentRow, hubState.setSearchKey]);
 
   const {
     editing,
@@ -285,6 +287,11 @@ const App: React.FC = () => {
 
     const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
     record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
+    hubState.setCurrentRow(previous => previous && keys.has(previous) ? null : previous);
+    hubState.setSearchKey(previous => previous && keys.has(previous) ? null : previous);
+    hubState.setEditingDetails(previous => previous === recordId ? null : previous);
+    hubState.setEditingName(previous => previous === recordId ? null : previous);
+    hubState.setDraft(previous => previous?.id === recordId ? null : previous);
     hubState.setHubHidden(prev => new Set([...prev].filter(id => id !== recordId)));
     hubState.setSelectedRecords(prev => new Set([...prev].filter(id => id !== recordId)));
     hubState.setSelectedRows(prev => new Set([...prev].filter(key => !keys.has(key))));

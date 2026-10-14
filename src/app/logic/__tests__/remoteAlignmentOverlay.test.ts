@@ -18,9 +18,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildSubmission, remapAlignment } from '@/src/core/alignment';
+import { preflightAlignment, buildSubmission, remapAlignment } from '@/src/core/alignment';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { applyFastaResponse, applyFastaAndLog } from '../bioResponse';
+import { processTransposition } from '@/src/domain/bio/coordinate';
+import { exportToFasta } from '@/src/core/formats/fasta';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 const records: SeqRecord[] = [
@@ -73,4 +75,34 @@ describe('shared FASTA outcome logs', () => {
       expect(result.next).toBe(records); expect(logs).toEqual([expected]);
     }
   });
+});
+
+
+it('restores a terminal protein stop before overlay so its annotation and aligned FASTA survive', () => {
+  const protein: SeqRecord[] = [
+    { id: 'stop', name: 'stop', sequence: 'MK*', moleculeType: 'protein', features: [{ name: 'terminal', type: 'Region', start: 2, end: 3, strand: 1 }] },
+    { id: 'plain', name: 'plain', sequence: 'MK', moleculeType: 'protein', features: [] },
+  ];
+  const preflight = preflightAlignment(protein, 'mafft');
+  if (!preflight.ok) throw new Error('Expected valid protein preflight');
+  expect(preflight.submission.fasta).toBe('>s1\nMK\n>s2\nMK\n');
+  const response = remapAlignment('>s2\nMK\n>s1\nMK\n', preflight.submission);
+  if (!response.ok) throw new Error(response.reason);
+  const overlay = applyFastaResponse(protein, response.records, true);
+  expect(overlay.kind).toBe('overlay');
+  expect(overlay.next.map(record => [record.sequence, record.alignedSequence])).toEqual([['MK*', 'MK*'], ['MK', 'MK-']]);
+  expect(processTransposition(overlay.next)[0].features[0]).toMatchObject({ start: 2, end: 3, segments: [{ start: 2, end: 3 }] });
+  expect(exportToFasta(overlay.next, { residues: 'aligned', header: 'id' }).text).toBe('>stop\nMK*\n\n>plain\nMK-');
+});
+
+it.each([
+  { source: ['MK*', 'M*'], expected: ['M-K--*', '--M--*'] },
+  { source: ['MK', 'M*'], expected: ['M-K---', '--M--*'] },
+  { source: ['MK', 'M'], expected: ['M-K--', '--M--'] },
+])('preserves internal and terminal alignment gaps when restoring stops: $source', ({ source, expected }) => {
+  const preflight = preflightAlignment(source.map((sequence, i) => ({ id: `p${i}`, sequence, moleculeType: 'protein' })), 'mafft');
+  if (!preflight.ok) throw new Error('Expected valid protein preflight');
+  const result = remapAlignment('>s1\nM-K--\n>s2\n--M--\n', preflight.submission);
+  if (!result.ok) throw new Error(result.reason);
+  expect(result.records.map(record => record.sequence)).toEqual(expected);
 });
