@@ -137,13 +137,17 @@ Results are highlighted in the viewer and listed in the sidebar. Use the **↑ /
 
 ### 3.2 Annotation Hub
 
-Switch to **Annotation Hub** in the top bar. Its index, search, folds, grouping, density, selection and scroll positions stay in place when you switch to the viewport and back.
+Switch to **Annotation Hub** in the centred top-bar switcher; it stays in the same place in both workspaces. Search, Add annotation, Export… and the **⋯** workspace menu sit on its right, beside Options. The viewport has Pan/Select and Layers in that area instead; below 1536 px, **Layers** opens the layer toggles and explains unavailable layers. Its index, search, folds, grouping, density, selection and scroll positions stay in place when you switch to the viewport and back.
 
-**Find and group sequences.** The sidebar's **Find sequence** searches IDs/accessions, display names, isolate text, details and definitions. **List** shows each sequence once; **Grouped** partitions them by Organism, Host, Location (country before `:`), Collection year or Imported from. The grouping menu previews counts; unavailable fields say **No data in these files**. Missing values are in **Not specified**, last. Sort by load order, accession or fewest annotations. **Needs attention** limits the index to unannotated, partial or edited sequences. An eye controls viewport visibility independently of the selection checkbox.
+**Find and group sequences.** The sidebar's **Find sequence** searches IDs/accessions, display names, isolate text, details and definitions. **List** shows each sequence once; **Grouped** partitions them by Organism, Host, Location (country before `:`), Collection year or Imported from. The grouping menu previews counts; unavailable fields say **No data in these files**. Missing values are in **Not specified**, last. Sort by load order, accession or fewest annotations. **Needs attention** is a toggle chip with a sequence count, limiting the index to unannotated, partial or edited sequences. Each track card shows its accession or display name, isolate, length, annotation count, status flags and mini genome track. The current card has an amber edge and window showing the span of annotations visible in the main list. The index scrolls through every sequence without pagination; only the visible cards are rendered. An eye controls viewport visibility independently of the selection checkbox.
 
-**Sequences tab.** Each sequence has a pinned section header, details, length, annotation count and genome strip. Collapse a section to its type summary, or use **Expand all / Collapse all** for visible sections. Switch between Compact and Comfortable density. The overview rail on the right jumps between sections; the sidebar follows the active section. Hover a row to highlight its feature on the strip, or click the large header strip to jump. With that strip focused, Left/Right steps through annotations in position order, announces the name and location and outlines the current feature; Enter/Space jumps to its row. Sidebar strips are decorative. Row actions remain available: Inspect, Edit, Open in viewport and Delete. Delete offers **Undo**; the return pill restores the origin row after a trip to the viewport. A source-only sequence is unannotated and offers **Import annotations…**.
+**Sequences tab.** The tabs carry counts and the row's right side shows the filtered annotation and sequence totals. Each sequence has a pinned section header, accession followed by its display name, details chips, length, annotation count and genome track. The current header has an amber edge. Missing Host, Location and Collected values have **+** buttons that open the details editor focused on that field. Collapse a section to its type summary, or use the **Expand all / Collapse all** icons for visible sections. Choose Compact or Comfortable in the density control. The overview rail on the right jumps between sections; the sidebar follows the active section.
 
-**Search annotations.** The toolbar searches annotation name, gene, product, type and note, excluding sequence definitions. The counter and previous/next buttons step through matches; Enter / Shift+Enter do the same in search. Navigation opens the matching section and centres its row. Type chips and strand filters narrow results. Search opens groups with hits; folds made while filtering apply only to that filter context.
+**Genome tracks.** Overlapping annotations pack into lanes, forward above the axis and reverse below it, with a base/kilobase ruler under the header track. Circular origin crossings retain their parts. Hover either track variant for the annotation's type, name, INSDC location, biological length, strand and sequence ID; nucleotide CDS tooltips also show amino-acid length. Hover highlights that feature and dims the others. Click to jump to its row. With the large strip focused, Left/Right steps through annotations in position order and exposes the same tooltip; Enter/Space jumps to its row. The amber window on the pinned track and current index card follows the visible rows, spanning their minimum start to maximum end; an origin-crossing visible annotation extends it to the sequence end.
+
+**Rows.** A coloured stripe and type pill identify the annotation type. The strand badge uses a forward arrow, reverse arrow or unknown mark. Inspect, Edit, Open in viewport and Delete are icon buttons, shown on hover, keyboard focus, selected rows and the current row; touch devices show them continuously. The buttons remain reachable by Tab. Delete offers **Undo**; the return pill restores the origin row after a trip to the viewport. A source-only sequence is unannotated and offers **Import annotations…**.
+
+**Search annotations.** The header search field searches annotation name, gene, product, type and note, excluding sequence definitions. The counter and previous/next buttons step through matches; Enter / Shift+Enter do the same in search. Navigation opens the matching section and centres its row. Type chips show their feature colours and counts; All / → / ← chooses the strand filter. Search opens groups with hits; folds made while filtering apply only to that filter context.
 
 **Features tab.** Features are grouped within each organism and compared by identity, using product for mature/signal/transit peptides and gene, locus tag or name otherwise. The presence strip has one cell per sequence, and lengths are compared separately per type against their median. Headers report missing, odd length (more than 3% from the median), duplicate and partial/not-determined cases. Features present in fewer than half the complete annotated sequences are accessory; their absence is not flagged. Partial sequences are never called missing; unannotated sequences are labelled unannotated. Unknown organisms and organisms without a complete annotated baseline explain why comparison is unavailable. **Only missing or odd length** narrows this tab, and missing-sequence links jump to the Sequences tab. The sidebar becomes a feature index with **Limit to sequences**.
 
@@ -153,17 +157,18 @@ Switch to **Annotation Hub** in the top bar. Its index, search, folds, grouping,
 
 **Import, save and drop.** The **⋯** menu offers Save project…, Sequences…, Pre-aligned FASTA…, Annotations…, Load project… and Clear workspace… (type `CLEAR` to confirm). Drop `.gb`/`.genbank`/`.fasta`/`.fa` sequences and `.bed`/`.gff`/`.gff3`/`.bedgraph` annotations together: sequences load first, then annotations attach to the records imported in that batch, even when their IDs gain suffixes. Duplicate incoming IDs make annotation routing ambiguous and are reported. Drop a project `.json` on its own; mixed project drops are refused. Drops always add FASTA as sequences; use **Pre-aligned FASTA…** explicitly for an alignment overlay.
 
-**Keyboard**, while the hub has focus and you are not typing:
+**Keyboard.** Press `?` or use **Keyboard shortcuts** above Log in the sidebar to open the shortcut sheet. Esc or its close button dismisses it and returns focus to the opener. Tooltips show shortcut hints for search, match navigation and folding. These shortcuts apply while the hub has focus and you are not typing:
 
 | Key | Action |
 | --- | --- |
 | `/` | Focus annotation search |
 | Enter / Shift+Enter in search | Next / previous match |
 | `J` / `K` | Next / previous row |
-| `[` / `]` | Previous / next group |
+| `[` / `]` | Previous / next sequence or feature section |
 | `X` | Select the current annotation row |
-| `O` | Fold/unfold the current group |
+| `O` | Collapse/expand the current section |
 | Esc | Close the open menu/dialog or clear selection |
+| `?` | Open Keyboard shortcuts |
 
 ### 3.3 Metadata Inspector
 

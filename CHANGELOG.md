@@ -17,6 +17,9 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Added
 
+- Strand-packed Hub genome tracks with hover and keyboard details, a base/kilobase
+  ruler, and amber windows linking visible rows to the header and index.
+- Keyboard shortcuts sheet opened with `?` or the sidebar button.
 - Annotation Hub index with List/Grouped modes, sequence and feature tabs,
   pinned virtualized headers, genome strips, overview navigation, annotation
   search stepping, filters, keyboard controls and persistent session state.
@@ -27,6 +30,11 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Changed
 
+- The workspace switcher stays centred; Hub search, Add, Export and More move into
+  the header. Viewport layers collapse into a popover below 1536 px.
+- Hub index uses windowed track cards, attention counts and an amber current card.
+  Rows, tabs, filters and selection actions use the session styling; row actions
+  appear on hover or focus and stay visible on touch devices.
 - Workspace IDs use sanitized underscore suffixes. GenBank/GenPept exports use
   molecule-specific qualifier syntax and allowlists, separate ACCESSION/VERSION,
   and INSDC quote escaping. GFF3 uses encoded attributes, Sequence Ontology types,

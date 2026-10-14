@@ -72,6 +72,7 @@ src/
     ├── App.tsx          # composition root
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
+    │   ├── trackLayout.ts # cached strand-lane packing, deterministic track metrics/ruler
     │   ├── hubModel.ts   # sequence partition, grouping, filters and search hits
     │   ├── featureComparison.ts # organism-scoped presence and per-type length comparison
     │   ├── exportPlan.ts # subset/options, shared preview and serializer dispatch
@@ -80,7 +81,8 @@ src/
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
     │   └── hub/         # index, virtual list, headers, search/filter/selection controls,
-    │                    #   details/display-name editors and export dialog
+    │                    #   details/display-name editors, export and shortcuts dialogs;
+    │                    #   shared track tooltip and DOM window controller
     ├── viewer/          # GenomeViewer decomposed: slim container + layout.ts + Row + tracks/ + Minimap
     │                    #   + cds.ts (translation lanes) + hooks (viewport, focus flight, …) + colors.ts
     └── lib/             # download.ts (downloadBlob), ebiClient.ts (the ONLY network I/O: fetch to EMBL-EBI)
@@ -258,7 +260,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 
 - `ProcessingOverlay` – full-screen loading overlay
 - `StatusBar` – bottom status bar: selection metrics, session molecule-type chip, version (the easter-egg trigger), license link
-- `TopNav` – top navigation: workspace switcher (Visual Viewport / Annotation Hub), Pan/Select mode toggle, viewport layer toggles; translation button disabled for protein sessions; session-type accent strip
+- `TopNav` – top navigation: centred workspace switcher (Visual Viewport / Annotation Hub), portal tools slot for the Hub, Pan/Select and responsive viewport Layers popover; translation button disabled for protein sessions; session-type accent strip
 - `Sidebar` – hub index in Annotation Hub mode; Ingestion cards, alignment, sequence search, record navigator, selection inspector and log terminal in viewport mode
 - `DropZone` – one Ingestion card: a transparent file input with idle / armed / over drop states (`data-drop`, styled per card in `index.css`)
 - `AlignmentSection`, `AlignRemoteModal`, `AlignmentJobMonitor`, `AlignmentJobPill` – remote alignment trigger, dialog, job monitor and minimized pill
@@ -298,8 +300,8 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 ## 7. Performance Optimizations
 
 - **Canvas for Tracks**: Quantitative data is rendered to Canvas to avoid DOM overhead.
-- **Memoization**: Hub strips cache SVG paths in a fixed viewBox by immutable record and colour map, grouping by lane, colour and highlight rather than rendering one element per annotation; index entries and section headers skip unrelated renders. Record status and biological feature comparisons use weak caches, with annotation filters applied after comparison. Full comparison runs only in the Features tab; the Sequences tab uses a cheap identity count for its tab label.
-- **Hub scrolling and search**: List offsets stay in local refs during scrolling and persist after idle or unmount; scroll-spy updates only when the section changes. Index scroll-spy measures only the active entry on section changes or repeat jumps; container size is refreshed on resize. Annotation filtering, match counters and jumps use the deferred search query. Overview search ticks share one mark per rail pixel.
+- **Memoization**: Hub strips cache SVG paths in a fixed viewBox by immutable record and colour map, grouping by lane, colour and highlight rather than rendering one element per annotation; index entries and section headers skip unrelated renders. `trackLayout.ts` packs authoritative parts per strand with capped lanes; shared metrics determine section height. A single `TrackTooltipProvider` above both workspaces renders hover/keyboard details. Record status and biological feature comparisons use weak caches, with annotation filters applied after comparison. Full comparison runs only in the Features tab; the Sequences tab uses a cheap identity count for its tab label.
+- **Hub scrolling and search**: List offsets stay in local refs during scrolling and persist after idle or unmount; scroll-spy updates only when the section changes. The index flattens groups and fixed-height cards into its own `VariableSizeList` with overscan 4; scroll-spy calls `scrollToItem(index, 'smart')`, and the list fills the remaining sidebar height. Track window bands update through a shared controller that writes DOM styles during scrolling and retains the current span for newly mounted cards. Annotation filtering, match counters and jumps use the deferred search query. Overview search ticks share one mark per rail pixel.
 - **Typed Arrays in Workers**: `Int32Array` matrices for Smith-Waterman reduce GC pressure.
 
 ---
