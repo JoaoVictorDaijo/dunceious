@@ -18,7 +18,7 @@
  */
 
 // @vitest-environment jsdom
-import { useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, stubResizeObserver, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
@@ -27,18 +27,27 @@ import { writeDetails } from '@/src/domain/bio/details';
 import * as comparison from '@/src/app/logic/featureComparison';
 import HubIndex from '../hub/HubIndex';
 import AnnotationHubPanel, { type HubFocusOrigin } from '../AnnotationHubPanel';
+import type { HubFilters } from '@/src/app/logic/hubModel';
 import type { SeqRecord } from '@/src/domain/bio/types';
 const records: SeqRecord[] = Array.from({ length: 8 }, (_, i) => ({ id: `seq${i}`, name: `seq${i}`, sequence: 'A'.repeat(100), features: [{ name: i < 3 ? 'ORF4b' : `gene${i}`, type: 'CDS', start: 5, end: 15, strand: 1 }] }));
 const noop = () => {};
-function Subject({ initial = records, dropped = noop, focused = noop, locked = false, index = false }: { index?: boolean; initial?: SeqRecord[]; dropped?: (files: File[]) => void; focused?: (...args: unknown[]) => void; locked?: boolean }) {
+function Subject({ initial = records, dropped = noop, focused = noop, locked = false, index = false, uploaded = noop, loadOnUpload, filtersSeed, problems = false }: { uploaded?: (event: ChangeEvent<HTMLInputElement>) => void; loadOnUpload?: SeqRecord[]; filtersSeed?: Partial<HubFilters>; problems?: boolean; index?: boolean; initial?: SeqRecord[]; dropped?: (files: File[]) => void; focused?: (...args: unknown[]) => void; locked?: boolean }) {
   const state = useHubState();
+  const { setFilters, setOnlyProblems } = state;
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+    if (filtersSeed) setFilters(previous => ({ ...previous, ...filtersSeed }));
+    if (problems) setOnlyProblems(true);
+  }, [filtersSeed, problems, setFilters, setOnlyProblems]);
   const [toolsSlot, setToolsSlot] = useState<HTMLDivElement | null>(null);
   const [value, setValue] = useState(initial);
   const manager = useFeatureManager(value, setValue, null, noop);
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={event => { uploaded(event); if (loadOnUpload) setValue(loadOnUpload); }} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
@@ -351,7 +360,7 @@ it('clears the current index window when the final hub section is hidden from it
   const card = screen.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
   expect(card.getAttribute('aria-current')).toBe('false');
   expect(card.querySelector<HTMLElement>('[data-track-window]')!.hidden).toBe(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+  fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Show all' }));
   expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
 });
 
@@ -463,4 +472,109 @@ it('gives the current feature card an amber full header', () => {
   render(<Subject initial={[records[0]]} />);
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
   expect(document.querySelector<HTMLElement>('.hub-group-current [data-feature-surface]')!.classList.contains('bg-amber-50')).toBe(true);
+});
+
+
+it('explains an empty workspace and shares the More menu sequence picker and upload handler', () => {
+  const upload = vi.fn();
+  const { container } = render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
+  expect(screen.getByRole('heading', { name: 'No sequences yet' })).toBeTruthy();
+  expect(screen.getByText('Drop GenBank or FASTA files anywhere on this panel, or import them.')).toBeTruthy();
+  expect(screen.getByText('Pre-aligned FASTA, annotation files and projects are in the More menu').querySelector('i')?.getAttribute('aria-hidden')).toBe('true');
+  const picker = screen.getByLabelText('Import sequences files') as HTMLInputElement;
+  expect(picker.accept).toBe('.gb,.genbank,.fasta,.fa');
+  expect(container.querySelectorAll('[aria-label="Import sequences files"]')).toHaveLength(1);
+  const clicked = vi.spyOn(picker, 'click');
+  fireEvent.click(screen.getByRole('button', { name: 'Import sequences…' }));
+  expect(clicked).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Sequences…' }));
+  expect(clicked).toHaveBeenCalledTimes(2);
+  const file = new File(['>a\nAAAA'], 'sequences.fasta');
+  fireEvent.change(picker, { target: { files: [file] } });
+  expect(upload).toHaveBeenCalledOnce();
+  expect(upload.mock.calls[0][0].target.files[0]).toBe(file);
+  expect(screen.queryByRole('heading', { name: 'No sequences yet' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy();
+  expect(screen.getByRole('checkbox', { name: 'Select all visible annotations' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Edited in Dunceious' })).toBeTruthy();
+});
+it('disables empty-state importing under the alignment lock', () => {
+  render(<Subject initial={[]} locked />);
+  const picker = screen.getByLabelText('Import sequences files');
+  const clicked = vi.spyOn(picker, 'click');
+  const button = screen.getByRole('button', { name: 'Import sequences…' }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(clicked).not.toHaveBeenCalled();
+});
+it.each(['By sequence', 'By feature'])('hides inactive table controls in the empty $0 view but keeps toolbar, strand and density', tab => {
+  render(<Subject initial={[]} />);
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab) }));
+  expect(screen.queryByRole('button', { name: 'Type' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Location' })).toBeNull();
+  expect(screen.queryByRole('checkbox', { name: 'Select all visible annotations' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Edited in Dunceious' })).toBeNull();
+  expect(screen.getByRole('searchbox', { name: 'Search annotations' })).toBeTruthy();
+  expect(screen.getByRole('group', { name: 'Strand' })).toBeTruthy();
+  expect(screen.getByRole('group', { name: 'Density' })).toBeTruthy();
+});
+it('clears query, type, strand, edited-only and attention filters to restore rows', () => {
+  const { container } = render(<Subject initial={[records[0]]} index />);
+  fireEvent.click(screen.getByRole('button', { name: 'CDS 1' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reverse strand only' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edited in Dunceious' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Needs attention' }));
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'absent' } });
+  expect(screen.getByText('No annotations match these filters')).toBeTruthy();
+  expect(container.querySelector('[data-row-key="seq0:0"]')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')).not.toBeNull();
+  expect((screen.getByRole('searchbox', { name: 'Search annotations' }) as HTMLInputElement).value).toBe('');
+  for (const name of ['CDS 1', 'Edited in Dunceious', 'Needs attention']) expect(screen.getByRole('button', { name }).getAttribute('aria-pressed')).toBe('false');
+  expect(screen.getByRole('button', { name: 'All strands' }).getAttribute('aria-pressed')).toBe('true');
+});
+it.each([
+  { filtersSeed: { sequenceQuery: 'absent' }, problems: false, tab: 'By sequence' },
+  { filtersSeed: { onlyIds: new Set<string>() }, problems: false, tab: 'By sequence' },
+  { filtersSeed: {}, problems: true, tab: 'By feature' },
+])('clears sequence and comparison constraints in $tab', ({ filtersSeed, problems, tab }) => {
+  const { container } = render(<Subject initial={[records[0]]} filtersSeed={filtersSeed} problems={problems} />);
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab) }));
+  expect(screen.getByText('No annotations match these filters')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')).not.toBeNull();
+});
+it('clearing filters preserves selection, sorting, density and persistent folds', () => {
+  render(<Subject initial={[records[0]]} />);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence seq0' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse seq0' }));
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'absent' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect((screen.getByRole('checkbox', { name: 'Select sequence seq0' }) as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByRole('button', { name: 'Name / Product' }).getAttribute('aria-sort')).toBe('ascending');
+  expect(screen.getByRole('button', { name: 'Comfortable' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: 'Expand seq0' }).getAttribute('aria-expanded')).toBe('false');
+});
+it.each(['By sequence', 'By feature'])('offers Show all when only hub visibility empties the $0 view', tab => {
+  const { container } = render(<Subject initial={[records[0]]} index />);
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'ORF4b' } });
+  fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Hide seq0 in hub' }));
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab) }));
+  const panel = screen.getByRole('tabpanel');
+  expect(within(panel).getByText('All sequences are hidden in the hub')).toBeTruthy();
+  expect(within(panel).queryByRole('button', { name: 'Clear filters' })).toBeNull();
+  fireEvent.click(within(panel).getByRole('button', { name: 'Show all' }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')).not.toBeNull();
+  expect((screen.getByRole('searchbox', { name: 'Search annotations' }) as HTMLInputElement).value).toBe('ORF4b');
+});
+it('clearing filters preserves hidden sequences when the empty list has another cause', () => {
+  const { container } = render(<Subject initial={records.slice(0, 2)} index />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Hide seq0 in hub' }));
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'absent' } });
+  fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Clear filters' }));
+  expect(container.querySelector('[data-row-key="seq0:0"]')).toBeNull();
+  expect(container.querySelector('[data-row-key="seq1:0"]')).not.toBeNull();
 });

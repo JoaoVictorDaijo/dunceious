@@ -17,10 +17,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useRef, type ChangeEvent } from 'react';
+import { useRef, type ChangeEvent, type RefObject } from 'react';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import HubMenu from './HubMenu';
 export interface MoreMenuProps {
+  sequenceInputRef?: RefObject<HTMLInputElement | null>;
+  onImportSequences?: () => void;
   state: ReturnType<typeof useHubState>; locked?: boolean; empty?: boolean;
   onSave: () => void; onClear: () => void;
   onFileUpload: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -28,8 +30,10 @@ export interface MoreMenuProps {
   onAnnotationUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onProjectUpload: (event: ChangeEvent<HTMLInputElement>) => void;
 }
-export default function MoreMenu({ state, locked, empty, onSave, onClear, onFileUpload, onAlignmentUpload, onAnnotationUpload, onProjectUpload }: MoreMenuProps) {
-  const sequence = useRef<HTMLInputElement>(null), alignment = useRef<HTMLInputElement>(null), annotation = useRef<HTMLInputElement>(null), project = useRef<HTMLInputElement>(null);
+export default function MoreMenu({ state, locked, empty, onSave, onClear, onFileUpload, onAlignmentUpload, onAnnotationUpload, onProjectUpload, sequenceInputRef, onImportSequences }: MoreMenuProps) {
+  const localSequence = useRef<HTMLInputElement>(null);
+  const sequence = sequenceInputRef ?? localSequence;
+  const alignment = useRef<HTMLInputElement>(null), annotation = useRef<HTMLInputElement>(null), project = useRef<HTMLInputElement>(null);
   return <div className="relative shrink-0">
     <button aria-label="More workspace actions" data-tip="Import, save or clear the workspace" aria-haspopup="menu" aria-expanded={state.menu === 'more'} onClick={() => state.setMenu(state.menu === 'more' ? null : 'more')} className="h-10 w-10 rounded-xl border border-slate-800 bg-slate-950 text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-ellipsis" aria-hidden="true" /></button>
     <input ref={sequence} aria-label="Import sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
@@ -38,7 +42,7 @@ export default function MoreMenu({ state, locked, empty, onSave, onClear, onFile
     <input ref={project} aria-label="Load project file" hidden type="file" accept=".json" onChange={onProjectUpload} />
     {state.menu === 'more' && <HubMenu label="Workspace actions" onClose={() => state.setMenu(null)}>
       <button role="menuitem" className="block w-full p-2 text-left" onClick={() => { state.setMenu(null); onSave(); }}>Save project…</button>
-      {([['Sequences…', sequence, onFileUpload, false], ['Pre-aligned FASTA…', alignment, onAlignmentUpload, empty], ['Annotations…', annotation, onAnnotationUpload, empty], ['Load project…', project, onProjectUpload, false]] as const).map(([label, input, _handler, unavailable]) => <button role="menuitem" disabled={locked || unavailable} className="block w-full p-2 text-left disabled:opacity-40" key={label} onClick={() => { state.setMenu(null); input.current?.click(); }}>{label}</button>)}
+      {([['Sequences…', sequence, onFileUpload, false], ['Pre-aligned FASTA…', alignment, onAlignmentUpload, empty], ['Annotations…', annotation, onAnnotationUpload, empty], ['Load project…', project, onProjectUpload, false]] as const).map(([label, input, _handler, unavailable]) => <button role="menuitem" disabled={locked || unavailable} className="block w-full p-2 text-left disabled:opacity-40" key={label} onClick={() => { if (locked || unavailable) return; if (input === sequence && onImportSequences) onImportSequences(); else { state.setMenu(null); input.current?.click(); } }}>{label}</button>)}
       <button role="menuitem" disabled={locked || empty} className="mt-2 block w-full border-t border-slate-200 p-2 text-left text-rose-700 disabled:opacity-40" onClick={() => { if (!locked) { state.setMenu(null); onClear(); } }}>Clear workspace…</button>
     </HubMenu>}
   </div>;
