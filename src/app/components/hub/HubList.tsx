@@ -23,6 +23,7 @@ import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } f
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails, DetailKey } from '@/src/domain/bio/types';
+import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { readDetails } from '@/src/domain/bio/details';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -224,7 +225,10 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const top = Math.max(starts[index] + header.size, value + (barVisible(index, value) ? Math.max(0, overlayHeight(index, value) + barPosition(index, value)) : 0));
     const visible = entries.flatMap((entry, i) => entry.sectionKey === header.sectionKey && entry.type === 'row' && starts[i] + entry.size > top && starts[i] < value + height ? [entry.feature] : []);
     const record = (header.item as SequenceSection).record;
-    state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: Math.min(...visible.map(feature => feature.start)), end: visible.some(feature => feature.start > feature.end || feature.segments?.some(part => part.start > part.end)) ? record.sequence.length : Math.max(...visible.map(feature => feature.end)) } : null);
+    const parts = visible.flatMap(feature => feature.segments?.length ? feature.segments : [feature])
+      .flatMap(part => splitWrapAround(part.start, part.end, record.sequence.length));
+    // One enclosing band spans the linear strip; origin-crossing rows therefore cover both ends.
+    state.trackWindow.update(parts.length ? { id: record.id, length: record.sequence.length, start: Math.min(...parts.map(part => part.start)), end: Math.max(...parts.map(part => part.end)) } : null);
   };
   useLayoutEffect(() => { updateWindow(pinnedIndex, offset); paintBar(pinnedIndex, offset); }, [entries, offset, pinnedIndex]);
   const onScroll = ({ scrollOffset: value, scrollUpdateWasRequested = false }: { scrollOffset: number; scrollUpdateWasRequested?: boolean }) => {

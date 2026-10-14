@@ -22,6 +22,7 @@ All notable changes to Dunceious. Format loosely follows
 ### Fixed
 
 - Keep both parts of each origin-crossing annotation in the same Hub genome-track lane.
+- Enclose both origin-crossing pieces in the Hub’s visible-row track window.
 
 ## [2.8.1] — 2026-10-14
 
