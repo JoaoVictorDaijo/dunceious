@@ -17,12 +17,23 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { annotationFeatures } from '@/src/domain/bio/recordStatus';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 export type TrackPart = { feature: BioFeature; index: number; start: number; end: number; strand: 1 | -1; lane: number };
 export type TrackLayout = { parts: TrackPart[]; forwardLanes: number; reverseLanes: number };
 const cache = new WeakMap<SeqRecord, Map<string, TrackLayout>>();
+/** Coalesce forced overlaps so capped lanes do not retain every crowded feature as occupancy. */
+function reserveLane(occupied: FeatureSegment[], parts: TrackPart[]): FeatureSegment[] {
+  const ranges = [...occupied, ...parts].sort((a, b) => a.start - b.start);
+  const merged: FeatureSegment[] = [];
+  for (const range of ranges) {
+    const previous = merged.at(-1);
+    if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+    else merged.push({ start: range.start, end: range.end });
+  }
+  return merged;
+}
 export function packTrack(record: SeqRecord, opts: { maxLanes: number; reverseLanes: number }): TrackLayout {
   const key = `${opts.maxLanes}:${opts.reverseLanes}`;
   let views = cache.get(record);
@@ -38,15 +49,25 @@ export function packTrack(record: SeqRecord, opts: { maxLanes: number; reverseLa
     }
   });
   parts.sort((a, b) => a.start - b.start || b.end - a.end || a.index - b.index);
-  const forward: number[] = [], reverse: number[] = [];
-  const gap = record.sequence.length * .004;
+  const groups = new Map<string, TrackPart[]>();
   for (const part of parts) {
-    const ends = part.strand === -1 ? reverse : forward;
-    const maximum = Math.max(1, part.strand === -1 ? opts.reverseLanes : opts.maxLanes);
-    let lane = ends.findIndex(end => end + gap < part.start);
-    if (lane < 0) lane = Math.min(ends.length, maximum - 1);
-    part.lane = lane;
-    ends[lane] = Math.max(ends[lane] ?? 0, part.end);
+    const key = `${part.index}:${part.strand}`;
+    const group = groups.get(key) ?? [];
+    group.push(part);
+    groups.set(key, group);
+  }
+  const forward: FeatureSegment[][] = [], reverse: FeatureSegment[][] = [];
+  const gap = record.sequence.length * .004;
+  // Reserve every piece together so a joined feature keeps its lane across gaps and the origin.
+  for (const group of groups.values()) {
+    const first = group[0];
+    const lanes = first.strand === -1 ? reverse : forward;
+    const maximum = Math.max(1, first.strand === -1 ? opts.reverseLanes : opts.maxLanes);
+    for (let i = 0; i < lanes.length; i++) lanes[i] = lanes[i].filter(part => part.end + gap >= first.start);
+    let lane = lanes.findIndex(occupied => group.every(part => occupied.every(other => other.end + gap < part.start || part.end + gap < other.start)));
+    if (lane < 0) lane = Math.min(lanes.length, maximum - 1);
+    for (const part of group) part.lane = lane;
+    lanes[lane] = reserveLane(lanes[lane] ?? [], group);
   }
   const result = { parts, forwardLanes: forward.length, reverseLanes: reverse.length };
   if (!views) { views = new Map(); cache.set(record, views); }

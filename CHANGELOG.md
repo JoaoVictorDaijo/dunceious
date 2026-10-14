@@ -19,6 +19,10 @@ All notable changes to Dunceious. Format loosely follows
 
 - Offer Add sequences, Save project and Clear workspace beside the viewport’s Record Navigator title as well as the hub’s Sequence index.
 
+### Fixed
+
+- Keep both parts of each origin-crossing annotation in the same Hub genome-track lane.
+
 ## [2.8.1] — 2026-10-14
 
 ### Changed

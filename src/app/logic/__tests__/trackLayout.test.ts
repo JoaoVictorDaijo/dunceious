@@ -19,6 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { packTrack, trackMetrics, rulerTicks } from '../trackLayout';
 import { sequenceSectionHeight } from '@/src/app/components/hub/SequenceSectionHeader';
 const record: SeqRecord = { id: 'x', name: 'x', sequence: 'A'.repeat(1000), features: [
@@ -74,4 +75,30 @@ it('uses ten-pixel lanes in both densities and exact section heights while mini 
   expect(sequenceSectionHeight(section, false, undefined, 'comfortable')).toBe(140);
   expect(sequenceSectionHeight(section, true, undefined, 'comfortable')).toBe(82);
   expect(trackMetrics(layout, false, 'comfortable')).toMatchObject({ height: 30, laneHeight: 4.2, gap: 1.2 });
+});
+
+it.each([{ maxLanes: 4, reverseLanes: 4 }, { maxLanes: 3, reverseLanes: 1 }])('keeps each origin-crossing feature in one lane ($maxLanes lane limit)', options => {
+  const record = createOriginCrossingRecord();
+  const layout = packTrack(record, options);
+  for (const [index, ranges] of [
+    [0, [[0, 1758], [2426, 3308]]],
+    [1, [[0, 964], [2991, 3308]]],
+  ] as const) {
+    const parts = layout.parts.filter(part => part.feature === record.features[index]);
+    expect(parts.map(part => [part.start, part.end])).toEqual(ranges);
+    expect(new Set(parts.map(part => part.lane)).size).toBe(1);
+  }
+  const polymerase = layout.parts.filter(part => part.feature.name === 'polymerase');
+  const envelope = layout.parts.filter(part => part.feature.name === 'envelope');
+  expect(polymerase[0].lane).not.toBe(envelope[0].lane);
+  expect(layout.parts.every(part => part.end - part.start < 3308)).toBe(true);
+});
+
+it('retains every annotation when a dense track exceeds the lane cap', () => {
+  const dense: SeqRecord = { ...record, features: Array.from({ length: 2000 }, (_, index) => ({ type: 'gene', name: String(index), start: 0, end: 1000, strand: 1 })) };
+  const layout = packTrack(dense, { maxLanes: 4, reverseLanes: 1 });
+  expect(layout.forwardLanes).toBe(4);
+  expect(layout.parts).toHaveLength(2000);
+  expect(new Set(layout.parts.map(part => part.feature)).size).toBe(2000);
+  expect(layout.parts.every(part => part.start === 0 && part.end === 1000 && part.lane < 4)).toBe(true);
 });
