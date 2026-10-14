@@ -53,9 +53,9 @@ export function packTrack(record: SeqRecord, opts: { maxLanes: number; reverseLa
   views.set(key, result);
   return result;
 }
-export function trackMetrics(layout: TrackLayout, large: boolean, density: 'compact' | 'comfortable' = 'compact') {
-  const laneHeight = large ? density === 'comfortable' ? 10 : 7 : layout.reverseLanes ? 4.2 : 5.6;
-  const gap = large ? density === 'comfortable' ? 3 : 2 : 1.2;
+export function trackMetrics(layout: TrackLayout, large: boolean, _density: 'compact' | 'comfortable' = 'compact') {
+  const laneHeight = large ? 10 : layout.reverseLanes ? 4.2 : 5.6;
+  const gap = large ? 3 : 1.2;
   const miniTop = layout.forwardLanes ? 3 : 4.8;
   const miniBottom = layout.reverseLanes ? 3 + layout.forwardLanes * (laneHeight + gap) + 1.8 + (layout.reverseLanes - 1) * (laneHeight + gap) + laneHeight : 3 + Math.max(0, layout.forwardLanes - 1) * (laneHeight + gap) + laneHeight;
   const miniShift = (30 - (miniBottom - miniTop)) / 2 - miniTop;

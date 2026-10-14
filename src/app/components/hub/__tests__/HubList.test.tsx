@@ -41,9 +41,9 @@ describe('HubList', () => {
     const pinned = screen.getByRole('region', { name: 'Pinned section' });
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe(density === 'comfortable' ? '126px' : '122px');
-    expect(header.style.height).toBe(density === 'comfortable' ? '126px' : '122px');
-    expect(row.style.top).toBe(density === 'comfortable' ? '126px' : '122px');
+    expect(pinned.style.height).toBe('126px');
+    expect(header.style.height).toBe('126px');
+    expect(row.style.top).toBe('126px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
     expect(pinned.style.height).toBe('81px');
@@ -150,67 +150,21 @@ it('spans the minimum start and maximum end when visible rows stay in file order
 });
 
 
-it('scrolls to the first row at or after the window start, or the last row, through the list API', () => {
-  const sequence = { ...records[0], features: [
-    { name: 'early', type: 'gene', start: 10, end: 20, strand: 1 as const },
-    { name: 'late', type: 'gene', start: 60, end: 70, strand: 1 as const },
-    { name: 'middle', type: 'gene', start: 30, end: 40, strand: 1 as const },
-  ] };
-  function Drag() {
-    const state = useHubState();
-    return <HubList state={state} kind="sequences" height={160} items={buildSequenceSections([sequence], state.filters, { grouped: false }, 'load')} />;
-  }
-  const { container } = render(<Drag />);
-  const strip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ });
-  const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
-  const rowTop = (name: string) => Number.parseFloat(screen.getByText(name).closest('[data-row-key]')!.parentElement!.style.top);
-  const headerHeight = Number.parseFloat(screen.getByRole('region', { name: 'Pinned section' }).style.height);
-  fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
-  expect(viewport.scrollTop).toBe(rowTop('middle') - headerHeight);
-  fireEvent.keyDown(strip, { key: 'ArrowLeft', shiftKey: true });
-  // The first visible row in start order determines the step, even in file order.
-  expect(viewport.scrollTop).toBe(rowTop('early') - headerHeight);
-});
 
-
-it('jumps empty track space to the qualifying filtered row and falls back at the sequence end', () => {
+it('keeps list position when empty track space is clicked or Shift arrows are pressed', () => {
   const sequence = { ...records[0], features: [10, 30, 60].map(start => ({ name: `row-${start}`, type: 'gene', start, end: start + 5, strand: 1 as const })) };
-  function Drag() {
+  function Indicator() {
     const state = useHubState();
     return <HubList state={state} kind="sequences" height={160} items={buildSequenceSections([sequence], state.filters, { grouped: false }, 'load')} />;
   }
-  const { container } = render(<Drag />);
+  const { container } = render(<Indicator />);
   const strip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: /Genome strip/ });
-  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 25 } as DOMRect);
+  vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 29 } as DOMRect);
   const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
-  fireEvent.pointerDown(strip, { clientX: 220, clientY: 2, button: 0, pointerId: 1 });
-  expect(viewport.scrollTop).toBe(44);
+  fireEvent.pointerDown(strip, { clientX: 900, clientY: 2, button: 0, pointerId: 1 });
   fireEvent.pointerMove(strip, { clientX: 1000, clientY: 2, pointerId: 1 });
-  expect(viewport.scrollTop).toBe(88);
   fireEvent.pointerUp(strip, { pointerId: 1 });
-});
-
-
-it.each(['ArrowLeft', 'ArrowRight'])('pins a focused noncurrent strip on first Shift+%s and retains focus at the end clamp', key => {
-  const values = [records[0], { ...records[1], features: [
-    { name: 'second-early', type: 'gene', start: 10, end: 20, strand: 1 as const },
-    { name: 'second-late', type: 'gene', start: 30, end: 40, strand: 1 as const },
-  ] }];
-  function Tracks() {
-    const state = useHubState();
-    return <HubList state={state} kind="sequences" height={300} items={buildSequenceSections(values, state.filters, { grouped: false }, 'load')} />;
-  }
-  const { container } = render(<Tracks />);
-  fireEvent.keyDown(document, { key: 'Tab' });
-  const other = screen.getByRole('button', { name: /Genome strip for two/ });
-  act(() => other.focus());
-  fireEvent.keyDown(other, { key, shiftKey: true });
-  const pinned = screen.getByRole('region', { name: 'Pinned section' });
-  const strip = within(pinned).getByRole('button', { name: /Genome strip for two/ });
-  expect(document.activeElement).toBe(strip);
-  const viewport = container.querySelector<HTMLElement>('.custom-scrollbar-pro.scrollbar-on-light')!;
-  expect(viewport.scrollTop).toBe(166);
+  fireEvent.click(strip, { clientX: 900, clientY: 2 });
   fireEvent.keyDown(strip, { key: 'ArrowRight', shiftKey: true });
-  expect(viewport.scrollTop).toBe(166);
-  expect(document.activeElement).toBe(strip);
+  expect(viewport.scrollTop).toBe(0);
 });

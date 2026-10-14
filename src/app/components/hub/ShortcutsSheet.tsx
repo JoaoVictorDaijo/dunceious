@@ -21,7 +21,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 const groups = [
   ['Find', [['Search annotations', '/'], ['Next match', 'Enter'], ['Previous match', 'Shift Enter'], ['Clear selection or close menus', 'Esc']]],
-  ['Move', [['Next row', 'J'], ['Previous row', 'K'], ['Next sequence', ']'], ['Previous sequence', '['], ['Previous track window row (focused strip)', 'Shift ArrowLeft'], ['Next track window row (focused strip)', 'Shift ArrowRight']]],
+  ['Move', [['Next row', 'J'], ['Previous row', 'K'], ['Next sequence', ']'], ['Previous sequence', '[']]],
   ['Act', [['Select row', 'X'], ['Collapse or expand sequence', 'O']]],
   ['Help', [['Keyboard shortcuts', '?']]],
 ] as const;

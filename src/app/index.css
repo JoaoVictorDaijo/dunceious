@@ -101,8 +101,3 @@
 @media (hover: none) {
   .hub-row-actions { opacity: 1; }
 }
-
-.hub-track-large [role="button"] { cursor: grab; touch-action: none; }
-.hub-track-large[data-dragging] [role="button"] { cursor: grabbing; }
-.hub-track-large[data-dragging] .hub-track-window { background: color-mix(in srgb, var(--env) 14%, transparent); }
-.hub-track-large:hover [data-window-handle] { background: var(--env3); }

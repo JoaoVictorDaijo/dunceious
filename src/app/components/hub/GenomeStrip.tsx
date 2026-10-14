@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { packTrack, rulerTicks, trackMetrics, type TrackPart } from '@/src/app/logic/trackLayout';
 import { trackFeatureColor, useTrackTooltip } from './TrackTooltip';
@@ -32,7 +32,7 @@ const geometryCache = new WeakMap<SeqRecord, WeakMap<Record<string, string>, Map
 function stripGeometry(record: SeqRecord, large: boolean, colors = defaultColors, density: 'compact' | 'comfortable' = 'compact'): StripGeometry {
   let byColors = geometryCache.get(record);
   let bySize = byColors?.get(colors);
-  const key = `${large}:${large ? density : 'compact'}`;
+  const key = String(large);
   const cached = bySize?.get(key);
   if (cached) return cached;
   const layout = packTrack(record, { maxLanes: large ? 4 : 3, reverseLanes: large ? 4 : 1 });
@@ -67,14 +67,12 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
 export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact'): number {
   return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
 }
-function GenomeStrip({ record, highlight, large = false, onPick, featureColors, density = 'compact', trackWindow, onWindowMove, onWindowStep }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow; onWindowMove?: (start: number) => void; onWindowStep?: (direction: 1 | -1) => void }) {
+function GenomeStrip({ record, highlight, large = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; large?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
   const geometry = stripGeometry(record, large, featureColors, density);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
   const [pointer, setPointer] = useState<{ record: SeqRecord; feature: BioFeature; x: number; y: number } | null>(null);
   const keyboardFocus = useRef(true);
-  const drag = useRef<{ pointerId: number; offset: number; width: number } | null>(null);
-  const suppressClick = useRef(false);
   const owner = useRef({});
   useEffect(() => {
     const key = () => { keyboardFocus.current = true; };
@@ -86,7 +84,6 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
       document.removeEventListener('pointerdown', pointerDown, true);
     };
   }, []);
-  useEffect(() => () => { if (drag.current) trackWindow?.end(); }, [trackWindow]);
   const hoveredRef = useRef<BioFeature | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -134,7 +131,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
     showTooltip({ record, feature: active, color: part.color, x: hovered ? pointer!.x : (bounds?.left ?? 0) + part.x / viewWidth * (bounds?.width ?? 0), y: hovered ? pointer!.y : (bounds?.top ?? 0) + part.y }, owner.current);
     return () => showTooltip(null, owner.current);
   }, [active, hovered, pointer, record, geometry, showTooltip]);
-  const hit = (event: MouseEvent<SVGSVGElement> | PointerEvent<SVGSVGElement>) => {
+  const hit = (event: MouseEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return null;
     const x = (event.clientX - bounds.left) / bounds.width * viewWidth;
@@ -148,50 +145,10 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
     hoveredRef.current = part?.feature ?? null;
     setPointer(part ? { record, feature: part.feature, x: event.clientX, y: event.clientY } : null);
   };
-  const position = (event: PointerEvent<SVGSVGElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return bounds.width ? (event.clientX - bounds.left) * record.sequence.length / bounds.width : 0;
-  };
-  const moveWindow = (event: PointerEvent<SVGSVGElement>) => {
-    const value = drag.current;
-    if (!value || value.pointerId !== event.pointerId) return;
-    const start = Math.max(0, Math.min(record.sequence.length - value.width, position(event) - value.offset));
-    trackWindow?.begin({ id: record.id, length: record.sequence.length, start, end: start + value.width });
-    onWindowMove?.(start);
-  };
-  const endDrag = (event: PointerEvent<SVGSVGElement>) => {
-    if (!drag.current || drag.current.pointerId !== event.pointerId) return;
-    drag.current = null;
-    root.current?.removeAttribute('data-dragging');
-    trackWindow?.end();
-  };
-  const down = (event: PointerEvent<SVGSVGElement>) => {
-    if (drag.current) return;
-    keyboardFocus.current = false;
-    setFocused(false);
-    suppressClick.current = false;
-    if (!large || !onWindowMove || event.button !== 0 || hit(event)) return;
-    const window = trackWindow?.get(record.id);
-    if (!window) return;
-    event.preventDefault();
-    event.currentTarget.focus();
-    const x = position(event);
-    const width = window.end - window.start;
-    const inside = x >= window.start && x <= window.end;
-    drag.current = { pointerId: event.pointerId, offset: inside ? x - window.start : width / 2, width };
-    suppressClick.current = true;
-    hoveredRef.current = null; setPointer(null);
-    root.current?.setAttribute('data-dragging', 'true');
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    if (!inside) moveWindow(event);
-  };
   const keyboard = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.shiftKey) return;
     if (!interactive || !['ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
-    if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight') && onWindowStep) {
-      onWindowStep(event.key === 'ArrowRight' ? 1 : -1);
-      return;
-    }
     setFocused(true);
     hoveredRef.current = null; setPointer(null);
     if (event.key === 'Enter' || event.key === ' ') onPick?.(current);
@@ -203,7 +160,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
       <svg ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: metrics.height }}
         role={large && interactive ? 'button' : undefined} aria-hidden={large && interactive ? undefined : true}
         aria-label={large && interactive ? `Genome strip for ${record.id}: ${ordered.length} ${ordered.length === 1 ? 'annotation' : 'annotations'}` : undefined}
-        tabIndex={large && interactive ? 0 : undefined} onPointerDown={down} onPointerMove={moveWindow} onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={endDrag} onMouseMove={event => { if (!drag.current) move(event); }} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { if (suppressClick.current) { suppressClick.current = false; return; } const part = hit(event); if (part) { setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(keyboardFocus.current)} onBlur={() => setFocused(false)}
+        tabIndex={large && interactive ? 0 : undefined} onPointerDown={() => { keyboardFocus.current = false; setFocused(false); }} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { const part = hit(event); if (part) { setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(keyboardFocus.current)} onBlur={() => setFocused(false)}
         className={`block w-full rounded ${large ? 'border border-slate-200 bg-white' : ''} ${interactive ? 'cursor-crosshair outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500' : ''}`}>
         <line x1="0" x2={viewWidth} y1={metrics.axis} y2={metrics.axis} className={large ? 'stroke-slate-300' : 'stroke-slate-700'} vectorEffect="non-scaling-stroke" />
         {paths.map(path => <path key={path.key} d={path.d} fill={path.color} opacity={path.opacity} />)}
@@ -212,8 +169,6 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
       <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-env/[0.07]' : 'border-2 border-dashed border-env bg-env/10'}`}>
         {large && <>
           <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={metrics.height - 2} fill="none" stroke="var(--env)" strokeWidth="2" strokeDasharray="4 2" /></svg>
-          <span data-window-handle className="absolute -left-[3px] top-1/2 h-4 w-1.5 -translate-y-1/2 rounded bg-env" />
-          <span data-window-handle className="absolute -right-[3px] top-1/2 h-4 w-1.5 -translate-y-1/2 rounded bg-env" />
         </>}
       </div>
     </div>

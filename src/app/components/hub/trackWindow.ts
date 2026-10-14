@@ -22,9 +22,8 @@ export type TrackWindow = ReturnType<typeof createTrackWindow>;
 export function createTrackWindow() {
   const roots = new Map<string, Set<HTMLElement>>();
   let current: WindowSpan | null = null;
-  let dragged: WindowSpan | null = null;
   const paint = (id: string, root: HTMLElement) => {
-    const value = dragged ?? current;
+    const value = current;
     const visible = value?.id === id;
     const band = root.querySelector<HTMLElement>('[data-track-window]');
     const label = root.querySelector<HTMLElement>('[data-track-window-label]');
@@ -35,9 +34,6 @@ export function createTrackWindow() {
     if (label) { label.hidden = !visible; if (visible && value) label.textContent = `${(value.start + 1).toLocaleString('en-US')}–${value.end.toLocaleString('en-US')} in view`; }
   };
   return {
-    get(id: string) { return current?.id === id ? current : null; },
-    begin(value: WindowSpan) { dragged = value; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
-    end() { dragged = null; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
     register(id: string, element: HTMLElement) { const set = roots.get(id) ?? new Set(); set.add(element); roots.set(id, set); paint(id, element); return () => { set.delete(element); if (!set.size) roots.delete(id); }; },
     update(value: typeof current) { current = value; roots.forEach((set, id) => set.forEach(root => paint(id, root))); },
   };

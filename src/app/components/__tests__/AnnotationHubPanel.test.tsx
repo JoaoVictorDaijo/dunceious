@@ -299,13 +299,7 @@ it('ignores ? typed in annotation search', () => {
 });
 
 
-it('lists track-window keys with the focused-strip scope in the shortcuts sheet', () => {
-  render(<Subject />);
-  fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: '?' });
-  const sheet = screen.getByRole('dialog', { name: 'Keyboard shortcuts' });
-  expect(within(sheet).getByText('Previous track window row (focused strip)').closest('li')!.textContent).toContain('Shift ArrowLeft');
-  expect(within(sheet).getByText('Next track window row (focused strip)').closest('li')!.textContent).toContain('Shift ArrowRight');
-});
+
 
 
 it('portals the shortcuts sheet inside the app root carrying the session accent', () => {
