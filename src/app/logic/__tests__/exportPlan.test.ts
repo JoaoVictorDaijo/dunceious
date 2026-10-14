@@ -111,3 +111,14 @@ it('reports dangling GFF3 relationships removed by annotation subset filters in 
   expect(preview.summary).toContain('1 non-GenBank attributes left out.');
   expect(serializeExport([input], 'gff3', { types: new Set(['CDS']) }).text).not.toContain('Parent=');
 });
+
+it('does not replace an excluded local GFF3 parent with a reused ID from another record', () => {
+  const input: SeqRecord[] = ['a', 'b'].map(id => ({ id, name: id, sequence: 'ATG', features: [
+    { type: 'gene', name: 'g', start: 0, end: 3, strand: 1, metadata: { ID: 'g' } },
+    { type: 'CDS', name: 'c', start: 0, end: 3, strand: 1, metadata: { ID: 'c', Parent: 'g' } },
+  ] }));
+  const options = { matchingKeys: new Set(['a:1', 'b:0']) };
+  const { text, report } = serializeExport(input, 'gff3', options);
+  expect(text).not.toContain('Parent=');
+  expect(report.droppedAttributes).toBe(1);
+});

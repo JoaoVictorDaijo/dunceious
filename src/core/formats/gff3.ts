@@ -138,7 +138,6 @@ function addQualifiers(
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
-  const oldIds = new Map<string, string | null>();
   const plans = records.map(record => {
     let number = 0;
     const localIds = new Map<string, string | null>();
@@ -146,7 +145,6 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
       const old = feature.metadata?.ID;
       if (old) {
-        oldIds.set(old, oldIds.has(old) && oldIds.get(old) !== id ? null : id);
         localIds.set(old, localIds.has(old) && localIds.get(old) !== id ? null : id);
       }
       return id;
@@ -154,7 +152,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     return { record, ids, localIds };
   });
   for (const { record, ids, localIds } of plans) {
-    const referenceIds = new Map([...oldIds, ...localIds]);
+    const referenceIds = localIds;
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
     lines.push(`##sequence-region ${id} 1 ${length}`);
