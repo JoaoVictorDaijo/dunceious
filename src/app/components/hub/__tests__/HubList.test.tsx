@@ -224,25 +224,29 @@ it('pins the slim live bar as soon as the full header starts to scroll away and 
   const viewport = container.querySelector<HTMLElement>('.scrollbar-on-light')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 1000 } });
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
-  fireEvent.scroll(viewport, { target: { scrollTop: 1 } });
-  expect(screen.getByRole('region', { name: 'Pinned section' }).style.display).toBe('');
+  fireEvent.scroll(viewport, { target: { scrollTop: 15 } });
+  const collapsing = screen.getByRole('region', { name: 'Pinned section' });
+  expect(Number.parseFloat(collapsing.style.height)).toBeGreaterThan(44);
+  expect(collapsing.querySelector<HTMLElement>('[data-pinned-expanded]')!.style.opacity).toBe('1');
+  expect(collapsing.dataset.compact).toBe('false');
   fireEvent.scroll(viewport, { target: { scrollTop: 141 } });
   const bar = screen.getByRole('region', { name: 'Pinned section' });
   expect(bar.style.height).toBe('44px');
   expect(bar.style.left).toBe('14px');
   expect(bar.style.right).toBe('14px');
   expect(bar.className).toContain('border-x');
-  expect(bar.querySelector('[data-section-surface]')).toBeNull();
+  expect(bar.dataset.compact).toBe('true');
+  expect(bar.querySelector<HTMLElement>('[data-pinned-expanded]')!.style.opacity).toBe('0');
+  expect(bar.querySelector<HTMLElement>('[data-pinned-compact]')!.style.opacity).toBe('1');
   const fullBand = container.querySelector<HTMLElement>('[data-hub-card="one"] [data-track-window]')!;
-  const band = bar.querySelector<HTMLElement>('[data-track-window]')!;
+  const band = bar.querySelector<HTMLElement>('[data-pinned-compact] [data-track-window]')!;
   expect(band.style.left).toBe(fullBand.style.left);
   expect(band.style.width).toBe(fullBand.style.width);
   fireEvent.scroll(viewport, { target: { scrollTop: 650 } });
   expect(bar.style.top).toBe('-25px');
+  // The first card has left; the second header has not yet reached the top edge in this short list.
   fireEvent.scroll(viewport, { target: { scrollTop: 670 } });
-  const next = screen.getByRole('region', { name: 'Pinned section' });
-  expect(within(next).queryByRole('button', { name: 'Collapse one' })).toBeNull();
-  expect(next.style.top).toBe('0px');
+  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
 });
 
 

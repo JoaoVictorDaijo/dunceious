@@ -68,6 +68,7 @@ function headerStart(label: string) {
   fireEvent.click(screen.getByRole('button', { name: `Jump to ${label}` }));
   return Number.parseFloat(card(label).style.top) - 12;
 }
+function compact(bar: HTMLElement) { return bar.querySelector<HTMLElement>('[data-pinned-compact]')!; }
 function scroll(element: HTMLElement, offset: number) { fireEvent.scroll(element, { target: { scrollTop: offset } }); }
 
 describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
@@ -79,18 +80,18 @@ describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
     expectCurrent('NC_045512');
     const currentBar = screen.getByRole('region', { name: 'Pinned section' });
     expect(currentBar.style.borderColor).toContain('var(--env)');
-    expect(currentBar.firstElementChild?.classList.contains('bg-amber-50')).toBe(true);
+    expect(currentBar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-amber-50')).toBe(true);
     scroll(element, next - line);
     expectCurrent('NC_019843');
     expect(Number.parseFloat(card('NC_045512').style.top) + Number.parseFloat(card('NC_045512').style.height)).toBeGreaterThan(element.scrollTop);
     const bar = screen.getByRole('region', { name: 'Pinned section' });
-    expect(within(bar).getByText('NC_045512')).toBeTruthy();
+    expect(within(compact(bar)).getByText('NC_045512')).toBeTruthy();
     expect(bar.style.borderColor).toBe('');
     expect(bar.className).toContain('border-slate-300');
-    expect(bar.firstElementChild?.classList.contains('bg-white')).toBe(true);
-    expect(bar.firstElementChild?.classList.contains('bg-amber-50')).toBe(false);
+    expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-white')).toBe(true);
+    expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-amber-50')).toBe(false);
     scroll(element, next + 400);
-    expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('NC_019843')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-pinned-compact]')!).getByText('NC_019843')).toBeTruthy();
   });
 
   it('counts the divider before the next header as part of the next group', () => {
@@ -155,7 +156,7 @@ it('makes NC_019843 current with its header 60 px below the top of a 700 px sequ
   scroll(element, headerStart('NC_019843') - 60);
   expectCurrent('NC_019843');
   const bar = screen.getByRole('region', { name: 'Pinned section' });
-  expect(within(bar).getByText('NC_045512')).toBeTruthy();
-  expect(bar.firstElementChild?.classList.contains('bg-white')).toBe(true);
+  expect(within(compact(bar)).getByText('NC_045512')).toBeTruthy();
+  expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-white')).toBe(true);
   expect(card('NC_019843').querySelector('[data-section-surface]')?.classList.contains('bg-amber-50')).toBe(true);
 });

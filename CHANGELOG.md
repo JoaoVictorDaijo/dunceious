@@ -59,8 +59,9 @@ All notable changes to Dunceious. Format loosely follows
 - The By feature index shows one compact row per feature instead of a card with
   a presence strip, fitting about three times as many features on screen.
 - The slim pinned bar shows the full packed track between the sequence name and
-  its counts, and takes over as soon as the full header starts to scroll away,
-  so the header is never seen half cut.
+  its counts. Once a full header reaches the top it pins with its name in view,
+  shrinks with the scroll, covering the rest of the header, and cross-fades into
+  the slim bar.
 - The Log Terminal is one collapsible section in both workspaces, closed by
   default, with the same title, icon and chevron; its open state carries across
   workspace switches.

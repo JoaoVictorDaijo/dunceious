@@ -106,6 +106,8 @@
 .hub-group-card { position: absolute; left: 14px; right: 14px; border: 1px solid theme('colors.slate.300'); border-radius: 16px; background: white; box-shadow: 0 1px 2px theme('colors.slate.900 / 5%'), 0 6px 18px -14px theme('colors.slate.900 / 35%'); overflow: hidden; }
 .hub-group-current { border-color: color-mix(in srgb, var(--env) 70%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--env) 16%, transparent), 0 6px 18px -14px theme('colors.slate.900 / 35%'); }
 
+.hub-pinned[data-compact="false"] .hub-pinned-compact { pointer-events: none; }
+.hub-pinned-expanded, .hub-pinned-compact { transition: none; }
 .hub-scroll-region { scrollbar-width: none; }
 .hub-scroll-region::-webkit-scrollbar { display: none; }
 .hub-scroll-thumb { cursor: grab; touch-action: none; }
