@@ -89,3 +89,30 @@ describe('layer tray fit', () => {
     expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
   });
 });
+
+
+describe('switcher sizing', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  it('fits its buttons and bounds the tools using its measured half width', () => {
+    let width = 340;
+    const callbacks: (() => void)[] = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { callbacks.push(callback); }
+      observe() {}
+      disconnect() {}
+    });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      const measured = this.querySelector('[aria-label="Workspace"]') ? width : 0;
+      return { width: measured, height: 40, left: 0, right: measured, top: 0, bottom: 40 } as DOMRect;
+    });
+    render(<TopNav {...defaults} />);
+    const wrapper = screen.getByRole('group', { name: 'Workspace' }).parentElement!;
+    const cluster = screen.getByLabelText('Workspace tools and options');
+    expect(wrapper.style.width).toBe('max-content');
+    expect(cluster.style.maxWidth).toBe('calc(50% - var(--switcher-half) - 16px)');
+    expect(cluster.closest('nav')!.style.getPropertyValue('--switcher-half')).toBe('170px');
+    width = 400;
+    act(() => callbacks.forEach(callback => callback()));
+    expect(cluster.closest('nav')!.style.getPropertyValue('--switcher-half')).toBe('200px');
+  });
+});

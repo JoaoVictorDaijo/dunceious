@@ -86,6 +86,21 @@ const TopNav: React.FC<TopNavProps> = ({
 }) => {
   const [layersOpen, setLayersOpen] = useState(false);
   const [inlineLayers, setInlineLayers] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1536px)').matches ?? window.innerWidth >= 1536));
+  const nav = useRef<HTMLElement>(null);
+  const switcher = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = switcher.current;
+    if (!element) return;
+    const measure = () => nav.current?.style.setProperty('--switcher-half', `${element.getBoundingClientRect().width / 2}px`);
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const cluster = useRef<HTMLDivElement>(null);
   const workspaceTools = useRef<HTMLDivElement>(null);
   const viewportControls = useRef<HTMLDivElement>(null);
@@ -140,7 +155,7 @@ const TopNav: React.FC<TopNavProps> = ({
   // Options popover, whose own blur then samples only the nav and lets the page
   // behind show through unblurred.
   return (
-  <nav data-theme={themeKey} className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900 shrink-0 z-50">
+  <nav ref={nav} data-theme={themeKey} className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900 shrink-0 z-50">
     <div className="hf-env" aria-hidden="true" />
     <div className="relative z-[1] h-full flex items-center justify-between px-6">
     <div className="flex items-center gap-6">
@@ -163,7 +178,7 @@ const TopNav: React.FC<TopNavProps> = ({
       </div>
     </div>
 
-    <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 384 }}>
+    <div ref={switcher} style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 'max-content' }}>
       {/* Mode switcher — two workspaces, not two views. The active mode wears the
           session accent (resolveEnvAccent turns it amber in the Hub); the viewport
           takes the deep tone so it can keep white text, amber keeps dark text. */}
@@ -193,7 +208,7 @@ const TopNav: React.FC<TopNavProps> = ({
       </div>
 
     </div>
-    <div ref={cluster} aria-label="Workspace tools and options" className="ml-auto flex min-w-0 items-center justify-end gap-2" style={{ width: 'calc(50% - 208px)', maxWidth: 'calc(50% - 208px)' }}>
+    <div ref={cluster} aria-label="Workspace tools and options" className="ml-auto flex min-w-0 items-center justify-end gap-2" style={{ width: 'calc(50% - var(--switcher-half) - 16px)', maxWidth: 'calc(50% - var(--switcher-half) - 16px)' }}>
       <div ref={setToolsElement} aria-label="Workspace tools" data-hub-focus={activeTab === 'features' ? true : undefined} className="flex min-w-0 flex-1 items-center justify-end gap-2">
       {/* Workspace tools share a bounded cluster to protect the centred switcher. */}
       {showAlignmentControls && (
