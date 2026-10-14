@@ -59,5 +59,7 @@ describe('workspace header', () => {
     expect(toggle).toHaveBeenCalledOnce();
     expect(within(popover).getByText('Translation does not apply to a peptide session')).toBeTruthy();
     expect(within(popover).getByText(/Conservation needs an alignment/)).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('group', { name: 'Layer options' })).toBeNull();
   });
 });

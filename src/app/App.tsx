@@ -46,6 +46,7 @@ import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
 import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
+import { TrackTooltipProvider } from './components/hub/TrackTooltip';
 import {
     useAppLogger,
     useBioWorker,
@@ -338,6 +339,7 @@ const App: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <TrackTooltipProvider>
     <div
       className="app-root flex flex-col h-screen bg-slate-900 text-slate-200 overflow-hidden font-sans select-none"
       data-env={envAccent}
@@ -567,6 +569,7 @@ const App: React.FC = () => {
       <TooltipLayer />
 
     </div>
+    </TrackTooltipProvider>
   );
 };
 

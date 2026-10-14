@@ -39,13 +39,13 @@ function Subject({ initial = [record] }: { initial?: SeqRecord[] }) {
   </>;
 }
 describe('display names', () => {
-  it('shows the name first and the monospace accession in both index and header', () => {
+  it('shows the name first in the index and the accession first in the header', () => {
     render(<Subject />);
     for (const root of [screen.getByRole('button', { name: 'Jump to sequence workspace' }), screen.getByRole('region', { name: 'Pinned section' })]) {
       const name = within(root).getByText('EMC reference');
       const accession = within(root).getByText('NC_019843');
       expect(accession.className).toContain('font-mono');
-      expect(name.compareDocumentPosition(accession) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(name.compareDocumentPosition(accession) & (root.getAttribute('aria-label') === 'Pinned section' ? Node.DOCUMENT_POSITION_PRECEDING : Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     }
   });
   it('renames without changing identity and Find sequence matches the new name', () => {

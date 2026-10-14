@@ -21,20 +21,20 @@ import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
 import { isDetailEdited, readDetails, validateDetail } from '@/src/domain/bio/details';
 
 const fields: { key: DetailKey; label: string }[] = [
-  { key: 'host', label: 'Host' }, { key: 'location', label: 'Location' }, { key: 'collectionDate', label: 'Collection date' },
+  { key: 'host', label: 'Host' }, { key: 'location', label: 'Location' }, { key: 'collectionDate', label: 'Collected' },
 ];
-export default function DetailsLine({ record }: { record: SeqRecord }) {
+export default function DetailsLine({ record, onAdd }: { record: SeqRecord; onAdd?: (field: DetailKey) => void }) {
   const details = readDetails(record);
-  const visible = fields.filter(({ key }) => details[key] || isDetailEdited(record, key));
-  return <span className="flex min-w-0 gap-3 overflow-hidden">
-    {visible.length ? visible.map(({ key, label }) => {
+  return <span className="flex min-w-0 gap-1.5 overflow-hidden">
+    {fields.map(({ key, label }) => {
       const edited = isDetailEdited(record, key);
       const warning = edited ? validateDetail(key, details[key] ?? '') : null;
-      return <span key={key} data-detail={key} className={`min-w-0 truncate ${warning ? 'text-amber-700' : ''}`}>
+      if (!details[key] && onAdd) return <button key={key} onClick={() => onAdd(key)} className="whitespace-nowrap rounded-lg border border-dashed border-slate-300 px-2 text-slate-500 hover:text-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">+ {label}</button>;
+      return <span key={key} data-detail={key} className={`min-w-0 truncate rounded-lg border px-2 ${edited ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'} ${warning ? 'text-amber-700' : ''}`}>
         <span title={warning ?? `${label}: ${details[key] || 'Not specified'}`}><span>{label}: </span><span>{details[key] || 'Not specified'}</span></span>
         {edited && <span className="ml-1 text-[10px]">· edited</span>}
         {warning && <span aria-label={`Warning: ${warning}`} className="ml-1"><i aria-hidden="true" className="fas fa-exclamation-triangle" /></span>}
       </span>;
-    }) : 'No details specified'}
+    })}
   </span>;
 }

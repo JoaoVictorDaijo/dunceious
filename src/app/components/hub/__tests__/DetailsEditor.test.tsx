@@ -123,6 +123,12 @@ it('names each compact detail while omitting organism from the line', () => {
   const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
   expect(pinned.getByText('Host:')).toBeTruthy();
   expect(pinned.getByText('Location:')).toBeTruthy();
-  expect(pinned.getByText('Collection date:')).toBeTruthy();
+  expect(pinned.getByText('Collected:')).toBeTruthy();
   expect(pinned.queryByText('MERS-CoV')).toBeNull();
+});
+
+it('opens a missing detail chip with focus on that field', () => {
+  render(<Subject />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' }));
+  expect(document.activeElement).toBe(screen.getByLabelText('Host'));
 });

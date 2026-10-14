@@ -41,13 +41,13 @@ describe('HubList', () => {
     const pinned = screen.getByRole('region', { name: 'Pinned section' });
     const header = pinned.firstElementChild as HTMLElement;
     const row = screen.getByText('one-gene').closest('[data-row-key]')!.parentElement!;
-    expect(pinned.style.height).toBe('95px');
-    expect(header.style.height).toBe('95px');
-    expect(row.style.top).toBe('95px');
+    expect(pinned.style.height).toBe('122px');
+    expect(header.style.height).toBe('122px');
+    expect(row.style.top).toBe('122px');
     expect(row.style.height).toBe(density === 'comfortable' ? '64px' : '44px');
     fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
-    expect(pinned.style.height).toBe('89px');
-    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('89px');
+    expect(pinned.style.height).toBe('81px');
+    expect((pinned.firstElementChild as HTMLElement).style.height).toBe('81px');
   });
 
   it('pins the section at the restored offset and recomputes after density and jumps', () => {
@@ -71,7 +71,7 @@ describe('HubList', () => {
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('three')).toBeTruthy();
     const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement;
     const viewport = row?.parentElement?.parentElement;
-    expect(Number.parseFloat(row?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(95);
+    expect(Number.parseFloat(row?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
   });
   it('folds rows and shows the composition summary', () => {
     render(<Subject />); fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Collapse one' }));
@@ -115,4 +115,16 @@ it('keeps other sequence strips bright when one annotation is hovered', () => {
   fireEvent.mouseEnter(screen.getByText('one-gene').closest('[data-row-key]')!);
   const other = screen.getByRole('button', { name: /Genome strip for two/ });
   expect([...other.querySelectorAll('path')].every(path => path.getAttribute('opacity') === '1')).toBe(true);
+});
+
+it('updates the pinned track window from visible rows and hides it after folding', () => {
+  render(<Subject />);
+  const pinned = screen.getByRole('region', { name: 'Pinned section' });
+  const band = pinned.querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.hidden).toBe(false);
+  expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
+  expect(pinned.querySelector('[data-track-window-label]')?.textContent).toBe('6–25 in view');
+  expect(pinned.firstElementChild?.className).toContain('bg-amber-50/95');
+  fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
+  expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });

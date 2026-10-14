@@ -22,7 +22,7 @@ import { VariableSizeList } from 'react-window';
 import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, QuantitativeTrack, SequenceDetails, DetailKey } from '@/src/domain/bio/types';
 import { readDetails } from '@/src/domain/bio/details';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
 import type { HubFocusOrigin } from '../AnnotationHubPanel';
@@ -129,10 +129,20 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveOffset();
   }, [saveOffset]);
+  const updateWindow = (index: number, value: number) => {
+    const header = entries[index];
+    if (kind !== 'sequences' || header?.type !== 'header' || folded(header.key)) { state.trackWindow.update(null); return; }
+    const top = value + Math.max(0, starts[index] - value) + header.size;
+    const visible = entries.flatMap((entry, i) => entry.sectionKey === header.sectionKey && entry.type === 'row' && starts[i] + entry.size > top && starts[i] < value + height ? [entry.feature] : []);
+    const record = (header.item as SequenceSection).record;
+    state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: visible[0].start, end: visible.at(-1)!.end } : null);
+  };
+  useLayoutEffect(() => { updateWindow(pinnedIndex, offset); }, [entries, offset, pinnedIndex]);
   const onScroll = ({ scrollOffset: value }: { scrollOffset: number }) => {
     scrollOffset.current = Math.min(value, maxOffset);
     let index = entries.findIndex(entry => entry.type === 'header');
     for (let i = 0; i < entries.length && starts[i] <= scrollOffset.current; i++) if (entries[i].type === 'header') index = i;
+    updateWindow(index, scrollOffset.current);
     const section = entries[index]?.sectionKey ?? null;
     if (section !== activeSection.current) {
       activeSection.current = section;
@@ -192,7 +202,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     }
     state.setTab('sequences'); jump(key);
   }, [records, state.filters, state.setFilters, state.setTab, jump, onNotice]);
-  const edit = useCallback((id: string, kind: 'details' | 'name') => {
+  const edit = useCallback((id: string, kind: 'details' | 'name', field: DetailKey = 'organism') => {
+    state.setDetailsField(field);
     if (editor?.id === id && editor.kind === kind) { open(id); jump(id); return; }
     const record = records.find(record => record.id === draft?.id);
     const currentDetails = record ? readDetails(record) : {};
@@ -205,7 +216,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     onFold: () => fold(item.key),
     onSelect: () => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(item.key)) next.delete(item.key); else next.add(item.key); return next; }),
     onVisibility: () => onToggleRecordVisibility?.(item.key),
-    onEditDetails: onSetRecordDetails ? () => edit(item.key, 'details') : undefined,
+    onEditDetails: onSetRecordDetails ? (field?: DetailKey) => edit(item.key, 'details', field) : undefined,
     onRename: onSetRecordLabel ? () => edit(item.key, 'name') : undefined,
     onPick: (feature: BioFeature) => {
       if (kind === 'sequences') { const section = item as SequenceSection;
@@ -221,11 +232,11 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
+    return <SequenceSectionHeader current={entry.key === pinned?.sectionKey} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
-    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor record={entry.record} draft={draft?.id === entry.record.id ? draft.details ?? {} : {}} onChange={details => setDraft({ id: entry.record.id, details })} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} label={draft?.id === entry.record.id ? draft.label ?? entry.record.label ?? '' : entry.record.label ?? ''} onChange={label => setDraft({ id: entry.record.id, label })} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
+    if (entry.type === 'editor') return <div style={style}>{entry.editor === 'details' ? <DetailsEditor focusField={state.detailsField} record={entry.record} draft={draft?.id === entry.record.id ? draft.details ?? {} : {}} onChange={details => setDraft({ id: entry.record.id, details })} onSave={details => { onSetRecordDetails?.(entry.record.id, details); closeEditor(); }} onCancel={closeEditor} /> : <DisplayNameEditor record={entry.record} label={draft?.id === entry.record.id ? draft.label ?? entry.record.label ?? '' : entry.record.label ?? ''} onChange={label => setDraft({ id: entry.record.id, label })} onSave={label => { onSetRecordLabel?.(entry.record.id, label); closeEditor(); }} onCancel={closeEditor} />}</div>;
     if (entry.type === 'spacer') return <div style={style} />;
     if (entry.type === 'header') return <div style={{ ...style, visibility: index === pinnedIndex ? 'hidden' : undefined }}>{header(entry)}</div>;
     if (entry.type === 'divider') return <div style={style} className="bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-600">{entry.label} · {entry.count}</div>;

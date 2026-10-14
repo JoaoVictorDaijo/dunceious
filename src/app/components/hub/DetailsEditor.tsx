@@ -28,7 +28,7 @@ const fields: { key: DetailKey; label: string; placeholder: string }[] = [
   { key: 'location', label: 'Location', placeholder: 'Country or Country:Region' },
   { key: 'collectionDate', label: 'Collection date', placeholder: 'YYYY, Mon-YYYY or YYYY-MM-DD' },
 ];
-export default function DetailsEditor({ record, draft, onChange, onSave, onCancel }: { record: SeqRecord; draft: SequenceDetails; onChange: (details: SequenceDetails) => void; onSave: (details: SequenceDetails) => void; onCancel: () => void }) {
+export default function DetailsEditor({ record, focusField = 'organism', draft, onChange, onSave, onCancel }: { focusField?: DetailKey; record: SeqRecord; draft: SequenceDetails; onChange: (details: SequenceDetails) => void; onSave: (details: SequenceDetails) => void; onCancel: () => void }) {
   const details = { ...readDetails(record), ...draft };
   const id = useId();
   return <form aria-label={`Details for ${record.id}`} className="h-full overflow-y-auto border-b border-slate-200 bg-white px-5 py-4 text-xs text-slate-700" onSubmit={event => { event.preventDefault(); onSave(draft); }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onCancel(); } }}>
@@ -42,7 +42,7 @@ export default function DetailsEditor({ record, draft, onChange, onSave, onCance
           <label htmlFor={`${id}-${key}`} className="block font-semibold">{label}</label>
           <span className="font-mono text-slate-500">/{qualifier}</span>
           {edited && <span className="ml-2 text-amber-700">edited</span>}
-          <input id={`${id}-${key}`} autoFocus={key === 'organism'} value={value} placeholder={placeholder} list={key === 'location' ? `${id}-countries` : undefined} aria-invalid={Boolean(warning)} aria-describedby={warning ? `${id}-${key}-warning` : undefined} className={`mt-1 w-full rounded border bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${warning ? 'border-amber-500 text-amber-800' : 'border-slate-300'}`} onChange={event => onChange({ ...draft, [key]: event.target.value })} />
+          <input id={`${id}-${key}`} autoFocus={key === focusField} value={value} placeholder={placeholder} list={key === 'location' ? `${id}-countries` : undefined} aria-invalid={Boolean(warning)} aria-describedby={warning ? `${id}-${key}-warning` : undefined} className={`mt-1 w-full rounded border bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${warning ? 'border-amber-500 text-amber-800' : 'border-slate-300'}`} onChange={event => onChange({ ...draft, [key]: event.target.value })} />
           {warning && <p id={`${id}-${key}-warning`} className="mt-1 text-amber-700">{warning}</p>}
           {edited && <button type="button" aria-label={`Revert ${label} to the file's value`} className="mt-1 py-1 text-amber-700 underline focus-visible:ring-2 focus-visible:ring-amber-500" onClick={() => onChange({ ...draft, [key]: record.fileDetails?.[key] ?? '' })}>Revert to the file's value</button>}
         </div>;

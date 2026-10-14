@@ -25,6 +25,7 @@ import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { createHub100x60 } from '@/src/app/testing/fixtures/hub100x60';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import GenomeStrip from '../GenomeStrip';
+import { TrackTooltipProvider } from '../TrackTooltip';
 import HubIndex from '../HubIndex';
 import HubList from '../HubList';
 const record: SeqRecord = { id: 'contig', name: 'contig', sequence: 'A'.repeat(100), features: [
@@ -54,7 +55,7 @@ describe('genome strips', () => {
     const start = vi.spyOn(feature, 'start', 'get');
     const cachedRecord = { ...record, features: [feature] };
     const first = render(<GenomeStrip record={cachedRecord} highlight={() => true} />);
-    expect(first.container.querySelector('path')!.getAttribute('d')).toBe('M100 0h200v2h-200Z');
+    expect(first.container.querySelector('path')!.getAttribute('d')).toBe('M100 3h200v5.6h-200Z');
     start.mockClear();
     first.rerender(<GenomeStrip record={cachedRecord} highlight={() => false} />);
     expect(first.container.querySelector('path')!.getAttribute('opacity')).toBe('0.25');
@@ -71,10 +72,10 @@ describe('genome strips', () => {
     first.rerender(<GenomeStrip record={updated} featureColors={{ gene: '#654321' }} large onPick={pick} />);
     const strip = screen.getByRole('button', { name: 'Genome strip for contig: 1 annotation' });
     const path = strip.querySelector('path')!;
-    expect(path.getAttribute('d')).toBe('M400 0h200v5h-200Z');
+    expect(path.getAttribute('d')).toBe('M400 8h200v7h-200Z');
     expect(path.getAttribute('fill')).toBe('#654321');
-    mockBounds(strip);
-    fireEvent.click(strip, { clientX: 500, clientY: 2 });
+    mockBounds(strip, 25);
+    fireEvent.click(strip, { clientX: 500, clientY: 10 });
     expect(pick).toHaveBeenCalledWith(updated.features[0]);
     first.rerender(<GenomeStrip record={updated} featureColors={{ gene: '#abcdef' }} large onPick={pick} />);
     expect(strip.querySelector('path')!.getAttribute('fill')).toBe('#abcdef');
@@ -106,11 +107,11 @@ describe('genome strips', () => {
     const pick = vi.fn();
     render(<GenomeStrip record={{ ...record, features: [crossing, joined], isCircular: true }} large onPick={pick} />);
     const strip = screen.getByRole('button', { name: 'Genome strip for contig: 2 annotations' });
-    mockBounds(strip, 12);
-    fireEvent.click(strip, { clientX: 950, clientY: 2 });
-    fireEvent.click(strip, { clientX: 50, clientY: 2 });
-    fireEvent.click(strip, { clientX: 750, clientY: 8 });
-    fireEvent.click(strip, { clientX: 500, clientY: 8 });
+    mockBounds(strip, 34);
+    fireEvent.click(strip, { clientX: 950, clientY: 10 });
+    fireEvent.click(strip, { clientX: 50, clientY: 10 });
+    fireEvent.click(strip, { clientX: 750, clientY: 24 });
+    fireEvent.click(strip, { clientX: 500, clientY: 24 });
     expect(pick.mock.calls.map(call => call[0])).toEqual([crossing, crossing, joined]);
   });
   it('steps in position order, announces location and jumps by keyboard with visible feature focus', () => {
@@ -131,4 +132,22 @@ describe('genome strips', () => {
     fireEvent.blur(strip);
     expect(strip.querySelector('[data-strip-focus]')).toBeNull();
   });
+});
+
+it('shows CDS hover details once per feature and exposes the same keyboard details', () => {
+  const cds = { ...record.features[0], type: 'CDS', name: 'enzyme', end: 30, metadata: { codon_start: '2' } };
+  render(<TrackTooltipProvider><GenomeStrip record={{ ...record, features: [cds] }} large onPick={noop} /></TrackTooltipProvider>);
+  const strip = screen.getByRole('button', { name: /Genome strip/ });
+  mockBounds(strip, 25);
+  fireEvent.mouseMove(strip, { clientX: 50, clientY: 8 });
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip.textContent).toContain('30 bp · 9 aa');
+  expect(tooltip.textContent).toContain('1..30');
+  expect(tooltip.textContent).toContain('forward (+)');
+  expect(tooltip.textContent).toContain('contig');
+  expect(tooltip.textContent).toContain('Click to jump to the row');
+  fireEvent.mouseMove(strip, { clientX: 60, clientY: 8 });
+  expect(screen.getByRole('tooltip')).toBe(tooltip);
+  fireEvent.mouseLeave(strip); expect(screen.queryByRole('tooltip')).toBeNull();
+  fireEvent.focus(strip); expect(screen.getByRole('tooltip').textContent).toContain('enzyme');
 });

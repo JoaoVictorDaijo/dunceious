@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
 import type { ThemeKey } from '@/src/app/logic/theme';
@@ -85,6 +85,13 @@ const TopNav: React.FC<TopNavProps> = ({
   sessionMoleculeType,
 }) => {
   const [layersOpen, setLayersOpen] = useState(false);
+  const layersElement = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!layersOpen) return;
+    const outside = (event: PointerEvent) => { if (!layersElement.current?.contains(event.target as Node)) setLayersOpen(false); };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [layersOpen]);
   const layers = [
     { label: 'Annotations', on: showAnnotations, onToggle: onToggleAnnotations, dot: 'bg-sky-400 text-sky-400',
       tip: 'the annotation lanes above each sequence' },
@@ -210,7 +217,7 @@ const TopNav: React.FC<TopNavProps> = ({
               </button>
             ))}
           </div>
-          <div className="relative 2xl:hidden">
+          <div ref={layersElement} className="relative 2xl:hidden">
             <button aria-label={`Layers ${layers.filter(layer => layer.on).length}/4`} aria-expanded={layersOpen} data-tip="Choose viewport layers" onClick={() => setLayersOpen(open => !open)} className="h-10 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">
               Layers {layers.filter(layer => layer.on).length}/4
               <span className="flex gap-1" aria-hidden="true">{layers.map(layer => <span key={layer.label} className={`h-1.5 w-1.5 rounded-full ${layer.on && !layer.disabledReason ? layer.dot : 'bg-slate-600'}`} />)}</span>

@@ -20,11 +20,11 @@
 import { useId } from 'react';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
-export default function DisplayName({ record, onRename }: { record: SeqRecord; onRename?: () => void }) {
+export default function DisplayName({ record, onRename, accessionFirst, current }: { record: SeqRecord; onRename?: () => void; accessionFirst?: boolean; current?: boolean }) {
   return <span className="inline-flex min-w-0 items-center gap-2">
-    <span className="truncate font-semibold">{record.label || record.accession || record.id}</span>
-    {record.label && <> <span className="truncate font-mono text-[10px] font-normal">{record.accession || record.id}</span></>}
-    {onRename && <button aria-label={`Rename ${record.id}`} onClick={onRename} className="p-2 text-slate-500 focus-visible:ring-2 focus-visible:ring-amber-500"><i aria-hidden="true" className="fas fa-pen" /></button>}
+    <span className={`truncate font-semibold ${accessionFirst ? 'font-mono font-bold' : ''} ${current ? 'text-amber-800' : ''}`}>{accessionFirst ? record.accession || record.id : record.label || record.accession || record.id}</span>
+    {record.label && <> <span className="truncate font-mono text-[10px] font-normal">{accessionFirst ? record.label : record.accession || record.id}</span></>}
+    {onRename && <button aria-label={`Rename ${record.id}`} data-tip="Rename sequence" onClick={onRename} className="p-2 text-slate-500 focus-visible:ring-2 focus-visible:ring-amber-500"><i aria-hidden="true" className="fas fa-pen" /></button>}
   </span>;
 }
 

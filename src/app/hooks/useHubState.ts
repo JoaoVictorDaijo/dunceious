@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useReducer, useRef, useState, type SetStateAction } from 'react';
+import { createTrackWindow } from '@/src/app/components/hub/trackWindow';
 import type { SequenceDetails } from '@/src/domain/bio/types';
 import type { GroupField, HubFilters, SortOrder } from '@/src/app/logic/hubModel';
 
@@ -44,6 +45,8 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
 }
 
 export function useHubState() {
+  const [trackWindow] = useState(createTrackWindow);
+  const [detailsField, setDetailsField] = useState<keyof SequenceDetails>('organism');
   const [tab, setTab] = useState<HubTab>('sequences');
   const [grouped, setGrouped] = useState(false);
   const [groupField, setGroupField] = useState<GroupField>('organism');
@@ -77,6 +80,7 @@ export function useHubState() {
   const workspaceRevision = useRef(0);
   const resetWorkspace = useCallback(() => {
     workspaceRevision.current++;
+    trackWindow.update(null);
     setSelectedRecords(new Set());
     setSelectedRows(new Set());
     setFilters({ query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false });
@@ -92,10 +96,10 @@ export function useHubState() {
     setDraft(null);
     setOnlyProblemsValue(false);
     setTab('sequences');
-  }, [setFilters, setSearchFolds]);
+  }, [setFilters, setSearchFolds, trackWindow]);
 
   return {
-    workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
+    trackWindow, detailsField, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
