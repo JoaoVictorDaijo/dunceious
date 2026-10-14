@@ -66,3 +66,25 @@ it('carries the source feature index even when features share a span', () => {
   const cds = { ...gene, type: 'CDS', name: 'protein' };
   expect(featureFocusTarget(record({ features: [gene, cds] }), cds)).toMatchObject({ featureIndex: 1, start: 2, end: 6 });
 });
+
+
+it('focuses authoritative joined segments beyond a stale envelope', () => {
+  const feature: BioFeature = { type: 'gene', name: 'extended', start: 100, end: 200, strand: 1,
+    segments: [{ start: 100, end: 130 }, { start: 180, end: 900 }] };
+  expect(targetFor(record({ sequence: 'A'.repeat(1000) }), feature))
+    .toMatchObject({ start: 100, end: 900, length: 750 });
+});
+
+it('maps authoritative segment bounds into alignment columns', () => {
+  const feature: BioFeature = { type: 'gene', name: 'extended', start: 1, end: 3, strand: 1,
+    segments: [{ start: 1, end: 2 }, { start: 3, end: 7 }] };
+  expect(targetFor(record({ alignedSequence: '--AC--GTACGT--' }), feature))
+    .toMatchObject({ start: 3, end: 11, length: 5 });
+});
+
+it('keeps the circular envelope of edited high and low segment groups', () => {
+  const feature: BioFeature = { type: 'gene', name: 'origin', start: 80, end: 20, strand: -1,
+    segments: [{ start: 70, end: 85 }, { start: 90, end: 100 }, { start: 0, end: 5 }, { start: 10, end: 30 }] };
+  expect(targetFor(record({ sequence: 'A'.repeat(100), isCircular: true }), feature))
+    .toMatchObject({ start: 70, end: 30 });
+});

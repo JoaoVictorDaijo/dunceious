@@ -137,3 +137,21 @@ it('marks new annotations added and keeps that provenance through later edits', 
   expect(saveEditedFeature(input, 'r1', 0, feat({ name: 'edit file' }))[0].features[0].hubEdit).toBe('edited');
   expect(original.hubEdit).toBeUndefined();
 });
+
+
+it('synchronizes the envelope after extending an edited segment', () => {
+  const original = feat({ name: 'joined', start: 100, end: 200,
+    segments: [{ start: 100, end: 130 }, { start: 180, end: 200 }] });
+  const edited = { ...original, segments: [{ start: 100, end: 130 }, { start: 180, end: 900 }] };
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(1000), features: [original] })];
+  const saved = saveEditedFeature(records, 'r1', 0, edited)[0].features[0];
+  expect(saved).toMatchObject({ start: 100, end: 900, segments: edited.segments, hubEdit: 'edited' });
+  expect(original.end).toBe(200);
+});
+
+it('synchronizes an edited circular join without flattening its wrap', () => {
+  const feature = feat({ name: 'origin', start: 80, end: 20,
+    segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] });
+  const records = [rec({ id: 'r1', sequence: 'A'.repeat(100), isCircular: true, features: [feature] })];
+  expect(saveEditedFeature(records, 'r1', 0, feature)[0].features[0]).toMatchObject({ start: 70, end: 30 });
+});
