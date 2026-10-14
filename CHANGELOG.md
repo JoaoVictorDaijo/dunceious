@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Remote protein alignments restore terminal stops with gap padding, preserving stop annotations and aligned FASTA residues.
+
 - Removing a sequence discards its inline detail and display-name drafts before its ID can be reused.
 
 - Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted targets.
