@@ -445,6 +445,9 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
+          onExportProjectJson={exportProjectJson}
+          onClearAll={handleClearAll}
+          workspaceEmpty={!records.length}
           hubState={hubState}
           featureColors={featureColors}
           onToggleRecordVisibility={toggleRecordVisibility}

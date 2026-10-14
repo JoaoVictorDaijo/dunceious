@@ -23,7 +23,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within, act } from '@/src/app/testing/renderHarness';
 import TopNav, { type TopNavProps } from '../TopNav';
 import HubToolbar from '../hub/HubToolbar';
-import MoreMenu from '../hub/MoreMenu';
+import ImportMenu from '../hub/ImportMenu';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { createPortal } from 'react-dom';
 const noop = () => {};
@@ -32,7 +32,7 @@ function Subject() {
   const [mode, setMode] = useState<'alignment' | 'features'>('alignment');
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const state = useHubState();
-  return <><TopNav {...defaults} activeTab={mode} onTabChange={setMode} showAlignmentControls={mode === 'alignment'} toolsRef={setSlot} />{mode === 'features' && slot && createPortal(<HubToolbar state={state} matchIndex={-1} matchCount={0} onNavigate={noop} onAdd={noop} onExport={noop} more={<MoreMenu state={state} onSave={noop} onClear={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} />} />, slot)}</>;
+  return <><TopNav {...defaults} activeTab={mode} onTabChange={setMode} showAlignmentControls={mode === 'alignment'} toolsRef={setSlot} />{mode === 'features' && slot && createPortal(<HubToolbar state={state} matchIndex={-1} matchCount={0} onNavigate={noop} onExport={noop} imports={<ImportMenu state={state} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} />} />, slot)}</>;
 }
 describe('workspace header', () => {
   it('keeps the same centred switcher and swaps only the tools', () => {
@@ -48,7 +48,8 @@ describe('workspace header', () => {
     expect(structure.includes('Visual Viewport')).toBe(true);
     const tools = screen.getByLabelText('Workspace tools');
     expect(within(tools).getByRole('searchbox', { name: 'Search annotations' })).toBeTruthy();
-    for (const name of ['Add annotation', 'Export…', 'More workspace actions']) expect(within(tools).getByRole('button', { name })).toBeTruthy();
+    for (const name of ['Import', 'Export…']) expect(within(tools).getByRole('button', { name })).toBeTruthy();
+    expect(within(tools).queryByRole('button', { name: 'Add annotation' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Drag mode' })).toBeNull();
   });
   it('toggles layers in the popover and explains unavailable layers', () => {

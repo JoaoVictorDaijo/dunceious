@@ -217,28 +217,34 @@ it('keeps a header and its rows inside one card with deterministic gaps and bord
 });
 
 
-it('shows a slim live bar only after the full header is gone and pushes it out at the card end', () => {
+it('pins the slim live bar as soon as the full header starts to scroll away and pushes it out at the card end', () => {
   const sequence = { ...records[0], features: Array.from({ length: 12 }, (_, i) => ({ name: `row${i}`, type: 'gene', start: i * 5, end: i * 5 + 4, strand: 1 as const })) };
   function Slim() { const state = useHubState(); return <HubList state={state} kind="sequences" height={180} items={buildSequenceSections([sequence, records[1]], state.filters, { grouped: false }, 'load')} />; }
   const { container } = render(<Slim />);
   const viewport = container.querySelector<HTMLElement>('.scrollbar-on-light')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 1000 } });
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
-  fireEvent.scroll(viewport, { target: { scrollTop: 140 } });
-  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  fireEvent.scroll(viewport, { target: { scrollTop: 15 } });
+  const collapsing = screen.getByRole('region', { name: 'Pinned section' });
+  expect(Number.parseFloat(collapsing.style.height)).toBeGreaterThan(44);
+  expect(collapsing.querySelector<HTMLElement>('[data-pinned-expanded]')!.style.opacity).toBe('1');
+  expect(collapsing.dataset.compact).toBe('false');
   fireEvent.scroll(viewport, { target: { scrollTop: 141 } });
   const bar = screen.getByRole('region', { name: 'Pinned section' });
   expect(bar.style.height).toBe('44px');
   expect(bar.style.left).toBe('14px');
   expect(bar.style.right).toBe('14px');
   expect(bar.className).toContain('border-x');
-  expect(bar.querySelector('[data-section-surface]')).toBeNull();
+  expect(bar.dataset.compact).toBe('true');
+  expect(bar.querySelector<HTMLElement>('[data-pinned-expanded]')!.style.opacity).toBe('0');
+  expect(bar.querySelector<HTMLElement>('[data-pinned-compact]')!.style.opacity).toBe('1');
   const fullBand = container.querySelector<HTMLElement>('[data-hub-card="one"] [data-track-window]')!;
-  const band = bar.querySelector<HTMLElement>('[data-track-window]')!;
+  const band = bar.querySelector<HTMLElement>('[data-pinned-compact] [data-track-window]')!;
   expect(band.style.left).toBe(fullBand.style.left);
   expect(band.style.width).toBe(fullBand.style.width);
   fireEvent.scroll(viewport, { target: { scrollTop: 650 } });
   expect(bar.style.top).toBe('-25px');
+  // The first card has left; the second header has not yet reached the top edge in this short list.
   fireEvent.scroll(viewport, { target: { scrollTop: 670 } });
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
 });

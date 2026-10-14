@@ -32,7 +32,7 @@ export default function HubEmptyState({ kind, locked, onImport, onClearFilters, 
       <h2 className="text-[15px] font-semibold text-slate-800">No sequences yet</h2>
       <p className="mt-2 max-w-md">Drop GenBank or FASTA files anywhere on this panel, or import them.</p>
       <button disabled={locked} onClick={onImport} className="mt-4 rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:cursor-default disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env">Import sequences…</button>
-      <p className="mt-3 max-w-md text-xs">Pre-aligned FASTA, annotation files and projects are in the More menu <i aria-hidden="true" className="fas fa-ellipsis ml-1" /></p>
+      <p className="mt-3 max-w-md text-xs">Annotations, pre-aligned FASTA and projects are in the Import menu <i aria-hidden="true" className="fas fa-file-import ml-1" /></p>
     </> : <>
       <p>{kind === 'hidden' ? 'All sequences are hidden in the hub' : 'No annotations match these filters'}</p>
       <button onClick={kind === 'hidden' ? onShowAll : onClearFilters} className="mt-2 rounded px-2 py-1 text-amber-700 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env">{kind === 'hidden' ? 'Show all' : 'Clear filters'}</button>

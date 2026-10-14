@@ -64,18 +64,19 @@ describe('hub workspace identity', () => {
   });
   it('clears old selections before a cleared workspace imports the same IDs', async () => {
     const workers = await setup();
-    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' })); fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' })); fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
     await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'new.fa', records: [record('r', 'new'), record('fresh', 'fresh')] } }));
     expect(screen.getByRole('button', { name: 'Jump to sequence fresh' })).toBeTruthy();
     expect((screen.getByLabelText('Select annotation new on r') as HTMLInputElement).checked).toBe(false);
     expect(screen.queryByLabelText('Selection actions')).toBeNull();
   });
-  it('keeps the hub log collapsed until requested and preserves the viewport log', async () => {
-    await setup(); const disclosure = screen.getByText('Log').closest('details');
+  it('keeps one collapsed Log Terminal whose open state carries across workspaces', async () => {
+    await setup(); const disclosure = screen.getByText('Log Terminal').closest('details');
     expect(disclosure).not.toBeNull(); expect(disclosure?.open).toBe(false);
-    fireEvent.click(screen.getByText('Log')); expect(disclosure?.open).toBe(true);
+    fireEvent.click(screen.getByText('Log Terminal')); expect(disclosure?.open).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
-    expect(screen.getByText('Log Terminal')).toBeTruthy();
+    expect(screen.getByText('Log Terminal').closest('details')).toBe(disclosure);
+    expect(disclosure?.open).toBe(true);
   });
   it('prunes annotation selection when its record is removed', async () => {
     await setup(); fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
@@ -159,15 +160,17 @@ it('keeps a surviving keyboard cursor on its annotation through deletion and und
   expect(screen.getByText('match-C').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
 });
 
+function searchCounter() { return document.querySelector('[aria-live="polite"]')?.textContent?.replace(/\s+/g, ' ').trim(); }
+
 it('clears a deleted search cursor and steps from the first remaining match', async () => {
   await loadCursorRows();
   const search = screen.getByRole('searchbox', { name: 'Search annotations' });
   fireEvent.change(search, { target: { value: 'match-' } });
   fireEvent.keyDown(search, { key: 'Enter' });
   fireEvent.keyDown(search, { key: 'Enter' });
-  expect(screen.getByText('2 / 3')).toBeTruthy();
+  expect(searchCounter()).toBe('2 / 3');
   fireEvent.click(screen.getByRole('button', { name: 'Delete match-B on cursor' }));
-  expect(screen.getByText('0 / 2')).toBeTruthy();
+  expect(searchCounter()).toBe('0 / 2');
   fireEvent.keyDown(search, { key: 'Enter' });
   expect(screen.getByText('match-A').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
 });
@@ -203,13 +206,13 @@ it.each(['keyboard', 'search'])('clears the removed record %s cursor before ID r
     const search = screen.getByRole('searchbox', { name: 'Search annotations' });
     fireEvent.change(search, { target: { value: 'old' } });
     fireEvent.keyDown(search, { key: 'Enter' });
-    expect(screen.getByText('1 / 1')).toBeTruthy();
+    expect(searchCounter()).toBe('1 / 1');
   } else {
     fireEvent.click(screen.getByText('old').closest('[data-row-key]')!);
   }
   fireEvent.click(screen.getByRole('button', { name: 'Remove…' }));
   await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'reuse.fa', records: [record('r', 'old')] } }));
-  if (kind === 'search') expect(screen.getByText('0 / 1')).toBeTruthy();
+  if (kind === 'search') expect(searchCounter()).toBe('0 / 1');
   fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'x' });
   expect((screen.getByLabelText('Select annotation old on r') as HTMLInputElement).checked).toBe(false);
 });

@@ -47,7 +47,7 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={event => { uploaded(event); if (loadOnUpload) setValue(loadOnUpload); }} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} locked={locked} empty={!value.length} onExportProjectJson={noop} onClearAll={noop} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={event => { uploaded(event); if (loadOnUpload) setValue(loadOnUpload); }} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
@@ -110,8 +110,8 @@ describe('AnnotationHubPanel', () => {
   it('searches annotations and advances through matches with Enter', () => {
     render(<Subject />); const search = screen.getByRole('searchbox', { name: 'Search annotations' });
     fireEvent.change(search, { target: { value: 'ORF4b' } }); fireEvent.keyDown(search, { key: 'Enter' });
-    expect(screen.getByText('1 / 3')).toBeTruthy();
-    fireEvent.keyDown(search, { key: 'Enter' }); expect(screen.getByText('2 / 3')).toBeTruthy();
+    expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 3')).toBeTruthy();
+    fireEvent.keyDown(search, { key: 'Enter' }); expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '2 / 3')).toBeTruthy();
   });
   it('moves the current row with J and selects it with X while ignoring text fields', () => {
     render(<Subject />); const hub = screen.getByRole('region', { name: 'Annotation Hub' });
@@ -132,17 +132,22 @@ describe('AnnotationHubPanel', () => {
     expect(document.activeElement).toBe(checkbox);
   });
   it('disables destructive and import actions during alignment lock', () => {
-    const dropped = vi.fn(); render(<Subject locked dropped={dropped} />);
+    const dropped = vi.fn(); render(<Subject locked index dropped={dropped} />);
     expect(screen.getByRole('button', { name: 'Delete ORF4b on seq0' }).hasAttribute('disabled')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    expect(screen.getByRole('menuitem', { name: 'Alignment' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' }));
     expect(screen.getByRole('menuitem', { name: 'Clear workspace…' }).hasAttribute('disabled')).toBe(true);
-    expect(screen.getByRole('menuitem', { name: 'Sequences…' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    expect(screen.getByRole('menuitem', { name: 'Sequences' }).hasAttribute('disabled')).toBe(true);
     fireEvent.drop(screen.getByRole('region', { name: 'Annotation Hub' }), { dataTransfer: { files: [new File([''], 'a.fa')] } });
     expect(dropped).not.toHaveBeenCalled();
   });
   it('closes an open menu before clearing the selection with Esc', () => {
     render(<Subject />); fireEvent.click(screen.getByLabelText('Select annotation ORF4b on seq0'));
-    fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
     fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect((screen.getByLabelText('Select annotation ORF4b on seq0') as HTMLInputElement).checked).toBe(true);
@@ -251,7 +256,7 @@ it('confirms before replacing a dirty details draft with another editor', () => 
 });
 
 it('shows a lock notice for a blocked drop', () => {
-  const dropped = vi.fn(); render(<Subject locked dropped={dropped} />);
+  const dropped = vi.fn(); render(<Subject locked index dropped={dropped} />);
   fireEvent.drop(screen.getByRole('region', { name: 'Annotation Hub' }), { dataTransfer: { files: [new File(['ACGT'], 'x.fa')] } });
   expect(dropped).not.toHaveBeenCalled();
   expect(screen.getByRole('status').textContent).toMatch(/alignment.*lock/i);
@@ -329,7 +334,7 @@ it('hides hub sections and search matches, persists across tabs, and restores fr
   expect(hidden.className).toContain('opacity-60');
   expect(within(hidden as HTMLElement).getByText('Hidden in hub')).toBeTruthy();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
-  expect(screen.getByText('0 / 1')).toBeTruthy();
+  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '0 / 1')).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
   const presence = within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('group', { name: 'Presence' });
   expect(within(presence).getByRole('button', { name: 'seq0: hidden' })).toBeTruthy();
@@ -460,13 +465,13 @@ it('keeps the active search match by identity when sorting changes its displayed
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'hit' } });
   fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
   fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
-  expect(screen.getByText('1 / 2')).toBeTruthy();
+  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 2')).toBeTruthy();
   expect(container.querySelector('[data-row-key="seq0:1"]')!.getAttribute('aria-current')).toBe('true');
   fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
-  expect(screen.getByText('2 / 2')).toBeTruthy();
+  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '2 / 2')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
   expect(container.querySelector('[data-row-key="seq0:0"]')!.getAttribute('aria-current')).toBe('true');
-  expect(screen.getByText('1 / 2')).toBeTruthy();
+  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 2')).toBeTruthy();
 });
 it('gives the current feature card an amber full header', () => {
   render(<Subject initial={[records[0]]} />);
@@ -475,20 +480,20 @@ it('gives the current feature card an amber full header', () => {
 });
 
 
-it('explains an empty workspace and shares the More menu sequence picker and upload handler', () => {
+it('explains an empty workspace and shares the Import menu sequence picker and upload handler', () => {
   const upload = vi.fn();
   const { container } = render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
   expect(screen.getByRole('heading', { name: 'No sequences yet' })).toBeTruthy();
   expect(screen.getByText('Drop GenBank or FASTA files anywhere on this panel, or import them.')).toBeTruthy();
-  expect(screen.getByText('Pre-aligned FASTA, annotation files and projects are in the More menu').querySelector('i')?.getAttribute('aria-hidden')).toBe('true');
+  expect(screen.getByText('Annotations, pre-aligned FASTA and projects are in the Import menu').querySelector('i')?.getAttribute('aria-hidden')).toBe('true');
   const picker = screen.getByLabelText('Import sequences files') as HTMLInputElement;
   expect(picker.accept).toBe('.gb,.genbank,.fasta,.fa');
   expect(container.querySelectorAll('[aria-label="Import sequences files"]')).toHaveLength(1);
   const clicked = vi.spyOn(picker, 'click');
   fireEvent.click(screen.getByRole('button', { name: 'Import sequences…' }));
   expect(clicked).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole('button', { name: 'More workspace actions' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Sequences…' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Sequences' }));
   expect(clicked).toHaveBeenCalledTimes(2);
   const file = new File(['>a\nAAAA'], 'sequences.fasta');
   fireEvent.change(picker, { target: { files: [file] } });

@@ -25,6 +25,8 @@ import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { createHub100x60 } from '@/src/app/testing/fixtures/hub100x60';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import GenomeStrip from '../GenomeStrip';
+import { slimBarHeight } from '../SlimSectionBar';
+import type { SequenceSection } from '@/src/app/logic/hubModel';
 import { createTrackWindow } from '../trackWindow';
 import { TrackTooltipProvider } from '../TrackTooltip';
 import HubIndex from '../HubIndex';
@@ -298,6 +300,21 @@ const crowded: SeqRecord = { id: 'crowded', name: 'crowded', sequence: 'A'.repea
   { name: 'reverse-last', type: 'gene', start: 20, end: 80, strand: -1 },
   { name: 'unknown', type: 'gene', start: 40, end: 90, strand: 1, metadata: { _gffStrand: '?' } },
 ] };
+it('draws the full packed track without ruler or strand labels in the slim bar', () => {
+  const { container, rerender } = render(<GenomeStrip record={crowded} large />);
+  const packedBox = container.querySelector('svg')!.getAttribute('viewBox');
+  expect(container.querySelector('[data-track-ruler]')).toBeTruthy();
+  rerender(<GenomeStrip record={crowded} large bare />);
+  const strip = container.querySelector('svg')!;
+  expect(strip.getAttribute('viewBox')).toBe(packedBox);
+  expect(strip.classList.contains('ring-1')).toBe(true);
+  expect(container.querySelector('[data-track-ruler]')).toBeNull();
+  expect(container.textContent).not.toMatch(/[+−]/);
+  const packedHeight = Number(packedBox?.split(' ')[3]);
+  expect(slimBarHeight({ record: crowded, rows: crowded.features } as unknown as SequenceSection, 'sequences')).toBe(Math.max(44, packedHeight + 12));
+  expect(slimBarHeight({} as unknown as SequenceSection, 'features')).toBe(44);
+});
+
 it('uses two eight-pixel slim lanes without changing the packed full-track geometry', () => {
   const { container, rerender } = render(<GenomeStrip record={crowded} large />);
   const packedBox = container.querySelector('svg')!.getAttribute('viewBox');
