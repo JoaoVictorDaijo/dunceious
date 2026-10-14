@@ -62,6 +62,9 @@ export function useHubState() {
   const setSearchFolds = useCallback((value: SetStateAction<Set<string>>) => dispatchFilters({ kind: 'folds', value }), []);
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const [collapsed, setCollapsed] = useState<Record<HubTab, Set<string>>>(() => ({ sequences: new Set(), features: new Set() }));
+  const [hubHidden, setHubHidden] = useState<Set<string>>(() => new Set());
+  const toggleHubHidden = useCallback((id: string) => setHubHidden(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; }), []);
+  const showInHub = useCallback((id: string) => setHubHidden(previous => { if (!previous.has(id)) return previous; const next = new Set(previous); next.delete(id); return next; }), []);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(() => new Set());
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [scrollOffset, setScrollOffset] = useState<Record<HubTab, number>>({ sequences: 0, features: 0 });
@@ -85,6 +88,7 @@ export function useHubState() {
     workspaceRevision.current++;
     trackWindow.update(null);
     setShortcutsOpen(false);
+    setHubHidden(new Set());
     setSelectedRecords(new Set());
     setSelectedRows(new Set());
     setFilters({ query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false });
@@ -103,7 +107,7 @@ export function useHubState() {
   }, [setFilters, setSearchFolds, trackWindow]);
 
   return {
-    shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
+    hubHidden, setHubHidden, toggleHubHidden, showInHub, shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,

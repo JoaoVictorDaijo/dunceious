@@ -34,7 +34,7 @@ function Subject({ initial = [record] }: { initial?: SeqRecord[] }) {
   const state = useHubState();
   const manager = useFeatureManager(records, setRecords, null, () => {});
   return <><output aria-label="Identity">{records[0].id} {records[0].accession} {records[0].name}</output>
-    <button onClick={() => state.setTab('features')}>Features view</button><HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} />
+    <button onClick={() => state.setTab('features')}>Features view</button><HubIndex records={records} state={state} />
     <HubList records={records} items={state.tab === 'sequences' ? buildSequenceSections(records, state.filters, { grouped: false }, 'load') : buildFeatureGroups(records, state.filters, false)} kind={state.tab} state={state} height={500} onSetRecordLabel={manager.setRecordLabel} />
   </>;
 }

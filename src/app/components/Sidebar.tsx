@@ -183,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
-      {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} onToggleRecordVisibility={onToggleRecordVisibility ?? (() => {})} />}
+      {activeTab === 'features' && hubState && <HubIndex records={records} featureColors={featureColors} state={hubState} />}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (
@@ -269,9 +269,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             {records.map(r => (
               <div
                 key={r.id}
-                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all group"
+                className={`w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all motion-reduce:transition-none group ${r.visible === false ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-2">
+                  <button aria-label={`${r.visible === false ? 'Show' : 'Hide'} ${r.id} in viewport`} data-tip={r.visible === false ? 'Show in viewport' : 'Hide in viewport'} onClick={() => onToggleRecordVisibility?.(r.id)} className="h-7 w-7 shrink-0 rounded-lg text-slate-400 hover:bg-env/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className={`fas ${r.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
                   <button
                     onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
                     data-tip={r.name && r.name !== r.id ? `${r.name}: select this record` : 'Select this record'}

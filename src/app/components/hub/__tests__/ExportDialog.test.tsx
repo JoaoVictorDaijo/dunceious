@@ -28,10 +28,10 @@ import * as exportPlan from '@/src/app/logic/exportPlan';
 import ExportDialog, { type ExportDialogProps } from '../ExportDialog';
 
 const records: SeqRecord[] = ['a', 'b', 'c'].map(id => ({ id, name: id, sequence: 'ACGT', features: [] }));
-function Subject({ value = records, selected = ['a', 'b'], onExport = vi.fn(), onEditDetails = vi.fn(), grouped = false, query = '', featureColors = {} }: { value?: SeqRecord[]; selected?: string[]; onExport?: ExportDialogProps['onExport']; onEditDetails?: ExportDialogProps['onEditDetails']; grouped?: boolean; query?: string; featureColors?: Record<string, string> }) {
+function Subject({ value = records, selected = ['a', 'b'], onExport = vi.fn(), onEditDetails = vi.fn(), grouped = false, query = '', hidden = [], featureColors = {} }: { value?: SeqRecord[]; selected?: string[]; onExport?: ExportDialogProps['onExport']; onEditDetails?: ExportDialogProps['onEditDetails']; grouped?: boolean; query?: string; hidden?: string[]; featureColors?: Record<string, string> }) {
   const state = useHubState();
   const [open, setOpen] = useState(false);
-  return <><button onClick={() => { state.setSelectedRecords(new Set(selected)); state.setGrouped(grouped); state.setFilters(prev => ({ ...prev, query })); setOpen(true); }}>Open export</button>{open && <ExportDialog featureColors={featureColors} records={value} state={state} onClose={() => setOpen(false)} onExport={onExport} onEditDetails={onEditDetails} />}</>;
+  return <><button onClick={() => { state.setHubHidden(new Set(hidden)); state.setSelectedRecords(new Set(selected)); state.setGrouped(grouped); state.setFilters(prev => ({ ...prev, query })); setOpen(true); }}>Open export</button>{open && <ExportDialog featureColors={featureColors} records={value} state={state} onClose={() => setOpen(false)} onExport={onExport} onEditDetails={onEditDetails} />}</>;
 }
 function open() { fireEvent.click(screen.getByRole('button', { name: 'Open export' })); }
 function paragraph(text: string | RegExp) {
@@ -252,4 +252,13 @@ it('portals the export dialog inside the app root carrying the session accent', 
   const dialog = screen.getByRole('dialog', { name: 'Export sequences' });
   expect(root.contains(dialog)).toBe(true);
   expect(dialog.closest('.app-root')).toBe(root);
+});
+
+it('keeps hub and viewport visibility separate in export quick picks', () => {
+  render(<Subject value={records.map(record => ({ ...record, visible: record.id !== 'c' }))} selected={['a', 'b']} hidden={['b']} />); open();
+  const chosen = () => records.filter(record => (screen.getByRole('checkbox', { name: `Export ${record.id}` }) as HTMLInputElement).checked).map(record => record.id);
+  expect(chosen()).toEqual(['a']);
+  for (const [pick, expected] of [['Selected in hub', ['a']], ['Matching filters', ['a', 'c']], ['Shown in hub', ['a', 'c']], ['Shown in viewport', ['a', 'b']], ['All', ['a', 'b', 'c']]] as const) {
+    fireEvent.click(screen.getByRole('button', { name: pick })); expect(chosen()).toEqual(expected);
+  }
 });

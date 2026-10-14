@@ -38,7 +38,7 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} onToggleRecordVisibility={noop} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} onToggleRecordVisibility={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={noop} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
@@ -306,4 +306,51 @@ it('portals the shortcuts sheet inside the app root carrying the session accent'
   const { container } = render(<div className="app-root" data-env="hub"><Subject /></div>);
   fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: '?' });
   expect(container.querySelector('.app-root')!.contains(screen.getByRole('dialog', { name: 'Keyboard shortcuts' }))).toBe(true);
+});
+
+it('hides hub sections and search matches, persists across tabs, and restores from cards or Show all', () => {
+  const values = records.slice(0, 2).map((record, i) => ({ ...record, visible: i === 0 }));
+  render(<Subject initial={values} index />);
+  const index = within(screen.getByRole('region', { name: 'Hub index' }));
+  fireEvent.click(index.getByRole('button', { name: 'Hide seq0 in hub' }));
+  expect(screen.queryByLabelText('Select annotation ORF4b on seq0')).toBeNull();
+  expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === '1 of 2 annotations in 1 of 2 sequences · 1 hidden')).toBeTruthy();
+  expect(values.map(record => record.visible)).toEqual([true, false]);
+  const hidden = index.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
+  expect(hidden.className).toContain('opacity-60');
+  expect(within(hidden as HTMLElement).getByText('Hidden in hub')).toBeTruthy();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
+  expect(screen.getByText('0 / 1')).toBeTruthy();
+  fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
+  const presence = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('group', { name: 'Presence' });
+  expect(within(presence).getByRole('button', { name: 'seq0: hidden' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('tab', { name: /By sequence/ }));
+  fireEvent.click(index.getByRole('button', { name: 'Jump to sequence seq0' }));
+  expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
+  fireEvent.click(index.getByRole('button', { name: 'Hide seq0 in hub' }));
+  fireEvent.click(index.getByRole('button', { name: '1 hidden · Show all' }));
+  expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
+});
+
+it('excludes hidden sequences from comparison baselines, positions, counts and tags', () => {
+  const values = [0, 10, 80].map((start, i) => writeDetails({ ...records[i], features: [{ type: 'CDS', name: 'enzyme', start, end: start + (i === 2 ? 20 : 10), strand: 1 }] }, { organism: 'virus' }));
+  render(<Subject initial={values} index />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Hide seq2 in hub' }));
+  fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
+  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  expect(pinned.getByText('in 2 of 2 sequences · 1 hidden')).toBeTruthy();
+  expect(pinned.getByText('Median position 6 · 10–10 bp')).toBeTruthy();
+  expect(pinned.queryByText(/odd length/)).toBeNull();
+  expect(pinned.getByRole('button', { name: 'seq2: hidden' })).toBeTruthy();
+});
+
+it('clears the current index window when the final hub section is hidden from its header', () => {
+  render(<Subject initial={records.slice(0, 1)} index />);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'Hide seq0 in hub' }));
+  expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
+  const card = screen.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
+  expect(card.getAttribute('aria-current')).toBe('false');
+  expect(card.querySelector<HTMLElement>('[data-track-window]')!.hidden).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: '1 hidden · Show all' }));
+  expect(screen.getByLabelText('Select annotation ORF4b on seq0')).toBeTruthy();
 });

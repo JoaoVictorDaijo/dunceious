@@ -36,6 +36,7 @@ export type ExportOptions = Partial<Pick<FastaExportOptions, 'residues' | 'heade
 export interface ExportSelectionState {
   records: SeqRecord[];
   selectedRecords: Set<string>;
+  hubHidden?: Set<string>;
   filters: HubFilters;
   tab?: 'sequences' | 'features';
   onlyProblems?: boolean;
@@ -44,15 +45,16 @@ export const EXPORT_EXTENSION: Record<HubExportFormat, string> = { fasta: 'fasta
 export const EXPORT_DETAIL_LABELS: Record<DetailKey, string> = { organism: 'Organism', host: 'Host', location: 'Location', collectionDate: 'Collection date' };
 
 export function matchingExportIds(state: ExportSelectionState): Set<string> {
-  if (state.tab === 'features') return new Set(buildFeatureGroups(state.records, state.filters, state.onlyProblems ?? false).flatMap(group => group.rows.map(row => row.record.id)));
-  return new Set(buildSequenceSections(state.records, state.filters, { grouped: false }, 'load').map(section => section.record.id));
+  const records = state.records.filter(record => !state.hubHidden?.has(record.id));
+  if (state.tab === 'features') return new Set(buildFeatureGroups(records, state.filters, state.onlyProblems ?? false).flatMap(group => group.rows.map(row => row.record.id)));
+  return new Set(buildSequenceSections(records, state.filters, { grouped: false }, 'load').map(section => section.record.id));
 }
 
 export function initialExportSelection(state: ExportSelectionState): { preset: 'selected' | 'filtered' | 'all'; ids: Set<string> } {
-  const selected = new Set(state.records.filter(record => state.selectedRecords.has(record.id)).map(record => record.id));
+  const selected = new Set(state.records.filter(record => state.selectedRecords.has(record.id) && !state.hubHidden?.has(record.id)).map(record => record.id));
   if (selected.size) return { preset: 'selected', ids: selected };
   const filters = state.filters;
-  const filtering = hasAnnotationFilters(filters) || Boolean(filters.sequenceQuery.trim() || filters.needsAttention || filters.onlyIds || state.tab === 'features' && state.onlyProblems);
+  const filtering = Boolean(state.hubHidden?.size) || hasAnnotationFilters(filters) || Boolean(filters.sequenceQuery.trim() || filters.needsAttention || filters.onlyIds || state.tab === 'features' && state.onlyProblems);
   return filtering ? { preset: 'filtered', ids: matchingExportIds(state) } : { preset: 'all', ids: new Set(state.records.map(record => record.id)) };
 }
 

@@ -21,7 +21,7 @@ import type { CSSProperties } from 'react';
 import type { CellState, FeatureGroup } from '@/src/app/logic/featureComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 export const PRESENCE_CLASSES = {
-  present: 'bg-slate-500', odd: 'border border-amber-700 bg-amber-400',
+  hidden: 'bg-slate-200', present: 'bg-slate-500', odd: 'border border-amber-700 bg-amber-400',
   duplicate: 'bg-slate-500 ring-2 ring-inset ring-slate-900',
   missing: 'border-2 border-rose-500 bg-white',
   'not-determined': 'bg-slate-200 text-slate-400',

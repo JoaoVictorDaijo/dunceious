@@ -37,7 +37,7 @@ const featureColors = { gene: '#123456' };
 const noop = () => {};
 function Subject() {
   const state = useHubState();
-  return <><HubIndex records={[record]} state={state} featureColors={featureColors} onToggleRecordVisibility={noop} />
+  return <><HubIndex records={[record]} state={state} featureColors={featureColors} />
     <HubList items={buildSequenceSections([record], state.filters, { grouped: false }, 'load')} kind="sequences" state={state} height={500} featureColors={featureColors} />
   </>;
 }

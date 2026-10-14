@@ -94,3 +94,13 @@ it('keeps the last focused annotation after deleting an earlier row and undoing'
   fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
   expect(screen.getByText('Last focused').closest('[data-row-key]')?.getAttribute('data-row-key')).toBe('rows:5');
 });
+
+it('toggles viewport visibility from the navigator without hiding a hub section', async () => {
+  await setup();
+  fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Hide r in viewport' }));
+  const show = screen.getByRole('button', { name: 'Show r in viewport' });
+  expect(show.parentElement!.parentElement!.className).toContain('opacity-60');
+  fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
+  expect(screen.getAllByRole('button', { name: 'Hide r in hub' }).length).toBeGreaterThan(0);
+});

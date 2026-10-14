@@ -49,14 +49,14 @@ export interface HubListProps {
   onViewFeatureDetails?: (recordId: string, feature: BioFeature) => void;
   onEditFeature?: (recordId: string, index: number, feature: BioFeature) => void;
   onRemoveFeature?: (recordId: string, index: number) => void;
-  onToggleRecordVisibility?: (id: string) => void; onImportAnnotations?: () => void;
+  onImportAnnotations?: () => void;
   onCurrentRow?: (key: string) => void; addLog?: (message: string) => void;
 }
 function VirtualRow({ index, style, data }: { index: number; style: React.CSSProperties; data: (index: number, style: React.CSSProperties) => React.ReactNode }) {
   return data(index, style);
 }
 
-function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onToggleRecordVisibility, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
   const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
   useEffect(() => {
     const media = window.matchMedia?.('(min-width: 1280px)');
@@ -221,8 +221,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         onNotice?.(`${cleared} cleared to show ${record.label || record.accession || record.id}`);
       }
     }
-    state.setTab('sequences'); jump(key);
-  }, [records, state.filters, state.setFilters, state.setTab, jump, onNotice]);
+    state.showInHub(key); state.setTab('sequences'); jump(key);
+  }, [records, state.filters, state.setFilters, state.setTab, state.showInHub, jump, onNotice]);
   const edit = useCallback((id: string, kind: 'details' | 'name', field: DetailKey = 'organism') => {
     state.setDetailsField(field);
     if (editor?.id === id && editor.kind === kind) { open(id); jump(id); return; }
@@ -236,7 +236,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   const headerActions = useMemo(() => new Map(items.map(item => [item.key, {
     onFold: () => fold(item.key),
     onSelect: () => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(item.key)) next.delete(item.key); else next.add(item.key); return next; }),
-    onVisibility: () => onToggleRecordVisibility?.(item.key),
+    onVisibility: () => state.toggleHubHidden(item.key),
     onEditDetails: onSetRecordDetails ? (field?: DetailKey) => edit(item.key, 'details', field) : undefined,
     onRename: onSetRecordLabel ? () => edit(item.key, 'name') : undefined,
     onPick: (feature: BioFeature) => {
@@ -248,7 +248,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         }
         jump(`${record.id}:${record.features.indexOf(feature)}`); }
     },
-  }] as const)), [items, kind, fold, state.setSelectedRecords, onToggleRecordVisibility, onSetRecordDetails, onSetRecordLabel, edit, jump, state.setFilters, onNotice]);
+  }] as const)), [items, kind, fold, state.setSelectedRecords, state.toggleHubHidden, onSetRecordDetails, onSetRecordLabel, edit, jump, state.setFilters, onNotice]);
   const header = (entry: Entry) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} width={listWidth} gap={items[0]?.key === entry.key ? 0 : 8} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;

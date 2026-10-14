@@ -28,7 +28,7 @@ import SelectionBar from '../SelectionBar';
 function Subject() {
   const state = useHubState();
   const [records, setRecords] = useState<SeqRecord[]>(['a', 'b', 'c'].map(id => writeDetails({ id, name: id, sequence: 'AAAA', features: [] }, id === 'a' ? { host: 'human' } : {})));
-  return <><button onClick={() => state.setSelectedRecords(new Set(['a', 'b', 'c']))}>Select all</button><SelectionBar records={records} state={state} onSetDetail={(ids, key, value) => setRecords(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: value }) : r))} onToggleVisibility={() => {}} onRemoveRecords={() => {}} onExport={() => {}} onExportRows={() => {}} onDeleteRows={() => {}} /><div>{records.map(r => `${r.id}:${readDetails(r).host || '-'}`).join(',')}</div></>;
+  return <><button onClick={() => state.setSelectedRecords(new Set(['a', 'b', 'c']))}>Select all</button><SelectionBar records={records} state={state} onSetDetail={(ids, key, value) => setRecords(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: value }) : r))} onRemoveRecords={() => {}} onExport={() => {}} onExportRows={() => {}} onDeleteRows={() => {}} /><div>{records.map(r => `${r.id}:${readDetails(r).host || '-'}`).join(',')}</div></>;
 }
 describe('SelectionBar', () => {
   it('fills only empty details by default and reports how many kept their value', () => {

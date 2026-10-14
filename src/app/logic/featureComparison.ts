@@ -23,12 +23,13 @@ import { annotationFeatures, isPartial, isUnannotated } from '@/src/domain/bio/r
 import { matchesAnnotationFilters, matchesSequenceFilters, type HubFilters } from './hubModel';
 import { featureLength } from './viewModel';
 
-export type CellState = 'present' | 'odd' | 'duplicate' | 'missing' | 'not-determined' | 'unannotated' | 'absent';
+export type CellState = 'present' | 'odd' | 'duplicate' | 'missing' | 'not-determined' | 'unannotated' | 'absent' | 'hidden';
 type FeatureRow = { record: SeqRecord; feature: BioFeature };
 export type FeatureGroup = {
   key: string; organism: string; identity: string; types: string[]; medianStart: number;
   rows: FeatureRow[]; cells: { recordId: string; state: CellState }[];
   counts: { present: number; missing: number; odd: number; duplicate: number; notDetermined: number; pool: number };
+  hiddenCount?: number;
   accessory: boolean; compared: boolean;
   notComparedReason?: 'organism unknown' | 'no complete annotated sequences';
 };

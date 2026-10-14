@@ -73,6 +73,7 @@ src/
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     │   ├── trackLayout.ts # cached strand-lane packing, deterministic track metrics/ruler
+    │   ├── hubVisibility.ts # hidden pool cells around comparisons of hub-visible records
     │   ├── hubModel.ts   # sequence partition, grouping, filters and search hits
     │   ├── featureComparison.ts # organism-scoped presence and per-type length comparison
     │   ├── exportPlan.ts # subset/options, shared preview and serializer dispatch
@@ -249,7 +250,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `useAppLogger` – append-only activity log, stable `addLog` callback
 - `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
 - `useFeatureManager` – feature CRUD and undo with annotation edit markers, detail/display-name edits, search-to-annotation bridge, record visibility toggle
-- `useHubState` – session state owned above the workspace switch: per-tab offsets/folds, grouping, filters, density and selection; search folds reset when filters change
+- `useHubState` – session state owned above the workspace switch: per-tab offsets/folds, grouping, filters, density, selection and hub-only hidden IDs (not serialized); search folds reset when filters change
 - `useRemoteAlignment` – remote alignment dialog state, job lifecycle, consent and lock
 - `useDraggableJobPill` – pointer and keyboard dragging of the minimized alignment pill
 - `useFileDragActive` – whether files are being dragged over the window (depth-counted, reset on drop/dragend), which arms the Ingestion drop zones
@@ -267,7 +268,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `SearchPanel` – sequence search UI with grouped results; strand selector hidden for protein sessions
 - `RecordDetailsModal` – record or annotation details: metadata, Focus, copy/export, *Show sequence in viewer*
 - `FeatureEditorModal` – *Create Feature* / *Metadata Inspector*: location, strand, segments (including circular wrap) and freely editable qualifiers
-- `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Feature comparison is organism-scoped; single-copy complete rows provide each type's median, partial features and duplicates do not.
+- `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
 - `OptionsPanel` – chrome theme and feature colours
 - `TooltipLayer` – the single tooltip renderer for every `data-tip`

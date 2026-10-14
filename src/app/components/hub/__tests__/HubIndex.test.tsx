@@ -26,24 +26,24 @@ import HubIndex from '../HubIndex';
 import { createHub1000x10 } from '@/src/app/testing/fixtures/hub1000x10';
 import type { SeqRecord } from '@/src/domain/bio/types';
 const records: SeqRecord[] = ['a', 'b', 'c'].map((id, i) => ({ id, name: id, sequence: 'AAAA', fileDetails: i < 2 ? { organism: 'MERS-CoV', host: 'camel', location: 'Oman:Muscat' } : {}, features: i < 2 ? [{ type: 'gene', name: 'spike', start: 0, end: 2, strand: 1 }, { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'MERS-CoV', host: 'camel', geo_loc_name: 'Oman:Muscat' } }] : [] }));
-function Subject({ toggle = () => {}, features = false }: { toggle?: (id: string) => void; features?: boolean }) {
+function Subject({ features = false }: { features?: boolean }) {
   const state = useHubState();
   useEffect(() => { if (features) state.setTab('features'); }, [features]);
-  return <HubIndex records={records} state={state} onToggleRecordVisibility={toggle} />;
+  return <HubIndex records={records} state={state} />;
 }
 describe('HubIndex', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it('lists each record once and routes the visibility eye', () => {
-    const toggle = vi.fn(); render(<Subject toggle={toggle} />);
+    render(<Subject />);
     expect(screen.getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(3);
-    fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
-    expect(toggle).toHaveBeenCalledWith('a');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide a in hub' }));
+    expect(screen.getByRole('button', { name: 'Show a in hub' })).toBeTruthy();
   });
   it('reveals a far current card through the windowed list without DOM measurements', () => {
     const many = createHub1000x10();
     function ScrollSubject() {
       const state = useHubState();
-      return <><button onClick={() => state.setCurrentSectionKey('index1000')}>Track last</button><HubIndex records={many} state={state} onToggleRecordVisibility={() => {}} /></>;
+      return <><button onClick={() => state.setCurrentSectionKey('index1000')}>Track last</button><HubIndex records={many} state={state} /></>;
     }
     const { container } = render(<ScrollSubject />);
     expect(container.querySelectorAll('[data-index-card]').length).toBeLessThan(40);
@@ -60,7 +60,7 @@ describe('HubIndex', () => {
     function FilterSubject() {
       const state = useHubState();
       return <><button onClick={() => state.setFilters(previous => ({ ...previous, query: 'spike' }))}>Filter annotations</button>
-        <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} /></>;
+        <HubIndex records={records} state={state} /></>;
     }
     render(<FilterSubject />);
     const entries = screen.getAllByRole('button', { name: /^Jump to sequence/ });
@@ -77,11 +77,10 @@ describe('HubIndex', () => {
     const untouched = { ...records[2] };
     Object.defineProperty(untouched, 'definition', { get: definition });
     const stableRecords = [records[0], records[1], untouched];
-    const toggle = () => {};
     function MemoSubject() {
       const state = useHubState();
       return <><button onClick={() => state.setCurrentSectionKey('b')}>Track next</button>
-        <HubIndex records={stableRecords} state={state} onToggleRecordVisibility={toggle} /></>;
+        <HubIndex records={stableRecords} state={state} /></>;
     }
     render(<MemoSubject />);
     definition.mockClear();
@@ -122,7 +121,7 @@ it('folds windowed groups and toggles attention through the chip', () => {
   expect(screen.getByRole('button', { name: 'Jump to sequence c' })).toBeTruthy();
 });
 it('shows the current mini-track window through the shared scroll controller', () => {
-  function WindowSubject() { const state = useHubState(); useEffect(() => { state.trackWindow.update({ id: 'a', length: 4, start: 1, end: 3 }); state.setCurrentSectionKey('a'); }, []); return <HubIndex records={records} state={state} onToggleRecordVisibility={() => {}} />; }
+  function WindowSubject() { const state = useHubState(); useEffect(() => { state.trackWindow.update({ id: 'a', length: 4, start: 1, end: 3 }); state.setCurrentSectionKey('a'); }, []); return <HubIndex records={records} state={state} />; }
   render(<WindowSubject />);
   const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
   const band = card.querySelector<HTMLElement>('[data-track-window]')!;
@@ -134,7 +133,7 @@ it('reveals the entire group header when its first card becomes current', () => 
   function GroupedSubject() {
     const state = useHubState();
     useEffect(() => state.setGrouped(true), []);
-    return <><button onClick={() => state.setCurrentSectionKey('index0501')}>Track first in second group</button><HubIndex records={many} state={state} onToggleRecordVisibility={() => {}} /></>;
+    return <><button onClick={() => state.setCurrentSectionKey('index0501')}>Track first in second group</button><HubIndex records={many} state={state} /></>;
   }
   render(<GroupedSubject />);
   const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
@@ -152,19 +151,18 @@ it('shows only the number in group count pills', () => {
 });
 
 it('jumps from card content while preserving its separate controls and feature jump', () => {
-  const toggle = vi.fn();
   function Cards() {
     const state = useHubState();
-    return <><output aria-label="Jump">{state.jumpTarget?.key ?? 'none'}:{state.jumpTarget?.serial ?? 0}</output><HubIndex records={records} state={state} onToggleRecordVisibility={toggle} /></>;
+    return <><output aria-label="Jump">{state.jumpTarget?.key ?? 'none'}:{state.jumpTarget?.serial ?? 0}</output><HubIndex records={records} state={state} /></>;
   }
   render(<Cards />);
   const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
   fireEvent.click(card.querySelector('p')!);
   expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence a' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Hide a in viewport' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Hide a in hub' }));
   expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
-  expect(toggle).toHaveBeenCalledWith('a');
+  expect(screen.getByRole('button', { name: 'Show a in hub' })).toBeTruthy();
   const strip = card.querySelector('svg')!;
   vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 30 } as DOMRect);
   fireEvent.click(strip, { clientX: 100, clientY: 14 });

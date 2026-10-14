@@ -279,6 +279,7 @@ const App: React.FC = () => {
 
     const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
     record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
+    hubState.setHubHidden(prev => new Set([...prev].filter(id => id !== recordId)));
     hubState.setSelectedRecords(prev => new Set([...prev].filter(id => id !== recordId)));
     hubState.setSelectedRows(prev => new Set([...prev].filter(key => !keys.has(key))));
     hubState.setFilters(prev => {
@@ -545,7 +546,6 @@ const App: React.FC = () => {
                     onSetDetail={(ids, key, value) => { if (remoteAlignment.isLocked()) return; setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); }}
                     featureColors={featureColors}
                     onStartNewFeature={startNewFeature}
-                    onToggleRecordVisibility={toggleRecordVisibility}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}

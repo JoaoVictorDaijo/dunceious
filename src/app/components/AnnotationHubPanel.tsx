@@ -27,6 +27,7 @@ import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import HubToolbar from './hub/HubToolbar';
 import HubTabs from './hub/HubTabs';
+import { withHiddenCells } from '@/src/app/logic/hubVisibility';
 import FilterBar from './hub/FilterBar';
 import SelectionBar from './hub/SelectionBar';
 import ExportDialog from './hub/ExportDialog';
@@ -45,7 +46,6 @@ export interface AnnotationHubPanelProps {
   state: ReturnType<typeof useHubState>;
   featureColors: Record<string, string>;
   onStartNewFeature: () => void;
-  onToggleRecordVisibility: (recordId: string) => void;
   isAlignmentLocked?: boolean;
   onRemoveRecord: (recordId: string) => void;
   onViewFeatureDetails: (recordId: string, feature: BioFeature) => void;
@@ -84,10 +84,11 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const query = useDeferredValue(state.filters.query);
   const { types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds } = state.filters;
   const filters = useMemo(() => ({ query, types: filterTypes, strand, sequenceQuery, needsAttention, onlyIds }), [query, filterTypes, strand, sequenceQuery, needsAttention, onlyIds]);
+  const hubRecords = useMemo(() => records.filter(record => !state.hubHidden.has(record.id)), [records, state.hubHidden]);
   const displayState = { ...state, filters };
-  const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(records, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort) : [], [records, filters, state.tab, state.grouped, state.groupField, state.sort]);
-  const groups = useMemo(() => state.tab === 'features' ? buildFeatureGroups(records, filters, state.onlyProblems) : [], [records, filters, state.tab, state.onlyProblems]);
-  const featureCount = useMemo(() => state.tab === 'features' ? groups.length : countFeatureGroups(records, filters), [records, filters, state.tab, groups]);
+  const sections = useMemo(() => state.tab === 'sequences' ? buildSequenceSections(hubRecords, filters, state.grouped ? { grouped: true, field: state.groupField } : { grouped: false }, state.sort) : [], [hubRecords, filters, state.tab, state.grouped, state.groupField, state.sort]);
+  const groups = useMemo(() => state.tab === 'features' ? withHiddenCells(buildFeatureGroups(hubRecords, filters, state.onlyProblems), records, state.hubHidden, filters) : [], [hubRecords, records, state.hubHidden, filters, state.tab, state.onlyProblems]);
+  const featureCount = useMemo(() => state.tab === 'features' ? groups.length : countFeatureGroups(hubRecords, filters), [hubRecords, filters, state.tab, groups]);
   const items = state.tab === 'sequences' ? sections : groups;
   const rows = useMemo(() => state.tab === 'sequences' ? searchHits(sections) : groups.flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)), [state.tab, sections, groups]);
   const annotationKeys = useMemo(() => new Set(state.tab === 'sequences' ? sections.flatMap(section => section.rows.map(f => `${section.record.id}:${section.record.features.indexOf(f)}`)) : rows), [state.tab, sections, rows]);
@@ -97,17 +98,19 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   const visibleRecords = state.tab === 'sequences' ? sections.length : new Set(groups.flatMap(group => group.rows.map(row => row.record.id))).size;
   const types = useMemo(() => {
     const result = new Map<string, number>();
-    records.forEach(record => {
+    hubRecords.forEach(record => {
       annotationFeatures(record).forEach(feature => result.set(feature.type, (result.get(feature.type) ?? 0) + 1));
       if (state.tab === 'sequences' && record.tracks?.length) result.set('track', (result.get('track') ?? 0) + record.tracks.length);
     });
     return result;
-  }, [records, state.tab]);
+  }, [hubRecords, state.tab]);
   useEffect(() => {
-    if (!items.length && query === state.filters.query && state.jumpTarget) state.setJumpTarget(null);
-  }, [items.length, query, state.filters.query, state.jumpTarget, state.setJumpTarget]);
+    if (!items.length && query === state.filters.query) {
+      state.setJumpTarget(null); state.setCurrentSectionKey(null); state.trackWindow.update(null);
+    }
+  }, [items.length, query, state.filters.query, state.jumpTarget, state.setJumpTarget, state.setCurrentSectionKey, state.trackWindow]);
   const jump = (key: string) => { setCurrentRow(key); state.setJumpTarget(prev => ({ key, serial: (prev?.serial ?? 0) + 1 })); };
-  useEffect(() => { setSearchIndex(-1); }, [filters, state.tab, state.onlyProblems]);
+  useEffect(() => { setSearchIndex(-1); }, [filters, state.tab, state.onlyProblems, state.hubHidden]);
   useEffect(() => {
     if (state.jumpTarget && rows.includes(state.jumpTarget.key)) setCurrentRow(state.jumpTarget.key);
   }, [state.jumpTarget, rows]);
@@ -148,16 +151,16 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
   return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
     <h1 className="sr-only">Annotation Hub</h1>
     {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onAdd={props.onStartNewFeature} locked={isAlignmentLocked} onExport={() => setExportOpen(true)} more={<MoreMenu state={state} locked={isAlignmentLocked} empty={!records.length} onSave={props.onExportProjectJson} onClear={props.onClearAll} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
-    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences`} state={state} sequences={records.length} features={featureCount} />
+    <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
     <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
     <FilterBar groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
-    <SelectionBar records={records} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onToggleVisibility={props.onToggleRecordVisibility} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />
+    <SelectionBar records={hubRecords} state={state} locked={isAlignmentLocked} onSetDetail={props.onSetDetail} onRemoveRecords={ids => ids.forEach(id => props.onRemoveRecord(id))} organismEditRequest={organismEditRequest} onExport={() => setExportOpen(true)} onExportRows={(ids, keys) => props.onExportRecords(ids, 'gff3', { matchingKeys: keys, fileName: 'selected_annotations.gff3' })} onDeleteRows={props.onDeleteRows} />
     {notice && <p role="status" className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-slate-700">{notice}</p>}
     <div className="hub-row-grid border-b border-slate-200 bg-slate-50 py-2 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">
       <input type="checkbox" aria-label="Select all visible annotations" checked={annotationKeys.size > 0 && [...annotationKeys].every(key => state.selectedRows.has(key))} ref={input => { if (input) input.indeterminate = [...annotationKeys].some(key => state.selectedRows.has(key)) && ![...annotationKeys].every(key => state.selectedRows.has(key)); }} onChange={event => state.setSelectedRows(prev => { const next = new Set(prev); annotationKeys.forEach(key => { if (event.target.checked) next.add(key); else next.delete(key); }); return next; })} />
       <span>Type</span><span aria-label="Strand column" /><span>{state.tab === 'features' ? 'Sequence' : 'Name / Product'}</span><span>Location</span><span className="text-right">Length</span><span className="text-right">Actions</span>
     </div>
-    {items.length ? <HubList filtersPending={query !== state.filters.query} key={state.tab} items={items} kind={state.tab} state={displayState} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={removeFeature} onToggleRecordVisibility={props.onToggleRecordVisibility} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
+    {items.length ? <HubList filtersPending={query !== state.filters.query} key={state.tab} items={items} kind={state.tab} state={displayState} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={setCurrentRow} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={removeFeature} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <div className="flex-1 p-10 text-center text-sm text-slate-500">{records.length ? 'No annotations match these filters' : 'Drop sequence files here or import through ⋯'}</div>}
     </div>
     {exportOpen && <ExportDialog featureColors={props.featureColors} records={records} state={state} onClose={() => setExportOpen(false)} onExport={props.onExportRecords} onEditDetails={ids => {
       state.setSelectedRecords(ids); state.setSelectedRows(new Set());

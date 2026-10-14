@@ -24,11 +24,11 @@ import { readDetails, validateDetail } from '@/src/domain/bio/details';
 export interface SelectionBarProps {
   records: SeqRecord[]; state: ReturnType<typeof useHubState>; locked?: boolean;
   onSetDetail: (ids: Set<string>, key: DetailKey, value: string) => void;
-  onToggleVisibility: (id: string) => void; onRemoveRecords: (ids: Set<string>) => void;
+  onRemoveRecords: (ids: Set<string>) => void;
   onExport: () => void; onExportRows: (ids: string[], keys: Set<string>) => void; onDeleteRows: (keys: Set<string>) => void;
   organismEditRequest?: number;
 }
-export default function SelectionBar({ records, state, locked, onSetDetail, onToggleVisibility, onRemoveRecords, onExport, onExportRows, onDeleteRows, organismEditRequest = 0 }: SelectionBarProps) {
+export default function SelectionBar({ records, state, locked, onSetDetail, onRemoveRecords, onExport, onExportRows, onDeleteRows, organismEditRequest = 0 }: SelectionBarProps) {
   const [field, setField] = useState<DetailKey>('host');
   const [value, setValue] = useState('');
   const [onlyEmpty, setOnlyEmpty] = useState(true);
@@ -40,7 +40,7 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onTo
     valueInput.current?.focus();
   }, [organismEditRequest]);
   const chosen = records.filter(r => state.selectedRecords.has(r.id));
-  const rows = state.selectedRows;
+  const rows = new Set(records.flatMap(record => record.features.flatMap((_, index) => state.selectedRows.has(`${record.id}:${index}`) ? [`${record.id}:${index}`] : [])));
   if (!chosen.length && !rows.size) return null;
   const label = { host: 'Host', organism: 'Organism', location: 'Location', collectionDate: 'Collection date' }[field];
   const exportRows = () => onExportRows(records.filter(record => record.features.some((_, index) => rows.has(`${record.id}:${index}`))).map(record => record.id), new Set(rows));
@@ -49,7 +49,7 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onTo
       <strong>{chosen.length} sequences selected</strong>
       <button onClick={() => state.setFilters(f => ({ ...f, onlyIds: new Set(state.selectedRecords) }))}>Show only these</button><button onClick={() => state.setFilters(f => ({ ...f, onlyIds: undefined }))}>Show all</button>
       <button aria-haspopup="dialog" onClick={onExport}>Export…</button>
-      <button onClick={() => chosen.filter(r => r.visible !== false).forEach(r => onToggleVisibility(r.id))}>Hide in viewport</button><button onClick={() => chosen.filter(r => r.visible === false).forEach(r => onToggleVisibility(r.id))}>Show in viewport</button>
+      <button onClick={() => state.setHubHidden(previous => new Set([...previous, ...chosen.map(record => record.id)]))}>Hide in hub</button>
       <label>Set detail <select aria-label="Detail field" value={field} onChange={e => setField(e.target.value as DetailKey)} className="rounded border border-slate-300 bg-slate-950 text-slate-200 p-1"><option value="organism">Organism</option><option value="host">Host</option><option value="location">Location</option><option value="collectionDate">Collection date</option></select></label>
       <input ref={valueInput} aria-label="Detail value" value={value} onChange={e => setValue(e.target.value)} className="w-32 rounded border border-slate-300 bg-slate-950 text-slate-200 p-1" />
       <label className="flex gap-1"><input type="checkbox" checked={onlyEmpty} onChange={e => setOnlyEmpty(e.target.checked)} />only where empty</label>

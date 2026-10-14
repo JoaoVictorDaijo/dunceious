@@ -67,9 +67,10 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
   }, [records]);
   const availableTypes = useMemo(() => [...typeCounts.keys()].sort(), [typeCounts]);
   const matchingKeys = useMemo(() => {
-    if (state.tab === 'features') return new Set(buildFeatureGroups(records, state.filters, state.onlyProblems).flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)));
-    return new Set(buildSequenceSections(records, state.filters, { grouped: false }, 'load').flatMap(section => section.rows.map(feature => `${section.record.id}:${section.record.features.indexOf(feature)}`)));
-  }, [records, state.filters, state.tab, state.onlyProblems]);
+    const hubRecords = records.filter(record => !state.hubHidden.has(record.id));
+    if (state.tab === 'features') return new Set(buildFeatureGroups(hubRecords, state.filters, state.onlyProblems).flatMap(group => group.rows.map(({ record, feature }) => `${record.id}:${record.features.indexOf(feature)}`)));
+    return new Set(buildSequenceSections(hubRecords, state.filters, { grouped: false }, 'load').flatMap(section => section.rows.map(feature => `${section.record.id}:${section.record.features.indexOf(feature)}`)));
+  }, [records, state.filters, state.tab, state.onlyProblems, state.hubHidden]);
   const extension = EXPORT_EXTENSION[format];
   const baseName = name.trim().replaceAll('/', '_').replaceAll('\\', '_').replace(new RegExp(`\\.${extension}$`, 'i'), '');
   const fileName = `${baseName || 'sequences'}.${extension}`;
@@ -112,10 +113,11 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   };
   const pickIds = (pick: string) => (pick === 'All' ? new Set(records.map(record => record.id))
-    : pick === 'Selected in hub' ? new Set(records.filter(record => state.selectedRecords.has(record.id)).map(record => record.id))
+    : pick === 'Selected in hub' ? new Set(records.filter(record => state.selectedRecords.has(record.id) && !state.hubHidden.has(record.id)).map(record => record.id))
     : pick === 'Matching filters' ? matchingExportIds({ ...state, records })
+    : pick === 'Shown in hub' ? new Set(records.filter(record => !state.hubHidden.has(record.id)).map(record => record.id))
     : pick === 'Shown in viewport' ? new Set(records.filter(record => record.visible !== false).map(record => record.id)) : new Set<string>());
-  const quickPicks = ['All', 'Selected in hub', 'Matching filters', 'Shown in viewport', 'None'].map(label => {
+  const quickPicks = ['All', 'Selected in hub', 'Matching filters', 'Shown in hub', 'Shown in viewport', 'None'].map(label => {
     const values = pickIds(label);
     return { label, values, active: quickPick === label };
   });
