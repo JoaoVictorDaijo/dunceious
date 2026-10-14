@@ -288,7 +288,7 @@ it('saves and clears through workspace actions and disables clear when empty or 
   const { rerender } = render(<Actions />);
   const trigger = screen.getByRole('button', { name: 'Workspace actions' });
   expect(trigger.parentElement?.previousElementSibling).toBe(screen.getByRole('button', { name: 'Add sequences…' }));
-  expect(trigger.getAttribute('data-tip')).toBe('Save or clear the workspace');
+  expect(trigger.getAttribute('data-tip')).toBe('Workspace: save or clear');
   fireEvent.click(trigger);
   fireEvent.click(screen.getByRole('menuitem', { name: 'Save project' }));
   expect(save).toHaveBeenCalledOnce();

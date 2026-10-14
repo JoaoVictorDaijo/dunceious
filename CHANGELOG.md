@@ -15,6 +15,10 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+### Changed
+
+- Offer Add sequences, Save project and Clear workspace beside the viewport’s Record Navigator title as well as the hub’s Sequence index.
+
 ## [2.8.1] — 2026-10-14
 
 ### Changed

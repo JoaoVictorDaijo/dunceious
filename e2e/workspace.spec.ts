@@ -95,3 +95,48 @@ test('built workers, annotations and exports preserve biological coordinates and
   expect(workerUrls.some(url => /search\.worker/.test(url))).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('workspace title actions fit both sidebars and add, save and clear from the viewport', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Annotation Hub$/ }).click();
+  await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('sample.fa', `>sample\n${sequence}\n`));
+  await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
+  for (const title of ['Sequence index', 'Record Navigator']) {
+    if (title === 'Record Navigator') await page.getByRole('button', { name: /Visual Viewport$/ }).click();
+    const row = page.getByRole('heading', { name: title, exact: true }).locator('..');
+    const rowBounds = (await row.boundingBox())!;
+    const headingBounds = (await row.getByRole('heading').boundingBox())!;
+    const addBounds = (await row.getByRole('button', { name: 'Add sequences…', exact: true }).boundingBox())!;
+    expect(headingBounds.x + headingBounds.width).toBeLessThanOrEqual(addBounds.x);
+    expect(headingBounds.height).toBeLessThan(20);
+    if (title === 'Sequence index') expect(rowBounds.height).toBe(24);
+    await row.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+    const menu = page.getByRole('menu', { name: 'Workspace actions', exact: true });
+    const menuBounds = (await menu.boundingBox())!;
+    expect(menuBounds.x).toBeGreaterThanOrEqual(rowBounds.x - 1);
+    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(rowBounds.x + rowBounds.width + 1);
+    await menu.press('Escape');
+  }
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Add sequences…', exact: true }).click();
+  const chooser = await chooserPromise;
+  expect(chooser.isMultiple()).toBe(true);
+  await chooser.setFiles(file('added.fa', '>added\nACGT\n'));
+  await expect(page.locator('aside').getByText('added', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  page.once('dialog', dialog => dialog.accept('workspace'));
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Save project', exact: true }).click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  expect(JSON.parse(Buffer.concat(chunks).toString('utf8')).records.map((record: { id: string }) => record.id)).toEqual(['sample', 'added']);
+  page.once('dialog', dialog => dialog.accept('CLEAR'));
+  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Clear workspace…', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Record Navigator', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /Annotation Hub$/ }).click();
+  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Clear workspace…', exact: true })).toBeDisabled();
+});
