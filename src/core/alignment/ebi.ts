@@ -55,6 +55,7 @@ export interface AlignmentSubmission {
   fasta: string;
   aliases: Map<string, string>;
   sequences: Map<string, string>;
+  terminalStops?: Set<string>;
   bytes: number;
 }
 
@@ -122,5 +123,6 @@ export function remapAlignment(fasta: string, submission: AlignmentSubmission): 
 
   return { ok: true, records: [...submission.aliases].map(([alias, id]) => ({
     ...records.find(record => record.id === alias)!, id, name: id,
+    sequence: returned.get(alias)! + (submission.terminalStops?.size ? submission.terminalStops.has(id) ? '*' : '-' : ''),
   })) };
 }

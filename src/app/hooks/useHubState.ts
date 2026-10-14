@@ -74,6 +74,8 @@ export function useHubState() {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingDetails, setEditingDetails] = useState<string | null>(null);
 
+  const [currentRow, setCurrentRow] = useState<string | null>(null);
+  const [searchKey, setSearchKey] = useState<string | null>(null);
   const [currentSectionKey, setCurrentSectionKey] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<{ key: string; serial: number } | null>(null);
   const [onlyProblems, setOnlyProblemsValue] = useState(false);
@@ -99,6 +101,8 @@ export function useHubState() {
     setScrollOffset({ sequences: 0, features: 0 });
     setJumpTarget(null);
     setCurrentSectionKey(null);
+    setCurrentRow(null);
+    setSearchKey(null);
     setMenu(null);
     setEditingDetails(null);
     setEditingName(null);
@@ -110,7 +114,7 @@ export function useHubState() {
 
   return {
     hubHidden, setHubHidden, toggleHubHidden, showInHub, shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
-    currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
+    currentRow, setCurrentRow, searchKey, setSearchKey, currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     rowSort, setRowSort, tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,
     selectedRecords, setSelectedRecords, selectedRows, setSelectedRows, scrollOffset, setScrollOffset,
