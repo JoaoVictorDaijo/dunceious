@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { describe, expect, it } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { HubFilters } from '../hubModel';
@@ -195,4 +196,25 @@ it('keeps unchanged circular start edits at 200 bases without biological outlier
   records[2] = { ...records[2], features: [records[2].features[0], edited] };
   expect(states(records)).toEqual([['a', 'present'], ['b', 'present'], ['c', 'present']]);
   expect(featureLength(1000, edited.start, edited.end, edited.segments)).toBe(200);
+});
+
+
+it('uses the first biological start for joined feature medians and does not flag equivalent contiguous lengths', () => {
+  const circular = createOriginCrossingRecord();
+  const joined = r('circle', circular.features, 'virus', { sequence: circular.sequence, isCircular: true });
+  const contiguous = ['a', 'b'].map(id => r(id, [
+    { ...circular.features[0], start: 400, end: 3040, segments: undefined, locationString: '401..3040' },
+    { ...circular.features[1], start: 500, end: 1781, segments: undefined, locationString: '501..1781' },
+  ], 'virus', { sequence: circular.sequence }));
+  const compared = groups([joined, ...contiguous]);
+  const polymerase = compared.find(group => group.identity === 'pol')!;
+  const envelope = compared.find(group => group.identity === 'env')!;
+  expect(polymerase.medianStart).toBe(400);
+  expect(envelope.medianStart).toBe(500);
+  for (const group of [polymerase, envelope]) {
+    expect(group.cells.map(cell => [cell.recordId, cell.state])).toEqual([['a', 'present'], ['b', 'present'], ['circle', 'present']]);
+    expect(group.counts.odd).toBe(0);
+  }
+  expect(groups([joined]).find(group => group.identity === 'pol')?.medianStart).toBe(2426);
+  expect(groups([joined]).find(group => group.identity === 'env')?.medianStart).toBe(2991);
 });

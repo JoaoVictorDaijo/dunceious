@@ -135,12 +135,12 @@ it('updates the full track window from visible rows and hides it after folding',
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });
 
-it('extends an origin-crossing visible feature window to the sequence end', () => {
+it('encloses both ends for an origin-crossing visible feature without explicit segments', () => {
   const crossing = { ...records[0], isCircular: true, features: [{ name: 'wrap', type: 'gene', start: 90, end: 10, strand: 1 as const }] };
   function Wrap() { const state = useHubState(); return <HubList state={state} kind="sequences" height={300} items={buildSequenceSections([crossing], state.filters, { grouped: false }, 'load')} />; }
   render(<Wrap />);
   const band = currentCard().querySelector<HTMLElement>('[data-track-window]')!;
-  expect(band.style.left).toBe('90%'); expect(band.style.width).toBe('10%');
+  expect(band.style.left).toBe('0%'); expect(band.style.width).toBe('100%');
 });
 
 it('spans the minimum start and maximum end when visible rows stay in file order', () => {

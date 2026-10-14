@@ -25,6 +25,7 @@ import HubIndex from './hub/HubIndex';
 import type { useHubState } from '@/src/app/hooks/useHubState';
 import SearchPanel, { GroupedSearchResults } from './SearchPanel';
 import SectionTitle from './SectionTitle';
+import WorkspaceTitleActions from './WorkspaceTitleActions';
 import AlignmentSection from './AlignmentSection';
 import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
@@ -190,7 +191,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
-      {activeTab === 'features' && hubState && <><input ref={addSequencesInput} aria-label="Add sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} /><HubIndex records={records} featureColors={featureColors} state={hubState} onExportProjectJson={onExportProjectJson} onClearAll={onClearAll} empty={workspaceEmpty} locked={isAlignmentLocked} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
+      <input ref={addSequencesInput} aria-label="Add sequences files" hidden disabled={isAlignmentLocked} type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
+      {activeTab === 'features' && hubState && <><HubIndex records={records} featureColors={featureColors} state={hubState} onExportProjectJson={onExportProjectJson} onClearAll={onClearAll} empty={workspaceEmpty} locked={isAlignmentLocked} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (
@@ -270,8 +272,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Record Navigator */}
       {activeTab === 'alignment' && records.length > 0 && (
-        <section className="animate-in slide-in-from-left-2 duration-300">
-          <SectionTitle icon="fa-list-ul">Record Navigator</SectionTitle>
+        <section className="animate-in slide-in-from-left-2 duration-300 [container-type:inline-size]">
+          <SectionTitle icon="fa-list-ul" trailing={<WorkspaceTitleActions onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} addLocked={isAlignmentLocked} onExportProjectJson={onExportProjectJson} onClearAll={onClearAll} locked={isAlignmentLocked} empty={workspaceEmpty ?? records.length === 0} />}>Record Navigator</SectionTitle>
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
             {records.map(r => (
               <div

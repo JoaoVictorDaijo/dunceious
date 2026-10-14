@@ -18,9 +18,11 @@
  */
 
 // @vitest-environment jsdom
+import { createOriginCrossingRecord } from '@/src/app/testing/fixtures/originCrossing';
 import { it, expect, vi } from 'vitest';
 import { render, screen, within, fireEvent } from '@/src/app/testing/renderHarness';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
 import type { FeatureGroup, CellState } from '@/src/app/logic/featureComparison';
 import FeatureSectionHeader, { featureSectionHeight } from '../FeatureSectionHeader';
 import FilterBar from '../FilterBar';
@@ -56,4 +58,15 @@ it('shows one legend sample for each occurring state after the type chips', () =
   expect(legend.querySelectorAll('[data-presence-state]')).toHaveLength(7);
   expect(legend.textContent).toContain('duplicate');
   expect(legend.textContent).toContain('odd length');
+});
+
+
+it.each([['pol', 'Median position 2,427 · 2,640–2,640 bp'], ['env', 'Median position 2,992 · 1,281–1,281 bp']] as const)('shows biological position and length for the %s origin crossing', (identity, summary) => {
+  const record = createOriginCrossingRecord();
+  const groups = buildFeatureGroups([record], { query: '', types: new Set(), strand: 'all', sequenceQuery: '', needsAttention: false }, false);
+  const group = groups.find(group => group.identity === identity)!;
+  render(<FeatureSectionHeader group={group} records={[record]} folded={false} onFold={() => {}} onSequence={() => {}} />);
+  expect(screen.getByText(summary)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'J02442: present' })).toBeTruthy();
+  expect(screen.queryByText(/\d+ odd length/)).toBeNull();
 });
