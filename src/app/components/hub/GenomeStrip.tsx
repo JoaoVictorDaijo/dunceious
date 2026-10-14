@@ -70,7 +70,8 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
   const geometry = stripGeometry(record, large, featureColors);
   const [cursor, setCursor] = useState({ record, index: 0 });
   const [focused, setFocused] = useState(false);
-  const [hovered, setHovered] = useState<BioFeature | null>(null);
+  const [pointer, setPointer] = useState<{ record: SeqRecord; feature: BioFeature; x: number; y: number } | null>(null);
+  const owner = useRef({});
   const hoveredRef = useRef<BioFeature | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -78,18 +79,23 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
   const { ordered, metrics } = geometry;
   const index = cursor.record === record ? Math.min(cursor.index, ordered.length - 1) : 0;
   const current = ordered[index];
+  const hovered = pointer?.record === record ? pointer.feature : null;
   const active = hovered || (focused ? current : null);
   const mask = useCallback((feature: BioFeature) => active ? feature === active : !highlight || highlight(feature), [active, highlight]);
   const paths = stripPaths(geometry, mask);
   const interactive = Boolean(onPick) && Boolean(current);
   useEffect(() => { if (root.current && trackWindow) return trackWindow.register(record.id, root.current); }, [record.id, trackWindow]);
   useEffect(() => {
-    if (!focused || !current) return;
+    hoveredRef.current = null;
+    setPointer(null);
+  }, [record]);
+  useEffect(() => {
+    if (!active) { showTooltip(null, owner.current); return; }
     const bounds = svg.current?.getBoundingClientRect();
-    const part = geometry.parts.find(part => part.feature === current)!;
-    showTooltip({ record, feature: current, color: part.color, x: (bounds?.left ?? 0) + part.x / viewWidth * (bounds?.width ?? 0), y: (bounds?.top ?? 0) + part.y });
-    return () => showTooltip(null);
-  }, [focused, current, record, geometry, showTooltip]);
+    const part = geometry.parts.find(part => part.feature === active)!;
+    showTooltip({ record, feature: active, color: part.color, x: hovered ? pointer!.x : (bounds?.left ?? 0) + part.x / viewWidth * (bounds?.width ?? 0), y: hovered ? pointer!.y : (bounds?.top ?? 0) + part.y }, owner.current);
+    return () => showTooltip(null, owner.current);
+  }, [active, hovered, pointer, record, geometry, showTooltip]);
   const hit = (event: MouseEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return null;
@@ -101,12 +107,13 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
   const move = (event: MouseEvent<SVGSVGElement>) => {
     const part = hit(event);
     if (hoveredRef.current === (part?.feature ?? null)) return;
-    hoveredRef.current = part?.feature ?? null; setHovered(part?.feature ?? null);
-    showTooltip(part ? { record, feature: part.feature, color: part.color, x: event.clientX, y: event.clientY } : null);
+    hoveredRef.current = part?.feature ?? null;
+    setPointer(part ? { record, feature: part.feature, x: event.clientX, y: event.clientY } : null);
   };
   const keyboard = (event: KeyboardEvent<SVGSVGElement>) => {
     if (!interactive || !['ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
+    hoveredRef.current = null; setPointer(null);
     if (event.key === 'Enter' || event.key === ' ') onPick?.(current);
     else setCursor({ record, index: Math.max(0, Math.min(ordered.length - 1, index + (event.key === 'ArrowRight' ? 1 : -1))) });
   };
@@ -116,7 +123,7 @@ function GenomeStrip({ record, highlight, large = false, onPick, featureColors, 
       <svg ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: metrics.height }}
         role={large && interactive ? 'button' : undefined} aria-hidden={large && interactive ? undefined : true}
         aria-label={large && interactive ? `Genome strip for ${record.id}: ${ordered.length} ${ordered.length === 1 ? 'annotation' : 'annotations'}` : undefined}
-        tabIndex={large && interactive ? 0 : undefined} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setHovered(null); showTooltip(null); }} onClick={event => { const part = hit(event); if (part) { setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        tabIndex={large && interactive ? 0 : undefined} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { const part = hit(event); if (part) { setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         className={`block w-full rounded ${large ? 'border border-slate-200 bg-white' : ''} ${interactive ? 'cursor-crosshair focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500' : ''}`}>
         <line x1="0" x2={viewWidth} y1={metrics.axis} y2={metrics.axis} className={large ? 'stroke-slate-300' : 'stroke-slate-700'} vectorEffect="non-scaling-stroke" />
         {paths.map(path => <path key={path.key} d={path.d} fill={path.color} opacity={path.opacity} />)}

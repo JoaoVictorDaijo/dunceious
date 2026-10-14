@@ -132,3 +132,20 @@ it('opens a missing detail chip with focus on that field', () => {
   fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' }));
   expect(document.activeElement).toBe(screen.getByLabelText('Host'));
 });
+
+it('refocuses missing fields in an editor that is already mounted', () => {
+  render(<Subject />);
+  const pinned = within(screen.getByRole('region', { name: 'Pinned section' }));
+  fireEvent.click(pinned.getByRole('button', { name: '+ Host' }));
+  fireEvent.click(pinned.getByRole('button', { name: '+ Location' }));
+  expect(document.activeElement).toBe(screen.getByLabelText('Location'));
+  fireEvent.click(pinned.getByRole('button', { name: '+ Location' }));
+  expect(document.activeElement).toBe(screen.getByLabelText('Location'));
+});
+it('keeps an edited marker after an imported value is cleared', () => {
+  const original = { ...writeDetails(fasta, { host: 'camel' }), fileDetails: { host: 'camel' } };
+  render(<Subject initial={writeDetails(original, { host: '' })} />);
+  const chip = within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: '+ Host' });
+  expect(within(chip).getByText('edited')).toBeTruthy();
+  expect(chip.className).toContain('bg-amber-50');
+});

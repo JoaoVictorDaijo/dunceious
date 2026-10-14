@@ -47,7 +47,9 @@ function filterReducer(state: FilterState, action: FilterAction): FilterState {
 export function useHubState() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [trackWindow] = useState(createTrackWindow);
-  const [detailsField, setDetailsField] = useState<keyof SequenceDetails>('organism');
+  const [detailsField, setDetailsFieldValue] = useState<keyof SequenceDetails>('organism');
+  const [detailsFocusRequest, setDetailsFocusRequest] = useState(0);
+  const setDetailsField = useCallback((field: keyof SequenceDetails) => { setDetailsFieldValue(field); setDetailsFocusRequest(value => value + 1); }, []);
   const [tab, setTab] = useState<HubTab>('sequences');
   const [grouped, setGrouped] = useState(false);
   const [groupField, setGroupField] = useState<GroupField>('organism');
@@ -101,7 +103,7 @@ export function useHubState() {
   }, [setFilters, setSearchFolds, trackWindow]);
 
   return {
-    shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
+    shortcutsOpen, setShortcutsOpen, trackWindow, detailsField, detailsFocusRequest, setDetailsField, workspaceRevision, resetWorkspace, indexFolds, setIndexFolds,
     currentSectionKey, setCurrentSectionKey, jumpTarget, setJumpTarget, onlyProblems, setOnlyProblems,
     tab, setTab, grouped, setGrouped, groupField, setGroupField, sort, setSort,
     filters, setFilters, density, setDensity, collapsed, setCollapsed, searchFolds, setSearchFolds,

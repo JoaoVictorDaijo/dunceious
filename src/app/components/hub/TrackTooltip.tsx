@@ -24,12 +24,15 @@ import { featureLength } from '@/src/app/logic/viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 export type TrackHover = { record: SeqRecord; feature: BioFeature; color: string; x: number; y: number };
-const TrackTooltipContext = createContext<(hover: TrackHover | null) => void>(() => {});
+const TrackTooltipContext = createContext<(hover: TrackHover | null, owner: object) => void>(() => {});
 export const useTrackTooltip = () => useContext(TrackTooltipContext);
 export function TrackTooltipProvider({ children }: { children: ReactNode }) {
   const [hover, setHover] = useState<TrackHover | null>(null);
   const current = useRef<TrackHover | null>(null);
-  const update = useCallback((next: TrackHover | null) => {
+  const owner = useRef<object | null>(null);
+  const update = useCallback((next: TrackHover | null, source: object) => {
+    if (!next && owner.current !== source) return;
+    owner.current = next ? source : null;
     if (current.current?.feature === next?.feature && current.current?.record === next?.record) return;
     current.current = next; setHover(next);
   }, []);

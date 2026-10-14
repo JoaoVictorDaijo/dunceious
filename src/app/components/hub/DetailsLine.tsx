@@ -29,7 +29,7 @@ export default function DetailsLine({ record, onAdd }: { record: SeqRecord; onAd
     {fields.map(({ key, label }) => {
       const edited = isDetailEdited(record, key);
       const warning = edited ? validateDetail(key, details[key] ?? '') : null;
-      if (!details[key] && onAdd) return <button key={key} onClick={() => onAdd(key)} className="whitespace-nowrap rounded-lg border border-dashed border-slate-300 px-2 text-slate-500 hover:text-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">+ {label}</button>;
+      if (!details[key] && onAdd) return <button key={key} aria-label={`+ ${label}`} onClick={() => onAdd(key)} className={`whitespace-nowrap rounded-lg border border-dashed px-2 hover:text-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${edited ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-300 text-slate-500'}`}>+ {label}{edited && <span className="ml-1 text-[10px]">edited</span>}</button>;
       return <span key={key} data-detail={key} className={`min-w-0 truncate rounded-lg border px-2 ${edited ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'} ${warning ? 'text-amber-700' : ''}`}>
         <span title={warning ?? `${label}: ${details[key] || 'Not specified'}`}><span>{label}: </span><span>{details[key] || 'Not specified'}</span></span>
         {edited && <span className="ml-1 text-[10px]">· edited</span>}

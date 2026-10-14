@@ -151,3 +151,33 @@ it('shows CDS hover details once per feature and exposes the same keyboard detai
   fireEvent.mouseLeave(strip); expect(screen.queryByRole('tooltip')).toBeNull();
   fireEvent.focus(strip); expect(screen.getByRole('tooltip').textContent).toContain('enzyme');
 });
+
+it('clears hover details when a virtual strip unmounts', () => {
+  const { rerender } = render(<TrackTooltipProvider><GenomeStrip record={record} large onPick={noop} /></TrackTooltipProvider>);
+  const strip = screen.getByRole('button', { name: /Genome strip/ }); mockBounds(strip, 25);
+  fireEvent.mouseMove(strip, { clientX: 50, clientY: 10 }); expect(screen.getByRole('tooltip')).toBeTruthy();
+  rerender(<TrackTooltipProvider><span>Other workspace</span></TrackTooltipProvider>);
+  expect(screen.queryByRole('tooltip')).toBeNull();
+});
+it('keeps tooltip and outline on the keyboard cursor after pointer hover leaves', () => {
+  render(<TrackTooltipProvider><GenomeStrip record={record} large onPick={noop} /></TrackTooltipProvider>);
+  const strip = screen.getByRole('button', { name: /Genome strip/ }); mockBounds(strip, 25);
+  fireEvent.focus(strip);
+  fireEvent.mouseMove(strip, { clientX: 250, clientY: 10 });
+  expect(screen.getByRole('tooltip').textContent).toContain('own colour');
+  fireEvent.keyDown(strip, { key: 'ArrowLeft' });
+  expect(screen.getByRole('tooltip').textContent).toContain('custom type');
+  expect(strip.querySelector('[data-strip-focus]')?.getAttribute('d')).toContain('M0 ');
+  fireEvent.mouseLeave(strip);
+  expect(screen.getByRole('tooltip').textContent).toContain('custom type');
+});
+
+it('releases the old hover when an immutable record is replaced', () => {
+  const { rerender } = render(<TrackTooltipProvider><GenomeStrip record={record} large onPick={noop} /></TrackTooltipProvider>);
+  const strip = screen.getByRole('button', { name: /Genome strip/ }); mockBounds(strip, 25);
+  fireEvent.mouseMove(strip, { clientX: 50, clientY: 10 });
+  const replacement = { ...record, features: [{ ...record.features[0], name: 'replacement' }] };
+  rerender(<TrackTooltipProvider><GenomeStrip record={replacement} large onPick={noop} /></TrackTooltipProvider>);
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  expect(strip.querySelector('path')?.getAttribute('opacity')).toBe('1');
+});
