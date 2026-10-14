@@ -61,8 +61,9 @@ All notable changes to Dunceious. Format loosely follows
 - The slim pinned bar shows the full packed track between the sequence name and
   its counts, and takes over as soon as the full header starts to scroll away,
   so the header is never seen half cut.
-- The Annotation Hub's collapsible log uses the viewport's Log Terminal title and
-  icon.
+- The Log Terminal is one collapsible section in both workspaces, closed by
+  default, with the same title, icon and chevron; its open state carries across
+  workspace switches.
 
 ### Fixed
 

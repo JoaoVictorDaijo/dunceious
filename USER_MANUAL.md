@@ -222,7 +222,7 @@ Hovering (or keyboard-focusing) any control shows a tooltip explaining it, with 
 
 - **Missing Data**: Ensure your BED files follow the standard tab-delimited format.
 - **Performance**: If the browser becomes sluggish with very large alignments, try reducing the number of visible tracks or annotations.
-- **Upload Errors**: Check the **Log Terminal** for detailed error messages. Common causes include sequence ID mismatches (alignment overlay), sequence length mismatches (alignment overlay), and molecule-type conflicts (loading protein sequences into a nucleotide session or vice versa).
+- **Upload Errors**: Open the **Log Terminal** at the bottom of the sidebar (click its chevron) for detailed error messages. Common causes include sequence ID mismatches (alignment overlay), sequence length mismatches (alignment overlay), and molecule-type conflicts (loading protein sequences into a nucleotide session or vice versa).
 - **Remote alignment errors**: EMBL-EBI's own message is shown in the dialog. Common causes: an email whose domain EMBL-EBI cannot verify (use a real address), more sequences or more data than the chosen algorithm accepts (pick another, or reduce the set), or EMBL-EBI being unreachable (try again). A long queue is normal; the monitor keeps waiting.
 - **Duplicate IDs**: Repeated sequence IDs are handled automatically with numeric suffixes; no action is needed. A pre-aligned FASTA exported from the same workspace re-imports correctly even when its IDs contain those suffixes.
 
