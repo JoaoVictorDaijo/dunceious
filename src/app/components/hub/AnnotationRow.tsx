@@ -54,24 +54,23 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
   return <div data-row-key={rowKey} aria-current={current} tabIndex={0} onFocus={onCurrent} onClick={onCurrent}
     onMouseEnter={() => onHover(feature)} onMouseLeave={() => onHover(null)}
-    className={`flex h-full items-center gap-3 border-b border-slate-100 px-5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${selected || current ? 'bg-amber-50' : 'bg-white'} ${lastFocused ? 'shadow-[inset_3px_0_0_0_#f59e0b]' : ''}`}>
+    className={`hub-row-grid group relative h-full border-b border-slate-100 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${selected || current ? 'bg-amber-50' : 'bg-white hover:bg-slate-50'} ${current ? 'shadow-[inset_0_0_0_1.5px_var(--env)]' : ''}`}>
+    <span aria-hidden="true" className="absolute left-0 inset-y-[6px] w-[3px] rounded-r" style={{ backgroundColor: color }} />
     <input type="checkbox" aria-label={`Select annotation ${feature.name} on ${record.id}`} checked={selected} onChange={onSelect} />
-    <span className="w-24 shrink-0" style={{ color }}>{feature.type} <span
-      aria-label={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'}
-      className={strand === -1 ? 'text-rose-600' : strand === 1 ? 'text-emerald-700' : 'text-slate-500'}>
-      {strand === -1 ? '←' : strand === 1 ? '→' : '?'}</span></span>
+    <span className="flex h-[22px] max-w-full items-center truncate rounded-md border px-2 font-mono text-[11.5px]" style={{ background: `color-mix(in srgb, ${color} 13%, white)`, borderColor: `color-mix(in srgb, ${color} 28%, white)`, color: `color-mix(in srgb, ${color} 62%, #0f172a)` }}>{feature.type}</span>
+    <span aria-label={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} data-tip={strand === -1 ? 'Reverse strand' : strand === 1 ? 'Forward strand' : 'Unknown strand'} className={`flex h-[22px] w-[22px] items-center justify-center rounded-md ${strand === -1 ? 'text-rose-600 bg-rose-50' : strand === 1 ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>{strand === -1 ? '←' : strand === 1 ? '→' : '?'}</span>
     <div className="min-w-0 flex-1">
-      <strong className="text-slate-900">{kind === 'features' ? <DisplayName record={record} /> : feature.name}</strong>
+      <strong className="block truncate font-semibold text-slate-900">{kind === 'features' ? <DisplayName record={record} /> : feature.name}</strong>
       {lastFocused && <span className="ml-2 text-amber-700">Last focused</span>}
       {detail && <p title={detail} className="truncate text-slate-500">{detail}</p>}
     </div>
-    <span title={location} aria-label={`Location: ${location}`} className="min-w-0 w-[26ch] shrink-0 truncate font-mono text-slate-600">{location}</span>
-    <span className="w-20 shrink-0 text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span>
-    <div className="flex shrink-0 gap-1 text-slate-500">
-      <button aria-label={`Inspect ${feature.name} on ${record.id}`} className="p-2" onClick={onInspect}><i aria-hidden="true" className="fas fa-info-circle" /></button>
-      <button disabled={locked} aria-label={`Edit ${feature.name} on ${record.id}`} className="p-2 disabled:opacity-40" onClick={onEdit}><i aria-hidden="true" className="fas fa-pen" /></button>
-      <button aria-label={`Open ${feature.name} on ${record.id} in viewport`} className="rounded border border-slate-200 px-2 py-1" onClick={onFocus}>Open in viewport</button>
-      <button disabled={locked} aria-label={`Delete ${feature.name} on ${record.id}`} className="p-2 text-rose-600 disabled:opacity-40" onClick={onDelete}><i aria-hidden="true" className="fas fa-trash-alt" /></button>
+    <span title={location} aria-label={`Location: ${location}`} className="min-w-0 truncate font-mono text-slate-600">{location}</span>
+    <span className="text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span>
+    <div data-row-actions className={`hub-row-actions flex justify-end gap-0.5 text-slate-500 ${selected || current ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'} transition-opacity motion-reduce:transition-none`}>
+      <button aria-label={`Inspect ${feature.name} on ${record.id}`} data-tip="Details" className="h-[30px] w-[30px] rounded-lg hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onInspect}><i aria-hidden="true" className="fas fa-circle-info" /></button>
+      <button disabled={locked} aria-label={`Edit ${feature.name} on ${record.id}`} data-tip="Edit annotation" className="h-[30px] w-[30px] rounded-lg hover:bg-slate-100 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onEdit}><i aria-hidden="true" className="fas fa-pen" /></button>
+      <button aria-label={`Open ${feature.name} on ${record.id} in viewport`} data-tip="Open in the Visual Viewport" className="h-[30px] w-[30px] rounded-lg hover:bg-sky-50 hover:text-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onFocus}><i aria-hidden="true" className="fas fa-crosshairs" /></button>
+      <button disabled={locked} aria-label={`Delete ${feature.name} on ${record.id}`} data-tip="Delete annotation" className="h-[30px] w-[30px] rounded-lg hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onDelete}><i aria-hidden="true" className="fas fa-trash-can" /></button>
     </div>
   </div>;
 }

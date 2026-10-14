@@ -128,3 +128,11 @@ it('updates the pinned track window from visible rows and hides it after folding
   fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });
+
+it('extends an origin-crossing visible feature window to the sequence end', () => {
+  const crossing = { ...records[0], isCircular: true, features: [{ name: 'wrap', type: 'gene', start: 90, end: 10, strand: 1 as const }] };
+  function Wrap() { const state = useHubState(); return <HubList state={state} kind="sequences" height={300} items={buildSequenceSections([crossing], state.filters, { grouped: false }, 'load')} />; }
+  render(<Wrap />);
+  const band = screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-track-window]')!;
+  expect(band.style.left).toBe('90%'); expect(band.style.width).toBe('10%');
+});

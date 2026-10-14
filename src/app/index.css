@@ -89,3 +89,15 @@
   .drop-zone[data-drop="armed"] { animation: none; }
   .drop-zone[data-drop="over"] .drop-zone-icon { transform: none; }
 }
+
+.hub-row-grid {
+  display: grid;
+  grid-template-columns: 16px 110px 22px minmax(0, 1fr) minmax(140px, 26ch) 80px 126px;
+  align-items: center;
+  column-gap: 12px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+@media (hover: none) {
+  .hub-row-actions { opacity: 1; }
+}

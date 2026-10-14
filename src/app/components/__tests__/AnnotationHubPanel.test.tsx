@@ -48,7 +48,7 @@ describe('AnnotationHubPanel', () => {
     expect(within(panel).queryByRole('searchbox')).toBeNull();
     expect(within(screen.getByLabelText('Header tools')).getByRole('searchbox')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Annotation Hub' }).className).toBe('sr-only');
-    expect(screen.getByText('8 of 8 annotations in 8 of 8 sequences')).toBeTruthy();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === '8 of 8 annotations in 8 of 8 sequences')).toBeTruthy();
   });
 
   it('counts feature identities without running comparisons until the Features tab opens', () => {
@@ -184,7 +184,7 @@ describe('AnnotationHubPanel', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Features 2' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
     fireEvent.click(screen.getByRole('button', { name: 'CDS 2' }));
-    fireEvent.change(screen.getByLabelText('Strand'), { target: { value: 'fwd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Forward strand only' }));
     fireEvent.click(within(screen.getByRole('region', { name: 'Pinned section' })).getByRole('button', { name: 'seq1' }));
     expect(within(screen.getByRole('region', { name: 'Pinned section' })).getByText('seq1')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Search and type filters cleared to show seq1');

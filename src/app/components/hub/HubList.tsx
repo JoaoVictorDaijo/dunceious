@@ -135,7 +135,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const top = value + Math.max(0, starts[index] - value) + header.size;
     const visible = entries.flatMap((entry, i) => entry.sectionKey === header.sectionKey && entry.type === 'row' && starts[i] + entry.size > top && starts[i] < value + height ? [entry.feature] : []);
     const record = (header.item as SequenceSection).record;
-    state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: visible[0].start, end: visible.at(-1)!.end } : null);
+    state.trackWindow.update(visible.length ? { id: record.id, length: record.sequence.length, start: Math.min(...visible.map(feature => feature.start)), end: visible.some(feature => feature.start > feature.end || feature.segments?.some(part => part.start > part.end)) ? record.sequence.length : Math.max(visible[0].start + 1, visible.at(-1)!.end) } : null);
   };
   useLayoutEffect(() => { updateWindow(pinnedIndex, offset); }, [entries, offset, pinnedIndex]);
   const onScroll = ({ scrollOffset: value }: { scrollOffset: number }) => {

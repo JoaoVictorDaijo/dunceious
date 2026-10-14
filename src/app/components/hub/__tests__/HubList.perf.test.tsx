@@ -121,9 +121,9 @@ describe('100×60 hub acceptance fixture', () => {
     expectPinned('hub100');
     expect(container.querySelectorAll('[data-row-key]')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Expand all' }));
-    expectPinned('hub004');
+    expectPinned('hub003');
     expect(container.querySelectorAll('[data-row-key]').length).toBeGreaterThan(0);
-    fireEvent.change(screen.getByLabelText('Density'), { target: { value: 'comfortable' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Comfortable' }));
     expectPinned('hub003');
 
     fireEvent.change(screen.getByLabelText('Annotation search'), { target: { value: 'fixture-hit' } });
@@ -135,7 +135,7 @@ describe('100×60 hub acceptance fixture', () => {
     const lastRow = container.querySelector<HTMLElement>('[data-row-key="hub098:60"]');
     expect(lastRow).not.toBeNull();
     const top = Number.parseFloat(lastRow!.parentElement!.style.top) - viewport.scrollTop;
-    expect(top).toBeGreaterThanOrEqual(113);
+    expect(top).toBeGreaterThanOrEqual(149);
     expect(top + 64).toBeLessThanOrEqual(height);
     expect(container.querySelectorAll('[data-row-key]').length).toBeLessThan(100);
   });

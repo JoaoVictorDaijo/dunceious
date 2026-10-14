@@ -17,18 +17,24 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { getFeatureColor } from '@/src/app/viewer/colors';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-export default function FilterBar({ state, types, keys }: { state: ReturnType<typeof useHubState>; types: Map<string, number>; keys: string[] }) {
+export default function FilterBar({ state, types, keys, featureColors }: { state: ReturnType<typeof useHubState>; types: Map<string, number>; keys: string[]; featureColors?: Record<string, string> }) {
   const filtering = Boolean(state.filters.query.trim() || state.filters.types.size || state.filters.strand !== 'all' || state.filters.sequenceQuery || state.filters.needsAttention || state.filters.onlyIds || state.onlyProblems && state.tab === 'features');
   const foldAll = (fold: boolean) => {
     if (filtering) state.setSearchFolds(new Set(fold ? keys.map(key => `${state.tab}:${key}`) : []));
     else state.setCollapsed(prev => ({ ...prev, [state.tab]: new Set(fold ? keys : []) }));
   };
   return <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-5 py-2 text-xs text-slate-600">
-    {[...types].map(([type, count]) => <button key={type} aria-pressed={state.filters.types.has(type)} onClick={() => state.setFilters(prev => { const next = new Set(prev.types); if (next.has(type)) next.delete(type); else next.add(type); return { ...prev, types: next }; })} className={`rounded border px-2 py-1 ${state.filters.types.has(type) ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white'}`}>{type} {count}</button>)}
-    <label className="ml-auto">Strand <select aria-label="Strand" className="rounded border border-slate-200 bg-white p-1" value={state.filters.strand} onChange={e => state.setFilters(f => ({ ...f, strand: e.target.value as typeof f.strand }))}><option value="all">All strands</option><option value="fwd">Forward →</option><option value="rev">Reverse ←</option></select></label>
-    <label>Density <select className="rounded border border-slate-200 bg-white p-1" value={state.density} onChange={e => state.setDensity(e.target.value as typeof state.density)}><option value="compact">Compact</option><option value="comfortable">Comfortable</option></select></label>
-    {state.tab === 'features' && <label className="flex gap-1"><input type="checkbox" checked={state.onlyProblems} onChange={e => state.setOnlyProblems(e.target.checked)} />Only missing or odd length</label>}
-    <button onClick={() => foldAll(false)} className="px-2 py-1">Expand all</button><button onClick={() => foldAll(true)} className="px-2 py-1">Collapse all</button>
+    {[...types].map(([type, count]) => <button key={type} aria-pressed={state.filters.types.has(type)} onClick={() => state.setFilters(prev => { const next = new Set(prev.types); if (next.has(type)) next.delete(type); else next.add(type); return { ...prev, types: next }; })} className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.types.has(type) ? 'border-amber-400 bg-amber-50 text-slate-800' : 'border-slate-200 bg-white'}`}><span data-type-swatch aria-hidden="true" className="h-[9px] w-[9px] rounded" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />{type} <span className="font-mono text-[11px] text-slate-500">{count}</span></button>)}
+    <div role="group" aria-label="Strand" className="ml-auto flex rounded-lg border border-slate-300 bg-white p-0.5">
+      {([['all', 'All', 'All strands'], ['fwd', '→', 'Forward strand only'], ['rev', '←', 'Reverse strand only']] as const).map(([value, glyph, label]) => <button key={value} aria-label={label} data-tip={label} aria-pressed={state.filters.strand === value} onClick={() => state.setFilters(filters => ({ ...filters, strand: value }))} className={`h-6 min-w-7 rounded-md px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.filters.strand === value ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>{glyph}</button>)}
+    </div>
+    <div role="group" aria-label="Density" className="flex rounded-lg border border-slate-300 bg-white p-0.5">
+      {(['compact', 'comfortable'] as const).map(value => <button key={value} aria-pressed={state.density === value} onClick={() => state.setDensity(value)} className={`h-6 rounded-md px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.density === value ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>{value === 'compact' ? 'Compact' : 'Comfortable'}</button>)}
+    </div>
+    {state.tab === 'features' && <button aria-pressed={state.onlyProblems} onClick={() => state.setOnlyProblems(!state.onlyProblems)} className={`rounded-full border px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${state.onlyProblems ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300'}`}>Only missing or odd length</button>}
+    <button aria-label="Expand all" data-tip="Expand all" onClick={() => foldAll(false)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-angles-down" aria-hidden="true" /></button>
+    <button aria-label="Collapse all" data-tip="Collapse all" onClick={() => foldAll(true)} className="h-[30px] w-[30px] rounded-lg border border-slate-300 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-angles-up" aria-hidden="true" /></button>
   </div>;
 }
