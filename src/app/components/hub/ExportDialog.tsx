@@ -32,11 +32,11 @@ import ExportSequenceTree from './ExportSequenceTree';
 import { hubEditCounts } from '@/src/app/logic/hubEdits';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 
-const formats: { format: HubExportFormat; label: string; icon: string; description: string }[] = [
-  { format: 'fasta', label: 'FASTA', icon: 'fa-dna', description: 'Sequences for alignment and sequence tools' },
-  { format: 'genbank', label: 'GenBank', icon: 'fa-file-lines', description: 'Sequences, annotations and details for GenBank / GenPept viewers' },
-  { format: 'gff3', label: 'GFF3', icon: 'fa-table-list', description: 'Annotations and details for sequences already loaded in another tool' },
-  { format: 'project', label: 'Dunceious project', icon: 'fa-box-archive', description: 'Reopens only in Dunceious' },
+const formats: { format: HubExportFormat; label: string; icon: string; what: string; where: string }[] = [
+  { format: 'fasta', label: 'FASTA', icon: 'fa-dna', what: 'Sequences only', where: 'Aligners, BLAST, any sequence tool' },
+  { format: 'genbank', label: 'GenBank', icon: 'fa-file-lines', what: 'Sequences, annotations and details', where: 'NCBI tools, SnapGene, Geneious, Biopython' },
+  { format: 'gff3', label: 'GFF3', icon: 'fa-table-list', what: 'Annotations only', where: 'Genome browsers (IGV, JBrowse), pipelines' },
+  { format: 'project', label: 'Dunceious project', icon: 'fa-box-archive', what: 'Everything, including colours and edit marks', where: 'Reopens only in Dunceious' },
 ];
 export interface ExportDialogProps {
   featureColors?: Record<string, string>;
@@ -128,65 +128,66 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
 
   return createPortal(<div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4">
-    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="hub-export-title" tabIndex={-1} onKeyDown={keyboard} className="flex h-[700px] max-h-[calc(100dvh-32px)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white text-slate-800 shadow-2xl [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-amber-500 [&_input]:focus-visible:outline [&_input]:focus-visible:outline-2 [&_input]:focus-visible:outline-amber-500 [&_summary]:focus-visible:outline [&_summary]:focus-visible:outline-2 [&_summary]:focus-visible:outline-amber-500">
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3"><div className="flex items-center gap-3"><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-env"><i className="fas fa-file-export" /></span><div><h2 id="hub-export-title" className="text-lg font-semibold">Export sequences</h2><p className="text-xs text-slate-500">Choose a subset and a format for your next tool.</p></div></div><button aria-label="Close export dialog" onClick={onClose} className="rounded px-3 py-2 text-xl">×</button></header>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)] max-sm:grid-cols-1">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="hub-export-title" tabIndex={-1} onKeyDown={keyboard} className="flex h-[700px] max-h-[calc(100dvh-32px)] w-full max-w-[1180px] flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-800 shadow-2xl [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-amber-500 [&_input]:focus-visible:outline [&_input]:focus-visible:outline-2 [&_input]:focus-visible:outline-amber-500 [&_summary]:focus-visible:outline [&_summary]:focus-visible:outline-2 [&_summary]:focus-visible:outline-amber-500">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3"><div className="flex items-center gap-3"><span aria-hidden="true" className="flex h-[42px] w-[42px] items-center justify-center rounded-xl bg-amber-50 text-env"><i className="fas fa-file-export" /></span><div><h2 id="hub-export-title" className="text-[19px] font-bold">Export sequences</h2><p className="text-xs text-slate-500">Pick the sequences, then the format. Files are built in your browser.</p></div></div><button aria-label="Close export dialog" onClick={onClose} className="rounded px-3 py-2 text-xl">×</button></header>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] max-sm:grid-cols-1">
         <section className="flex min-h-0 flex-col border-r border-slate-200 p-4">
-          <StepHeading number={1} label="Sequences" />
-          <div className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-pressed={pick.active} onClick={() => { setQuickPick(pick.label); setIds(pick.values); }} className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}</button>)}</div>
+          <StepHeading number={1} label="Sequences" trailing={`${chosen.length} of ${records.length}`} />
+          <div className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-label={pick.label} disabled={pick.label !== 'None' && pick.values.size === 0} aria-pressed={pick.active} onClick={() => { setQuickPick(pick.label); setIds(pick.values); }} className={`inline-flex h-[30px] items-center gap-1 rounded-full border px-3 text-xs font-semibold disabled:cursor-default disabled:opacity-40 ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}{pick.label !== 'None' && <span aria-hidden="true" className="font-mono text-[11px] text-slate-500">{pick.values.size}</span>}</button>)}</div>
           <ExportSequenceTree records={records} state={state} ids={ids} onChange={values => { setQuickPick(null); setIds(values); }} />
         </section>
-        <section aria-label="Export options" className="min-h-0 p-4 text-xs">
+        <section role="region" aria-label="Export options" className="min-h-0 overflow-y-auto bg-slate-50/50 px-5 py-3 text-xs">
           <StepHeading number={2} label="Format" />
-          <div role="radiogroup" aria-label="File format" className="grid grid-cols-4 gap-2" onKeyDown={event => {
+          <div role="radiogroup" aria-label="File format" className="grid grid-cols-2 gap-2" onKeyDown={event => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
             const index = formats.findIndex(choice => choice.format === format);
             const next = event.key === 'Home' ? 0 : event.key === 'End' ? 3 : (index + (event.key === 'ArrowRight' ? 1 : -1) + 4) % 4;
             setFormat(formats[next].format);
             event.currentTarget.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
-          }}>{formats.map(choice => <button key={choice.format} role="radio" aria-label={choice.label} aria-checked={choice.format === format} tabIndex={choice.format === format ? 0 : -1} onClick={() => setFormat(choice.format)} className={`flex flex-col items-center justify-center gap-1 rounded-lg border px-1 py-2 text-[11px] font-semibold ${choice.format === format ? 'border-env bg-amber-50 text-amber-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}><i aria-hidden="true" className={`fas ${choice.icon} text-sm`} /><span>{choice.label}</span><span className="font-mono text-[10px] font-normal">.{EXPORT_EXTENSION[choice.format]}</span></button>)}</div>
-          <p className="mt-2 text-slate-500">{formats.find(choice => choice.format === format)?.description}</p>
-          <StepHeading number={3} label="Options" className="mt-3" />
+          }}>{formats.map(choice => <button key={choice.format} role="radio" aria-label={choice.label} aria-checked={choice.format === format} tabIndex={choice.format === format ? 0 : -1} onClick={() => setFormat(choice.format)} className={`grid grid-cols-[38px_minmax(0,1fr)_auto] items-start gap-x-2 gap-y-0.5 rounded-xl border p-2.5 text-left ${choice.format === format ? 'border-env bg-amber-50 text-amber-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}><span aria-hidden="true" className={`row-span-3 flex h-[38px] w-[38px] items-center justify-center rounded-lg ${choice.format === format ? 'bg-env text-slate-950' : 'bg-slate-100 text-slate-700'}`}><i className={`fas ${choice.icon}`} /></span><span className="text-[15px] font-bold leading-5">{choice.label}</span><span className="font-mono text-[10px] leading-5">.{EXPORT_EXTENSION[choice.format]}</span><span className="col-span-2 col-start-2 text-[11px] leading-[14px] text-slate-700">{choice.what}</span><span className="col-span-2 col-start-2 text-[10.5px] leading-[14px] text-slate-500">{choice.where}</span></button>)}</div>
+          <StepHeading number={3} label="Options" className="mt-2" />
           {format === 'fasta' ? <div className="space-y-3">
             <div data-tip={!hasAlignment ? gapsReason : undefined}><label className={`flex items-center gap-2 ${!hasAlignment ? 'text-slate-500' : ''}`}><input type="checkbox" disabled={!hasAlignment} aria-describedby={!hasAlignment ? gapsDescriptionId : undefined} checked={keepGaps && hasAlignment} onChange={e => setKeepGaps(e.target.checked)} />Keep alignment gaps</label>{!hasAlignment && <span id={gapsDescriptionId} className="sr-only">{gapsReason}</span>}</div>
             <label className="flex items-center gap-2"><input type="checkbox" checked={details} onChange={e => setDetails(e.target.checked)} />Include details in the header (NCBI format)</label>
           </div> : format === 'project' ? <p>All sequence data and workspace colours are preserved.</p> : <div>
             <details className="relative rounded border border-slate-300"><summary className="cursor-pointer px-3 py-2">Annotation types · {types ? types.size : availableTypes.length} of {availableTypes.length}<span className="ml-2 inline-flex gap-1" aria-hidden="true">{availableTypes.filter(type => !types || types.has(type)).slice(0, 6).map(swatch)}</span></summary>
-              <div className="absolute left-0 right-0 z-10 max-h-40 overflow-y-auto rounded border border-slate-300 bg-white p-2 shadow-lg">
-                <button onClick={() => setTypes(undefined)} className="mr-2 rounded-lg border border-slate-300 px-2 py-1 text-[11px]">All types</button><button onClick={() => setTypes(new Set())} className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]">No annotations</button>
-                {availableTypes.map(type => <label key={type} className="flex items-center gap-2 py-1"><input type="checkbox" aria-label={type} checked={types === undefined || types.has(type)} onChange={e => setType(type, e.target.checked)} />{swatch(type)}{type}<span className="ml-auto font-mono text-slate-500">{typeCounts.get(type)}</span></label>)}
+              <div className="absolute left-0 right-0 z-10 max-h-40 overflow-y-auto rounded border border-slate-300 bg-white p-2 shadow-lg"><div className="mb-1">
+                <button onClick={() => setTypes(undefined)} className="mr-2 rounded-lg border border-slate-300 px-2 py-1 text-[11px]">All types</button><button onClick={() => setTypes(new Set())} className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]">No annotations</button></div><div className="grid grid-cols-3 gap-x-3">
+                {availableTypes.map(type => <label key={type} className="flex items-center gap-2 py-1"><input type="checkbox" aria-label={type} checked={types === undefined || types.has(type)} onChange={e => setType(type, e.target.checked)} />{swatch(type)}{type}<span className="ml-auto font-mono text-slate-500">{typeCounts.get(type)}</span></label>)}</div>
               </div>
             </details>
             <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={onlyMatching} onChange={e => setOnlyMatching(e.target.checked)} />Only annotations matching hub search and filters</label>
           </div>}
-          <div className="mt-3 rounded-lg border border-slate-200 border-l-[3px] border-l-env bg-slate-50 p-3">
-            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex gap-2"><CountPill>{chosen.length}</CountPill> {chosen.length === 1 ? 'sequence' : 'sequences'}<CountPill>{exportedAnnotationCount}</CountPill> annotations<CountPill>{exportedEditCount} edited or added</CountPill></p>
+          <div className="mt-2 rounded-xl border border-slate-200 border-l-[3px] border-l-env bg-white p-2.5">
+            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2"><CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill><CountPill>{exportedAnnotationCount} annotations</CountPill><CountPill>{exportedEditCount} edited or added</CountPill></p>
             {preview.error ? <p role="alert" className="text-rose-700">{preview.error}</p> : <>
-              {preview.summary.split('\n').map((line, index) => <p key={line} className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
+              {(format === 'genbank' ? preview.summary.split('\n').slice(1) : preview.summary.split('\n')).map((line, index) => <p key={line} className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
               {Boolean(report?.missingOrganism) && <button className="mt-1 text-amber-800 underline" onClick={() => { onClose(); onEditDetails(missingIds); }}>Edit details</button>}
-              {report && format !== 'project' && <details className="mt-2"><summary className="cursor-pointer text-slate-600">Details and omissions</summary>
+              {report && format === 'genbank' && <table aria-label="Detail qualifiers" className="w-full text-[11px]"><tbody>{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <tr key={key}><th scope="row" className="py-0.5 text-left font-medium">{EXPORT_DETAIL_LABELS[key]}</th><td className="font-mono text-slate-500">/{key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]}</td><td className="py-0.5 text-right font-mono">{report.writtenDetails[key]} written · {Math.max(0, chosen.length - report.writtenDetails[key] - report.invalidDetailsOmitted[key])} empty · <span className={report.invalidDetailsOmitted[key] ? 'text-amber-800' : undefined}>{report.invalidDetailsOmitted[key]} invalid, left out</span></td></tr>)}</tbody></table>}
+              {report && format !== 'project' && <details className="mt-2"><summary className="cursor-pointer text-slate-600">Details and omissions{format === 'genbank' && report.droppedAttributes > 0 && ` · ${report.droppedAttributes} non-GenBank attributes left out`}</summary>
                 <ul className="mt-2 space-y-1 text-[11px] text-slate-600">{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <li key={key}>{EXPORT_DETAIL_LABELS[key]} · {format === 'fasta' ? DETAIL_TO_MODIFIER[key] : key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]} · <CountPill>{report.writtenDetails[key]}</CountPill> written{Boolean(report.invalidDetailsOmitted[key]) && <> · <CountPill>{report.invalidDetailsOmitted[key]}</CountPill> invalid {report.invalidDetailsOmitted[key] === 1 ? 'value' : 'values'} left out</>}</li>)}
                   {report.adjustedIds.map((id, index) => <li key={index}>ID: {id.from} → {id.to}</li>)}
                 </ul>
               </details>}
             </>}
           </div>
+          <label className="mt-2 block text-[10px] font-bold uppercase tracking-wider text-slate-500">File name<span className="mt-1 flex h-9 overflow-hidden rounded-lg border border-slate-300 bg-white font-mono text-xs font-normal normal-case tracking-normal"><input aria-label="File name" value={name} onChange={e => setName(e.target.value)} className="min-w-0 flex-1 bg-transparent px-3" /><span className="flex items-center border-l border-slate-200 bg-slate-50 px-3">.{extension}</span></span></label>
         </section>
       </div>
       <footer className="flex shrink-0 items-center gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs">
-        <p aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} → <span className="font-mono">{fileName}</span></p>
-        <label className="flex items-center gap-2">File name <span className="flex rounded border border-slate-300 bg-white"><input aria-label="File name" value={name} onChange={e => setName(e.target.value)} className="w-32 rounded-l bg-transparent px-2 py-2" /><span className="border-l border-slate-200 px-2 py-2 font-mono text-slate-500">.{extension}</span></span></label>
+        <p aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} · {exportedAnnotationCount} annotations → <span className="font-mono">{fileName}</span></p>
+
         <button onClick={onClose} className="rounded px-3 py-2 hover:bg-slate-200">Cancel</button>
-        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export</button>
+        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
       </footer>
     </div>
   </div>, document.querySelector('.app-root') ?? document.body);
 }
 
 
-function StepHeading({ number, label, className = '' }: { number: number; label: string; className?: string }) {
-  return <h3 className={`mb-2 flex items-center gap-2 text-sm font-semibold ${className}`}><span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-amber-50 font-mono text-[10px] text-amber-800">{number}</span>{label}</h3>;
+function StepHeading({ number, label, className = '', trailing }: { number: number; label: string; className?: string; trailing?: string }) {
+  return <h3 className={`mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider ${className}`}><span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 font-mono text-xs text-white">{number}</span>{label}{trailing && <span className="ml-auto font-mono font-normal normal-case tracking-normal text-slate-500">{trailing}</span>}</h3>;
 }
 
 function CountPill({ children }: { children: React.ReactNode }) {
