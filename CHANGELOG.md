@@ -21,6 +21,7 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- Disable the viewport title’s sequence picker while an alignment job runs.
 - Keep both parts of each origin-crossing annotation in the same Hub genome-track lane.
 - Enclose both origin-crossing pieces in the Hub’s visible-row track window.
 

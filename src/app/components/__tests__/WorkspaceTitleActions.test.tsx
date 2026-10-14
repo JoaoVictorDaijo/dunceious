@@ -68,6 +68,7 @@ it.each(['viewport', 'hub'] as const)('%s title offers add, export and clear wit
   fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
   expect(clear).toHaveBeenCalledTimes(1);
   rerender(<Subject locked />);
+  if (surface === 'viewport') expect(screen.getByLabelText('Add sequences files')).toHaveProperty('disabled', true);
   expect(controls.getByRole('button', { name: 'Add sequences…' })).toHaveProperty('disabled', true);
   fireEvent.click(actions);
   const disabledClear = screen.getByRole('menuitem', { name: 'Clear workspace…' });

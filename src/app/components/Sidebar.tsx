@@ -191,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     )}
     <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
-      <input ref={addSequencesInput} aria-label="Add sequences files" hidden type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
+      <input ref={addSequencesInput} aria-label="Add sequences files" hidden disabled={isAlignmentLocked} type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
       {activeTab === 'features' && hubState && <><HubIndex records={records} featureColors={featureColors} state={hubState} onExportProjectJson={onExportProjectJson} onClearAll={onClearAll} empty={workspaceEmpty} locked={isAlignmentLocked} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
       {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
