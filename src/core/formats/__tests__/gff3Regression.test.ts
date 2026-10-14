@@ -48,3 +48,23 @@ it('honors a single-part imported phase before any export', () => {
   expect(extractCodingSequence(feature, 'AATGAAACCC').codingSeq).toBe('ATGAAACCC');
   expect(rows(exportToGff3([record([feature])]).text)[1][7]).toBe('1');
 });
+
+it('exports the current reading frame after editing an imported CDS', () => {
+  const [feature] = parseGFF3('s\tx\tCDS\t1\t10\t.\t+\t1\tID=c').features.s;
+  feature.metadata!.codon_start = '3';
+  const output = rows(exportToGff3([record([feature])]).text)[1];
+  expect(output[7]).toBe('2');
+  expect(output[8]).toContain('codon_start=3');
+});
+
+it('recalculates imported multipart phases after geometry edits', () => {
+  const [feature] = parseGFF3('s\tx\tCDS\t1\t4\t.\t+\t1\tID=c\ns\tx\tCDS\t7\t10\t.\t+\t0\tID=c').features.s;
+  feature.segments![0].end = 3;
+  expect(rows(exportToGff3([record([feature])]).text).slice(1).map(row => row[7])).toEqual(['1', '1']);
+});
+
+it('recalculates imported phases after a strand edit', () => {
+  const [feature] = parseGFF3('s\tx\tCDS\t1\t4\t.\t+\t1\tID=c\ns\tx\tCDS\t7\t10\t.\t+\t0\tID=c').features.s;
+  feature.strand = -1;
+  expect(rows(exportToGff3([record([feature])]).text).slice(1).map(row => row[7])).toEqual(['0', '1']);
+});

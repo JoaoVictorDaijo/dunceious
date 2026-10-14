@@ -59,6 +59,8 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- GFF3 CDS exports recalculate imported phases after reading-frame or geometry edits.
+
 - Project loading rejects unsafe workspace IDs without changing stored references.
 
 - GFF3 imports initialize CDS reading frames from the first transcription part phase.

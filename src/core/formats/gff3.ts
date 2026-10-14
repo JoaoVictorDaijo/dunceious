@@ -43,10 +43,14 @@ function attributeText(attributes: Record<string, string | string[]>): string {
   return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${Array.isArray(value) ? value.map(encode).join(',') : encode(value)}`).join(';');
 }
 
+function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
+  return JSON.stringify([feature.start, feature.end, feature.strand, segments, feature.metadata?.codon_start]);
+}
+
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
-  if (imported) {
+  if (imported && feature.metadata?._gffPhaseState === phaseState(feature, segments)) {
     try {
       const phases: unknown = JSON.parse(imported);
       if (Array.isArray(phases) && phases.length === segments.length && phases.every(p => /^[012]$/.test(String(p)))) {
@@ -56,7 +60,6 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
       // Invalid imported phase data falls back to the feature's reading frame.
     }
   }
-  if (segments.length === 1 && /^[012]$/.test(feature.metadata?.phase ?? '')) return [feature.metadata!.phase];
 
   let phase = Math.max(0, Math.min(2, Number(feature.metadata?.codon_start ?? 1) - 1));
   if (!Number.isInteger(phase)) phase = 0;
@@ -176,6 +179,7 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     // Strand and per-part phases come from columns, never user-provided attributes.
     delete metadata._gffStrand;
     delete metadata._gffPhases;
+    delete metadata._gffPhaseState;
     if (strand !== '+' && strand !== '-') metadata._gffStrand = strand === '.' ? '.' : '?';
     const feature: BioFeature = {
       type: metadata.insdc_type || type,
@@ -264,6 +268,7 @@ export function parseGFF3(content: string): {
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
       const phase = phases[reverse ? phases.length - 1 : 0];
       if (/^[012]$/.test(phase)) feature.metadata!.codon_start = String(Number(phase) + 1);
+      feature.metadata!._gffPhaseState = phaseState(feature, feature.segments!);
     }
   }
   return { features, details };
