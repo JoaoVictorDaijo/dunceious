@@ -129,7 +129,7 @@ describe('ribosomal frameshift (−1 PRF)', () => {
     const box = (x: number) => recorder.fillRects().find(([rx, , w]) => rx === x && w === 3 * ZOOM);
     expect(recorder.texts()).toEqual(expect.arrayContaining(['M', 'K', 'T', 'G']));
     // The two frames overlap at the slip, so the band holds two rows.
-    expect(container.querySelector<HTMLElement>('.translation-band')?.style.height).toBe(`${AA_ROW_HEIGHT * 2}px`);
+    expect(container.querySelector<HTMLElement>('[data-translation-band="forward"]')?.style.height).toBe(`${AA_ROW_HEIGHT * 2}px`);
     expect(box(3 * ZOOM)?.[1]).toBe(AA_ROW_HEIGHT); // K: pre-slip frame, row next to the bases
     expect(box(5 * ZOOM)?.[1]).toBe(0);             // T: post-slip frame, the row above
   });
@@ -159,7 +159,7 @@ describe('aligned CDS translation', () => {
       segments: [{ start: 2, end: 14 }] }])} />);
     expect(recorder.texts().slice(-3)).toEqual(['M', 'K', '_']);
     expect(recorder.fillRects().slice(-3)).toEqual([[40, 0, 80, 18], [140, 0, 60, 18], [220, 0, 60, 18]]);
-    expect(container.querySelector<HTMLCanvasElement>('.translation-band')?.style.transform).toBe('translateY(82px)');
+    expect(container.querySelector<HTMLCanvasElement>('[data-translation-band="forward"]')?.style.transform).toBe('translateY(82px)');
   });
 });
 
@@ -174,7 +174,8 @@ describe('translation lanes', () => {
       { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1 },
     ];
     const { container } = render(<SequenceTrack {...props(seq, features)} />);
-    const [forward, reverse] = [...container.querySelectorAll<HTMLCanvasElement>('.translation-band')];
+    const forward = container.querySelector<HTMLCanvasElement>('[data-translation-band="forward"]')!;
+    const reverse = container.querySelector<HTMLCanvasElement>('[data-translation-band="reverse"]')!;
     expect([forward.style.height, reverse.style.height]).toEqual(['36px', '18px']);
     expect(forward.style.transform).toBe('translateY(64px)');
     const aaRows = recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([, y]) => y);
@@ -189,8 +190,8 @@ describe('translation zoom boundary', () => {
     const recorder = installCanvasRecorder();
     const { container } = render(<SequenceTrack {...props('ATG')} zoomLevel={zoomLevel} />);
     expect(recorder.texts().includes('M')).toBe(zoomLevel > 5);
-    const band = container.querySelector<HTMLElement>('.translation-band');
-    expect(band?.style.opacity).toBe(zoomLevel > 5 ? '1' : '0');
+    const band = container.querySelector<HTMLElement>('[data-translation-band="forward"]');
+    expect(band?.getAttribute('aria-hidden')).toBe(zoomLevel > 5 ? 'false' : 'true');
   });
 
   it('does not translate protein records even when the toggle is on', () => {
@@ -212,15 +213,18 @@ it('retains both translation canvases for the closing fade without drawing at lo
   const recorder = installCanvasRecorder();
   const input = props('ATG');
   const { container, rerender } = render(<SequenceTrack {...input} zoomLevel={6} y={18} />);
-  const bands = [...container.querySelectorAll<HTMLCanvasElement>('.translation-band')];
+  const translationBands = () => ['forward', 'reverse'].map(strand =>
+    container.querySelector<HTMLCanvasElement>(`[data-translation-band="${strand}"]`)!);
+  const bands = translationBands();
   expect(bands).toHaveLength(2);
+  // Strand placement and opacity preserve the closing fade without collapsing retained canvases.
   expect(bands.map(b => b.style.transform)).toEqual(['translateY(0px)', 'translateY(40px)']);
   expect(recorder.texts()).toEqual(['M']);
   rerender(<SequenceTrack {...input} zoomLevel={5} y={0} />);
-  expect([...container.querySelectorAll('.translation-band')]).toEqual(bands);
+  expect(translationBands()).toEqual(bands);
   expect(bands.map(b => b.style.opacity)).toEqual(['0', '0']);
   expect(recorder.texts()).toEqual(['M']);
-  expect(container.querySelector('[data-sequence-band]')?.classList.contains('translation-motion')).toBe(true);
+  expect(container.querySelector('[data-sequence-band]')?.getAttribute('data-state')).toBe('translation-enabled');
 });
 
 

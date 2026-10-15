@@ -118,7 +118,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   );
 
   return (
-    <div 
+    <div data-viewer-record={l.id}
       style={{ ...style, top: 0, transform: `translateY(${rowTop})` }}
       className={`flex group hover:bg-sky-50/20 transition-colors relative border-b border-slate-100 ${motionClass}`}
       onContextMenu={(e) => onContextMenu(e, l.id)}
@@ -170,7 +170,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
           {l.id}
         </div>
       </div>
@@ -322,6 +322,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   <React.Fragment key={`${i}-${keySuffix}`}>
                     <path
                       data-annotation-part=""
+                      data-annotation-feature={f.name}
+                      data-state={isSelected ? 'selected' : 'unselected'}
                       data-x={fX}
                       data-width={Math.max(1, fW)}
                       d={barPath}
@@ -376,6 +378,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (xEnd > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-wrap-1-${idx}`}
                           x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, xEnd)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
@@ -385,6 +388,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (x2 > 0 && xStart < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-wrap-2-${idx}`}
                           x1={Math.max(0, xStart)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
@@ -399,6 +403,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (gapEnd > gapStart && x2 > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-${idx}`}
                           x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"

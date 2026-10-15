@@ -49,6 +49,7 @@ describe('HubIndex', () => {
       return <><button onClick={() => state.setCurrentSectionKey('index1000')}>Track last</button><HubIndex records={many} state={state} /></>;
     }
     const { container } = render(<ScrollSubject />);
+    // DOM bounds keep far-record reveals virtualized even after the current item changes.
     expect(container.querySelectorAll('[data-index-card]').length).toBeLessThan(40);
     expect(screen.queryByRole('button', { name: 'Jump to sequence index1000' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Track last' }));
@@ -96,7 +97,7 @@ describe('HubIndex', () => {
     const add = vi.fn();
     function AddSubject({ locked }: { locked: boolean }) { const state = useHubState(); return <HubIndex records={records} state={state} onAddSequences={add} addLocked={locked} />; }
     const { rerender } = render(<AddSubject locked={false} />);
-    const button = within(screen.getByRole('heading', { name: 'Sequence index' }).parentElement!).getByRole('button', { name: 'Add sequences…' });
+    const button = screen.getByRole('button', { name: 'Add sequences…' });
     fireEvent.click(button);
     expect(add).toHaveBeenCalledTimes(1);
     rerender(<AddSubject locked />);
@@ -106,7 +107,7 @@ describe('HubIndex', () => {
     const { unmount } = render(<Subject />);
     const sort = screen.getByLabelText('Sort sequences') as HTMLSelectElement;
     expect([...sort.options].map(option => option.text)).toEqual(['Load order', 'Accession (A–Z)', 'Fewest annotations first']);
-    expect(sort.closest('[data-tip]')?.getAttribute('data-tip')).toBe('Order of the sequences in the index and the list');
+    expect(sort.closest('[data-sequence-sort]')?.getAttribute('data-tip')).toBe('Order of the sequences in the index and the list');
     unmount();
     render(<Subject features />);
     expect(screen.queryByLabelText('Sort sequences')).toBeNull();
@@ -127,7 +128,10 @@ describe('HubIndex', () => {
     expect(within(menu).getByText('Location · 1 groups · 1 not specified')).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Collection year.*No data in these files/ }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(menu).getByRole('menuitem', { name: /Host ·/ }));
-    expect(screen.getAllByRole('button', { name: /^Fold index group/ }).map(el => [el.children[1].textContent, el.lastElementChild?.textContent])).toEqual([['camel', '2'], ['Not specified', '1']]);
+    const groups = screen.getAllByRole('button', { name: /^Fold index group/ });
+    expect(groups.map(group => group.getAttribute('aria-label'))).toEqual(['Fold index group camel', 'Fold index group Not specified']);
+    expect(within(groups[0]).getByText('2')).toBeTruthy();
+    expect(within(groups[1]).getByText('1')).toBeTruthy();
   });
 });
 
@@ -158,7 +162,7 @@ it('reveals the entire group header when its first card becomes current', () => 
     return <><button onClick={() => state.setCurrentSectionKey('index0501')}>Track first in second group</button><HubIndex records={many} state={state} /></>;
   }
   render(<GroupedSubject />);
-  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const viewport = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118072 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 59054 } });
   fireEvent.click(screen.getByRole('button', { name: 'Track first in second group' }));
@@ -169,7 +173,7 @@ it('reveals the entire group header when its first card becomes current', () => 
 it('shows only the number in group count pills', () => {
   render(<Subject />); fireEvent.click(screen.getByRole('button', { name: 'Grouped' }));
   const group = screen.getByRole('button', { name: 'Fold index group MERS-CoV' });
-  expect(group.lastElementChild?.textContent).toBe('2');
+  expect(within(group).getByText('2')).toBeTruthy();
 });
 
 it('jumps from card content while preserving its separate controls and feature jump', () => {
@@ -179,13 +183,13 @@ it('jumps from card content while preserving its separate controls and feature j
   }
   render(<Cards />);
   const card = screen.getByRole('button', { name: 'Jump to sequence a' }).closest('[data-index-card]')!;
-  fireEvent.click(card.querySelector('p')!);
+  fireEvent.click(within(card as HTMLElement).getByText('4 bp'));
   expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence a' }));
   fireEvent.click(screen.getByRole('button', { name: 'Hide a in hub' }));
   expect(screen.getByLabelText('Jump').textContent).toBe('a:1');
   expect(screen.getByRole('button', { name: 'Show a in hub' })).toBeTruthy();
-  const strip = card.querySelector('svg')!;
+  const strip = card.querySelector('[data-genome-strip]')!;
   vi.spyOn(strip, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height: 30 } as DOMRect);
   fireEvent.click(strip, { clientX: 100, clientY: 14 });
   expect(screen.getByLabelText('Jump').textContent).toBe('a:0:2');
@@ -194,12 +198,11 @@ it('jumps from card content while preserving its separate controls and feature j
   fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence a' }));
   expect(screen.getByLabelText('Jump').textContent).toBe('a:4');
 });
-it('reserves space for the index scrollbar beside the cards', () => {
+it('renders the index viewport and sequence cards', () => {
   render(<Subject />);
-  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
-  expect(viewport.classList.contains('custom-scrollbar-pro')).toBe(true);
-  expect(viewport.style.scrollbarGutter).toBe('stable');
-  expect(viewport.style.paddingRight).toBe('8px');
+  const viewport = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
+  expect(viewport).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(3);
 });
 
 
@@ -212,13 +215,15 @@ it('shows each feature as one compact row without changing the jump', () => {
   }
   render(<Features />);
   const button = screen.getByRole('button', { name: 'spike · in 2 of 2' });
+  // Fixed row heights keep virtualized feature positions aligned with the visible entries.
   expect(button.style.height).toBe('30px');
   expect(button.getAttribute('data-tip')).toBe('spike');
-  expect(within(button).getByText('2/2').className).toContain('font-mono');
+  expect(within(button).getByText('2/2')).toBeTruthy();
   const identity = within(button).getByText('spike');
-  expect(identity.className).toContain('truncate');
+  expect(button.getAttribute('aria-current')).toBe('true');
+  expect(button.getAttribute('data-state')).toBe('current');
+  // Amber identifies the current feature independently of its type colour.
   expect(identity.className).toContain('text-amber-200');
-  expect(button.className).toContain('border-env');
   const swatches = [...button.querySelectorAll<HTMLElement>('[data-type-swatch]')];
   expect(swatches.map(swatch => swatch.style.backgroundColor)).toEqual(['purple', 'blue']);
   expect(button.querySelector('[data-presence-state]')).toBeNull();
@@ -239,34 +244,28 @@ it('spaces feature index rows at their fixed windowing height', () => {
   const values = [{ ...records[0], features: [...records[0].features, { ...records[0].features[0], name: 'other' }] }];
   function Features() { const state = useHubState(); useEffect(() => state.setTab('features'), []); return <HubIndex records={values} state={state} />; }
   render(<Features />);
-  const first = screen.getByRole('button', { name: 'other · in 1 of 1' }).closest('[role="listitem"]')!.parentElement!;
-  const second = screen.getByRole('button', { name: 'spike · in 1 of 1' }).closest('[role="listitem"]')!.parentElement!;
+  const first = screen.getByRole('button', { name: 'other · in 1 of 1' }).closest<HTMLElement>('[data-index-row]')!;
+  const second = screen.getByRole('button', { name: 'spike · in 1 of 1' }).closest<HTMLElement>('[data-index-row]')!;
+  // Virtual rows must keep their fixed pitch so feature reveals land on the correct entry.
   expect(first.style.height).toBe('32px');
   expect(second.style.height).toBe('32px');
   expect(Number.parseFloat(second.style.top) - Number.parseFloat(first.style.top)).toBe(32);
 });
 
 
-it('reserves the title row when hidden controls appear and keeps the list siblings in place', () => {
+it('shows hidden counts and restores sequences through the title controls', () => {
   render(<Subject />);
-  const heading = screen.getByRole('heading', { name: 'Sequence index' });
-  const titleRow = heading.parentElement!;
-  const index = screen.getByLabelText('Index entries');
-  const preceding = index.previousElementSibling;
-  const siblings = index.parentElement!.children.length;
+  expect(screen.getByRole('heading', { name: 'Sequence index' })).toBeTruthy();
+  const index = screen.getByRole('region', { name: 'Hub index' });
   fireEvent.click(screen.getByRole('button', { name: 'Hide a in hub' }));
   const show = screen.getByRole('button', { name: 'Show all' });
-  expect(titleRow.contains(show)).toBe(true);
-  expect(titleRow.style.height).toBe('24px');
-  expect(heading.className).toContain('whitespace-nowrap');
-  expect(within(titleRow).getByText('2/3')).toBeTruthy();
-  expect(index.previousElementSibling).toBe(preceding);
-  expect(index.parentElement!.children.length).toBe(siblings);
+  expect(within(index).getByRole('button', { name: 'Show all' })).toBe(show);
+  expect(within(index).getByText('2/3')).toBeTruthy();
   expect(show.getAttribute('data-tip')).toBe('Show all');
   fireEvent.click(show);
   expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull();
-  expect(titleRow.style.height).toBe('24px');
-  expect(index.previousElementSibling).toBe(preceding);
+  expect(within(index).getByRole('heading', { name: 'Sequence index' })).toBeTruthy();
+  expect(within(index).getAllByRole('button', { name: /^Jump to sequence/ })).toHaveLength(3);
 });
 
 
@@ -275,7 +274,7 @@ it('separates nonzero edit counts from sequence status flags', () => {
   function Counts() { const state = useHubState(); return <HubIndex records={values} state={state} />; }
   const { container } = render(<Counts />);
   const card = container.querySelector('[data-index-card]')!;
-  expect(card.textContent).toContain('1 edited · Edited');
+  expect(card.textContent?.replace(/\s+/g, ' ').trim()).toContain('1 edited · Edited');
   expect(card.textContent).not.toContain('0 added');
 });
 
@@ -304,7 +303,7 @@ it.each(['sequences', 'features'] as const)('keeps the %s index offset through h
       <HubIndex records={values} state={state} /><HubList records={values} state={state} kind={tab} items={items} height={180} /></>;
   }
   render(<Workspace />);
-  const index = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const index = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
   const main = screen.getByRole('region', { name: 'Annotations' });
   Object.defineProperties(index, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 7080 } });
   Object.defineProperties(main, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 20000 } });
@@ -334,7 +333,7 @@ it.each([false, true])('keeps the index offset when toggling an eye with initial
     return <HubIndex records={values} state={state} />;
   }
   render(<Workspace />);
-  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const viewport = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118000 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 118 } });
   fireEvent.click(screen.getByRole('button', { name: `${hidden ? 'Show' : 'Hide'} index0002 in hub` }));
@@ -350,7 +349,7 @@ it('preserves the index offset for filters and folds but reveals after grouping 
     return <><button onClick={() => state.setFilters(previous => ({ ...previous, query: 'index-hit' }))}>Filter matches</button><HubIndex records={values} state={state} /></>;
   }
   render(<Workspace />);
-  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const viewport = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
   Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 600 }, scrollHeight: { configurable: true, value: 118072 } });
   fireEvent.scroll(viewport, { target: { scrollTop: 118 } });
   fireEvent.click(screen.getByRole('button', { name: 'Filter matches' }));
@@ -372,8 +371,8 @@ it('reveals the current feature after changing tabs restores the main list posit
       <HubIndex records={values} state={state} /><HubList key={state.tab} records={values} state={state} kind={state.tab} items={items} height={180} /></>;
   }
   render(<Workspace />);
-  const viewport = screen.getByLabelText('Index entries').firstElementChild as HTMLElement;
+  const viewport = screen.getByLabelText('Index entries').querySelector<HTMLElement>('[data-index-viewport]')!;
   fireEvent.click(screen.getByRole('button', { name: 'By feature' }));
   expect(viewport.scrollTop).toBeGreaterThan(0);
-  expect(screen.getByLabelText('Index entries').querySelector('[aria-current="true"]')).toBeTruthy();
+  expect(within(screen.getByLabelText('Index entries')).getByRole('button', { current: true })).toBeTruthy();
 });

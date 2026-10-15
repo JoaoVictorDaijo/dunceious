@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { act, render, screen, fireEvent, waitFor, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { act, render, screen, fireEvent, within, waitFor, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import App from '../App';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { serializeProject } from '@/src/app/logic/projectFile';
@@ -45,7 +45,7 @@ async function setup() {
   render(<App />);
   await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'input.fa', records: [record('r', 'old'), record('keep', 'keep')] } }));
   fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
-  fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select sequence r' })[0]);
+  fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence r' }));
   fireEvent.click(screen.getByLabelText('Select annotation old on r'));
   fireEvent.click(screen.getByRole('button', { name: 'Show only these' }));
   return workers;
@@ -74,11 +74,11 @@ describe('hub workspace identity', () => {
     expect(screen.queryByLabelText('Selection actions')).toBeNull();
   });
   it('keeps one collapsed Log Terminal whose open state carries across workspaces', async () => {
-    await setup(); const disclosure = screen.getByText('Log Terminal').closest('details');
+    await setup(); const disclosure = document.querySelector<HTMLDetailsElement>('[data-log-terminal]');
     expect(disclosure).not.toBeNull(); expect(disclosure?.open).toBe(false);
     fireEvent.click(screen.getByText('Log Terminal')); expect(disclosure?.open).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
-    expect(screen.getByText('Log Terminal').closest('details')).toBe(disclosure);
+    expect(document.querySelector<HTMLDetailsElement>('[data-log-terminal]')).toBe(disclosure);
     expect(disclosure?.open).toBe(true);
   });
   it('prunes annotation selection when its record is removed', async () => {
@@ -106,8 +106,9 @@ it('toggles viewport visibility from the navigator without hiding a hub section'
   await setup();
   fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
   fireEvent.click(screen.getByRole('button', { name: 'Hide r in viewport' }));
-  const show = screen.getByRole('button', { name: 'Show r in viewport' });
-  expect(show.parentElement!.parentElement!.className).toContain('opacity-60');
+  const navigator = document.querySelector<HTMLElement>('[data-navigator-record="r"]')!;
+  expect(navigator.dataset.state).toBe('hidden');
+  expect(within(navigator).getByRole('button', { name: 'Show r in viewport' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
   expect(screen.getAllByRole('button', { name: 'Hide r in hub' }).length).toBeGreaterThan(0);
 });
@@ -120,7 +121,7 @@ it('keeps the focused outline through earlier deletion and undo, and clears it o
   await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'focus.fa', records: [{ ...record('target', 'unused'), features }] } }));
   fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence target' }));
   fireEvent.click(screen.getByRole('button', { name: 'Open target1 on target in viewport' }));
-  const outlined = () => [...document.querySelectorAll('path[data-annotation-part][stroke="#000"]')].map(path => path.getAttribute('fill'));
+  const outlined = () => [...document.querySelectorAll('[data-annotation-part][data-state="selected"]')].map(path => path.getAttribute('fill'));
   expect(outlined()).toEqual(['blue']);
   fireEvent.click(screen.getByRole('button', { name: 'Annotation Hub' }));
   fireEvent.click(screen.getByRole('button', { name: 'Delete target0 on target' }));
@@ -163,7 +164,7 @@ it('keeps a surviving keyboard cursor on its annotation through deletion and und
   expect(screen.getByText('match-C').closest('[data-row-key]')?.getAttribute('aria-current')).toBe('true');
 });
 
-function searchCounter() { return document.querySelector('[aria-live="polite"]')?.textContent?.replace(/\s+/g, ' ').trim(); }
+function searchCounter() { return document.querySelector('[data-search-counter]')?.textContent?.replace(/\s+/g, ' ').trim(); }
 
 it('clears a deleted search cursor and steps from the first remaining match', async () => {
   await loadCursorRows();
@@ -193,11 +194,12 @@ it.each(['details', 'name'])('discards the removed record %s editor and draft be
   fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence r' }));
   expect(screen.queryByRole('form', { name: 'Details for r' })).toBeNull();
   expect(screen.queryByLabelText('Display name')).toBeNull();
+  const header = within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence r' }).closest<HTMLElement>('[data-section-surface]')!;
   if (kind === 'details') {
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit details' })[0]);
+    fireEvent.click(within(header).getByRole('button', { name: 'Edit details' }));
     expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('');
   } else {
-    fireEvent.click(screen.getAllByRole('button', { name: 'Rename r' })[0]);
+    fireEvent.click(within(header).getByRole('button', { name: 'Rename r' }));
     expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('');
   }
 });

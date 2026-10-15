@@ -23,13 +23,24 @@ import postcss from 'postcss';
 import tailwindcss from 'tailwindcss';
 import config from '../../../tailwind.config.js';
 
-it('compiles the current card accent with valid direct percentage weights', async () => {
+const compile = async (raw: string, selector: string) => {
   const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
-  const compiled = await postcss([tailwindcss({ ...config, content: [{ raw: '<section class="hub-group-card hub-group-current"></section>', extension: 'html' }] })]).process(css, { from: undefined });
+  const compiled = await postcss([tailwindcss({ ...config, content: [{ raw, extension: 'html' }] })]).process(css, { from: undefined });
   const values = new Map<string, string>();
-  compiled.root.walkRules('.hub-group-current', rule => {
+  compiled.root.walkRules(selector, rule => {
     rule.walkDecls(declaration => { values.set(declaration.prop, declaration.value); });
   });
-  expect(values.get('border-color')).toBe('color-mix(in srgb, var(--env) 70%, transparent)');
-  expect(values.get('box-shadow')).toContain('color-mix(in srgb, var(--env) 16%, transparent)');
+  return values;
+};
+
+it('keeps the current card border neutral', async () => {
+  const values = await compile('<section class="hub-group-card hub-group-current"></section>', '.hub-group-current');
+  expect(values.get('border-color')).toBe('#94a3b8');
+  expect(values.has('box-shadow')).toBe(false);
+});
+
+it('marks the current section surface with a neutral fill and an accent edge', async () => {
+  const values = await compile('<div class="hub-surface-current"></div>', '.hub-surface-current');
+  expect(values.get('background-color')).toBe('#f8fafc');
+  expect(values.get('box-shadow')).toBe('inset 4px 0 0 var(--env)');
 });

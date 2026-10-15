@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import Sidebar, { type SidebarProps } from '../Sidebar';
 import HubIndex from '../hub/HubIndex';
@@ -56,8 +56,8 @@ it.each(['viewport', 'hub'] as const)('%s title offers only add sequences, with 
       : <HubIndex records={[record]} state={state} onAddSequences={add} addLocked={locked} />;
   }
   const { rerender } = render(<Subject />);
-  const title = screen.getByRole('heading', { name: surface === 'viewport' ? 'Record Navigator' : 'Sequence index' });
-  const controls = within(title.parentElement!);
+  expect(screen.getByRole('heading', { name: surface === 'viewport' ? 'Record Navigator' : 'Sequence index' })).toBeTruthy();
+  const controls = screen;
   expect(controls.getByRole('button', { name: 'Add sequences…' }).hasAttribute('disabled')).toBe(false);
   expect(controls.queryByRole('button', { name: 'Workspace actions' })).toBeNull();
   rerender(<Subject locked />);

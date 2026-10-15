@@ -190,7 +190,7 @@ const TopNav: React.FC<TopNavProps> = ({
       </div>
     </div>
 
-    <div ref={switcher} style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 'max-content' }}>
+    <div data-workspace-switcher ref={switcher} style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 'max-content' }}>
       {/* Mode switcher — two workspaces, not two views. The active mode wears the
           session accent (resolveEnvAccent turns it amber in the Hub); the viewport
           takes the deep tone so it can keep white text, amber keeps dark text. */}
