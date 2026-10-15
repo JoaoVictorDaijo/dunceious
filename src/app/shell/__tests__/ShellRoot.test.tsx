@@ -51,7 +51,7 @@ describe('ShellRoot', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'A genome workbench that lives in your browser.' })).toBeTruthy();
     expect(screen.queryByText('workbench')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open the workbench anyway' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open the workbench on this phone anyway' }));
     expect(await screen.findByText('workbench')).toBeTruthy();
     expect(shellEnv.storage!.getItem(SHELL_OVERRIDE_KEY)).toBe('desktop');
   });

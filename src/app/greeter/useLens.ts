@@ -49,6 +49,7 @@ export function useLens() {
   const [center, setCenterState] = useState(animate ? 1 : D614G_POSITION);
   const frame = useRef<number | null>(null);
   const drag = useRef<Drag | null>(null);
+  const [touched, setTouched] = useState(false);
 
   const stopIntro = () => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
@@ -56,6 +57,7 @@ export function useLens() {
   };
   const setCenter = (pos: number) => {
     stopIntro();
+    setTouched(true);
     setCenterState(clampPosition(pos));
   };
 
@@ -93,6 +95,7 @@ export function useLens() {
     const basesPerUnit = p.y < layout.regionBottom ? REGION_SPAN / p.width : BASE_SPAN / p.width;
     drag.current = { mode: 'pan', startX: p.x, startCenter: center, basesPerUnit };
     stopIntro();
+    setTouched(true);
   };
 
   const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -120,5 +123,5 @@ export function useLens() {
   const nextGene = () => setCenter(landmarks.find((p) => p > center) ?? landmarks[0]);
   const previousGene = () => setCenter([...landmarks].reverse().find((p) => p < center) ?? landmarks[landmarks.length - 1]);
 
-  return { center, onPointerDown, onPointerMove, onPointerUp, onKeyDown, nextGene, previousGene };
+  return { center, touched, onPointerDown, onPointerMove, onPointerUp, onKeyDown, nextGene, previousGene };
 }

@@ -21,12 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import { TOUR_STEPS } from './greeterContent';
 import { TOUR_SCENES } from './TourScenes';
 
-interface Props {
-  onClose: () => void;
-  onSend: () => void;
-}
-
-export default function GreeterTour({ onClose, onSend }: Props) {
+export default function GreeterTour({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const last = TOUR_STEPS.length - 1;
@@ -74,8 +69,8 @@ export default function GreeterTour({ onClose, onSend }: Props) {
             Next
           </button>
         ) : (
-          <button type="button" onClick={onSend} className="h-[54px] flex-1 rounded-[14px] bg-sky-700 font-bold text-white">
-            Send it to my computer
+          <button type="button" onClick={onClose} className="h-[54px] flex-1 rounded-[14px] bg-sky-700 font-bold text-white">
+            Done
           </button>
         )}
       </div>

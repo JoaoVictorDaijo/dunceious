@@ -19,17 +19,11 @@
 
 import { type RefObject } from 'react';
 import GenomeZoom from './GenomeZoom';
-import { BASE_COLORS, CHANGELOG_URL, FEATURES, REPO_URL, seededNoise } from './greeterContent';
-import type { SendLink } from './useSendLink';
-
-export const SEND_SECTION_ID = 'send-to-computer';
+import { BASE_COLORS, CHANGELOG_URL, FEATURES, REPO_URL, SITE_HOST, seededNoise } from './greeterContent';
 
 interface Props {
-  link: SendLink;
   tourButtonRef: RefObject<HTMLButtonElement | null>;
-  copyButtonRef: RefObject<HTMLButtonElement | null>;
   onTour: () => void;
-  onSend: () => void;
   onOpenWorkbench: () => void;
 }
 
@@ -113,37 +107,30 @@ function AboutSections() {
   );
 }
 
-function SendCard({ link, copyButtonRef }: Pick<Props, 'link' | 'copyButtonRef'>) {
-  const copyLabel = link.copyState === 'copied' ? 'Copied' : 'Copy';
+function ComputerSection({ onOpenWorkbench }: Pick<Props, 'onOpenWorkbench'>) {
   return (
-    <section id={SEND_SECTION_ID} className="mx-6 mt-10 flex scroll-mt-6 flex-col gap-3 rounded-[20px] border border-slate-800 bg-[#111a2e] p-6">
-      <h2 className="m-0 text-xl font-extrabold">Open it on your computer</h2>
-      <div className="flex h-[52px] items-center gap-2 rounded-xl border border-[#263450] bg-slate-950 pl-3.5 pr-1.5">
-        <input
-          readOnly
-          value={link.label}
-          aria-label="Dunceious address"
-          onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 bg-transparent font-mono text-[15px] font-semibold text-slate-200 outline-none"
-        />
-        <button ref={copyButtonRef} type="button" onClick={link.copy} className="h-10 rounded-[10px] bg-sky-700 px-3.5 text-sm font-bold text-white">
-          {copyLabel}
-        </button>
-      </div>
-      <p className="m-0 text-xs text-slate-400" role="status">
-        {link.copyState === 'failed' ? 'Couldn’t copy. Press and hold the address to copy it.' : ''}
+    <section className="mt-12 flex flex-col gap-3.5 px-6">
+      <h2 className={h2}>Best on a computer</h2>
+      <p className="m-0 text-[15px] leading-normal text-slate-300">
+        The workbench puts records, annotations and every base side by side, which needs a wide screen and a mouse.
+        On a computer, open
       </p>
-      <div className="flex gap-2">
-        {link.canShare && (
-          <button type="button" onClick={link.share} className={outlineButton}>Share…</button>
-        )}
-        <a href={link.mailto} className={outlineButton}>Email it to me</a>
+      <p className="m-0 select-all text-[22px] font-bold tracking-tight text-sky-300">{SITE_HOST}</p>
+      <p className="m-0 text-sm leading-normal text-slate-400">
+        Works in current Chrome, Edge, Firefox and Safari.
+      </p>
+      <DesktopMock />
+      <div className="flex flex-col items-start gap-1 pt-1">
+        <button type="button" onClick={onOpenWorkbench} className="-ml-3 p-3 text-[15px] font-semibold text-sky-400">
+          Open the workbench on this phone anyway
+        </button>
+        <span className="text-xs leading-normal text-slate-400">It works best sideways or on a tablet, and some panels won’t fit.</span>
       </div>
     </section>
   );
 }
 
-export default function GreeterHome({ link, tourButtonRef, copyButtonRef, onTour, onSend, onOpenWorkbench }: Props) {
+export default function GreeterHome({ tourButtonRef, onTour, onOpenWorkbench }: Props) {
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col bg-slate-950 text-slate-200">
       <header className="flex items-start justify-between px-6 pt-[18px]">
@@ -155,45 +142,25 @@ export default function GreeterHome({ link, tourButtonRef, copyButtonRef, onTour
       </header>
 
       <main className="flex flex-col">
-        <section className="flex flex-col gap-5 px-6 pt-8">
+        <section className="flex flex-col gap-6 px-6 pt-8">
           <div className="flex flex-col gap-3">
             <h1 className="m-0 text-[34px] font-extrabold leading-[1.08] tracking-[-0.025em]">A genome workbench that lives in your browser.</h1>
-            <p className="m-0 max-w-[34ch] text-base leading-normal text-slate-300">
-              Drag along SARS-CoV-2 to zoom from the whole genome down to single bases and the protein they encode.
+            <p className="m-0 max-w-[36ch] text-base leading-normal text-slate-300">
+              Free and open source. No account, no install, and your files are read on your device.
             </p>
           </div>
           <GenomeZoom />
-        </section>
-
-        <section className="flex flex-col gap-2.5 px-6 pt-4">
           <button ref={tourButtonRef} type="button" onClick={onTour} className="flex h-[54px] items-center justify-center gap-2.5 rounded-[14px] bg-sky-700 text-base font-bold text-white">
             <i className="fa-solid fa-play" aria-hidden="true" />
             Take the 60-second tour
           </button>
-          <button type="button" onClick={onSend} className="h-[54px] rounded-[14px] border border-slate-700 text-base font-semibold text-slate-200">
-            Send to my computer
-          </button>
         </section>
 
-        <section className="mt-10 flex flex-col gap-3.5 px-6">
-          <h2 className={h2}>Made for a big screen</h2>
-          <p className="m-0 text-[15px] leading-normal text-slate-400">
-            Open it on a computer and you get this: records on the left, every base on the right, zoom from whole genome to amino acids.
-          </p>
-          <DesktopMock />
-          <div className="flex flex-col items-center gap-1">
-            <button type="button" onClick={onOpenWorkbench} className="p-3 text-sm font-semibold text-sky-400">
-              Open the workbench anyway
-            </button>
-            <span className="text-center text-xs text-slate-400">Works best sideways or on a tablet. Some panels won’t fit.</span>
-          </div>
-        </section>
-
+        <ComputerSection onOpenWorkbench={onOpenWorkbench} />
         <AboutSections />
-        <SendCard link={link} copyButtonRef={copyButtonRef} />
       </main>
 
-      <footer className="mt-10 flex justify-between border-t border-slate-800 p-6 font-mono text-xs font-medium text-slate-400">
+      <footer className="mt-12 flex justify-between border-t border-slate-800 p-6 font-mono text-xs font-medium text-slate-400">
         <span>v{__APP_VERSION__}</span>
         <span>Built for science</span>
       </footer>

@@ -1,4 +1,4 @@
 ---
 type: Added
 ---
-Phones open a landing page with a short tour and ways to send the link to a computer, instead of the desktop workbench.
+Phones open a landing page with a drag-to-zoom SARS-CoV-2 genome and a short tour, instead of the desktop workbench.

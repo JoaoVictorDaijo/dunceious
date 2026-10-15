@@ -180,11 +180,14 @@ export default function GenomeZoom() {
         <Funnel from={[bases[0] - region[0], bases[1] - region[0] + 1]} to={[0, W]} y0={REGION.top + 33} y1={BASES.top - 1.5} />
         <BaseTrack bases={bases} />
       </svg>
+      <p className={`m-0 -mt-1 text-center text-[13px] text-slate-400 transition-opacity duration-500 motion-reduce:transition-none ${lens.touched ? 'opacity-0' : 'opacity-100'}`} aria-hidden="true">
+        Drag the genome to explore
+      </p>
       <figcaption className="flex items-start gap-1">
         <button type="button" onClick={lens.previousGene} aria-label="Previous gene" className="flex h-11 w-9 shrink-0 items-center justify-center text-slate-400">
           <i className="fa-solid fa-chevron-left" aria-hidden="true" />
         </button>
-        <div className="min-h-[76px] flex-1" aria-hidden="true">
+        <div className="relative min-h-[76px] flex-1" aria-hidden="true">
           <p className="m-0 text-[17px] leading-snug">
             <span className="font-bold text-slate-100">{info.title}</span>
             {info.product && <span className="text-slate-400"> {info.product}</span>}

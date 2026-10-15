@@ -18,73 +18,39 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import GreeterHome, { SEND_SECTION_ID } from './GreeterHome';
+import GreeterHome from './GreeterHome';
 import GreeterTour from './GreeterTour';
-import { useSendLink } from './useSendLink';
-
-type View = 'home' | 'tour';
-/** What to do once the home page is back on screen. */
-type Arrival = 'top' | 'tour-button' | 'send-section';
 
 /**
- * The phone landing page: what Dunceious is, a short tour, and ways to get the
- * link onto a computer. It shares nothing with the workbench UI.
+ * The phone landing page: what Dunceious is, a short tour, and where to find
+ * it on a computer. It shares nothing with the workbench UI.
  */
 export default function Greeter({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
-  const link = useSendLink();
-  const [view, setView] = useState<View>('home');
-  const [arrival, setArrival] = useState<Arrival>('top');
+  const [view, setView] = useState<'home' | 'tour'>('home');
+  const [returning, setReturning] = useState(false);
   const tourButtonRef = useRef<HTMLButtonElement>(null);
-  const copyButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Back from the tour, focus returns to the button that opened it.
   useEffect(() => {
-    if (view !== 'home' || arrival === 'top') return;
-    if (arrival === 'tour-button') {
-      tourButtonRef.current?.focus();
-    } else {
-      document.getElementById(SEND_SECTION_ID)?.scrollIntoView({ block: 'start' });
-      copyButtonRef.current?.focus({ preventScroll: true });
-    }
-    setArrival('top');
-  }, [view, arrival]);
+    if (view !== 'home' || !returning) return;
+    tourButtonRef.current?.focus();
+    setReturning(false);
+  }, [view, returning]);
 
   const openTour = () => {
     window.scrollTo(0, 0);
     setView('tour');
   };
-
-  const showSendSection = () => {
-    setArrival('send-section');
+  const closeTour = () => {
+    setReturning(true);
     setView('home');
-  };
-
-  // navigator.share needs the tap's user activation, so it is called synchronously in the handler.
-  const send = () => {
-    if (!link.canShare) {
-      showSendSection();
-      return;
-    }
-    void link.share().then((ok) => { if (!ok) showSendSection(); });
-    if (view === 'tour') showSendSection();
   };
 
   return (
     <div className="min-h-[100dvh] bg-slate-950">
-      {view === 'tour' ? (
-        <GreeterTour
-          onClose={() => { setArrival('tour-button'); setView('home'); }}
-          onSend={send}
-        />
-      ) : (
-        <GreeterHome
-          link={link}
-          tourButtonRef={tourButtonRef}
-          copyButtonRef={copyButtonRef}
-          onTour={openTour}
-          onSend={send}
-          onOpenWorkbench={onOpenWorkbench}
-        />
-      )}
+      {view === 'tour'
+        ? <GreeterTour onClose={closeTour} />
+        : <GreeterHome tourButtonRef={tourButtonRef} onTour={openTour} onOpenWorkbench={onOpenWorkbench} />}
     </div>
   );
 }

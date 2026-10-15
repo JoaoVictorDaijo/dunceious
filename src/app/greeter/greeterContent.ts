@@ -22,6 +22,8 @@
 
 export const REPO_URL = 'https://github.com/JoaoVictorDaijo/dunceious';
 export const CHANGELOG_URL = `${REPO_URL}/blob/main/CHANGELOG.md`;
+/** The production address (index.html's canonical URL), to type on a computer later. */
+export const SITE_HOST = 'dunceious.pages.dev';
 
 export const GENOME_LENGTH = 29_903;
 

@@ -261,11 +261,11 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 ### `src/app/shell/` (Entry Shell)
 
 - `main.tsx` renders `ShellRoot`, which lazy-loads one UI. `pickShell` sends a device with a coarse pointer and a shorter screen side under 600 px (a phone, in either orientation) to the greeter, and everything else, tablets included, to `App`. It reads the device screen, not the viewport, so rotating or resizing never swaps the UI.
-- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). The greeter's *Open the workbench anyway* stores `dunceious.shell=desktop` in `sessionStorage`, so the choice lasts for the tab's session and a later visit starts on the greeter again.
+- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). The greeter's *Open the workbench on this phone anyway* stores `dunceious.shell=desktop` in `sessionStorage`, so the choice lasts for the tab's session and a later visit starts on the greeter again.
 
 ### `src/app/greeter/` (Phone Landing Page)
 
-- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: feature cards, privacy and source links, and the *Open it on your computer* card. *Send to my computer* opens the Web Share sheet when the browser has one; otherwise it scrolls to the card with Copy and *Email it to me*.
+- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: *Best on a computer* (the address to open later, supported browsers and *Open the workbench on this phone anyway*), feature cards, privacy and source links.
 - The greeter ships NC_045512.2 itself (`sarsCov2Sequence.ts`, about 30 KB). `greeterContent.test.ts` checks the sequence, gene spans and codon translations against `examples/sars-cov-2-NC_045512.gb`.
 
 ### `src/app/App.tsx` (Composition Root)
