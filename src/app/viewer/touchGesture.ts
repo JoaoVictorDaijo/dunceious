@@ -109,7 +109,7 @@ function moveGesture(state: GestureState, event: GestureEvent, view: GestureView
   return { state: { kind: 'panning', id: event.id, lastX: event.x, lastY: event.y }, actions };
 }
 
-/** Pointer maps include a down/move pointer and exclude an up/cancel pointer. */
+/** Capture-loss cancellation retains still-down pointers so an ended gesture cannot restart before release. */
 export function nextGesture(state: GestureState, event: GestureEvent, view: GestureView): GestureResult {
   if (state.kind === 'ended') return { state: event.pointers.size === 0 ? { kind: 'idle' } : state, actions: [] };
   if (event.type === 'cancel' || event.type === 'up' || event.pointers.size > 2) {
