@@ -115,8 +115,9 @@ per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 
 
 Inside `app/`, `greeter/` is a separate UI: it may import `domain`, `core` and its own files,
 never `App`, `components/`, `hooks/`, `viewer/`, `logic/` or `lib/`, so its chunk stays small
-and the workbench can change without touching it (also an ESLint rule). Its one exception is a
-dynamic `import()` of `showroom/Showroom`; a static import of the showroom is rejected.
+and the workbench can change without touching it (also an ESLint rule). The rule also forbids
+static imports of `showroom/`. `no-restricted-imports` cannot see `import()`, so the greeter's
+single dynamic `import()` of `showroom/Showroom` is kept by convention, not by the rule.
 
 `showroom/` is the third UI. It may import `viewer/`, presentational `components/`, `logic/`,
 `domain`, `core` and `workers/handlers`, never `App`, `hooks/` (they own workers and app state),
@@ -272,15 +273,15 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 
 ### `src/app/greeter/` (Phone Landing Page)
 
-- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: what it does, *Where your files go* (plain text: files stay in the browser tab; remote alignment is the one opt-in exception), source links and *Best on a computer* (the address to open later, supported browsers and *Test-drive the workbench*, which lazy-loads the showroom).
+- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: *Best on a computer* (the address to open later, supported browsers and *Test-drive the workbench*, which lazy-loads the showroom), then what it does, *Where your files go* (plain text: files stay in the browser tab; remote alignment is the one opt-in exception) and the source links.
 - The greeter ships NC_045512.2 itself (`sarsCov2Sequence.ts`, about 30 KB). `greeterContent.test.ts` checks the sequence, gene spans and codon translations against `examples/sars-cov-2-NC_045512.gb`.
 
 ### `src/app/showroom/` (Phone Test Drive)
 
-- A read-only test drive of the workbench, held sideways. In portrait `RotatePrompt` covers it (`useLandscape`, `matchMedia('(orientation: landscape)')`) without unmounting it, so the viewer keeps its zoom and the session survives rotation. Exit returns to the greeter, and the next entry starts fresh.
+- A read-only test drive of the workbench, held sideways. In portrait `RotatePrompt` covers it (`useLandscape`, `matchMedia('(orientation: landscape)')`) without unmounting it, so the viewer keeps its zoom and the session survives rotation; the alignment dialog and explanations wait for landscape. Exit returns to the greeter and clears any alignment consent given in the showroom, so the next entry starts fresh and asks again.
 - `sampleWorkspace.ts` imports three files from `examples/` with Vite `?raw` (SARS-CoV-2, the human mitochondrion, influenza A/PR8: ten records) and parses them as a drop of the three would: `handleBioMessage` per file, then `applyParseSuccess`. `useShowroomWorkspace` holds the session in memory and runs `PROCESS_RECORDS` and sequence search (`runInlineSearch` for exact, the search worker's `runSearch` for fuzzy) in the page.
 - Real parts: `GenomeViewer`, `SearchPanel`, `AlignmentSection` and `AlignRemoteModal` (real preflight verdicts and consent; Submit sends nothing). The top bar and sidebar drawer are rebuilt (`ShowroomTopBar`, `ShowroomSidebar`) because `TopNav` and `Sidebar` are bound to App state and desktop sizes; they copy their labels, classes and order.
-- Every action that would import, export, edit, delete, save or contact a server opens `ExplainCallout` with copy from `explanations.ts` instead. `useShowroomGuards` stops context menus (right-click and a 500 ms long-press, which then consumes its touch) and every link to another origin (capture-phase `click`, `auxclick`, `contextmenu`, `dragstart` on `document`), so the viewer's clipboard write and `window.confirm` never run.
+- Every action that would import, export, edit, delete, save or contact a server opens `ExplainCallout` with copy from `explanations.ts` instead. `useShowroomGuards` stops context menus on the viewer (right-click and a 500 ms long-press, cancelled at the viewer's pan slop and consumed once it fires; fields and the chrome keep the browser's own) and every link to another origin (capture-phase `click`, `auxclick`, `contextmenu`, `dragstart` on `document`), so the viewer's clipboard write and `window.confirm` never run.
 
 ### `src/app/App.tsx` (Composition Root)
 
