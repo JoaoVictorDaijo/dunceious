@@ -56,6 +56,19 @@ While a job runs, anything that would change the loaded records (uploading, load
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
 
+#### Comparing against a reference
+
+The **Compare** button in the top bar compares every aligned sequence against one **reference** sequence, column by column.
+
+- **Reference**: by default the first aligned sequence. Pick another in the Compare menu, or right-click a sequence and choose **Use as Reference**. The reference row keeps all its colours and carries a **REF** badge. A hidden reference is still used, so hiding it never changes what the other rows are compared to.
+- **Differences**: only residues that differ from the reference keep their colour. With **Show identical residues as dots** on (the default), identical residues are drawn as `·`, as in NCBI's MSA Viewer, Geneious and UGENE.
+- **Identity**: the opposite. Only residues identical to the reference keep their colour; differences are muted.
+- **Off**: every residue in its own colour.
+
+Comparison ignores case and treats `U` and `T` as the same base. A gap facing a residue counts as a difference (an indel relative to the reference), and gaps are always drawn as gaps. Ambiguity codes (`N`, `R`, `Y`… in nucleotides; `X`, `B`, `Z`, `J` in proteins) are never counted as identical or different, because identity can be neither confirmed nor ruled out: they stay as muted letters, never as dots. At overview zoom, muted residues become a pale band, so differences stand out as coloured ticks.
+
+This is a display setting only: exports always contain the real residues. The setting is saved with the project.
+
 Annotations stay whole across alignment gaps: a gap inside a sequence never cuts an annotation into pieces, and the translation of a coding feature is unchanged. Only features that really have several parts (such as `join(...)`) are drawn as separate bars joined by a connector.
 
 ## 2. Navigation & Interaction
