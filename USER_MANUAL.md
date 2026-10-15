@@ -4,6 +4,8 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, and the address to open on a computer. **Open the workbench on this phone anyway** loads the full app for the rest of that browser session. Tablets and computers open the workbench directly.
+
 ### 1.1 Ingesting Data
 
 In the Visual Viewport, the **Ingestion** section of the sidebar has one card per kind of input. In the Annotation Hub, imports are in the toolbar **Import** menu and files can be dropped onto the hub canvas. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).

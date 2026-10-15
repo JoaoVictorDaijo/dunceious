@@ -34,7 +34,9 @@ src/
 │
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
-    ├── App.tsx          # composition root
+    ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
+    ├── greeter/         # phone landing page and tour; never imports the workbench UI (ESLint)
+    ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/
