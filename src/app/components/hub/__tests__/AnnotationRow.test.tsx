@@ -45,8 +45,8 @@ it('shows feature identity, display name, actions and the last-focused state', (
   expect(cell.querySelector('[data-row-display-name]')?.textContent).toBe(record.label);
   const row = container.querySelector<HTMLElement>('[data-row-key]')!;
   expect(row.dataset.state).toBe('last-focused');
-  // Amber identifies the focused annotation in the hub.
-  expect(row.className).toContain('bg-amber-50');
+  expect(row.className).toContain('bg-slate-50');
+  expect(row.className).toContain('shadow-[inset_0_0_0_1.5px_theme(colors.slate.400)]');
 });
 
 

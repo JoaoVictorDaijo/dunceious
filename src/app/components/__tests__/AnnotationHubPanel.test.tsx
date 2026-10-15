@@ -479,11 +479,13 @@ it('keeps the active search match by identity when sorting changes its displayed
   expect(container.querySelector('[data-row-key="seq0:0"]')!.getAttribute('aria-current')).toBe('true');
   expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('1 / 2');
 });
-it('gives the current feature card an amber full header', () => {
+it('keeps the current feature header neutral and marks only its edge and identity', () => {
   render(<Subject initial={[records[0]]} />);
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  // Amber identifies the current feature card as a visual contract.
-  expect(currentHeader().classList.contains('bg-amber-50')).toBe(true);
+  // The current feature card stays neutral; the accent marks only its edge and identity.
+  expect(currentHeader().classList.contains('hub-surface-current')).toBe(true);
+  expect(currentHeader().className).not.toContain('bg-amber');
+  expect(currentHeader().querySelector('strong')!.className).toContain('text-amber-800');
 });
 
 

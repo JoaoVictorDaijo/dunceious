@@ -114,8 +114,7 @@ it('updates the full track window from visible rows and hides it after folding',
   expect(band.hidden).toBe(false);
   expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
   expect(pinned.querySelector('[data-track-window-label]')?.textContent).toBe('6–25 in view');
-  expect(pinned.querySelector('[data-section-surface]')?.classList.contains('bg-amber-50')).toBe(true);
-  expect(pinned.querySelector('[data-section-surface]')?.className).not.toContain('bg-amber-50/');
+  expect(pinned.querySelector('[data-section-surface]')?.classList.contains('hub-surface-current')).toBe(true);
   fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });
