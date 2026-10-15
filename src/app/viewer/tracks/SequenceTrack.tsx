@@ -22,8 +22,8 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, compareToReference, extractCodingSequence, translateFeature } from '@/src/domain/bio';
-import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
+import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
 import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
 
@@ -54,23 +54,8 @@ const MATCH_DOT = '#64748b';
 /** A deletion against the reference: dark enough to stand out among the dots, as Nextclade marks deletions. */
 const INDEL_FILL = '#475569';
 
-type ResidueStyle = 'normal' | 'muted' | 'dot' | 'indel';
-
-/**
- * How a residue is drawn under a reference comparison. Gaps always draw as gaps, darkened when
- * they are a highlighted difference; a dot only ever stands for confirmed identity, so ambiguity
- * codes stay letters.
- */
-const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined): ResidueStyle => {
-  if (!comparison) return 'normal';
-  const relation = compareToReference(char, comparison.referenceSeq[column], comparison.alphabet);
-  if (char === '-') return relation === 'gap' && comparison.highlight === 'disagreements' ? 'indel' : 'normal';
-  const highlighted = comparison.highlight === 'disagreements'
-    ? relation === 'substitution' || relation === 'gap'
-    : relation === 'identical';
-  if (highlighted) return 'normal';
-  return relation === 'identical' && comparison.matchDots ? 'dot' : 'muted';
-};
+const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined) =>
+  comparisonStyle(char, comparison?.referenceSeq[column], comparison);
 
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,

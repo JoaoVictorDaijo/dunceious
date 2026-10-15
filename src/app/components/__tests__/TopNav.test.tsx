@@ -28,7 +28,7 @@ import { useHubState } from '@/src/app/hooks/useHubState';
 import { createPortal } from 'react-dom';
 import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
 const noop = () => {};
-const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON, onAlignmentComparisonChange: noop, comparisonReference: null, comparisonCandidates: [], isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
+const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON, onAlignmentComparisonChange: noop, comparisonReference: null, comparisonCandidates: [], canCompare: false, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
 function Subject() {
   const [mode, setMode] = useState<'alignment' | 'features'>('alignment');
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
@@ -56,6 +56,13 @@ describe('workspace header', () => {
     for (const name of ['Import', 'Export…']) expect(within(tools).getByRole('button', { name })).toBeTruthy();
     expect(within(tools).queryByRole('button', { name: 'Add annotation' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Drag mode' })).toBeNull();
+  });
+  it('enables Compare only while two aligned sequences can be compared', () => {
+    const { rerender } = render(<TopNav {...defaults} isAlignmentLoaded />);
+    // Equal-length raw records count as an alignment for Conservation, but not for Compare.
+    expect(screen.getByRole('button', { name: 'Compare to reference' }).getAttribute('aria-disabled')).toBe('true');
+    rerender(<TopNav {...defaults} canCompare />);
+    expect(screen.getByRole('button', { name: 'Compare to reference' }).getAttribute('aria-disabled')).toBeNull();
   });
   it('toggles layers in the popover and explains unavailable layers', () => {
     const toggle = vi.fn(); render(<TopNav {...defaults} sessionMoleculeType="protein" onToggleTracks={toggle} />);

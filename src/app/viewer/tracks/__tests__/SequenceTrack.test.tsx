@@ -309,6 +309,38 @@ describe('reference comparison', () => {
     expect(recorder.fillColors()).toContain('#e2e8f0');
   });
 
+  // A gapped reference: an insertion at column 2, a shared gap at 4 and a substitution at 5.
+  const GAPPED_REF = 'AC-G-TA';
+  const GAPPED_ROW = 'ACTG-CA';
+  const drawGapped = (overrides: Partial<ActiveComparison>) => {
+    const recorder = installCanvasRecorder();
+    render(<SequenceTrack {...props(GAPPED_ROW, [])} showTranslation={false} comparison={compare({ referenceSeq: GAPPED_REF, ...overrides })}
+      xScale={d3.scaleLinear().domain([0, GAPPED_ROW.length]).range([0, GAPPED_ROW.length * ZOOM])} />);
+    const fillAt = (column: number) => {
+      const index = recorder.fillRects().findIndex(([x, y]) => Math.round(x) === column * ZOOM && y === 0);
+      return index < 0 ? undefined : recorder.fillColors()[index];
+    };
+    return { recorder, fillAt };
+  };
+
+  it('keeps insertions and substitutions against a gapped reference, and leaves a shared gap plain', () => {
+    const { recorder, fillAt } = drawGapped({});
+    expect(recorder.texts().join('')).toBe('··T·-C·');
+    expect(fillAt(0)).toBeUndefined(); // identical: just the dot
+    expect(fillAt(2)).toBe('#f43f5e'); // T inserted where the reference has a gap
+    expect(fillAt(4)).toBe('#f1f5f9'); // gap facing gap: a plain gap, not a deletion
+    expect(fillAt(5)).toBe('#3b82f6'); // C substituted for T
+  });
+
+  it('colours exactly the identical columns in Identity mode', () => {
+    const { fillAt } = drawGapped({ highlight: 'agreements', matchDots: false });
+    expect(fillAt(0)).toBe('#22c55e');
+    expect(fillAt(3)).toBe('#eab308');
+    expect(fillAt(2)).toBe('#e2e8f0'); // insertion muted
+    expect(fillAt(5)).toBe('#e2e8f0'); // substitution muted
+    expect(fillAt(4)).toBe('#f1f5f9');
+  });
+
   it('mutes identical residues into a quiet band at overview zoom', () => {
     const recorder = draw(compare(), 0.25);
     expect(recorder.texts()).toEqual([]);

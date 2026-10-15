@@ -92,7 +92,7 @@ interface Props {
   showTracks: boolean;
   /** Reference comparison to draw in the sequence rows; null draws every residue in its own colour. */
   comparison?: ActiveComparison | null;
-  /** Offered in the record menu only while an alignment is loaded. */
+  /** Offered in the record menu, on aligned records only, while a comparison is possible. */
   onSetComparisonReference?: (recordId: string) => void;
 }
 
@@ -429,7 +429,7 @@ const GenomeViewer: React.FC<Props> = ({
             >
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
-            {onSetComparisonReference && !contextMenu.feature && (
+            {onSetComparisonReference && !contextMenu.feature && records.find(r => r.id === contextMenu.recordId)?.alignedSequence && (
               <button
                 onClick={() => {
                   onSetComparisonReference(contextMenu.recordId);

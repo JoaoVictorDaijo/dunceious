@@ -60,6 +60,8 @@ export interface TopNavProps {
   /** The record rows are compared against, after falling back from a missing choice. */
   comparisonReference: SeqRecord | null;
   comparisonCandidates: SeqRecord[];
+  /** At least two aligned records: a reference and something to compare against it. */
+  canCompare: boolean;
   isAlignmentLoaded: boolean;
   sessionMoleculeType: 'nucleotide' | 'protein' | null;
   /** Returns the saved file name, or null when saving was cancelled. */
@@ -100,6 +102,7 @@ const TopNav: React.FC<TopNavProps> = ({
   onAlignmentComparisonChange,
   comparisonReference,
   comparisonCandidates,
+  canCompare,
   isAlignmentLoaded,
   sessionMoleculeType,
   onSaveProject,
@@ -301,7 +304,7 @@ const TopNav: React.FC<TopNavProps> = ({
             onChange={onAlignmentComparisonChange}
             reference={comparisonReference}
             candidates={comparisonCandidates}
-            disabledReason={isAlignmentLoaded ? undefined : 'Comparison needs an alignment: upload a pre-aligned FASTA first'}
+            disabledReason={canCompare ? undefined : 'Comparison needs at least two aligned sequences: upload a pre-aligned FASTA first'}
           />
         </div>
       )}

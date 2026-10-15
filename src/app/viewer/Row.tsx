@@ -96,7 +96,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
     return end;
   }, [seq]);
   const isReference = comparison?.referenceId === l.id;
-  const rowComparison = comparison && !isReference ? comparison : null;
+  // Only aligned rows share the reference's columns; an unaligned row is never compared.
+  const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 

@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { ComparisonAlphabet } from '@/src/domain/bio/referenceComparison';
+import { compareToReference, type ComparisonAlphabet } from '@/src/domain/bio/referenceComparison';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 /** Which residues keep their colour in the non-reference rows. */
@@ -27,7 +27,7 @@ export interface AlignmentComparisonSettings {
   /** The chosen reference record; null (or a record that is gone) falls back to the first aligned record. */
   referenceId: string | null;
   highlight: ComparisonHighlight;
-  /** Draw residues identical to the reference as '.' (the NEXUS/MEGA match character). */
+  /** Draw residues identical to the reference as a match dot (·), as NCBI's MSA Viewer, Geneious and UGENE do. */
   matchDots: boolean;
 }
 
@@ -47,13 +47,28 @@ export function isAlignmentComparisonSettings(value: unknown): value is Alignmen
     && typeof v.matchDots === 'boolean';
 }
 
+/** Records that can take part in a comparison: only aligned rows share the reference's columns. */
+export function comparisonCandidates(records: SeqRecord[]): SeqRecord[] {
+  return records.filter(r => r.alignedSequence);
+}
+
+/** A comparison needs a reference and at least one other aligned row. */
+export function canCompare(records: SeqRecord[]): boolean {
+  return comparisonCandidates(records).length >= 2;
+}
+
 /**
  * The record every other row is compared against. Hidden records still count:
  * hiding the reference must not silently change what the visible rows are compared to.
  */
 export function resolveReference(records: SeqRecord[], referenceId: string | null): SeqRecord | null {
-  const aligned = records.filter(r => r.alignedSequence);
+  const aligned = comparisonCandidates(records);
   return aligned.find(r => r.id === referenceId) ?? aligned[0] ?? null;
+}
+
+/** Picking a reference asks to compare against it, so an idle comparison starts showing differences. */
+export function withReference(settings: AlignmentComparisonSettings, referenceId: string): AlignmentComparisonSettings {
+  return { ...settings, referenceId, highlight: settings.highlight === 'none' ? 'disagreements' : settings.highlight };
 }
 
 /** What the sequence rows need to draw a comparison; null when rows draw as usual. */
@@ -69,10 +84,9 @@ export interface ActiveComparison {
 export function activeComparison(
   records: SeqRecord[],
   settings: AlignmentComparisonSettings,
-  isAlignmentLoaded: boolean,
   isProteinSession: boolean,
 ): ActiveComparison | null {
-  if (!isAlignmentLoaded || settings.highlight === 'none') return null;
+  if (!canCompare(records) || settings.highlight === 'none') return null;
   const reference = resolveReference(records, settings.referenceId);
   if (!reference?.alignedSequence) return null;
   return {
@@ -82,4 +96,26 @@ export function activeComparison(
     matchDots: settings.highlight === 'disagreements' && settings.matchDots,
     alphabet: isProteinSession ? 'protein' : 'nucleotide',
   };
+}
+
+export type ResidueStyle = 'normal' | 'muted' | 'dot' | 'indel';
+
+/**
+ * How one residue is drawn under a comparison; the viewer and the menu preview share it.
+ * Gaps always draw as gaps, darkened when they are a highlighted difference; a dot only
+ * ever stands for confirmed identity, so ambiguity codes stay letters.
+ */
+export function residueStyle(
+  char: string,
+  referenceChar: string | undefined,
+  comparison: Pick<ActiveComparison, 'highlight' | 'matchDots' | 'alphabet'> | null | undefined,
+): ResidueStyle {
+  if (!comparison) return 'normal';
+  const relation = compareToReference(char, referenceChar, comparison.alphabet);
+  if (char === '-') return relation === 'gap' && comparison.highlight === 'disagreements' ? 'indel' : 'normal';
+  const highlighted = comparison.highlight === 'disagreements'
+    ? relation === 'substitution' || relation === 'gap'
+    : relation === 'identical';
+  if (highlighted) return 'normal';
+  return relation === 'identical' && comparison.matchDots ? 'dot' : 'muted';
 }

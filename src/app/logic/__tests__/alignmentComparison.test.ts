@@ -22,8 +22,11 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import {
   DEFAULT_ALIGNMENT_COMPARISON,
   activeComparison,
+  canCompare,
   isAlignmentComparisonSettings,
+  residueStyle,
   resolveReference,
+  withReference,
 } from '../alignmentComparison';
 
 const rec = (id: string, aligned?: string, extra: Partial<SeqRecord> = {}): SeqRecord => ({
@@ -55,18 +58,18 @@ describe('resolveReference', () => {
 describe('activeComparison', () => {
   const records = [rec('wuhan', 'ACGT'), rec('alpha', 'ACGA')];
 
-  it('is off while the highlight is none or no alignment is loaded', () => {
-    expect(activeComparison(records, DEFAULT_ALIGNMENT_COMPARISON, true, false)).toBeNull();
-    expect(activeComparison(records, { ...DEFAULT_ALIGNMENT_COMPARISON, highlight: 'disagreements' }, false, false)).toBeNull();
+  it('is off while the highlight is none or fewer than two records are aligned', () => {
+    expect(activeComparison(records, DEFAULT_ALIGNMENT_COMPARISON, false)).toBeNull();
+    expect(activeComparison([rec('wuhan', 'ACGT'), rec('raw')], { ...DEFAULT_ALIGNMENT_COMPARISON, highlight: 'disagreements' }, false)).toBeNull();
   });
 
   it('carries the reference sequence and alphabet', () => {
-    const active = activeComparison(records, { referenceId: 'alpha', highlight: 'disagreements', matchDots: true }, true, true);
+    const active = activeComparison(records, { referenceId: 'alpha', highlight: 'disagreements', matchDots: true }, true);
     expect(active).toEqual({ referenceId: 'alpha', referenceSeq: 'ACGA', highlight: 'disagreements', matchDots: true, alphabet: 'protein' });
   });
 
   it('never uses match dots when highlighting agreements', () => {
-    const active = activeComparison(records, { referenceId: null, highlight: 'agreements', matchDots: true }, true, false);
+    const active = activeComparison(records, { referenceId: null, highlight: 'agreements', matchDots: true }, false);
     expect(active?.matchDots).toBe(false);
   });
 });
@@ -82,5 +85,49 @@ describe('isAlignmentComparisonSettings', () => {
     expect(isAlignmentComparisonSettings({ referenceId: 1, highlight: 'none', matchDots: true })).toBe(false);
     expect(isAlignmentComparisonSettings({ referenceId: null, highlight: 'differences', matchDots: true })).toBe(false);
     expect(isAlignmentComparisonSettings({ referenceId: null, highlight: 'none' })).toBe(false);
+  });
+});
+
+describe('canCompare', () => {
+  it('needs two aligned records, whatever the raw lengths', () => {
+    // Equal-length raw records pass the viewer's alignment check but share no alignment columns.
+    expect(canCompare([rec('a'), rec('b')])).toBe(false);
+    expect(canCompare([rec('a', 'ACGT'), rec('b')])).toBe(false);
+    expect(canCompare([rec('a', 'ACGT'), rec('b', 'AC-T'), rec('raw')])).toBe(true);
+  });
+});
+
+describe('residueStyle', () => {
+  const differences = { highlight: 'disagreements' as const, matchDots: true, alphabet: 'nucleotide' as const };
+  const identity = { highlight: 'agreements' as const, matchDots: false, alphabet: 'nucleotide' as const };
+
+  it('draws everything normally without a comparison', () => {
+    expect(residueStyle('G', 'A', null)).toBe('normal');
+  });
+
+  it('in Differences: dots identity, keeps substitutions and insertions, darkens deletions', () => {
+    expect(residueStyle('A', 'A', differences)).toBe('dot');
+    expect(residueStyle('G', 'A', differences)).toBe('normal');
+    expect(residueStyle('G', '-', differences)).toBe('normal');
+    expect(residueStyle('-', 'A', differences)).toBe('indel');
+    expect(residueStyle('-', '-', differences)).toBe('normal');
+    expect(residueStyle('N', 'A', differences)).toBe('muted');
+    expect(residueStyle('A', 'A', { ...differences, matchDots: false })).toBe('muted');
+  });
+
+  it('in Identity: colours only identical residues and never dots', () => {
+    expect(residueStyle('A', 'A', identity)).toBe('normal');
+    expect(residueStyle('G', 'A', identity)).toBe('muted');
+    expect(residueStyle('G', '-', identity)).toBe('muted');
+    expect(residueStyle('-', 'A', identity)).toBe('normal');
+    expect(residueStyle('N', 'A', identity)).toBe('muted');
+  });
+});
+
+describe('withReference', () => {
+  it('starts an idle comparison in Differences and keeps an active highlight', () => {
+    expect(withReference(DEFAULT_ALIGNMENT_COMPARISON, 'delta')).toEqual({ referenceId: 'delta', highlight: 'disagreements', matchDots: true });
+    expect(withReference({ referenceId: null, highlight: 'agreements', matchDots: false }, 'delta'))
+      .toEqual({ referenceId: 'delta', highlight: 'agreements', matchDots: false });
   });
 });

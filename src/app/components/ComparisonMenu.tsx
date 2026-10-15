@@ -19,28 +19,29 @@
 
 import React, { useEffect, useId, useRef, useState } from 'react';
 import type { SeqRecord } from '@/src/domain/bio/types';
-import type { AlignmentComparisonSettings, ComparisonHighlight } from '@/src/app/logic/alignmentComparison';
-import { compareToReference } from '@/src/domain/bio/referenceComparison';
+import { residueStyle, type AlignmentComparisonSettings, type ComparisonHighlight, type ResidueStyle } from '@/src/app/logic/alignmentComparison';
 import { getNucleotideColor } from '@/src/app/viewer/colors';
 
 // The spike protein's D614G window, plus a deletion and an N so the preview shows every case a row can.
 const PREVIEW_REFERENCE = 'CAGGATGTTAAC';
 const PREVIEW_SAMPLE = 'C-GGGTGTTNAC';
 
-/** A two-row sample drawn with the viewer's rules, so each option shows what it will do. */
+/** A two-row sample drawn with the viewer's own residueStyle, so each option shows what it will do. */
 const ComparisonPreview: React.FC<{ settings: AlignmentComparisonSettings }> = ({ settings }) => {
-  const differences = settings.highlight === 'disagreements';
+  const comparison = settings.highlight === 'none' ? null : {
+    highlight: settings.highlight,
+    matchDots: settings.highlight === 'disagreements' && settings.matchDots,
+    alphabet: 'nucleotide' as const,
+  };
+  const STYLES: Record<ResidueStyle, (char: string) => React.CSSProperties> = {
+    normal: char => (char === '-' ? { background: '#1e293b', color: '#64748b' } : { background: getNucleotideColor(char), color: '#fff' }),
+    indel: () => ({ background: '#475569', color: '#fff' }),
+    dot: () => ({ color: '#94a3b8' }),
+    muted: () => ({ background: '#334155', color: '#94a3b8' }),
+  };
   const cell = (char: string, column: number, compared: boolean) => {
-    const relation = compareToReference(char, PREVIEW_REFERENCE[column], 'nucleotide');
-    const highlighted = !compared || settings.highlight === 'none'
-      || (differences ? relation === 'substitution' || relation === 'gap' : relation === 'identical');
-    const dot = compared && differences && settings.matchDots && relation === 'identical';
-    const style: React.CSSProperties = char === '-'
-      ? (compared && differences ? { background: '#475569', color: '#fff' } : { background: '#1e293b', color: '#64748b' })
-      : highlighted ? { background: getNucleotideColor(char), color: '#fff' }
-      : dot ? { color: '#94a3b8' }
-      : { background: '#334155', color: '#94a3b8' };
-    return <span key={column} style={style} className="flex h-4 w-4 items-center justify-center rounded-[2px] font-mono text-[10px] font-bold">{dot ? '·' : char}</span>;
+    const style = residueStyle(char, PREVIEW_REFERENCE[column], compared ? comparison : null);
+    return <span key={column} style={STYLES[style](char)} className="flex h-4 w-4 items-center justify-center rounded-[2px] font-mono text-[10px] font-bold">{style === 'dot' ? '·' : char}</span>;
   };
   return (
     <div aria-hidden="true" className="rounded-lg bg-slate-900 px-2.5 py-2 space-y-1">

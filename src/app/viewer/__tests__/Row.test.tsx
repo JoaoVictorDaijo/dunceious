@@ -565,6 +565,26 @@ describe('reference badge', () => {
     expect(container.querySelector('[data-reference-badge]')?.textContent).toBe('REF');
   });
 
+  const aligned = (id: string): SeqRecord => ({ ...rec([]), id, name: id, alignedSequence: 'A'.repeat(LEN) });
+
+  it('draws the reference row in its own colours, never compared against itself', () => {
+    const recorder = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('r') });
+    expect(recorder.fillColors()).toContain('#22c55e');
+    expect(recorder.fillColors()).not.toContain('#e2e8f0');
+  });
+
+  it('mutes an aligned row identical to the reference, but never an unaligned one', () => {
+    const compared = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('other') });
+    expect(compared.fillColors()).toContain('#e2e8f0');
+    expect(compared.fillColors()).not.toContain('#22c55e');
+
+    const unaligned = installCanvasRecorder();
+    renderRow(rec([]), { comparison: comparison('other') });
+    expect(unaligned.fillColors()).not.toContain('#e2e8f0');
+  });
+
   it('leaves other rows and the uncompared view unmarked', () => {
     expect(renderRow(rec([]), { comparison: comparison('other') }).container.querySelector('[data-reference-badge]')).toBeNull();
     expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();

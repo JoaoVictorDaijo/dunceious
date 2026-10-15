@@ -62,6 +62,32 @@ describe('ComparisonMenu', () => {
     expect(onChange).toHaveBeenLastCalledWith({ referenceId: null, highlight: 'disagreements', matchDots: false });
   });
 
+  it('shows the resolved reference in the select', () => {
+    render(<ComparisonMenu settings={{ ...DEFAULT_ALIGNMENT_COMPARISON, referenceId: 'gone' }} onChange={vi.fn()}
+      reference={wuhan} candidates={[wuhan, alpha]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Compare to reference' }));
+    expect((screen.getByLabelText('Reference') as HTMLSelectElement).value).toBe('Wuhan-Hu-1');
+  });
+
+  it('closes on Escape, returning focus to the button, and on a click outside', () => {
+    render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan]} />);
+    const button = screen.getByRole('button', { name: 'Compare to reference' });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByRole('group', { name: 'Reference comparison' }), { key: 'Escape' });
+    expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
+    expect(document.activeElement).toBe(button);
+    fireEvent.click(button);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
+  });
+
+  it('closes when comparison stops being possible', () => {
+    const { rerender } = render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Compare to reference' }));
+    rerender(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={null} candidates={[]} disabledReason="gone" />);
+    expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
+  });
+
   it('offers dots only while highlighting differences', () => {
     render(<ComparisonMenu settings={{ ...DEFAULT_ALIGNMENT_COMPARISON, highlight: 'agreements' }} onChange={vi.fn()}
       reference={wuhan} candidates={[wuhan]} />);

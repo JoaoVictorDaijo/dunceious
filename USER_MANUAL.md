@@ -60,7 +60,7 @@ Once an alignment is loaded, the conservation heatmap (toggled via the **Conserv
 
 The **Compare** button in the top bar compares every aligned sequence against one **reference** sequence, column by column.
 
-- **Reference**: by default the first aligned sequence. Pick another in the Compare menu, or right-click a sequence and choose **Use as Reference**. The reference row keeps all its colours and carries a **REF** badge. A hidden reference is still used, so hiding it never changes what the other rows are compared to.
+- **Reference**: by default the first aligned sequence. Pick another in the Compare menu, or right-click an aligned sequence and choose **Use as Reference** (this also switches an idle comparison to **Differences**). Compare needs at least two aligned sequences; sequences outside the alignment are never compared. The reference row keeps all its colours and carries a **REF** badge. A hidden reference is still used, so hiding it never changes what the other rows are compared to.
 - **Differences**: only residues that differ from the reference keep their colour. With **Show identical residues as dots** on (the default), identical residues are drawn as `·`, as in NCBI's MSA Viewer, Geneious and UGENE.
 - **Identity**: the opposite. Only residues identical to the reference keep their colour; differences are muted.
 - **Off**: every residue in its own colour.
