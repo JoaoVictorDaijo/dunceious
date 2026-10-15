@@ -65,6 +65,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Zoom**: Use the zoom slider, Ctrl + mouse wheel (or a trackpad pinch), or the `+` / `-` keys.
 - **Scroll**: Use the horizontal scrollbar, Shift + mouse wheel, or the arrow keys. The column with sequence names is sticky and stays visible.
 - **Pan Mode**: Click and drag to move the viewport.
+- **Touch screens**: Drag one finger over the viewer to pan horizontally and vertically; pinch two fingers to zoom around their midpoint. Tap an annotation or record label to open its details. On the minimap, tap to centre the view or drag one finger to move the visible window at the current zoom. Touch pans in either Pan or Select mode; selecting a region still uses a mouse.
 - **Select Mode**: Click and drag to highlight a specific genomic region across all records. Double-click an annotation to select exactly its span. `Esc` clears the selection.
 - **Go to position**: Type a position in the sidebar's **Navigation** box and press Enter. The field shows its unit: `bp` in a nucleotide session, `aa` in a peptide session.
 - **Keyboard shortcuts** (when not typing in a field): `+` / `-` zoom, arrow keys pan and scroll, `Page Up` / `Page Down` scroll a screen of rows, `Home` / `End` jump to the start or end, `F` fits the whole alignment, `C` centres on the selection.
