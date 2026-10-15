@@ -34,6 +34,7 @@ import { useHubState } from './hooks/useHubState';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
+import { DEFAULT_ALIGNMENT_COMPARISON, activeComparison, resolveReference, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { resolveEnvAccent } from './logic/environment';
 import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
 import {
@@ -71,6 +72,7 @@ const App: React.FC = () => {
   const [showTranslation, setShowTranslation] = useState(true);
   const [showTracks, setShowTracks] = useState(true);
   const [showConservation, setShowConservation] = useState(false);
+  const [alignmentComparison, setAlignmentComparison] = useState<AlignmentComparisonSettings>(DEFAULT_ALIGNMENT_COMPARISON);
   const [dragMode, setDragMode] = useState<'pan' | 'select'>('select');
 
   // ── Layout ────────────────────────────────────────────────────────────────
@@ -227,7 +229,7 @@ const App: React.FC = () => {
     records,
     activeSelection,
     featureColors,
-    { showAnnotations, showTranslation, showConservation },
+    { showAnnotations, showTranslation, showConservation, alignmentComparison },
     {
       onWorkspaceReplaced: resetHubWorkspace,
       setRecords,
@@ -236,6 +238,7 @@ const App: React.FC = () => {
       setShowAnnotations,
       setShowTranslation,
       setShowConservation,
+      setAlignmentComparison,
       setIsProcessing,
     },
     addLog,
@@ -321,6 +324,18 @@ const App: React.FC = () => {
   const { isAlignmentLoaded, alignmentLength, sessionMoleculeType } = useMemo(
     () => deriveAlignmentState(records, isProteinSession),
     [records, isProteinSession],
+  );
+  const comparisonReference = useMemo(
+    () => (isAlignmentLoaded ? resolveReference(records, alignmentComparison.referenceId) : null),
+    [isAlignmentLoaded, records, alignmentComparison.referenceId],
+  );
+  const comparison = useMemo(
+    () => activeComparison(records, alignmentComparison, isAlignmentLoaded, isProteinSession),
+    [records, alignmentComparison, isAlignmentLoaded, isProteinSession],
+  );
+  const setComparisonReference = useCallback(
+    (referenceId: string) => setAlignmentComparison(prev => ({ ...prev, referenceId })),
+    [],
   );
 
   const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
@@ -440,6 +455,10 @@ const App: React.FC = () => {
         onToggleTranslation={() => setShowTranslation(!showTranslation)}
         showConservation={showConservation}
         onToggleConservation={() => setShowConservation(!showConservation)}
+        alignmentComparison={alignmentComparison}
+        onAlignmentComparisonChange={setAlignmentComparison}
+        comparisonReference={comparisonReference}
+        comparisonCandidates={records.filter(record => record.alignedSequence)}
         isAlignmentLoaded={isAlignmentLoaded}
         sessionMoleculeType={sessionMoleculeType}
         onSaveProject={exportProjectJson}
@@ -543,6 +562,8 @@ const App: React.FC = () => {
                     onViewDetails={handleViewDetails}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
+                    comparison={comparison}
+                    onSetComparisonReference={isAlignmentLoaded ? setComparisonReference : undefined}
                   />
                 ) : (
                   <AnnotationHubPanel

@@ -21,6 +21,9 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, type 
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
 import ProjectMenu from './ProjectMenu';
+import ComparisonMenu from './ComparisonMenu';
+import type { SeqRecord } from '@/src/domain/bio/types';
+import type { AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import type { ThemeKey } from '@/src/app/logic/theme';
 
 const DRAG_MODES = [
@@ -52,6 +55,11 @@ export interface TopNavProps {
   onToggleTranslation: () => void;
   showConservation: boolean;
   onToggleConservation: () => void;
+  alignmentComparison: AlignmentComparisonSettings;
+  onAlignmentComparisonChange: (settings: AlignmentComparisonSettings) => void;
+  /** The record rows are compared against, after falling back from a missing choice. */
+  comparisonReference: SeqRecord | null;
+  comparisonCandidates: SeqRecord[];
   isAlignmentLoaded: boolean;
   sessionMoleculeType: 'nucleotide' | 'protein' | null;
   /** Returns the saved file name, or null when saving was cancelled. */
@@ -88,6 +96,10 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleTranslation,
   showConservation,
   onToggleConservation,
+  alignmentComparison,
+  onAlignmentComparisonChange,
+  comparisonReference,
+  comparisonCandidates,
   isAlignmentLoaded,
   sessionMoleculeType,
   onSaveProject,
@@ -284,6 +296,13 @@ const TopNav: React.FC<TopNavProps> = ({
               {layers.map(layer => <div key={layer.label}><button aria-pressed={layer.on} aria-disabled={Boolean(layer.disabledReason)} data-tip={layer.disabledReason ?? layer.tip} onClick={() => { if (!layer.disabledReason) layer.onToggle(); }} className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><span className={`h-1.5 w-1.5 rounded-full ${layer.on ? layer.dot : 'bg-slate-600'}`} />{layer.label}</button>{layer.disabledReason && <p className="px-2 pb-2 text-xs text-slate-400">{layer.disabledReason}</p>}</div>)}
             </div>}
           </div>
+          <ComparisonMenu
+            settings={alignmentComparison}
+            onChange={onAlignmentComparisonChange}
+            reference={comparisonReference}
+            candidates={comparisonCandidates}
+            disabledReason={isAlignmentLoaded ? undefined : 'Comparison needs an alignment: upload a pre-aligned FASTA first'}
+          />
         </div>
       )}
 

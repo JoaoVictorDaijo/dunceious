@@ -27,6 +27,7 @@ import { Minimap } from '@/src/app/viewer/Minimap';
 import { AA_ROW_HEIGHT } from '@/src/app/viewer/constants';
 import { assignTranslationLanes } from '@/src/app/viewer/cds';
 import type { BioFeature } from '@/src/domain/bio/types';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
@@ -264,4 +265,53 @@ it('keeps reverse-oriented pieces continuous inside a mixed-strand codon', () =>
   expect(recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([x, , w]) => [x, w]))
     .toEqual([[0, 20], [80, 40]]);
   expect(labels.mock.calls.filter(([text]) => text === 'I').map(([, x]) => x)).toEqual([100]);
+});
+
+describe('reference comparison', () => {
+  // Reference TTTATCAGGATG…; this row carries the D614G A→G change at column 9,
+  // an N at column 2 and a deletion at column 5.
+  const REF = 'TTTATCAGGATG';
+  const ROW = 'TTNAT-AGGGTG';
+  const compare = (overrides: Partial<ActiveComparison> = {}): ActiveComparison => ({
+    referenceId: 'wuhan', referenceSeq: REF, highlight: 'disagreements', matchDots: true, alphabet: 'nucleotide', ...overrides,
+  });
+  const draw = (comparison: ActiveComparison | null, zoomLevel = ZOOM) => {
+    const recorder = installCanvasRecorder();
+    render(<SequenceTrack {...props(ROW, [])} showTranslation={false} comparison={comparison} zoomLevel={zoomLevel}
+      xScale={d3.scaleLinear().domain([0, ROW.length]).range([0, ROW.length * zoomLevel])} />);
+    return recorder;
+  };
+
+  it('draws every residue as itself without a comparison', () => {
+    expect(draw(null).texts().join('')).toBe(ROW);
+  });
+
+  it('shows identical residues as dots and keeps differences, gaps and ambiguity as letters', () => {
+    expect(draw(compare()).texts().join('')).toBe('··N··-···G··');
+  });
+
+  it('darkens a deletion against the reference while highlighting differences', () => {
+    expect(draw(compare()).fillColors()).toContain('#475569');
+    expect(draw(compare({ highlight: 'agreements', matchDots: false })).fillColors()).not.toContain('#475569');
+  });
+
+  it('keeps identical residues as muted letters when dots are off', () => {
+    const recorder = draw(compare({ matchDots: false }));
+    expect(recorder.texts().join('')).toBe(ROW);
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
+
+  it('colours only the identical residues when highlighting agreements, and never draws a dot', () => {
+    const recorder = draw(compare({ highlight: 'agreements', matchDots: false }));
+    expect(recorder.texts().join('')).toBe(ROW);
+    // The substituted G (column 9) is muted; the identical T at column 0 keeps its colour.
+    expect(recorder.fillColors()).toContain('#f43f5e');
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
+
+  it('mutes identical residues into a quiet band at overview zoom', () => {
+    const recorder = draw(compare(), 0.25);
+    expect(recorder.texts()).toEqual([]);
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
 });

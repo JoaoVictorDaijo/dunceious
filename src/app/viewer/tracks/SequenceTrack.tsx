@@ -22,7 +22,8 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, compareToReference, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
 import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
 
@@ -42,11 +43,38 @@ export interface SequenceTrackProps {
   searchResults: SearchResult[];
   allSearchResults: SearchResult[];
   currentSearchIdx: number;
+  /** Compare this row against the reference; null (and the reference row itself) draws every residue in its own colour. */
+  comparison?: ActiveComparison | null;
 }
+
+/** Residues the comparison does not highlight: present, but quiet. */
+const MUTED_FILL = '#e2e8f0';
+const MUTED_TEXT = '#94a3b8';
+const MATCH_DOT = '#64748b';
+/** A deletion against the reference: dark enough to stand out among the dots, as Nextclade marks deletions. */
+const INDEL_FILL = '#475569';
+
+type ResidueStyle = 'normal' | 'muted' | 'dot' | 'indel';
+
+/**
+ * How a residue is drawn under a reference comparison. Gaps always draw as gaps, darkened when
+ * they are a highlighted difference; a dot only ever stands for confirmed identity, so ambiguity
+ * codes stay letters.
+ */
+const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined): ResidueStyle => {
+  if (!comparison) return 'normal';
+  const relation = compareToReference(char, comparison.referenceSeq[column], comparison.alphabet);
+  if (char === '-') return relation === 'gap' && comparison.highlight === 'disagreements' ? 'indel' : 'normal';
+  const highlighted = comparison.highlight === 'disagreements'
+    ? relation === 'substitution' || relation === 'gap'
+    : relation === 'identical';
+  if (highlighted) return 'normal';
+  return relation === 'identical' && comparison.matchDots ? 'dot' : 'muted';
+};
 
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
-  conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
+  conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx, comparison
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const forwardRef = useRef<HTMLCanvasElement>(null);
@@ -173,9 +201,11 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const bp = Math.max(0, Math.min(seq.length - 1, Math.floor((scrollX + px + 0.5) / zoomLevel)));
         const char = seq[bp] || '-';
         const isGap = char === '-';
+        const style = residueStyle(char, bp, comparison);
+        const quiet = style === 'muted' || style === 'dot';
 
-        ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
-        ctx.globalAlpha = isGap ? 0.35 : 0.8;
+        ctx.fillStyle = style === 'indel' ? INDEL_FILL : isGap ? '#f1f5f9' : quiet ? MUTED_FILL : getResidueColor(char);
+        ctx.globalAlpha = style === 'indel' ? 0.8 : isGap ? 0.35 : quiet ? 0.5 : 0.8;
         ctx.fillRect(px, seqY, 1.2, NT_ROW_HEIGHT);
       }
     } else {
@@ -189,25 +219,34 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         if (cX + cW < 0) continue;
 
         const highlight = highlightMap.get(j);
-        if (!highlight) {
-          ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
-          ctx.globalAlpha = isGap ? 0.5 : 0.9;
+        const style = residueStyle(char, j, comparison);
+        const lettersVisible = zoomLevel > 12;
+        // With letters visible, an identical residue is just its dot on the bare track.
+        const dotOnly = style === 'dot' && lettersVisible;
+        if (!highlight && !dotOnly) {
+          ctx.fillStyle = style === 'indel' ? INDEL_FILL : isGap ? '#f1f5f9' : style === 'normal' ? getResidueColor(char) : MUTED_FILL;
+          ctx.globalAlpha = style === 'indel' ? 0.9 : isGap ? 0.5 : style === 'normal' ? 0.9 : 0.6;
           ctx.fillRect(cX, seqY, cW, NT_ROW_HEIGHT);
         }
 
-        if (zoomLevel > 12) {
-          if (!highlight) {
+        if (lettersVisible) {
+          if (!highlight && !dotOnly) {
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 0.5;
             ctx.strokeRect(cX, seqY, cW, NT_ROW_HEIGHT);
           }
 
           ctx.globalAlpha = 1.0;
-          ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
+          ctx.fillStyle = highlight ? '#000'
+            : style === 'indel' ? '#fff'
+            : isGap ? '#94a3b8'
+            : style === 'dot' ? MATCH_DOT
+            : style === 'muted' ? MUTED_TEXT
+            : '#fff';
           ctx.font = `600 10px ${MONO_STACK}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
+          ctx.fillText(dotOnly && !highlight ? '·' : char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
         }
       }
     }
@@ -274,7 +313,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',

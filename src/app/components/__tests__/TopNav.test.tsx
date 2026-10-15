@@ -26,8 +26,9 @@ import HubToolbar from '../hub/HubToolbar';
 import ImportMenu from '../hub/ImportMenu';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { createPortal } from 'react-dom';
+import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
 const noop = () => {};
-const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
+const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON, onAlignmentComparisonChange: noop, comparisonReference: null, comparisonCandidates: [], isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
 function Subject() {
   const [mode, setMode] = useState<'alignment' | 'features'>('alignment');
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
@@ -72,12 +73,13 @@ describe('workspace header', () => {
 describe('layer tray fit', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
   it('rechecks natural tray width on resize and selection changes', () => {
-    let available = 480;
+    // The Compare control (100) counts against the tray's room like the other tools.
+    let available = 580;
     let resized = () => {};
     vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
       const label = this.getAttribute('aria-label');
-      const width = label === 'Workspace tools' ? available : label === 'Viewport layers' ? 360 : label === 'Drag mode' ? 80 : this.textContent?.trim() === 'Clear' ? 80 : 600;
+      const width = label === 'Workspace tools' ? available : label === 'Viewport layers' ? 360 : label === 'Drag mode' ? 80 : this.hasAttribute('data-comparison-menu') ? 100 : this.textContent?.trim() === 'Clear' ? 80 : 600;
       return { left: 0, right: width, top: 0, bottom: 40, width, height: 40 } as DOMRect;
     });
     const { rerender } = render(<TopNav {...defaults} />);
@@ -88,9 +90,9 @@ describe('layer tray fit', () => {
     expect(screen.queryByRole('group', { name: 'Viewport layers' })).toBeNull();
     rerender(<TopNav {...defaults} />);
     expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
-    available = 400; act(resized);
+    available = 500; act(resized);
     expect(screen.getByRole('button', { name: /^Layers/ })).toBeTruthy();
-    available = 600; act(resized);
+    available = 700; act(resized);
     expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
   });
 });

@@ -65,6 +65,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     showTracks: false,
     basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
     focusedRegion: null,
+    comparison: null,
   };
   return { ...base, ...overrides };
 }
@@ -551,5 +552,21 @@ describe('biological frameshifts in aligned annotations', () => {
     expect(Number(mark?.getAttribute('data-x'))).toBeCloseTo(8 * ZOOM);
     fireEvent.mouseOver(glyphs(container)[0]);
     expect(setTooltip.mock.calls.at(-1)?.[0].content).toContain('Ribosomal frameshift: +1 at 5');
+  });
+});
+
+describe('reference badge', () => {
+  const comparison = (referenceId: string) => ({
+    referenceId, referenceSeq: 'A'.repeat(LEN), highlight: 'disagreements' as const, matchDots: true, alphabet: 'nucleotide' as const,
+  });
+
+  it('marks the reference row', () => {
+    const { container } = renderRow(rec([]), { comparison: comparison('r') });
+    expect(container.querySelector('[data-reference-badge]')?.textContent).toBe('REF');
+  });
+
+  it('leaves other rows and the uncompared view unmarked', () => {
+    expect(renderRow(rec([]), { comparison: comparison('other') }).container.querySelector('[data-reference-badge]')).toBeNull();
+    expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
   });
 });
