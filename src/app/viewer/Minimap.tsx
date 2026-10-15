@@ -21,9 +21,11 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
 import { getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
+import type { TouchArbiter } from './touchGesture';
 import { MONO_STACK } from './constants';
 
 export interface MinimapProps {
+  touchArbiter?: TouchArbiter;
   records: SeqRecord[];
   consensus: string;
   alignmentLength: number;
