@@ -37,3 +37,6 @@
 @media (prefers-reduced-motion: reduce) {
   .showroom-turn { animation: none; transform: rotate(90deg); }
 }
+
+/* The alignment dialog is sized for a desktop window; under the banner it scrolls inside its wrapper instead. */
+[data-showroom-align] [role="dialog"] { max-height: 100%; }

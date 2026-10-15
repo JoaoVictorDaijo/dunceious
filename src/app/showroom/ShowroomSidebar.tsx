@@ -17,8 +17,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent } from 'react';
+import AlignmentSection from '@/src/app/components/AlignmentSection';
+import SearchPanel from '@/src/app/components/SearchPanel';
 import SectionTitle from '@/src/app/components/SectionTitle';
+import type { RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { ExplainId } from './explanations';
 import type { ShowroomWorkspace } from './useShowroomWorkspace';
@@ -133,18 +136,52 @@ function Ingestion({ onExplain }: { onExplain: Explain }) {
   );
 }
 
+/** The real `SearchPanel` over the in-page search; annotating and joining matches explain. */
+function Search({ workspace, onExplain }: { workspace: ShowroomWorkspace; onExplain: Explain }) {
+  const { search } = workspace;
+  return (
+    <SearchPanel
+      searchQuery={search.query}
+      onSearchQueryChange={search.setQuery}
+      searchMode={search.mode}
+      onSearchModeChange={search.setMode}
+      searchOptions={search.options}
+      onSearchOptionsChange={search.setOptions}
+      isSearching={false}
+      onSearch={search.run}
+      onClearSearch={search.clear}
+      filteredResults={search.filtered}
+      groupedSearchResults={search.grouped}
+      currentSearchIdx={search.currentIdx}
+      onSetCurrentIdx={search.setCurrentIdx}
+      selectedSearchIndices={search.selected}
+      onSetSelectedIndices={search.setSelected}
+      maxScoreFound={search.maxScore}
+      records={workspace.records}
+      onSetActiveSelection={search.select}
+      onSetActiveTab={() => {}}
+      onToggleRecordSelection={search.toggleRecord}
+      onJoinAllInRecord={() => onExplain('join-hits')}
+      onJoinSelectedMatches={() => onExplain('join-hits')}
+      onAnnotateMatch={() => onExplain('annotate-hit')}
+      getSequenceContext={search.context}
+      isProteinSession={false}
+    />
+  );
+}
+
 interface ShowroomSidebarProps {
   open: boolean;
   onClose: () => void;
   workspace: ShowroomWorkspace;
   alignmentLength: number;
+  alignmentState: RemoteAlignmentState;
+  onOpenAlignment: () => void;
   onExplain: Explain;
-  /** Sections after Ingestion, in the workbench order. */
-  children?: ReactNode;
 }
 
 /** The workbench sidebar as a drawer over the viewer, closed by default. */
-export function ShowroomSidebar({ open, onClose, workspace, alignmentLength, onExplain, children }: ShowroomSidebarProps) {
+export function ShowroomSidebar({ open, onClose, workspace, alignmentLength, alignmentState, onOpenAlignment, onExplain }: ShowroomSidebarProps) {
   return <>
     {open && <div aria-hidden="true" onClick={onClose} className="absolute inset-0 z-30 bg-slate-950/50" />}
     <aside aria-label="Sidebar" hidden={!open}
@@ -153,7 +190,8 @@ export function ShowroomSidebar({ open, onClose, workspace, alignmentLength, onE
         <RecordNavigator workspace={workspace} onExplain={onExplain} />
         <Navigation alignmentLength={alignmentLength} onJump={workspace.setJumpTo} />
         <Ingestion onExplain={onExplain} />
-        {children}
+        <AlignmentSection count={workspace.records.length} state={alignmentState} onOpen={onOpenAlignment} />
+        <Search workspace={workspace} onExplain={onExplain} />
       </div>
     </aside>
   </>;

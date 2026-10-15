@@ -26,6 +26,7 @@ import { ExplainCallout } from './ExplainCallout';
 import type { ExplainId } from './explanations';
 import { usePressAnchor } from './pressAnchor';
 import { RotatePrompt } from './RotatePrompt';
+import { ShowroomAlignDialog, useShowroomAlignment } from './ShowroomAlign';
 import { ShowroomSidebar } from './ShowroomSidebar';
 import { ShowroomTopBar } from './ShowroomTopBar';
 import { useLandscape } from './useLandscape';
@@ -89,6 +90,7 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
   const { openExplain } = workspace;
   const explain = useCallback((id: ExplainId, anchor?: DOMRect) => openExplain(id, anchor ?? pressAnchor()), [openExplain, pressAnchor]);
   useShowroomGuards(rootRef, openExplain);
+  const alignment = useShowroomAlignment(workspace.records);
   useSelectDragNotice(viewerRef, workspace.dragMode === 'select', openExplain);
 
   const { alignmentLength, isAlignmentLoaded, sessionMoleculeType } = useMemo(() => deriveAlignmentState(workspace.records, false), [workspace.records]);
@@ -103,7 +105,7 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
           isAlignmentLoaded={isAlignmentLoaded} onExplain={explain} onExit={onExit} />
         <div className="relative flex min-h-0 flex-1">
           <ShowroomSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspace={workspace}
-            alignmentLength={alignmentLength} onExplain={explain} />
+            alignmentLength={alignmentLength} alignmentState={alignment.state} onOpenAlignment={alignment.show} onExplain={explain} />
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-slate-900 p-1">
             <div ref={viewerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/50 bg-white shadow-2xl">
               <ShowroomViewer workspace={workspace} explain={explain} />
@@ -112,6 +114,7 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
           {stripOpen && <FirstVisitStrip onDismiss={() => setStripOpen(false)} />}
         </div>
       </div>
+      <ShowroomAlignDialog alignment={alignment} onSubmit={() => explain('align-submit')} />
       {!landscape && <RotatePrompt onBack={onExit} />}
       {workspace.explain && <ExplainCallout id={workspace.explain} anchor={workspace.explainAnchor} onClose={workspace.closeExplain} />}
     </div>

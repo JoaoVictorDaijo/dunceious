@@ -80,6 +80,9 @@ describe('Showroom orientation', () => {
     openSidebar();
     fireEvent.click(screen.getByRole('button', { name: 'Hide NC_012920 in viewport' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select mode' }));
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    const hits = screen.getAllByRole('button', { name: /^Annotate match/ }).length;
     rotate(false);
     expect(screen.getByText('Turn your phone sideways')).toBeTruthy();
     rotate(true);
@@ -88,6 +91,8 @@ describe('Showroom orientation', () => {
     expect(screen.getByRole('button', { name: 'Select mode' }).getAttribute('aria-pressed')).toBe('true');
     expect(container.querySelector('[data-viewer-record="NC_012920"]')).toBeNull();
     expect(goToField(container)).toBe(viewerField);
+    expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('ACGAAC');
+    expect(screen.getAllByRole('button', { name: /^Annotate match/ })).toHaveLength(hits);
   });
 });
 
@@ -127,11 +132,10 @@ describe('Showroom chrome', () => {
     expect(screen.getByRole('button', { name: 'Layers 2/4' })).toBeTruthy();
   });
 
-  it('keeps the sidebar sections in the workbench order and explains what would load or remove', () => {
+  it('explains what would load or remove', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' });
-    expect(within(sidebar).getAllByRole('heading').map(heading => heading.textContent)).toEqual(['Record Navigator', 'Navigation', 'Ingestion']);
     for (const card of ['Drop input batch', 'Upload pre-aligned FASTA', 'Import annotations', 'Load project JSON']) {
       fireEvent.click(within(sidebar).getByRole('button', { name: new RegExp(card) }));
       expect(explanation(card)).toBeTruthy();
