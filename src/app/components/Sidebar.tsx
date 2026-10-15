@@ -18,7 +18,7 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { getOriginalPos } from '@/src/domain/bio';
 import HubIndex from './hub/HubIndex';
@@ -144,10 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => { dragCleanup.current?.(); }, []);
   const addSequencesInput = useRef<HTMLInputElement>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    dragCleanup.current?.();
     const startX = e.clientX;
     const startWidth = widthRef.current;
     if (sidebarRef.current) sidebarRef.current.style.transition = 'none';
@@ -161,10 +164,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     const onMouseUp = () => {
       if (sidebarRef.current) sidebarRef.current.style.transition = '';
       setWidth(widthRef.current);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current?.();
     };
 
+    dragCleanup.current = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current = null;
+    };
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }, []);
@@ -278,6 +285,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             {records.map(r => (
               <div
                 key={r.id}
+                data-navigator-record={r.id}
+                data-state={r.visible === false ? 'hidden' : 'visible'}
                 className={`w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all motion-reduce:transition-none group ${r.visible === false ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-2">
@@ -359,7 +368,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* Ingestion */}
-      <section>
+      <section data-ingestion-section>
         <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
         <DropZone accent="sky" icon="fa-folder-tree" title="Drop input batch" hint="GB or FASTA" primary className="mb-4"
           accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} armed={fileDragActive} disabled={isAlignmentLocked}
@@ -412,7 +421,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </>}
       {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
       {/* One disclosure for both workspaces, so its open state carries across tab switches. */}
-      <details className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
+      <details data-log-terminal className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
         <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
         <div className="flex h-48 flex-col">{logOutput}</div>
       </details>

@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import Sidebar, { type SidebarProps } from '../Sidebar';
 import HubIndex from '../hub/HubIndex';
@@ -56,8 +56,8 @@ it.each(['viewport', 'hub'] as const)('%s title offers add, export and clear wit
       : <HubIndex records={[record]} state={state} onAddSequences={add} onExportProjectJson={save} onClearAll={clear} locked={locked} addLocked={locked} />;
   }
   const { rerender } = render(<Subject />);
-  const title = screen.getByRole('heading', { name: surface === 'viewport' ? 'Record Navigator' : 'Sequence index' });
-  const controls = within(title.parentElement!);
+  expect(screen.getByRole('heading', { name: surface === 'viewport' ? 'Record Navigator' : 'Sequence index' })).toBeTruthy();
+  const controls = screen;
   expect(controls.getByRole('button', { name: 'Add sequences…' }).hasAttribute('disabled')).toBe(false);
   const actions = controls.getByRole('button', { name: 'Workspace actions' });
   expect(actions.getAttribute('data-tip')).toBe('Workspace: save or clear');

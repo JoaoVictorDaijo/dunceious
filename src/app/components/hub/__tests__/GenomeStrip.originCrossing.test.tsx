@@ -42,6 +42,7 @@ it.each(modes)('$name draws both joined pieces in one lane and pins both pieces'
   for (const [index, positions] of [[0, [[0, 1758], [2426, 882]]], [1, [[0, 964], [2991, 317]]]] as const) {
     rerender(<GenomeStrip record={record} {...props} pinned={record.features[index]} />);
     const pieces = rectangles(container.querySelector('[data-strip-focus]')!.getAttribute('d')!);
+    // Circular joins must preserve both biological pieces without filling the intervening span.
     expect(pieces).toHaveLength(2);
     expect(pieces[0].y).toBe(pieces[1].y);
     pieces.forEach((piece, i) => {
@@ -56,7 +57,7 @@ it.each(modes)('$name hovers and picks the same feature on both pieces', ({ prop
   const record = createOriginCrossingRecord();
   const pick = vi.fn();
   const { container, rerender } = render(<TrackTooltipProvider><GenomeStrip record={record} {...props} onPick={pick} pinned={record.features[0]} /></TrackTooltipProvider>);
-  const svg = container.querySelector('svg')!;
+  const svg = 'large' in props ? screen.getByRole('button', { name: /Genome strip/ }) : container.querySelector('[data-genome-strip]')!;
   const height = Number(svg.getAttribute('viewBox')!.split(' ')[3]);
   vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1000, height } as DOMRect);
   for (const [index, xs] of [[0, [500, 800]], [1, [100, 950]]] as const) {

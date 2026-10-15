@@ -24,16 +24,12 @@ import type { SequenceSection } from '@/src/app/logic/hubModel';
 import type { FeatureGroup } from '@/src/app/logic/featureComparison';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { getFeatureColor } from '@/src/app/viewer/colors';
-import GenomeStrip, { genomeStripHeight } from './GenomeStrip';
+import GenomeStrip from './GenomeStrip';
+import { slimBarHeight } from '@/src/app/logic/hubListGeometry';
+export { SLIM_BAR_HEIGHT, slimBarHeight } from '@/src/app/logic/hubListGeometry';
 import { PRESENCE_CLASSES, presenceLabel, presenceStyle } from './presence';
 import type { TrackWindow } from './trackWindow';
 
-export const SLIM_BAR_HEIGHT = 44;
-// The sequence bar holds the full packed track between its identity and its counts, so its height follows the record's lanes.
-export function slimBarHeight(item: SequenceSection | FeatureGroup, kind: 'sequences' | 'features', featureColors?: Record<string, string>): number {
-  if (kind !== 'sequences') return SLIM_BAR_HEIGHT;
-  return Math.max(SLIM_BAR_HEIGHT, genomeStripHeight((item as SequenceSection).record, true, featureColors) - 16 + 12);
-}
 export default function SlimSectionBar({ current = false, item, kind, onFold, onPick, featureColors, trackWindow, highlight, pinned }: { current?: boolean; item: SequenceSection | FeatureGroup; kind: 'sequences' | 'features'; onFold: () => void; onPick: (feature: BioFeature) => void; featureColors?: Record<string, string>; trackWindow: TrackWindow; highlight?: BioFeature | null; pinned?: BioFeature | null }) {
   const root = useRef<HTMLDivElement>(null);
   const section = kind === 'sequences' ? item as SequenceSection : null;

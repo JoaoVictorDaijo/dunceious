@@ -174,19 +174,19 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, b
   };
   return <div ref={root} className={large ? `hub-track-large relative ${slim || bare ? '' : 'ml-7'}` : 'relative overflow-hidden rounded-md border border-slate-800 bg-slate-950'}>
     {large && !slim && !bare && <><span aria-hidden="true" className="absolute -left-5 top-1 font-mono text-[10px]">+</span>{geometry.reverseLanes > 0 && <span aria-hidden="true" className="absolute -left-5 font-mono text-[10px]" style={{ top: metrics.axis + 3 }}>−</span>}</>}
-    <div className="relative" style={{ height: slim ? 20 : metrics.height }}>
-      <svg ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: slim ? 20 : metrics.height }}
+    <div data-track-lanes className="relative" style={{ height: slim ? 20 : metrics.height }}>
+      <svg data-genome-strip ref={svg} viewBox={`0 0 ${viewWidth} ${metrics.height}`} preserveAspectRatio="none" width="100%" style={{ height: slim ? 20 : metrics.height }}
         role={large && interactive ? 'button' : undefined} aria-hidden={large && interactive ? undefined : true}
         aria-label={large && interactive ? `Genome strip for ${record.id}: ${ordered.length} ${ordered.length === 1 ? 'annotation' : 'annotations'}` : undefined}
         tabIndex={large && interactive ? 0 : undefined} onPointerDown={() => { keyboardFocus.current = false; setFocused(false); }} onMouseMove={move} onMouseLeave={() => { hoveredRef.current = null; setPointer(null); }} onClick={event => { const part = hit(event); if (part) { event.stopPropagation(); setCursor({ record, index: ordered.indexOf(part.feature) }); onPick?.(part.feature); } }} onKeyDown={keyboard} onFocus={() => setFocused(keyboardFocus.current)} onBlur={() => setFocused(false)}
         className={`block w-full rounded ${large ? slim || bare ? 'ring-1 ring-slate-200 bg-white' : 'border border-slate-200 bg-white' : ''} ${interactive ? 'cursor-crosshair outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500' : ''}`}>
         <line x1="0" x2={viewWidth} y1={metrics.axis} y2={metrics.axis} className={large ? 'stroke-slate-300' : 'stroke-slate-700'} vectorEffect="non-scaling-stroke" />
-        {paths.map(path => <Fragment key={path.key}><path d={path.d} fill={path.color} opacity={path.opacity} />{path.separators && <path data-strip-separators opacity={path.opacity} d={path.separators} fill="none" className="stroke-white" strokeWidth="1" vectorEffect="non-scaling-stroke" />}</Fragment>)}
+        {paths.map(path => <Fragment key={path.key}><path data-strip-features d={path.d} fill={path.color} opacity={path.opacity} />{path.separators && <path data-strip-separators opacity={path.opacity} d={path.separators} fill="none" className="stroke-white" strokeWidth="1" vectorEffect="non-scaling-stroke" />}</Fragment>)}
         {outlined && <path data-strip-focus d={geometry.parts.filter(part => part.feature === outlined).map(part => part.path).join('')} fill="none" className="stroke-slate-900" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />}
       </svg>
       <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-slate-400/[0.08]' : 'border-2 border-dashed border-env bg-env/10'}`}>
         {large && <>
-          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={(slim ? 20 : metrics.height) - 2} fill="none" className="stroke-slate-400" strokeWidth="2" strokeDasharray="4 2" /></svg>
+          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect data-track-window-border x="0" y="1" width="100%" height={(slim ? 20 : metrics.height) - 2} fill="none" className="stroke-slate-400" strokeWidth="2" strokeDasharray="4 2" /></svg>
         </>}
       </div>
     </div>

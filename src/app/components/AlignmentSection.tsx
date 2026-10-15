@@ -44,7 +44,7 @@ export default function AlignmentSection({ count, state = { phase: 'idle' }, onO
         <i aria-hidden="true" className={`fas ${active ? 'fa-circle-notch motion-safe:animate-spin' : 'fa-arrow-right'}`} />
       </button>
       <p className="mt-2 text-[11px] text-slate-400">MAFFT · Kalign · Clustal Ω · MUSCLE via EMBL-EBI</p>
-      {active && <p className="mt-2 text-[10px] text-[var(--env)]">
+      {active && <p data-alignment-progress className="mt-2 text-[10px] text-[var(--env)]">
         <span role="status">{engine} · {alignmentStage(state)}</span> · {elapsedSeconds(state, now)} s
       </p>}
     </section>

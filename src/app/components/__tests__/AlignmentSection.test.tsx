@@ -49,9 +49,9 @@ describe('Alignment section', () => {
     const progress = createAlignmentProgress('kalign', 2, 100, Date.now() - 10000);
     const view = render(<AlignmentSection count={2} state={{ ...progress, phase: 'queued', jobId: 'job', since: Date.now() }} onOpen={onOpen} />);
     expect(screen.getByRole('status').textContent).toBe('Kalign · Queued at EBI');
-    expect(screen.getByRole('status').parentElement?.textContent).toBe('Kalign · Queued at EBI · 10 s');
+    expect(document.querySelector('[data-alignment-progress]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Kalign · Queued at EBI · 10 s');
     act(() => vi.advanceTimersByTime(1000));
-    expect(screen.getByRole('status').parentElement?.textContent).toBe('Kalign · Queued at EBI · 11 s');
+    expect(document.querySelector('[data-alignment-progress]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Kalign · Queued at EBI · 11 s');
     view.rerender(<AlignmentSection count={2} state={{ ...progress, phase: 'running', jobId: 'job', since: Date.now() }} onOpen={onOpen} />);
     expect(screen.getByRole('status').textContent).toBe('Kalign · Aligning');
     const button = screen.getByRole('button', { name: 'Alignment running' }) as HTMLButtonElement;

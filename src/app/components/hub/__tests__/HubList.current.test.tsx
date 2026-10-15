@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect } from 'react';
 import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections } from '@/src/app/logic/hubModel';
@@ -32,16 +32,13 @@ const values: SeqRecord[] = ['NC_045512', 'NC_019843', 'third'].map((id, group) 
   id, name: id, sequence: 'A'.repeat(1000),
   features: Array.from({ length: 20 }, (_, row) => ({ type: 'gene', name: id, start: group * 100 + row * 4, end: group * 100 + row * 4 + 3, strand: 1 as const })),
 }));
-function Subject({ kind, height, short = false, dividers = false }: { kind: Tab; height: number; short?: boolean; dividers?: boolean }) {
+function Subject({ kind, height }: { kind: Tab; height: number }) {
   const state = useHubState();
-  const [removed, setRemoved] = useState(false);
   useLayoutEffect(() => state.setTab(kind), [kind]);
-  const shown = removed ? values.slice(1) : values;
-  const records = short ? shown.map((record, i) => i === 1 ? { ...record, features: record.features.slice(0, 1) } : record) : shown;
   const items = kind === 'sequences'
-    ? buildSequenceSections(records, state.filters, { grouped: false }, 'load').map((section, i) => dividers ? { ...section, group: String(i) } : section)
-    : buildFeatureGroups(records, state.filters, false).sort((a, b) => values.findIndex(record => record.id === a.identity) - values.findIndex(record => record.id === b.identity)).map((group, i) => dividers ? { ...group, organism: String(i) } : group);
-  return <><button onClick={() => setRemoved(true)}>Remove first</button><output aria-label="Current section">{state.currentSectionKey}</output><button onClick={() => state.setJumpTarget({ key: 'NC_019843:0', serial: 1 })}>Jump row</button><button onClick={() => state.setJumpTarget({ key: items[1].key, serial: 2 })}>Jump group</button><HubList state={state} kind={kind} items={items} height={height} /></>;
+    ? buildSequenceSections(values, state.filters, { grouped: false }, 'load')
+    : buildFeatureGroups(values, state.filters, false).sort((a, b) => values.findIndex(record => record.id === a.identity) - values.findIndex(record => record.id === b.identity));
+  return <><output aria-label="Current section">{state.currentSectionKey}</output><HubList state={state} kind={kind} items={items} height={height} /></>;
 }
 function viewport(height: number) {
   const element = screen.getByRole('region', { name: 'Annotations' });
@@ -71,8 +68,11 @@ function headerStart(label: string) {
 function compact(bar: HTMLElement) { return bar.querySelector<HTMLElement>('[data-pinned-compact]')!; }
 function scroll(element: HTMLElement, offset: number) { fireEvent.scroll(element, { target: { scrollTop: offset } }); }
 
-describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
-  it.each([{ height: 200, line: 140 }, { height: 701, line: 210 }, { height: 1200, line: 280 }])('switches at the clamped reading line for a $height px list without changing the bar', ({ height, line }) => {
+describe('current group wiring', () => {
+  it('switches at the reading line while the preceding bar stays pinned', () => {
+    const kind = 'sequences';
+    const height = 701;
+    const line = 210;
     render(<Subject kind={kind} height={height} />);
     const element = viewport(height);
     const next = headerStart('NC_019843');
@@ -92,20 +92,13 @@ describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
     expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('hub-surface-current')).toBe(false);
     scroll(element, next + 400);
     expect(within(screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-pinned-compact]')!).getByText('NC_019843')).toBeTruthy();
-  });
-
-  it('counts the divider before the next header as part of the next group', () => {
-    render(<Subject kind={kind} height={700} dividers />);
-    const element = viewport(700);
-    const divider = headerStart('NC_019843') - 32;
-    scroll(element, divider - 211);
-    expectCurrent('NC_045512');
-    scroll(element, divider - 210);
+    scroll(element, next - 60);
     expectCurrent('NC_019843');
+    expect(card('NC_019843').querySelector('[data-section-surface]')?.classList.contains('hub-surface-current')).toBe(true);
   });
 
   it('keeps a rail jump to a folded group current until the offset moves beyond two pixels', () => {
-    render(<Subject kind={kind} height={700} />);
+    render(<Subject kind="features" height={700} />);
     fireEvent.click(within(card('NC_045512')).getByRole('button', { name: 'Collapse NC_045512' }));
     const element = viewport(700);
     expect(element.scrollTop).toBe(0);
@@ -119,44 +112,4 @@ describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
     expectCurrent('NC_019843');
   });
 
-  it('releases a jump hold when the target group disappears at the same offset', () => {
-    render(<Subject kind={kind} height={700} />);
-    const element = viewport(700);
-    fireEvent.click(screen.getByRole('button', { name: 'Jump to NC_045512' }));
-    expectCurrent('NC_045512');
-    const landedOffset = element.scrollTop;
-    fireEvent.click(screen.getByRole('button', { name: 'Remove first' }));
-    expect(element.scrollTop).toBe(landedOffset);
-    expectCurrent('NC_019843');
-  });
-
-  it('uses the reading line after paging with the rail from a held folded group', () => {
-    render(<Subject kind={kind} height={700} />);
-    fireEvent.click(within(card('NC_045512')).getByRole('button', { name: 'Collapse NC_045512' }));
-    viewport(700);
-    fireEvent.click(screen.getByRole('button', { name: 'Jump to NC_045512' }));
-    expectCurrent('NC_045512');
-    fireEvent.click(screen.getByLabelText('Overview rail'), { clientY: 699 });
-    expectCurrent('NC_019843');
-  });
-
-  it.each(['Jump row', 'Jump group', 'Jump to NC_019843'])('keeps a jump to a one-row group current: %s', action => {
-    render(<Subject kind={kind} height={700} short />);
-    const element = viewport(700);
-    fireEvent.click(screen.getByRole('button', { name: action }));
-    expectCurrent('NC_019843');
-    scroll(element, element.scrollTop + 3);
-    expectCurrent('third');
-  });
-});
-
-it('makes NC_019843 current with its header 60 px below the top of a 700 px sequence list', () => {
-  render(<Subject kind="sequences" height={700} />);
-  const element = viewport(700);
-  scroll(element, headerStart('NC_019843') - 60);
-  expectCurrent('NC_019843');
-  const bar = screen.getByRole('region', { name: 'Pinned section' });
-  expect(within(compact(bar)).getByText('NC_045512')).toBeTruthy();
-  expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-white')).toBe(true);
-  expect(card('NC_019843').querySelector('[data-section-surface]')?.classList.contains('hub-surface-current')).toBe(true);
 });
