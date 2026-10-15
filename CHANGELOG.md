@@ -13,9 +13,16 @@ All notable changes to Dunceious. Format loosely follows
 > **`2.0.0`** marks the layered-architecture rewrite. See `CLAUDE.md` →
 > *Versioning & releases* for the going-forward process.
 
+> **Renumbered 3.x line.** `3.0.0`–`3.1.0` were first published and tagged as
+> `2.8.0`, `2.8.1` and `2.9.0`. The Annotation Hub release (`3.0.0`) is a major
+> change, so it and the two releases after it moved to the `3.x` line on
+> 2026-10-15. Exports stamped `2.8.0`, `2.8.1` or `2.9.0` match `3.0.0`, `3.0.1`
+> and `3.1.0`. The discarded pre-reconstruction `3.4.0` is unrelated to this
+> line.
+
 ## [Unreleased]
 
-## [2.9.0] — 2026-10-14
+## [3.1.0] — 2026-10-14
 
 ### Changed
 
@@ -29,7 +36,7 @@ All notable changes to Dunceious. Format loosely follows
 - Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
 - Clear sequence search state and discard pending search results when workspace records change.
 
-## [2.8.1] — 2026-10-14
+## [3.0.1] — 2026-10-14
 
 ### Changed
 
@@ -42,7 +49,7 @@ All notable changes to Dunceious. Format loosely follows
   the feature's true 3′ end instead of at the sequence end, and both pieces show
   the feature's name.
 
-## [2.8.0] — 2026-10-14
+## [3.0.0] — 2026-10-14  —  Annotation Hub (major)
 
 ### Added
 
