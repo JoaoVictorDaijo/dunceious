@@ -74,7 +74,7 @@ export const EXPLANATIONS: Record<ExplainId, { title: string; body: string }> = 
   },
   'view-details': {
     title: 'Details',
-    body: 'Tapping a record or an annotation opens its details: location, qualifiers and source metadata. From there you can focus the viewer on it, copy or export its sequence, or show its bases in the viewer.',
+    body: 'Tapping an annotation opens its details: location, qualifiers and source metadata. From there you can focus the viewer on it, copy or export its sequence, or show its bases in the viewer.',
   },
   'add-annotation': {
     title: 'Add annotation',
