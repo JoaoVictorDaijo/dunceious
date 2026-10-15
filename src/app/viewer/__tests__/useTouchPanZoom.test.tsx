@@ -165,6 +165,7 @@ describe('rows touch lifecycle', () => {
     expect(h.arbiter.owner()).toBeNull();
     pointer(h.rows, 'pointermove', 1, 100);
     expect(h.horizontal.scrollLeft).toBe(100);
+    expect(h.capture).not.toHaveBeenCalled();
   });
 });
 
