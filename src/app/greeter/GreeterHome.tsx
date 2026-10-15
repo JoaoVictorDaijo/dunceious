@@ -18,7 +18,7 @@
  */
 
 import { type RefObject } from 'react';
-import GenomeRing from './GenomeRing';
+import GenomeZoom from './GenomeZoom';
 import { BASE_COLORS, CHANGELOG_URL, FEATURES, REPO_URL, seededNoise } from './greeterContent';
 import type { SendLink } from './useSendLink';
 
@@ -146,26 +146,26 @@ function SendCard({ link, copyButtonRef }: Pick<Props, 'link' | 'copyButtonRef'>
 export default function GreeterHome({ link, tourButtonRef, copyButtonRef, onTour, onSend, onOpenWorkbench }: Props) {
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col bg-slate-950 text-slate-200">
-      <header className="flex items-center justify-between px-5 pt-[18px]">
-        <div className="text-xl font-black italic tracking-tight">DUNCEIOUS</div>
+      <header className="flex items-start justify-between px-6 pt-[18px]">
+        <div>
+          <div className="text-xl font-black italic tracking-tight">DUNCEIOUS</div>
+          <div className="text-xs italic text-slate-400">Because geniality is overpriced.</div>
+        </div>
         <a href={REPO_URL} className="px-1 py-3 text-sm font-semibold text-sky-400 no-underline">GitHub</a>
       </header>
 
       <main className="flex flex-col">
-        <section className="flex flex-col gap-4 px-6 pt-7">
-          <div className="text-xs font-bold uppercase tracking-[0.18em] text-sky-400">Browser-native genomics</div>
-          <h1 className="m-0 text-[38px] font-extrabold leading-[1.05] tracking-[-0.03em]">A genome workbench that lives in your browser.</h1>
-          <p className="m-0 text-[17px] leading-normal text-slate-300">
-            GenBank, FASTA and multi-sequence alignments. Parse, view, annotate and search without uploading a single base.
-          </p>
-          <p className="m-0 text-[15px] italic text-slate-400">Because geniality is overpriced.</p>
+        <section className="flex flex-col gap-5 px-6 pt-8">
+          <div className="flex flex-col gap-3">
+            <h1 className="m-0 text-[34px] font-extrabold leading-[1.08] tracking-[-0.025em]">A genome workbench that lives in your browser.</h1>
+            <p className="m-0 max-w-[34ch] text-base leading-normal text-slate-300">
+              Drag along SARS-CoV-2 to zoom from the whole genome down to single bases and the protein they encode.
+            </p>
+          </div>
+          <GenomeZoom />
         </section>
 
-        <section className="pt-5">
-          <GenomeRing />
-        </section>
-
-        <section className="flex flex-col gap-2.5 px-6 pt-6">
+        <section className="flex flex-col gap-2.5 px-6 pt-4">
           <button ref={tourButtonRef} type="button" onClick={onTour} className="flex h-[54px] items-center justify-center gap-2.5 rounded-[14px] bg-sky-700 text-base font-bold text-white">
             <i className="fa-solid fa-play" aria-hidden="true" />
             Take the 60-second tour

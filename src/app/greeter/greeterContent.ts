@@ -30,41 +30,31 @@ export interface Gene {
   product: string;
   start: number;
   end: number;
+  /** Coding segments in reading order, as in the GenBank location. */
+  segments: readonly (readonly [number, number])[];
 }
 
+const gene = (name: string, product: string, ...segments: [number, number][]): Gene => ({
+  name, product, start: segments[0][0], end: segments[segments.length - 1][1], segments,
+});
+
+// ORF1ab's join(266..13468,13468..21555) is the −1 ribosomal frameshift: base 13,468 is read twice.
 export const GENES: readonly Gene[] = [
-  { name: 'ORF1ab', product: 'ORF1ab polyprotein', start: 266, end: 21_555 },
-  { name: 'S', product: 'surface glycoprotein', start: 21_563, end: 25_384 },
-  { name: 'ORF3a', product: 'ORF3a protein', start: 25_393, end: 26_220 },
-  { name: 'E', product: 'envelope protein', start: 26_245, end: 26_472 },
-  { name: 'M', product: 'membrane glycoprotein', start: 26_523, end: 27_191 },
-  { name: 'ORF6', product: 'ORF6 protein', start: 27_202, end: 27_387 },
-  { name: 'ORF7a', product: 'ORF7a protein', start: 27_394, end: 27_759 },
-  { name: 'ORF7b', product: 'ORF7b', start: 27_756, end: 27_887 },
-  { name: 'ORF8', product: 'ORF8 protein', start: 27_894, end: 28_259 },
-  { name: 'N', product: 'nucleocapsid phosphoprotein', start: 28_274, end: 29_533 },
-  { name: 'ORF10', product: 'ORF10 protein', start: 29_558, end: 29_674 },
+  gene('ORF1ab', 'ORF1ab polyprotein', [266, 13_468], [13_468, 21_555]),
+  gene('S', 'surface glycoprotein', [21_563, 25_384]),
+  gene('ORF3a', 'ORF3a protein', [25_393, 26_220]),
+  gene('E', 'envelope protein', [26_245, 26_472]),
+  gene('M', 'membrane glycoprotein', [26_523, 27_191]),
+  gene('ORF6', 'ORF6 protein', [27_202, 27_387]),
+  gene('ORF7a', 'ORF7a protein', [27_394, 27_759]),
+  gene('ORF7b', 'ORF7b', [27_756, 27_887]),
+  gene('ORF8', 'ORF8 protein', [27_894, 28_259]),
+  gene('N', 'nucleocapsid phosphoprotein', [28_274, 29_533]),
+  gene('ORF10', 'ORF10 protein', [29_558, 29_674]),
 ];
 
-/** The spike gene, so the ring opens on the protein most visitors have heard of. */
-export const INITIAL_GENE = 1;
-
-export const GENE_COLORS = ['#38bdf8', '#a78bfa', '#4ade80', '#fb7185', '#facc15'] as const;
-export const BASE_COLORS: Record<string, string> = { A: '#86efac', T: '#fda4af', C: '#93c5fd', G: '#fde047' };
-
-/**
- * SVG path for a ring band between genome positions `start` and `end`, centred
- * on the origin with position 1 at twelve o'clock, running clockwise.
- */
-export function ringBand(start: number, end: number, innerR: number, outerR: number, length = GENOME_LENGTH): string {
-  const point = (r: number, pos: number) => {
-    const a = (pos / length) * Math.PI * 2 - Math.PI / 2;
-    return `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`;
-  };
-  const large = (end - start) / length > 0.5 ? 1 : 0;
-  return `M ${point(outerR, start)} A ${outerR} ${outerR} 0 ${large} 1 ${point(outerR, end)} `
-    + `L ${point(innerR, end)} A ${innerR} ${innerR} 0 ${large} 0 ${point(innerR, start)} Z`;
-}
+/** The workbench's nucleotide colours (src/app/viewer/colors.ts), which the greeter may not import. */
+export const BASE_COLORS: Record<string, string> = { A: '#22c55e', T: '#f43f5e', C: '#3b82f6', G: '#eab308' };
 
 export const FEATURES = [
   { title: 'Reads your files', body: 'Multi-record GenBank (nucleotide or protein) and FASTA, plus GFF3 and BED annotations.', color: '#38bdf8' },
@@ -89,7 +79,10 @@ export const ORF1AB_RESIDUES = 'MESLVPGF';
 export const TRS_MOTIF = 'ACGAAC';
 export const TRS_HITS = [70, 21_556, 25_385, 26_237, 26_473, 27_041, 27_388, 27_888, 28_260] as const;
 
-/** 23,394–23,413 of the reference; index 9 is A23403, the middle base of spike codon 614. */
+/** A23403G, the middle base of spike codon 614 (D614G); the hero opens here. */
+export const D614G_POSITION = 23_403;
+
+/** 23,394–23,413 of the reference; index 9 is D614G_POSITION. */
 export const D614G_WINDOW = 'TTTATCAGGATGTTAACTGC';
 export const D614G_INDEX = 9;
 /** Lineages that all carry 23403G. */

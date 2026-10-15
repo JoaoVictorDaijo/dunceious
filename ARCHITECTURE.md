@@ -265,8 +265,8 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 
 ### `src/app/greeter/` (Phone Landing Page)
 
-- `Greeter` switches between `GreeterHome` (pitch, tappable SARS-CoV-2 gene ring, feature cards, privacy and source links, *Open it on your computer* card) and `GreeterTour` (four steps). *Send to my computer* opens the Web Share sheet when the browser has one; otherwise it scrolls to the card with Copy and *Email it to me*.
-- Genomic facts in `greeterContent.ts` are real NC_045512.2 values; `greeterContent.test.ts` checks them against `examples/sars-cov-2-NC_045512.gb`.
+- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: feature cards, privacy and source links, and the *Open it on your computer* card. *Send to my computer* opens the Web Share sheet when the browser has one; otherwise it scrolls to the card with Copy and *Email it to me*.
+- The greeter ships NC_045512.2 itself (`sarsCov2Sequence.ts`, about 30 KB). `greeterContent.test.ts` checks the sequence, gene spans and codon translations against `examples/sars-cov-2-NC_045512.gb`.
 
 ### `src/app/App.tsx` (Composition Root)
 
