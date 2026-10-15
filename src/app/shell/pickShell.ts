@@ -19,9 +19,6 @@
 
 export type Shell = 'desktop' | 'greeter';
 
-/** sessionStorage key for "Open the workbench anyway". */
-export const SHELL_OVERRIDE_KEY = 'dunceious.shell';
-
 /** A phone's shorter screen side stays under this; small tablets start around 600. */
 export const PHONE_MAX_SHORT_SIDE = 600;
 
@@ -31,7 +28,6 @@ export interface ShellEnv {
   screenHeight: number;
   /** `location.search`; `?shell=greeter|desktop` forces a shell for this load only. */
   search: string;
-  storage: Pick<Storage, 'getItem' | 'setItem'> | null;
 }
 
 function parseShell(value: string | null | undefined): Shell | null {
@@ -46,32 +42,8 @@ function parseShell(value: string | null | undefined): Shell | null {
 export function pickShell(env: ShellEnv): Shell {
   const forced = parseShell(new URLSearchParams(env.search).get('shell'));
   if (forced) return forced;
-  let remembered: Shell | null = null;
-  try {
-    remembered = parseShell(env.storage?.getItem(SHELL_OVERRIDE_KEY));
-  } catch {
-    // Storage can throw when site data is blocked; fall through to detection.
-  }
-  if (remembered) return remembered;
   const isPhone = env.coarsePointer && Math.min(env.screenWidth, env.screenHeight) < PHONE_MAX_SHORT_SIDE;
   return isPhone ? 'greeter' : 'desktop';
-}
-
-/** Session-scoped so a phone visitor who forced the workbench sees the greeter again next visit. */
-export function rememberShell(shell: Shell, storage: ShellEnv['storage']): void {
-  try {
-    storage?.setItem(SHELL_OVERRIDE_KEY, shell);
-  } catch {
-    // Not remembering only means the greeter returns on reload.
-  }
-}
-
-function sessionStorageOrNull(win: Window): Storage | null {
-  try {
-    return win.sessionStorage;
-  } catch {
-    return null;
-  }
 }
 
 export function readShellEnv(win: Window = window): ShellEnv {
@@ -80,6 +52,5 @@ export function readShellEnv(win: Window = window): ShellEnv {
     screenWidth: win.screen.width,
     screenHeight: win.screen.height,
     search: win.location.search,
-    storage: sessionStorageOrNull(win),
   };
 }

@@ -17,40 +17,46 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import GreeterHome from './GreeterHome';
 import GreeterTour from './GreeterTour';
 
-/**
- * The phone landing page: what Dunceious is, a short tour, and where to find
- * it on a computer. It shares nothing with the workbench UI.
- */
-export default function Greeter({ onOpenWorkbench }: { onOpenWorkbench: () => void }) {
-  const [view, setView] = useState<'home' | 'tour'>('home');
-  const [returning, setReturning] = useState(false);
-  const tourButtonRef = useRef<HTMLButtonElement>(null);
+const Showroom = lazy(() => import('../showroom/Showroom'));
 
-  // Back from the tour, focus returns to the button that opened it.
+export default function Greeter() {
+  const [view, setView] = useState<'home' | 'tour' | 'showroom'>('home');
+  const [returning, setReturning] = useState<'tour' | 'showroom' | null>(null);
+  const tourButtonRef = useRef<HTMLButtonElement>(null);
+  const showroomButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     if (view !== 'home' || !returning) return;
-    tourButtonRef.current?.focus();
-    setReturning(false);
+    (returning === 'tour' ? tourButtonRef : showroomButtonRef).current?.focus();
+    setReturning(null);
   }, [view, returning]);
 
-  const openTour = () => {
+  const open = (next: 'tour' | 'showroom') => {
     window.scrollTo(0, 0);
-    setView('tour');
+    setView(next);
   };
-  const closeTour = () => {
-    setReturning(true);
+  const close = (from: 'tour' | 'showroom') => {
+    setReturning(from);
     setView('home');
   };
 
   return (
     <div className="min-h-[100dvh] bg-slate-950">
-      {view === 'tour'
-        ? <GreeterTour onClose={closeTour} />
-        : <GreeterHome tourButtonRef={tourButtonRef} onTour={openTour} onOpenWorkbench={onOpenWorkbench} />}
+      {view === 'showroom' ? (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950" role="status">
+          <i className="fa-solid fa-dna animate-pulse text-3xl text-sky-400" aria-hidden="true" />
+          <span className="sr-only">Loading Dunceious…</span>
+        </div>}>
+          <Showroom onExit={() => close('showroom')} />
+        </Suspense>
+      ) : view === 'tour' ? <GreeterTour onClose={() => close('tour')} /> : (
+        <GreeterHome tourButtonRef={tourButtonRef} showroomButtonRef={showroomButtonRef}
+          onTour={() => open('tour')} onShowroom={() => open('showroom')} />
+      )}
     </div>
   );
 }

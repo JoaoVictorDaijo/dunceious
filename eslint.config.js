@@ -113,7 +113,7 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: [
         { regex: '^@/src/app/(?!greeter(/|$))',
           message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
-        { regex: '^(\\.\\./)+(App|components|hooks|viewer|logic|lib|shell|testing|recordRemoval)(/|\\.|$)',
+        { regex: '^(\\.\\./)+(App|components|hooks|viewer|logic|lib|shell|testing|recordRemoval|showroom)(/|\\.|$)',
           message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
       ] }],
     },
