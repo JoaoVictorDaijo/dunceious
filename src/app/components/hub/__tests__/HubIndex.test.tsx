@@ -278,32 +278,11 @@ it('separates nonzero edit counts from sequence status flags', () => {
   expect(card.textContent).not.toContain('0 added');
 });
 
-it('saves and clears through workspace actions and disables clear when empty or locked', () => {
-  const save = vi.fn(), clear = vi.fn();
-  function Actions({ empty = false, locked = false }: { empty?: boolean; locked?: boolean }) {
-    const state = useHubState();
-    return <HubIndex records={empty ? [] : records} state={state} empty={empty} locked={locked} onExportProjectJson={save} onClearAll={clear} onAddSequences={() => {}} />;
-  }
-  const { rerender } = render(<Actions />);
-  const trigger = screen.getByRole('button', { name: 'Workspace actions' });
+it('keeps project actions out of the sequence index title', () => {
+  function Subject() { const state = useHubState(); return <HubIndex records={records} state={state} onAddSequences={() => {}} />; }
+  render(<Subject />);
   expect(screen.getByRole('button', { name: 'Add sequences…' })).toBeTruthy();
-  expect(trigger.getAttribute('data-tip')).toBe('Workspace: save or clear');
-  fireEvent.click(trigger);
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Save project' }));
-  expect(save).toHaveBeenCalledOnce();
-  expect(screen.queryByRole('menu')).toBeNull();
-  fireEvent.click(trigger);
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
-  expect(clear).toHaveBeenCalledOnce();
-  for (const props of [{ empty: true }, { locked: true }]) {
-    rerender(<Actions {...props} />);
-    fireEvent.click(trigger);
-    expect(screen.getByRole('menuitem', { name: 'Clear workspace…' })).toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
-    expect(clear).toHaveBeenCalledOnce();
-    expect(screen.getByRole('menuitem', { name: 'Save project' })).toHaveProperty('disabled', false);
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-  }
+  expect(screen.queryByRole('button', { name: 'Workspace actions' })).toBeNull();
 });
 
 
