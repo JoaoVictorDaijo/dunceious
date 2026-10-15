@@ -46,37 +46,23 @@ function sidebarProps(): SidebarProps {
 }
 afterEach(() => vi.restoreAllMocks());
 
-it.each(['viewport', 'hub'] as const)('%s title offers add, export and clear with alignment guards', surface => {
-  const save = vi.fn(), clear = vi.fn(), add = vi.fn();
+it.each(['viewport', 'hub'] as const)('%s title offers only add sequences, with the alignment guard', surface => {
+  const add = vi.fn();
   const props = sidebarProps();
   function Subject({ locked = false }: { locked?: boolean }) {
     const state = useHubState();
     return surface === 'viewport'
-      ? <Sidebar {...props} onExportProjectJson={save} onClearAll={clear} onFileUpload={add} isAlignmentLocked={locked} />
-      : <HubIndex records={[record]} state={state} onAddSequences={add} onExportProjectJson={save} onClearAll={clear} locked={locked} addLocked={locked} />;
+      ? <Sidebar {...props} onFileUpload={add} isAlignmentLocked={locked} />
+      : <HubIndex records={[record]} state={state} onAddSequences={add} addLocked={locked} />;
   }
   const { rerender } = render(<Subject />);
   const title = screen.getByRole('heading', { name: surface === 'viewport' ? 'Record Navigator' : 'Sequence index' });
   const controls = within(title.parentElement!);
   expect(controls.getByRole('button', { name: 'Add sequences…' }).hasAttribute('disabled')).toBe(false);
-  const actions = controls.getByRole('button', { name: 'Workspace actions' });
-  expect(actions.getAttribute('data-tip')).toBe('Workspace: save or clear');
-  fireEvent.click(actions);
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Save project' }));
-  expect(save).toHaveBeenCalledTimes(1);
-  fireEvent.click(actions);
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
-  expect(clear).toHaveBeenCalledTimes(1);
+  expect(controls.queryByRole('button', { name: 'Workspace actions' })).toBeNull();
   rerender(<Subject locked />);
   if (surface === 'viewport') expect(screen.getByLabelText('Add sequences files')).toHaveProperty('disabled', true);
   expect(controls.getByRole('button', { name: 'Add sequences…' })).toHaveProperty('disabled', true);
-  fireEvent.click(actions);
-  const disabledClear = screen.getByRole('menuitem', { name: 'Clear workspace…' });
-  expect(disabledClear).toHaveProperty('disabled', true);
-  fireEvent.click(disabledClear);
-  expect(clear).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Save project' }));
-  expect(save).toHaveBeenCalledTimes(2);
 });
 
 it('viewport add opens the GenBank/FASTA picker and routes uploaded files', () => {
@@ -92,15 +78,4 @@ it('viewport add opens the GenBank/FASTA picker and routes uploaded files', () =
   fireEvent.change(picker, { target: { files } });
   expect(upload).toHaveBeenCalledTimes(1);
   expect(upload.mock.calls[0][0].target.files).toEqual(files);
-});
-
-it('hub disables clear when the workspace is empty', () => {
-  const clear = vi.fn();
-  function Subject() { const state = useHubState(); return <HubIndex records={[]} state={state} onAddSequences={noop} onClearAll={clear} />; }
-  render(<Subject />);
-  fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' }));
-  const button = screen.getByRole('menuitem', { name: 'Clear workspace…' });
-  expect(button).toHaveProperty('disabled', true);
-  fireEvent.click(button);
-  expect(clear).not.toHaveBeenCalled();
 });

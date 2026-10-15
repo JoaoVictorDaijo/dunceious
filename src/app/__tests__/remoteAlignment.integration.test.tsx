@@ -104,7 +104,7 @@ describe('remote alignment application integration', () => {
     expect(captured.sidebar!.records).toHaveLength(2);
     fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select sequence seq1' })[0]);
     expect((screen.getByRole('button', { name: 'Remove…' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
     expect((screen.getByRole('menuitem', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));

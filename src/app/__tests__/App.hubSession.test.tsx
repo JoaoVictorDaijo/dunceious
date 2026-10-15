@@ -67,7 +67,7 @@ describe('hub workspace identity', () => {
   });
   it('clears old selections before a cleared workspace imports the same IDs', async () => {
     const workers = await setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' })); fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Project' })); fireEvent.click(screen.getByRole('menuitem', { name: 'Clear workspace…' }));
     await act(async () => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'new.fa', records: [record('r', 'new'), record('fresh', 'fresh')] } }));
     expect(screen.getByRole('button', { name: 'Jump to sequence fresh' })).toBeTruthy();
     expect((screen.getByLabelText('Select annotation new on r') as HTMLInputElement).checked).toBe(false);

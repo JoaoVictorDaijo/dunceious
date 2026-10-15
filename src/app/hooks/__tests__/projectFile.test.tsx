@@ -41,7 +41,10 @@ function setup(text: string) {
 it('saves format 2 and restores the same record fields and false toggles', async () => {
   vi.spyOn(window, 'prompt').mockReturnValue('Saved project');
   const saved = setup('');
-  act(() => { saved.result.current.exportProjectJson(); });
+  let fileName: string | null = null;
+  act(() => { fileName = saved.result.current.exportProjectJson(); });
+  expect(fileName).toBe('Saved_project.json');
+  expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('Saved_project.json');
   const text = vi.mocked(downloadBlob).mock.calls[0][0] as string;
   expect(JSON.parse(text)).toMatchObject({ format: 2, records: [saved.record] });
   const restored = setup(text);
@@ -72,4 +75,14 @@ it('rejects malformed optional feature values without replacing any workspace st
   await act(async () => { await result.current.handleDroppedFiles([new File([], 'broken.json')]); });
   expect(log).toHaveBeenCalledWith('This project file contains invalid workspace data.');
   for (const [key, setter] of Object.entries(setters)) if (key !== 'setIsProcessing') expect(setter).not.toHaveBeenCalled();
+});
+
+it('reports a cancelled save as null without downloading', () => {
+  vi.spyOn(window, 'prompt').mockReturnValue(null);
+  vi.mocked(downloadBlob).mockClear();
+  const subject = setup('');
+  let fileName: string | null = 'unset';
+  act(() => { fileName = subject.result.current.exportProjectJson(); });
+  expect(fileName).toBeNull();
+  expect(downloadBlob).not.toHaveBeenCalled();
 });

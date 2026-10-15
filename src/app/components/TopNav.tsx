@@ -17,9 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, type ChangeEvent } from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
+import ProjectMenu from './ProjectMenu';
 import type { ThemeKey } from '@/src/app/logic/theme';
 
 const DRAG_MODES = [
@@ -53,6 +54,12 @@ export interface TopNavProps {
   onToggleConservation: () => void;
   isAlignmentLoaded: boolean;
   sessionMoleculeType: 'nucleotide' | 'protein' | null;
+  /** Returns the saved file name, or null when saving was cancelled. */
+  onSaveProject: () => string | null;
+  onOpenProject: (event: ChangeEvent<HTMLInputElement>) => void;
+  onClearWorkspace: () => void;
+  sequenceCount: number;
+  workspaceLocked?: boolean;
 }
 
 /**
@@ -83,6 +90,11 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleConservation,
   isAlignmentLoaded,
   sessionMoleculeType,
+  onSaveProject,
+  onOpenProject,
+  onClearWorkspace,
+  sequenceCount,
+  workspaceLocked = false,
 }) => {
   const [layersOpen, setLayersOpen] = useState(false);
   const [inlineLayers, setInlineLayers] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1536px)').matches ?? window.innerWidth >= 1536));
@@ -276,6 +288,9 @@ const TopNav: React.FC<TopNavProps> = ({
       )}
 
       </div>
+      {/* The divider splits this mode's tools from the app-level Project and Options pair. */}
+      {(showAlignmentControls || activeTab === 'features') && <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-slate-700" />}
+      <ProjectMenu onSaveProject={onSaveProject} onOpenProject={onOpenProject} onClearWorkspace={onClearWorkspace} sequenceCount={sequenceCount} locked={workspaceLocked} />
       <div className="shrink-0"><OptionsPanel
         featureColors={featureColors}
         onSetFeatureColors={onSetFeatureColors}
