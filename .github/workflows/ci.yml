@@ -120,10 +120,6 @@ jobs:
             const base = ver("/tmp/base-package.json");
             const head = ver("./package.json");
             console.log(`main: ${JSON.stringify(base)}  PR: ${JSON.stringify(head)}`);
-            // One-time exception: main still carries the discarded, fabricated
-            // 3.4.0; the first corrective promotion intentionally lowers it to
-            // the factual 2.x line. Self-removing once main no longer reads 3.4.0.
-            if (base === "3.4.0") { console.log("Corrective promotion off discarded 3.4.0 — increase check waived."); process.exit(0); }
             const parse = v => String(v).split("-")[0].split(".").map(Number);
             const [a, b] = [parse(head), parse(base)];
             const cmp = a.map((x, i) => x - (b[i] || 0)).find(d => d !== 0) || 0;

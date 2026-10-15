@@ -54,7 +54,11 @@ discarded.
 **Cloudflare Pages deploys `main`.** Read `main`'s `package.json` for the
 production version and verify the deployed StatusBar after each promotion.
 The historical `3.4.0` was corrected to `2.0.1` before the `2.5.0` promotion;
-future promotions must strictly increase the version on `main`.
+future promotions must strictly increase the version on `main`. The releases
+first shipped as `2.8.0`, `2.8.1` and `2.9.0` were renumbered to `3.0.0`,
+`3.0.1` and `3.1.0`: `v3.0.0` and `v3.0.1` tag the original promotion commits,
+and `v3.1.0` tags the promotion that deployed the new number. The real `3.x`
+line is unrelated to the discarded `3.4.0`.
 
 **Bump rules** (highest-precedence change since the last release wins):
 

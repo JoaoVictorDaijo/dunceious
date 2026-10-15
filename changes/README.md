@@ -18,8 +18,8 @@ to `CHANGELOG.md`; existing Unreleased content stays in place.
 At release time, from the repository root, run:
 
 ```sh
-npm run changelog:release -- 2.9.0
-npm run changelog:release -- 2.9.0 2026-10-15
+npm run changelog:release -- 3.2.0
+npm run changelog:release -- 3.2.0 2026-10-15
 ```
 
 Choose one invocation; the date defaults to today in UTC. The version is `X.Y.Z`
