@@ -184,13 +184,13 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, b
         {paths.map(path => <Fragment key={path.key}><path d={path.d} fill={path.color} opacity={path.opacity} />{path.separators && <path data-strip-separators opacity={path.opacity} d={path.separators} fill="none" className="stroke-white" strokeWidth="1" vectorEffect="non-scaling-stroke" />}</Fragment>)}
         {outlined && <path data-strip-focus d={geometry.parts.filter(part => part.feature === outlined).map(part => part.path).join('')} fill="none" className="stroke-slate-900" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />}
       </svg>
-      <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-env/[0.07]' : 'border-2 border-dashed border-env bg-env/10'}`}>
+      <div hidden data-track-window className={`hub-track-window pointer-events-none absolute inset-y-0 ${large ? 'bg-slate-400/[0.08]' : 'border-2 border-dashed border-env bg-env/10'}`}>
         {large && <>
-          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={(slim ? 20 : metrics.height) - 2} fill="none" stroke="var(--env)" strokeWidth="2" strokeDasharray="4 2" /></svg>
+          <svg aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible"><rect x="0" y="1" width="100%" height={(slim ? 20 : metrics.height) - 2} fill="none" className="stroke-slate-400" strokeWidth="2" strokeDasharray="4 2" /></svg>
         </>}
       </div>
     </div>
-    {large && !slim && !bare && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-amber-50 text-amber-800" /></div>}
+    {large && !slim && !bare && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-white text-slate-600" /></div>}
     {large && interactive && focused && <span role="status" aria-live="polite" className="sr-only">{current.name} · {current.locationString || `${current.start + 1}..${current.end}`}</span>}
   </div>;
 }

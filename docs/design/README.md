@@ -180,3 +180,16 @@ itself) and `env-strong` (the same hue at OKLCH L 0.54, the fill that carries wh
 ≥4.8:1). The governing rule still holds, because these are frame controls. Sky stays wherever
 it encodes data: the selection on the canvas and its readouts, the IUPAC/fuzzy search-mode
 pair, and white modals.
+
+### 9. The Hub card stays quiet
+
+**Shipped** on `feat/hub-quiet`. The Hub table card is a working surface, so the governing rule
+now applies inside it too: the current sequence or feature section uses a neutral slate-50 fill
+(`.hub-surface-current`) with a 4px accent edge, the current card keeps a plain slate-400 border,
+selected and current rows go slate-50, and the genome strip's in-view window is drawn in slate.
+The accent stays on a few markers only: the current section's accession or feature identity (it
+returns to slate-900 when the section loses focus), the active tab underline and count, Edit
+details, the Edited in Dunceious filter and edit chips, filter toggles, the sort arrows and the
+overview rail's current block. Semantic amber (odd length, notices) is unchanged. The hue stays
+`DEFAULT_PALETTE.hub` (72°). The alternatives were studied in a prototype before this was chosen:
+sage 150°, chartreuse 120°, rose 5° and a session-inheriting Hub.

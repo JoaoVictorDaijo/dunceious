@@ -47,8 +47,8 @@ it('keeps actions and the last-focused chip inside a single-line feature name ce
   expect(cell.querySelector('[data-row-subtext]')?.className).toContain('truncate');
   expect(cell.querySelector('strong')?.className).toContain('shrink-0');
   const row = container.querySelector<HTMLElement>('[data-row-key]')!;
-  expect(row.className).toContain('bg-amber-50');
-  expect(row.className).toContain('shadow-[inset_0_0_0_1.5px_var(--env)]');
+  expect(row.className).toContain('bg-slate-50');
+  expect(row.className).toContain('shadow-[inset_0_0_0_1.5px_theme(colors.slate.400)]');
 });
 
 

@@ -79,8 +79,8 @@ describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
     scroll(element, next - line - 1);
     expectCurrent('NC_045512');
     const currentBar = screen.getByRole('region', { name: 'Pinned section' });
-    expect(currentBar.style.borderColor).toContain('var(--env)');
-    expect(currentBar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-amber-50')).toBe(true);
+    expect(currentBar.className).toContain('border-slate-400');
+    expect(currentBar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('hub-surface-current')).toBe(true);
     scroll(element, next - line);
     expectCurrent('NC_019843');
     expect(Number.parseFloat(card('NC_045512').style.top) + Number.parseFloat(card('NC_045512').style.height)).toBeGreaterThan(element.scrollTop);
@@ -89,7 +89,7 @@ describe.each<Tab>(['sequences', 'features'])('%s current group', kind => {
     expect(bar.style.borderColor).toBe('');
     expect(bar.className).toContain('border-slate-300');
     expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-white')).toBe(true);
-    expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-amber-50')).toBe(false);
+    expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('hub-surface-current')).toBe(false);
     scroll(element, next + 400);
     expect(within(screen.getByRole('region', { name: 'Pinned section' }).querySelector<HTMLElement>('[data-pinned-compact]')!).getByText('NC_019843')).toBeTruthy();
   });
@@ -158,5 +158,5 @@ it('makes NC_019843 current with its header 60 px below the top of a 700 px sequ
   const bar = screen.getByRole('region', { name: 'Pinned section' });
   expect(within(compact(bar)).getByText('NC_045512')).toBeTruthy();
   expect(bar.querySelector('[data-pinned-compact]')!.firstElementChild?.classList.contains('bg-white')).toBe(true);
-  expect(card('NC_019843').querySelector('[data-section-surface]')?.classList.contains('bg-amber-50')).toBe(true);
+  expect(card('NC_019843').querySelector('[data-section-surface]')?.classList.contains('hub-surface-current')).toBe(true);
 });
