@@ -25,7 +25,7 @@ import { act, fireEvent, render } from '@/src/app/testing/renderHarness';
 import { TouchArbiter } from '../touchGesture';
 import { useTouchPanZoom } from '../useTouchPanZoom';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 export function pointer(target: Element, type: string, id: number, x = 200, y = 100, pointerType = 'touch') {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
@@ -165,5 +165,41 @@ describe('rows touch lifecycle', () => {
     expect(h.arbiter.owner()).toBeNull();
     pointer(h.rows, 'pointermove', 1, 100);
     expect(h.horizontal.scrollLeft).toBe(100);
+  });
+});
+
+describe('release click identity and expiry', () => {
+  it.each(['mouse', 'pen', ''])('preserves unrelated %s clicks after a cancelled pan', kind => {
+    const h = setup();
+    pointer(h.rows, 'pointerdown', 1);
+    pointer(h.rows, 'pointermove', 1, 190);
+    pointer(h.rows, 'pointercancel', 1);
+    pointer(h.feature, 'click', kind === '' ? -1 : 2, 200, 100, kind);
+    expect(h.click).toHaveBeenCalledOnce();
+  });
+  it('expires stale suppression when a pan produces no release click', () => {
+    vi.useFakeTimers();
+    const h = setup();
+    pointer(h.rows, 'pointerdown', 1);
+    pointer(h.rows, 'pointermove', 1, 190);
+    pointer(h.rows, 'pointerup', 1);
+    act(() => vi.advanceTimersByTime(501));
+    pointer(h.feature, 'click', 2);
+    expect(h.click).toHaveBeenCalledOnce();
+  });
+  it('suppresses a legacy touch MouseEvent only within the release window', () => {
+    vi.useFakeTimers();
+    const h = setup();
+    pointer(h.rows, 'pointerdown', 1);
+    pointer(h.rows, 'pointermove', 1, 190);
+    pointer(h.rows, 'pointerup', 1);
+    fireEvent.click(h.feature);
+    expect(h.click).not.toHaveBeenCalled();
+    pointer(h.rows, 'pointerdown', 2);
+    pointer(h.rows, 'pointermove', 2, 190);
+    pointer(h.rows, 'pointerup', 2);
+    act(() => vi.advanceTimersByTime(501));
+    fireEvent.click(h.feature);
+    expect(h.click).toHaveBeenCalledOnce();
   });
 });
