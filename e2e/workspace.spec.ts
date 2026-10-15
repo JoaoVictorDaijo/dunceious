@@ -96,11 +96,12 @@ test('built workers, annotations and exports preserve biological coordinates and
   expect(errors).toEqual([]);
 });
 
-test('workspace title actions fit both sidebars and add, save and clear from the viewport', async ({ page }) => {
+test('sidebar titles add sequences and the top-bar Project menu saves and clears in both modes', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Annotation Hub$/ }).click();
   await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('sample.fa', `>sample\n${sequence}\n`));
   await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
+  const width = page.viewportSize()!.width;
   for (const title of ['Sequence index', 'Record Navigator']) {
     if (title === 'Record Navigator') await page.getByRole('button', { name: /Visual Viewport$/ }).click();
     const row = page.getByRole('heading', { name: title, exact: true }).locator('..');
@@ -110,11 +111,13 @@ test('workspace title actions fit both sidebars and add, save and clear from the
     expect(headingBounds.x + headingBounds.width).toBeLessThanOrEqual(addBounds.x);
     expect(headingBounds.height).toBeLessThan(20);
     if (title === 'Sequence index') expect(rowBounds.height).toBe(24);
-    await row.getByRole('button', { name: 'Workspace actions', exact: true }).click();
-    const menu = page.getByRole('menu', { name: 'Workspace actions', exact: true });
+    await expect(row.getByRole('button', { name: 'Workspace actions', exact: true })).toHaveCount(0);
+    const nav = page.locator('nav.app-nav');
+    await nav.getByRole('button', { name: 'Project', exact: true }).click();
+    const menu = page.getByRole('menu', { name: 'Project', exact: true });
     const menuBounds = (await menu.boundingBox())!;
-    expect(menuBounds.x).toBeGreaterThanOrEqual(rowBounds.x - 1);
-    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(rowBounds.x + rowBounds.width + 1);
+    expect(menuBounds.x).toBeGreaterThanOrEqual(0);
+    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(width);
     await menu.press('Escape');
   }
   const chooserPromise = page.waitForEvent('filechooser');
@@ -123,7 +126,7 @@ test('workspace title actions fit both sidebars and add, save and clear from the
   expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles(file('added.fa', '>added\nACGT\n'));
   await expect(page.locator('aside').getByText('added', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Project', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('workspace'));
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'Save project', exact: true }).click();
@@ -132,11 +135,16 @@ test('workspace title actions fit both sidebars and add, save and clear from the
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   expect(JSON.parse(Buffer.concat(chunks).toString('utf8')).records.map((record: { id: string }) => record.id)).toEqual(['sample', 'added']);
+  await expect(page.getByRole('status').filter({ hasText: 'Saved as workspace.json' })).toBeVisible();
+  page.once('dialog', dialog => dialog.accept('shortcut'));
+  const shortcutDownload = page.waitForEvent('download');
+  await page.keyboard.press('ControlOrMeta+s');
+  expect((await shortcutDownload).suggestedFilename()).toBe('shortcut.json');
   page.once('dialog', dialog => dialog.accept('CLEAR'));
-  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Project', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Clear workspace…', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Record Navigator', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /Annotation Hub$/ }).click();
-  await page.getByRole('button', { name: 'Workspace actions', exact: true }).click();
+  await page.getByRole('button', { name: 'Project', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Clear workspace…', exact: true })).toBeDisabled();
 });

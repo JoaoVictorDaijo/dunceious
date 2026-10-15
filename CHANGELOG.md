@@ -22,6 +22,21 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-10-15
+
+### Added
+
+- Phones open a landing page with a drag-to-zoom SARS-CoV-2 genome and a short tour, instead of the desktop workbench.
+
+### Changed
+
+- The Annotation Hub card stays neutral like the viewport canvas; the accent marks only the current section's edge and name, tabs, edit marks and the overview rail.
+- Save project, Open project and Clear workspace moved to a Project menu in the top bar, next to Options, in both modes.
+
+### Fixed
+
+- Release sidebar drag listeners when the sidebar unmounts during resizing.
+
 ## [3.1.0] — 2026-10-14
 
 ### Changed

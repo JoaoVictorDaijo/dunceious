@@ -40,15 +40,17 @@ describe('minimap drawing area', () => {
     const view = render(<Minimap records={[]} consensus="" alignmentLength={10000} containerWidth={1200}
       viewportWidth={1080} scrollX={0} zoomLevel={1} fitZoom={0.1}
       searchResults={[]} currentSearchIdx={-1} onZoomChange={vi.fn()} />);
-    const svg = view.container.querySelector('svg')!;
+    const svg = view.container.querySelector('[data-minimap-ruler]')!;
+    // The ruler, brush, and preview must share the resized drawing bounds.
     expect(svg.getAttribute('width')).toBe('892');
     width = 600;
     act(() => resize!());
     expect(svg.getAttribute('width')).toBe('592');
-    expect(svg.querySelector('.overlay')!.getAttribute('width')).toBe('592');
-    expect(view.container.querySelector('canvas')!.width).toBe(592);
+    expect(svg.querySelector('[data-minimap-brush-area]')!.getAttribute('width')).toBe('592');
+    expect(view.container.querySelector<HTMLCanvasElement>('[data-minimap-preview]')!.width).toBe(592);
     width = 0;
-    act(() => resize!()); // Narrow layouts must not allocate a negative typed-array size.
+    // Narrow layouts must not allocate a negative typed-array size.
+    act(() => resize!());
     view.unmount();
     expect(disconnect).toHaveBeenCalledOnce();
   });

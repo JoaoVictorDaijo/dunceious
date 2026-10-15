@@ -442,13 +442,15 @@ const App: React.FC = () => {
         onToggleConservation={() => setShowConservation(!showConservation)}
         isAlignmentLoaded={isAlignmentLoaded}
         sessionMoleculeType={sessionMoleculeType}
+        onSaveProject={exportProjectJson}
+        onOpenProject={handleProjectUpload}
+        onClearWorkspace={handleClearAll}
+        sequenceCount={records.length}
+        workspaceLocked={remoteAlignment.isAlignmentLocked}
       />
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
-          onExportProjectJson={exportProjectJson}
-          onClearAll={handleClearAll}
-          workspaceEmpty={!records.length}
           hubState={hubState}
           featureColors={featureColors}
           onToggleRecordVisibility={toggleRecordVisibility}

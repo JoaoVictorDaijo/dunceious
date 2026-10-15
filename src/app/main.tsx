@@ -25,7 +25,7 @@ import '@fontsource-variable/jetbrains-mono';
 import './index.css';
 import './themes.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import App from './App';
+import ShellRoot from './shell/ShellRoot';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -35,6 +35,6 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <ShellRoot />
   </React.StrictMode>
 );

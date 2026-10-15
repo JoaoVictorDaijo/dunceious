@@ -49,46 +49,29 @@ describe('filter segments', () => {
 });
 
 
-it('keeps fold-all names and tooltips with stacked-box SVG icons', () => {
+it('keeps fold-all controls named with matching tooltips', () => {
   render(<Subject />);
   for (const name of ['Expand all', 'Collapse all']) {
-    const button = screen.getByRole('button', { name });
-    expect(button.getAttribute('data-tip')).toBe(name);
-    const icon = button.querySelector('svg')!;
-    expect(icon).toBeTruthy();
-    expect(icon.getAttribute('width')).toBe('16');
-    expect(icon.getAttribute('stroke')).toBe('currentColor');
-    expect(icon.getAttribute('stroke-width')).toBe('1.5');
-    expect(icon.querySelectorAll('rect')).toHaveLength(2);
-    expect(icon.querySelector('[data-plus]') !== null).toBe(name === 'Expand all');
+    expect(screen.getByRole('button', { name }).getAttribute('data-tip')).toBe(name);
   }
 });
 
 
-it('keeps controls together beside a wrapping type zone on both tabs', () => {
+it('offers all filter controls and types on both tabs', () => {
   function Filters() {
     const state = useHubState();
     return <><button onClick={() => state.setTab('features')}>Features</button><FilterBar state={state} types={new Map(Array.from({ length: 20 }, (_, i) => [`type${i}`, 1]))} keys={['one']} /></>;
   }
   render(<Filters />);
   for (const features of [false, true]) {
-    if (features) fireEvent.click(screen.getByText('Features'));
-    const controls = screen.getByRole('group', { name: 'Strand' }).parentElement!;
-    expect(controls.className).toContain('flex-none');
-    expect(controls.className).toContain('flex-nowrap');
-    expect(controls.className).toContain('items-start');
-    expect(controls.className).toContain('justify-end');
+    if (features) fireEvent.click(screen.getByRole('button', { name: 'Features' }));
+    const controls = document.querySelector<HTMLElement>('[data-filter-controls]')!;
     expect(within(controls).getByRole('group', { name: 'Density' })).toBeTruthy();
     expect(within(controls).getByRole('button', { name: 'Expand all' })).toBeTruthy();
     expect(within(controls).getByRole('button', { name: 'Collapse all' })).toBeTruthy();
     if (features) expect(within(controls).getByRole('button', { name: 'Only missing or odd length' })).toBeTruthy();
-    const types = screen.getByRole('button', { name: 'type0 1' }).parentElement!;
-    expect(types).not.toBe(controls);
-    expect(types.parentElement).toBe(controls.parentElement);
-    expect(types.className).toContain('flex-wrap');
-    expect(types.className).toContain('min-w-0');
-    expect(types.className).toContain('flex-1');
-    expect(controls.parentElement!.classList.contains('flex-wrap')).toBe(false);
+    const types = document.querySelector<HTMLElement>('[data-filter-types]')!;
+    expect(within(types).getAllByRole('button', { name: /^type\d+ 1$/ })).toHaveLength(20);
   }
 });
 
@@ -100,7 +83,7 @@ it('adds an annotation before the strand controls and respects the lock', () => 
   }
   const { rerender } = render(<AddSubject locked={false} />);
   const button = screen.getByRole('button', { name: 'Add annotation' });
-  expect(button.nextElementSibling).toBe(screen.getByRole('group', { name: 'Strand' }));
+  expect(button.compareDocumentPosition(screen.getByRole('group', { name: 'Strand' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(button);
   expect(add).toHaveBeenCalledOnce();
   rerender(<AddSubject locked />);

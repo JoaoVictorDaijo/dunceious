@@ -4,16 +4,20 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, and the address to open on a computer. **Open the workbench on this phone anyway** loads the full app for the rest of that browser session. Tablets and computers open the workbench directly.
+
 ### 1.1 Ingesting Data
 
-In the Visual Viewport, the **Ingestion** section of the sidebar has one card per kind of input. In the Annotation Hub, imports are in the **⋯** menu and files can be dropped onto the hub canvas. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).
+In the Visual Viewport, the **Ingestion** section of the sidebar has one card per kind of input. In the Annotation Hub, imports are in the toolbar **Import** menu and files can be dropped onto the hub canvas. Click a card to pick files, or drag files from your computer onto it. While you drag files over the window, every card that can take them lights up, and the card under the cursor says **Release to load**. A card that cannot take files right now stays dim (for example the pre-aligned FASTA and annotation cards before any record is loaded, or every card while a remote alignment runs).
 
 - **GenBank or FASTA (Drop input batch)**: Upload `.gb`, `.gbk`, `.fasta` or `.fa` files. Multi-record files add several sequences at once, and several files can be selected together. Both nucleotide and amino-acid (protein) GenBank records are supported. If a sequence ID already exists in the workspace, a numeric suffix is appended automatically (e.g., `seq1 → seq1_1 → seq1_2`), preventing silent overwrites.
 - **Upload pre-aligned FASTA (Alignment Overlay)**: Apply an externally computed alignment to already-loaded records. Every sequence in the file must match a loaded record, and all sequences must have equal lengths. A header matches when it starts with a loaded record's ID; suffixes such as `seq1_1` are retained and a trailing description (`>seq1 reference strain`) is ignored. Mismatches are rejected and reported in the **Log Terminal**. This action updates the alignment of matching records without altering their features.
 - **Import annotations**: Upload `.gff`, `.gff3`, `.bed` or BedGraph files to merge additional features into loaded records. The importer first matches exact workspace IDs; a name or accession fallback must identify exactly one record. Ambiguous and unmatched IDs are reported in the **Log Terminal**.
   - A BED file with a numerical score in the 5th column is rendered as an **Interval Track**.
   - A BED file with many data points automatically packs overlapping intervals into multiple rows.
-- **Load project JSON**: Restore a whole workspace saved with **Save project…**, after confirmation. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
+- **Load project JSON**: Restore a whole workspace saved with **Save project**, after confirmation. **Project → Open project…** in the top bar does the same. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
+
+The **Project** menu sits at the right of the top bar, next to **Options**, in both modes. It saves the whole workspace (**Save project**), opens a saved one (**Open project…**) and empties it (**Clear workspace…**, which asks you to type CLEAR first). `Ctrl S` and `Ctrl O` (`⌘ S` and `⌘ O` on Mac) save and open from anywhere. After a save, a short notice under the button shows the file name.
 
 If you leave the page with unsaved work, the browser asks you to confirm first.
 
@@ -172,6 +176,8 @@ Switch to **Annotation Hub** in the centred top-bar switcher; it stays in the sa
 | `X` | Select the current annotation row |
 | `O` | Collapse/expand the current section |
 | Esc | Close the open menu/dialog or clear the current row and checkbox selection |
+| `Ctrl S` (`⌘ S` on Mac) | Save project, in either mode |
+| `Ctrl O` (`⌘ O` on Mac) | Open project, in either mode |
 | `?` | Open Keyboard shortcuts |
 
 ### 3.3 Metadata Inspector
@@ -197,7 +203,7 @@ Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the filen
 - **FASTA** writes original residues and ID-only headers by default. **Keep alignment gaps** is optional and unavailable without an alignment. **Include details in the header (NCBI format)** writes details, isolate/strain and kept unknown modifiers; deprecated modifiers are omitted. Whole-record FASTA from the viewport also defaults to original residues. Viewport selection export retains exactly the selected aligned columns.
 - **GenBank / GenPept** writes sequences and annotations with molecule-appropriate qualifiers, quoted text, unquoted numeric values and bare flags. Annotation type and **Only matching annotations** filters retain source details. Missing organism warns without blocking export. Repeated qualifiers imported from GenBank keep only their last value.
 - **GFF3** writes annotations and full-sequence details regions (`gbkey=Src`), with type and matching filters. Load the sequences separately before importing it. Geometry, strand, phase and multipart identity are preserved; exact extracted residue order for unusual all-inner-complement joins is not guaranteed.
-- **Dunceious project** saves the chosen subset, retaining every workspace value, including invalid details, originals, edit markers, display names, modifiers and colours. It reopens only in Dunceious. **Save project** in the Sequence index’s or Record Navigator’s ⋯ Workspace actions menu saves the whole workspace.
+- **Dunceious project** saves the chosen subset, retaining every workspace value, including invalid details, originals, edit markers, display names, modifiers and colours. It reopens only in Dunceious. **Save project** in the top bar’s **Project** menu saves the whole workspace.
 
 **What this file will contain** previews written details and omissions using the selected export options, including invalid edits, non-GenBank attributes and deprecated FASTA modifiers. Display names stay in Dunceious. The missing-organism warning offers **Edit details**. The footer shows the sequence count and filename. See [the format preservation table](./ARCHITECTURE.md#export-format-contracts) for what each export retains.
 

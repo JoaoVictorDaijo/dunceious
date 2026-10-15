@@ -233,7 +233,8 @@ export const Minimap: React.FC<MinimapProps> = ({
     brushRef.current = brush;
     miniSvg.append('g')
       .attr('class', 'brush')
-      .call(brush);
+      .call(brush)
+      .select('.overlay').attr('data-minimap-brush-area', '');
 
     // Remove old click handler as brush handles it now
   }, [alignmentLength, minimapWidth, consensus, records, viewportWidth, customColors, searchResults, currentSearchIdx]);
@@ -256,8 +257,8 @@ export const Minimap: React.FC<MinimapProps> = ({
   return (
     <div className="flex-1 flex flex-col justify-center min-w-0">
       <div ref={minimapWrapperRef} className="relative bg-[#12203c] rounded-md border border-black/20 p-0.5 h-[45px] overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
-        <canvas ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
-        <svg ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
+        <canvas data-minimap-preview="" ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
+        <svg data-minimap-ruler="" ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
           <span className="text-[11px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
         </div>

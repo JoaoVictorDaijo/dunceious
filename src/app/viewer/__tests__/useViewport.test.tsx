@@ -47,7 +47,7 @@ function setup(initialFocus: FocusTarget | null = null) {
     return <div ref={view.containerRef} data-testid="container">
       <div ref={view.listContainerRef} />
       <div ref={view.horizontalScrollRef} data-testid="scroll" onScroll={view.handleHorizontalScroll}>
-        <div style={{ width: view.chartWidth + 250 }} />
+        <div data-testid="scroll-content" style={{ width: view.chartWidth + 250 }} />
       </div>
     </div>;
   }
@@ -57,7 +57,7 @@ function setup(initialFocus: FocusTarget | null = null) {
   Object.defineProperty(scroll, 'scrollLeft', {
     get: () => left,
     set: (value: number) => {
-      left = Math.max(0, Math.min(parseFloat((scroll.firstChild as HTMLElement).style.width) - 800, value));
+      left = Math.max(0, Math.min(parseFloat(screen.getByTestId('scroll-content').style.width) - 800, value));
     },
   });
   const run = (fn: (v: ReturnType<typeof useViewport>) => void) => act(() => fn(view!));

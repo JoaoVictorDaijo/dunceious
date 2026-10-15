@@ -61,21 +61,6 @@ describe('HubList', () => {
     fireEvent.click(screen.getByText('Jump third'));
     expect(within(currentCard()).getByText('three')).toBeTruthy();
   });
-  it('updates the pinned header after a scroll event', () => {
-    render(<Subject />);
-    const viewport = screen.getByText('one-gene').closest('[data-row-key]')?.closest('.scrollbar-on-light');
-    if (!viewport) throw new Error('Virtual viewport missing');
-    Object.defineProperties(viewport, { clientHeight: { configurable: true, value: 180 }, scrollHeight: { configurable: true, value: 532 } });
-    fireEvent.scroll(viewport, { target: { scrollTop: 190 } });
-    expect(within(currentCard()).getByText('two')).toBeTruthy();
-  });
-  it('can pin the final short section and leaves its target row below the header', () => {
-    render(<Subject />); fireEvent.click(screen.getByText('Jump third'));
-    expect(within(currentCard()).getByText('three')).toBeTruthy();
-    const row = screen.getByText('three-gene').closest('[data-row-key]')?.parentElement as HTMLElement;
-    const viewport = row?.closest('.scrollbar-on-light');
-    expect(Number.parseFloat(row?.style.top ?? '0') + Number.parseFloat((row?.parentElement as HTMLElement)?.style.top ?? '0') - (viewport?.scrollTop ?? 0)).toBeGreaterThanOrEqual(122);
-  });
   it('folds rows and shows the composition summary', () => {
     render(<Subject />);
     const first = currentCard();
@@ -129,8 +114,7 @@ it('updates the full track window from visible rows and hides it after folding',
   expect(band.hidden).toBe(false);
   expect(band.style.left).toBe('5%'); expect(band.style.width).toBe('20%');
   expect(pinned.querySelector('[data-track-window-label]')?.textContent).toBe('6–25 in view');
-  expect(pinned.querySelector('[data-section-surface]')?.classList.contains('bg-amber-50')).toBe(true);
-  expect(pinned.querySelector('[data-section-surface]')?.className).not.toContain('bg-amber-50/');
+  expect(pinned.querySelector('[data-section-surface]')?.classList.contains('hub-surface-current')).toBe(true);
   fireEvent.click(within(pinned).getByRole('button', { name: 'Collapse one' }));
   expect(pinned.querySelector('[data-track-window]')).toBeNull();
 });

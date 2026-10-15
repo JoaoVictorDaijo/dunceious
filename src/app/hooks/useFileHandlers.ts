@@ -102,7 +102,7 @@ export interface UseFileHandlersReturn {
   exportRecords: (ids: string[], format: HubExportFormat, options?: ExportOptions) => void;
   exportSelection: () => void;
   exportSelectionJson: () => void;
-  exportProjectJson: () => void;
+  exportProjectJson: () => string | null;
   moleculeTypeMismatch: MoleculeTypeMismatchError | null;
   closeMismatchModal: () => void;
 }
@@ -384,11 +384,12 @@ export function useFileHandlers(
     addLog(`Exported record ${record.id} to FASTA.`);
   };
 
-  const saveProject = (selectedRecords: SeqRecord[]) => {
+  /** Returns the saved file name, or null when the user cancels the name prompt. */
+  const saveProject = (selectedRecords: SeqRecord[]): string | null => {
     const chosenProjectName = promptForProjectName();
     if (!chosenProjectName) {
       addLog('Project save cancelled: a project name is required.');
-      return;
+      return null;
     }
     const safeName = chosenProjectName.replace(/[^a-z0-9._-]/gi, '_');
     const project = {
@@ -401,8 +402,10 @@ export function useFileHandlers(
       showConservation: viewportState.showConservation,
       version: __APP_VERSION__,
     };
-    downloadBlob(serializeProject(project), `${safeName || 'dunceious_project'}.json`, 'application/json');
+    const fileName = `${safeName || 'dunceious_project'}.json`;
+    downloadBlob(serializeProject(project), fileName, 'application/json');
     addLog('Project JSON exported.');
+    return fileName;
   };
 
   const exportProjectJson = () => saveProject(records);

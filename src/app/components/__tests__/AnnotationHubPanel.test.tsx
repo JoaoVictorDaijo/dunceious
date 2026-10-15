@@ -30,6 +30,12 @@ import AnnotationHubPanel, { type HubFocusOrigin } from '../AnnotationHubPanel';
 import type { HubFilters } from '@/src/app/logic/hubModel';
 import type { SeqRecord } from '@/src/domain/bio/types';
 const records: SeqRecord[] = Array.from({ length: 8 }, (_, i) => ({ id: `seq${i}`, name: `seq${i}`, sequence: 'A'.repeat(100), features: [{ name: i < 3 ? 'ORF4b' : `gene${i}`, type: 'CDS', start: 5, end: 15, strand: 1 }] }));
+function currentHeader(): HTMLElement {
+  return document.querySelector<HTMLElement>('[data-section-surface][data-state="current"], [data-feature-surface][data-state="current"]')!;
+}
+function normalizedText(element: Element): string {
+  return element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+}
 const noop = () => {};
 function Subject({ initial = records, dropped = noop, focused = noop, locked = false, index = false, uploaded = noop, loadOnUpload, filtersSeed, problems = false }: { uploaded?: (event: ChangeEvent<HTMLInputElement>) => void; loadOnUpload?: SeqRecord[]; filtersSeed?: Partial<HubFilters>; problems?: boolean; index?: boolean; initial?: SeqRecord[]; dropped?: (files: File[]) => void; focused?: (...args: unknown[]) => void; locked?: boolean }) {
   const state = useHubState();
@@ -47,17 +53,17 @@ function Subject({ initial = records, dropped = noop, focused = noop, locked = f
   const [origin, setOrigin] = useState<HubFocusOrigin | null>(null);
   const [viewport, setViewport] = useState(false);
   if (viewport) return <><button onClick={() => { if (origin) state.setJumpTarget(prev => ({ key: origin.key, serial: (prev?.serial ?? 0) + 1 })); setViewport(false); }}>Return to hub</button><button onClick={() => setViewport(false)}>Switch back normally</button></>;
-  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} locked={locked} empty={!value.length} onExportProjectJson={noop} onClearAll={noop} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={event => { uploaded(event); if (loadOnUpload) setValue(loadOnUpload); }} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
+  return <><div aria-label="Header tools" data-hub-focus ref={setToolsSlot} /><button onClick={() => state.setJumpTarget({ key: 'seq7:0', serial: 1 })}>Request hidden jump</button><span aria-label="Pending hub jump">{state.jumpTarget?.key ?? 'none'}</span><button onClick={() => setViewport(true)}>Visit viewport</button>{index && <HubIndex records={value} state={state} />}<AnnotationHubPanel toolsSlot={toolsSlot} records={value} state={state} featureColors={{}} onStartNewFeature={noop} isAlignmentLocked={locked} onRemoveRecord={noop} onViewFeatureDetails={noop} onEditFeature={noop} onRemoveFeature={manager.removeFeature} onDeleteRows={manager.removeFeatures} undoAvailable={manager.undoAvailable} onUndoDelete={manager.undoDelete} onSetRecordDetails={manager.setRecordDetails} onSetRecordLabel={manager.setRecordLabel} onSetDetail={(ids, key, detail) => setValue(prev => prev.map(r => ids.has(r.id) ? writeDetails(r, { [key]: detail }) : r))} onFocusItem={(target, from) => { focused(target, from); setOrigin(from); setViewport(true); }} lastFocusedKey={origin?.key} onExportProjectJson={noop} onExportRecords={noop} onClearAll={noop} addLog={noop} onFileUpload={event => { uploaded(event); if (loadOnUpload) setValue(loadOnUpload); }} onAlignmentUpload={noop} onAnnotationUpload={noop} onProjectUpload={noop} onDroppedFiles={dropped} /></>;
 }
 beforeEach(stubResizeObserver);
 describe('AnnotationHubPanel', () => {
-  it('portals the tools out of the panel and retains a hidden page heading', () => {
+  it('portals the tools out of the panel and retains an accessible page heading', () => {
     render(<Subject />);
     const panel = screen.getByRole('region', { name: 'Annotation Hub' });
     expect(within(panel).queryByRole('searchbox')).toBeNull();
     expect(within(screen.getByLabelText('Header tools')).getByRole('searchbox')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Annotation Hub' }).className).toBe('sr-only');
-    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === '8 of 8 annotations in 8 of 8 sequences')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Annotation Hub' })).toBeTruthy();
+    expect(normalizedText(document.querySelector('[data-hub-summary]')!)).toBe('8 of 8 annotations in 8 of 8 sequences');
   });
 
   it('counts feature identities without running comparisons until the Features tab opens', () => {
@@ -71,14 +77,14 @@ describe('AnnotationHubPanel', () => {
       expect(build).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
       expect(build).toHaveBeenCalled();
-      expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('not compared: organism unknown')).toBeTruthy();
+      expect(within(currentHeader()).getByText('not compared: organism unknown')).toBeTruthy();
     } finally { build.mockRestore(); }
   });
 
   it('opens export from the selection bar with selected sequences and Esc leaves selection intact', () => {
     render(<Subject />);
-    fireEvent.click(screen.getAllByLabelText('Select sequence seq0')[0]);
-    fireEvent.click(screen.getAllByLabelText('Select sequence seq1')[0]);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq0' }));
+    fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }));
     const bar = screen.getByLabelText('Selection actions');
     fireEvent.click(within(bar).getByRole('button', { name: 'Export…' }));
     expect((screen.getByLabelText('Export seq0') as HTMLInputElement).checked).toBe(true);
@@ -90,15 +96,15 @@ describe('AnnotationHubPanel', () => {
   });
   it('routes missing-organism editing to bulk Organism for every affected sequence, focused and only empty', () => {
     render(<Subject initial={[records[0], writeDetails(records[1], { organism: 'known virus' }), records[2]]} />);
-    fireEvent.click(screen.getAllByLabelText('Select sequence seq1')[0]);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }));
     fireEvent.click(within(screen.getByLabelText('Header tools')).getByRole('button', { name: 'Export…' }));
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Edit details' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect((screen.getAllByLabelText('Select sequence seq0')[0] as HTMLInputElement).checked).toBe(true);
-    expect((screen.getAllByLabelText('Select sequence seq2')[0] as HTMLInputElement).checked).toBe(true);
-    expect((screen.getAllByLabelText('Select sequence seq1')[0] as HTMLInputElement).checked).toBe(false);
+    expect((within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq0' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq2' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }) as HTMLInputElement).checked).toBe(false);
     expect((screen.getByLabelText('Detail field') as HTMLSelectElement).value).toBe('organism');
     expect((screen.getByLabelText('only where empty') as HTMLInputElement).checked).toBe(true);
     expect(document.activeElement).toBe(screen.getByLabelText('Detail value'));
@@ -110,8 +116,8 @@ describe('AnnotationHubPanel', () => {
   it('searches annotations and advances through matches with Enter', () => {
     render(<Subject />); const search = screen.getByRole('searchbox', { name: 'Search annotations' });
     fireEvent.change(search, { target: { value: 'ORF4b' } }); fireEvent.keyDown(search, { key: 'Enter' });
-    expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 3')).toBeTruthy();
-    fireEvent.keyDown(search, { key: 'Enter' }); expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '2 / 3')).toBeTruthy();
+    expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('1 / 3');
+    fireEvent.keyDown(search, { key: 'Enter' }); expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('2 / 3');
   });
   it('moves the current row with J and selects it with X while ignoring text fields', () => {
     render(<Subject />); const hub = screen.getByRole('region', { name: 'Annotation Hub' });
@@ -136,9 +142,6 @@ describe('AnnotationHubPanel', () => {
     expect(screen.getByRole('button', { name: 'Delete ORF4b on seq0' }).hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
     expect(screen.getByRole('menuitem', { name: 'Alignment' }).hasAttribute('disabled')).toBe(true);
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace actions' }));
-    expect(screen.getByRole('menuitem', { name: 'Clear workspace…' }).hasAttribute('disabled')).toBe(true);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
     expect(screen.getByRole('menuitem', { name: 'Sequences' }).hasAttribute('disabled')).toBe(true);
@@ -170,7 +173,7 @@ describe('AnnotationHubPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open gene7 on seq7 in viewport' }));
     expect(focused).toHaveBeenCalledWith({ recordId: 'seq7', featureIndex: 0, start: 5, end: 15, label: 'gene7', length: 10 }, { key: 'seq7:0', label: 'gene7' });
     fireEvent.click(screen.getByText('Return to hub')); expect(screen.getByText('Last focused')).toBeTruthy();
-    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq7')).toBeTruthy();
+    expect(within(currentHeader()).getByText('seq7')).toBeTruthy();
   });
   it('preserves the current scroll position on ordinary tab switches after a focus return', () => {
     render(<Subject index />); fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq7' }));
@@ -178,18 +181,18 @@ describe('AnnotationHubPanel', () => {
     fireEvent.click(screen.getByText('Return to hub'));
     fireEvent.click(screen.getByRole('button', { name: 'Jump to sequence seq0' }));
     fireEvent.click(screen.getByText('Visit viewport')); fireEvent.click(screen.getByText('Switch back normally'));
-    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq0')).toBeTruthy();
+    expect(within(currentHeader()).getByText('seq0')).toBeTruthy();
   });
   it('keeps annotation selection on its feature when bulk details create source data', () => {
     render(<Subject initial={[{ ...records[0], features: ['a', 'b'].map(name => ({ name, type: 'gene', start: 0, end: 2, strand: 1 })) }]} />);
     fireEvent.click(screen.getByLabelText('Select annotation b on seq0'));
-    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByLabelText('Select sequence seq0'));
+    fireEvent.click(within(currentHeader()).getByLabelText('Select sequence seq0'));
     fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'camel' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect((screen.getByLabelText('Select annotation b on seq0') as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Delete with undo' }));
     expect(screen.queryByText('b')).toBeNull(); expect(screen.getByText('a')).toBeTruthy();
-    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('camel')).toBeTruthy();
+    expect(within(currentHeader()).getByText('camel')).toBeTruthy();
   });
   it('reveals a missing sequence after a filtered Features jump and explains the cleared filters', () => {
     const source = { name: 'source', type: 'source', start: 0, end: 100, strand: 1 as const, metadata: { organism: 'Virus' } };
@@ -199,8 +202,8 @@ describe('AnnotationHubPanel', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
     fireEvent.click(screen.getByRole('button', { name: 'CDS 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Forward strand only' }));
-    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'seq1' }));
-    expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq1')).toBeTruthy();
+    fireEvent.click(within(currentHeader()).getByRole('button', { name: 'seq1' }));
+    expect(within(currentHeader()).getByText('seq1')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Search and type filters cleared to show seq1');
     expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   });
@@ -231,7 +234,7 @@ describe('AnnotationHubPanel', () => {
 
 it.each(['tabs', 'focus'])('keeps typed details through a %s round trip', route => {
   render(<Subject initial={[records[0]]} />);
-  fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Edit details' }));
+  fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Edit details' }));
   fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
   if (route === 'tabs') {
     fireEvent.click(screen.getByRole('tab', { name: 'By feature 1' }));
@@ -247,9 +250,9 @@ it('confirms before replacing a dirty details draft with another editor', () => 
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
   try {
     render(<Subject initial={records.slice(0, 2)} />);
-    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Edit details' }));
+    fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Edit details' }));
     fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'camel draft' } });
-    fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Rename seq0' }));
+    fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Rename seq0' }));
     expect(confirm).toHaveBeenCalled();
     expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe('camel draft');
   } finally { confirm.mockRestore(); }
@@ -275,7 +278,7 @@ it('makes only the selected hub tab a tab stop and connects its panel', () => {
 it('reveals an annotation hidden by search when picked on a header strip', () => {
   render(<Subject initial={[{ ...records[0], features: [{ ...records[0].features[0], name: 'hidden' }, { ...records[0].features[0], name: 'visible', start: 30, end: 40 }] }]} />);
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'visible' } });
-  fireEvent.keyDown(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
+  fireEvent.keyDown(within(currentHeader()).getByRole('button', { name: /Genome strip/ }), { key: 'Enter' });
   expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
   expect(screen.getAllByRole('status').some(status => /cleared to show/.test(status.textContent ?? ''))).toBe(true);
   expect(screen.getByText('hidden')).toBeTruthy();
@@ -288,7 +291,7 @@ it('clears unresolved jumps even when filters leave the list empty', () => {
   fireEvent.click(screen.getByText('Request hidden jump'));
   expect(screen.getByLabelText('Pending hub jump').textContent).toBe('none');
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
-  expect(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByText('seq0')).toBeTruthy();
+  expect(within(currentHeader()).getByText('seq0')).toBeTruthy();
 });
 
 it('opens help with ? and traps focus until Esc returns it to the opener', () => {
@@ -317,9 +320,9 @@ it('ignores ? typed in annotation search', () => {
 
 
 it('portals the shortcuts sheet inside the app root carrying the session accent', () => {
-  const { container } = render(<div className="app-root" data-env="hub"><Subject /></div>);
+  const { container } = render(<div data-test-app-root className="app-root" data-env="hub"><Subject /></div>);
   fireEvent.keyDown(screen.getByRole('region', { name: 'Annotation Hub' }), { key: '?' });
-  expect(container.querySelector('.app-root')!.contains(screen.getByRole('dialog', { name: 'Keyboard shortcuts' }))).toBe(true);
+  expect(container.querySelector('[data-test-app-root]')!.contains(screen.getByRole('dialog', { name: 'Keyboard shortcuts' }))).toBe(true);
 });
 
 it('hides hub sections and search matches, persists across tabs, and restores from cards or Show all', () => {
@@ -328,15 +331,15 @@ it('hides hub sections and search matches, persists across tabs, and restores fr
   const index = within(screen.getByRole('region', { name: 'Hub index' }));
   fireEvent.click(index.getByRole('button', { name: 'Hide seq0 in hub' }));
   expect(screen.queryByLabelText('Select annotation ORF4b on seq0')).toBeNull();
-  expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === '1 of 2 annotations in 1 of 2 sequences · 1 hidden')).toBeTruthy();
+  expect(normalizedText(document.querySelector('[data-hub-summary]')!)).toBe('1 of 2 annotations in 1 of 2 sequences · 1 hidden');
   expect(values.map(record => record.visible)).toEqual([true, false]);
   const hidden = index.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
-  expect(hidden.className).toContain('opacity-60');
+  expect(hidden.getAttribute('data-state')).toBe('hidden');
   expect(within(hidden as HTMLElement).getByText('Hidden in hub')).toBeTruthy();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'ORF4b' } });
-  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '0 / 1')).toBeTruthy();
+  expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('0 / 1');
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  const presence = within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('group', { name: 'Presence' });
+  const presence = within(currentHeader()).getByRole('group', { name: 'Presence' });
   expect(within(presence).getByRole('button', { name: 'seq0: hidden' })).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /By sequence/ }));
   fireEvent.click(index.getByRole('button', { name: 'Jump to sequence seq0' }));
@@ -351,7 +354,7 @@ it('excludes hidden sequences from comparison baselines, positions, counts and t
   render(<Subject initial={values} index />);
   fireEvent.click(within(screen.getByRole('region', { name: 'Hub index' })).getByRole('button', { name: 'Hide seq2 in hub' }));
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  const pinned = within(document.querySelector<HTMLElement>('.hub-group-current')!);
+  const pinned = within(currentHeader());
   expect(pinned.getByText('in 2 of 2 sequences · 1 hidden')).toBeTruthy();
   expect(pinned.getByText('Median position 6 · 10–10 bp')).toBeTruthy();
   expect(pinned.queryByText(/odd length/)).toBeNull();
@@ -360,7 +363,7 @@ it('excludes hidden sequences from comparison baselines, positions, counts and t
 
 it('clears the current index window when the final hub section is hidden from its header', () => {
   render(<Subject initial={records.slice(0, 1)} index />);
-  fireEvent.click(within(document.querySelector<HTMLElement>('.hub-group-current')!).getByRole('button', { name: 'Hide seq0 in hub' }));
+  fireEvent.click(within(currentHeader()).getByRole('button', { name: 'Hide seq0 in hub' }));
   expect(screen.queryByRole('region', { name: 'Pinned section' })).toBeNull();
   const card = screen.getByRole('button', { name: 'Jump to sequence seq0' }).closest('[data-index-card]')!;
   expect(card.getAttribute('aria-current')).toBe('false');
@@ -450,7 +453,7 @@ it('shows annotation edit chips, group counts and an edited-only filter in both 
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
   expect(container.querySelector('[data-row-key="seq0:0"]')).toBeNull();
   fireEvent.click(within(screen.getByLabelText('Header tools')).getByRole('button', { name: 'Export…' }));
-  expect(screen.getByLabelText('Export seq0').closest('label')?.querySelector('[data-edit-chip]')?.textContent).toBe('edited');
+  expect(document.querySelector('[data-export-row="seq0"]')?.querySelector('[data-edit-chip]')?.textContent).toBe('edited');
   fireEvent.click(screen.getByRole('radio', { name: 'GenBank' }));
   expect(screen.getByText('2 edited or added')).toBeTruthy();
 });
@@ -465,30 +468,33 @@ it('keeps the active search match by identity when sorting changes its displayed
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'hit' } });
   fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
   fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
-  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 2')).toBeTruthy();
+  expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('1 / 2');
   expect(container.querySelector('[data-row-key="seq0:1"]')!.getAttribute('aria-current')).toBe('true');
   fireEvent.click(screen.getByRole('button', { name: 'Name / Product' }));
-  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '2 / 2')).toBeTruthy();
+  expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('2 / 2');
   fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
   expect(container.querySelector('[data-row-key="seq0:0"]')!.getAttribute('aria-current')).toBe('true');
-  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 2')).toBeTruthy();
+  expect(normalizedText(document.querySelector('[data-search-counter]')!)).toBe('1 / 2');
 });
-it('gives the current feature card an amber full header', () => {
+it('keeps the current feature header neutral and marks only its edge and identity', () => {
   render(<Subject initial={[records[0]]} />);
   fireEvent.click(screen.getByRole('tab', { name: /By feature/ }));
-  expect(document.querySelector<HTMLElement>('.hub-group-current [data-feature-surface]')!.classList.contains('bg-amber-50')).toBe(true);
+  // The current feature card stays neutral; the accent marks only its edge and identity.
+  expect(currentHeader().classList.contains('hub-surface-current')).toBe(true);
+  expect(currentHeader().className).not.toContain('bg-amber');
+  expect(currentHeader().querySelector('strong')!.className).toContain('text-amber-800');
 });
 
 
 it('explains an empty workspace and shares the Import menu sequence picker and upload handler', () => {
   const upload = vi.fn();
-  const { container } = render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
+  render(<Subject initial={[]} uploaded={upload} loadOnUpload={[records[0]]} />);
   expect(screen.getByRole('heading', { name: 'No sequences yet' })).toBeTruthy();
   expect(screen.getByText('Drop GenBank or FASTA files anywhere on this panel, or import them.')).toBeTruthy();
-  expect(screen.getByText('Annotations, pre-aligned FASTA and projects are in the Import menu').querySelector('i')?.getAttribute('aria-hidden')).toBe('true');
+  expect(screen.getByText('Annotations, pre-aligned FASTA and projects are in the Import menu')).toBeTruthy();
   const picker = screen.getByLabelText('Import sequences files') as HTMLInputElement;
   expect(picker.accept).toBe('.gb,.genbank,.fasta,.fa');
-  expect(container.querySelectorAll('[aria-label="Import sequences files"]')).toHaveLength(1);
+  expect(screen.getAllByLabelText('Import sequences files')).toHaveLength(1);
   const clicked = vi.spyOn(picker, 'click');
   fireEvent.click(screen.getByRole('button', { name: 'Import sequences…' }));
   expect(clicked).toHaveBeenCalledOnce();

@@ -33,7 +33,9 @@ describe('HubToolbar', () => {
     const search = screen.getByRole('searchbox', { name: 'Search annotations' });
     fireEvent.change(search, { target: { value: 'ORF4b' } });
     fireEvent.keyDown(search, { key: 'Enter' }); expect(navigate).toHaveBeenLastCalledWith(1);
-    expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 3')).toBeTruthy();
+    const counter = document.querySelector('[data-search-counter]')!;
+    expect(counter.getAttribute('aria-live')).toBe('polite');
+    expect(counter.textContent?.replace(/\s+/g, ' ').trim()).toBe('1 / 3');
     fireEvent.keyDown(search, { key: 'Enter', shiftKey: true }); expect(navigate).toHaveBeenLastCalledWith(-1);
     fireEvent.click(screen.getByRole('button', { name: 'Export…' })); expect(exportFasta).toHaveBeenCalledOnce();
   });
@@ -42,7 +44,7 @@ describe('HubToolbar', () => {
 it('keeps empty search calm and clears before blurring on Escape', () => {
   render(<Subject />);
   const search = screen.getByRole('searchbox', { name: 'Search annotations' });
-  expect(screen.queryByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 3')).toBeNull();
+  expect(document.querySelector('[data-search-counter]')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Previous match' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Next match' })).toBeNull();
   expect(screen.getByText('/')).toBeTruthy();
@@ -51,7 +53,7 @@ it('keeps empty search calm and clears before blurring on Escape', () => {
   expect(screen.getByText('esc')).toBeTruthy();
   expect(screen.queryByText('/')).toBeNull();
   fireEvent.change(search, { target: { value: 'spike' } });
-  expect(screen.getByText((_, element) => element?.getAttribute('aria-live') === 'polite' && element.textContent === '1 / 3')).toBeTruthy();
+  expect(document.querySelector('[data-search-counter]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('1 / 3');
   expect(screen.getByRole('button', { name: 'Previous match' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Next match' })).toBeTruthy();
   fireEvent.keyDown(search, { key: 'Escape' });
@@ -119,5 +121,5 @@ it('keeps Import immediately before the visibly labelled Export', () => {
   render(<Paired />);
   const exportButton = screen.getByRole('button', { name: 'Export…' });
   expect(exportButton.textContent).toBe('Export');
-  expect(exportButton.previousElementSibling?.contains(screen.getByRole('button', { name: 'Import' }))).toBe(true);
+  expect(screen.getByRole('button', { name: 'Import' }).compareDocumentPosition(exportButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

@@ -27,7 +27,7 @@ import ImportMenu from '../hub/ImportMenu';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { createPortal } from 'react-dom';
 const noop = () => {};
-const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide' };
+const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, activeSelection: null, onClearSelection: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
 function Subject() {
   const [mode, setMode] = useState<'alignment' | 'features'>('alignment');
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
@@ -38,14 +38,18 @@ describe('workspace header', () => {
   it('keeps the same centred switcher and swaps only the tools', () => {
     render(<Subject />);
     const switcher = screen.getByRole('group', { name: 'Workspace' });
-    expect(switcher.parentElement?.style.left).toBe('50%');
-    expect(switcher.parentElement?.style.transform).toBe('translateX(-50%)');
-    const structure = switcher.innerHTML.replaceAll('true', 'false');
+    // The measured switcher bounds keep workspace tools from overlapping navigation.
+    const bounds = document.querySelector<HTMLElement>('[data-workspace-switcher]')!;
+    expect(bounds.style.left).toBe('50%');
+    expect(bounds.style.transform).toBe('translateX(-50%)');
+    const viewport = within(switcher).getByRole('button', { name: 'Visual Viewport' });
+    expect(viewport.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('group', { name: 'Drag mode' })).toBeTruthy();
     fireEvent.click(within(switcher).getByRole('button', { name: 'Annotation Hub' }));
     expect(screen.getByRole('group', { name: 'Workspace' })).toBe(switcher);
-    expect(switcher.children.length).toBe(2);
-    expect(structure.includes('Visual Viewport')).toBe(true);
+    expect(within(switcher).getAllByRole('button')).toHaveLength(2);
+    expect(viewport.getAttribute('aria-pressed')).toBe('false');
+    expect(within(switcher).getByRole('button', { name: 'Annotation Hub' }).getAttribute('aria-pressed')).toBe('true');
     const tools = screen.getByLabelText('Workspace tools');
     expect(within(tools).getByRole('searchbox', { name: 'Search annotations' })).toBeTruthy();
     for (const name of ['Import', 'Export…']) expect(within(tools).getByRole('button', { name })).toBeTruthy();
@@ -103,17 +107,29 @@ describe('switcher sizing', () => {
       disconnect() {}
     });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
-      const measured = this.querySelector('[aria-label="Workspace"]') ? width : 0;
+      const measured = this.hasAttribute('data-workspace-switcher') ? width : 0;
       return { width: measured, height: 40, left: 0, right: measured, top: 0, bottom: 40 } as DOMRect;
     });
     render(<TopNav {...defaults} />);
-    const wrapper = screen.getByRole('group', { name: 'Workspace' }).parentElement!;
+    const wrapper = document.querySelector<HTMLElement>('[data-workspace-switcher]')!;
     const cluster = screen.getByLabelText('Workspace tools and options');
+    // Measured bounds prevent tools from covering the workspace switcher after resize.
     expect(wrapper.style.width).toBe('max-content');
     expect(cluster.style.maxWidth).toBe('calc(50% - var(--switcher-half) - 16px)');
-    expect(cluster.closest('nav')!.style.getPropertyValue('--switcher-half')).toBe('170px');
+    expect(screen.getByRole('navigation').style.getPropertyValue('--switcher-half')).toBe('170px');
     width = 400;
     act(() => callbacks.forEach(callback => callback()));
-    expect(cluster.closest('nav')!.style.getPropertyValue('--switcher-half')).toBe('200px');
+    expect(screen.getByRole('navigation').style.getPropertyValue('--switcher-half')).toBe('200px');
+  });
+
+  it.each(['alignment', 'features'] as const)('keeps Project beside Options, past the mode tools, in %s mode', tab => {
+    render(<TopNav {...defaults} activeTab={tab} showAlignmentControls={tab === 'alignment'} />);
+    const cluster = screen.getByLabelText('Workspace tools and options');
+    const project = within(cluster).getByRole('button', { name: 'Project' });
+    const options = within(cluster).getByRole('button', { name: 'Options' });
+    const tools = within(cluster).getByLabelText('Workspace tools');
+    expect(tools.compareDocumentPosition(project) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(project.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(cluster.querySelector('span[aria-hidden="true"].w-px')).not.toBeNull();
   });
 });

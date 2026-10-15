@@ -19,10 +19,12 @@
 
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { modifierLabel } from '@/src/app/logic/shortcuts';
 const groups = [
   ['Find', [['Search annotations', '/'], ['Next match', 'Enter'], ['Previous match', 'Shift Enter'], ['Clear selection or close menus', 'Esc']]],
   ['Move', [['Next row', 'J'], ['Previous row', 'K'], ['Next sequence', ']'], ['Previous sequence', '[']]],
   ['Act', [['Select row', 'X'], ['Collapse or expand sequence', 'O']]],
+  ['Project', [['Save project', `${modifierLabel()} S`], ['Open project', `${modifierLabel()} O`]]],
   ['Help', [['Keyboard shortcuts', '?']]],
 ] as const;
 export default function ShortcutsSheet({ onClose }: { onClose: () => void }) {

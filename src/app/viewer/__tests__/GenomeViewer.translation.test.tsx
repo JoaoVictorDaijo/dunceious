@@ -45,14 +45,15 @@ function setup(showTranslation = true, moleculeType: SeqRecord['moleculeType'] =
 }
 
 const row = (container: HTMLElement, id: string) =>
-  container.querySelector(`[data-tip="${id}"]`)!.parentElement!.parentElement!;
+  container.querySelector<HTMLElement>(`[data-viewer-record="${id}"]`)!;
 
 it('opens and closes virtualized rows when zoom crosses the drawing threshold', () => {
   const view = setup();
   const first = row(view.container, 'first');
   const second = row(view.container, 'second');
   const sequence = first.querySelector<HTMLCanvasElement>('[data-sequence-band]')!;
-  const forward = first.querySelector<HTMLElement>('.translation-band')!;
+  const forward = first.querySelector<HTMLElement>('[data-translation-band="forward"]')!;
+  // Virtualized row bounds must follow translation lanes so adjacent records cannot overlap.
   expect(first.style.height).toBe('42px');
   expect(second.style.transform).toBe('translateY(42px)');
   expect(forward.getAttribute('aria-hidden')).toBe('true');
@@ -70,8 +71,8 @@ it('opens and closes virtualized rows when zoom crosses the drawing threshold', 
   expect(first.style.height).toBe('42px');
   expect(second.style.transform).toBe('translateY(42px)');
   expect(sequence.style.transform).toBe('translateY(0px)');
-  expect(sequence.classList.contains('translation-motion')).toBe(true);
-  expect(first.querySelector('.translation-band')).toBe(forward);
+  expect(sequence.getAttribute('data-state')).toBe('translation-enabled');
+  expect(first.querySelector('[data-translation-band="forward"]')).toBe(forward);
   expect(forward.style.opacity).toBe('0');
   expect(forward.getAttribute('aria-hidden')).toBe('true');
 });
@@ -84,5 +85,5 @@ it.each([
   for (let i = 0; i < 9; i++) fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
   expect(row(view.container, 'first').style.height).toBe('42px');
   expect(row(view.container, 'second').style.transform).toBe('translateY(42px)');
-  expect(view.container.querySelector('.translation-band[aria-hidden="false"]')).toBeNull();
+  expect(view.container.querySelector('[data-translation-band][aria-hidden="false"]')).toBeNull();
 });

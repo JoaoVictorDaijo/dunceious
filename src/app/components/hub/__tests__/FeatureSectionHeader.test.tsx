@@ -35,21 +35,34 @@ it('uses fixed cells, type colour, explained state styles and sequence jumps', (
   render(<FeatureSectionHeader group={group} records={records} folded={false} onFold={() => {}} onSequence={jump} featureColors={{ CDS: 'purple' }} />);
   const cells = within(screen.getByRole('group', { name: 'Presence' })).getAllByRole('button');
   expect(cells.map(cell => cell.getAttribute('data-tip'))).toEqual(states.map((state, i) => `NC_${i} · name ${i}: ${state === 'not-determined' ? 'not determined (partial)' : state === 'odd' ? 'odd length' : state}`));
+  // Fixed presence cells determine the virtual header's row count and height.
   for (const cell of cells) { expect(cell.style.width).toBe('14px'); expect(cell.style.height).toBe('14px'); expect(cell.hasAttribute('title')).toBe(false); }
   expect(cells[0].style.backgroundColor).toBe('purple');
   expect(cells[2].style.backgroundColor).toBe('purple');
-  expect(cells[2].className).toContain('ring-inset');
-  expect(cells[1].className).toContain('border-amber-700');
+  expect(cells[2].getAttribute('data-presence-state')).toBe('duplicate');
+  expect(cells[1].getAttribute('data-presence-state')).toBe('odd');
   expect(screen.getByText('in 3 of 7 sequences')).toBeTruthy();
   fireEvent.click(cells[3]); expect(jump).toHaveBeenCalledWith('missing');
 });
 it.each([[1000, false, 140], [100, false, 176], [100, true, 156]] as const)('keeps header content and virtual height exact at width %i (folded %s)', (width, folded, expected) => {
   const { container } = render(<FeatureSectionHeader group={group} records={records} folded={folded} width={width} gap={8} onFold={() => {}} onSequence={() => {}} />);
   expect(featureSectionHeight(group, folded, width, 8)).toBe(expected);
-  expect((container.firstElementChild as HTMLElement).style.height).toBe(`${expected}px`);
+  // Virtual header bounds must match the list's item size at every width.
+  expect(container.querySelector<HTMLElement>('[data-section-entry]')!.style.height).toBe(`${expected}px`);
   const surface = container.querySelector<HTMLElement>('[data-feature-surface]')!;
-  const childrenHeight = [...surface.children].reduce((sum, child) => sum + Number.parseFloat((child as HTMLElement).style.height) + Number.parseFloat((child as HTMLElement).style.marginTop || '0'), 0);
-  expect(childrenHeight + 18 + 8).toBe(expected);
+  expect(surface.style.height).toBe(`${expected - 8}px`);
+  const presence = within(surface).getByRole('group', { name: 'Presence' });
+  expect(presence.style.height).toBe(width === 1000 ? '14px' : '50px');
+  const blocks = [
+    surface.querySelector<HTMLElement>('[data-feature-title]')!,
+    surface.querySelector<HTMLElement>('[data-feature-stats]')!,
+    surface.querySelector<HTMLElement>('[data-feature-comparison]')!,
+    presence,
+    ...(!folded ? [surface.querySelector<HTMLElement>('[data-feature-missing]')!] : []),
+  ];
+  // Content plus padding, borders and section gap must fit the virtual item without overflow.
+  const contentHeight = blocks.reduce((sum, block) => sum + Number.parseFloat(block.style.height) + Number.parseFloat(block.style.marginTop || '0') + Number.parseFloat(block.style.marginBottom || '0'), 0);
+  expect(contentHeight + 18 + 8).toBe(expected);
 });
 it('shows one legend sample for each occurring state after the type chips', () => {
   function Subject() { const state = useHubState(); return <FilterBar state={{ ...state, tab: 'features' }} types={new Map([['CDS', 1]])} keys={['enzyme']} groups={[group]} />; }
