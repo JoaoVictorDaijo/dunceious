@@ -66,7 +66,7 @@ function pointer(target: Element, type: string, id: number, x = 100, y = 10) {
   return event;
 }
 
-function mouse(target: EventTarget, type: string, x: number) {
+function mouse(target: Window | Element, type: string, x: number) {
   const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: 10, buttons: 1 });
   // jsdom rejects its Window proxy in MouseEventInit; d3 needs view for its mouse listeners.
   Object.defineProperty(event, 'view', { value: window });
@@ -137,7 +137,7 @@ describe('minimap touch', () => {
     mouse(brush, 'mousedown', 100);
     mouse(window, 'mousemove', 300);
     mouse(window, 'mouseup', 300);
-    expect(h.zoom).toHaveBeenCalledWith(0.4, 320);
+    expect(h.zoom).toHaveBeenCalledWith(expect.closeTo(0.4, 10), expect.closeTo(320, 10));
   });
 });
 
