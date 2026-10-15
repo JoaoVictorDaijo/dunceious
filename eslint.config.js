@@ -118,6 +118,20 @@ export default tseslint.config(
       ] }],
     },
   },
+  // The showroom reuses the viewer, presentational components and pure modules, never the
+  // workbench's state owners: App and hooks/ own workers and app state, lib/ does the I/O.
+  {
+    files: ['src/app/showroom/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { regex: '^@/src/app/(App|hooks|lib|shell|greeter)(/|\\.|$)',
+          message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
+        { regex: '^(\\.\\./)+(App|hooks|lib|shell|greeter)(/|\\.|$)',
+          message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
+      ] }],
+    },
+  },
   {
     ignores: ['dist/**', 'node_modules/**'],
   },

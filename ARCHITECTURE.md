@@ -69,6 +69,7 @@ src/
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI
+    ├── showroom/        # phone test drive: the real viewer, search and alignment dialog over bundled examples, memory only
     ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
@@ -114,7 +115,13 @@ per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 
 
 Inside `app/`, `greeter/` is a separate UI: it may import `domain`, `core` and its own files,
 never `App`, `components/`, `hooks/`, `viewer/`, `logic/` or `lib/`, so its chunk stays small
-and the workbench can change without touching it (also an ESLint rule).
+and the workbench can change without touching it (also an ESLint rule). Its one exception is a
+dynamic `import()` of `showroom/Showroom`; a static import of the showroom is rejected.
+
+`showroom/` is the third UI. It may import `viewer/`, presentational `components/`, `logic/`,
+`domain`, `core` and `workers/handlers`, never `App`, `hooks/` (they own workers and app state),
+`lib/`, `shell/` or `greeter/` (ESLint, direct imports only). What it may do at runtime is guarded
+by tests instead: no network request, no storage or clipboard write, no navigation to another origin.
 
 ### Extension rules — where does new code go?
 
@@ -261,12 +268,19 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 ### `src/app/shell/` (Entry Shell)
 
 - `main.tsx` renders `ShellRoot`, which lazy-loads one UI. `pickShell` sends a device with a coarse pointer and a shorter screen side under 600 px (a phone, in either orientation) to the greeter, and everything else, tablets included, to `App`. It reads the device screen, not the viewport, so rotating or resizing never swaps the UI.
-- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). The greeter's *Open the workbench on this phone anyway* stores `dunceious.shell=desktop` in `sessionStorage`, so the choice lasts for the tab's session and a later visit starts on the greeter again.
+- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). Nothing else overrides detection and nothing is stored: a phone cannot open the workbench, and the greeter offers the showroom instead.
 
 ### `src/app/greeter/` (Phone Landing Page)
 
-- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: *Best on a computer* (the address to open later, supported browsers and *Open the workbench on this phone anyway*), feature cards, privacy and source links.
+- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: what it does, *Where your files go* (plain text: files stay in the browser tab; remote alignment is the one opt-in exception), source links and *Best on a computer* (the address to open later, supported browsers and *Test-drive the workbench*, which lazy-loads the showroom).
 - The greeter ships NC_045512.2 itself (`sarsCov2Sequence.ts`, about 30 KB). `greeterContent.test.ts` checks the sequence, gene spans and codon translations against `examples/sars-cov-2-NC_045512.gb`.
+
+### `src/app/showroom/` (Phone Test Drive)
+
+- A read-only test drive of the workbench, held sideways. In portrait `RotatePrompt` covers it (`useLandscape`, `matchMedia('(orientation: landscape)')`) without unmounting it, so the viewer keeps its zoom and the session survives rotation. Exit returns to the greeter, and the next entry starts fresh.
+- `sampleWorkspace.ts` imports three files from `examples/` with Vite `?raw` (SARS-CoV-2, the human mitochondrion, influenza A/PR8: ten records) and parses them as a drop of the three would: `handleBioMessage` per file, then `applyParseSuccess`. `useShowroomWorkspace` holds the session in memory and runs `PROCESS_RECORDS` and sequence search (`runInlineSearch` for exact, the search worker's `runSearch` for fuzzy) in the page.
+- Real parts: `GenomeViewer`, `SearchPanel`, `AlignmentSection` and `AlignRemoteModal` (real preflight verdicts and consent; Submit sends nothing). The top bar and sidebar drawer are rebuilt (`ShowroomTopBar`, `ShowroomSidebar`) because `TopNav` and `Sidebar` are bound to App state and desktop sizes; they copy their labels, classes and order.
+- Every action that would import, export, edit, delete, save or contact a server opens `ExplainCallout` with copy from `explanations.ts` instead. `useShowroomGuards` stops context menus (right-click and a 500 ms long-press, which then consumes its touch) and every link to another origin (capture-phase `click`, `auxclick`, `contextmenu`, `dragstart` on `document`), so the viewer's clipboard write and `window.confirm` never run.
 
 ### `src/app/App.tsx` (Composition Root)
 
