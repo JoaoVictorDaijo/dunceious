@@ -34,14 +34,14 @@ export function pointer(target: Element, type: string, id: number, x = 200, y = 
   return event;
 }
 
-function setup(arbiter = new TouchArbiter()) {
+function setup(arbiter = new TouchArbiter(), deferredScroll = false) {
   const click = vi.fn();
   const mouse = vi.fn();
   const zoom = vi.fn();
   const capture = vi.fn();
   const outer = document.createElement('div');
   outer.scrollTop = 50;
-  const scrollTo = vi.fn((top: number) => { outer.scrollTop = Math.max(0, top); });
+  const scrollTo = vi.fn((top: number) => { if (!deferredScroll) outer.scrollTop = Math.max(0, top); });
   function Harness({ level = 2 }: { level?: number }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const horizontalScrollRef = useRef<HTMLDivElement>(null);
@@ -57,7 +57,7 @@ function setup(arbiter = new TouchArbiter()) {
   horizontal.scrollLeft = 100;
   Object.defineProperty(rows, 'setPointerCapture', { value: capture });
   vi.spyOn(rows, 'getBoundingClientRect').mockReturnValue({ left: 20 } as DOMRect);
-  return { ...rendered, rows, feature, horizontal, click, mouse, zoom, capture, scrollTo, arbiter, Harness };
+  return { ...rendered, rows, feature, horizontal, click, mouse, zoom, capture, scrollTo, arbiter, Harness, outer };
 }
 
 describe('rows touch controller', () => {
@@ -201,5 +201,43 @@ describe('release click identity and expiry', () => {
     act(() => vi.advanceTimersByTime(501));
     fireEvent.click(h.feature);
     expect(h.click).toHaveBeenCalledOnce();
+  });
+});
+
+describe('vertical scrolling before react-window commits', () => {
+  it('accumulates pan moves while the DOM still has the previous offset', () => {
+    const h = setup(new TouchArbiter(), true);
+    pointer(h.rows, 'pointerdown', 1);
+    pointer(h.rows, 'pointermove', 1, 200, 80);
+    pointer(h.rows, 'pointermove', 1, 200, 60);
+    expect(h.outer.scrollTop).toBe(50);
+    expect(h.scrollTo.mock.calls).toEqual([[70], [90]]);
+    h.outer.scrollTop = 90;
+    pointer(h.rows, 'pointermove', 1, 200, 50);
+    expect(h.scrollTo).toHaveBeenLastCalledWith(100);
+    pointer(h.rows, 'pointerup', 1);
+    h.outer.scrollTop = 100;
+    pointer(h.rows, 'pointerdown', 2);
+    pointer(h.rows, 'pointermove', 2, 200, 90);
+    expect(h.scrollTo).toHaveBeenLastCalledWith(110);
+  });
+  it('accumulates pinch midpoint moves before a render', () => {
+    const h = setup(new TouchArbiter(), true);
+    pointer(h.rows, 'pointerdown', 1, 200, 100);
+    pointer(h.rows, 'pointerdown', 2, 240, 100);
+    pointer(h.rows, 'pointermove', 1, 200, 80);
+    pointer(h.rows, 'pointermove', 2, 240, 80);
+    expect(h.outer.scrollTop).toBe(50);
+    expect(h.scrollTo.mock.calls).toEqual([[60], [70]]);
+  });
+  it('keeps the pending pan target when a second finger starts a pinch', () => {
+    const h = setup(new TouchArbiter(), true);
+    pointer(h.rows, 'pointerdown', 1, 200, 100);
+    pointer(h.rows, 'pointermove', 1, 200, 80);
+    pointer(h.rows, 'pointerdown', 2, 240, 80);
+    pointer(h.rows, 'pointermove', 1, 200, 60);
+    pointer(h.rows, 'pointermove', 2, 240, 60);
+    expect(h.outer.scrollTop).toBe(50);
+    expect(h.scrollTo.mock.calls).toEqual([[70], [80], [90]]);
   });
 });

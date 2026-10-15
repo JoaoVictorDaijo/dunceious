@@ -32,22 +32,35 @@ type TouchPanZoomParams = {
   applyZoom: (zoom: number, left: number) => void;
 };
 
-function scrollList(list: VariableSizeList | null, dy: number) {
-  const outer = (list as (VariableSizeList & { _outerRef?: HTMLDivElement }) | null)?._outerRef;
-  if (outer && dy !== 0) list!.scrollTo(outer.scrollTop - dy);
+function createListScroller(listRef: TouchPanZoomParams['listRef']) {
+  // Native pointer moves can precede react-window's DOM commit.
+  let target: number | null = null;
+  return {
+    start: () => {
+      if (target !== null) return;
+      const list = listRef.current as (VariableSizeList & { _outerRef?: HTMLDivElement }) | null;
+      target = list?._outerRef?.scrollTop ?? 0;
+    },
+    reset: () => { target = null; },
+    move: (dy: number) => {
+      if (target === null || dy === 0) return;
+      target -= dy;
+      listRef.current?.scrollTo(target);
+    },
+  };
 }
 
-function applyActions(actions: GestureAction[], container: HTMLDivElement, p: TouchPanZoomParams, suppress: () => void) {
+function applyActions(actions: GestureAction[], container: HTMLDivElement, p: TouchPanZoomParams, suppress: () => void, scrollList: (dy: number) => void) {
   for (const action of actions) {
     if (action.type === 'capture') container.setPointerCapture(action.id);
     if (action.type === 'suppressClick') suppress();
     if (action.type === 'pan') {
       if (p.horizontalScrollRef.current) p.horizontalScrollRef.current.scrollLeft -= action.dx;
-      scrollList(p.listRef.current, action.dy);
+      scrollList(action.dy);
     }
     if (action.type === 'zoom') {
       p.applyZoom(action.zoom, action.scrollLeft);
-      scrollList(p.listRef.current, action.dy);
+      scrollList(action.dy);
     }
   }
 }
@@ -75,6 +88,7 @@ function attachTouchController(container: HTMLDivElement, latest: RefObject<Touc
   const arbiter = latest.current.arbiter;
   let state: GestureState = { kind: 'idle' };
   const releaseClick = releaseClickGuard();
+  const vertical = createListScroller(latest.current.listRef);
   const transition = (event: PointerEvent, type: GestureEvent['type']) => {
     const p = latest.current;
     const result = nextGesture(state, { type, id: event.pointerId, x: event.clientX, y: event.clientY, pointers }, {
@@ -82,7 +96,9 @@ function attachTouchController(container: HTMLDivElement, latest: RefObject<Touc
       sequenceLeft: container.getBoundingClientRect().left + SIDEBAR_WIDTH, minZoom: p.fitZoom, maxZoom: MAX_ZOOM,
     });
     state = result.state;
-    applyActions(result.actions, container, p, releaseClick.arm);
+    if (state.kind === 'panning' || state.kind === 'pinching') vertical.start();
+    if (state.kind === 'idle') vertical.reset();
+    applyActions(result.actions, container, p, releaseClick.arm, vertical.move);
   };
   const down = (e: PointerEvent) => {
     if (e.pointerType !== 'touch') return;
