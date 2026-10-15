@@ -18,7 +18,7 @@
  */
 
 export type ExplainId =
-  | 'import' | 'export' | 'project' | 'options' | 'hub'
+  | 'export' | 'project' | 'options' | 'hub'
   | 'ingest-sequences' | 'ingest-alignment' | 'ingest-annotations' | 'ingest-project'
   | 'context-menu' | 'remove-record' | 'view-details' | 'add-annotation' | 'annotate-hit' | 'join-hits'
   | 'align-submit' | 'external-link' | 'select-mode' | 'conservation' | 'export-fasta';
@@ -28,10 +28,6 @@ export type ExplainId =
  * control's name there; the body is two or three plain sentences.
  */
 export const EXPLANATIONS: Record<ExplainId, { title: string; body: string }> = {
-  import: {
-    title: 'Import',
-    body: 'Adds sequences, an alignment, annotations or a saved project to the workspace. Your browser reads the files itself and uploads nothing.',
-  },
   export: {
     title: 'Export',
     body: 'Writes the sequences you choose as FASTA, GenBank, GFF3 or a project file, with a preview of exactly what goes in. Files are created by your browser and saved to your computer.',

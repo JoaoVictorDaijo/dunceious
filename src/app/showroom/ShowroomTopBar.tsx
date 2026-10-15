@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import type { ExplainId } from './explanations';
 import type { ShowroomWorkspace } from './useShowroomWorkspace';
 
@@ -120,6 +120,7 @@ interface ShowroomTopBarProps {
   workspace: ShowroomWorkspace;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  sidebarToggleRef: RefObject<HTMLButtonElement | null>;
   isAlignmentLoaded: boolean;
   onExplain: Explain;
   onExit: () => void;
@@ -130,7 +131,7 @@ interface ShowroomTopBarProps {
  * Layers work; the rest explains. It keeps the spec's controls only, so the bar
  * fits 740 px; the wordmark and the Project label give way first.
  */
-export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, isAlignmentLoaded, onExplain, onExit }: ShowroomTopBarProps) {
+export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, sidebarToggleRef, isAlignmentLoaded, onExplain, onExit }: ShowroomTopBarProps) {
   const layers: Layer[] = [
     { label: 'Annotations', on: workspace.showAnnotations, dot: 'bg-sky-400 text-sky-400', toggle: () => workspace.toggle('annotations') },
     { label: 'Tracks', on: workspace.showTracks, dot: 'bg-indigo-400 text-indigo-400', toggle: () => workspace.toggle('tracks') },
@@ -142,7 +143,7 @@ export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, isAlig
     <nav data-theme="clean" aria-label="Workbench" className="app-nav relative z-50 h-11 shrink-0 border-b border-slate-800/80 bg-slate-900">
       <div className="hf-env" aria-hidden="true" />
       <div className="relative z-[1] flex h-full items-center gap-1.5 px-1.5">
-        <button type="button" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+        <button ref={sidebarToggleRef} type="button" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarOpen}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60">
           <i aria-hidden="true" className={`fas ${sidebarOpen ? 'fa-arrow-left-long' : 'fa-bars-staggered'}`} />
         </button>

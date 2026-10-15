@@ -17,9 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
+import { clearAlignConsent } from '@/src/app/logic/alignConsentPref';
 import { resolveEnvAccent } from '@/src/app/logic/environment';
 import { DEFAULT_THEME_KEY, getTheme, resolveThemeVars } from '@/src/app/logic/theme';
 import { ExplainCallout } from './ExplainCallout';
@@ -74,22 +75,39 @@ function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; 
   );
 }
 
+/** The drawer closes on Escape unless a dialog above it took the key, and gives focus back to its toggle. */
+function useSidebarDrawer() {
+  const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => { setOpen(false); toggleRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !event.defaultPrevented) close(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, close]);
+  return { open, toggleRef, close, toggle: () => (open ? close() : setOpen(true)) };
+}
+
 /**
  * A read-only test drive of the workbench for phones held sideways. Portrait
  * covers it with the rotate prompt without unmounting it, so the viewer keeps
- * its zoom and scroll and the session survives rotation.
+ * its zoom and scroll and the session survives rotation; dialogs over it wait
+ * for landscape. Leaving ends the alignment consent given here, so the next
+ * visit asks again.
  */
 export default function Showroom({ onExit }: { onExit: () => void }) {
   const workspace = useShowroomWorkspace();
   const landscape = useLandscape();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebar = useSidebarDrawer();
   const [stripOpen, setStripOpen] = useState(true);
   const pressAnchor = usePressAnchor(rootRef);
   const { openExplain } = workspace;
   const explain = useCallback((id: ExplainId, anchor?: DOMRect) => openExplain(id, anchor ?? pressAnchor()), [openExplain, pressAnchor]);
-  useShowroomGuards(rootRef, openExplain);
+  useShowroomGuards(rootRef, viewerRef, openExplain);
+  useEffect(() => () => clearAlignConsent(), []);
   const alignment = useShowroomAlignment(workspace.records);
   useSelectDragNotice(viewerRef, workspace.dragMode === 'select', openExplain);
 
@@ -101,10 +119,10 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
     <div ref={rootRef} data-showroom-root="" data-env={env} style={themeStyle}
       className="app-root fixed inset-0 flex flex-col overflow-hidden bg-slate-900 font-sans text-slate-200">
       <div inert={!landscape} aria-hidden={landscape ? undefined : true} className="flex min-h-0 flex-1 flex-col">
-        <ShowroomTopBar workspace={workspace} sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(open => !open)}
+        <ShowroomTopBar workspace={workspace} sidebarOpen={sidebar.open} onToggleSidebar={sidebar.toggle} sidebarToggleRef={sidebar.toggleRef}
           isAlignmentLoaded={isAlignmentLoaded} onExplain={explain} onExit={onExit} />
         <div className="relative flex min-h-0 flex-1">
-          <ShowroomSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspace={workspace}
+          <ShowroomSidebar open={sidebar.open} onClose={sidebar.close} workspace={workspace}
             alignmentLength={alignmentLength} alignmentState={alignment.state} onOpenAlignment={alignment.show} onExplain={explain} />
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-slate-900 p-1">
             <div ref={viewerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/50 bg-white shadow-2xl">
@@ -114,9 +132,10 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
           {stripOpen && <FirstVisitStrip onDismiss={() => setStripOpen(false)} />}
         </div>
       </div>
-      <ShowroomAlignDialog alignment={alignment} onSubmit={() => explain('align-submit')} />
-      {!landscape && <RotatePrompt onBack={onExit} />}
-      {workspace.explain && <ExplainCallout id={workspace.explain} anchor={workspace.explainAnchor} onClose={workspace.closeExplain} />}
+      {landscape ? <>
+        <ShowroomAlignDialog alignment={alignment} onSubmit={() => explain('align-submit')} />
+        {workspace.explain && <ExplainCallout key={workspace.explainKey} id={workspace.explain} anchor={workspace.explainAnchor} onClose={workspace.closeExplain} />}
+      </> : <RotatePrompt onBack={onExit} />}
     </div>
   );
 }

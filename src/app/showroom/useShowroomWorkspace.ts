@@ -116,18 +116,19 @@ export function useShowroomWorkspace() {
   const [records, setRecords] = useState<SeqRecord[]>(loadSampleRecords);
   const { transposedRecords, consensus } = useMemo(() => processVisible(records), [records]);
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ annotations: true, translation: true, tracks: true });
-  // Pan first: a phone visitor drags with a finger, and touch selection is not built yet.
+  // Pan first: a finger drag pans in either mode, so Pan names what a visitor's drag does.
   const [dragMode, setDragMode] = useState<'pan' | 'select'>('pan');
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
   const [jumpTo, setJumpTo] = useState<number | null>(null);
-  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null } | null>(null);
+  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null; serial: number } | null>(null);
   const search = useSampleSearch(records, setActiveSelection);
 
   const setRecordVisible = useCallback((id: string, visible: boolean) => {
     setRecords(previous => previous.map(record => record.id === id && (record.visible !== false) !== visible ? { ...record, visible } : record));
   }, []);
   const toggle = useCallback((layer: Layer) => setLayers(previous => ({ ...previous, [layer]: !previous[layer] })), []);
-  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect) => setExplanation({ id, anchor: anchor ?? null }), []);
+  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect) =>
+    setExplanation(previous => ({ id, anchor: anchor ?? null, serial: (previous?.serial ?? 0) + 1 })), []);
   const closeExplain = useCallback(() => setExplanation(null), []);
 
   return {
@@ -135,6 +136,8 @@ export function useShowroomWorkspace() {
     showAnnotations: layers.annotations, showTranslation: layers.translation, showTracks: layers.tracks, toggle,
     dragMode, setDragMode, activeSelection, setActiveSelection, search, jumpTo, setJumpTo,
     explain: explanation?.id ?? null, explainAnchor: explanation?.anchor ?? null, openExplain, closeExplain,
+    /** Changes with every opening, so each explanation mounts its own callout: fresh placement and focus. */
+    explainKey: explanation?.serial ?? 0,
   };
 }
 

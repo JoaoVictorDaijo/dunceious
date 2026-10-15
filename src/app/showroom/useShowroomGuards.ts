@@ -18,13 +18,13 @@
  */
 
 import { useEffect, useRef, type RefObject } from 'react';
+import { TOUCH_SLOP_PX } from '@/src/app/viewer/touchGesture';
 import type { ExplainId } from './explanations';
 
 type Explain = (id: ExplainId, anchor?: DOMRect) => void;
 
 const LONG_PRESS_MS = 500;
-const SLOP_PX = 6;
-/** How long after its release a consumed press may still produce its click. */
+/** How long after its release a consumed press may still produce its click; the next press ends the wait. */
 const RELEASE_CLICK_MS = 1000;
 
 const CAPTURE = { capture: true } as const;
@@ -41,6 +41,13 @@ function menuAnchor(event: MouseEvent): DOMRect {
   if ((event.clientX !== 0 || event.clientY !== 0) || !(event.target instanceof Element)) return pointRect(event.clientX, event.clientY);
   return event.target.getBoundingClientRect();
 }
+
+/** Fields keep the browser's own long-press and menu: selecting, pasting, the keyboard. */
+const inField = (target: EventTarget | null) =>
+  target instanceof Element && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])') !== null;
+
+/** The viewer pans once a finger moves `TOUCH_SLOP_PX`, so a press that far is a pan, not a long-press. */
+const pastSlop = (dx: number, dy: number) => Math.hypot(dx, dy) >= TOUCH_SLOP_PX;
 
 function stop(event: Event) {
   event.preventDefault();
@@ -84,7 +91,7 @@ type Press = { id: number; x: number; y: number; timer: ReturnType<typeof setTim
  * the tapped feature's action over the explanation. A native `contextmenu` of
  * the same press is stopped without a second explanation.
  */
-function guardPresses(root: HTMLElement, explain: Explain): () => void {
+function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
   const touches = new Set<number>();
   let press: Press | null = null;
   let consumed: number | null = null;
@@ -100,8 +107,9 @@ function guardPresses(root: HTMLElement, explain: Explain): () => void {
     current.explained = true;
     consumed = current.id;
   };
+  const onAnyDown = () => { release = null; };
   const onDown = (event: PointerEvent) => {
-    if (event.pointerType !== 'touch') return;
+    if (event.pointerType !== 'touch' || inField(event.target)) return;
     touches.add(event.pointerId);
     if (touches.size > 1) { cancelTimer(); return; }
     const current: Press = { id: event.pointerId, x: event.clientX, y: event.clientY, timer: null, explained: false };
@@ -110,7 +118,7 @@ function guardPresses(root: HTMLElement, explain: Explain): () => void {
   };
   const onMove = (event: PointerEvent) => {
     if (event.pointerId === consumed) { event.stopPropagation(); return; }
-    if (press?.timer && event.pointerId === press.id && Math.hypot(event.clientX - press.x, event.clientY - press.y) > SLOP_PX) cancelTimer();
+    if (press?.timer && event.pointerId === press.id && pastSlop(event.clientX - press.x, event.clientY - press.y)) cancelTimer();
   };
   const onEnd = (event: PointerEvent) => {
     touches.delete(event.pointerId);
@@ -121,6 +129,7 @@ function guardPresses(root: HTMLElement, explain: Explain): () => void {
     }
   };
   const onMenu = (event: MouseEvent) => {
+    if (inField(event.target)) return;
     stop(event);
     if (press) {
       if (!press.explained) explain('context-menu', menuAnchor(event));
@@ -129,34 +138,39 @@ function guardPresses(root: HTMLElement, explain: Explain): () => void {
   };
   const onClick = (event: MouseEvent) => {
     if (!release) return;
-    const own = Date.now() <= release.until && Math.hypot(event.clientX - release.x, event.clientY - release.y) <= 2 * SLOP_PX;
+    const own = Date.now() <= release.until && Math.hypot(event.clientX - release.x, event.clientY - release.y) <= 2 * TOUCH_SLOP_PX;
     release = null;
     if (own) stop(event);
   };
   const onRotate = () => { cancelTimer(); press = null; };
 
   const removers = [
-    listen(root, 'pointerdown', onDown), listen(document, 'pointermove', onMove),
+    listen(document, 'pointerdown', onAnyDown), listen(viewer, 'pointerdown', onDown), listen(document, 'pointermove', onMove),
     listen(document, 'pointerup', onEnd), listen(document, 'pointercancel', onEnd),
-    listen(root, 'contextmenu', onMenu), listen(document, 'click', onClick), listen(window, 'orientationchange', onRotate),
+    listen(viewer, 'contextmenu', onMenu), listen(document, 'click', onClick), listen(window, 'orientationchange', onRotate),
   ];
   return () => { cancelTimer(); removers.forEach(remove => remove()); };
 }
 
-/** Registers every showroom guard on mount and removes them on unmount. */
-export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, onExplain: Explain): void {
+/**
+ * Registers every showroom guard on mount and removes them on unmount: no text
+ * selection on the root, links guarded on the whole document, and context menus
+ * and long-presses guarded on the viewer only, where they would open its menu.
+ */
+export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, viewerRef: RefObject<HTMLElement | null>, onExplain: Explain): void {
   const explainRef = useRef(onExplain);
   useEffect(() => { explainRef.current = onExplain; }, [onExplain]);
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    const viewer = viewerRef.current;
+    if (!root || !viewer) return;
     const explain: Explain = (id, anchor) => explainRef.current(id, anchor);
-    const cleanups = [lockSelection(root), guardLinks(explain), guardPresses(root, explain)];
+    const cleanups = [lockSelection(root), guardLinks(explain), guardPresses(viewer, explain)];
     return () => cleanups.forEach(cleanup => cleanup());
-  }, [rootRef]);
+  }, [rootRef, viewerRef]);
 }
 
-/** Touch selection is not built yet, so the first touch drag in Select mode says how selecting works. */
+/** A touch drag pans in either mode, so the first touch drag in Select mode says how selecting works in the workbench. */
 export function useSelectDragNotice(areaRef: RefObject<HTMLElement | null>, active: boolean, onExplain: Explain): void {
   const shown = useRef(false);
   const explainRef = useRef(onExplain);
@@ -168,7 +182,7 @@ export function useSelectDragNotice(areaRef: RefObject<HTMLElement | null>, acti
     const onDown = (event: PointerEvent) => { if (event.pointerType === 'touch') start = { id: event.pointerId, x: event.clientX, y: event.clientY }; };
     const onMove = (event: PointerEvent) => {
       if (shown.current || !start || event.pointerId !== start.id) return;
-      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) <= SLOP_PX) return;
+      if (!pastSlop(event.clientX - start.x, event.clientY - start.y)) return;
       shown.current = true;
       explainRef.current('select-mode', pointRect(event.clientX, event.clientY));
     };

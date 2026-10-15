@@ -190,3 +190,81 @@ describe('Showroom viewer guards', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 });
+
+describe('Showroom review fixes', () => {
+  const touch = { pointerType: 'touch', pointerId: 4, clientX: 30, clientY: 20 };
+
+  it('leaves a long-press on the search field and the chrome alone', () => {
+    stubOrientation(true);
+    vi.useFakeTimers();
+    render(<Showroom onExit={() => {}} />);
+    openSidebar();
+    const field = screen.getByPlaceholderText('Enter IUPAC sequence...');
+    field.focus();
+    fireEvent.pointerDown(field, touch);
+    act(() => { vi.advanceTimersByTime(800); });
+    fireEvent.pointerUp(field, touch);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(field);
+    const project = screen.getByRole('button', { name: 'Project' });
+    fireEvent.pointerDown(project, { ...touch, pointerId: 5 });
+    act(() => { vi.advanceTimersByTime(800); });
+    fireEvent.pointerUp(project, { ...touch, pointerId: 5 });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('moves focus to the new Got it when a second explanation replaces the first', () => {
+    stubOrientation(true);
+    render(<Showroom onExit={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
+    const options = screen.getByRole('button', { name: 'Options' });
+    options.focus();
+    fireEvent.click(options);
+    const dialog = explanation('Options');
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Got it' }));
+  });
+
+  it('hides the alignment dialog and the explanation in portrait and brings them back sideways', () => {
+    const rotate = stubOrientation(true);
+    render(<Showroom onExit={() => {}} />);
+    openSidebar();
+    fireEvent.click(screen.getByRole('button', { name: 'Align sequences' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
+    rotate(false);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText('Test drive: nothing will be sent')).toBeNull();
+    rotate(true);
+    expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
+    expect(explanation('Project')).toBeTruthy();
+  });
+
+  it('asks for alignment consent again after leaving and coming back', () => {
+    stubOrientation(true);
+    const first = render(<Showroom onExit={() => {}} />);
+    openSidebar();
+    fireEvent.click(screen.getByRole('button', { name: 'Align sequences' }));
+    const consent = screen.getByRole('dialog', { name: 'Your sequences will leave this browser' });
+    fireEvent.click(within(consent).getByRole('checkbox'));
+    fireEvent.click(within(consent).getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('dialog', { name: 'Align with EMBL-EBI' })).toBeTruthy();
+    first.unmount();
+    render(<Showroom onExit={() => {}} />);
+    openSidebar();
+    fireEvent.click(screen.getByRole('button', { name: 'Align sequences' }));
+    expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
+  });
+
+  it('closes the drawer on Escape and returns focus to its toggle', () => {
+    stubOrientation(true);
+    render(<Showroom onExit={() => {}} />);
+    const toggle = screen.getByRole('button', { name: 'Show sidebar' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Hide sidebar' }).getAttribute('aria-expanded')).toBe('true');
+    screen.getByPlaceholderText('Enter IUPAC sequence...').focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(screen.queryByRole('complementary', { name: 'Sidebar' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show sidebar' }));
+  });
+});

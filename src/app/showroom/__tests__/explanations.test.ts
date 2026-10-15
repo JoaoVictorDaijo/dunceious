@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPLANATIONS, type ExplainId } from '../explanations';
 
 const IDS: ExplainId[] = [
-  'import', 'export', 'project', 'options', 'hub',
+  'export', 'project', 'options', 'hub',
   'ingest-sequences', 'ingest-alignment', 'ingest-annotations', 'ingest-project',
   'context-menu', 'remove-record', 'view-details', 'add-annotation', 'annotate-hit', 'join-hits',
   'align-submit', 'external-link', 'select-mode', 'conservation', 'export-fasta',

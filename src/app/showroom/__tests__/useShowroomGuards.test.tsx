@@ -21,6 +21,7 @@
 import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { TOUCH_SLOP_PX } from '@/src/app/viewer/touchGesture';
 import { useSelectDragNotice, useShowroomGuards } from '../useShowroomGuards';
 import type { ExplainId } from '../explanations';
 
@@ -29,20 +30,28 @@ const onFeatureClick = vi.fn();
 const onFeatureMenu = vi.fn();
 const onFeatureMove = vi.fn();
 
+const onChromeClick = vi.fn();
+
 function Guarded() {
   const root = useRef<HTMLDivElement>(null);
-  useShowroomGuards(root, onExplain);
+  const viewer = useRef<HTMLDivElement>(null);
+  useShowroomGuards(root, viewer, onExplain);
   return <div ref={root} data-testid="root">
-    <button onClick={onFeatureClick} onContextMenu={onFeatureMenu} onPointerMove={onFeatureMove}>Feature</button>
-    <a href="https://www.ebi.ac.uk/about/terms-of-use/">Terms of use</a>
-    <a href="/docs">Local page</a>
+    <button onClick={onChromeClick}>Chrome</button>
+    <input aria-label="Search field" />
+    <div ref={viewer}>
+      <button onClick={onFeatureClick} onContextMenu={onFeatureMenu} onPointerMove={onFeatureMove}>Feature</button>
+      <input aria-label="Go to" />
+      <a href="https://www.ebi.ac.uk/about/terms-of-use/">Terms of use</a>
+      <a href="/docs">Local page</a>
+    </div>
   </div>;
 }
 
 const touch = { pointerType: 'touch', pointerId: 7, clientX: 100, clientY: 50 };
 const explained = () => onExplain.mock.calls.map(([id]) => id);
 
-beforeEach(() => { vi.useFakeTimers(); onExplain.mockReset(); onFeatureClick.mockReset(); onFeatureMenu.mockReset(); onFeatureMove.mockReset(); });
+beforeEach(() => { vi.useFakeTimers(); onExplain.mockReset(); onFeatureClick.mockReset(); onFeatureMenu.mockReset(); onFeatureMove.mockReset(); onChromeClick.mockReset(); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('useShowroomGuards: context menus', () => {
@@ -89,7 +98,7 @@ describe('useShowroomGuards: context menus', () => {
   });
 
   it.each([
-    ['movement past the slop', (el: Element) => fireEvent.pointerMove(el, { ...touch, clientX: 107 })],
+    ["movement reaching the viewer's pan slop", (el: Element) => fireEvent.pointerMove(el, { ...touch, clientX: 100 + TOUCH_SLOP_PX })],
     ['a second finger', (el: Element) => fireEvent.pointerDown(el, { ...touch, pointerId: 8 })],
     ['pointercancel', (el: Element) => fireEvent.pointerCancel(el, touch)],
     ['lifting the finger', (el: Element) => fireEvent.pointerUp(el, touch)],
@@ -98,7 +107,7 @@ describe('useShowroomGuards: context menus', () => {
     render(<Guarded />);
     const feature = screen.getByText('Feature');
     fireEvent.pointerDown(feature, touch);
-    fireEvent.pointerMove(feature, { ...touch, clientX: 104 });
+    fireEvent.pointerMove(feature, { ...touch, clientX: 100 + TOUCH_SLOP_PX - 1 });
     interrupt(feature);
     act(() => { vi.advanceTimersByTime(1000); });
     expect(onExplain).not.toHaveBeenCalled();
@@ -109,6 +118,43 @@ describe('useShowroomGuards: context menus', () => {
     fireEvent.pointerDown(screen.getByText('Feature'), { ...touch, pointerType: 'mouse' });
     act(() => { vi.advanceTimersByTime(1000); });
     expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
+describe('useShowroomGuards: scope', () => {
+  it('lets a later tap through when the long-press produced no click', () => {
+    render(<Guarded />);
+    const feature = screen.getByText('Feature');
+    fireEvent.pointerDown(feature, touch);
+    act(() => { vi.advanceTimersByTime(500); });
+    fireEvent.pointerUp(feature, touch);
+    fireEvent.pointerDown(feature, { ...touch, pointerId: 9 });
+    fireEvent.pointerUp(feature, { ...touch, pointerId: 9 });
+    fireEvent.click(feature, { clientX: 100, clientY: 50 });
+    expect(onFeatureClick).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['Search field', 'Go to'])('leaves a long-press on the %s input to the browser', label => {
+    render(<Guarded />);
+    const field = screen.getByLabelText(label);
+    field.focus();
+    fireEvent.pointerDown(field, touch);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(fireEvent.contextMenu(field)).toBe(true);
+    expect(onExplain).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(field);
+  });
+
+  it('guards presses on the viewer only, not the chrome around it', () => {
+    render(<Guarded />);
+    const chrome = screen.getByText('Chrome');
+    fireEvent.pointerDown(chrome, touch);
+    act(() => { vi.advanceTimersByTime(1000); });
+    fireEvent.pointerUp(chrome, touch);
+    expect(fireEvent.contextMenu(chrome)).toBe(true);
+    fireEvent.click(chrome, { clientX: 100, clientY: 50 });
+    expect(onExplain).not.toHaveBeenCalled();
+    expect(onChromeClick).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -177,7 +223,9 @@ describe('useSelectDragNotice', () => {
     fireEvent.pointerMove(area, { ...touch, clientX: 120 });
     rerender(<SelectArea active />);
     fireEvent.pointerDown(area, touch);
-    fireEvent.pointerMove(area, { ...touch, clientX: 103 });
+    fireEvent.pointerMove(area, { ...touch, clientX: 100 + TOUCH_SLOP_PX - 1 });
     expect(onExplain).not.toHaveBeenCalled();
+    fireEvent.pointerMove(area, { ...touch, clientX: 100 + TOUCH_SLOP_PX });
+    expect(explained()).toEqual(['select-mode']);
   });
 });

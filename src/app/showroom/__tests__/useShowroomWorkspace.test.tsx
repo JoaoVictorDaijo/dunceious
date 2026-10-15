@@ -93,8 +93,10 @@ describe('useShowroomWorkspace', () => {
     const anchor = new DOMRect(10, 20, 30, 40);
     act(() => result.current.openExplain('project', anchor));
     expect(result.current).toMatchObject({ explain: 'project', explainAnchor: anchor });
+    const firstKey = result.current.explainKey;
     act(() => result.current.openExplain('options'));
     expect(result.current).toMatchObject({ explain: 'options', explainAnchor: null });
+    expect(result.current.explainKey).not.toBe(firstKey);
     act(() => result.current.closeExplain());
     expect(result.current.explain).toBeNull();
   });
