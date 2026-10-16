@@ -18,6 +18,14 @@
  */
 
 import React from 'react';
+import type { CompletedSearch } from '../logic/searchState';
+import { hitColumns, hitCounts } from '@/src/core/search/hitColumns';
+import { pathQuery } from '@/src/core/search/editPath';
+import { ungappedSpan } from '@/src/core/search/hitPaths';
+import { formatPairAlignment, hitCountsText } from '../logic/hitAlignmentText';
+import { HitBarcode } from './search/HitBarcode';
+import { HitAlignment } from './search/HitAlignment';
+import { SearchDetails } from './search/SearchDetails';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
 import type { SearchOptions } from '@/src/workers/protocol';
@@ -28,6 +36,7 @@ export interface GroupedSearchResults {
 }
 
 export interface SearchPanelProps {
+  completedSearch?: CompletedSearch | null;
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
@@ -59,6 +68,8 @@ export interface SearchPanelProps {
  * Supports IUPAC exact search and fuzzy search with a minimum identity.
  */
 const SearchPanel: React.FC<SearchPanelProps> = ({
+  completedSearch,
+  records,
   searchQuery,
   onSearchQueryChange,
   searchMode,
@@ -142,16 +153,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         </div>
 
-        {/* Fuzzy identity threshold: identity is measured over the whole query */}
+        {/* Query identity uses edit distance over the whole query. */}
         {searchMode === 'fuzzy' && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
-              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min identity</label>
+              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
               <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
                 {searchOptions.minIdentity}%
                 {queryLength > 0 && ` · ≤ ${maxEditsForIdentity(queryLength, searchOptions.minIdentity)} edits`}
               </span>
             </div>
+            <p className="text-[11px] text-slate-400">Query identity = 100 × (query length − edits) / query length. Edits include substitutions, insertions and deletions.</p>
             <input
               id="fuzzy-min-identity"
               type="range" min={MIN_FUZZY_IDENTITY} max="100" step="5"
@@ -260,9 +272,19 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                       const globalIdx = group.indices[localIdx];
                       const context = getSequenceContext(match.recordId, match.start, match.end);
                       const isActive = currentSearchIdx === globalIdx;
+                      const record = records.find(r => r.id === recordId);
+                      const columns = completedSearch && record ? hitColumns({ ...completedSearch,
+                        cigar: match.cigar, query: pathQuery(completedSearch.query, completedSearch.mode),
+                        span: ungappedSpan(match, record) }) : null;
+                      const forwardSeq = record?.alignedSequence || record?.sequence || '';
+                      const recordStart = match.strand === 1
+                        ? forwardSeq.slice(0, match.start).replace(/-/g, '').length + 1
+                        : forwardSeq.slice(0, match.end).replace(/-/g, '').length;
+
                       return (
                         <div
                           key={globalIdx}
+                          data-search-hit=""
                           onClick={() => {
                             onSetCurrentIdx(globalIdx);
                             onSetActiveTab('alignment');
@@ -288,7 +310,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[11px] font-bold text-slate-200 tracking-tight">
-                                  {match.start.toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
+                                  {(match.start + 1).toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
                                 </span>
                                 <span className="text-[11px] font-semibold text-slate-500">Position</span>
                               </div>
@@ -308,11 +330,15 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             </div>
                           </div>
 
-                          <div className="seq-scroll text-[11px] font-mono bg-black/60 p-3 rounded-xl border border-slate-800/50 overflow-x-auto whitespace-nowrap shadow-inner">
-                            <span className="text-slate-500">{context.pre}</span>
-                            <span className="text-sky-400 font-bold bg-sky-400/20 px-1 rounded-sm shadow-[0_0_10px_rgba(56,189,248,0.2)]">{context.match}</span>
-                            <span className="text-slate-500">{context.post}</span>
-                          </div>
+                          {columns && completedSearch ? <>
+                            <HitBarcode columns={columns} strand={match.strand} alphabet={completedSearch.alphabet} mode={completedSearch.mode} />
+                            <p className="text-[11px] text-slate-400 mt-1">{hitCountsText(hitCounts(columns), completedSearch.mode)}</p>
+                            <HitAlignment storageKey={`${match.recordId}:${match.start}:${match.end}:${match.strand}`}
+                              text={formatPairAlignment({ columns, queryName: 'Query', recordName: recordId,
+                                queryStart: 1, recordStart, strand: match.strand })} />
+                          </> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
+                            {context.pre}<strong>{context.match}</strong>{context.post}
+                          </div>}
 
                           <div className="mt-3 flex justify-between items-center">
                             <div className="flex gap-2">
@@ -341,6 +367,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 </div>
               ))}
             </div>
+            <SearchDetails mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
           </div>
         )}
       </div>

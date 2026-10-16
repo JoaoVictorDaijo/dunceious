@@ -18,6 +18,7 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
+import type { CompletedSearch } from '../logic/searchState';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchOptions } from '@/src/workers/protocol';
@@ -65,6 +66,7 @@ export interface SidebarProps {
   onSearch: () => void;
   onClearSearch: () => void;
   onSelectSearchResult: (selection: SelectionArea) => void;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
@@ -118,6 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearch,
   onClearSearch,
   onSelectSearchResult,
+  completedSearch,
   searchResults,
   groupedSearchResults,
   currentSearchIdx,
@@ -393,6 +396,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         isSearching={isSearching}
         onSearch={onSearch}
         onClearSearch={onClearSearch}
+        completedSearch={completedSearch}
         searchResults={searchResults}
         groupedSearchResults={groupedSearchResults}
         currentSearchIdx={currentSearchIdx}

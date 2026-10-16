@@ -504,6 +504,7 @@ const App: React.FC = () => {
           onSearch={handleSearch}
           onClearSearch={handleClearSearch}
           onSelectSearchResult={selectSearchResult}
+          completedSearch={completedSearch}
           searchResults={searchResults}
           groupedSearchResults={groupedSearchResults}
           currentSearchIdx={currentSearchIdx}
