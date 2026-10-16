@@ -30,7 +30,7 @@ import type { ExplainId } from './explanations';
 type Layer = 'annotations' | 'translation' | 'tracks';
 type SearchMode = 'exact' | 'fuzzy';
 
-/** The workbench runs exact search in the page and fuzzy search in its worker; both bodies run here in the page. */
+/** Bundled sample data keeps showroom searches small enough to run without owning workers. */
 function searchSamples(request: SearchWorkerRequest): SearchResult[] {
   if (request.mode === 'exact') return runInlineSearch(request);
   const response = runSearch(request);

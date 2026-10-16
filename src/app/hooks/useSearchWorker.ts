@@ -33,6 +33,8 @@ export type { SearchOptions };
 /** A stalled scan must release its worker so later requests can run. */
 export const SEARCH_WORKER_TIMEOUT_MS = 15_000;
 
+const DEFAULT_RESULT_LIMIT = 100;
+
 export interface UseSearchWorkerReturn {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -95,7 +97,7 @@ export function useSearchWorker(
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({
     minIdentity: 80,
     strand: 'both',
-    maxResults: 100,
+    maxResults: DEFAULT_RESULT_LIMIT,
   });
 
   const isProteinSession = useMemo(
@@ -256,6 +258,10 @@ export function useSearchWorker(
       clearSearch();
       return;
     }
+    const options = Number.isNaN(searchOptions.maxResults)
+      ? { ...searchOptions, maxResults: DEFAULT_RESULT_LIMIT }
+      : searchOptions;
+    if (options !== searchOptions) setSearchOptions(options);
     setIsSearching(true);
     setSearchResults([]);
     setCurrentSearchIdx(-1);
@@ -273,7 +279,7 @@ export function useSearchWorker(
       searchQuery: normalizedQuery,
       records: searchableRecords,
       mode: searchMode,
-      options: searchOptions,
+      options,
       moleculeType: isProteinSession ? 'protein' : 'dna',
     };
     lastRequestRef.current = request;

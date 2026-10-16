@@ -19,6 +19,7 @@
 
 // @vitest-environment jsdom
 import type { ComponentProps } from 'react';
+import { within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@/src/app/testing/renderHarness';
 import { runSearch } from '@/src/workers/handlers/search';
@@ -34,12 +35,14 @@ vi.mock('@/src/app/viewer/GenomeViewer', () => ({ default: ({ activeSelection, o
 </> }));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function search() {
+function mountSearch() {
   const workers: TestWorker[] = [];
+  const requests: SearchWorkerRequest[] = [];
   class TestWorker {
     onmessage: ((event: { data: BioWorkerResponse | SearchWorkerResponse }) => void) | null = null;
     constructor() { workers.push(this); }
     postMessage(request: BioWorkerRequest | SearchWorkerRequest) {
+      if ('mode' in request) requests.push(request);
       const response = 'mode' in request ? runSearch(request) : handleBioMessage(request);
       queueMicrotask(() => this.onmessage?.({ data: response }));
     }
@@ -48,6 +51,11 @@ async function search() {
   vi.stubGlobal('Worker', TestWorker);
   render(<App />);
   act(() => workers[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'search.fa', records: [{ id: 'r', name: 'r', sequence: 'ACGT', features: [] }] } }));
+  return requests;
+}
+
+async function search() {
+  mountSearch();
   fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'AC' } });
   fireEvent.click(screen.getByRole('button', { name: 'Search' }));
   await waitFor(() => expect(screen.getByLabelText('Viewport selection').textContent).toBe('{"start":0,"end":2,"recordIds":["r"]}'));
@@ -69,5 +77,23 @@ describe('search selection ownership', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByLabelText('Viewport selection').textContent).toBe(selection);
     expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('search result limit input', () => {
+  it.each(['exact', 'fuzzy'] as const)('restores a cleared limit to the visible default before %s search', async mode => {
+    const requests = mountSearch();
+    if (mode === 'fuzzy') fireEvent.click(screen.getByRole('button', { name: 'Fuzzy' }));
+    const limit = within(screen.getByText('Result limit').parentElement!).getByRole('spinbutton') as HTMLInputElement;
+    fireEvent.change(limit, { target: { value: '' } });
+    expect(limit.value).toBe('');
+    fireEvent.change(screen.getByPlaceholderText(mode === 'exact' ? 'Enter IUPAC sequence...' : 'Enter query sequence...'), { target: { value: 'AC' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].options.maxResults).toBe(100);
+    expect(limit.value).toBe('100');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Annotate match 0–2 in r' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('Viewport selection').textContent).toBe('{"start":0,"end":2,"recordIds":["r"]}'));
   });
 });
