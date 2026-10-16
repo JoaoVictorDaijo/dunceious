@@ -33,11 +33,12 @@ export function annotationDirection(feature: BioFeature, moleculeType?: SeqRecor
 
 /** One base at its existing screen coordinate, not a reversed sequence or a
  * spliced product. On the minus strand the complementary letters read 3′→5′
- * left-to-right. RNA stays RNA; this display helper never changes stored data.
+ * left-to-right. The whole record's complement alphabet keeps T-written RNA
+ * consistent across every displayed base without changing stored data.
  */
-export function annotationBase(base: string, strand: ReturnType<typeof getFeatureStrand>, moleculeType?: SeqRecord['moleculeType']): string {
-  if (strand !== -1 || moleculeType === 'protein') return base;
-  return reverseComplement(base, moleculeType);
+export function annotationBase(base: string, strand: ReturnType<typeof getFeatureStrand>, alphabet: 'dna' | 'rna' | 'protein'): string {
+  if (strand !== -1 || alphabet === 'protein') return base;
+  return reverseComplement(base, alphabet);
 }
 
 /** `−1` / `+1`: a true minus sign, as the badge and the step label read it. */

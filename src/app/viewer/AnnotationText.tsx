@@ -33,6 +33,7 @@ interface Props {
   feature: BioFeature;
   sequence: string;
   moleculeType?: SeqRecord['moleculeType'];
+  alphabet: 'dna' | 'rna' | 'protein';
   start: number;
   end: number;
   strand?: 1 | -1;
@@ -53,7 +54,7 @@ interface Props {
  * An expanded bar also holds the bases on a second line, inside the shape; only
  * visible bases are visited, so zooming into a long feature stays cheap.
  */
-export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, height, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
+export function AnnotationText({ feature, sequence, moleculeType, alphabet, start, end, strand, y, height, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
   const clipHeight = height ?? ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
   const left = Math.max(0, start * zoom - scrollX);
   const right = Math.min(viewportWidth, end * zoom - scrollX);
@@ -76,7 +77,7 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
     const last = Math.min(end, sequence.length, Math.ceil((scrollX + right) / zoom));
     for (let pos = first; pos < last; pos++) {
       bases.push(<text key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1} textAnchor="middle" dominantBaseline="central">
-        {annotationBase(sequence[pos], direction, moleculeType)}
+        {annotationBase(sequence[pos], direction, alphabet)}
       </text>);
     }
   }

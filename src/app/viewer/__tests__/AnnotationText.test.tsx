@@ -20,13 +20,16 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { render, within } from '@/src/app/testing/renderHarness';
+import { complementAlphabet } from '@/src/domain/bio/sequence';
 import { AnnotationText } from '../AnnotationText';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 // Bases are opt-in per annotation; these tests exercise drawing them, so switch them on.
 const feature: BioFeature = { name: 'Synthetic primer', type: 'primer', start: 0, end: 6, strand: 1, metadata: { _showBases: '1' } };
 function show(overrides: Partial<Parameters<typeof AnnotationText>[0]> = {}) {
-  return render(<svg><AnnotationText feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} expanded {...overrides} /></svg>);
+  const sequence = overrides.sequence ?? 'AACGTA';
+  const alphabet = overrides.moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, overrides.moleculeType);
+  return render(<svg><AnnotationText alphabet={alphabet} feature={feature} sequence="AACGTA" start={0} end={6} y={0} zoom={30} scrollX={0} viewportWidth={1000} expanded {...overrides} /></svg>);
 }
 const bases = (container: HTMLElement) => [...container.querySelectorAll('[data-annotation-base]')].map(t => t.textContent).join('');
 
@@ -97,4 +100,10 @@ describe('annotation bases at genomic screen coordinates', () => {
     show({ feature: original });
     expect(original).toEqual(feature);
   });
+});
+
+
+it('displays minus-strand bases of T-written RNA in the record alphabet', () => {
+  const { container } = show({ feature: { ...feature, strand: -1 }, sequence: 'TA', end: 2, moleculeType: 'rna' });
+  expect(bases(container)).toBe('AT');
 });

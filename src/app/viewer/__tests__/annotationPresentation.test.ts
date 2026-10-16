@@ -17,6 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { annotationBase } from '../annotationPresentation';
+import { complementAlphabet } from '@/src/domain/bio/sequence';
 import { describe, expect, it } from 'vitest';
 import type { BioFeature } from '@/src/domain/bio/types';
 import { terminalSegmentIndex } from '../annotationPresentation';
@@ -39,5 +41,17 @@ describe('terminalSegmentIndex', () => {
 
   it('returns -1 without segments', () => {
     expect(terminalSegmentIndex(feature({}))).toBe(-1);
+  });
+});
+
+
+describe('minus-strand record alphabet', () => {
+  it.each([
+    ['TA', 'rna', 'AT'], ['UA', 'rna', 'AU'], ['TA', 'dna', 'AT'],
+    ['MTA', 'protein', 'MTA'], ['tuAa', 'rna', 'aaUu'],
+  ] as const)('complements %s declared %s in the record alphabet', (sequence, moleculeType, expected) => {
+    const alphabet = moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, moleculeType);
+    expect([...sequence].map(base => annotationBase(base, -1, alphabet)).join('')).toBe(expected);
+    expect([...sequence].map(base => annotationBase(base, 1, alphabet)).join('')).toBe(sequence);
   });
 });
