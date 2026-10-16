@@ -23,7 +23,7 @@ import {
   getNonGapSegments,
   removeGapsWithMap,
   mapUngappedRangeToAligned,
-  detectMoleculeType,
+  complementAlphabet,
 } from '@/src/domain/bio';
 import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
 
@@ -271,7 +271,7 @@ export function runFuzzySearch(
     }
 
     if (!isProtein && (strand === 'both' || strand === 'rev')) {
-      const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
+      const rcSeq = reverseComplement(seq, complementAlphabet(seq, record.moleculeType ?? moleculeType));
       const { ungapped, map } = removeGapsWithMap(rcSeq);
       // Rightmost in the reverse complement is leftmost on the forward strand, matching the final ranking.
       for (const match of findApproximateMatches(searchQuery, ungapped, maxEdits, { ...options, fromEnd: true })) {
