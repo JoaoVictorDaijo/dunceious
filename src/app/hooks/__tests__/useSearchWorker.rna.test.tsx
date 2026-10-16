@@ -45,7 +45,7 @@ describe('RNA search record projection', () => {
     act(() => { result.current.handleSearch(); });
     if (moleculeType === 'rna') {
       expect(result.current.searchResults).toEqual([{
-        recordId: 'seq', sequence: 'UU-U', start: 0, end: 4, strand: -1,
+        cigar: '3=', recordId: 'seq', sequence: 'UU-U', start: 0, end: 4, strand: -1,
         segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }],
       }]);
     } else {
