@@ -29,7 +29,7 @@ describe('exact search — dense bounded collection', () => {
     const segments = vi.spyOn(bio, 'getNonGapSegments');
     try {
       const output = search({ searchQuery: 'AA', records: [{ id: 'dense', sequence: 'A'.repeat(10_000) }],
-        mode: 'exact', options: { strand: 'fwd', maxResults: 10 } });
+        mode: 'exact', options: { strand: 'fwd', maxResults: 10, minScore: 0 } });
       const hits = Array.isArray(output) ? output : 'results' in output ? output.results : [];
       expect(hits).toHaveLength(10);
       expect(segments).toHaveBeenCalledTimes(10);

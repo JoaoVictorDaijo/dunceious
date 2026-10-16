@@ -75,7 +75,38 @@ function createCoordinateLookup(alignedSeq: string): (start: number, end: number
  * Empty intervals retain their boundary before following gaps.
  */
 export function transposeInterval(start: number, end: number, alignedSeq: string): FeatureSegment {
-  return createCoordinateLookup(alignedSeq)(start, end);
+  const validStart = Number.isInteger(start) && start >= 0;
+  const validEnd = Number.isInteger(end) && end >= 0;
+  const empty = start === end;
+  let alignedStart = start === 0 ? 0 : alignedSeq.length;
+  let alignedEnd = end === 0 ? 0 : alignedSeq.length;
+  let startFound = !validStart || (empty && start === 0);
+  let endFound = !validEnd || end === 0;
+  let ungappedCount = 0;
+
+  for (let i = 0; i < alignedSeq.length && (!startFound || !endFound); i++) {
+    if (alignedSeq[i] === "-") continue;
+
+    if (!startFound && !empty && ungappedCount === start) {
+      alignedStart = i;
+      startFound = true;
+    }
+
+    ungappedCount++;
+
+    // At the ungapped length, the start stays before any trailing gaps.
+    if (!startFound && ungappedCount === start) {
+      alignedStart = i + 1;
+      startFound = empty;
+    }
+
+    if (!endFound && ungappedCount === end) {
+      alignedEnd = i + 1;
+      endFound = true;
+    }
+  }
+
+  return { start: alignedStart, end: alignedEnd };
 }
 
 /**

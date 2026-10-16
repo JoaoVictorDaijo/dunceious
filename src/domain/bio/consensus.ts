@@ -30,6 +30,7 @@ export const calculateConsensus = (records: SeqRecord[]): string => {
 
   const alignedRecords = records.filter(r => r.alignedSequence);
   if (alignedRecords.length === 0) return '';
+  if (alignedRecords.length === 1) return alignedRecords[0].alignedSequence!;
 
   const length = Math.max(...alignedRecords.map(r => r.alignedSequence!.length));
   let consensus = '';
