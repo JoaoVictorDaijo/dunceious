@@ -30,8 +30,8 @@ export default tseslint.config(
       // Architectural size constraints.
       // `max-lines` errors at 600 (skipBlankLines + skipComments) — the hard
       // file ceiling for the layered structure. `max-lines-per-function` stays a
-      // warning: React component/render bodies and the `smithWaterman` kernel
-      // legitimately exceed a hard function-line cap, so the file-level ceiling
+      // warning: React component/render bodies legitimately exceed a hard
+      // function-line cap, so the file-level ceiling
       // is the active hard guard.
       // -----------------------------------------------------------------------
       'max-lines': [

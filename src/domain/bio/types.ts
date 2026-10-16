@@ -110,7 +110,10 @@ export interface SearchResult {
   sequence: string;
   recordId: string;
   strand: 1 | -1; // 1 = forward match, -1 = reverse-complement match
-  score?: number; // present only for fuzzy (Smith-Waterman) hits
+  /** Fuzzy hits only: substitutions, insertions and deletions against the whole query. */
+  edits?: number;
+  /** Fuzzy hits only: percent identity, 100 × (query length − edits) / query length. */
+  identity?: number;
   segments?: FeatureSegment[]; // non-gap sub-ranges of the match
 }
 

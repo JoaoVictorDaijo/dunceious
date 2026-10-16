@@ -28,10 +28,10 @@ const hit: SearchResult = { recordId: 'synthetic', sequence: 'TAC', start: 3, en
 function panelProps(): SearchPanelProps & { onClearSearch: () => void } {
   return {
     searchQuery: 'TAC', onSearchQueryChange: vi.fn(), searchMode: 'exact', onSearchModeChange: vi.fn(),
-    searchOptions: { minScore: 0, strand: 'both', maxResults: 100 }, onSearchOptionsChange: vi.fn(),
-    isSearching: false, onSearch: vi.fn(), onClearSearch: vi.fn(), filteredResults: [hit], groupedSearchResults: { synthetic: { results: [hit], indices: [0] } },
+    searchOptions: { minIdentity: 80, strand: 'both', maxResults: 100 }, onSearchOptionsChange: vi.fn(),
+    isSearching: false, onSearch: vi.fn(), onClearSearch: vi.fn(), searchResults: [hit], groupedSearchResults: { synthetic: { results: [hit], indices: [0] } },
     currentSearchIdx: 0, onSetCurrentIdx: vi.fn(), selectedSearchIndices: new Set(), onSetSelectedIndices: vi.fn(),
-    maxScoreFound: 1, records: [{ id: 'synthetic', name: 'synthetic', sequence: 'AACGTA', features: [] }],
+    records: [{ id: 'synthetic', name: 'synthetic', sequence: 'AACGTA', features: [] }],
     onSetActiveSelection: vi.fn(), onSetActiveTab: vi.fn(), onToggleRecordSelection: vi.fn(),
     onJoinAllInRecord: vi.fn(), onJoinSelectedMatches: vi.fn(), onAnnotateMatch: vi.fn(),
     getSequenceContext: () => ({ pre: 'AAC', match: 'GTA', post: '' }),

@@ -56,16 +56,6 @@ export function featureLength(
 }
 
 /**
- * Fuzzy-match score as a whole-number percentage of the best score found.
- * Guards divide-by-zero: when
- * `maxScoreFound <= 0` returns 0. Otherwise `round((score / maxScoreFound) * 100)`.
- * The `%` suffix and the `match.score` truthiness guard stay in the component.
- */
-export function scorePercent(score: number, maxScoreFound: number): number {
-  return maxScoreFound > 0 ? Math.round((score / maxScoreFound) * 100) : 0;
-}
-
-/**
  * Alignment-related derived state for the App shell, deriving:
  *  - `isAlignmentLoaded`: >= 2 records AND all (aligned-or-raw) lengths equal.
  *  - `alignmentLength`: max (aligned-or-raw) length; 0 for no records.

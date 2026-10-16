@@ -23,7 +23,7 @@ import type { SearchOptions, SearchWorkerRequest } from '@/src/workers/protocol'
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { runSearch } from '@/src/workers/handlers/search';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
-import { filteredResults, getSequenceContext, groupedSearchResults } from '@/src/app/logic/searchState';
+import { getSequenceContext, groupedSearchResults } from '@/src/app/logic/searchState';
 import { loadSampleRecords } from './sampleWorkspace';
 import type { ExplainId } from './explanations';
 
@@ -41,15 +41,14 @@ function searchSamples(request: SearchWorkerRequest): SearchResult[] {
 function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetStateAction<SelectionArea | null>>) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('exact');
-  const [options, setOptions] = useState<SearchOptions>({ minScore: 20, strand: 'both', maxResults: 100 });
+  const [options, setOptions] = useState<SearchOptions>({ minIdentity: 80, strand: 'both', maxResults: 100 });
   const [results, setResults] = useState<SearchResult[]>([]);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [maxScore, setMaxScore] = useState(0);
   const searchSelection = useRef<SelectionArea | null>(null);
 
   const reset = useCallback(() => {
-    setQuery(''); setResults([]); setCurrentIdx(-1); setSelected(new Set()); setMaxScore(0);
+    setQuery(''); setResults([]); setCurrentIdx(-1); setSelected(new Set());
   }, []);
   useEffect(() => { reset(); }, [records, reset]);
 
@@ -67,10 +66,9 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
     const found = searchSamples({
       searchQuery, mode,
       records: records.map(({ id, sequence, alignedSequence, moleculeType }) => ({ id, sequence, alignedSequence, moleculeType })),
-      options: { ...options, minScore: mode === 'fuzzy' ? 1 : 0 },
+      options,
       moleculeType: 'dna',
     });
-    setMaxScore(found.length > 0 ? Math.max(...found.map(hit => hit.score ?? 0)) : 0);
     setResults(found);
     setCurrentIdx(found.length > 0 ? 0 : -1);
     if (found.length === 0) return;
@@ -79,8 +77,7 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
     setActiveSelection(selection);
   };
 
-  const filtered = useMemo(() => filteredResults(results, mode, maxScore, options.minScore), [results, mode, maxScore, options.minScore]);
-  const grouped = useMemo(() => groupedSearchResults(filtered), [filtered]);
+  const grouped = useMemo(() => groupedSearchResults(results), [results]);
   const toggleRecord = (recordId: string, select: boolean) => {
     const group = grouped[recordId];
     if (!group) return;
@@ -92,7 +89,7 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
     getSequenceContext(records.find(record => record.id === recordId), start, end);
 
   return {
-    query, setQuery, mode, setMode, options, setOptions, results, filtered, grouped, maxScore,
+    query, setQuery, mode, setMode, options, setOptions, results, grouped,
     run, clear, currentIdx, setCurrentIdx, selected, setSelected, toggleRecord, context,
     /** Lets a search result row select its match as the workbench's `selectSearchResult` does. */
     select: (selection: SelectionArea) => { searchSelection.current = selection; setActiveSelection(selection); },

@@ -81,7 +81,7 @@ describe('RNA ingestion and export', () => {
     const [transposed] = processTransposition([record]);
     const [hit] = runInlineSearch({
       searchQuery: 'AYG', records: [transposed], mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     });
     expect(hit).toMatchObject({ start: 3, end: 6, sequence: 'AUG', segments: [{ start: 3, end: 6 }] });
     const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end);
@@ -147,7 +147,7 @@ describe('RNA IUPAC search', () => {
     ];
     const request: SearchWorkerRequest = {
       searchQuery: 'UUU', records, mode, moleculeType: 'dna',
-      options: { minScore: 6, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);
@@ -157,7 +157,7 @@ describe('RNA IUPAC search', () => {
         recordId: 'rna', start: 0, end: 4, strand: -1,
         segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }],
       });
-      if (mode === 'fuzzy') expect(results[0].score).toBe(6);
+      if (mode === 'fuzzy') expect(results[0]).toMatchObject({ edits: 0, identity: 100 });
     }
     expect(records[0].sequence).toBe('AAA');
     expect(records[0].alignedSequence).toBe('A-AA');
@@ -166,7 +166,7 @@ describe('RNA IUPAC search', () => {
   it('finds gapped forward IUPAC hits and infers RNA for legacy search projections', () => {
     const request: SearchWorkerRequest = {
       searchQuery: 'AYG', records: [{ id: 'rna', sequence: 'CCA-UG' }], mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     };
     expect(runInlineSearch(request)[0]).toMatchObject({ sequence: 'A-UG', start: 2, end: 6, strand: 1 });
     request.searchQuery = 'UCAU';
@@ -178,7 +178,7 @@ describe('RNA IUPAC search', () => {
   it.each(['exact', 'fuzzy'] as const)('honours an RNA request in %s legacy projections without U', (mode) => {
     const request: SearchWorkerRequest = {
       searchQuery: 'UUU', records: [{ id: 'rna', sequence: 'AAA' }], mode, moleculeType: 'rna',
-      options: { minScore: 6, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);
@@ -191,7 +191,7 @@ describe('RNA IUPAC search', () => {
   it.each(['exact', 'fuzzy'] as const)('preserves protein U in %s searches and suppresses reverse hits', (mode) => {
     const request: SearchWorkerRequest = {
       searchQuery: 'MUOP', records: [{ id: 'protein', sequence: 'MUOP' }], mode, moleculeType: 'protein',
-      options: { minScore: 8, strand: 'both', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);

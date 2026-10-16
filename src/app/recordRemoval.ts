@@ -50,22 +50,22 @@ export function updateSelectionAfterRecordRemoval(
  *
  * Drops selected-search indices whose result belongs to `recordId`. Resets
  * `currentSearchIdx` to `-1` when it is out of range (`< 0` or `>=
- * filteredResults.length`) OR points at a result on the removed record;
- * otherwise it is kept. `filteredResults` must be the post-removal results the
+ * searchResults.length`) OR points at a result on the removed record;
+ * otherwise it is kept. `searchResults` must be the post-removal results the
  * indices refer to.
  */
 export function sanitizeSearchStateAfterRecordRemoval(
-  filteredResults: SearchResult[],
+  searchResults: SearchResult[],
   currentSearchIdx: number,
   selectedSearchIndices: Set<number>,
   recordId: string,
 ): { currentSearchIdx: number; selectedSearchIndices: Set<number> } {
   const nextSelectedSearchIndices = new Set(
-    [...selectedSearchIndices].filter(idx => filteredResults[idx]?.recordId !== recordId),
+    [...selectedSearchIndices].filter(idx => searchResults[idx]?.recordId !== recordId),
   );
 
-  const isCurrentIdxInvalid = currentSearchIdx < 0 || currentSearchIdx >= filteredResults.length;
-  const isCurrentOnRemovedRecord = !isCurrentIdxInvalid && filteredResults[currentSearchIdx]?.recordId === recordId;
+  const isCurrentIdxInvalid = currentSearchIdx < 0 || currentSearchIdx >= searchResults.length;
+  const isCurrentOnRemovedRecord = !isCurrentIdxInvalid && searchResults[currentSearchIdx]?.recordId === recordId;
 
   return {
     currentSearchIdx: isCurrentOnRemovedRecord || isCurrentIdxInvalid ? -1 : currentSearchIdx,

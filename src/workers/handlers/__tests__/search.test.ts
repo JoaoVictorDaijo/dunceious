@@ -24,7 +24,7 @@ import type { SearchWorkerRequest } from '@/src/workers/protocol';
 function req(overrides: Partial<SearchWorkerRequest> & Pick<SearchWorkerRequest, 'searchQuery' | 'records' | 'mode'>): SearchWorkerRequest {
   return {
     requestId: 1,
-    options: { minScore: 5, strand: 'both', maxResults: 100 },
+    options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     ...overrides,
   } as SearchWorkerRequest;
 }
@@ -40,7 +40,7 @@ describe('runSearch — exact mode', () => {
   it('finds a forward match with rebased coordinates', () => {
     const res = runSearch(req({
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],
-      mode: 'exact', options: { minScore: 5, strand: 'fwd', maxResults: 100 },
+      mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results).toEqual([
@@ -51,7 +51,7 @@ describe('runSearch — exact mode', () => {
   it('finds a reverse-strand match remapped onto the forward coordinates', () => {
     const res = runSearch(req({
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],
-      mode: 'exact', options: { minScore: 5, strand: 'rev', maxResults: 100 },
+      mode: 'exact', options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results).toHaveLength(1);
@@ -62,7 +62,7 @@ describe('runSearch — exact mode', () => {
     const res = runSearch(req({
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],
       mode: 'exact', moleculeType: 'protein',
-      options: { minScore: 5, strand: 'both', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results.every(r => r.strand === 1)).toBe(true);
@@ -71,7 +71,7 @@ describe('runSearch — exact mode', () => {
   it('sorts by start then recordId and applies maxResults', () => {
     const res = runSearch(req({
       searchQuery: 'A', records: [{ id: 'r1', sequence: 'AAA' }],
-      mode: 'exact', options: { minScore: 5, strand: 'fwd', maxResults: 2 },
+      mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 2 },
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results).toHaveLength(2);
@@ -80,16 +80,17 @@ describe('runSearch — exact mode', () => {
 });
 
 describe('runSearch — fuzzy mode', () => {
-  it('returns score-bearing hits sorted by score descending', () => {
+  it('reports the occurrence with its edits and identity', () => {
     const res = runSearch(req({
       searchQuery: 'ACGTACGT',
       records: [{ id: 'r1', sequence: 'TTTACGTACGTTTT' }],
-      mode: 'fuzzy', options: { minScore: 5, strand: 'fwd', maxResults: 100 },
+      mode: 'fuzzy', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
-    expect(res.results.length).toBeGreaterThan(0);
-    expect(res.results[0].score).toBeGreaterThanOrEqual(res.results[res.results.length - 1].score ?? 0);
-    expect(res.results[0].recordId).toBe('r1');
+    expect(res.results).toEqual([{
+      recordId: 'r1', strand: 1, start: 3, end: 11, sequence: 'ACGTACGT',
+      edits: 0, identity: 100, segments: [{ start: 3, end: 11 }],
+    }]);
   });
 });
 
@@ -99,7 +100,7 @@ describe('runSearch — reverse fuzzy & exact tiebreak', () => {
     const res = runSearch(req({
       searchQuery: 'ACGTACGT',
       records: [{ id: 'r1', sequence: 'TTTACGTACGTTTT' }],
-      mode: 'fuzzy', options: { minScore: 5, strand: 'rev', maxResults: 100 },
+      mode: 'fuzzy', options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results.some(r => r.strand === -1)).toBe(true);
@@ -109,7 +110,7 @@ describe('runSearch — reverse fuzzy & exact tiebreak', () => {
     const res = runSearch(req({
       searchQuery: 'AAA',
       records: [{ id: 'r2', sequence: 'AAA' }, { id: 'r1', sequence: 'AAA' }],
-      mode: 'exact', options: { minScore: 5, strand: 'fwd', maxResults: 100 },
+      mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }));
     if ('error' in res) throw new Error(res.error);
     const atZero = res.results.filter(r => r.start === 0);

@@ -26,14 +26,14 @@
  *
  * Covers three resources from services/searchLogic.ts:
  *   - reverseComplement – O(n) string reversal + complement mapping
- *   - smithWaterman     – O(n·m) affine-gap local alignment
+ *   - findApproximateMatches – O(⌈n/32⌉·m) bit-parallel edit-distance search
  *   - degenerateToRegex – IUPAC-pattern regex construction + execution
  *
  * Methodology: see perfUtils.ts and parseGenBank.perf.ts.
  */
 
 import { describe, it, expect } from 'vitest';
-import { smithWaterman } from '../src/core/search/align';
+import { findApproximateMatches } from '../src/core/search/fuzzy';
 import { degenerateToRegex } from '../src/core/search/query';
 import { reverseComplement } from '../src/domain/bio';
 import { bench, GC_AVAILABLE } from './perfUtils';
@@ -48,7 +48,8 @@ function makeDna(length: number, seed = 42): string {
   let s = seed;
   return Array.from({ length }, () => {
     s = (s * 1664525 + 1013904223) & 0x7fffffff;
-    return bases[s & 3] as string;
+    // An LCG's low bits cycle with period 4; the high bits do not.
+    return bases[(s >>> 16) & 3] as string;
   }).join('');
 }
 
@@ -135,47 +136,44 @@ describe('reverseComplement – scaling with sequence length', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite B: smithWaterman – scaling with target length
+// Suite B: findApproximateMatches – scaling with query length
 // ---------------------------------------------------------------------------
 
-describe('smithWaterman – scaling with target length', () => {
-  // A short, fixed query is aligned against increasingly long targets.
-  // Smith-Waterman is O(query × target), so a fixed-length query makes the
-  // complexity linear in target length for this suite.
-  const QUERY = 'ATCGATCGTTAA'; // 12 bp
-  const TARGET_LENGTHS = [100, 500, 2_000, 5_000] as const;
-
-  // Pre-build target sequences outside timed blocks.
-  const targets = new Map(TARGET_LENGTHS.map(len => [len, makeDna(len, 99)]));
+describe('findApproximateMatches – scaling with query length', () => {
+  // A virus-sized target searched with queries spanning one to ten 32-bit
+  // blocks at 80% identity; the cost should grow with the block count only.
+  const TARGET = makeDna(30_000, 99);
+  const QUERY_LENGTHS = [40, 100, 300] as const;
+  const options = { moleculeType: 'nucleotide' as const, limit: 100 };
 
   const results = new Map<number, ReturnType<typeof bench>>();
 
-  for (const len of TARGET_LENGTHS) {
-    it(`aligns a 12 bp query against a ${len.toLocaleString()} bp target within time budget`, () => {
-      const target = targets.get(len)!;
+  for (const len of QUERY_LENGTHS) {
+    it(`finds a ${len} bp query in a 30 000 bp target within time budget`, () => {
+      const query = TARGET.substring(10_000, 10_000 + len);
+      const maxEdits = Math.floor(len * 0.2);
 
-      // Correctness: result must be an array (possibly empty).
-      const hits = smithWaterman(QUERY, target);
-      expect(Array.isArray(hits)).toBe(true);
+      // Correctness: the query's own source span is an exact hit.
+      const hits = findApproximateMatches(query, TARGET, maxEdits, options);
+      expect(hits[0]).toEqual({ start: 10_000, end: 10_000 + len, edits: 0 });
 
-      // Benchmark.
-      const result = bench(() => smithWaterman(QUERY, target), { warmup: 20, iterations: 50 });
+      const result = bench(() => findApproximateMatches(query, TARGET, maxEdits, options), { warmup: 5, iterations: 20 });
       results.set(len, result);
-      logResult(`smithWaterman target_len=${len.toLocaleString()} bp`, result);
+      logResult(`findApproximateMatches query_len=${len} bp`, result);
 
-      // Loose time budget – SW on 5 k target should be well within 2 s.
-      expect(result.p95Ms).toBeLessThan(2000);
+      // Stay far below FUZZY_WORKER_TIMEOUT_MS, after which the worker abandons the job.
+      expect(result.p95Ms).toBeLessThan(1000);
     });
   }
 
-  it('smithWaterman time scales sub-quadratically with target length', () => {
-    const r100 = results.get(100);
-    const r5k = results.get(5_000);
-    if (!r100 || !r5k) return;
+  it('findApproximateMatches time scales at most linearly with query length', () => {
+    const r40 = results.get(40);
+    const r300 = results.get(300);
+    if (!r40 || !r300) return;
 
-    // 100 → 5 000 bp is a 50× increase; allow up to 10 000× slowdown.
-    const ratio = r5k.medianMs / Math.max(r100.medianMs, 0.001);
-    expect(ratio).toBeLessThan(10_000);
+    // 40 → 300 bp is 2 → 10 blocks; allow generous headroom over 5×.
+    const ratio = r300.medianMs / Math.max(r40.medianMs, 0.001);
+    expect(ratio).toBeLessThan(30);
   });
 });
 

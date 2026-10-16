@@ -20,23 +20,10 @@
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 
-/** Fuzzy results filtered by minScore percentage; passthrough for exact / no-max. */
-export function filteredResults(
-  searchResults: SearchResult[],
-  searchMode: 'exact' | 'fuzzy',
-  maxScoreFound: number,
-  minScore: number,
-): SearchResult[] {
-  if (searchMode !== 'fuzzy' || maxScoreFound === 0) return searchResults;
-  return searchResults.filter(
-    r => ((r.score ?? 0) / maxScoreFound) * 100 >= minScore,
-  );
-}
-
-/** Groups results by recordId, preserving each result's original filtered index. */
-export function groupedSearchResults(filtered: SearchResult[]): GroupedSearchResults {
+/** Groups results by recordId, preserving each result's index in the result list. */
+export function groupedSearchResults(results: SearchResult[]): GroupedSearchResults {
   const groups: GroupedSearchResults = {};
-  filtered.forEach((r, idx) => {
+  results.forEach((r, idx) => {
     if (!groups[r.recordId]) groups[r.recordId] = { results: [], indices: [] };
     groups[r.recordId].results.push(r);
     groups[r.recordId].indices.push(idx);

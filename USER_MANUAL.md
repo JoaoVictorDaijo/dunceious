@@ -144,12 +144,14 @@ All 20 standard one-letter amino acid codes are accepted literally. Additional a
 
 Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches. **Annotate** turns one hit into an annotation; **Join selected** / **Join all** turn several hits into one.
 
-#### Fuzzy Mode (Smith-Waterman)
+#### Fuzzy Mode
 
-- Finds approximate matches using the Smith-Waterman local alignment algorithm with affine gap penalties.
+- Finds places where the **whole query** matches with a few differences: substitutions, insertions or deletions.
+- A **Min identity** slider (60–100 %) appears below the search bar. Identity is the share of the query that matches: at 80 %, a 50-base query may differ in up to 10 bases. The badge beside the slider shows the edit limit for the current query. Only hits at or above the threshold are searched for and listed.
+- Each hit shows its identity and number of edits. Results are sorted by identity (best match first).
+- IUPAC codes in the query work as in IUPAC mode.
+- A hit must cover the whole query; a match of only part of it is not reported.
 - Both the forward strand and its **reverse complement** are searched automatically for nucleotide sessions. Reverse-complement search is suppressed in peptide sessions, where strand orientation does not apply.
-- A **Min match confidence** slider (0–100 %) appears below the search bar. This filters results by the percentage of the best alignment score found in the current search — raise the threshold to see only high-quality matches, lower it to include more divergent hits.
-- Results are sorted by alignment score (best match first).
 
 > **Tip**: Use IUPAC mode for known motifs or primer sequences, and Fuzzy mode to find similar but not identical sequences (e.g., for mutation detection or homology searches).
 

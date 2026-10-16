@@ -62,7 +62,7 @@ function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; 
       onSelectionChange={workspace.setActiveSelection}
       onExportFasta={() => explain('export-fasta')}
       onAddAnnotation={() => explain('add-annotation')}
-      searchResults={workspace.search.filtered}
+      searchResults={workspace.search.results}
       currentSearchIdx={workspace.search.currentIdx}
       selectedSearchIndices={workspace.search.selected}
       jumpTo={workspace.jumpTo}

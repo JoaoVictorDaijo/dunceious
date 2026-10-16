@@ -8,7 +8,7 @@ Console output only — no artifacts, not a CI gate.
 
 | File | Covers |
 | --- | --- |
-| `searchLogic.perf.ts` | `src/domain/bio/sequence`, `src/core/search` — reverseComplement, smithWaterman, degenerateToRegex |
+| `searchLogic.perf.ts` | `src/domain/bio/sequence`, `src/core/search` — reverseComplement, findApproximateMatches, degenerateToRegex |
 | `bioUtils.perf.ts` | `src/domain/bio`, `src/core/genbank/serialize` — translateSequence, sliceRecordsBySelection, exportToGenBank |
 | `parseGenBank.perf.ts` | `src/core/genbank` — parseGenBank |
 | `grid2d.perf.ts` | `src/domain/bio` — transposeCoordinates, buildAlignedSegments, processTransposition, clipSegments, calculateConsensus |

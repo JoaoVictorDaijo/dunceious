@@ -22,7 +22,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
-import { useSearchWorker } from '../useSearchWorker';
+import { FUZZY_WORKER_TIMEOUT_MS, useSearchWorker } from '../useSearchWorker';
 
 class SearchWorker {
   static instances: SearchWorker[] = [];
@@ -36,7 +36,7 @@ class SearchWorker {
   }
 }
 const records: SeqRecord[] = [{ id: 'synthetic', name: 'synthetic', sequence: 'AAAACCCCAAAA', features: [] }];
-const match: SearchResult = { recordId: 'synthetic', start: 0, end: 4, strand: 1, sequence: 'AAAA', score: 12 };
+const match: SearchResult = { recordId: 'synthetic', start: 0, end: 4, strand: 1, sequence: 'AAAA', edits: 0, identity: 100 };
 
 function setup() {
   const focus = vi.fn();
@@ -61,11 +61,9 @@ describe('explicit search cleanup', () => {
     act(() => h.result.current.clearSearch());
     expect(h.result.current.searchQuery).toBe('');
     expect(h.result.current.searchResults).toEqual([]);
-    expect(h.result.current.filteredResults).toEqual([]);
     expect(h.result.current.groupedSearchResults).toEqual({});
     expect(h.result.current.currentSearchIdx).toBe(-1);
     expect(h.result.current.selectedSearchIndices.size).toBe(0);
-    expect(h.result.current.maxScoreFound).toBe(0);
     expect(h.result.current.isSearching).toBe(false);
     expect(records[0].sequence).toBe('AAAACCCCAAAA');
     h.search('CCCC'); h.flush();
@@ -103,23 +101,116 @@ describe('explicit search cleanup', () => {
     expect(h.log.mock.calls.flat().join(' ')).not.toContain('fallback');
   });
 
-  it('accepts a new fuzzy search after clearing while rejecting the previous request ID', () => {
-    const h = setup(); h.search('AAAA', 'fuzzy');
-    const first = h.worker.postMessage.mock.calls[0][0];
-    act(() => h.result.current.clearSearch());
-    h.search('CCCC', 'fuzzy');
-    const second = h.worker.postMessage.mock.calls[1][0];
-    h.worker.reply([match], first.requestId);
-    expect(h.result.current.isSearching).toBe(true);
-    expect(h.result.current.searchResults).toEqual([]);
-    h.worker.reply([{ ...match, start: 4, end: 8, sequence: 'CCCC' }], second.requestId);
-    h.flush();
-    expect(h.result.current.searchResults[0].sequence).toBe('CCCC');
-    expect(h.focus).toHaveBeenCalledWith({ start: 4, end: 8, recordIds: ['synthetic'] });
-  });
-
   it('does not navigate after unmounting with a queued result', () => {
     const h = setup(); h.search(); h.unmount(); h.flush();
     expect(h.focus).not.toHaveBeenCalled();
   });
 });
+
+describe('busy worker retirement', () => {
+  it('retires the busy worker when a pending fuzzy search is cleared and serves the next search from a fresh one', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    const first = h.worker.postMessage.mock.calls[0][0];
+    act(() => h.result.current.clearSearch());
+    expect(h.worker.terminate).toHaveBeenCalledTimes(1);
+    h.search('CCCC', 'fuzzy');
+    const fresh = SearchWorker.instances[1];
+    expect(h.worker.postMessage).toHaveBeenCalledTimes(1);
+    const second = fresh.postMessage.mock.calls[0][0];
+    h.worker.reply([match], first.requestId);
+    expect(h.result.current.isSearching).toBe(true);
+    expect(h.result.current.searchResults).toEqual([]);
+    fresh.reply([{ ...match, start: 4, end: 8, sequence: 'CCCC' }], second.requestId);
+    h.flush();
+    expect(h.result.current.searchResults[0].sequence).toBe('CCCC');
+    expect(h.focus).toHaveBeenCalledWith({ start: 4, end: 8, recordIds: ['synthetic'] });
+  });
+
+  it('does not queue a new fuzzy search behind one still running', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    h.search('CCCC', 'fuzzy');
+    expect(h.worker.terminate).toHaveBeenCalledTimes(1);
+    expect(SearchWorker.instances).toHaveLength(2);
+    expect(SearchWorker.instances[1].postMessage.mock.calls[0][0].searchQuery).toBe('CCCC');
+  });
+
+  it('keeps the worker when an exact search follows a finished fuzzy search', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    h.worker.reply([match], h.worker.postMessage.mock.calls[0][0].requestId);
+    h.search('AAAA', 'exact');
+    expect(h.worker.terminate).not.toHaveBeenCalled();
+    expect(SearchWorker.instances).toHaveLength(1);
+  });
+
+  it('does not start a replacement worker when unmounting during a fuzzy search', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    h.unmount();
+    expect(h.worker.terminate).toHaveBeenCalledTimes(1);
+    expect(SearchWorker.instances).toHaveLength(1);
+  });
+});
+
+describe('replacement worker that cannot start', () => {
+  class FailingReplacement extends SearchWorker {
+    constructor() {
+      if (SearchWorker.instances.length > 0) throw new Error('worker quota');
+      super();
+    }
+  }
+  beforeEach(() => { vi.stubGlobal('Worker', FailingReplacement); });
+
+  it('still clears a pending fuzzy search and falls back inline on the next one', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    expect(() => act(() => h.result.current.clearSearch())).not.toThrow();
+    expect(h.result.current.isSearching).toBe(false);
+    h.search('AAAA', 'fuzzy');
+    expect(h.log.mock.calls.flat().join(' ')).toContain('Search Worker unavailable for fuzzy search');
+    expect(h.result.current.searchResults.length).toBeGreaterThan(0);
+  });
+
+  it('still ends a timed-out search', () => {
+    const h = setup(); h.search('AAAA', 'fuzzy');
+    act(() => vi.advanceTimersByTime(FUZZY_WORKER_TIMEOUT_MS));
+    expect(h.result.current.isSearching).toBe(false);
+    expect(h.log.mock.calls.flat().join(' ')).toContain('Fuzzy search stopped');
+  });
+});
+
+describe('fuzzy search dispatch', () => {
+  it('sends the chosen identity threshold to the worker unchanged', () => {
+    const h = setup();
+    act(() => h.result.current.setSearchOptions({ minIdentity: 90, strand: 'fwd', maxResults: 7 }));
+    h.search('AAAA', 'fuzzy');
+    expect(h.worker.postMessage.mock.calls[0][0].options).toEqual({ minIdentity: 90, strand: 'fwd', maxResults: 7 });
+  });
+
+  it('replaces a timed-out worker instead of rerunning the search on the page', () => {
+    const h = setup();
+    h.search('AAAA', 'fuzzy');
+    const stale = h.worker;
+    const request = stale.postMessage.mock.calls[0][0];
+    act(() => vi.advanceTimersByTime(FUZZY_WORKER_TIMEOUT_MS - 1));
+    expect(h.result.current.isSearching).toBe(true);
+    act(() => vi.advanceTimersByTime(1));
+
+    expect(stale.terminate).toHaveBeenCalledTimes(1);
+    expect(SearchWorker.instances).toHaveLength(2);
+    expect(h.result.current.isSearching).toBe(false);
+    expect(h.result.current.searchResults).toEqual([]);
+    const logged = h.log.mock.calls.flat().join(' ');
+    expect(logged).toContain('Fuzzy search stopped');
+    expect(logged).not.toContain('fallback');
+    expect(logged).not.toContain('Search complete');
+
+    stale.reply([match], request.requestId);
+    expect(h.result.current.searchResults).toEqual([]);
+
+    h.search('CCCC', 'fuzzy');
+    const fresh = SearchWorker.instances[1];
+    const next = fresh.postMessage.mock.calls[0][0];
+    expect(next.searchQuery).toBe('CCCC');
+    fresh.reply([{ ...match, start: 4, end: 8, sequence: 'CCCC' }], next.requestId);
+    expect(h.result.current.searchResults.map(r => r.sequence)).toEqual(['CCCC']);
+  });
+});
+

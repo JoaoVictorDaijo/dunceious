@@ -7,7 +7,8 @@ and navigation, sequence search, original/aligned FASTA, GenBank/GFF3 coordinate
 and format-2 project export/reload. An earlier project format must be refused
 without changing the workspace. `showroom.spec.ts` drives the phone test drive with touch
 emulation, portrait then landscape, and checks that it requests nothing from another origin and
-opens no other page.
+opens no other page. `fuzzySearch.spec.ts` runs fuzzy search on the bundled SARS-CoV-2 genome in the
+built search worker: a mutated 300- and 1000-base query must be found by identity within seconds.
 
 After `npm ci`, install the test browser with `npx playwright install chromium`.
 An existing Chromium can be used instead:

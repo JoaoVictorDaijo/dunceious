@@ -52,12 +52,10 @@ it.each([
   act(() => worker.release(0));
   act(() => vi.advanceTimersByTime(5000));
   expect(h.result.current.searchResults).toEqual([]);
-  expect(h.result.current.filteredResults).toEqual([]);
   expect(h.result.current.groupedSearchResults).toEqual({});
   expect(h.result.current.searchQuery).toBe('');
   expect(h.result.current.currentSearchIdx).toBe(-1);
   expect(h.result.current.selectedSearchIndices.size).toBe(0);
-  expect(h.result.current.maxScoreFound).toBe(0);
   expect(h.result.current.isSearching).toBe(false);
   expect(focus).not.toHaveBeenCalled();
   expect(log).toHaveBeenCalledTimes(logCount);
