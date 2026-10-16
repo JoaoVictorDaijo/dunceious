@@ -33,6 +33,7 @@ import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
+import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
 
@@ -108,7 +109,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const effectiveTranslation = l.translationVisible;
   const motionClass = showTranslation && l.record.moleculeType !== 'protein' ? 'translation-motion' : '';
   const lanes = l.translationLanes;
-  const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
+  const queryHeight = rowSearchResults.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+  const bandTop = l.seqBaseY - queryHeight - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
   const rowTop = typeof style.top === 'number' ? `${style.top}px` : (style.top ?? '0px');
 
   // The focus label rides the region's visible start, holding at the view edge while that start is scrolled away.
@@ -175,7 +177,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className={`absolute right-0 w-1 bg-emerald-400/30 ${motionClass}`}
           style={{ top: 0, height: 1, transformOrigin: 'top',
-            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT})` }} />
+            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT + queryHeight})` }} />
         <div className="absolute right-2 flex items-center" style={{ top: bandTop - 12, height: 12 }}>
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>

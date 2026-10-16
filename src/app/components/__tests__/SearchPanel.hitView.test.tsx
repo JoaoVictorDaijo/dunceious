@@ -67,3 +67,10 @@ it('labels a protein barcode in query N→C orientation on both strands', () => 
   expect(screen.getByRole('img').getAttribute('aria-label')).toBe('1 identical, 1 mismatch');
   expect(screen.getByTitle('N→C (query orientation)')).toBeTruthy();
 });
+
+it('keeps the IUPAC legend limited to its available column classes', () => {
+  const props = panelProps();
+  render(<SearchPanel {...props} searchMode="exact" completedSearch={{ query: 'TAC', mode: 'iupac', alphabet: 'nucleotide', options: props.searchOptions }} />);
+  expect(screen.queryByText('− Record base absent from the query: slate cell')).toBeNull();
+  expect(screen.queryByText('▼ Extra query bases: violet caret between record bases')).toBeNull();
+});

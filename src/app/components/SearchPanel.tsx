@@ -19,12 +19,7 @@
 
 import React from 'react';
 import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
-import { hitColumns, hitCounts } from '@/src/core/search/hitColumns';
-import { pathQuery } from '@/src/core/search/editPath';
-import { ungappedSpan } from '@/src/core/search/hitPaths';
-import { formatPairAlignment, hitCountsText } from '../logic/hitAlignmentText';
-import { HitBarcode } from './search/HitBarcode';
-import { HitAlignment } from './search/HitAlignment';
+import { HitAlignmentSummary } from './search/HitAlignment';
 import { SearchDetails } from './search/SearchDetails';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
@@ -273,14 +268,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                       const context = getSequenceContext(match.recordId, match.start, match.end);
                       const isActive = currentSearchIdx === globalIdx;
                       const record = records.find(r => r.id === recordId);
-                      const columns = completedSearch && record ? hitColumns({ ...completedSearch,
-                        cigar: match.cigar, query: pathQuery(completedSearch.query, completedSearch.mode),
-                        span: ungappedSpan(match, record) }) : null;
-                      const forwardSeq = record?.alignedSequence || record?.sequence || '';
-                      const recordStart = match.strand === 1
-                        ? forwardSeq.slice(0, match.start).replace(/-/g, '').length + 1
-                        : forwardSeq.slice(0, match.end).replace(/-/g, '').length;
-
                       return (
                         <div
                           key={globalIdx}
@@ -330,13 +317,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             </div>
                           </div>
 
-                          {columns && completedSearch ? <>
-                            <HitBarcode columns={columns} strand={match.strand} alphabet={completedSearch.alphabet} mode={completedSearch.mode} />
-                            <p className="text-[11px] text-slate-400 mt-1">{hitCountsText(hitCounts(columns), completedSearch.mode)}</p>
-                            <HitAlignment storageKey={`${match.recordId}:${match.start}:${match.end}:${match.strand}`}
-                              text={formatPairAlignment({ columns, queryName: 'Query', recordName: recordId,
-                                queryStart: 1, recordStart, strand: match.strand })} />
-                          </> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
+                          {record && completedSearch ? <HitAlignmentSummary result={match} record={record} search={completedSearch} /> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
                             {context.pre}<strong>{context.match}</strong>{context.post}
                           </div>}
 

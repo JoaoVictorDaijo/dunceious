@@ -17,6 +17,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
+import type { CompletedSearch } from '../../logic/searchState';
+import { hitColumns, hitCounts } from '@/src/core/search/hitColumns';
+import { pathQuery } from '@/src/core/search/editPath';
+import { ungappedSpan } from '@/src/core/search/hitPaths';
+import { formatPairAlignment, hitCountsText } from '../../logic/hitAlignmentText';
+import { HitBarcode } from './HitBarcode';
 import { useState } from 'react';
 import { useSessionOpenState } from '../../hooks/useSessionOpenState';
 import SectionTitle from '../SectionTitle';
@@ -35,4 +42,17 @@ export function HitAlignment({ text, storageKey }: { text: string; storageKey: s
     }}>Copy</button><span role="status" className="text-xs">{copyStatus}</span>
     <pre className="overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded">{text}</pre>
   </details>;
+}
+
+export function HitAlignmentSummary({ result, record, search }: { result: SearchResult; record: SeqRecord; search: CompletedSearch }) {
+  const columns = hitColumns({ ...search, cigar: result.cigar, query: pathQuery(search.query, search.mode), span: ungappedSpan(result, record) });
+  const seq = record.alignedSequence || record.sequence;
+  const recordStart = result.strand === 1 ? seq.slice(0, result.start).replace(/-/g, '').length + 1
+    : seq.slice(0, result.end).replace(/-/g, '').length;
+  return <>
+    <HitBarcode columns={columns} strand={result.strand} alphabet={search.alphabet} mode={search.mode} />
+    <p className="text-[11px] text-slate-400 mt-1">{hitCountsText(hitCounts(columns), search.mode)}</p>
+    <HitAlignment storageKey={`${result.recordId}:${result.start}:${result.end}:${result.strand}`}
+      text={formatPairAlignment({ columns, queryName: 'Query', recordName: result.recordId, queryStart: 1, recordStart, strand: result.strand })} />
+  </>;
 }

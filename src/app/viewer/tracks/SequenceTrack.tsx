@@ -19,7 +19,7 @@
 
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { matchLineSymbol } from '@/src/core/search/hitColumns';
-import { visibleMarks, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
+import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
 import * as d3 from 'd3';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
@@ -73,9 +73,11 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM && moleculeType !== 'protein';
   const forwardHeight = AA_ROW_HEIGHT * translationLanes.forward;
   const reverseHeight = AA_ROW_HEIGHT * translationLanes.reverse;
-  const bandTop = y - (translationVisible ? forwardHeight : 0);
+  const queryHeight = searchResults.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+  const bandTop = y - queryHeight - (translationVisible ? forwardHeight : 0);
 
 
+  const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
   const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
   const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
@@ -125,11 +127,12 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // Pre-calculate search highlights for this viewport
     const highlightMap = new Map<number, { isActive: boolean, strand: number }>();
-    [...searchResults].sort((a, b) => Number(a === activeResult) - Number(b === activeResult) || searchResults.indexOf(b) - searchResults.indexOf(a)).forEach(r => {
+    searchResults.forEach(r => {
       const isActive = r === activeResult;
       
       const applyHighlight = (start: number, end: number) => {
-        for (let k = start; k < end; k++) {
+        if (zoomLevel < 0.5) return;
+        for (let k = Math.max(start, vStart); k < Math.min(end, vEnd); k++) {
           if (k < vStart || k >= vEnd) continue;
           const existing = highlightMap.get(k);
           if (!existing || (!existing.isActive && isActive)) {
@@ -157,7 +160,9 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       { ctx: forwardCtx, highlightY: 0 },
       { ctx: reverseCtx, highlightY: -forwardHeight - NT_ROW_HEIGHT },
     ];
-    searchResults.forEach(r => {
+    const backgroundOrder = [...searchResults].reverse().filter(r => r !== activeResult);
+    if (activeResult && searchResults.includes(activeResult)) backgroundOrder.push(activeResult);
+    backgroundOrder.forEach(r => {
       const isActive = r === activeResult;
       
       const renderMatch = (start: number, end: number) => {
@@ -196,6 +201,9 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // For very large records at low zoom, rendering one rect per base causes
     // hundreds of thousands of draw calls per frame. Switch to pixel columns.
     if (zoomLevel < 0.5) {
+      const hitPixels = searchResults.flatMap(r => r.segments?.length ? r.segments : r.start <= r.end ? [r]
+        : [{ start: r.start, end: seq.length }, { start: 0, end: r.end }])
+        .map(span => ({ start: xScale(span.start) - scrollX, end: xScale(span.end) - scrollX }));
       const pxStart = Math.max(0, Math.floor(xScale(vStart) - scrollX));
       const pxEnd = Math.min(viewportWidth, Math.ceil(xScale(vEnd) - scrollX));
 
@@ -206,6 +214,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const style = residueStyle(char, bp, comparison);
         const quiet = style === 'muted' || style === 'dot';
 
+        if (hitPixels.some(span => px < span.end && px + 1.2 > span.start)) continue;
         ctx.fillStyle = style === 'indel' ? INDEL_FILL : isGap ? '#f1f5f9' : quiet ? MUTED_FILL : getResidueColor(char);
         ctx.globalAlpha = style === 'indel' ? 0.8 : isGap ? 0.35 : quiet ? 0.5 : 0.8;
         ctx.fillRect(px, seqY, 1.2, NT_ROW_HEIGHT);
@@ -377,11 +386,16 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const motionClass = showTranslation && moleculeType !== 'protein' ? 'translation-motion' : undefined;
 
   return <>
-    {searchResults.length > 0 && <canvas ref={queryRef} aria-hidden="true"
-      style={{ ...canvasStyle, height: SEARCH_QUERY_LANE_HEIGHT, transform: `translateY(${bandTop - SEARCH_QUERY_LANE_HEIGHT}px)` }} />}
+    {searchResults.length > 0 && <canvas data-query-band="" ref={queryRef} aria-hidden="true"
+      style={{ ...canvasStyle, height: SEARCH_QUERY_LANE_HEIGHT, transform: `translateY(${y - SEARCH_QUERY_LANE_HEIGHT}px)` }} />}
+    {marks.marks.filter(mark => mark.recordAmbiguity).map(mark => <button key={`ambiguity-${mark.column}`} type="button"
+      aria-label="Ambiguity code in the record: the search doesn't count it as a match"
+      data-tip="Ambiguity code in the record: the search doesn't count it as a match"
+      style={{ position: 'absolute', left: xScale(mark.column) - scrollX, top: y,
+        width: Math.max(3, zoomLevel), height: NT_ROW_HEIGHT, background: 'transparent', zIndex: 1 }} />)}
     {marks.insertions.map(insertion => <button key={insertion.afterColumn} type="button"
-      aria-label={`Extra query bases: ${insertion.bases} (between record positions ${insertion.flankStart} and ${insertion.flankEnd})`}
-      data-tip={`Extra query bases: ${insertion.bases} (between record positions ${insertion.flankStart} and ${insertion.flankEnd})`}
+      aria-label={insertionDescription(insertion, residueCount)}
+      data-tip={insertionDescription(insertion, residueCount)}
       style={{ position: 'absolute', left: xScale(insertion.afterColumn + 1) - scrollX - 5, top: y - 5,
         width: 10, height: NT_ROW_HEIGHT + 5, background: 'transparent', zIndex: 2 }} />)}
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}

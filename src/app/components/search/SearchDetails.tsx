@@ -32,8 +32,8 @@ export function SearchDetails({ mode, recordCount }: { mode: HitMode; recordCoun
       <li>| Identical: hit tint and record letter</li>
       <li>{mode === 'local' ? ': Similar: dashed outline, positive matrix score' : ': Matched through an ambiguity code: dotted underline'}</li>
       <li>. Mismatch: ink cell, query letter above</li>
-      <li>− Record base absent from the query: slate cell</li>
-      <li>▼ Extra query bases: violet caret between record bases</li>
+      {mode !== 'iupac' && <><li>− Record base absent from the query: slate cell</li>
+      <li>▼ Extra query bases: violet caret between record bases</li></>}
     </ul>
   </details>;
 }

@@ -108,3 +108,11 @@ export function visibleMarks(results: SearchResult[], active: SearchResult | und
   }
   return { marks: [...marks.values()].sort((a, b) => a.column - b.column), insertions: [...insertions.values()] };
 }
+
+/** Flanks name biological residues; alignment columns remain separate drawing coordinates. */
+export function insertionDescription(insertion: InsertionMark, recordLength: number): string {
+  const location = insertion.flankStart === 0 ? 'before record residue 1'
+    : insertion.flankEnd > recordLength ? `after record residue ${recordLength}`
+    : `between record residues ${insertion.flankStart} and ${insertion.flankEnd}`;
+  return `Extra query bases: ${insertion.bases} (${location})`;
+}

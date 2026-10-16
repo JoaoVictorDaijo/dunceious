@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { hitMarks, visibleMarks, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
+import { hitMarks, visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
 import { computeRecordLayouts } from '../layout';
 import type { CompletedSearch } from '../../logic/searchState';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
@@ -68,4 +68,16 @@ describe('forward column layout', () => {
   it('draws nothing for the empty IUPAC path', () => {
     expect(hitMarks(hit('', 0), record('AC'), { ...search('--'), mode: 'iupac' })).toEqual({ marks: [], insertions: [] });
   });
+});
+
+it.each([
+  [1, 'TAC', '1I2=', 'Extra query bases: T (before record residue 1)'],
+  [1, 'ACT', '2=1I', 'Extra query bases: T (after record residue 2)'],
+  [1, 'ATC', '1=1I1=', 'Extra query bases: T (between record residues 1 and 2)'],
+  [-1, 'AGT', '1I2=', 'Extra query bases: T (after record residue 2)'],
+  [-1, 'GTA', '2=1I', 'Extra query bases: T (before record residue 1)'],
+  [-1, 'GAT', '1=1I1=', 'Extra query bases: T (between record residues 1 and 2)'],
+] as const)('names real insertion flanks on strand %s (%s)', (strand, query, cigar, expected) => {
+  const insertion = hitMarks(hit(cigar, 2, strand), record('AC'), search(query)).insertions[0];
+  expect(insertionDescription(insertion, 2)).toBe(expected);
 });
