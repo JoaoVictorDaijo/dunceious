@@ -38,7 +38,5 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
     return runFuzzySearch(searchQuery, records, isProtein, strand, moleculeType, minIdentity, maxResults);
   }
 
-  const results = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
-  results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-  return results.length > maxResults ? results.slice(0, maxResults) : results;
+  return runExactSearch(searchQuery, records, isProtein, strand, moleculeType, maxResults);
 }
