@@ -348,3 +348,15 @@ describe('reference comparison', () => {
     expect(recorder.fillColors()).toContain('#e2e8f0');
   });
 });
+
+it('exposes active hit marks and the reverse query label', () => {
+  const recorder = installCanvasRecorder();
+  const hit = { sequence: 'ACGT', recordId: 'r', start: 0, end: 4, strand: -1 as const, cigar: '1=1X1I1D1=' };
+  const { container } = render(<SequenceTrack {...props('ACGT', [])} showTranslation={false}
+    record={{ id: 'r', name: 'r', sequence: 'ACGT', features: [] }}
+    completedSearch={{ query: 'ATAT', mode: 'whole', alphabet: 'nucleotide', options: { minIdentity: 80, strand: 'both', maxResults: 100 } }}
+    searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(container.querySelector('[data-sequence-band]')?.getAttribute('data-hit-marks')).toBe('|-.|');
+  expect(container.querySelector('[data-sequence-band]')?.getAttribute('data-hit-insertions')).toBe('1');
+  expect(recorder.texts()).toContain('Query (reverse complement)');
+});

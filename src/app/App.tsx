@@ -180,6 +180,7 @@ const App: React.FC = () => {
     searchOptions,
     setSearchOptions,
     searchResults,
+    completedSearch,
     currentSearchIdx,
     setCurrentSearchIdx,
     selectedSearchIndices,
@@ -550,6 +551,7 @@ const App: React.FC = () => {
                     onSelectionChange={setActiveSelection}
                     onExportFasta={exportSelection}
                     onAddAnnotation={addAnnotationFromSearch}
+                    completedSearch={completedSearch}
                     searchResults={searchResults}
                     currentSearchIdx={currentSearchIdx}
                     selectedSearchIndices={selectedSearchIndices}

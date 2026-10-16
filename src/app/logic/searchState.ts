@@ -18,6 +18,9 @@
  */
 
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
+import type { HitMode } from '@/src/core/search/hitColumns';
+import type { ResidueAlphabet } from '@/src/core/search/query';
+import type { SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 
 /** Groups results by recordId, preserving each result's index in the result list. */
@@ -81,4 +84,12 @@ export function getSequenceContext(
     match: seq.substring(start, end),
     post: seq.substring(end, Math.min(seq.length, end + contextLen)),
   };
+}
+
+export interface CompletedSearch {
+  query: string;
+  mode: HitMode;
+  alphabet: ResidueAlphabet;
+  options: SearchOptions;
+  matrixScore?: (q: string, r: string) => number;
 }

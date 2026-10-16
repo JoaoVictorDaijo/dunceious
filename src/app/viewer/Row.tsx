@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
 import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
@@ -45,6 +46,7 @@ export interface RowData {
   showAnnotations: boolean;
   showTranslation: boolean;
   searchResultsByRecord: Record<string, SearchResult[]>;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   currentSearchIdx: number;
   onSelectionChange: (selection: SelectionArea | null) => void;
@@ -73,7 +75,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const { 
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
-    searchResultsByRecord, searchResults, currentSearchIdx,
+    searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
@@ -209,6 +211,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
           <SequenceTrack 
             seq={seq}
+            record={l.record}
+            completedSearch={completedSearch}
             moleculeType={l.record.moleculeType}
             xScale={xScale}
             viewportWidth={viewportWidth}

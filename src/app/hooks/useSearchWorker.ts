@@ -24,6 +24,7 @@ import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, Searc
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
+  type CompletedSearch,
   groupedSearchResults as computeGroupedSearchResults,
   joinSegments,
   getSequenceContext as computeSequenceContext,
@@ -39,6 +40,7 @@ export type { SearchOptions };
 export const FUZZY_WORKER_TIMEOUT_MS = 15_000;
 
 export interface UseSearchWorkerReturn {
+  completedSearch: CompletedSearch | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
@@ -91,6 +93,7 @@ export function useSearchWorker(
   ) => void,
   onFirstResult: (selection: SelectionArea) => void,
 ): UseSearchWorkerReturn {
+  const [completedSearch, setCompletedSearch] = useState<CompletedSearch | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'exact' | 'fuzzy'>('exact');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -155,6 +158,7 @@ export function useSearchWorker(
 
   const clearSearch = useCallback(() => {
     cancelPendingSearch();
+    setCompletedSearch(null);
     setSearchQuery('');
     setSearchResults([]);
     setCurrentSearchIdx(-1);
@@ -166,9 +170,11 @@ export function useSearchWorker(
     clearSearch();
   }, [records, clearSearch]);
 
-  const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
+  const applySearchResults = useCallback((results: SearchResult[], request: SearchWorkerRequest) => {
     setIsSearching(false);
     setSearchResults(results);
+    setCompletedSearch({ query: request.searchQuery, mode: request.mode === 'exact' ? 'iupac' : 'whole',
+      alphabet: request.moleculeType === 'protein' ? 'protein' : 'nucleotide', options: { ...request.options } });
 
     addLogRef.current(`Search complete: ${results.length} matches found.`);
 
@@ -182,7 +188,7 @@ export function useSearchWorker(
       }, 0);
     } else {
       setCurrentSearchIdx(-1);
-      addLogRef.current(`No matches found for '${queryForLog}'.`);
+      addLogRef.current(`No matches found for '${request.searchQuery}'.`);
     }
   }, []);
 
@@ -190,7 +196,7 @@ export function useSearchWorker(
     addLogRef.current(reason);
     try {
       const results = executeSearchInline(request);
-      applySearchResults(results, request.searchQuery);
+      applySearchResults(results, request);
     } catch (err) {
       addLogRef.current(`Fallback search failed: ${String(err)}`);
       setIsSearching(false);
@@ -250,7 +256,7 @@ export function useSearchWorker(
           return;
         }
 
-        applySearchResults(msg.results, latestQueryRef.current);
+        if (lastRequestRef.current) applySearchResults(msg.results, lastRequestRef.current);
       };
 
       worker.onerror = (event: ErrorEvent) => {
@@ -288,6 +294,9 @@ export function useSearchWorker(
       clearSearch();
       return;
     }
+    setCompletedSearch(null);
+    setSearchResults([]);
+    setCurrentSearchIdx(-1);
     setIsSearching(true);
     setSelectedSearchIndices(new Set());
     addLog(`Initiating ${searchMode} search for '${normalizedQuery}'...`);
@@ -307,7 +316,7 @@ export function useSearchWorker(
     if (searchMode === 'exact') {
       try {
         const exactResults = executeSearchInline(request);
-        applySearchResults(exactResults, normalizedQuery);
+        applySearchResults(exactResults, request);
       } catch (err) {
         addLog(`Search execution failed: ${String(err)}`);
         setCurrentSearchIdx(-1);
@@ -431,6 +440,7 @@ export function useSearchWorker(
   };
 
   return {
+    completedSearch,
     searchQuery,
     setSearchQuery,
     searchMode,
