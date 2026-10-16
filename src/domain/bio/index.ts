@@ -62,3 +62,6 @@ export { INSDC_COUNTRIES, INSDC_MISSING_TERMS } from './insdcVocabulary';
 export { isSourceFeature, annotationFeatures, isUnannotated, isPartial, isEdited, needsAttention, isolateOf } from './recordStatus';
 
 export { featureEnvelope } from './featureEnvelope';
+
+export { parseCigar, formatCigar, cigarSpans, expandCigar } from './cigar';
+export type { CigarOp } from './cigar';
