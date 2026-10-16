@@ -20,6 +20,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@/src/app/testing/renderHarness';
+import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
 import { useFileHandlers } from '../useFileHandlers';
 import { downloadBlob } from '@/src/app/lib/download';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -38,9 +39,9 @@ const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSeq
 
 function setup() {
   return renderHook(() => useFileHandlers({ current: null }, [record, { ...record, id: 'other' }], { start: 3, end: 8, recordIds: ['r'] }, {},
-    { showAnnotations: true, showTranslation: true, showConservation: false },
+    { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
     { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(),
-      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
 }
 
 describe('exports with aligned annotations', () => {

@@ -39,6 +39,7 @@ src/
 │   ├── insdcVocabulary.ts # country and missing-value vocabulary
 │   ├── coordinate.ts    # transposition, aligned-segment building
 │   ├── consensus.ts
+│   ├── referenceComparison.ts # per-residue relation to a reference (identical/substitution/gap/ambiguous)
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
 │   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
 │   │                    #   detection, gap↔ungapped mapping, isProteinSession
@@ -69,6 +70,7 @@ src/
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI
+    ├── showroom/        # phone test drive: the real viewer, search and alignment dialog over bundled examples, memory only
     ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
@@ -78,6 +80,7 @@ src/
     │   ├── featureComparison.ts # organism-scoped presence and per-type length comparison
     │   ├── exportPlan.ts # subset/options, shared preview and serializer dispatch
     │   ├── projectFile.ts # format-2 project serialization and validation
+    │   ├── alignmentComparison.ts # reference choice, comparison settings and the shared residue style
     │   └── dropRouting.ts # ordered drops and batch-scoped sequence-ID mapping
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
@@ -114,7 +117,14 @@ per layer, in `eslint.config.js`), alongside the `max-lines` `error` ceiling at 
 
 Inside `app/`, `greeter/` is a separate UI: it may import `domain`, `core` and its own files,
 never `App`, `components/`, `hooks/`, `viewer/`, `logic/` or `lib/`, so its chunk stays small
-and the workbench can change without touching it (also an ESLint rule).
+and the workbench can change without touching it (also an ESLint rule). The rule also forbids
+static imports of `showroom/`. `no-restricted-imports` cannot see `import()`, so the greeter's
+single dynamic `import()` of `showroom/Showroom` is kept by convention, not by the rule.
+
+`showroom/` is the third UI. It may import `viewer/`, presentational `components/`, `logic/`,
+`domain`, `core` and `workers/handlers`, never `App`, `hooks/` (they own workers and app state),
+`lib/`, `shell/` or `greeter/` (ESLint, direct imports only). What it may do at runtime is guarded
+by tests instead: no network request, no storage or clipboard write, no navigation to another origin.
 
 ### Extension rules — where does new code go?
 
@@ -237,6 +247,12 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
 - Generates a master consensus sequence across all aligned records to identify conservation.
 - Imported directly by `src/workers/handlers/bio.ts` (no duplication).
 
+### Reference comparison
+
+- `src/domain/bio/referenceComparison.ts` classifies one aligned residue against the reference residue in its column: case-insensitive, `U`≡`T` for nucleotides only, gap-vs-gap identical, gap-vs-residue a `gap`, and any ambiguity code `ambiguous` (never identical or a substitution).
+- `src/app/logic/alignmentComparison.ts` holds the settings saved in project JSON (`alignmentComparison`: reference ID, highlight, match dots), resolves the reference among aligned records only (falling back to the first, and keeping a hidden one), and owns `residueStyle`, which both `SequenceTrack` and the `ComparisonMenu` preview draw from. Comparison needs at least two aligned records; unaligned rows are never compared.
+- Display only: exports always carry the real residues.
+
 ### Search (`src/workers/handlers/search.ts`)
 
 - **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `src/core/search/query.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
@@ -261,12 +277,19 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 ### `src/app/shell/` (Entry Shell)
 
 - `main.tsx` renders `ShellRoot`, which lazy-loads one UI. `pickShell` sends a device with a coarse pointer and a shorter screen side under 600 px (a phone, in either orientation) to the greeter, and everything else, tablets included, to `App`. It reads the device screen, not the viewport, so rotating or resizing never swaps the UI.
-- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). The greeter's *Open the workbench on this phone anyway* stores `dunceious.shell=desktop` in `sessionStorage`, so the choice lasts for the tab's session and a later visit starts on the greeter again.
+- `?shell=greeter` or `?shell=desktop` forces a shell for one load (for previews and tests). Nothing else overrides detection and nothing is stored: a phone cannot open the workbench, and the greeter offers the showroom instead.
 
 ### `src/app/greeter/` (Phone Landing Page)
 
-- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: *Best on a computer* (the address to open later, supported browsers and *Open the workbench on this phone anyway*), feature cards, privacy and source links.
+- `Greeter` switches between `GreeterHome` and `GreeterTour` (four steps). The home page opens on `GenomeZoom`: the SARS-CoV-2 genome as three linked strips (whole genome, a 342-base region, 21 bases with their codons), moved by dragging or as a keyboard slider (`useLens`), with codons read in each gene's frame, through ORF1ab's −1 frameshift (`genomeZoom.ts`). Below it: *Best on a computer* (the address to open later, supported browsers and *Test-drive the workbench*, which lazy-loads the showroom), then what it does, *Where your files go* (plain text: files stay in the browser tab; remote alignment is the one opt-in exception) and the source links.
 - The greeter ships NC_045512.2 itself (`sarsCov2Sequence.ts`, about 30 KB). `greeterContent.test.ts` checks the sequence, gene spans and codon translations against `examples/sars-cov-2-NC_045512.gb`.
+
+### `src/app/showroom/` (Phone Test Drive)
+
+- A read-only test drive of the workbench, held sideways. In portrait `RotatePrompt` covers it (`useLandscape`, `matchMedia('(orientation: landscape)')`) without unmounting it, so the viewer keeps its zoom and the session survives rotation; the alignment dialog and explanations wait for landscape. Exit returns to the greeter and clears any alignment consent given in the showroom, so the next entry starts fresh and asks again.
+- `sampleWorkspace.ts` imports three files from `examples/` with Vite `?raw` (SARS-CoV-2, the human mitochondrion, influenza A/PR8: ten records) and parses them as a drop of the three would: `handleBioMessage` per file, then `applyParseSuccess`. `useShowroomWorkspace` holds the session in memory and runs `PROCESS_RECORDS` and sequence search (`runInlineSearch` for exact, the search worker's `runSearch` for fuzzy) in the page.
+- Real parts: `GenomeViewer`, `SearchPanel`, `AlignmentSection` and `AlignRemoteModal` (real preflight verdicts and consent; Submit sends nothing). The top bar and sidebar drawer are rebuilt (`ShowroomTopBar`, `ShowroomSidebar`) because `TopNav` and `Sidebar` are bound to App state and desktop sizes; they copy their labels, classes and order.
+- Every action that would import, export, edit, delete, save or contact a server opens `ExplainCallout` with copy from `explanations.ts` instead. `useShowroomGuards` stops context menus on the viewer (right-click and a 500 ms long-press, cancelled at the viewer's pan slop and consumed once it fires; fields and the chrome keep the browser's own) and every link to another origin (capture-phase `click`, `auxclick`, `contextmenu`, `dragstart` on `document`), so the viewer's clipboard write and `window.confirm` never run.
 
 ### `src/app/App.tsx` (Composition Root)
 
@@ -301,6 +324,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
 - `OptionsPanel` – chrome theme and feature colours
+- `ComparisonMenu` – the toolbar's Compare control: highlight mode, reference, match dots and a live two-row preview
 - `TooltipLayer` – the single tooltip renderer for every `data-tip`
 - `MoleculeTypeMismatchModal` – explains a blocked nucleotide/peptide upload
 - `CentralDogmaEgg` – the version-tap easter egg
@@ -312,6 +336,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Alignment gaps**: each part of a transposed feature is one continuous bar; joins and origin crossings keep one bar per part with connectors.
 - **Translation lanes**: shown above `TRANSLATION_MIN_ZOOM` only. `assignTranslationLanes` (`cds.ts`) groups each CDS's codons by `codonFrame` and packs them into the fewest rows per record and strand, cached per record object. A programmed ribosomal frameshift (`domain/bio/frameshift.ts`) moves later codons to their own frame's row; the annotation bar carries the `−1`/`+1` badge.
 - **Focus flight**: `useFocusFlight` animates to a `FocusTarget` (`logic/focusTarget.ts`, the feature's whole envelope in aligned columns) along `d3.interpolateZoom`, framed at 80 % of the viewport; reduced motion jumps, and any user input cancels it.
+- **Touch navigation**: `touchGesture.ts` owns the pure pan/pinch state machine, anchored zoom calculation and `TouchArbiter`. One arbiter per viewer lets either rows or minimap own all its fingers until release, retaining rejected pointer IDs for their lifetime. `useTouchPanZoom` adapts rows pointer events to native horizontal scrolling, react-window vertical scrolling and `applyZoom`; capture begins after the 6 px slop or when pinching, preserving feature taps. Rows and the list's scroll container disable browser touch scrolling. The minimap handles touch tap-to-centre and drag-to-pan at the current zoom, while d3's brush remains mouse-only. Touch pointerdown cancels a focus flight through its existing capture-phase listener. `touch-action: none` also covers direct-manipulation pens, which therefore use the compatibility-mouse path; Apple Pencil drags on iPadOS are unverified.
 - **Track Packing**: Quantitative BED/BedGraph tracks with canvas rendering.
 - **Circular Support**: Features where `start > end` span the genome origin and are rendered as two-part segments.
 

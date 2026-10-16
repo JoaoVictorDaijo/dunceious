@@ -1,0 +1,42 @@
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/* The root turns off text selection (useShowroomGuards); fields must stay editable,
+   which iOS refuses under an inherited `-webkit-user-select: none`. */
+[data-showroom-root] :is(input, textarea) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* The showroom's one motion: the phone turns once along the arrow, then rests sideways. */
+.showroom-turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: showroom-turn 1.2s cubic-bezier(0.65, 0, 0.35, 1) 0.35s 1 both;
+}
+@keyframes showroom-turn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .showroom-turn { animation: none; transform: rotate(90deg); }
+}
+
+/* The alignment dialog is sized for a desktop window; under the banner it scrolls inside its wrapper instead. */
+[data-showroom-align] [role="dialog"] { max-height: 100%; }

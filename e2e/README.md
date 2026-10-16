@@ -5,7 +5,9 @@ and exercises the compiled app in Chromium with real bio/search workers. It cove
 FASTA and GFF3 import, a reverse-strand annotation, alignment overlay, Hub editing
 and navigation, sequence search, original/aligned FASTA, GenBank/GFF3 coordinates,
 and format-2 project export/reload. An earlier project format must be refused
-without changing the workspace.
+without changing the workspace. `showroom.spec.ts` drives the phone test drive with touch
+emulation, portrait then landscape, and checks that it requests nothing from another origin and
+opens no other page.
 
 After `npm ci`, install the test browser with `npx playwright install chromium`.
 An existing Chromium can be used instead:

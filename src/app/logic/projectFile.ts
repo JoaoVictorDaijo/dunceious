@@ -19,6 +19,7 @@
 
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { sanitizeId } from './idHelpers';
+import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
 
 export interface ProjectState {
   name?: string;
@@ -28,6 +29,8 @@ export interface ProjectState {
   showAnnotations: boolean;
   showTranslation: boolean;
   showConservation: boolean;
+  /** Absent in projects saved before reference comparison existed. */
+  alignmentComparison?: AlignmentComparisonSettings;
   version?: string;
   selectionRange?: { start: number; end: number };
   exportedAt?: string;
@@ -90,6 +93,7 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
   const selection = value.activeSelection;
   if (!Array.isArray(value.records) || !value.records.every(validRecord) || !stringMap(value.featureColors)
     || !['showAnnotations', 'showTranslation', 'showConservation'].every(key => typeof value[key] === 'boolean')
+    || (value.alignmentComparison !== undefined && !isAlignmentComparisonSettings(value.alignmentComparison))
     || (value.name !== undefined && typeof value.name !== 'string')
     || (value.selectionRange !== undefined && !coordinates(value.selectionRange))
     || (value.exportedAt !== undefined && typeof value.exportedAt !== 'string')

@@ -18,7 +18,7 @@
  */
 
 import { Component, Suspense, lazy, useState, type ReactNode } from 'react';
-import { pickShell, readShellEnv, rememberShell, type Shell, type ShellEnv } from './pickShell';
+import { pickShell, readShellEnv, type ShellEnv } from './pickShell';
 
 // Each UI is its own chunk, so a phone never downloads the workbench and a
 // desktop never downloads the greeter.
@@ -34,9 +34,7 @@ function Loading() {
   );
 }
 
-// A tab opened before a deploy asks for chunk hashes that no longer exist, and a
-// phone can drop its connection before "Open the workbench anyway" loads App.
-// Either way a reload recovers, which beats a blank page.
+// Reload recovers missing chunks after a deploy or a dropped connection.
 class ShellErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
@@ -58,19 +56,12 @@ class ShellErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
 }
 
 export default function ShellRoot({ env }: { env?: ShellEnv }) {
-  const [shellEnv] = useState(() => env ?? readShellEnv());
-  const [shell, setShell] = useState<Shell>(() => pickShell(shellEnv));
-
-  const openWorkbench = () => {
-    rememberShell('desktop', shellEnv.storage);
-    window.scrollTo(0, 0);
-    setShell('desktop');
-  };
+  const [shell] = useState(() => pickShell(env ?? readShellEnv()));
 
   return (
     <ShellErrorBoundary>
       <Suspense fallback={<Loading />}>
-        {shell === 'greeter' ? <Greeter onOpenWorkbench={openWorkbench} /> : <App />}
+        {shell === 'greeter' ? <Greeter /> : <App />}
       </Suspense>
     </ShellErrorBoundary>
   );

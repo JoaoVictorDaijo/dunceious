@@ -22,20 +22,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import Greeter from '../Greeter';
 
+vi.mock('../../showroom/Showroom', async () => {
+  const { useState } = await import('react');
+  return { default: ({ onExit }: { onExit: () => void }) => {
+    const [changed, setChanged] = useState(false);
+    return <><p>{changed ? 'Changed sample' : 'Fresh sample'}</p><button onClick={() => setChanged(true)}>Change sample state</button><button onClick={onExit}>Exit</button></>;
+  } };
+});
+
 beforeEach(() => {
   window.scrollTo = vi.fn();
 });
 
 describe('Greeter hero', () => {
   it('opens the genome on the D614G site', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     const lens = screen.getByRole('slider', { name: 'Position in the SARS-CoV-2 genome' });
     expect(lens.getAttribute('aria-valuenow')).toBe('23403');
     expect(lens.getAttribute('aria-valuetext')).toBe('Base 23,403, S, surface glycoprotein, Codon 614, aspartate (D)');
   });
 
   it('moves the lens from the keyboard', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     const lens = screen.getByRole('slider');
     fireEvent.keyDown(lens, { key: 'ArrowRight' });
     expect(lens.getAttribute('aria-valuenow')).toBe('23404');
@@ -46,7 +54,7 @@ describe('Greeter hero', () => {
   });
 
   it('jumps between genes, wrapping at both ends', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     const lens = screen.getByRole('slider');
     fireEvent.click(screen.getByRole('button', { name: 'Next gene' }));
     expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 25,394, ORF3a, ORF3a protein, Codon 1, methionine \(M\)$/);
@@ -58,7 +66,7 @@ describe('Greeter hero', () => {
   });
 
   it('moves the lens to where the genome strip is tapped', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     const lens = screen.getByRole('slider') as unknown as SVGSVGElement;
     lens.getBoundingClientRect = () => ({ left: 0, top: 0, width: 342, height: 142 } as DOMRect);
     Object.defineProperty(lens, 'viewBox', { value: { baseVal: { width: 342, height: 142 } } });
@@ -72,20 +80,31 @@ describe('Greeter hero', () => {
 
 describe('Greeter home', () => {
   it('says where to find it on a computer', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     expect(screen.getByRole('heading', { level: 2, name: 'Best on a computer' })).toBeTruthy();
     expect(screen.getByText('dunceious.pages.dev')).toBeTruthy();
   });
 
-  it('opens the workbench on request', () => {
-    const onOpenWorkbench = vi.fn();
-    render(<Greeter onOpenWorkbench={onOpenWorkbench} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open the workbench on this phone anyway' }));
-    expect(onOpenWorkbench).toHaveBeenCalledTimes(1);
+  it('offers a test drive and says where files go', () => {
+    render(<Greeter />);
+    expect(screen.getByRole('button', { name: 'Test-drive the workbench' })).toBeTruthy();
+    expect(screen.queryByText(/anyway/)).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Where your files go' })).toBeTruthy();
+    expect(screen.queryByText('0 bytes')).toBeNull();
+  });
+
+  it('exit returns focus and resets', async () => {
+    render(<Greeter />);
+    fireEvent.click(screen.getByRole('button', { name: 'Test-drive the workbench' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Change sample state' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exit' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Test-drive the workbench' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Test-drive the workbench' }));
+    expect(await screen.findByText('Fresh sample')).toBeTruthy();
   });
 
   it('hides the drag hint once the genome is used', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     const hint = screen.getByText('Drag the genome to explore');
     expect(hint.className).toContain('opacity-100');
     fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowLeft' });
@@ -95,7 +114,7 @@ describe('Greeter home', () => {
 
 describe('Greeter tour', () => {
   it('walks four steps and returns focus to the tour button on close', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     fireEvent.click(screen.getByRole('button', { name: 'Take the 60-second tour' }));
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Drop a file. That’s the setup.');
@@ -113,7 +132,7 @@ describe('Greeter tour', () => {
   });
 
   it('ends with Done, back on the home page', () => {
-    render(<Greeter onOpenWorkbench={() => {}} />);
+    render(<Greeter />);
     fireEvent.click(screen.getByRole('button', { name: 'Take the 60-second tour' }));
     for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));

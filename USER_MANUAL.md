@@ -4,7 +4,7 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
-**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, and the address to open on a computer. **Open the workbench on this phone anyway** loads the full app for the rest of that browser session. Tablets and computers open the workbench directly.
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive with sample data (SARS-CoV-2, the human mitochondrion and influenza A): hold the phone sideways to browse the real viewer, change layers, show or hide records and search sequences. Anything that would load, save, export, edit or send data explains what it does in the workbench instead. Nothing you do there is saved, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
 
 ### 1.1 Ingesting Data
 
@@ -56,6 +56,19 @@ While a job runs, anything that would change the loaded records (uploading, load
 
 Once an alignment is loaded, the conservation heatmap (toggled via the **Conservation** button in the top bar) becomes available.
 
+#### Comparing against a reference
+
+The **Compare** button in the top bar compares every aligned sequence against one **reference** sequence, column by column.
+
+- **Reference**: by default the first aligned sequence. Pick another in the Compare menu, or right-click an aligned sequence and choose **Use as Reference** (this also switches an idle comparison to **Differences**). Compare needs at least two aligned sequences; sequences outside the alignment are never compared. The reference row keeps all its colours and carries a **REF** badge. A hidden reference is still used, so hiding it never changes what the other rows are compared to.
+- **Differences**: only residues that differ from the reference keep their colour. With **Show identical residues as dots** on (the default), identical residues are drawn as `·`, as in NCBI's MSA Viewer, Geneious and UGENE.
+- **Identity**: the opposite. Only residues identical to the reference keep their colour; differences are muted.
+- **Off**: every residue in its own colour.
+
+Comparison ignores case and treats `U` and `T` as the same base. A gap facing a residue counts as a difference (an indel relative to the reference), and gaps are always drawn as gaps. Ambiguity codes (`N`, `R`, `Y`… in nucleotides; `X`, `B`, `Z`, `J` in proteins) are never counted as identical or different, because identity can be neither confirmed nor ruled out: they stay as muted letters, never as dots. At overview zoom, muted residues become a pale band, so differences stand out as coloured ticks.
+
+This is a display setting only: exports always contain the real residues. The setting is saved with the project.
+
 Annotations stay whole across alignment gaps: a gap inside a sequence never cuts an annotation into pieces, and the translation of a coding feature is unchanged. Only features that really have several parts (such as `join(...)`) are drawn as separate bars joined by a connector.
 
 ## 2. Navigation & Interaction
@@ -65,6 +78,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Zoom**: Use the zoom slider, Ctrl + mouse wheel (or a trackpad pinch), or the `+` / `-` keys.
 - **Scroll**: Use the horizontal scrollbar, Shift + mouse wheel, or the arrow keys. The column with sequence names is sticky and stays visible.
 - **Pan Mode**: Click and drag to move the viewport.
+- **Touch screens**: Drag one finger over the viewer to pan horizontally and vertically; pinch two fingers to zoom around their midpoint. Tap an annotation to open its details. On the minimap, tap to centre the view or drag one finger to move the visible window at the current zoom. Touch pans in either Pan or Select mode; selecting a region still uses a mouse.
 - **Select Mode**: Click and drag to highlight a specific genomic region across all records. Double-click an annotation to select exactly its span. `Esc` clears the selection.
 - **Go to position**: Type a position in the sidebar's **Navigation** box and press Enter. The field shows its unit: `bp` in a nucleotide session, `aa` in a peptide session.
 - **Keyboard shortcuts** (when not typing in a field): `+` / `-` zoom, arrow keys pan and scroll, `Page Up` / `Page Down` scroll a screen of rows, `Home` / `End` jump to the start or end, `F` fits the whole alignment, `C` centres on the selection.
