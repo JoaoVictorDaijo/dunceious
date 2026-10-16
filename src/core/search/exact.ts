@@ -18,7 +18,7 @@
  */
 
 import { degenerateToRegex } from '@/src/core/search/query';
-import { reverseComplement, getNonGapSegments, detectMoleculeType } from '@/src/domain/bio';
+import { reverseComplement, getNonGapSegments, complementAlphabet } from '@/src/domain/bio';
 import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
 
 /**
@@ -67,7 +67,7 @@ export function runExactSearch(
 
     // Reverse search (nucleotide only — proteins have no reverse complement)
     if (!isProtein && (strand === 'both' || strand === 'rev')) {
-      const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
+      const rcSeq = reverseComplement(seq, complementAlphabet(seq, record.moleculeType ?? moleculeType));
       let match;
       regex.lastIndex = 0;
       while ((match = regex.exec(rcSeq)) !== null) {

@@ -52,6 +52,19 @@ export function reverseComplement(seq: string, moleculeType: SeqRecord['molecule
   }).join('');
 }
 
+/**
+ * The alphabet a record's reverse complement is written in: RNA only when the
+ * record contains U, or contains neither T nor U and is declared RNA. GenBank
+ * writes RNA genomes with T under an RNA LOCUS line, and complementing those
+ * into U would stop a T query from matching their reverse strand. Pass the
+ * whole record sequence, not a slice, so every part of a record agrees.
+ */
+export function complementAlphabet(sequence: string, moleculeType?: SeqRecord['moleculeType']): 'dna' | 'rna' {
+  if (/u/i.test(sequence)) return 'rna';
+  if (/t/i.test(sequence)) return 'dna';
+  return moleculeType === 'rna' ? 'rna' : 'dna';
+}
+
 // ---------------------------------------------------------------------------
 // Translation
 // ---------------------------------------------------------------------------

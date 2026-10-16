@@ -17,12 +17,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { parseFasta, exportToFasta } from '@/src/core/formats/fasta';
 import { parseGenBank } from '@/src/core/genbank';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { degenerateToRegex } from '@/src/core/search/query';
-import { reverseComplement, translateSequence, detectEarlyStop, detectMoleculeType, processTransposition, sliceRecordsBySelection } from '@/src/domain/bio';
+import { complementAlphabet, reverseComplement, translateSequence, detectEarlyStop, detectMoleculeType, processTransposition, sliceRecordsBySelection } from '@/src/domain/bio';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { runSearch } from '@/src/workers/handlers/search';
@@ -201,3 +202,43 @@ describe('RNA IUPAC search', () => {
     }
   });
 });
+
+// GenBank writes RNA genomes with T while the LOCUS line declares RNA.
+describe('reverse search on a T-written RNA genome', () => {
+  const [genome] = parseGenBank(readFileSync('examples/sars-cov-2-NC_045512.gb', 'utf8'));
+  const record = { id: genome.id, sequence: genome.sequence, moleculeType: genome.moleculeType };
+  const source = genome.sequence.substring(28_500, 28_560);
+  const query = reverseComplement(source, 'dna');
+
+  it('is declared RNA but written without U', () => {
+    expect(genome.moleculeType).toBe('rna');
+    expect(genome.sequence).not.toMatch(/u/i);
+  });
+
+  // At 100% identity the fuzzy hit must match all 60 bases, like the exact one.
+  it.each(['exact', 'fuzzy'] as const)('finds the %s reverse-strand hit in worker and inline paths', (mode) => {
+    const request: SearchWorkerRequest = {
+      searchQuery: query, records: [record], mode, moleculeType: 'dna',
+      options: { minIdentity: 100, strand: 'rev', maxResults: 10 },
+    };
+    const response = runSearch(request);
+    if ('error' in response) throw new Error(response.error);
+    for (const results of [response.results, runInlineSearch(request)]) {
+      expect(results[0]).toMatchObject({ recordId: genome.id, strand: -1, start: 28_500, end: 28_560 });
+    }
+  });
+});
+
+describe('complementAlphabet', () => {
+  it.each([
+    ['T-written RNA record', 'dna', 'ACGTA', 'rna'],
+    ['U-written RNA record', 'rna', 'ACGUA', 'rna'],
+    ['RNA record with neither T nor U', 'rna', 'ACGGA', 'rna'],
+    ['DNA record with neither T nor U', 'dna', 'ACGGA', 'dna'],
+    ['record mixing T and U', 'rna', 'ACGTU', 'rna'],
+    ['lowercase uracil', 'rna', 'acgua', undefined],
+  ] as const)('%s complements as %s', (_case, expected, sequence, moleculeType) => {
+    expect(complementAlphabet(sequence, moleculeType)).toBe(expected);
+  });
+});
+
