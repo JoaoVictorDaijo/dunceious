@@ -1,9 +1,9 @@
 ---
 title: "Greeter showroom: a test drive of the workbench on phones"
-status: proposed
+status: implemented
 date: 2026-10-15
 areas: ["greeter", "app", "viewer"]
-prs: []
+prs: [174, 175]
 issues: []
 superseded_by: null
 summary: "Phones get a sideways, read-only test drive that renders the real GenomeViewer, search panel and alignment dialog over bundled example records, with every action that would do work replaced by an explanation."

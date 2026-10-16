@@ -4,7 +4,7 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
-**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, and the address to open on a computer. **Open the workbench on this phone anyway** loads the full app for the rest of that browser session. Tablets and computers open the workbench directly.
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive with sample data (SARS-CoV-2, the human mitochondrion and influenza A): hold the phone sideways to browse the real viewer, change layers, show or hide records and search sequences. Anything that would load, save, export, edit or send data explains what it does in the workbench instead. Nothing you do there is saved, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
 
 ### 1.1 Ingesting Data
 

@@ -23,8 +23,9 @@ import { BASE_COLORS, CHANGELOG_URL, FEATURES, REPO_URL, SITE_HOST, seededNoise 
 
 interface Props {
   tourButtonRef: RefObject<HTMLButtonElement | null>;
+  showroomButtonRef: RefObject<HTMLButtonElement | null>;
   onTour: () => void;
-  onOpenWorkbench: () => void;
+  onShowroom: () => void;
 }
 
 const h2 = 'm-0 text-2xl font-extrabold tracking-tight';
@@ -84,14 +85,18 @@ function AboutSections() {
         </ul>
       </section>
 
-      <section className="mx-6 mt-10 flex flex-col gap-2 rounded-[20px] border border-green-900 bg-[#0f2a1d] p-6">
-        <h2 className="m-0 flex flex-col gap-2">
-          <span className="font-mono text-[44px] font-extrabold tracking-[-0.04em] text-green-400">0 bytes</span>
-          <span className="text-lg font-bold text-green-100">uploaded. Ever.</span>
-        </h2>
-        <p className="m-0 text-sm leading-normal text-green-200">
-          There is no backend. Your sequences are parsed and searched inside your own browser. The one exception, remote
-          alignment through EMBL-EBI, is opt-in and asks you first.
+      <section className="mx-6 mt-10 flex flex-col gap-3">
+        <h2 className={h2}>Where your files go</h2>
+        <p className="m-0 text-[15px] leading-normal text-slate-400">
+          Dunceious is a static website. Your browser downloads the app, then opens your files itself.
+          They stay in that browser tab and are gone when you close it, unless you save a project, which
+          writes a file to your own computer. There is no server that receives your files, no account and
+          no database.
+        </p>
+        <p className="m-0 text-[15px] leading-normal text-slate-400">
+          Remote alignment is the one exception, and you choose it: it sends every loaded sequence,
+          including hidden ones, and the email address you give to EMBL-EBI, and asks you first in every
+          session.
         </p>
       </section>
 
@@ -107,7 +112,7 @@ function AboutSections() {
   );
 }
 
-function ComputerSection({ onOpenWorkbench }: Pick<Props, 'onOpenWorkbench'>) {
+function ComputerSection({ onShowroom, showroomButtonRef }: Pick<Props, 'onShowroom' | 'showroomButtonRef'>) {
   return (
     <section className="mt-12 flex flex-col gap-3.5 px-6">
       <h2 className={h2}>Best on a computer</h2>
@@ -121,16 +126,16 @@ function ComputerSection({ onOpenWorkbench }: Pick<Props, 'onOpenWorkbench'>) {
       </p>
       <DesktopMock />
       <div className="flex flex-col items-start gap-1 pt-1">
-        <button type="button" onClick={onOpenWorkbench} className="-ml-3 p-3 text-[15px] font-semibold text-sky-400">
-          Open the workbench on this phone anyway
+        <button ref={showroomButtonRef} type="button" onClick={onShowroom} className="flex h-12 w-full items-center justify-center rounded-xl bg-sky-700 px-4 text-[15px] font-bold text-white">
+          Test-drive the workbench
         </button>
-        <span className="text-xs leading-normal text-slate-400">It works best sideways or on a tablet, and some panels won’t fit.</span>
+        <span className="text-sm leading-normal text-slate-400">See the workbench with sample data. Nothing you do there is saved.</span>
       </div>
     </section>
   );
 }
 
-export default function GreeterHome({ tourButtonRef, onTour, onOpenWorkbench }: Props) {
+export default function GreeterHome({ tourButtonRef, showroomButtonRef, onTour, onShowroom }: Props) {
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-xl flex-col bg-slate-950 text-slate-200">
       <header className="flex items-start justify-between px-6 pt-[18px]">
@@ -156,7 +161,7 @@ export default function GreeterHome({ tourButtonRef, onTour, onOpenWorkbench }: 
           </button>
         </section>
 
-        <ComputerSection onOpenWorkbench={onOpenWorkbench} />
+        <ComputerSection showroomButtonRef={showroomButtonRef} onShowroom={onShowroom} />
         <AboutSections />
       </main>
 

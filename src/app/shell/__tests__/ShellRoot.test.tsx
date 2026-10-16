@@ -19,20 +19,18 @@
 
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { render, screen } from '@/src/app/testing/renderHarness';
 import ShellRoot from '../ShellRoot';
-import { SHELL_OVERRIDE_KEY, type ShellEnv } from '../pickShell';
+import { type ShellEnv } from '../pickShell';
 
 vi.mock('../../App', () => ({ default: () => <div>workbench</div> }));
 
 function env(overrides: Partial<ShellEnv> = {}): ShellEnv {
-  const data = new Map<string, string>();
   return {
     coarsePointer: true,
     screenWidth: 390,
     screenHeight: 844,
     search: '',
-    storage: { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => { data.set(k, v); } },
     ...overrides,
   };
 }
@@ -44,15 +42,11 @@ describe('ShellRoot', () => {
     expect(await screen.findByText('workbench')).toBeTruthy();
   });
 
-  it('loads the greeter on a phone, and the workbench once asked for', async () => {
+  it('loads the greeter on a phone without a workbench escape', async () => {
     window.scrollTo = vi.fn();
-    const shellEnv = env();
-    render(<ShellRoot env={shellEnv} />);
+    render(<ShellRoot env={env()} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'A genome workbench that lives in your browser.' })).toBeTruthy();
     expect(screen.queryByText('workbench')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open the workbench on this phone anyway' }));
-    expect(await screen.findByText('workbench')).toBeTruthy();
-    expect(shellEnv.storage!.getItem(SHELL_OVERRIDE_KEY)).toBe('desktop');
+    expect(screen.getByRole('button', { name: 'Test-drive the workbench' })).toBeTruthy();
   });
 });

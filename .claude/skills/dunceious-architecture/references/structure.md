@@ -36,6 +36,7 @@ src/
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI (ESLint)
+    ├── showroom/        # phone test drive over bundled examples, lazy-loaded by the greeter; no App/hooks/lib/shell imports (ESLint)
     ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)

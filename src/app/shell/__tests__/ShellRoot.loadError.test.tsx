@@ -28,7 +28,7 @@ describe('ShellRoot when a UI chunk fails to load', () => {
   it('offers a reload instead of a blank page', async () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
-      render(<ShellRoot env={{ coarsePointer: false, screenWidth: 1440, screenHeight: 900, search: '', storage: null }} />);
+      render(<ShellRoot env={{ coarsePointer: false, screenWidth: 1440, screenHeight: 900, search: '' }} />);
       expect((await screen.findByRole('alert')).textContent).toContain('Something went wrong loading Dunceious.');
       expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy();
     } finally {
