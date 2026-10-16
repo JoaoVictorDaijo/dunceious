@@ -22,6 +22,7 @@ import { it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
 import { useHubState } from '../useHubState';
 import { useBioWorker } from '../useBioWorker';
+import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
 import { useFileHandlers } from '../useFileHandlers';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
@@ -45,9 +46,9 @@ function setup(readText: (file: File) => Promise<string>, locked = () => false) 
     const bio = useBioWorker(log);
     const hub = useHubState();
     const handlers = useFileHandlers(bio.bioWorkerRef, bio.records, null, {},
-      { showAnnotations: true, showTranslation: false, showConservation: false },
+      { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
       { onWorkspaceReplaced: hub.resetWorkspace, setRecords: bio.setRecords, setIsProcessing: bio.setIsProcessing, setFeatureColors: vi.fn(), setActiveSelection: vi.fn(),
-        setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn() }, log, locked,
+        setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn() }, log, locked,
       { requestBio: bio.requestBio, getRecords: bio.getRecords, getWorkspaceRevision: () => hub.workspaceRevision.current, readText });
     return { bio, handlers, hub };
   });

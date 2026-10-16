@@ -34,6 +34,7 @@ import { useViewport } from './useViewport';
 import { useBasesOpenness } from './useBasesOpenness';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 /**
  * GenomeViewer — virtualized, canvas-backed alignment/genome browser.
@@ -89,6 +90,10 @@ interface Props {
   focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
+  /** Reference comparison to draw in the sequence rows; null draws every residue in its own colour. */
+  comparison?: ActiveComparison | null;
+  /** Offered in the record menu, on aligned records only, while a comparison is possible. */
+  onSetComparisonReference?: (recordId: string) => void;
 }
 
 const GenomeViewer: React.FC<Props> = ({ 
@@ -115,7 +120,9 @@ const GenomeViewer: React.FC<Props> = ({
   onFocusComplete,
   focusedRegion = null,
   showConservation,
-  showTracks
+  showTracks,
+  comparison = null,
+  onSetComparisonReference,
 }) => {
   const [tooltip, setTooltip] = useState<{ x: number, y: number, content: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, recordId: string, feature?: BioFeature } | null>(null);
@@ -258,13 +265,14 @@ const GenomeViewer: React.FC<Props> = ({
     quantValueRanges,
     showTracks,
     basesOpenness,
-    focusedRegion: focusLabel
+    focusedRegion: focusLabel,
+    comparison,
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel
+    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel, comparison
   ]);
 
   // Segmented-inset toolbar (design direction B): two surface levels — recessed
@@ -421,6 +429,18 @@ const GenomeViewer: React.FC<Props> = ({
             >
               <i className="fas fa-info-circle w-4 text-center opacity-50"></i> View Details
             </button>
+            {onSetComparisonReference && !contextMenu.feature && records.find(r => r.id === contextMenu.recordId)?.alignedSequence && (
+              <button
+                onClick={() => {
+                  onSetComparisonReference(contextMenu.recordId);
+                  setContextMenu(null);
+                }}
+                data-tip="Compare every other aligned sequence against this one"
+                className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-sky-50 hover:text-sky-600 flex items-center gap-3 transition-colors"
+              >
+                <i className="fas fa-thumbtack w-4 text-center opacity-50"></i> Use as Reference
+              </button>
+            )}
             {onRemoveRecord && (
               <button disabled={isAlignmentLocked} data-tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Remove this sequence"}
                 onClick={() => {

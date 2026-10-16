@@ -39,6 +39,7 @@ src/
 │   ├── insdcVocabulary.ts # country and missing-value vocabulary
 │   ├── coordinate.ts    # transposition, aligned-segment building
 │   ├── consensus.ts
+│   ├── referenceComparison.ts # per-residue relation to a reference (identical/substitution/gap/ambiguous)
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
 │   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
 │   │                    #   detection, gap↔ungapped mapping, isProteinSession
@@ -78,6 +79,7 @@ src/
     │   ├── featureComparison.ts # organism-scoped presence and per-type length comparison
     │   ├── exportPlan.ts # subset/options, shared preview and serializer dispatch
     │   ├── projectFile.ts # format-2 project serialization and validation
+    │   ├── alignmentComparison.ts # reference choice, comparison settings and the shared residue style
     │   └── dropRouting.ts # ordered drops and batch-scoped sequence-ID mapping
     ├── hooks/
     ├── components/      # modals, panels, nav, sidebar
@@ -237,6 +239,12 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
 - Generates a master consensus sequence across all aligned records to identify conservation.
 - Imported directly by `src/workers/handlers/bio.ts` (no duplication).
 
+### Reference comparison
+
+- `src/domain/bio/referenceComparison.ts` classifies one aligned residue against the reference residue in its column: case-insensitive, `U`≡`T` for nucleotides only, gap-vs-gap identical, gap-vs-residue a `gap`, and any ambiguity code `ambiguous` (never identical or a substitution).
+- `src/app/logic/alignmentComparison.ts` holds the settings saved in project JSON (`alignmentComparison`: reference ID, highlight, match dots), resolves the reference among aligned records only (falling back to the first, and keeping a hidden one), and owns `residueStyle`, which both `SequenceTrack` and the `ComparisonMenu` preview draw from. Comparison needs at least two aligned records; unaligned rows are never compared.
+- Display only: exports always carry the real residues.
+
 ### Search (`src/workers/handlers/search.ts`)
 
 - **Exact / IUPAC Mode**: `degenerateToRegex(query, moleculeType)` from `src/core/search/query.ts`. The `moleculeType` parameter selects between two IUPAC character maps:
@@ -301,6 +309,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
 - `OptionsPanel` – chrome theme and feature colours
+- `ComparisonMenu` – the toolbar's Compare control: highlight mode, reference, match dots and a live two-row preview
 - `TooltipLayer` – the single tooltip renderer for every `data-tip`
 - `MoleculeTypeMismatchModal` – explains a blocked nucleotide/peptide upload
 - `CentralDogmaEgg` – the version-tap easter egg

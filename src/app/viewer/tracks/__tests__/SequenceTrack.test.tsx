@@ -27,6 +27,7 @@ import { Minimap } from '@/src/app/viewer/Minimap';
 import { AA_ROW_HEIGHT } from '@/src/app/viewer/constants';
 import { assignTranslationLanes } from '@/src/app/viewer/cds';
 import type { BioFeature } from '@/src/domain/bio/types';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
@@ -264,4 +265,85 @@ it('keeps reverse-oriented pieces continuous inside a mixed-strand codon', () =>
   expect(recorder.fillRects().filter(([, , , h]) => h === AA_ROW_HEIGHT).map(([x, , w]) => [x, w]))
     .toEqual([[0, 20], [80, 40]]);
   expect(labels.mock.calls.filter(([text]) => text === 'I').map(([, x]) => x)).toEqual([100]);
+});
+
+describe('reference comparison', () => {
+  // Reference TTTATCAGGATG…; this row carries the D614G A→G change at column 9,
+  // an N at column 2 and a deletion at column 5.
+  const REF = 'TTTATCAGGATG';
+  const ROW = 'TTNAT-AGGGTG';
+  const compare = (overrides: Partial<ActiveComparison> = {}): ActiveComparison => ({
+    referenceId: 'wuhan', referenceSeq: REF, highlight: 'disagreements', matchDots: true, alphabet: 'nucleotide', ...overrides,
+  });
+  const draw = (comparison: ActiveComparison | null, zoomLevel = ZOOM) => {
+    const recorder = installCanvasRecorder();
+    render(<SequenceTrack {...props(ROW, [])} showTranslation={false} comparison={comparison} zoomLevel={zoomLevel}
+      xScale={d3.scaleLinear().domain([0, ROW.length]).range([0, ROW.length * zoomLevel])} />);
+    return recorder;
+  };
+
+  it('draws every residue as itself without a comparison', () => {
+    expect(draw(null).texts().join('')).toBe(ROW);
+  });
+
+  it('shows identical residues as dots and keeps differences, gaps and ambiguity as letters', () => {
+    expect(draw(compare()).texts().join('')).toBe('··N··-···G··');
+  });
+
+  it('darkens a deletion against the reference while highlighting differences', () => {
+    expect(draw(compare()).fillColors()).toContain('#475569');
+    expect(draw(compare({ highlight: 'agreements', matchDots: false })).fillColors()).not.toContain('#475569');
+  });
+
+  it('keeps identical residues as muted letters when dots are off', () => {
+    const recorder = draw(compare({ matchDots: false }));
+    expect(recorder.texts().join('')).toBe(ROW);
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
+
+  it('colours only the identical residues when highlighting agreements, and never draws a dot', () => {
+    const recorder = draw(compare({ highlight: 'agreements', matchDots: false }));
+    expect(recorder.texts().join('')).toBe(ROW);
+    // The substituted G (column 9) is muted; the identical T at column 0 keeps its colour.
+    expect(recorder.fillColors()).toContain('#f43f5e');
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
+
+  // A gapped reference: an insertion at column 2, a shared gap at 4 and a substitution at 5.
+  const GAPPED_REF = 'AC-G-TA';
+  const GAPPED_ROW = 'ACTG-CA';
+  const drawGapped = (overrides: Partial<ActiveComparison>) => {
+    const recorder = installCanvasRecorder();
+    render(<SequenceTrack {...props(GAPPED_ROW, [])} showTranslation={false} comparison={compare({ referenceSeq: GAPPED_REF, ...overrides })}
+      xScale={d3.scaleLinear().domain([0, GAPPED_ROW.length]).range([0, GAPPED_ROW.length * ZOOM])} />);
+    const fillAt = (column: number) => {
+      const index = recorder.fillRects().findIndex(([x, y]) => Math.round(x) === column * ZOOM && y === 0);
+      return index < 0 ? undefined : recorder.fillColors()[index];
+    };
+    return { recorder, fillAt };
+  };
+
+  it('keeps insertions and substitutions against a gapped reference, and leaves a shared gap plain', () => {
+    const { recorder, fillAt } = drawGapped({});
+    expect(recorder.texts().join('')).toBe('··T·-C·');
+    expect(fillAt(0)).toBeUndefined(); // identical: just the dot
+    expect(fillAt(2)).toBe('#f43f5e'); // T inserted where the reference has a gap
+    expect(fillAt(4)).toBe('#f1f5f9'); // gap facing gap: a plain gap, not a deletion
+    expect(fillAt(5)).toBe('#3b82f6'); // C substituted for T
+  });
+
+  it('colours exactly the identical columns in Identity mode', () => {
+    const { fillAt } = drawGapped({ highlight: 'agreements', matchDots: false });
+    expect(fillAt(0)).toBe('#22c55e');
+    expect(fillAt(3)).toBe('#eab308');
+    expect(fillAt(2)).toBe('#e2e8f0'); // insertion muted
+    expect(fillAt(5)).toBe('#e2e8f0'); // substitution muted
+    expect(fillAt(4)).toBe('#f1f5f9');
+  });
+
+  it('mutes identical residues into a quiet band at overview zoom', () => {
+    const recorder = draw(compare(), 0.25);
+    expect(recorder.texts()).toEqual([]);
+    expect(recorder.fillColors()).toContain('#e2e8f0');
+  });
 });
