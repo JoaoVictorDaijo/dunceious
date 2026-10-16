@@ -95,7 +95,7 @@ for (const scenario of scenarios) {
     await page.getByRole('button', { name: /^Open .* in viewport$/ }).first().click();
     await expect(page.locator('path[data-annotation-part]')).not.toHaveCount(0);
 
-    async function search(mode: 'exact' | 'fuzzy', query: string, expectedRange?: [number, number]) {
+    async function search(mode: 'exact' | 'fuzzy', query: string, expectedRange?: [number, number], recordId = first.id) {
       await page.getByRole('button', { name: mode === 'exact' ? 'IUPAC' : 'Fuzzy', exact: true }).click();
       await page.getByPlaceholder(mode === 'exact' ? 'Enter IUPAC sequence...' : 'Enter query sequence...').fill(query);
       await page.evaluate(() => {
@@ -108,7 +108,7 @@ for (const scenario of scenarios) {
       await page.getByRole('button', { name: 'Search', exact: true }).click();
       if (expectedRange) {
         await expect(page.getByRole('button', {
-          name: `Annotate match ${expectedRange[0]}–${expectedRange[1]} in ${first.id}`, exact: true,
+          name: `Annotate match ${expectedRange[0]}–${expectedRange[1]} in ${recordId}`, exact: true,
         }).first()).toBeVisible();
       } else {
         await expect(page.getByText('100 matches', { exact: true })).toBeVisible();
@@ -130,7 +130,11 @@ for (const scenario of scenarios) {
       const length = Math.min(300, Math.floor(first.sequence.length / 2));
       const start = Math.floor(first.sequence.length / 3);
       const query = first.sequence.slice(start, start + length);
+      const clearedLimit = scenario.name === 'examples/arabidopsis-chloroplast-NC_000932.gb';
+      const resultLimit = page.locator('[data-sequence-search-section] input[type=number]');
+      if (clearedLimit) await resultLimit.fill('');
       await search('exact', query, [start, start + length]);
+      if (clearedLimit) await expect(resultLimit).toHaveValue('100');
       if (!first.protein) {
         const alphabet: Record<string, string> = { A: first.sequence.includes('T') ? 'T' : 'U', T: 'A', U: 'A', C: 'G', G: 'C' };
         await page.locator('[data-sequence-search-section] select').selectOption('rev');
@@ -143,6 +147,11 @@ for (const scenario of scenarios) {
       }
       await search('fuzzy', mutated.join(''), [start, start + length]);
       await search('exact', first.protein ? 'X' : 'N');
+      for (const record of records.slice(1)) {
+        const offset = Math.floor(record.sequence.length / 3);
+        const subsequence = record.sequence.slice(offset, offset + Math.min(300, Math.floor(record.sequence.length / 2)));
+        await search('exact', subsequence, [offset, offset + subsequence.length], record.id);
+      }
       expect(errors).toEqual([]);
     } finally {
       await testInfo.attach('real-sequence-observations', {
