@@ -33,10 +33,10 @@ describe('joining reverse search hits', () => {
     const { result } = renderHook(() => useSearchWorker(records, vi.fn(), annotate, vi.fn()));
     act(() => {
       result.current.setSearchQuery('TAC');
-      result.current.setSearchOptions({ minScore: 0, strand: 'rev', maxResults: 100 });
+      result.current.setSearchOptions({ minIdentity: 80, strand: 'rev', maxResults: 100 });
     });
     act(() => result.current.handleSearch());
-    expect(result.current.filteredResults.map(hit => hit.strand)).toEqual([-1, -1]);
+    expect(result.current.searchResults.map(hit => hit.strand)).toEqual([-1, -1]);
     if (mode === 'record') act(() => result.current.joinAllInRecord('synthetic'));
     else {
       act(() => result.current.setSelectedSearchIndices(new Set([0, 1])));

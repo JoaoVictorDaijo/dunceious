@@ -24,13 +24,19 @@ import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, Searc
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
-  filteredResults as computeFilteredResults,
   groupedSearchResults as computeGroupedSearchResults,
   joinSegments,
   getSequenceContext as computeSequenceContext,
 } from '@/src/app/logic/searchState';
 
 export type { SearchOptions };
+
+/**
+ * How long a fuzzy search may run in the worker before it is abandoned. The
+ * worker is replaced rather than reused, since a stuck job would hold every
+ * later request in its queue.
+ */
+export const FUZZY_WORKER_TIMEOUT_MS = 15_000;
 
 export interface UseSearchWorkerReturn {
   searchQuery: string;
@@ -39,14 +45,12 @@ export interface UseSearchWorkerReturn {
   setSearchMode: (mode: 'exact' | 'fuzzy') => void;
   searchOptions: SearchOptions;
   setSearchOptions: (opts: SearchOptions) => void;
+  /** Exact matches, or fuzzy hits already at or above `searchOptions.minIdentity`. */
   searchResults: SearchResult[];
-  /** Fuzzy results filtered by minScore; equals searchResults for exact mode. */
-  filteredResults: SearchResult[];
   currentSearchIdx: number;
   setCurrentSearchIdx: Dispatch<SetStateAction<number>>;
   selectedSearchIndices: Set<number>;
   setSelectedSearchIndices: Dispatch<SetStateAction<Set<number>>>;
-  maxScoreFound: number;
   isSearching: boolean;
   isProteinSession: boolean;
   groupedSearchResults: GroupedSearchResults;
@@ -94,11 +98,10 @@ export function useSearchWorker(
   const [selectedSearchIndices, setSelectedSearchIndices] = useState<Set<number>>(new Set());
   const [isSearching, setIsSearching] = useState(false);
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({
-    minScore: 20,
+    minIdentity: 80,
     strand: 'both',
     maxResults: 100,
   });
-  const [maxScoreFound, setMaxScoreFound] = useState(0);
 
   const isProteinSession = useMemo(
     () => computeIsProteinSession(records),
@@ -129,6 +132,7 @@ export function useSearchWorker(
   const addLogRef = useRef(addLog);
   const onFirstResultRef = useRef(onFirstResult);
   const isMountedRef = useRef(true);
+  const replaceWorkerRef = useRef<() => void>(() => {});
 
   const clearFuzzyTimeout = useCallback(() => {
     if (fuzzyTimeoutRef.current !== null) {
@@ -138,6 +142,8 @@ export function useSearchWorker(
   }, []);
 
   const cancelPendingSearch = useCallback(() => {
+    // A worker still busy with the abandoned job would hold the next request in its queue.
+    if (pendingRequestIdRef.current !== null) replaceWorkerRef.current();
     pendingRequestIdRef.current = null;
     lastRequestRef.current = null;
     clearFuzzyTimeout();
@@ -153,7 +159,6 @@ export function useSearchWorker(
     setSearchResults([]);
     setCurrentSearchIdx(-1);
     setSelectedSearchIndices(new Set());
-    setMaxScoreFound(0);
     setIsSearching(false);
   }, [cancelPendingSearch]);
 
@@ -163,8 +168,6 @@ export function useSearchWorker(
 
   const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
     setIsSearching(false);
-    const max = results.length > 0 ? Math.max(...results.map(r => r.score ?? 0)) : 0;
-    setMaxScoreFound(max);
     setSearchResults(results);
 
     addLogRef.current(`Search complete: ${results.length} matches found.`);
@@ -205,72 +208,74 @@ export function useSearchWorker(
     onFirstResultRef.current = onFirstResult;
   }, [searchQuery, addLog, onFirstResult]);
 
-  // ── Fuzzy filter ──────────────────────────────────────────────────────────
-  const filteredResults = useMemo(
-    () => computeFilteredResults(searchResults, searchMode, maxScoreFound, searchOptions.minScore),
-    [searchResults, searchMode, maxScoreFound, searchOptions.minScore],
-  );
-
   // ── Worker lifecycle ───────────────────────────────────────────────────────
   useEffect(() => {
     isMountedRef.current = true;
 
-    searchWorkerRef.current = new Worker(
-      new URL('@/src/workers/search.worker.ts', import.meta.url),
-      { type: 'module' },
-    );
+    const retire = () => {
+      const worker = searchWorkerRef.current;
+      if (!worker) return;
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+      searchWorkerRef.current = null;
+    };
 
-    searchWorkerRef.current.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
-      if (!isMountedRef.current) return;
-      const msg = e.data;
-
-      if (pendingRequestIdRef.current === null) return;
-      if (
-        typeof msg.requestId === 'number' &&
-        pendingRequestIdRef.current !== null &&
-        msg.requestId !== pendingRequestIdRef.current
-      ) {
+    const spawn = () => {
+      let worker: Worker;
+      try {
+        worker = new Worker(
+          new URL('@/src/workers/search.worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+      } catch (err) {
+        // Without a worker, fuzzy searches take the inline fallback in `handleSearch`.
+        addLogRef.current(`Search Worker could not start: ${String(err)}`);
         return;
       }
 
-      clearFuzzyTimeout();
-      pendingRequestIdRef.current = null;
-      setIsSearching(false);
-      if ('error' in msg) {
-        addLogRef.current(`Search Error: ${msg.error}`);
+      worker.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
+        if (!isMountedRef.current) return;
+        const msg = e.data;
+
+        if (pendingRequestIdRef.current === null) return;
+        if (typeof msg.requestId === 'number' && msg.requestId !== pendingRequestIdRef.current) return;
+
+        clearFuzzyTimeout();
+        pendingRequestIdRef.current = null;
+        setIsSearching(false);
+        if ('error' in msg) {
+          // The inline path runs the same search core, so retrying there would fail the same way.
+          addLogRef.current(`Search Error: ${msg.error}`);
+          return;
+        }
+
+        applySearchResults(msg.results, latestQueryRef.current);
+      };
+
+      worker.onerror = (event: ErrorEvent) => {
+        if (!isMountedRef.current || pendingRequestIdRef.current === null) return;
         const pending = lastRequestRef.current;
         if (pending && pending.mode === 'fuzzy') {
-          runInlineFallback(pending, 'Worker returned an error for fuzzy search; using local fallback.');
+          runInlineFallback(pending, `Search Worker Error: ${event.message}. Using local fallback.`);
+          return;
         }
-        return;
-      }
+        clearFuzzyTimeout();
+        pendingRequestIdRef.current = null;
+        setIsSearching(false);
+        addLogRef.current(`Search Worker Error: ${event.message}`);
+      };
 
-      const { results } = msg;
-      applySearchResults(results, latestQueryRef.current);
+      searchWorkerRef.current = worker;
     };
 
-    searchWorkerRef.current.onerror = (event: ErrorEvent) => {
-      if (!isMountedRef.current || pendingRequestIdRef.current === null) return;
-      const pending = lastRequestRef.current;
-      if (pending && pending.mode === 'fuzzy') {
-        runInlineFallback(pending, `Search Worker Error: ${event.message}. Using local fallback.`);
-        return;
-      }
-      clearFuzzyTimeout();
-      pendingRequestIdRef.current = null;
-      setIsSearching(false);
-      addLogRef.current(`Search Worker Error: ${event.message}`);
-    };
+    replaceWorkerRef.current = () => { retire(); spawn(); };
+    spawn();
 
     return () => {
+      replaceWorkerRef.current = () => {};
       cancelPendingSearch();
-      const worker = searchWorkerRef.current;
-      if (worker) {
-        worker.onmessage = null;
-        worker.onerror = null;
-        worker.terminate();
-        searchWorkerRef.current = null;
-      }
+      retire();
       isMountedRef.current = false;
     };
   }, []);
@@ -287,16 +292,13 @@ export function useSearchWorker(
     setSelectedSearchIndices(new Set());
     addLog(`Initiating ${searchMode} search for '${normalizedQuery}'...`);
 
-    const workerMinScore = searchMode === 'fuzzy'
-      ? 1
-      : 0;
     const requestId = ++nextRequestIdRef.current;
     const request: SearchWorkerRequest = {
       requestId,
       searchQuery: normalizedQuery,
       records: searchableRecords,
       mode: searchMode,
-      options: { ...searchOptions, minScore: workerMinScore },
+      options: searchOptions,
       moleculeType: isProteinSession ? 'protein' : 'dna',
     };
     lastRequestRef.current = request;
@@ -325,12 +327,16 @@ export function useSearchWorker(
 
         clearFuzzyTimeout();
         fuzzyTimeoutRef.current = window.setTimeout(() => {
-          if (!isMountedRef.current) return;
-          if (pendingRequestIdRef.current !== requestId) return;
-          const pending = lastRequestRef.current;
-          if (!pending || pending.mode !== 'fuzzy') return;
-          runInlineFallback(pending, 'Fuzzy worker timeout; using local fallback.');
-        }, 4500);
+          fuzzyTimeoutRef.current = null;
+          if (!isMountedRef.current || pendingRequestIdRef.current !== requestId) return;
+          // Rerunning inline would freeze the page for at least as long.
+          pendingRequestIdRef.current = null;
+          replaceWorkerRef.current();
+          setIsSearching(false);
+          setSearchResults([]);
+          setCurrentSearchIdx(-1);
+          addLogRef.current(`Fuzzy search stopped after ${FUZZY_WORKER_TIMEOUT_MS / 1000} s; try a shorter query.`);
+        }, FUZZY_WORKER_TIMEOUT_MS);
 
         return;
       } catch (err) {
@@ -359,8 +365,8 @@ export function useSearchWorker(
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
   const groupedSearchResults = useMemo<GroupedSearchResults>(
-    () => computeGroupedSearchResults(filteredResults),
-    [filteredResults],
+    () => computeGroupedSearchResults(searchResults),
+    [searchResults],
   );
 
   // ── Selection helpers ─────────────────────────────────────────────────────
@@ -395,7 +401,7 @@ export function useSearchWorker(
   const joinSelectedMatches = () => {
     if (selectedSearchIndices.size < 2) return;
     const indices = Array.from(selectedSearchIndices).sort((a, b) => a - b);
-    const matches = indices.map(i => filteredResults[i]);
+    const matches = indices.map(i => searchResults[i]);
     const recordId = matches[0].recordId;
     const res = joinSegments(matches, 'selection');
     if ('error' in res) {
@@ -432,12 +438,10 @@ export function useSearchWorker(
     searchOptions,
     setSearchOptions,
     searchResults,
-    filteredResults,
     currentSearchIdx,
     setCurrentSearchIdx,
     selectedSearchIndices,
     setSelectedSearchIndices,
-    maxScoreFound,
     isSearching,
     isProteinSession,
     groupedSearchResults,

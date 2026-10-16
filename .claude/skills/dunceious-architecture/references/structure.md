@@ -22,7 +22,7 @@ src/
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
 │   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
 │   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
-│   ├── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   ├── search/          # query.ts (IUPAC alternatives, degenerate→regex), exact.ts, fuzzy.ts (Myers approximate search) — NO protocol import
 │   └── alignment/       # EMBL-EBI contract model: engine catalog, preflight, parsers, result remap — pure, NO fetch
 │
 ├── workers/             # Thin shells + typed contracts + worker bodies.
@@ -30,7 +30,7 @@ src/
 │   ├── bio.worker.ts / search.worker.ts    # thin shells: postMessage(handler(e.data))
 │   └── handlers/
 │       ├── bio.ts       # handleBioMessage — orchestrates core + domain
-│       └── search.ts    # runSearch + collectSeededFuzzyHits
+│       └── search.ts    # runSearch → runExactSearch / runFuzzySearch
 │
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)

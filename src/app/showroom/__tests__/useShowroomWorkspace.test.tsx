@@ -50,7 +50,7 @@ describe('useShowroomWorkspace', () => {
   it('runs the exact search the workbench runs, over every loaded record', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
     searchFor(result, 'ACG AAC');
-    const expected = runInlineSearch({ searchQuery: 'ACGAAC', records: searchable(), mode: 'exact', options: { minScore: 0, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
+    const expected = runInlineSearch({ searchQuery: 'ACGAAC', records: searchable(), mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
     expect(result.current.search.results).toEqual(expected);
     expect(result.current.search.results.filter(hit => hit.recordId === 'NC_045512' && hit.strand === 1)).toHaveLength(9);
     expect(result.current.search.currentIdx).toBe(0);
@@ -61,10 +61,11 @@ describe('useShowroomWorkspace', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
     act(() => result.current.search.setMode('fuzzy'));
     searchFor(result, 'ACGAACTTTA');
-    const response = runSearch({ searchQuery: 'ACGAACTTTA', records: searchable(), mode: 'fuzzy', options: { minScore: 1, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
+    const response = runSearch({ searchQuery: 'ACGAACTTTA', records: searchable(), mode: 'fuzzy', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
     if (!('results' in response)) throw new Error('fuzzy search failed');
     expect(result.current.search.results).toEqual(response.results);
-    expect(result.current.search.filtered.length).toBeLessThanOrEqual(response.results.length);
+    expect(result.current.search.results.length).toBeGreaterThan(0);
+    expect(result.current.search.results.every(hit => (hit.identity ?? 0) >= 80)).toBe(true);
   });
 
   it('clears the search and the selection it made', () => {

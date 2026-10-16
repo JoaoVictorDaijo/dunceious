@@ -31,9 +31,9 @@ function sidebarProps(): SidebarProps {
   return {
     open: true, activeTab: 'alignment', records: [record], transposedRecords: [record],
     activeSelection: null, alignmentLength: 3308, isProteinSession: false,
-    logs: [], searchQuery: '', searchMode: 'exact', searchOptions: { minScore: 0, strand: 'both', maxResults: 10 },
-    isSearching: false, filteredResults: [], groupedSearchResults: {}, currentSearchIdx: 0,
-    selectedSearchIndices: new Set(), maxScoreFound: 0,
+    logs: [], searchQuery: '', searchMode: 'exact', searchOptions: { minIdentity: 80, strand: 'both', maxResults: 10 },
+    isSearching: false, searchResults: [], groupedSearchResults: {}, currentSearchIdx: 0,
+    selectedSearchIndices: new Set(),
     onSetActiveSelection: noop, onSetJumpTo: noop, onFileUpload: noop,
     onAlignmentUpload: noop, onAnnotationUpload: noop, onProjectUpload: noop,
     onExportSelection: noop, onExportSelectionJson: noop, onStartNewFeature: noop,

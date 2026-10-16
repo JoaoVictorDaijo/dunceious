@@ -20,6 +20,7 @@
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
+import type { SearchOptions } from '@/src/workers/protocol';
 import { getOriginalPos } from '@/src/domain/bio';
 import HubIndex from './hub/HubIndex';
 import type { useHubState } from '@/src/app/hooks/useHubState';
@@ -58,19 +59,18 @@ export interface SidebarProps {
   onSearchQueryChange: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
   onSearchModeChange: (mode: 'exact' | 'fuzzy') => void;
-  searchOptions: { minScore: number; strand: 'fwd' | 'rev' | 'both'; maxResults: number };
-  onSearchOptionsChange: (opts: SidebarProps['searchOptions']) => void;
+  searchOptions: SearchOptions;
+  onSearchOptionsChange: (opts: SearchOptions) => void;
   isSearching: boolean;
   onSearch: () => void;
   onClearSearch: () => void;
   onSelectSearchResult: (selection: SelectionArea) => void;
-  filteredResults: SearchResult[];
+  searchResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
   onSetCurrentIdx: (idx: number) => void;
   selectedSearchIndices: Set<number>;
   onSetSelectedIndices: (next: Set<number>) => void;
-  maxScoreFound: number;
   onSetActiveTab: (tab: 'alignment' | 'features') => void;
   onRemoveRecord: (recordId: string) => void;
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
@@ -118,13 +118,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearch,
   onClearSearch,
   onSelectSearchResult,
-  filteredResults,
+  searchResults,
   groupedSearchResults,
   currentSearchIdx,
   onSetCurrentIdx,
   selectedSearchIndices,
   onSetSelectedIndices,
-  maxScoreFound,
   onSetActiveTab,
   onRemoveRecord,
   onToggleRecordSelection,
@@ -394,13 +393,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         isSearching={isSearching}
         onSearch={onSearch}
         onClearSearch={onClearSearch}
-        filteredResults={filteredResults}
+        searchResults={searchResults}
         groupedSearchResults={groupedSearchResults}
         currentSearchIdx={currentSearchIdx}
         onSetCurrentIdx={onSetCurrentIdx}
         selectedSearchIndices={selectedSearchIndices}
         onSetSelectedIndices={onSetSelectedIndices}
-        maxScoreFound={maxScoreFound}
         records={records}
         onSetActiveSelection={onSelectSearchResult}
         onSetActiveTab={onSetActiveTab}

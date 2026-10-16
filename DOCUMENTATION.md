@@ -21,7 +21,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
     - **Nucleotide**: Standard IUPAC codes — `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`, `N`.
     - **Protein**: All 20 standard amino acids plus ambiguity codes — `B` (D/N), `Z` (E/Q), `J` (I/L), `X` (all 20), `U` (selenocysteine), `O` (pyrrolysine).
       Gaps in aligned sequences are automatically skipped.
-  - **Fuzzy Mode**: Smith-Waterman local alignment with affine gap penalties (Gotoh's algorithm). For nucleotide sessions, both the forward strand and reverse complement are searched automatically. For protein sessions, reverse-complement search is suppressed (not applicable). Results are ranked by alignment score; a "Min Match Confidence" slider filters results by percentage of the best score found.
+  - **Fuzzy Mode**: Finds places where the whole query matches with a few differences. The **Min identity** slider (60–100%) sets how many substitutions, insertions or deletions are allowed: at 80%, a 50-base query may differ in up to 10 bases; the badge beside the slider shows the limit for the current query. Each hit shows its identity and edit count, and hits are ranked by identity. IUPAC codes in the query work as in exact mode. A hit must cover the whole query; a match of only part of it is not reported. For nucleotide sessions, both the forward strand and reverse complement are searched automatically; for protein sessions, reverse-complement search is suppressed (not applicable).
   - Hits can be turned into annotations one by one (**Annotate**) or joined (**Join selected** / **Join all**).
 - **Quantitative Tracks**:
   - **Line Tracks**: For continuous data like GC content or conservation scores.
@@ -111,7 +111,7 @@ The layout uses CSS `sticky` positioning and a shared overflow container. This e
 3.  **Alignment Overlay** (optional): User uploads a pre-aligned FASTA via **Upload pre-aligned FASTA**, or runs a remote alignment from the **Alignment** section (EMBL-EBI), whose result is applied through the same overlay reducer. Matching records get their `alignedSequence` updated without altering their features or sequence data.
 4.  **Transposition**: When an alignment is active, `processTransposition` updates `BioFeature` indices to map original genomic coordinates to the new "aligned space" (indices including gaps).
 5.  **Rendering**: `GenomeViewer` lays out each record and renders annotations (SVG) and sequence and tracks (canvas). Translation rows are shown only in nucleotide sessions.
-6.  **Search**: When a user enters a query, the search worker (`src/workers/search.worker.ts`) runs exact (IUPAC regex) or fuzzy (Smith-Waterman) search, passing the session's `moleculeType` to suppress reverse-complement for protein sessions. Results are ranked and highlighted in the viewer.
+6.  **Search**: When a user enters a query, the search worker (`src/workers/search.worker.ts`) runs exact (IUPAC regex) or fuzzy (minimum-identity approximate) search, passing the session's `moleculeType` to suppress reverse-complement for protein sessions. Results are ranked and highlighted in the viewer.
 
 ## 6. License
 

@@ -76,7 +76,7 @@ describe('Showroom search', () => {
     startSession();
     searchFor('ACGAAC');
     const expected = runInlineSearch({
-      searchQuery: 'ACGAAC', mode: 'exact', options: { minScore: 0, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
+      searchQuery: 'ACGAAC', mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
       records: loadSampleRecords().map(({ id, sequence, alignedSequence, moleculeType }) => ({ id, sequence, alignedSequence, moleculeType })),
     });
     expect(screen.getByLabelText('Viewer hits').textContent).toBe(String(expected.length));

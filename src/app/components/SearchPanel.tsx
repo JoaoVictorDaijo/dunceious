@@ -19,7 +19,8 @@
 
 import React from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
-import { scorePercent } from '@/src/app/logic/viewModel';
+import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
+import type { SearchOptions } from '@/src/workers/protocol';
 import SectionTitle from './SectionTitle';
 
 export interface GroupedSearchResults {
@@ -31,18 +32,17 @@ export interface SearchPanelProps {
   onSearchQueryChange: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
   onSearchModeChange: (mode: 'exact' | 'fuzzy') => void;
-  searchOptions: { minScore: number; strand: 'fwd' | 'rev' | 'both'; maxResults: number };
-  onSearchOptionsChange: (opts: SearchPanelProps['searchOptions']) => void;
+  searchOptions: SearchOptions;
+  onSearchOptionsChange: (opts: SearchOptions) => void;
   isSearching: boolean;
   onSearch: () => void;
   onClearSearch: () => void;
-  filteredResults: SearchResult[];
+  searchResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
   onSetCurrentIdx: (idx: number) => void;
   selectedSearchIndices: Set<number>;
   onSetSelectedIndices: (next: Set<number>) => void;
-  maxScoreFound: number;
   records: SeqRecord[];
   onSetActiveSelection: (sel: SelectionArea) => void;
   onSetActiveTab: (tab: 'alignment' | 'features') => void;
@@ -56,7 +56,7 @@ export interface SearchPanelProps {
 
 /**
  * Sequence-search panel displayed inside the sidebar.
- * Supports IUPAC exact search and fuzzy search with score filtering.
+ * Supports IUPAC exact search and fuzzy search with a minimum identity.
  */
 const SearchPanel: React.FC<SearchPanelProps> = ({
   searchQuery,
@@ -68,13 +68,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   isSearching,
   onSearch,
   onClearSearch,
-  filteredResults,
+  searchResults,
   groupedSearchResults,
   currentSearchIdx,
   onSetCurrentIdx,
   selectedSearchIndices,
   onSetSelectedIndices,
-  maxScoreFound,
   onSetActiveSelection,
   onSetActiveTab,
   onToggleRecordSelection,
@@ -84,6 +83,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   getSequenceContext,
   isProteinSession = false,
 }) => {
+  const queryLength = searchQuery.replace(/\s+/g, '').length;
   return (
     <section data-sequence-search-section className="flex flex-col min-h-0 pt-4">
       <SectionTitle icon="fa-search" trailing={
@@ -99,7 +99,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           <button
             onClick={() => onSearchModeChange('fuzzy')}
             aria-pressed={searchMode === 'fuzzy'}
-            data-tip="Approximate search: tolerates mismatches, ranked by score"
+            data-tip="Approximate search: tolerates substitutions and indels, ranked by identity"
             className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             Fuzzy
@@ -120,7 +120,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               onKeyDown={e => e.key === 'Enter' && onSearch()}
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
-              {(searchQuery || filteredResults.length > 0 || isSearching) && (
+              {(searchQuery || searchResults.length > 0 || isSearching) && (
                 <button onClick={onClearSearch} aria-label="Clear search" className="text-slate-500 hover:text-rose-500 transition-colors" data-tip="Clear the query, results and highlights">
                   <i className="fas fa-times-circle text-sm"></i>
                 </button>
@@ -142,17 +142,21 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         </div>
 
-        {/* Fuzzy score threshold */}
+        {/* Fuzzy identity threshold: identity is measured over the whole query */}
         {searchMode === 'fuzzy' && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
-              <label className="text-[11px] font-semibold text-slate-400">Min match confidence</label>
-              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">{searchOptions.minScore}%</span>
+              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min identity</label>
+              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
+                {searchOptions.minIdentity}%
+                {queryLength > 0 && ` · ≤ ${maxEditsForIdentity(queryLength, searchOptions.minIdentity)} edits`}
+              </span>
             </div>
             <input
-              type="range" min="0" max="100" step="5"
-              value={searchOptions.minScore}
-              onChange={e => onSearchOptionsChange({ ...searchOptions, minScore: parseInt(e.target.value) })}
+              id="fuzzy-min-identity"
+              type="range" min={MIN_FUZZY_IDENTITY} max="100" step="5"
+              value={searchOptions.minIdentity}
+              onChange={e => onSearchOptionsChange({ ...searchOptions, minIdentity: parseInt(e.target.value) })}
               className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
             />
           </div>
@@ -189,12 +193,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         </div>
 
         {/* Results list */}
-        {filteredResults.length > 0 && (
+        {searchResults.length > 0 && (
           <div className="pt-6 border-t border-slate-800/50 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-6 px-1">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-200">{filteredResults.length} matches</span>
+                  <span className="text-[11px] font-semibold text-slate-200">{searchResults.length} matches</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
@@ -290,12 +294,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              {match.score && (
+                              {match.identity !== undefined && (
                                 <div className="flex flex-col items-end">
                                   <span className="text-[10px] font-bold text-amber-500">
-                                    {scorePercent(match.score, maxScoreFound)}%
+                                    {Math.floor(match.identity)}%
                                   </span>
-                                  <span className="text-[11px] font-semibold text-slate-500">Match</span>
+                                  <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">{match.edits === 1 ? '1 edit' : `${match.edits ?? 0} edits`}</span>
                                 </div>
                               )}
                               <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>

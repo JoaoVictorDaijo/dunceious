@@ -179,12 +179,11 @@ const App: React.FC = () => {
     setSearchMode,
     searchOptions,
     setSearchOptions,
-    filteredResults,
+    searchResults,
     currentSearchIdx,
     setCurrentSearchIdx,
     selectedSearchIndices,
     setSelectedSearchIndices,
-    maxScoreFound,
     isSearching,
     groupedSearchResults,
     handleSearch,
@@ -309,8 +308,8 @@ const App: React.FC = () => {
     setRecords(prev => removeRecordFromProject(prev, recordId));
     setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
 
-    setCurrentSearchIdx(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, prev, selectedSearchIndices, recordId).currentSearchIdx);
-    setSelectedSearchIndices(prev => sanitizeSearchStateAfterRecordRemoval(filteredResults, currentSearchIdx, prev, recordId).selectedSearchIndices);
+    setCurrentSearchIdx(prev => sanitizeSearchStateAfterRecordRemoval(searchResults, prev, selectedSearchIndices, recordId).currentSearchIdx);
+    setSelectedSearchIndices(prev => sanitizeSearchStateAfterRecordRemoval(searchResults, currentSearchIdx, prev, recordId).selectedSearchIndices);
 
     if (viewingRecordDetails?.id === recordId) {
       setViewingRecordDetails(null);
@@ -504,13 +503,12 @@ const App: React.FC = () => {
           onSearch={handleSearch}
           onClearSearch={handleClearSearch}
           onSelectSearchResult={selectSearchResult}
-          filteredResults={filteredResults}
+          searchResults={searchResults}
           groupedSearchResults={groupedSearchResults}
           currentSearchIdx={currentSearchIdx}
           onSetCurrentIdx={setCurrentSearchIdx}
           selectedSearchIndices={selectedSearchIndices}
           onSetSelectedIndices={setSelectedSearchIndices}
-          maxScoreFound={maxScoreFound}
           onSetActiveTab={changeTab}
           onRemoveRecord={handleRemoveRecord}
           onToggleRecordSelection={toggleRecordSelection}
@@ -552,7 +550,7 @@ const App: React.FC = () => {
                     onSelectionChange={setActiveSelection}
                     onExportFasta={exportSelection}
                     onAddAnnotation={addAnnotationFromSearch}
-                    searchResults={filteredResults}
+                    searchResults={searchResults}
                     currentSearchIdx={currentSearchIdx}
                     selectedSearchIndices={selectedSearchIndices}
                     customColors={featureColors}

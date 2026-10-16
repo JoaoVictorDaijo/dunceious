@@ -40,7 +40,7 @@ describe('RNA search record projection', () => {
     const { result } = renderHook(() => useSearchWorker(records, noop, noop, noop));
     act(() => {
       result.current.setSearchQuery('UUU');
-      result.current.setSearchOptions({ minScore: 0, strand: 'rev', maxResults: 100 });
+      result.current.setSearchOptions({ minIdentity: 80, strand: 'rev', maxResults: 100 });
     });
     act(() => { result.current.handleSearch(); });
     if (moleculeType === 'rna') {
