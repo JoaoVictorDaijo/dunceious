@@ -65,6 +65,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     showTracks: false,
     basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
     focusedRegion: null,
+    comparison: null,
   };
   return { ...base, ...overrides };
 }
@@ -551,5 +552,41 @@ describe('biological frameshifts in aligned annotations', () => {
     expect(Number(mark?.getAttribute('data-x'))).toBeCloseTo(8 * ZOOM);
     fireEvent.mouseOver(glyphs(container)[0]);
     expect(setTooltip.mock.calls.at(-1)?.[0].content).toContain('Ribosomal frameshift: +1 at 5');
+  });
+});
+
+describe('reference badge', () => {
+  const comparison = (referenceId: string) => ({
+    referenceId, referenceSeq: 'A'.repeat(LEN), highlight: 'disagreements' as const, matchDots: true, alphabet: 'nucleotide' as const,
+  });
+
+  it('marks the reference row', () => {
+    const { container } = renderRow(rec([]), { comparison: comparison('r') });
+    expect(container.querySelector('[data-reference-badge]')?.textContent).toBe('REF');
+  });
+
+  const aligned = (id: string): SeqRecord => ({ ...rec([]), id, name: id, alignedSequence: 'A'.repeat(LEN) });
+
+  it('draws the reference row in its own colours, never compared against itself', () => {
+    const recorder = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('r') });
+    expect(recorder.fillColors()).toContain('#22c55e');
+    expect(recorder.fillColors()).not.toContain('#e2e8f0');
+  });
+
+  it('mutes an aligned row identical to the reference, but never an unaligned one', () => {
+    const compared = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('other') });
+    expect(compared.fillColors()).toContain('#e2e8f0');
+    expect(compared.fillColors()).not.toContain('#22c55e');
+
+    const unaligned = installCanvasRecorder();
+    renderRow(rec([]), { comparison: comparison('other') });
+    expect(unaligned.fillColors()).not.toContain('#e2e8f0');
+  });
+
+  it('leaves other rows and the uncompared view unmarked', () => {
+    expect(renderRow(rec([]), { comparison: comparison('other') }).container.querySelector('[data-reference-badge]')).toBeNull();
+    expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
   });
 });

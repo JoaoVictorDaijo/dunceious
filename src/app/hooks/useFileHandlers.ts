@@ -26,6 +26,7 @@ import { downloadBlob } from '@/src/app/lib/download';
 import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
 
 import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
+import { DEFAULT_ALIGNMENT_COMPARISON, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 
@@ -83,6 +84,7 @@ export interface ProjectSetters {
   setShowAnnotations: Dispatch<SetStateAction<boolean>>;
   setShowTranslation: Dispatch<SetStateAction<boolean>>;
   setShowConservation: Dispatch<SetStateAction<boolean>>;
+  setAlignmentComparison: Dispatch<SetStateAction<AlignmentComparisonSettings>>;
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -126,7 +128,7 @@ export function useFileHandlers(
   records: SeqRecord[],
   activeSelection: SelectionArea | null,
   featureColors: Record<string, string>,
-  viewportState: { showAnnotations: boolean; showTranslation: boolean; showConservation: boolean },
+  viewportState: { showAnnotations: boolean; showTranslation: boolean; showConservation: boolean; alignmentComparison: AlignmentComparisonSettings },
   setters: ProjectSetters,
   addLog: (msg: string) => void,
   isAlignmentLocked: () => boolean = () => false,
@@ -139,6 +141,7 @@ export function useFileHandlers(
     setShowAnnotations,
     setShowTranslation,
     setShowConservation,
+    setAlignmentComparison,
     setIsProcessing,
   } = setters;
 
@@ -251,6 +254,7 @@ export function useFileHandlers(
         setShowAnnotations(project.showAnnotations);
         setShowTranslation(project.showTranslation);
         setShowConservation(project.showConservation);
+        setAlignmentComparison(project.alignmentComparison ?? DEFAULT_ALIGNMENT_COMPARISON);
         if (project.name?.trim()) setProjectName(project.name.trim());
         addLog('Project loaded successfully.');
       })
@@ -400,6 +404,7 @@ export function useFileHandlers(
       showAnnotations: viewportState.showAnnotations,
       showTranslation: viewportState.showTranslation,
       showConservation: viewportState.showConservation,
+      alignmentComparison: viewportState.alignmentComparison,
       version: __APP_VERSION__,
     };
     const fileName = `${safeName || 'dunceious_project'}.json`;

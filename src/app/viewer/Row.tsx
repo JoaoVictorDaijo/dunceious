@@ -22,6 +22,7 @@ import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
@@ -59,6 +60,8 @@ export interface RowData {
   basesOpenness: number;
   /** The focused annotation, while the selection is still exactly that region. */
   focusedRegion: FocusTarget | null;
+  /** Reference comparison for the sequence rows; null draws every residue in its own colour. */
+  comparison: ActiveComparison | null;
 }
 
 const SELECTION_FILL = '#38bdf8';
@@ -74,7 +77,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
-    showTracks, basesOpenness, focusedRegion
+    showTracks, basesOpenness, focusedRegion, comparison
   } = data;
 
   const l = recordLayouts[index];
@@ -92,6 +95,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
     while (end > 0 && seq[end - 1] === '-') end--;
     return end;
   }, [seq]);
+  const isReference = comparison?.referenceId === l.id;
+  // Only aligned rows share the reference's columns; an unaligned row is never compared.
+  const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 
@@ -171,6 +177,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
         </div>
 
         <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+          {isReference && (
+            <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
+              className="mr-1 rounded px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
+          )}
           {l.id}
         </div>
       </div>
@@ -211,6 +221,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             searchResults={rowSearchResults}
             allSearchResults={searchResults}
             currentSearchIdx={currentSearchIdx}
+            comparison={rowComparison}
           />
           <svg width={viewportWidth} height={l.height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 5 }}>
             {/* Background Grid */}

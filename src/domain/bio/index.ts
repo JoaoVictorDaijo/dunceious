@@ -19,6 +19,8 @@
 
 export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
+export { compareToReference } from './referenceComparison';
+export type { ResidueComparison, ComparisonAlphabet } from './referenceComparison';
 export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
   reverseComplement,
