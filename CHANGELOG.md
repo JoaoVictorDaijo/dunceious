@@ -22,6 +22,14 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.3.0] — 2026-10-16
+
+### Added
+
+- Compare aligned sequences against a chosen reference: highlight differences (identical residues as dots) or identity, with ambiguity codes never counted either way.
+- Phones can test-drive the workbench sideways with sample data, and the greeter says plainly where your files go. Phones no longer open the full workbench; nothing done in the test drive is saved or sent.
+- Pan and pinch-zoom the genome viewer by touch, and tap or drag its minimap to navigate.
+
 ## [3.2.0] — 2026-10-15
 
 ### Added
