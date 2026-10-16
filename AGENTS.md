@@ -12,14 +12,17 @@ react-window). Source is organized under `src/` into four layers.
 
 Scientists treat Dunceious results as evidence. Anything that computes or displays a biological
 result must:
-- use established, published methods with standard defaults, verified against primary sources and
-  cited;
+- use established, published methods with standard defaults, verified against a widely used
+  reference implementation or standard and cited (the original paper isn't required);
 - invent nothing and approximate nothing silently;
 - define every number shown;
 - be validated against an independent oracle (a reference tool or a separate textbook
   implementation);
 - give the same result on every machine and build;
 - keep sequences local.
+
+Full rigor applies to what produces or shows a scientific result. Changes that leave results
+unchanged follow the normal engineering bar.
 
 The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority).
 

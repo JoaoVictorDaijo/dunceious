@@ -12,9 +12,15 @@ import and export) must meet this bar. It outranks speed, convenience and visual
   paper or a reference tool and version) in the code's doc comment and in the living docs. Do not
   invent algorithms, scoring schemes, thresholds or heuristics. If no established method fits,
   stop and ask.
-- **Verify, don't recall.** Check every method, default and convention against its primary source
-  (the paper, the reference tool's documentation, its source code) before relying on it. Say what
-  you could not verify.
+- **Verify, don't recall.** Check each method, default and convention against an authoritative
+  source before relying on it: a widely used reference implementation (EMBOSS, NCBI BLAST, edlib,
+  SSW), its documentation or source code, or a standard specification (SAM, INSDC). These
+  implementations settle a method; there's no need to track down or re-derive the original paper.
+  Say what you could not verify.
+- **Match the effort to the risk.** Full rigor applies to what produces or shows a scientific
+  result. Plumbing, interface chrome and refactors that leave results unchanged follow the normal
+  engineering bar. Don't block on hard-to-reach sources when an established implementation
+  answers the question.
 - **No silent approximation.** A heuristic, cap, sampling step, time budget or fallback that can
   drop or change results must be visible to the user. Prefer an exact method when one is
   affordable.
