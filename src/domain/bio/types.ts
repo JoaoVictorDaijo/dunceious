@@ -103,6 +103,18 @@ export interface SeqRecord {
   visible?: boolean;
 }
 
+/** Counts use all alignment columns as denominator; query range is 0-based half-open. */
+export interface LocalHitMetrics {
+  score: number; // EMBOSS units
+  length: number;
+  identical: number;
+  similar: number;
+  gaps: number;
+  queryStart: number;
+  queryEnd: number;
+  queryLength: number;
+}
+
 /** A search hit, in `alignedSequence || sequence` coordinate space. */
 export interface SearchResult {
   /**
@@ -116,6 +128,7 @@ export interface SearchResult {
   recordId: string;
   strand: 1 | -1; // 1 = forward match, -1 = reverse-complement match
   /** Fuzzy hits only: substitutions, insertions and deletions against the whole query. */
+  local?: LocalHitMetrics;
   edits?: number;
   /** Fuzzy hits only: percent identity, 100 × (query length − edits) / query length. */
   identity?: number;
@@ -148,6 +161,7 @@ export interface SearchHitProvenance {
   params: { minQueryIdentity?: number; scoring?: string };
   strand: 1 | -1;
   cigar: string;
+  local?: LocalHitMetrics;
   edits?: number;
   span: { start: number; end: number; strand: 1 | -1; segments?: FeatureSegment[] };
   appVersion: string;
