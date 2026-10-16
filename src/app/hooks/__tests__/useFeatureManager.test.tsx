@@ -229,3 +229,14 @@ it.each(['edited', 'added'] as const)('restores the %s annotation mark on undo-d
   act(() => result.current.manager.undoDelete());
   expect(result.current.value[0].features[0].hubEdit).toBe(hubEdit);
 });
+
+it('stores the searched query and biological span for one hit but no provenance for a join', () => {
+  const { result } = renderHook(() => useFeatureManager(records, vi.fn(), null, vi.fn()));
+  const hit = { result: { cigar: '4=', start: 1, end: 7, strand: -1 as const, recordId: 'synthetic', sequence: 'ACGT' },
+    search: { query: 'A-CGT', mode: 'iupac' as const, alphabet: 'nucleotide' as const, options: { minIdentity: 80, strand: 'both' as const, maxResults: 100 } } };
+  act(() => result.current.addAnnotationFromSearch('synthetic', 1, 7, 'hit', [{ start: 1, end: 2 }, { start: 4, end: 7 }], -1, hit));
+  const saved = JSON.parse(result.current.editing!.feature.metadata!._searchHit);
+  expect(saved).toMatchObject({ query: 'ACGT', cigar: '4=', span: { start: 1, end: 5, strand: -1, segments: [{ start: 1, end: 2 }, { start: 2, end: 5 }] }, exportNote: false });
+  act(() => result.current.addAnnotationFromSearch('synthetic', 1, 7, 'join', [{ start: 1, end: 2 }, { start: 4, end: 7 }], -1));
+  expect(result.current.editing!.feature.metadata?._searchHit).toBeUndefined();
+});

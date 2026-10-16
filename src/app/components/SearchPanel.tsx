@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import type { CompletedSearch } from '../logic/searchState';
+import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
 import { hitColumns, hitCounts } from '@/src/core/search/hitColumns';
 import { pathQuery } from '@/src/core/search/editPath';
 import { ungappedSpan } from '@/src/core/search/hitPaths';
@@ -58,7 +58,7 @@ export interface SearchPanelProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1, hit?: SearchAnnotationHit) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession?: boolean;
 }
@@ -351,7 +351,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             <button
                               onClick={e => {
                                 e.stopPropagation();
-                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand);
+                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand, completedSearch ? { result: match, search: completedSearch } : undefined);
                               }}
                               aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
                               data-tip="Save this match as an annotation"

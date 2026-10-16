@@ -18,7 +18,7 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
-import type { CompletedSearch } from '../logic/searchState';
+import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchOptions } from '@/src/workers/protocol';
@@ -78,7 +78,7 @@ export interface SidebarProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1, hit?: SearchAnnotationHit) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession: boolean;
 }

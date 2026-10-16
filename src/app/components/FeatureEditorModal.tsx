@@ -22,6 +22,7 @@ import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
   metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
 } from '@/src/app/logic/qualifiers';
@@ -64,6 +65,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 }) => {
   const { feature, recordId, featureIndex } = editing;
   const isNew = featureIndex === -1;
+  const searchHit = readSearchHit(feature);
   // A wrap-around feature has start > end (it crosses the genome origin on a
   // circular molecule).  We surface this prominently so users know the
   // coordinates are intentionally inverted, not a data error.
@@ -94,6 +96,11 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           {isNew ? 'Create Feature' : 'Metadata Inspector'}
         </h3>
 
+        {isNew && searchHit && <label className="flex gap-2 text-xs text-slate-300 mb-4">
+          <input type="checkbox" checked={searchHit.exportNote} onChange={e =>
+            onChange({ ...editing, feature: withSearchHit(feature, { ...searchHit, exportNote: e.target.checked }) })} />
+          Add search details to the note
+        </label>}
         {/* Circular wrap-around badge – shown whenever start > end */}
         {isCircularWrap && (
           <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-950/40 border border-amber-700/50 rounded-xl text-amber-400">

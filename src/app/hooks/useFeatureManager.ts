@@ -19,6 +19,9 @@
 
 import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature, SequenceDetails } from '@/src/domain/bio/types';
+import { withSearchHit } from '@/src/domain/bio/searchHit';
+import { pathQuery } from '@/src/core/search/editPath';
+import type { SearchAnnotationHit } from '../logic/searchState';
 import { writeDetails } from '@/src/domain/bio/details';
 import { annotationFeatures } from '@/src/domain/bio/recordStatus';
 import type { EditingFeatureState } from '../components/FeatureEditorModal';
@@ -83,6 +86,7 @@ export interface UseFeatureManagerReturn {
     name: string,
     segments?: { start: number; end: number }[],
     strand?: 1 | -1,
+    hit?: SearchAnnotationHit,
   ) => void;
 
   removeFeature: (recordId: string, featureIndex: number) => void;
@@ -245,22 +249,20 @@ export function useFeatureManager(
     name: string,
     segments?: { start: number; end: number }[],
     strand?: 1 | -1,
+    hit?: SearchAnnotationHit,
   ) => {
     const targetRecord = records.find(r => r.id === recordId);
     const c = annotationCoords(targetRecord, start, end, segments);
 
-    setEditing({
-      recordId,
-      featureIndex: -1,
-      feature: {
-        name,
-        type: 'misc_feature',
-        start: c.start,
-        end: c.end,
-        strand: strand ?? 1,
-        segments: c.segments,
-      },
+    let feature: BioFeature = { name, type: 'misc_feature', start: c.start, end: c.end, strand: strand ?? 1, segments: c.segments };
+    if (hit) feature = withSearchHit(feature, {
+      v: 1, query: pathQuery(hit.search.query, hit.search.mode), mode: hit.search.mode, alphabet: hit.search.alphabet,
+      params: hit.search.mode === 'whole' ? { minQueryIdentity: hit.search.options.minIdentity } : {},
+      strand: feature.strand, cigar: hit.result.cigar, edits: hit.result.edits,
+      span: { start: feature.start, end: feature.end, strand: feature.strand, segments: feature.segments },
+      appVersion: __APP_VERSION__, createdAt: new Date().toISOString(), exportNote: false,
     });
+    setEditing({ recordId, featureIndex: -1, feature });
     addLog(
       `Preparing annotation for match${segments ? ' (multi-segment)' : ''} at ${c.start} bp.`,
     );

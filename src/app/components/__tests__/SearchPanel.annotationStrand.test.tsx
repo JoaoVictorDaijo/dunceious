@@ -41,5 +41,5 @@ it('passes reverse direction and aligned segments from the Annotate button', () 
   const props = panelProps();
   render(<SearchPanel {...props} />);
   fireEvent.click(screen.getByRole('button', { name: /^Annotate(?: match)?/ }));
-  expect(props.onAnnotateMatch).toHaveBeenCalledWith('synthetic', 3, 8, 'Match: TAC', hit.segments, -1);
+  expect(props.onAnnotateMatch).toHaveBeenCalledWith('synthetic', 3, 8, 'Match: TAC', hit.segments, -1, undefined);
 });

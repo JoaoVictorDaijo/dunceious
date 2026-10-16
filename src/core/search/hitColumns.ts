@@ -20,7 +20,9 @@
 import { parseCigar } from '@/src/domain/bio/cigar';
 import { residueAlternatives, type ResidueAlphabet } from './query';
 
-export type HitMode = 'iupac' | 'whole' | 'local';
+import type { SearchHitMode } from '@/src/domain/bio/types';
+
+export type HitMode = SearchHitMode;
 export type HitColumnClass = 'identical' | 'ambiguity' | 'similar' | 'mismatch' | 'deletion' | 'insertion';
 export interface HitColumn {
   op: '=' | 'X' | 'I' | 'D';

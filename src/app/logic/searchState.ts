@@ -93,3 +93,5 @@ export interface CompletedSearch {
   options: SearchOptions;
   matrixScore?: (q: string, r: string) => number;
 }
+
+export interface SearchAnnotationHit { result: SearchResult; search: CompletedSearch }

@@ -25,6 +25,7 @@ import type { GroupedSearchResults } from '../components/SearchPanel';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
   type CompletedSearch,
+  type SearchAnnotationHit,
   groupedSearchResults as computeGroupedSearchResults,
   joinSegments,
   getSequenceContext as computeSequenceContext,
@@ -90,6 +91,7 @@ export function useSearchWorker(
     name: string,
     segments?: { start: number; end: number }[],
     strand?: 1 | -1,
+    hit?: SearchAnnotationHit,
   ) => void,
   onFirstResult: (selection: SelectionArea) => void,
 ): UseSearchWorkerReturn {

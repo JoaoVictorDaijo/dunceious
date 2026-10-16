@@ -45,6 +45,7 @@ import {
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
+import { withoutSearchHit } from '@/src/domain/bio/searchHit';
 import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
 import { TrackTooltipProvider } from './components/hub/TrackTooltip';
@@ -273,7 +274,7 @@ const App: React.FC = () => {
     focusOn(target);
   }, [focusOn]);
 
-  const handleSetShowBases = (show: boolean) => {
+  const handleSetShowBases = (show: boolean | 'nothing' | 'record' | 'query') => {
     const recordId = viewingRecordDetails?.id;
     const index = viewingFeatureIndex;
     if (!recordId || index < 0) return;
@@ -388,6 +389,13 @@ const App: React.FC = () => {
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
           onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
+          onSetBasesMode={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
+          onRemoveSearchDetails={() => {
+            const id = viewingRecordDetails?.id; const index = viewingFeatureIndex;
+            if (!id || index < 0) return;
+            setRecords(prev => prev.map(r => r.id !== id ? r : { ...r, features: r.features.map((f, i) => i === index ? withoutSearchHit(f) : f) }));
+            setViewingFeatureDetails(current => current ? withoutSearchHit(current) : current);
+          }}
         />
       )}
 

@@ -137,3 +137,20 @@ export interface SelectionArea {
   end: number;
   recordIds: string[];
 }
+
+export type SearchHitMode = 'iupac' | 'whole' | 'local';
+/** Search evidence is kept separately from the annotation's authoritative biological region. */
+export interface SearchHitProvenance {
+  v: 1;
+  query: string;
+  mode: SearchHitMode;
+  alphabet: 'nucleotide' | 'protein';
+  params: { minQueryIdentity?: number; scoring?: string };
+  strand: 1 | -1;
+  cigar: string;
+  edits?: number;
+  span: { start: number; end: number; strand: 1 | -1; segments?: FeatureSegment[] };
+  appVersion: string;
+  createdAt: string;
+  exportNote: boolean;
+}
