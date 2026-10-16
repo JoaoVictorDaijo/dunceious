@@ -96,3 +96,9 @@ export function wholeQueryPath(
   for (let j = 0; j < remaining; j++) reversed.push('D');
   return { cigar: formatCigar(reversed.reverse()), edits: edits! };
 }
+
+/** IUPAC search has no indels; SAM identity still distinguishes T/U and ambiguity codes. */
+export function iupacPath(query: string, span: string): string {
+  if (query.length !== span.length) throw new Error('IUPAC path lengths differ');
+  return formatCigar(Array.from(query, (base, i) => base.toUpperCase() === span[i].toUpperCase() ? '=' : 'X'));
+}

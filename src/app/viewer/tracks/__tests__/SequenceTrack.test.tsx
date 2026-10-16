@@ -204,7 +204,7 @@ describe('translation zoom boundary', () => {
 
   it('keeps low-zoom search highlights within the nucleotide band', () => {
     const recorder = installCanvasRecorder();
-    const hit = { recordId: 'r', start: 0, end: 3, strand: 1 as const, sequence: 'ATG' };
+    const hit = { cigar: '3=', recordId: 'r', start: 0, end: 3, strand: 1 as const, sequence: 'ATG' };
     render(<SequenceTrack {...props('ATG')} zoomLevel={5} searchResults={[hit]} />);
     expect(recorder.fillRects()[0][3]).toBe(22);
   });
