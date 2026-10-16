@@ -22,6 +22,16 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.4.0] — 2026-10-16
+
+### Changed
+
+- Fuzzy search finds the whole query at the slider's minimum identity, applied during the search, and shows each hit's identity and edits. Long queries finish in milliseconds instead of timing out into a coarser local fallback.
+
+### Fixed
+
+- Reverse-strand search finds hits again in RNA genomes that GenBank writes with T, such as SARS-CoV-2, in both IUPAC and fuzzy modes.
+
 ## [3.3.0] — 2026-10-16
 
 ### Added

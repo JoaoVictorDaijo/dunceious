@@ -25,7 +25,7 @@
 - **Load** multi-record GenBank (nucleotide or protein) and FASTA files by picking or dropping them. Repeated IDs are renamed instead of overwritten.
 - **Align** by uploading a pre-aligned FASTA from your own tool, or by sending the records to [EMBL-EBI](https://www.ebi.ac.uk/jdispatcher/) (MAFFT, Kalign, Clustal Omega, MUSCLE). Annotations follow the alignment, and a conservation heatmap is drawn.
 - **Explore** with semantic zoom, from mismatch density down to bases and amino-acid translations, including the codon shift at programmed ribosomal frameshifts.
-- **Search** with IUPAC codes or fuzzy Smith-Waterman matching on both strands, and turn hits into annotations.
+- **Search** with IUPAC codes or fuzzy matching with a minimum identity on both strands, and turn hits into annotations.
 - **Annotate**: import GFF3/BED, edit features and qualifiers, and manage everything in the Annotation Hub.
 - **Export** FASTA, GFF3, GenBank, a selection as JSON, or the whole project.
 

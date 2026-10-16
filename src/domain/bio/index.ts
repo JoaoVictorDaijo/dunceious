@@ -24,6 +24,7 @@ export type { ResidueComparison, ComparisonAlphabet } from './referenceCompariso
 export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
   reverseComplement,
+  complementAlphabet,
   translateSequence,
   extractCodingSequence,
   detectEarlyStop,

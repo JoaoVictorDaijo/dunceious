@@ -150,13 +150,12 @@ function Search({ workspace, onExplain }: { workspace: ShowroomWorkspace; onExpl
       isSearching={false}
       onSearch={search.run}
       onClearSearch={search.clear}
-      filteredResults={search.filtered}
+      searchResults={search.results}
       groupedSearchResults={search.grouped}
       currentSearchIdx={search.currentIdx}
       onSetCurrentIdx={search.setCurrentIdx}
       selectedSearchIndices={search.selected}
       onSetSelectedIndices={search.setSelected}
-      maxScoreFound={search.maxScore}
       records={workspace.records}
       onSetActiveSelection={search.select}
       onSetActiveTab={() => {}}

@@ -143,7 +143,8 @@ export type BioWorkerResponse =
 export type { SearchableRecord } from '../domain/bio/types';
 
 export interface SearchOptions {
-  minScore: number;
+  /** Fuzzy only: minimum percent identity over the whole query (see `maxEditsForIdentity`). */
+  minIdentity: number;
   strand: 'fwd' | 'rev' | 'both';
   maxResults: number;
 }

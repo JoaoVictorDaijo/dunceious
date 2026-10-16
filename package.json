@@ -1,14 +1,14 @@
 {
   "name": "genedunceious",
   "private": true,
-  "version": "3.3.0",
+  "version": "3.4.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --max-warnings 63",
+    "lint": "eslint . --max-warnings 62",
     "lint:headers": "node scripts/check-license-headers.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

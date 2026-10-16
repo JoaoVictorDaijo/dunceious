@@ -17,12 +17,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { parseFasta, exportToFasta } from '@/src/core/formats/fasta';
 import { parseGenBank } from '@/src/core/genbank';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { degenerateToRegex } from '@/src/core/search/query';
-import { reverseComplement, translateSequence, detectEarlyStop, detectMoleculeType, processTransposition, sliceRecordsBySelection } from '@/src/domain/bio';
+import { complementAlphabet, reverseComplement, translateSequence, detectEarlyStop, detectMoleculeType, processTransposition, sliceRecordsBySelection } from '@/src/domain/bio';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { runSearch } from '@/src/workers/handlers/search';
@@ -81,7 +82,7 @@ describe('RNA ingestion and export', () => {
     const [transposed] = processTransposition([record]);
     const [hit] = runInlineSearch({
       searchQuery: 'AYG', records: [transposed], mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     });
     expect(hit).toMatchObject({ start: 3, end: 6, sequence: 'AUG', segments: [{ start: 3, end: 6 }] });
     const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end);
@@ -147,7 +148,7 @@ describe('RNA IUPAC search', () => {
     ];
     const request: SearchWorkerRequest = {
       searchQuery: 'UUU', records, mode, moleculeType: 'dna',
-      options: { minScore: 6, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);
@@ -157,7 +158,7 @@ describe('RNA IUPAC search', () => {
         recordId: 'rna', start: 0, end: 4, strand: -1,
         segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }],
       });
-      if (mode === 'fuzzy') expect(results[0].score).toBe(6);
+      if (mode === 'fuzzy') expect(results[0]).toMatchObject({ edits: 0, identity: 100 });
     }
     expect(records[0].sequence).toBe('AAA');
     expect(records[0].alignedSequence).toBe('A-AA');
@@ -166,7 +167,7 @@ describe('RNA IUPAC search', () => {
   it('finds gapped forward IUPAC hits and infers RNA for legacy search projections', () => {
     const request: SearchWorkerRequest = {
       searchQuery: 'AYG', records: [{ id: 'rna', sequence: 'CCA-UG' }], mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     };
     expect(runInlineSearch(request)[0]).toMatchObject({ sequence: 'A-UG', start: 2, end: 6, strand: 1 });
     request.searchQuery = 'UCAU';
@@ -178,7 +179,7 @@ describe('RNA IUPAC search', () => {
   it.each(['exact', 'fuzzy'] as const)('honours an RNA request in %s legacy projections without U', (mode) => {
     const request: SearchWorkerRequest = {
       searchQuery: 'UUU', records: [{ id: 'rna', sequence: 'AAA' }], mode, moleculeType: 'rna',
-      options: { minScore: 6, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);
@@ -191,7 +192,7 @@ describe('RNA IUPAC search', () => {
   it.each(['exact', 'fuzzy'] as const)('preserves protein U in %s searches and suppresses reverse hits', (mode) => {
     const request: SearchWorkerRequest = {
       searchQuery: 'MUOP', records: [{ id: 'protein', sequence: 'MUOP' }], mode, moleculeType: 'protein',
-      options: { minScore: 8, strand: 'both', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     };
     const response = runSearch(request);
     if ('error' in response) throw new Error(response.error);
@@ -201,3 +202,43 @@ describe('RNA IUPAC search', () => {
     }
   });
 });
+
+// GenBank writes RNA genomes with T while the LOCUS line declares RNA.
+describe('reverse search on a T-written RNA genome', () => {
+  const [genome] = parseGenBank(readFileSync('examples/sars-cov-2-NC_045512.gb', 'utf8'));
+  const record = { id: genome.id, sequence: genome.sequence, moleculeType: genome.moleculeType };
+  const source = genome.sequence.substring(28_500, 28_560);
+  const query = reverseComplement(source, 'dna');
+
+  it('is declared RNA but written without U', () => {
+    expect(genome.moleculeType).toBe('rna');
+    expect(genome.sequence).not.toMatch(/u/i);
+  });
+
+  // At 100% identity the fuzzy hit must match all 60 bases, like the exact one.
+  it.each(['exact', 'fuzzy'] as const)('finds the %s reverse-strand hit in worker and inline paths', (mode) => {
+    const request: SearchWorkerRequest = {
+      searchQuery: query, records: [record], mode, moleculeType: 'dna',
+      options: { minIdentity: 100, strand: 'rev', maxResults: 10 },
+    };
+    const response = runSearch(request);
+    if ('error' in response) throw new Error(response.error);
+    for (const results of [response.results, runInlineSearch(request)]) {
+      expect(results[0]).toMatchObject({ recordId: genome.id, strand: -1, start: 28_500, end: 28_560 });
+    }
+  });
+});
+
+describe('complementAlphabet', () => {
+  it.each([
+    ['T-written RNA record', 'dna', 'ACGTA', 'rna'],
+    ['U-written RNA record', 'rna', 'ACGUA', 'rna'],
+    ['RNA record with neither T nor U', 'rna', 'ACGGA', 'rna'],
+    ['DNA record with neither T nor U', 'dna', 'ACGGA', 'dna'],
+    ['record mixing T and U', 'rna', 'ACGTU', 'rna'],
+    ['lowercase uracil', 'rna', 'acgua', undefined],
+  ] as const)('%s complements as %s', (_case, expected, sequence, moleculeType) => {
+    expect(complementAlphabet(sequence, moleculeType)).toBe(expected);
+  });
+});
+

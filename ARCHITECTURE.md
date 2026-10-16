@@ -56,7 +56,7 @@ src/
 │   │   ├── gff3.ts      # GFF3 parse/export, source-region candidates, multipart IDs
 │   │   ├── soTypes.ts   # Sequence Ontology vocabulary and INSDC type mappings
 │   │   └── annotations.ts # BED/BedGraph; re-exports parseGFF3
-│   ├── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   ├── search/          # query.ts (IUPAC alternatives, degenerate→regex), exact.ts, fuzzy.ts (Myers approximate search) — NO protocol import
 │   └── alignment/       # EMBL-EBI contract model: engine catalog, preflight, parsers, result remap — pure, NO fetch
 │
 ├── workers/             # Thin shells + typed contracts + worker bodies.
@@ -64,7 +64,7 @@ src/
 │   ├── bio.worker.ts / search.worker.ts    # thin shells
 │   └── handlers/
 │       ├── bio.ts       # handleBioMessage — orchestrates core + domain
-│       └── search.ts    # runSearch + collectSeededFuzzyHits
+│       └── search.ts    # runSearch → runExactSearch / runFuzzySearch
 │
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
@@ -259,8 +259,9 @@ The one feature that sends data off the machine, therefore opt-in and consent-ga
   - **Nucleotide** (`IUPAC_MAP`): DNA/RNA degenerate codes — `R`=[AG], `Y`=[CTU], `S`=[GC], `W`=[ATU], `K`=[GTU], `M`=[AC], `B`=[CGTU], `D`=[AGTU], `H`=[ACTU], `V`=[ACG], `N`=[ACGTU]. Literal T and U remain distinct.
   - **Protein** (`PROTEIN_IUPAC_MAP`): all 20 standard amino acids plus ambiguity codes — `B`=[DN], `Z`=[EQ], `J`=[IL], `X`=[all 20 AAs], `U` (selenocysteine), `O` (pyrrolysine).
 - **Reverse-complement search**: Performed automatically for nucleotide sessions (forward + reverse strands). Suppressed entirely for protein sessions where strand orientation is not applicable.
-- **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`. Each `SearchableRecord` also retains its optional molecule type so mixed DNA/RNA nucleotide sessions use the correct reverse complement per record. Legacy projections infer RNA from U, or honor an explicit RNA request when the record type is absent.
-- **Fuzzy Mode (Smith-Waterman)**: `smithWaterman` from `src/core/search/align.ts` with affine gap penalties (Gotoh). Results sorted by descending score.
+- **Session-type propagation**: `useSearchWorker` derives `isProteinSession = records.some(r => r.moleculeType === 'protein')` and passes `moleculeType: isProteinSession ? 'protein' : 'dna'` in every `SearchWorkerRequest`. Each `SearchableRecord` also retains its optional molecule type so mixed DNA/RNA nucleotide sessions use the correct reverse complement per record. The reverse strand is written in the record's own alphabet (`complementAlphabet`): adenine pairs with U only when the record contains U, or contains neither T nor U and is declared RNA (or the request is RNA when the record type is absent). GenBank RNA genomes are written with T under an RNA LOCUS line, so their reverse complement stays in T and T queries match it.
+- **Fuzzy Mode (approximate matching)**: `runFuzzySearch` in `src/core/search/fuzzy.ts`, shared by the worker and `runInlineSearch`. A hit is a span where the **whole query** aligns with at most *k* substitutions, insertions or deletions; `SearchOptions.minIdentity` (floored at `MIN_FUZZY_IDENTITY`, 60%: near 50% random DNA matches almost everywhere) sets *k* = ⌊n·(100 − identity)/100⌋ (`maxEditsForIdentity`), and each hit reports `edits` and `identity` = 100·(n − edits)/n. Myers' bit-parallel edit distance (32-bit blocks, as in edlib) finds the ends in O(⌈n/32⌉·m); a reversed-query pass anchored at each end finds its start, preferring the span closest to the query length. The threshold applies during the scan, so only qualifying hits are returned: non-overlapping per strand, ranked by edits then forward position, capped at `maxResults`. Selection is greedy best-first, so a weaker span squeezed between two accepted hits is not sought. **Known limitation:** low-complexity text at low identity (for example, kilobase homopolymer queries against long homopolymer runs) can examine many candidate ends without reporting them and reach the worker timeout. Query IUPAC codes use the same alternatives as exact mode (`residueAlternatives`). Partial matches (only part of the query aligning) are out of scope.
+- **Worker timeout**: `useSearchWorker` abandons a fuzzy job after `FUZZY_WORKER_TIMEOUT_MS`, replacing the worker so a stuck job cannot hold later requests in its queue. It does not rerun the search on the page; the inline path is used only when the worker cannot start or crashes.
 
 ### Joined-feature rendering
 
@@ -358,7 +359,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - **Canvas for Tracks**: Quantitative data is rendered to Canvas to avoid DOM overhead.
 - **Memoization**: Hub strips cache SVG paths in a fixed viewBox by immutable record and colour map, grouping by lane, colour and highlight rather than rendering one element per annotation; index entries and section headers skip unrelated renders. `trackLayout.ts` packs authoritative parts per strand with capped lanes; shared metrics determine section height. A single `TrackTooltipProvider` above both workspaces renders hover/keyboard details. Record status and biological feature comparisons use weak caches, with annotation filters applied after comparison. Full comparison runs only in the Features tab; the Sequences tab uses a cheap identity count for its tab label.
 - **Hub scrolling and search**: List offsets stay in local refs during scrolling and persist after idle or unmount; scroll-spy updates only when the section changes. The index flattens groups and fixed-height cards into its own `VariableSizeList` with overscan 4; scroll-spy calls `scrollToItem(index, 'smart')`, and the list fills the remaining sidebar height. Track window bands update through a shared controller that writes DOM styles during scrolling and retains the current span for newly mounted cards. Annotation filtering, match counters and jumps use the deferred search query. Overview search ticks share one mark per rail pixel.
-- **Typed Arrays in Workers**: `Int32Array` matrices for Smith-Waterman reduce GC pressure.
+- **Bit-parallel fuzzy search**: Myers' algorithm keeps one `Int32Array` pair per 32 query residues instead of an n×m matrix, so the scan runs in O(⌈n/32⌉·m) time; candidate ends add one 8-byte sort key per qualifying column, which in a long homopolymer means one per base.
 
 ---
 

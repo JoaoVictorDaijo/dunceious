@@ -17,16 +17,15 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { reverseComplement, getNonGapSegments, detectMoleculeType } from '@/src/domain/bio';
 import type { SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
 import { runExactSearch } from '@/src/core/search/exact';
-import { collectSeededFuzzyHits } from '@/src/core/search/fuzzy';
+import { runFuzzySearch } from '@/src/core/search/fuzzy';
 
 /** Pure search-worker body: maps a search request to its response. */
 export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
   const { requestId, searchQuery, records, mode, options, moleculeType } = request;
-  const { minScore = 5, strand = 'both', maxResults = 100 } = options;
+  const { minIdentity, strand = 'both', maxResults = 100 } = options;
   const isProtein = moleculeType === 'protein';
 
   if (!searchQuery || searchQuery.length < 1) {
@@ -34,49 +33,13 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
   }
 
   try {
-    let results: SearchResult[] = [];
-    const queryUpper = searchQuery.toUpperCase();
-
     if (mode === 'fuzzy') {
-      records.forEach((record) => {
-        const seq = record.alignedSequence || record.sequence;
-        const L = seq.length;
-        if (strand === 'both' || strand === 'fwd') {
-          results.push(...collectSeededFuzzyHits(queryUpper, seq, record.id, 1, minScore));
-        }
-        if (!isProtein && (strand === 'both' || strand === 'rev')) {
-          const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
-          const revHits = collectSeededFuzzyHits(queryUpper, rcSeq, record.id, -1, minScore);
-          revHits.forEach(hit => {
-            const start = L - hit.end;
-            const end = L - hit.start;
-            results.push({
-              ...hit,
-              start,
-              end,
-              sequence: seq.substring(start, end),
-              segments: getNonGapSegments(seq, start, end),
-            });
-          });
-        }
-      });
-    } else {
-      results = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
+      return { requestId, results: runFuzzySearch(searchQuery, records, isProtein, strand, moleculeType, minIdentity, maxResults) };
     }
 
-    // Sort results
-    if (mode === 'fuzzy') {
-      results.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
-    } else {
-      results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-    }
-
-    // Apply maxResults limit
-    if (results.length > maxResults) {
-      results = results.slice(0, maxResults);
-    }
-
-    return { requestId, results };
+    const results: SearchResult[] = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
+    results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
+    return { requestId, results: results.slice(0, maxResults) };
   } catch (error) {
     return { requestId, error: String(error) };
   }

@@ -61,7 +61,7 @@ export const BASE_COLORS: Record<string, string> = { A: '#22c55e', T: '#f43f5e',
 export const FEATURES = [
   { title: 'Reads your files', body: 'Multi-record GenBank (nucleotide or protein) and FASTA, plus GFF3 and BED annotations.', color: '#38bdf8' },
   { title: 'Semantic zoom', body: 'From mismatch density, to every base, to amino-acid translations over each CDS.', color: '#4ade80' },
-  { title: 'Finds things', body: 'Exact search with IUPAC codes, or fuzzy Smith-Waterman on both strands.', color: '#facc15' },
+  { title: 'Finds things', body: 'Exact search with IUPAC codes, or fuzzy search by identity on both strands.', color: '#facc15' },
   { title: 'Aligns, if you ask', body: 'Bring your own aligned FASTA, or send it to MAFFT, Kalign, Clustal Omega or MUSCLE at EMBL-EBI.', color: '#a78bfa' },
   { title: 'Exports cleanly', body: 'FASTA, GFF3, GenBank or the whole workspace as a project file.', color: '#fb7185' },
 ] as const;
@@ -69,7 +69,7 @@ export const FEATURES = [
 export const TOUR_STEPS = [
   { title: 'Drop a file. That’s the setup.', body: 'No account, no install, no server. Dunceious opens GenBank and FASTA right in the browser tab.' },
   { title: 'Zoom from genome to codon.', body: 'One viewer, three levels: where sequences differ, every base, and the protein each CDS encodes.' },
-  { title: 'Search like you think.', body: 'Type a motif with IUPAC codes, or let Smith-Waterman find near matches. Turn any hit into an annotation.' },
+  { title: 'Search like you think.', body: 'Type a motif with IUPAC codes, or set a minimum identity to find near matches. Turn any hit into an annotation.' },
   { title: 'Compare sequences.', body: 'Load an alignment, or ask EMBL-EBI to run MAFFT for you, and see every difference at a glance.' },
 ] as const;
 
