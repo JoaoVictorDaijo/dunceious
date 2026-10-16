@@ -22,7 +22,7 @@ import { cigarSpans } from '@/src/domain/bio/cigar';
 import type { SearchableRecord } from '@/src/domain/bio/types';
 import { runExactSearch } from '../exact';
 import { runFuzzySearch } from '../fuzzy';
-import { iupacPath } from '../editPath';
+import { iupacPath, pathQuery } from '../editPath';
 import { ungappedSpan } from '../hitPaths';
 import { hitColumns, hitCounts } from '../hitColumns';
 
@@ -48,8 +48,8 @@ describe('paths on every hit', () => {
       if (mode === 'whole') expect(hits.length).toBeGreaterThan(0);
       for (const hit of hits) {
         const span = ungappedSpan(hit, record, record.moleculeType);
-        expect(cigarSpans(hit.cigar!)).toEqual({ query: query.length, record: span.length });
-        const columns = hitColumns({ cigar: hit.cigar!, query, span, mode, alphabet: protein ? 'protein' : 'nucleotide' });
+        expect(cigarSpans(hit.cigar!)).toEqual({ query: pathQuery(query, mode).length, record: span.length });
+        const columns = hitColumns({ cigar: hit.cigar!, query: pathQuery(query, mode), span, mode, alphabet: protein ? 'protein' : 'nucleotide' });
         for (const col of columns) {
           if (col.op === '=' || col.op === 'X') {
             expect(col.op).toBe(col.queryBase!.toUpperCase() === col.recordBase!.toUpperCase() ? '=' : 'X');
@@ -90,4 +90,35 @@ describe('paths on every hit', () => {
     expect(hits).toMatchObject([{ cigar: '2=', strand: -1 }]);
     expect(ungappedSpan(hits[0], record, 'rna')).toBe('TA');
   });
+});
+
+
+it('keeps exact query gap matching while omitting gaps from the path query', () => {
+  expect(pathQuery('a-C', 'iupac')).toBe('aC');
+  expect(pathQuery('a-C', 'whole')).toBe('a-C');
+  expect(pathQuery('a-C', 'local')).toBe('a-C');
+  expect(iupacPath('a-C', 'AC')).toBe('2=');
+  for (const strand of ['fwd', 'rev'] as const) {
+    const record = { id: 'r', sequence: '--A-C--G-T--' };
+    const hits = runExactSearch('A-C', [record], false, strand);
+    expect(hits.length).toBeGreaterThan(0);
+    for (const hit of hits) {
+      const span = ungappedSpan(hit, record);
+      expect(hit.cigar).toBe('2=');
+      expect(cigarSpans(hit.cigar)).toEqual({ query: 2, record: 2 });
+      expect(hitColumns({ cigar: hit.cigar, query: pathQuery('A-C', 'iupac'), span, mode: 'iupac', alphabet: 'nucleotide' }).map(c => c.cls)).toEqual(['identical', 'identical']);
+    }
+  }
+  expect(runExactSearch('A-C', [{ id: 'r', sequence: 'AC' }], false, 'fwd')).toEqual([]);
+});
+it('keeps gap-only exact hits with an empty alignment path', () => {
+  const record = { id: 'r', sequence: 'A--C' };
+  for (const strand of ['fwd', 'rev'] as const) {
+    const hits = runExactSearch('--', [record], false, strand);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ start: 1, end: 3, cigar: '' });
+    expect(ungappedSpan(hits[0], record)).toBe('');
+    expect(cigarSpans(hits[0].cigar)).toEqual({ query: 0, record: 0 });
+    expect(hitColumns({ cigar: '', query: pathQuery('--', 'iupac'), span: '', mode: 'iupac', alphabet: 'nucleotide' })).toEqual([]);
+  }
 });

@@ -20,6 +20,7 @@
 /** SAMv1 §1.4 extended CIGAR; reference = record, read = query. */
 export type CigarOp = '=' | 'X' | 'I' | 'D' | 'S';
 
+/** An empty string represents a path consuming no residues, including gap-only exact hits. */
 export function parseCigar(cigar: string): Array<{ op: CigarOp; length: number }> {
   const runs: Array<{ op: CigarOp; length: number }> = [];
   const pattern = /([0-9]+)([=XIDS])/gy;
@@ -36,7 +37,6 @@ export function parseCigar(cigar: string): Array<{ op: CigarOp; length: number }
     runs.push({ op, length });
     offset = pattern.lastIndex;
   }
-  if (!runs.length) throw new Error('Invalid CIGAR');
   return runs;
 }
 

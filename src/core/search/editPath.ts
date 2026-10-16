@@ -18,6 +18,7 @@
  */
 
 import { formatCigar, type CigarOp } from '@/src/domain/bio/cigar';
+import type { HitMode } from './hitColumns';
 import { residueAlternatives, type ResidueAlphabet } from './query';
 
 export const EDIT_PATH_CELL_BUDGET = 16_000_000;
@@ -97,8 +98,17 @@ export function wholeQueryPath(
   return { cigar: formatCigar(reversed.reverse()), edits: edits! };
 }
 
+/**
+ * Exact query gaps match record alignment columns but carry no path operation.
+ * Path consumers must use this query so offsets address residues rather than gaps.
+ */
+export function pathQuery(query: string, mode: HitMode): string {
+  return mode === 'iupac' ? query.replace(/-/g, '') : query;
+}
+
 /** IUPAC search has no indels; SAM identity still distinguishes T/U and ambiguity codes. */
 export function iupacPath(query: string, span: string): string {
+  query = pathQuery(query, 'iupac');
   if (query.length !== span.length) throw new Error('IUPAC path lengths differ');
   return formatCigar(Array.from(query, (base, i) => base.toUpperCase() === span[i].toUpperCase() ? '=' : 'X'));
 }

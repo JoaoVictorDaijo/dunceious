@@ -105,7 +105,10 @@ export interface SeqRecord {
 
 /** A search hit, in `alignedSequence || sequence` coordinate space. */
 export interface SearchResult {
-  /** SAM extended CIGAR, record as reference, query as read; hit-strand orientation, ungapped coordinates. */
+  /**
+   * SAM extended CIGAR, record as reference, query as read; hit-strand orientation,
+   * ungapped coordinates. Exact query gaps carry no operation; gap-only hits use ''.
+   */
   cigar: string;
   start: number;  // 0-based, inclusive
   end: number;    // 0-based, exclusive

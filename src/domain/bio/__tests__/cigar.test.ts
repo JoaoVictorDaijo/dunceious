@@ -30,7 +30,7 @@ describe('SAM extended CIGAR', () => {
     expect(formatCigar(['=', '=', 'X', 'I', 'D', '=', '='])).toBe('2=1X1I1D2=');
     expect(formatCigar([])).toBe('');
   });
-  it.each(['', '5', '0=', '3Q', '2=3=', '=','-1X', '1=foo', '1.5X', '9007199254740992='])(
+  it.each(['5', '0=', '3Q', '2=3=', '=','-1X', '1=foo', '1.5X', '9007199254740992='])(
     'rejects malformed CIGAR %j', cigar => expect(() => parseCigar(cigar)).toThrow(Error),
   );
   it.each(['2=1X1I1D2=', '3S5=2S', '1D', '7I'])(
@@ -38,6 +38,11 @@ describe('SAM extended CIGAR', () => {
       expect(formatCigar(expandCigar(cigar))).toBe(cigar);
     },
   );
+  it('represents an empty alignment path', () => {
+    expect(parseCigar('')).toEqual([]);
+    expect(expandCigar('')).toEqual([]);
+    expect(cigarSpans('')).toEqual({ query: 0, record: 0 });
+  });
   it('parses operation runs', () => {
     expect(parseCigar('2=1X')).toEqual([{ op: '=', length: 2 }, { op: 'X', length: 1 }]);
     expect(expandCigar('2S1=')).toEqual(['S', 'S', '=']);
