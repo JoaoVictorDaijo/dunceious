@@ -58,20 +58,29 @@ export function residueAlternatives(residue: string, alphabet: ResidueAlphabet =
  * - An empty query returns a **never-match** regex (`/$.^/`).
  * - `moleculeType` selects the ambiguity map (see `residueAlternatives`).
  * - Residues are joined with `-*` so matches tolerate alignment gaps between
- *   them; the regex is **global + case-insensitive** (`gi`).
+ *   them; literal gap runs require at least their query length. A sole `-`
+ *   matches exactly one gap. The regex is **global + case-insensitive** (`gi`).
  */
 export function degenerateToRegex(
   query: string,
   moleculeType: ResidueAlphabet = 'nucleotide',
 ): RegExp {
   if (!query) return /$.^/;
-  const pattern = query
-    .split('')
-    .map(char => {
-      const alternatives = residueAlternatives(char, moleculeType).replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
-      return alternatives.length > 1 ? `[${alternatives}]` : alternatives;
-    })
-    // Allow optional alignment gaps between residues
-    .join('-*');
-  return new RegExp(pattern, 'gi');
+  if (query === '-') return /-/gi;
+  const pattern: string[] = [];
+  for (let index = 0; index < query.length;) {
+    if (query[index] === '-') {
+      const start = index;
+      while (query[index] === '-') index++;
+      // A single greedy run avoids redistributing identical gaps among
+      // adjacent optional separators during failed matches.
+      pattern.push(`-{${index - start},}`);
+    } else {
+      if (index > 0 && query[index - 1] !== '-') pattern.push('-*');
+      const alternatives = residueAlternatives(query[index], moleculeType).replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+      pattern.push(alternatives.length > 1 ? `[${alternatives}]` : alternatives);
+      index++;
+    }
+  }
+  return new RegExp(pattern.join(''), 'gi');
 }

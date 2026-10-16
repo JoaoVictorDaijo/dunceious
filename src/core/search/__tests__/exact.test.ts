@@ -81,6 +81,24 @@ describe('runExactSearch — gapped alignedSequence & empty guard', () => {
     ]);
   });
 
+  it('keeps literal-gap overlaps and forward segments', () => {
+    expect(runExactSearch('A--A', [{ id: 'r1', sequence: 'A---A--A' }], false, 'fwd')).toEqual([
+      { start: 0, end: 5, sequence: 'A---A', recordId: 'r1', strand: 1,
+        segments: [{ start: 0, end: 1 }, { start: 4, end: 5 }] },
+      { start: 4, end: 8, sequence: 'A--A', recordId: 'r1', strand: 1,
+        segments: [{ start: 4, end: 5 }, { start: 7, end: 8 }] },
+    ]);
+  });
+
+  it('remaps literal-gap overlapping spans and segments on the reverse strand', () => {
+    expect(runExactSearch('A--A', [{ id: 'r1', sequence: 'T---T--T' }], false, 'rev')).toEqual([
+      { start: 4, end: 8, sequence: 'A--A', recordId: 'r1', strand: -1,
+        segments: [{ start: 4, end: 5 }, { start: 7, end: 8 }] },
+      { start: 0, end: 5, sequence: 'A---A', recordId: 'r1', strand: -1,
+        segments: [{ start: 0, end: 1 }, { start: 4, end: 5 }] },
+    ]);
+  });
+
   it('skips a record whose derived seq is empty', () => {
     expect(runExactSearch('A', [{ id: 'r1', sequence: '' }], false, 'fwd')).toEqual([]);
   });
