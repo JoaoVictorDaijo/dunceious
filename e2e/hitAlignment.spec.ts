@@ -73,6 +73,7 @@ test('whole-query hit marks, alignment text and an annotation query layer', asyn
   await expect(page.locator('[data-annotation-insertion="G"]')).toBeVisible();
   await page.mouse.move(0, 0);
   await page.screenshot({ path: `${shots}/annotation-query.png` });
+  await page.getByRole('button', { name: 'Fit', exact: true }).click();
   const complements: Record<string, string> = { A: 'T', T: 'A', C: 'G', G: 'C' };
   const reverseQuery = [...query].reverse().map(base => complements[base]).join('');
   await page.getByPlaceholder('Enter query sequence...').fill(reverseQuery);
