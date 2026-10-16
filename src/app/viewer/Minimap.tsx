@@ -21,9 +21,11 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef, useState } from 'react';
 import type { SeqRecord, SearchResult } from '@/src/domain/bio/types';
 import { getFeatureColor, getNucleotideColor } from '@/src/app/viewer/colors';
+import { TouchArbiter, TOUCH_SLOP_PX } from './touchGesture';
 import { MONO_STACK } from './constants';
 
 export interface MinimapProps {
+  touchArbiter: TouchArbiter;
   records: SeqRecord[];
   consensus: string;
   alignmentLength: number;
@@ -36,6 +38,60 @@ export interface MinimapProps {
   currentSearchIdx: number;
   customColors?: Record<string, string>;
   onZoomChange: (zoom: number, scrollLeft: number) => void;
+}
+
+type MinimapTouchView = Pick<MinimapProps, 'zoomLevel' | 'scrollX' | 'alignmentLength' | 'viewportWidth' | 'onZoomChange'> & { minimapWidth: number };
+
+function attachMinimapTouch(svg: SVGSVGElement, arbiter: TouchArbiter, latest: React.RefObject<MinimapTouchView>) {
+  const observed = new Set<number>();
+  const owned = new Set<number>();
+  let drag: { id: number; x: number; y: number; moved: boolean; view: MinimapTouchView } | null = null;
+  const down = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    e.preventDefault();
+    observed.add(e.pointerId);
+    if (!arbiter.claim('minimap', e.pointerId)) return;
+    owned.add(e.pointerId);
+    drag = owned.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, view: latest.current } : null;
+  };
+  const move = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch' || drag?.id !== e.pointerId) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.hypot(dx, e.clientY - drag.y) < TOUCH_SLOP_PX) return;
+    if (!drag.moved) svg.setPointerCapture(e.pointerId);
+    drag.moved = true;
+    const v = drag.view;
+    if (v.minimapWidth > 0) latest.current.onZoomChange(v.zoomLevel, v.scrollX + dx * v.alignmentLength / v.minimapWidth * v.zoomLevel);
+  };
+  const finish = (e: PointerEvent) => {
+    if (e.pointerType !== 'touch' || !observed.delete(e.pointerId)) return;
+    if (drag?.id === e.pointerId) {
+      const v = drag.view;
+      if (e.type === 'pointerup' && !drag.moved && v.minimapWidth > 0) {
+        const x = e.clientX - svg.getBoundingClientRect().left;
+        latest.current.onZoomChange(v.zoomLevel, x * v.alignmentLength / v.minimapWidth * v.zoomLevel - v.viewportWidth / 2);
+      }
+      drag = null;
+    }
+    owned.delete(e.pointerId);
+    arbiter.release(e.pointerId);
+  };
+  const lost = (e: PointerEvent) => {
+    if (e.target === svg && drag?.id === e.pointerId && drag.moved) drag = null;
+  };
+  svg.addEventListener('pointerdown', down);
+  svg.addEventListener('pointermove', move);
+  svg.addEventListener('lostpointercapture', lost);
+  window.addEventListener('pointerup', finish);
+  window.addEventListener('pointercancel', finish);
+  return () => {
+    svg.removeEventListener('pointerdown', down);
+    svg.removeEventListener('pointermove', move);
+    svg.removeEventListener('lostpointercapture', lost);
+    window.removeEventListener('pointerup', finish);
+    window.removeEventListener('pointercancel', finish);
+    observed.forEach(id => arbiter.release(id));
+  };
 }
 
 export const Minimap: React.FC<MinimapProps> = ({
@@ -51,6 +107,7 @@ export const Minimap: React.FC<MinimapProps> = ({
   currentSearchIdx,
   customColors,
   onZoomChange,
+  touchArbiter,
 }) => {
   const minimapRef = useRef<SVGSVGElement>(null);
   const minimapWrapperRef = useRef<HTMLDivElement>(null);
@@ -72,6 +129,13 @@ export const Minimap: React.FC<MinimapProps> = ({
   }, []);
   const zoomChangeRef = useRef(onZoomChange);
   zoomChangeRef.current = onZoomChange;
+
+  const touchView = useRef({ zoomLevel, scrollX, alignmentLength, viewportWidth, onZoomChange, minimapWidth });
+  touchView.current = { zoomLevel, scrollX, alignmentLength, viewportWidth, onZoomChange, minimapWidth };
+  useEffect(() => {
+    const svg = minimapRef.current;
+    if (svg) return attachMinimapTouch(svg, touchArbiter, touchView);
+  }, [touchArbiter]);
 
   // Minimap Static Parts (Ruler, Sequence, Brush Init)
   useEffect(() => {
@@ -205,6 +269,7 @@ export const Minimap: React.FC<MinimapProps> = ({
 
     // Brush Implementation
     const brush = d3.brushX()
+      .touchable(() => false)
       .extent([[0, 0], [width, height]])
       .on('start', (event) => {
         if (event.sourceEvent) isBrushing.current = true;
@@ -258,7 +323,7 @@ export const Minimap: React.FC<MinimapProps> = ({
     <div className="flex-1 flex flex-col justify-center min-w-0">
       <div ref={minimapWrapperRef} className="relative bg-[#12203c] rounded-md border border-black/20 p-0.5 h-[45px] overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)]">
         <canvas data-minimap-preview="" ref={minimapCanvasRef} className="absolute inset-0 pointer-events-none" />
-        <svg data-minimap-ruler="" ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
+        <svg data-minimap-ruler="" style={{ touchAction: 'none' }} ref={minimapRef} className="absolute inset-0 cursor-crosshair w-full h-full" />
         <div className="absolute top-0 right-1 pointer-events-none z-10">
           <span className="text-[11px] font-mono text-slate-500 italic">1:{Math.round(alignmentLength / (containerWidth || 1))}</span>
         </div>

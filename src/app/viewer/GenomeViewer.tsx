@@ -34,6 +34,8 @@ import { useViewport } from './useViewport';
 import { useBasesOpenness } from './useBasesOpenness';
 import { useSelectionDrag } from './useSelectionDrag';
 import { SelectionOverlay } from './SelectionOverlay';
+import { TouchArbiter } from './touchGesture';
+import { useTouchPanZoom } from './useTouchPanZoom';
 import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 /**
@@ -180,6 +182,9 @@ const GenomeViewer: React.FC<Props> = ({
     handleHorizontalScroll, handleMouseMove, handleMouseLeave,
   } = useViewport({ records, alignmentLength, activeSelection, onSelectionChange, jumpTo, onJumpComplete, focusRequest, onFocusComplete });
 
+  const touchArbiter = useRef(new TouchArbiter()).current;
+  useTouchPanZoom({ containerRef: listContainerRef, horizontalScrollRef, listRef, arbiter: touchArbiter, zoomLevel, fitZoom, applyZoom });
+
   const { dragSelection, dragCursorPos, handleMouseDown } = useSelectionDrag({ dragMode, activeSelection, onSelectionChange: handleSelectionChange, records, alignmentLength, chartWidth, horizontalScrollRef, listRef });
 
   const handleContextMenu = useCallback((e: React.MouseEvent, recordId: string, feature?: BioFeature) => {
@@ -306,6 +311,7 @@ const GenomeViewer: React.FC<Props> = ({
           currentSearchIdx={currentSearchIdx}
           customColors={customColors}
           onZoomChange={applyZoom}
+          touchArbiter={touchArbiter}
         />
 
         {/* CONTROLS SECTION */}
@@ -488,7 +494,8 @@ const GenomeViewer: React.FC<Props> = ({
 
         {/* VIRTUALIZED LIST */}
         <div 
-          ref={listContainerRef} 
+          ref={listContainerRef}
+          style={{ touchAction: 'none' }}
           className={`flex-1 min-h-0 relative ${dragMode === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`} 
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -511,7 +518,7 @@ const GenomeViewer: React.FC<Props> = ({
               width={dimensions.width}
               itemData={itemData}
               className="custom-scrollbar-pro scrollbar-on-light overflow-x-hidden"
-              style={{ overflowX: 'hidden' }}
+              style={{ overflowX: 'hidden', touchAction: 'none' }}
             >
               {Row}
             </VariableSizeList>

@@ -23,6 +23,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
 import { parseFasta } from '@/src/core/formats/fasta';
+import { TouchArbiter } from '../../touchGesture';
 import { Minimap } from '@/src/app/viewer/Minimap';
 import { AA_ROW_HEIGHT } from '@/src/app/viewer/constants';
 import { assignTranslationLanes } from '@/src/app/viewer/cds';
@@ -97,7 +98,7 @@ describe('Sequence rendering with RNA and protein', () => {
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300);
     const [record] = parseFasta('>rna\nTuUt');
     const legacyScrollProps = { horizontalScrollRef: { current: null } };
-    render(<Minimap {...legacyScrollProps} records={[record]} consensus={record.sequence} alignmentLength={4}
+    render(<Minimap touchArbiter={new TouchArbiter()} {...legacyScrollProps} records={[record]} consensus={record.sequence} alignmentLength={4}
       containerWidth={300} viewportWidth={100} scrollX={0} zoomLevel={20} fitZoom={20}
       searchResults={[]} currentSearchIdx={-1} onZoomChange={() => {}} />);
     // The preview samples positions 0 (T) and 2 (U).
