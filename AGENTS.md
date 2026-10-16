@@ -8,6 +8,21 @@ read it before moving code. Claude Code users also have the `dunceious-architect
 Dunceious is a client-side genome-viewer SPA (React 19 + TypeScript, Vite, Web Workers, d3,
 react-window). Source is organized under `src/` into four layers.
 
+## Scientific rigor (first priority)
+
+Scientists treat Dunceious results as evidence. Anything that computes or displays a biological
+result must:
+- use established, published methods with standard defaults, verified against primary sources and
+  cited;
+- invent nothing and approximate nothing silently;
+- define every number shown;
+- be validated against an independent oracle (a reference tool or a separate textbook
+  implementation);
+- give the same result on every machine and build;
+- keep sequences local.
+
+The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority).
+
 ## Layer rules (the contract)
 
 Imports only ever point **down** this stack:
