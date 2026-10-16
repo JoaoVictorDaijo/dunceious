@@ -21,8 +21,9 @@
 import type { ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@/src/app/testing/renderHarness';
+import { runSearch } from '@/src/workers/handlers/search';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
-import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
+import type { BioWorkerRequest, BioWorkerResponse, SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
 import type GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import App from '../App';
 
@@ -36,9 +37,12 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function search() {
   const workers: TestWorker[] = [];
   class TestWorker {
-    onmessage: ((event: { data: BioWorkerResponse }) => void) | null = null;
+    onmessage: ((event: { data: BioWorkerResponse | SearchWorkerResponse }) => void) | null = null;
     constructor() { workers.push(this); }
-    postMessage(request: BioWorkerRequest) { this.onmessage?.({ data: handleBioMessage(request) }); }
+    postMessage(request: BioWorkerRequest | SearchWorkerRequest) {
+      const response = 'mode' in request ? runSearch(request) : handleBioMessage(request);
+      queueMicrotask(() => this.onmessage?.({ data: response }));
+    }
     terminate() {}
   }
   vi.stubGlobal('Worker', TestWorker);

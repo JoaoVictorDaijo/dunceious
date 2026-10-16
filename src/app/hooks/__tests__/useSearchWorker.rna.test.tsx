@@ -18,21 +18,22 @@
  */
 
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
+import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
+import { runSearch } from '@/src/workers/handlers/search';
 import { useSearchWorker } from '../useSearchWorker';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
+const DeferredWorker = createDeferredWorker(runSearch);
+beforeEach(() => {
+  DeferredWorker.instances = [];
+  vi.stubGlobal('Worker', DeferredWorker);
+});
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('RNA search record projection', () => {
   it.each(['rna', 'dna'] as const)('preserves the %s record type even without U in the sequence', (moleculeType) => {
-    vi.stubGlobal('Worker', class {
-      onmessage = null;
-      onerror = null;
-      postMessage() {}
-      terminate() {}
-    });
     const records: SeqRecord[] = [{
       id: 'seq', name: 'seq', sequence: 'AAA', alignedSequence: 'A-AA', features: [], moleculeType,
     }];
@@ -43,6 +44,7 @@ describe('RNA search record projection', () => {
       result.current.setSearchOptions({ minIdentity: 80, strand: 'rev', maxResults: 100 });
     });
     act(() => { result.current.handleSearch(); });
+    act(() => DeferredWorker.instances.at(-1)!.release(0));
     if (moleculeType === 'rna') {
       expect(result.current.searchResults).toEqual([{
         recordId: 'seq', sequence: 'UU-U', start: 0, end: 4, strand: -1,
