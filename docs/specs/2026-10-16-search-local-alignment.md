@@ -121,20 +121,29 @@ each **stream** (a record and one strand) is searched on its own.
   4. record start;
   5. record end;
   6. query start.
-- **Stopping each stream exactly:** a stream stops when either:
-  - no positive-scoring alignment remains (the stream is **exhausted**); or
-  - it holds N hits that pass the filters, and the next enumerated alignment scores strictly below
-    the N-th of them. The cut-off score's tie group is always finished first.
+- **Stopping each stream exactly:** each stream's enumeration never increases in score (rescoring
+  only lowers candidates; the engine checks it). The search keeps the global top N passing hits
+  under T and their N-th score b, which only rises as hits arrive. A stream stops when it is
+  **exhausted** (no positive-scoring alignment remains) or when its last alignment scores strictly
+  below the current b. Since b never exceeds the final cut-off s* (the N-th best passing score),
+  every alignment scoring at least s* is enumerated in every stream; equal scores at s* are always
+  included, so T can choose among them.
+- **Schedule** (speed only; results are the same for any schedule that obeys the rule above):
+  1. every stream computes its first alignment, which seeds the global top N, then releases its
+     engine;
+  2. streams that aren't exhausted are rerun from the start in descending order of their first
+     score (ties by stream order), enumerating under the live b. A stream whose first score is
+     already below b is skipped: its first alignment is then its only one scoring at least s*.
 
-  Then each stream's kept hits are sorted under T and the first N overall are shown. Any hit in the
-  global top N is among its own stream's top N under T, and finishing the tie group keeps every
-  equal-score candidate T might prefer. Example: query `A`, record `TT`, reverse strand,
-  limit 1. Both reverse hits score the same, so both are enumerated, and T keeps the hit at forward
-  position 1.
-- **Totals and counts:** when every stream is exhausted, totals are exact ("top 100 of 340").
-  When a stream stopped early, its unenumerated alignments are unknown, so the screen says so:
-  "top 100 shown; more alignments exist that weren't counted". Hidden-hit counts are labelled
-  "at least" in that case. No total is shown as exact unless it is.
+  One engine is alive per worker at a time. The first N hits under T among the enumerated
+  passing hits are shown, so results don't depend on timing, worker count or completion order.
+  Example: query `A`, record `TT`, reverse strand, limit 1. Both reverse hits score the same, so
+  both are enumerated, and T keeps the hit at forward position 1.
+- **Totals and counts:** when fewer than N passing hits exist, every stream was exhausted and
+  totals are exact ("top 100 of 340"). Otherwise counts cover the alignments scoring at least the
+  cut-off s*, which every stream enumerated, so they are exact and the same on every run: the
+  screen says "Top 100 shown; lower-scoring alignments aren't counted" and Search details
+  names the cut-off score. No total is shown as covering more than it does.
 - **No positive score:** a stream with no positive-scoring alignment has no hits, and is counted
   separately from hidden hits.
 - **Ties in the first alignment:** when several alignments share the optimal score, the engine
@@ -207,6 +216,14 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
   - each alignment is located and traced back (`matcher_Locate`);
   - its residue pairs are excluded, and only the affected region is re-scored
     (`matcher_SmallPass`).
+  - the candidate list is unbounded: `matcher` with an unlimited `-alternatives` list. Each
+    stream's enumeration is then one well-defined sequence, independent of how many alignments
+    are requested, and equals `matcher`'s whenever `matcher`'s own list never truncates. Memory
+    grows with the number of candidate start points (about 36 000 for a 300-nt query against a
+    30 kb record) and is measured (*Validation 9*);
+  - used residue pairs are looked up in a hash set rather than `matcher`'s per-row lists. This
+    changes the speed only: the profiled cost of the list walk was 7.6 billion steps in 40
+    alignments.
 
   It is written in C and compiled once to WebAssembly with a pinned Emscripten. There is a single
   build, with no SIMD and no fallback variant.
@@ -285,7 +302,8 @@ only in the search context and minimizes, with Local's extra options collapsed b
   - hits hidden by display filters;
   - hits beyond the result limit.
 
-  Each count is labelled exact or "at least" (*What a local hit is*).
+  When a cut-off applies, counts cover alignments scoring at least it, and the screen names it
+  (*What a local hit is*).
 - **Naming:** Local **identity** (EMBOSS: identical columns over alignment length) and whole-query
   **query identity** (query length minus edits, over query length) have different names, and each
   label's help gives its formula.
@@ -322,13 +340,15 @@ only in the search context and minimizes, with Local's extra options collapsed b
 
    Secondary hits are not compared with the unconstrained optimum; check 3 covers them.
 5. **Selection and counts:** on small inputs the test enumerates every stream to exhaustion,
-   computes the expected global top N under T and the exact counts, and compares with the
-   early-stopped search. It also checks that early-stopped counts are labelled "at least". Cases
+   computes the expected global top N under T and the counts over alignments scoring at least the
+   cut-off, and compares with the bounded search at pool sizes 1 and 4 with shuffled timing. Cases
    include query `A` against record `TT` on the reverse strand with limit 1 (the forward-position-1
    hit wins), and ties at the cut-off.
 6. **Overlap filter:**
-   - query `AA` against record `AAA` enumerates two equal-score alignments (record 1–2 and 2–3);
-     the first is kept and the second hidden, with a count of 1;
+   - query `AA` against record `AAA` enumerates scores 10, 10, 5, 5: record 1–2, record 2–3, then
+     the two single-pair alignments left by pair exclusion;
+     record 1–2 and record 3 are kept, and record 2–3 and the record-1 alignment are hidden
+     (count 2);
    - further cases: tandem repeats, two separated copies of a domain, overlapping near-repeats, and
      forward and reverse hits on the same bases (both kept).
 7. **Fixtures:**

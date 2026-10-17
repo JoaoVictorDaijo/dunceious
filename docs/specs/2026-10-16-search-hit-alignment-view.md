@@ -102,10 +102,13 @@ Owner feedback (2026-10-16), from scientists using the tool:
   - ties between equally cheap paths are broken in this fixed order: diagonal, then `I`, then
     `D`, scanning from the end. Results are therefore deterministic;
   - **bounded memory:** when query length × span fits a fixed cell budget (the builder sets it,
-    for example 16 million cells), a full-matrix traceback is used. Above it, Hirschberg's
-    linear-space divide-and-conquer is used, the method edlib uses for path recovery. Both apply
-    the same tie rule, and tests require identical paths wherever both can run. A very long whole
-    query therefore can't exhaust memory. The traceback runs in the worker.
+    for example 16 million cells), a full-matrix traceback is used. Above it, rows of the forward
+    DP are checkpointed and each block is recomputed from its checkpoint during the traceback
+    (recursively while a block exceeds the budget). The recomputed values are the full matrix's,
+    so the path is identical by construction; tests require identical paths wherever both can
+    run. A plain Hirschberg middle-row split (the method edlib uses) was set aside because it
+    doesn't by itself reproduce this tie rule. A very long whole query therefore can't exhaust
+    memory. The traceback runs in the worker.
 - **IUPAC (exact):** every column is `=` or `X` (ambiguity-accepted), with no indels; the path is
   built directly.
 - **Local:** each alignment comes with the engine's own traceback (Huang–Miller, as in
@@ -340,7 +343,8 @@ minimizable uses the app's existing collapsible pattern: a native `<details>`/`<
 - Wagner & Fischer (1974), "The string-to-string correction problem", *J ACM* 21:168–173,
   doi:10.1145/321796.321811.
 - NCBI BLAST pairwise output, Plus/Minus strand convention (descending subject coordinates).
-- Hirschberg (1975), *Commun ACM* 18:341–343, doi:10.1145/360825.360861 (linear-space traceback).
+- Hirschberg (1975), *Commun ACM* 18:341–343, doi:10.1145/360825.360861 (linear-space traceback,
+  considered).
 - Šošić & Šikić (2017), *Bioinformatics* 33:1394–1395, doi:10.1093/bioinformatics/btw753 (edlib).
 - EMBOSS 6.6.0 `matcher.c` (Local mode's traceback, via the Local spec).
 - EMBOSS 6.6.0 `ajax/core/ajalign.c` (`alignSim`) and the `water` pair output format.
