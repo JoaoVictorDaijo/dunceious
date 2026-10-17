@@ -1,0 +1,206 @@
+########################################
+# Program: matcher
+# Rundate: Sat 17 Oct 2026 02:57:19
+# Commandline: matcher
+#    -auto
+#    -asequence src/core/search/local/__tests__/fixtures/emboss/gap-one/query.fa
+#    -bsequence src/core/search/local/__tests__/fixtures/emboss/gap-one/record.fa
+#    -snucleotide1
+#    -snucleotide2
+#    -datafile src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+#    -gapopen 20
+#    -gapextend 1
+#    -alternatives 8
+#    -aformat3 srspair
+#    -awidth3 60
+#    -outfile stdout
+# Align_format: srspair
+# Report_file: stdout
+########################################
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 13
+# Identity:      12/13 (92.3%)
+# Similarity:    12/13 (92.3%)
+# Gaps:           1/13 ( 7.7%)
+# Score: 100
+# 
+#
+#=======================================
+
+Query              1 ACGTACG-TACGT     12
+                     ||||||| |||||
+record             1 ACGTACGGTACGT     13
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 7
+# Identity:       7/7 (100.0%)
+# Similarity:     7/7 (100.0%)
+# Gaps:           0/7 ( 0.0%)
+# Score: 70
+# 
+#
+#=======================================
+
+Query              5 ACGTACG     11
+                     |||||||
+record             1 ACGTACG      7
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 6
+# Identity:       6/6 (100.0%)
+# Similarity:     6/6 (100.0%)
+# Gaps:           0/6 ( 0.0%)
+# Score: 60
+# 
+#
+#=======================================
+
+Query              3 GTACGT      8
+                     ||||||
+record             8 GTACGT     13
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 4
+# Identity:       4/4 (100.0%)
+# Similarity:     4/4 (100.0%)
+# Gaps:           0/4 ( 0.0%)
+# Score: 40
+# 
+#
+#=======================================
+
+Query              9 ACGT     12
+                     ||||
+record             1 ACGT      4
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 4
+# Identity:       4/4 (100.0%)
+# Similarity:     4/4 (100.0%)
+# Gaps:           0/4 ( 0.0%)
+# Score: 40
+# 
+#
+#=======================================
+
+Query              1 ACGT      4
+                     ||||
+record            10 ACGT     13
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 3
+# Identity:       3/3 (100.0%)
+# Similarity:     3/3 (100.0%)
+# Gaps:           0/3 ( 0.0%)
+# Score: 30
+# 
+#
+#=======================================
+
+Query              1 ACG      3
+                     |||
+record             5 ACG      7
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 2
+# Identity:       2/2 (100.0%)
+# Similarity:     2/2 (100.0%)
+# Gaps:           0/2 ( 0.0%)
+# Score: 20
+# 
+#
+#=======================================
+
+Query             11 GT     12
+                     ||
+record             8 GT      9
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 10
+# 
+#
+#=======================================
+
+Query              7 G      7
+                     |
+record             8 G      8
+
+
+#---------------------------------------
+#---------------------------------------

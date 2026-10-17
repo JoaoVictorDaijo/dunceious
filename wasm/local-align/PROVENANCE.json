@@ -1,0 +1,64 @@
+{
+  "source": {
+    "matcher": "EMBOSS 6.6.0 (Debian 6.6.0+dfsg-12)",
+    "sha256": "b742edbafb8b246d23d5c358e5ac6300e87b26ef77a0abe87ffea1c19bb83acb",
+    "path": "emboss/matcher.c"
+  },
+  "matrices": {
+    "EDNAFULL": {
+      "source": "EMBOSS 6.6.0 (Debian 6.6.0+dfsg-12)",
+      "sha256": "12c70996191c165933008ba6cb5d08ce10a133849c62abc97b57710e057f7c47"
+    },
+    "EBLOSUM62": {
+      "source": "EMBOSS 6.6.0 (Debian 6.6.0+dfsg-12)",
+      "sha256": "85510d3846ee6d5f4778e425cf8daf6e0dbb889b306f2d13434e1254780efb40"
+    }
+  },
+  "emscripten": {
+    "image": "emscripten/emsdk:3.1.74",
+    "digest": "sha256:af45409f3199d88db4b1b03af0098532c8fb33a375ac257463eeb0a622870d06",
+    "version": "3.1.74"
+  },
+  "flags": [
+    "-std=c11",
+    "-O2",
+    "--no-entry",
+    "-fno-ident",
+    "-ffile-prefix-map=/src=.",
+    "-sSTANDALONE_WASM=1",
+    "-sFILESYSTEM=0",
+    "-sALLOW_MEMORY_GROWTH=1",
+    "-sMALLOC=emmalloc",
+    "-sABORTING_MALLOC=0",
+    "-sASSERTIONS=0",
+    "-sEXPORTED_FUNCTIONS=[\"_la_create\",\"_la_bigpass_step\",\"_la_next\",\"_la_destroy\",\"_la_peak_memory\",\"_malloc\",\"_free\"]"
+  ],
+  "environment": {
+    "SOURCE_DATE_EPOCH": "0",
+    "TZ": "UTC",
+    "LC_ALL": "C"
+  },
+  "artifact": {
+    "path": "public/wasm/local-align.wasm",
+    "sha256": "b044bf004d192c6d34a8f5ae52f88a42984d865626df4938c2a05b104cd734a3",
+    "bytes": 17770
+  },
+  "licence": {
+    "spdx": "GPL-2.0-or-later",
+    "attribution": [
+      "Ian Longden",
+      "LALIGN 2.0u4, W. R. Pearson",
+      "Huang & Miller (1991), doi:10.1016/0196-8858(91)90017-D"
+    ],
+    "evidence": {
+      "source": "Debian emboss 6.6.0+dfsg-12 debian/copyright, first Files: * stanza, fetched 2026-10-16",
+      "url": "https://sources.debian.org/src/emboss/6.6.0%2Bdfsg-12/debian/copyright/",
+      "grant": "EMBOSS applications are released under the GNU General Public Licence.",
+      "decision": "Debian main distributes matcher.c in the DFSG-reviewed source without an exception; preserve its GPL-2.0-or-later notice. Used under GPL-3.0-or-later in combination with AGPL-3.0-or-later."
+    }
+  },
+  "engine": {
+    "path": "wasm/local-align/matcher_engine.c",
+    "sha256": "31ab3593b28ccc46665ce59830e57689156082a18723def88cb4b18b75bf6a80"
+  }
+}

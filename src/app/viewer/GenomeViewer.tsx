@@ -18,6 +18,7 @@
  */
 
 
+import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -79,6 +80,7 @@ interface Props {
   onViewDetails?: (recordId: string, feature?: BioFeature) => void;
   isAlignmentLocked?: boolean;
   onRemoveRecord?: (recordId: string) => void;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   currentSearchIdx: number;
   selectedSearchIndices?: Set<number>;
@@ -113,6 +115,7 @@ const GenomeViewer: React.FC<Props> = ({
   onRemoveRecord,
   isAlignmentLocked = false,
   searchResults,
+  completedSearch,
   currentSearchIdx,
   selectedSearchIndices = new Set(),
   customColors,
@@ -234,8 +237,8 @@ const GenomeViewer: React.FC<Props> = ({
   const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM;
   const basesOpenness = useBasesOpenness(basesVisible);
   const recordLayouts = useMemo(
-    () => computeRecordLayouts(records, { showAnnotations, translationVisible, showTracks, basesVisible }),
-    [records, showAnnotations, translationVisible, showTracks, basesVisible],
+    () => computeRecordLayouts(records, { showAnnotations, translationVisible, showTracks, basesVisible, searchResultsByRecord }),
+    [records, showAnnotations, translationVisible, showTracks, basesVisible, searchResultsByRecord],
   );
 
   useEffect(() => {
@@ -259,6 +262,7 @@ const GenomeViewer: React.FC<Props> = ({
     showTranslation,
     searchResultsByRecord,
     searchResults,
+  completedSearch,
     currentSearchIdx,
     onSelectionChange: setPersistentSelection,
     onContextMenu: handleContextMenu,
@@ -275,7 +279,7 @@ const GenomeViewer: React.FC<Props> = ({
   }), [
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
-    searchResultsByRecord, searchResults, currentSearchIdx,
+    searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel, comparison
   ]);

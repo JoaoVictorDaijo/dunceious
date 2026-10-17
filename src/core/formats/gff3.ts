@@ -23,6 +23,7 @@ import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
+import { searchHitNote } from './searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS } from '../genbank/qualifierRules';
 
 export interface GffSourceRegion {
@@ -173,6 +174,8 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
       addQualifiers(attrs, metadata, referenceIds, report);
+      const searchNote = searchHitNote(feature);
+      if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
       const partials = partialParts(feature);
       segments.forEach((segment, index) => {

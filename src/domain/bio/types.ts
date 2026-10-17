@@ -103,13 +103,31 @@ export interface SeqRecord {
   visible?: boolean;
 }
 
+/** Counts use all alignment columns as denominator; query range is 0-based half-open. */
+export interface LocalHitMetrics {
+  score: number; // EMBOSS units
+  length: number;
+  identical: number;
+  similar: number;
+  gaps: number;
+  queryStart: number;
+  queryEnd: number;
+  queryLength: number;
+}
+
 /** A search hit, in `alignedSequence || sequence` coordinate space. */
 export interface SearchResult {
+  /**
+   * SAM extended CIGAR, record as reference, query as read; hit-strand orientation,
+   * ungapped coordinates. Exact query gaps carry no operation; gap-only hits use ''.
+   */
+  cigar: string;
   start: number;  // 0-based, inclusive
   end: number;    // 0-based, exclusive
   sequence: string;
   recordId: string;
   strand: 1 | -1; // 1 = forward match, -1 = reverse-complement match
+  local?: LocalHitMetrics;
   /** Fuzzy hits only: substitutions, insertions and deletions against the whole query. */
   edits?: number;
   /** Fuzzy hits only: percent identity, 100 × (query length − edits) / query length. */
@@ -131,4 +149,22 @@ export interface SelectionArea {
   start: number;
   end: number;
   recordIds: string[];
+}
+
+export type SearchHitMode = 'iupac' | 'whole' | 'local';
+/** Search evidence is kept separately from the annotation's authoritative biological region. */
+export interface SearchHitProvenance {
+  v: 1;
+  query: string;
+  mode: SearchHitMode;
+  alphabet: 'nucleotide' | 'protein';
+  params: { minQueryIdentity?: number; scoring?: string };
+  strand: 1 | -1;
+  cigar: string;
+  local?: LocalHitMetrics;
+  edits?: number;
+  span: { start: number; end: number; strand: 1 | -1; segments?: FeatureSegment[] };
+  appVersion: string;
+  createdAt: string;
+  exportNote: boolean;
 }

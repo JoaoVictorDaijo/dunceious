@@ -26,7 +26,7 @@ import {
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
 
 const mk = (o: Partial<SearchResult>): SearchResult => ({
-  start: 0, end: 1, sequence: 'A', recordId: 'r1', strand: 1, ...o,
+  cigar: '1=', start: 0, end: 1, sequence: 'A', recordId: 'r1', strand: 1, ...o,
 });
 
 describe('groupedSearchResults', () => {
