@@ -195,14 +195,16 @@ export interface LocalSearchRun {
 }
 export interface LocalSearchProgress { streamsDone: number; streamsTotal: number; currentFraction: number }
 export interface LocalSearchResult { results: SearchResult[]; counts: LocalSearchCounts }
-export type LocalSearchRequest = { type: 'init'; wasm: ArrayBuffer } | {
-  type: 'search'; requestId: number; query: string; scoring: LocalScoringId;
+export type LocalSearchRequest = { type: 'init'; wasm: ArrayBuffer }
+  | { type: 'bound'; requestId: number; boundScore2: number } | {
+  type: 'search'; phase: 'bootstrap' | 'refine'; requestId: number; boundScore2: number | null; query: string; scoring: LocalScoringId;
   moleculeType: 'dna' | 'rna' | 'protein'; limit: number; filters: LocalFilters;
   jobs: Array<{ recordIndex: number; record: SearchableRecord; strand: 1 | -1 }>;
 };
 export type LocalSearchResponse = { type: 'ready' } | { type: 'init-error'; error: string }
+  | { type: 'hit'; requestId: number; recordIndex: number; strand: 1 | -1; hit: SearchResult }
   | { type: 'progress'; requestId: number; recordIndex: number; strand: 1 | -1; fraction: number }
-  | { type: 'stream-done'; requestId: number; outcome: LocalStreamOutcome;
+  | { type: 'stream-done'; phase: 'bootstrap' | 'refine'; requestId: number; outcome: LocalStreamOutcome;
     /** WASM linear-memory high-water mark in bytes; excludes JS and browser overhead. */
     peakMemoryBytes: number }
   | { type: 'error'; requestId: number; error: string };

@@ -29,14 +29,14 @@ export function SearchDetails({ mode, recordCount, counts }: { mode: HitMode; re
       <SectionTitle icon="fa-info-circle" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Search details</SectionTitle>
     </summary>
     {counts && <div className="space-y-1">
-      <p>{counts.exact ? 'Exact counts' : 'Counts are lower bounds; more alignments exist that were not counted'}</p>
-      <p>{counts.streams} streams searched (exact)</p>
-      <p>{counts.noPositiveStreams} streams with no positive alignment (exact)</p>
-      <p>{counts.skippedRecords.length} records skipped (exact)</p>
+      <p>{counts.cutoff === null ? 'Exact counts across all alignments' : `Counts cover alignments scoring at least ${counts.cutoff} in EMBOSS units`}</p>
+      <p>{counts.streams} streams searched</p>
+      <p>{counts.noPositiveStreams} streams with no positive alignment</p>
+      <p>{counts.skippedRecords.length} records skipped</p>
       {counts.skippedRecords.map(r => <p key={r.recordId}>{r.recordId}: unsupported characters {r.characters.join(', ')}</p>)}
-      <p>{counts.exact ? '' : 'at least '}{counts.hiddenByOverlap} hidden by overlap{counts.exact ? ' (exact)' : ''}</p>
-      <p>{counts.exact ? '' : 'at least '}{counts.hiddenByFilters} hidden by display filters{counts.exact ? ' (exact)' : ''}</p>
-      <p>{counts.exact ? '' : 'at least '}{counts.beyondLimit} beyond the result limit{counts.exact ? ' (exact)' : ''}</p>
+      <p>{counts.hiddenByOverlap} hidden by overlap</p>
+      <p>{counts.hiddenByFilters} hidden by display filters</p>
+      <p>{counts.beyondLimit} beyond the result limit</p>
     </div>}
     <p>Hits across {recordCount} records.</p>
     <ul className="space-y-1 mt-2" aria-label="Search marks legend">

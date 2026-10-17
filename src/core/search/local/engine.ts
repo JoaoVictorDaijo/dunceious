@@ -123,14 +123,18 @@ export async function instantiateLocalEngine(module: WebAssembly.Module): Promis
           onProgress?.(done / query.length);
         }
         if (!query.length) onProgress?.(1);
+        let previousScore2 = Infinity;
         while (true) {
           const status = e.la_next(handle, output, ops, capacity, length);
           if (status === 0) return;
           if (status !== 1) throw new Error(`Local alignment enumeration failed (${status})`);
           const count = new Int32Array(e.memory.buffer, length, 1)[0];
           if (count <= 0 || count > capacity) throw new Error(PATH_ERROR);
-          yield checkedAlignment([...new Int32Array(e.memory.buffer, output, 5)],
+          const alignment = checkedAlignment([...new Int32Array(e.memory.buffer, output, 5)],
             new Uint8Array(e.memory.buffer, ops, count), query, record, scoring);
+          if (alignment.score2 > previousScore2) throw new Error('Local alignment scores increased');
+          previousScore2 = alignment.score2;
+          yield alignment;
         }
       } finally {
         if (handle > 0) e.la_destroy(handle);

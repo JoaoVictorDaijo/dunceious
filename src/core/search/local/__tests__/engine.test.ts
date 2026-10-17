@@ -115,3 +115,25 @@ it.each(pairHashOracle.cases)('preserves every previous-WASM alignment for $quer
   const engine = await instantiateLocalEngine(module);
   expect(all(engine.enumerate(codes(query), codes(record), scoring))).toEqual(alignments);
 });
+
+it('rejects increasing ABI scores before exposing the next alignment', async () => {
+  const memory = new WebAssembly.Memory({ initial: 1 });
+  let top = 8, call = 0;
+  const destroy = vi.fn();
+  vi.spyOn(WebAssembly, 'instantiate').mockResolvedValue({ exports: {
+    memory, _initialize() {}, malloc(n: number) { const p = top; top += Math.ceil(n / 8) * 8; return p; }, free() {},
+    la_create() { return 1; }, la_destroy: destroy, la_bigpass_step() { return 2; },
+    la_next(_h: number, output: number, buffer: number, _cap: number, length: number) {
+      const n = ++call;
+      new Int32Array(memory.buffer, output, 5).set([n * 10, 0, n, 0, n]);
+      new Uint8Array(memory.buffer, buffer, n).fill(61);
+      new Int32Array(memory.buffer, length, 1)[0] = n;
+      return 1;
+    },
+  } } as unknown as WebAssembly.Instance);
+  const engine = await instantiateLocalEngine(module);
+  const iterator = engine.enumerate(codes('AA'), codes('AA'), scoring);
+  expect(iterator.next().value).toMatchObject({ score2: 10 });
+  expect(() => iterator.next()).toThrow('Local alignment scores increased');
+  expect(destroy).toHaveBeenCalledWith(1);
+});

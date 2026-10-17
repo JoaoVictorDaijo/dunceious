@@ -19,7 +19,7 @@
 
 import React from 'react';
 import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
-import { HitAlignmentSummary } from './search/HitAlignment';
+import { SearchResultGroup } from './search/SearchResultGroup';
 import { SearchDetails } from './search/SearchDetails';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
@@ -233,8 +233,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             <div className="flex items-center justify-between mb-6 px-1">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-200">{searchResults.length} matches</span>
-                  {localCounts && !localCounts.exact && <span className="text-[10px] text-slate-400">more not counted</span>}
+                  <span className="text-[11px] font-semibold text-slate-200">{localCounts && localCounts.cutoff !== null
+                    ? `Top ${searchResults.length} shown; lower-scoring alignments aren't counted`
+                    : `${searchResults.length} matches`}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
@@ -266,125 +267,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-2 max-h-[500px]">
-              {Object.entries(groupedSearchResults).map(([recordId, group]) => (
-                <div key={recordId} className="space-y-4">
-                  <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-env"></div>
-                      <span className="text-[11px] font-semibold text-slate-300 truncate max-w-[140px]">{recordId}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => onToggleRecordSelection(recordId, true)}
-                        data-tip="Select every match in this record"
-                        className="text-[11px] font-semibold text-slate-400 hover:text-env transition-colors"
-                      >
-                        Select all
-                      </button>
-                      <button
-                        onClick={() => onJoinAllInRecord(recordId)}
-                        className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors"
-                        data-tip="Create one multi-segment annotation from every match in this record"
-                      >
-                        Join all
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pl-1">
-                    {group.results.map((match, localIdx) => {
-                      const globalIdx = group.indices[localIdx];
-                      const context = getSequenceContext(match.recordId, match.start, match.end);
-                      const isActive = currentSearchIdx === globalIdx;
-                      const record = records.find(r => r.id === recordId);
-                      return (
-                        <div
-                          key={globalIdx}
-                          data-search-hit=""
-                          onClick={() => {
-                            onSetCurrentIdx(globalIdx);
-                            onSetActiveTab('alignment');
-                            onSetActiveSelection({ start: match.start, end: match.end, recordIds: [match.recordId] });
-                          }}
-                          className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-env ring-2 ring-env/20 bg-env/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative flex items-center justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedSearchIndices.has(globalIdx)}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    const next = new Set(selectedSearchIndices);
-                                    if (e.target.checked) next.add(globalIdx);
-                                    else next.delete(globalIdx);
-                                    onSetSelectedIndices(next);
-                                  }}
-                                  className="w-4 h-4 rounded-lg border-slate-700 bg-slate-900 text-env focus:ring-env cursor-pointer"
-                                />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[11px] font-bold text-slate-200 tracking-tight">
-                                  {(match.start + 1).toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
-                                </span>
-                                <span className="text-[11px] font-semibold text-slate-500">Position</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {match.local && <span className="text-[11px] font-bold text-amber-400">Score {match.local.score}</span>}
-                              {match.identity !== undefined && (
-                                <div className="flex flex-col items-end">
-                                  <span className="text-[10px] font-bold text-amber-500">
-                                    {Math.floor(match.identity)}%
-                                  </span>
-                                  <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">{match.edits === 1 ? '1 edit' : `${match.edits ?? 0} edits`}</span>
-                                </div>
-                              )}
-                              <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                                {match.strand === 1 ? 'Forward' : 'Reverse'}
-                              </div>
-                            </div>
-                          </div>
-
-                          {match.local && <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 mb-2">
-                            <span>Identity {match.local.identical}/{match.local.length} ({(100 * match.local.identical / match.local.length).toFixed(1)}%)</span>
-                            <span>Similarity {match.local.similar}/{match.local.length} ({(100 * match.local.similar / match.local.length).toFixed(1)}%)</span>
-                            <span>Gaps {match.local.gaps}/{match.local.length} ({(100 * match.local.gaps / match.local.length).toFixed(1)}%)</span>
-                            <span>Query coverage {match.local.queryEnd - match.local.queryStart}/{match.local.queryLength} ({(100 * (match.local.queryEnd - match.local.queryStart) / match.local.queryLength).toFixed(1)}%)</span>
-                            <span>Query {match.local.queryStart + 1}–{match.local.queryEnd} of {match.local.queryLength}</span>
-                            <span>Length {match.local.length}</span>
-                          </div>}
-                          {record && completedSearch ? <HitAlignmentSummary result={match} record={record} search={completedSearch} /> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
-                            {context.pre}<strong>{context.match}</strong>{context.post}
-                          </div>}
-
-                          <div className="mt-3 flex justify-between items-center">
-                            <div className="flex gap-2">
-                              {isActive && (
-                                <span className="text-[11px] font-semibold text-env flex items-center gap-1 animate-pulse">
-                                  <i className="fas fa-eye"></i> Active
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand, completedSearch ? { result: match, search: completedSearch } : undefined);
-                              }}
-                              aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
-                              data-tip="Save this match as an annotation"
-                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-env transition-all text-[11px] font-semibold text-env flex items-center gap-2 bg-env/10 hover:bg-env/20 px-3 py-1.5 rounded-lg border border-env/20"
-                            >
-                              <i className="fas fa-plus text-[10px]"></i> Annotate
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              {Object.entries(groupedSearchResults).map(([recordId, group]) => <SearchResultGroup
+                key={recordId} recordId={recordId} group={group} records={records} completedSearch={completedSearch}
+                getSequenceContext={getSequenceContext} currentSearchIdx={currentSearchIdx}
+                onSetCurrentIdx={onSetCurrentIdx} onSetActiveTab={onSetActiveTab} onSetActiveSelection={onSetActiveSelection}
+                selectedSearchIndices={selectedSearchIndices} onSetSelectedIndices={onSetSelectedIndices}
+                onAnnotateMatch={onAnnotateMatch} onToggleRecordSelection={onToggleRecordSelection}
+                onJoinAllInRecord={onJoinAllInRecord} />)}
             </div>
             <SearchDetails counts={localCounts} mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
           </div>

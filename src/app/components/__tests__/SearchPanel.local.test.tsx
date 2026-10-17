@@ -56,17 +56,49 @@ it('keeps Local options collapsed and remembers their open state in the session'
  const next = render(<SearchPanel {...props} localReady />);
  expect(next.container.querySelector<HTMLDetailsElement>('[data-local-options]')!.open).toBe(true);
 });
-it('shows defined Local metrics and lower-bound counts, with correct soft-clipped query coordinates', () => {
+it('shows defined Local metrics and cutoff counts, with correct soft-clipped query coordinates', () => {
  const props = panelProps(); props.searchOptions.fuzzyMethod = 'local';
+ props.searchOptions.maxResults = 1;
  props.searchQuery = 'AAGTA'; props.records[0].sequence = 'GTA';
- const h = render(<SearchPanel {...props} localReady localCounts={{ exact: false, streams: 2, noPositiveStreams: 0, skippedRecords: [{ recordId: 'bad', characters: ['*'] }], hiddenByOverlap: 2, hiddenByFilters: 1, beyondLimit: 4 }}
+ const h = render(<SearchPanel {...props} localReady localCounts={{ cutoff: 15, streams: 2, noPositiveStreams: 0, skippedRecords: [{ recordId: 'bad', characters: ['*'] }], hiddenByOverlap: 2, hiddenByFilters: 1, beyondLimit: 4 }}
  completedSearch={{ query: 'AAGTA', mode: 'local', alphabet: 'nucleotide', options: props.searchOptions, matrixScore: (q, r) => q === r ? 5 : -4 }} />);
  expect(screen.getByText('Score 15')).toBeTruthy();
  expect(screen.getByText(/Identity 3\/3/)).toBeTruthy();
  expect(screen.getByText(/Similarity 3\/3/)).toBeTruthy();
  expect(screen.getByText(/Gaps 0\/3/)).toBeTruthy();
  expect(screen.getByText(/Query coverage 3\/5/)).toBeTruthy();
- expect(screen.getByText('more not counted')).toBeTruthy();
- expect(screen.getByText(/at least 2.*overlap/i)).toBeTruthy();
+ expect(screen.getByText("Top 1 shown; lower-scoring alignments aren't counted")).toBeTruthy();
+ expect(screen.getByText('Counts cover alignments scoring at least 15 in EMBOSS units')).toBeTruthy();
+ expect(screen.getByText('2 hidden by overlap')).toBeTruthy();
+ expect(screen.getByText('1 hidden by display filters')).toBeTruthy();
+ expect(screen.getByText('4 beyond the result limit')).toBeTruthy();
+ expect(screen.queryByText(/lower bounds|more not counted|at least \d+ hidden/i)).toBeNull();
  expect(h.container.querySelector('pre')!.textContent).toMatch(/Query\s+3\s+GTA\s+5/);
+});
+
+it('preserves a fractional cutoff in EMBOSS units', () => {
+ const props = panelProps(); props.searchOptions.fuzzyMethod = 'local'; props.searchOptions.maxResults = 1;
+ const fractionalHit: SearchResult = { ...hit, local: { ...hit.local!, score: 0.5 } };
+ props.searchResults = [fractionalHit]; props.groupedSearchResults = { synthetic: { results: [fractionalHit], indices: [0] } };
+ render(<SearchPanel {...props} localReady localCounts={{ cutoff: 0.5, streams: 2, noPositiveStreams: 1, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 2, beyondLimit: 3 }} />);
+ expect(screen.getByText('Counts cover alignments scoring at least 0.5 in EMBOSS units')).toBeTruthy();
+ expect(screen.getByText('2 streams searched')).toBeTruthy();
+ expect(screen.getByText('1 streams with no positive alignment')).toBeTruthy();
+ expect(screen.getByText('0 records skipped')).toBeTruthy();
+ expect(screen.getByText('0 hidden by overlap')).toBeTruthy();
+ expect(screen.getByText('2 hidden by display filters')).toBeTruthy();
+ expect(screen.getByText('3 beyond the result limit')).toBeTruthy();
+ expect(screen.queryByText(/\(exact\)|lower bounds|more not counted/)).toBeNull();
+});
+
+it.each([true, false])('shows exhaustive totals without a cutoff when results are present: %s', hasResults => {
+ const props = panelProps(); props.searchOptions.fuzzyMethod = 'local';
+ if (!hasResults) { props.searchResults = []; props.groupedSearchResults = {}; }
+ render(<SearchPanel {...props} localReady localCounts={{ cutoff: null, streams: 3, noPositiveStreams: 1, skippedRecords: [], hiddenByOverlap: 2, hiddenByFilters: 4, beyondLimit: 0 }} />);
+ expect(screen.getByText('Exact counts across all alignments')).toBeTruthy();
+ expect(screen.getByText('2 hidden by overlap')).toBeTruthy();
+ expect(screen.getByText('4 hidden by display filters')).toBeTruthy();
+ expect(screen.getByText('0 beyond the result limit')).toBeTruthy();
+ expect(screen.queryByText(/Counts cover alignments scoring|Top \d+ shown|lower bounds|more not counted|\(exact\)/)).toBeNull();
+ if (hasResults) expect(screen.getByText('1 matches')).toBeTruthy();
 });

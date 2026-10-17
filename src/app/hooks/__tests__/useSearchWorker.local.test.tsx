@@ -28,7 +28,7 @@ const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null a
 vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState }));
 beforeEach(() => { moduleState.error = null; });
 const records: SeqRecord[] = [{ id: 'r', name: 'r', sequence: 'AAA', features: [] }];
-const counts = { exact: true, streams: 1, noPositiveStreams: 0, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 };
+const counts = { cutoff: null, streams: 1, noPositiveStreams: 0, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 };
 it.each(['clear', 'replace', 'mode', 'new'] as const)('ignores local results after %s mid-run', async action => {
   let complete: (v: unknown) => void = () => {};
   pool.run.mockImplementation(() => new Promise(resolve => { complete = resolve; }));
