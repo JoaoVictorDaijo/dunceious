@@ -159,6 +159,7 @@ export function ShowroomTopBar({ workspace, tab, onTabChange, toolsRef, sidebarO
         <span className="shrink-0 text-[14px] font-black uppercase italic tracking-wide text-white max-[799px]:hidden">Dunceious</span>
         <WorkspaceSwitcher tab={tab} onTabChange={onTabChange} />
         <div ref={toolsRef} aria-label="Workspace tools" data-hub-tools="narrow" data-hub-focus={tab === 'features' ? true : undefined}
+          data-showroom-hub={tab === 'features' ? '' : undefined}
           className="flex min-w-0 items-center justify-end gap-1.5">
           {tab === 'alignment' && <>
             <DragModes dragMode={workspace.dragMode} onChange={workspace.setDragMode} />

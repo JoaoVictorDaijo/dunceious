@@ -225,28 +225,39 @@ describe('useShowroomGuards: lifecycle', () => {
   });
 });
 
-function ProjectKeys({ active }: { active: boolean }) {
-  useProjectKeys(active, onExplain);
+function ProjectKeys({ canExplain }: { canExplain: boolean }) {
+  useProjectKeys(canExplain, onExplain);
   return null;
 }
 
 describe('useProjectKeys', () => {
   it('prevents Ctrl/⌘+S and Ctrl/⌘+O and explains Project once per press', () => {
-    render(<ProjectKeys active />);
+    render(<ProjectKeys canExplain />);
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true, repeat: true })).toBe(false);
     expect(fireEvent.keyDown(document.body, { key: 'O', metaKey: true })).toBe(false);
     expect(explained()).toEqual(['project', 'project']);
   });
 
-  it('leaves other chords alone, and every key while inactive or unmounted', () => {
-    const { rerender, unmount } = render(<ProjectKeys active />);
-    for (const init of [{ key: 's' }, { key: 's', ctrlKey: true, shiftKey: true }, { key: 'o', metaKey: true, altKey: true }, { key: 'p', ctrlKey: true }]) {
+  it('catches the physical S and O keys on a non-Latin layout', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'ы', code: 'KeyS', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'щ', code: 'KeyO', metaKey: true })).toBe(false);
+    expect(explained()).toEqual(['project', 'project']);
+  });
+
+  it('still prevents the keys, without explaining, where no explanation can show', () => {
+    render(<ProjectKeys canExplain={false} />);
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'o', metaKey: true })).toBe(false);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+
+  it('leaves other chords alone, and every key once unmounted', () => {
+    const { unmount } = render(<ProjectKeys canExplain />);
+    for (const init of [{ key: 's' }, { key: 's', ctrlKey: true, shiftKey: true }, { key: 'o', metaKey: true, altKey: true }, { key: 'p', code: 'KeyP', ctrlKey: true }]) {
       expect(fireEvent.keyDown(document.body, init)).toBe(true);
     }
-    rerender(<ProjectKeys active={false} />);
-    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(true);
-    rerender(<ProjectKeys active />);
     unmount();
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(true);
     expect(onExplain).not.toHaveBeenCalled();

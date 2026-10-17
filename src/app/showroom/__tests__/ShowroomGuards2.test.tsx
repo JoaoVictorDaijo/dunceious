@@ -106,6 +106,9 @@ describe('showroom guards beyond the viewer', () => {
     view.expectNoSideEffects();
   });
 
+});
+
+describe('showroom project shortcuts', () => {
   it('Ctrl+S and Meta+O explain and are prevented', () => {
     const view = mountShowroom();
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
@@ -122,6 +125,41 @@ describe('showroom guards beyond the viewer', () => {
 
     view.unmount();
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(true);
+    view.expectNoSideEffects();
+  });
+
+  it('Ctrl+S and Meta+O are prevented in portrait, where no explanation shows', () => {
+    const view = mountShowroom();
+    view.rotate(false);
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(back(), { key: 'o', metaKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'ы', code: 'KeyS', ctrlKey: true })).toBe(false);
+    noExplanation();
+    view.rotate(true);
+    noExplanation();
+    view.expectNoSideEffects();
+  });
+
+  it("the Hub's toolbar in the top bar is guarded like the Hub, its search field left to the browser", () => {
+    const view = mountShowroom();
+    openHub();
+    const tools = screen.getByLabelText('Workspace tools');
+    const exportButton = within(tools).getByRole('button', { name: 'Export…' });
+    expect(fireEvent.contextMenu(exportButton, { clientX: 30, clientY: 40 })).toBe(false);
+    longPress(exportButton);
+    fireEvent.click(exportButton, { clientX: 100, clientY: 50 });
+    expect(exportDialog()).toBeTruthy();
+    noExplanation();
+    fireEvent.click(within(exportDialog()).getByRole('button', { name: 'Close export dialog' }));
+
+    const search = within(tools).getByRole('searchbox', { name: 'Search annotations' });
+    longPress(search);
+    expect(fireEvent.contextMenu(search)).toBe(true);
+    noExplanation();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
+    expect(fireEvent.contextMenu(within(tools).getByRole('button', { name: 'Pan mode' }))).toBe(true);
+    noExplanation();
     view.expectNoSideEffects();
   });
 });

@@ -84,7 +84,7 @@ function guardLinks(explain: Explain): () => void {
 
 type Press = { id: number; x: number; y: number; timer: ReturnType<typeof setTimeout> | null; explained: boolean };
 
-/** The Hub and the dialogs portalled over the showroom, where the workbench has no context menu to explain. */
+/** The Hub, its toolbar in the top bar and the dialogs portalled over the showroom, where the workbench has no context menu to explain. */
 const QUIET_AREAS = '[data-showroom-hub], [data-showroom-portals]';
 
 type Zone = 'viewer' | 'quiet';
@@ -187,25 +187,27 @@ export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, worksp
   }, [rootRef, workspaceRef]);
 }
 
+const PROJECT_KEYS = new Set(['s', 'o']);
+const PROJECT_CODES = new Set(['KeyS', 'KeyO']);
+
 /**
- * Ctrl/⌘+S and Ctrl/⌘+O would open the browser's Save Page and Open File dialogs;
- * in the workbench they save and open a project, so they explain that. The capture
- * phase reaches keys that a dialog stops from bubbling, and a held key stays
- * prevented without explaining again.
+ * Ctrl/⌘+S and Ctrl/⌘+O would open the browser's Save Page and Open File dialogs,
+ * in portrait too; in the workbench they save and open a project, so they explain
+ * that where an explanation can show. `code` catches layouts whose S and O keys
+ * type other letters, where the browser still saves on Ctrl+S. The capture phase
+ * reaches keys that a dialog stops from bubbling, and a held key stays prevented
+ * without explaining again.
  */
-export function useProjectKeys(active: boolean, onExplain: Explain): void {
+export function useProjectKeys(canExplain: boolean, onExplain: Explain): void {
   const explainRef = useRef(onExplain);
-  useEffect(() => { explainRef.current = onExplain; }, [onExplain]);
-  useEffect(() => {
-    if (!active) return;
-    return listen<KeyboardEvent>(document, 'keydown', event => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
-      const key = event.key.toLowerCase();
-      if (key !== 's' && key !== 'o') return;
-      event.preventDefault();
-      if (!event.repeat) explainRef.current('project');
-    });
-  }, [active]);
+  const canExplainRef = useRef(canExplain);
+  useEffect(() => { explainRef.current = onExplain; canExplainRef.current = canExplain; }, [onExplain, canExplain]);
+  useEffect(() => listen<KeyboardEvent>(document, 'keydown', event => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+    if (!PROJECT_KEYS.has(event.key.toLowerCase()) && !PROJECT_CODES.has(event.code)) return;
+    event.preventDefault();
+    if (!event.repeat && canExplainRef.current) explainRef.current('project');
+  }), []);
 }
 
 /** A touch drag pans in either mode, so the first touch drag in Select mode says how selecting works in the workbench. */
