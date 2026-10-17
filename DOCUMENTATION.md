@@ -21,8 +21,8 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
     - **Nucleotide**: Standard IUPAC codes — `R`, `Y`, `S`, `W`, `K`, `M`, `B`, `D`, `H`, `V`, `N`.
     - **Protein**: All 20 standard amino acids plus ambiguity codes — `B` (D/N), `Z` (E/Q), `J` (I/L), `X` (all 20), `U` (selenocysteine), `O` (pyrrolysine).
       Gaps in aligned sequences are automatically skipped.
-  - **Fuzzy Mode**: Finds places where the whole query matches with a few differences. The **Min identity** slider (60–100%) sets how many substitutions, insertions or deletions are allowed: at 80%, a 50-base query may differ in up to 10 bases; the badge beside the slider shows the limit for the current query. Each hit shows its identity and edit count, and hits are ranked by identity. IUPAC codes in the query work as in exact mode. A hit must cover the whole query; a match of only part of it is not reported. For nucleotide sessions, both the forward strand and reverse complement are searched automatically; for protein sessions, reverse-complement search is suppressed (not applicable).
-  - Hits can be turned into annotations one by one (**Annotate**) or joined (**Join selected** / **Join all**).
+  - **Fuzzy mode**: **Whole query** uses Myers' bit-parallel edit distance (as in edlib), with query identity = 100 × (query length − edits) / query length. **Local** uses Huang–Miller Waterman–Eggert following EMBOSS matcher 6.6.0, with water's EDNAFULL/EBLOSUM62 matrices and gap open 10, extend 0.5; a length-n gap costs 10 + (n − 1) × 0.5. It returns several non-overlapping hits per record strand. Scoring, metrics, filters and count scope are defined in [the search manual](./USER_MANUAL.md#31-search).
+  - Hits carry a per-base alignment view, barcode and copyable EMBOSS-layout text. **Annotate** stores search provenance and offers a query layer over the record; **Join selected** / **Join all** keep record bases only. Search notes in exports are opt-in.
 - **Quantitative Tracks**:
   - **Line Tracks**: For continuous data like GC content or conservation scores.
   - **Interval Tracks**: For discrete regions with associated values (e.g., BED files). Supports dynamic packing to prevent overlap and automatic vertical scaling to show all data.
@@ -74,7 +74,7 @@ All source lives under `src/`, and imports only point down the stack `domain ←
 
 - **`src/domain/bio/`** — pure biology model and algorithms: coordinate transposition, consensus, intervals, sequence utilities (translation, reverse complement, molecule type), ribosomal frameshifts, and the canonical types.
 - **`src/core/`** — format parsers and serializers (`genbank/`, `formats/` for FASTA and BED/GFF3), search primitives (`search/`), and the EMBL-EBI contract model (`alignment/`, no network).
-- **`src/workers/`** — the typed message contracts (`protocol.ts`), the thin `bio.worker.ts` / `search.worker.ts` shells and their `handlers/` bodies.
+- **`src/workers/`** — the typed message contracts (`protocol.ts`), the thin `bio.worker.ts` / `search.worker.ts` / `localSearch.worker.ts` shells and their `handlers/` bodies.
 - **`src/app/`** — the React application: `App.tsx` (composition root), `hooks/` (worker bridges, file handling, features, remote alignment), `components/` (sidebar, nav, Annotation Hub, modals), `viewer/` (the genome viewer) and `lib/` (downloads and the EMBL-EBI client).
 
 ## 4. Technical Implementation Details
@@ -100,6 +100,27 @@ When an alignment is performed, gaps (`-`) are inserted. To keep annotations acc
 
 The layout uses CSS `sticky` positioning and a shared overflow container. This ensures that while the user scrolls vertically through a large list of sequences, the labels stay aligned with the sequences, and both scroll together, maintaining the visual relationship.
 
+### 4.4 Local search engine
+
+The C engine lives in `wasm/local-align/`; its [README](./wasm/local-align/README.md) defines
+the ABI and allocation ownership. `src/core/search/local/` binds it, validates paths and scores,
+and selects hits. Model types (`SearchResult`, `LocalHitMetrics`, `SearchHitProvenance`) live in
+`src/domain/bio/types.ts`; worker messages and `SearchOptions` live in `src/workers/protocol.ts`.
+
+`useLocalSearchPool` runs Vite inline workers with one engine per worker. The page's
+`localEngineModule.ts` fetches, compiles and keeps module bytes, then supplies them to every
+worker, including replacements after Cancel. Local has no page-thread fallback. Selection ranks
+by score, record order, strand, record start/end and query start. A live global bound (the N-th
+best passing score for result limit N) stops streams only below that score, preserving ties;
+counts cover the final cut-off or all positive alignments when no cut-off applies. See
+[the architecture search section](./ARCHITECTURE.md#search-srcworkershandlerssearchts) for scheduling.
+
+Rebuild the committed `public/wasm/local-align.wasm` with `bash scripts/build-local-engine.sh`
+using Docker. The script pins `emscripten/emsdk:3.1.74` by digest; builds use no SIMD or alternate
+engine. [`PROVENANCE.json`](./wasm/local-align/PROVENANCE.json) records the image digest, source
+and matrix hashes, flags, environment and artifact hash. CI rebuilds separately and requires
+byte-identical output. Normal app builds use the committed artifact and need no Emscripten.
+
 ## 5. Workflow Data Flow
 
 1.  **Input**: User uploads or drops files on the viewport Ingestion cards or uses the hub canvas/menu:
@@ -111,7 +132,7 @@ The layout uses CSS `sticky` positioning and a shared overflow container. This e
 3.  **Alignment Overlay** (optional): User uploads a pre-aligned FASTA via **Upload pre-aligned FASTA**, or runs a remote alignment from the **Alignment** section (EMBL-EBI), whose result is applied through the same overlay reducer. Matching records get their `alignedSequence` updated without altering their features or sequence data.
 4.  **Transposition**: When an alignment is active, `processTransposition` updates `BioFeature` indices to map original genomic coordinates to the new "aligned space" (indices including gaps).
 5.  **Rendering**: `GenomeViewer` lays out each record and renders annotations (SVG) and sequence and tracks (canvas). Translation rows are shown only in nucleotide sessions.
-6.  **Search**: When a user enters a query, the search worker (`src/workers/search.worker.ts`) runs exact (IUPAC regex) or fuzzy (minimum-identity approximate) search, passing the session's `moleculeType` to suppress reverse-complement for protein sessions. Results are ranked and highlighted in the viewer.
+6.  **Search**: The search worker (`src/workers/search.worker.ts`) runs exact (IUPAC regex) or Whole query (Myers) search; Local runs in the `localSearch.worker.ts` pool. The session's `moleculeType` suppresses reverse-complement for proteins. Results carry alignment paths for per-base viewer marks, result cards and annotations made from hits.
 
 ## 6. License
 

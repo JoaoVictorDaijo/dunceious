@@ -126,8 +126,8 @@ The supported degenerate codes depend on the active **session molecule type**:
 | `M`  | A, C    |      |               |
 
 Literal `T` and `U` queries match their own residues. Reverse-strand searches
-use RNA complements (`A` pairs with `U`) for RNA records and DNA complements
-(`A` pairs with `T`) for DNA records.
+use the record's alphabet: `A` pairs with `U` when the record contains U, or has neither
+T nor U and is declared RNA; otherwise `A` pairs with `T`. T-written RNA records keep T.
 
 **Peptide sessions**
 
@@ -144,16 +144,150 @@ All 20 standard one-letter amino acid codes are accepted literally. Additional a
 
 Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches. **Annotate** turns one hit into an annotation; **Join selected** / **Join all** turn several hits into one.
 
-#### Fuzzy Mode
+#### Fuzzy mode
 
-- Finds places where the **whole query** matches with a few differences: substitutions, insertions or deletions.
-- A **Min identity** slider (60–100 %) appears below the search bar. Identity is the share of the query that matches: at 80 %, a 50-base query may differ in up to 10 bases. The badge beside the slider shows the edit limit for the current query. Only hits at or above the threshold are searched for and listed.
-- Each hit shows its identity and number of edits. Results are sorted by identity (best match first).
-- IUPAC codes in the query work as in IUPAC mode.
-- A hit must cover the whole query; a match of only part of it is not reported.
-- Both the forward strand and its **reverse complement** are searched automatically for nucleotide sessions. Reverse-complement search is suppressed in peptide sessions, where strand orientation does not apply.
+Choose **Whole query** or **Local** below the Fuzzy toggle. Nucleotide searches support the
+forward strand and reverse complement; peptide searches have no reverse strand.
 
-> **Tip**: Use IUPAC mode for known motifs or primer sequences, and Fuzzy mode to find similar but not identical sequences (e.g., for mutation detection or homology searches).
+**Whole query** finds spans matching the entire query with substitutions, insertions or
+deletions, using Myers' bit-parallel edit distance (as in edlib). IUPAC query codes work as in
+IUPAC mode. **Min query identity** sets the threshold; the badge shows the allowed edits:
+
+- Query identity (%) = 100 × (query length − edits) / query length.
+- Allowed edits = floor(query length × (100 − min query identity) / 100).
+- Edits = mismatch columns + inserted query bases + record bases absent from the query.
+
+The slider runs from 60% to 100%. For example, at 80%, a query of length 50 allows 10 edits.
+Hits cover the whole query and are ranked by edits, then forward position, with non-overlapping
+hits per strand. A match covering only part of the query needs Local mode.
+
+**Local** finds stretches similar to part of the query. It uses Waterman–Eggert in Huang and
+Miller's linear-space form, following **EMBOSS matcher 6.6.0**, with **EMBOSS water 6.6.0**
+scoring defaults:
+
+| Sequence type | Matrix | Gap open | Gap extend |
+| --- | --- | --- | --- |
+| DNA or RNA | EDNAFULL | 10 | 0.5 |
+| Protein | EBLOSUM62 | 10 | 0.5 |
+
+A gap of length n costs 10 + (n − 1) × 0.5. These penalties and matrix values are in EMBOSS
+score units. The first alignment on each record strand is an optimal Smith–Waterman alignment
+with affine gaps (Gotoh). Later alignments cannot reuse an aligned query–record residue pair
+from any earlier alignment, even one hidden from the results. Only positive scores produce hits.
+
+Local can return several non-overlapping hits per record strand. In score order, the overlap
+filter hides an alignment whose record span overlaps a hit already kept on that strand. The
+span includes record bases opposite query gaps. Equal scores follow matcher's enumeration order;
+forward and reverse hits may overlap each other. This greedy filter does not maximize the sum
+of the kept scores.
+
+Open **Local options** for **Min identity** and **Min query coverage**. Both are off by default
+and hide hits after the overlap filter; they never change an alignment. **Result limit** defaults
+to 100 hits overall. Results sort by score descending, then record order, forward before reverse,
+record start, record end and query start. Ties are deterministic. When several first alignments
+have the optimal score, matcher may choose a different path from water, so their path metrics
+can differ even when their optimal scores agree.
+
+When the result limit is reached, the header says **“Top N shown; lower-scoring alignments aren't
+counted”**, with N replaced by the shown count. **Search details** gives the cut-off score: the
+score of the last shown hit. Hidden-by-overlap, hidden-by-display-filter and beyond-limit counts
+then cover only alignments scoring at least that cut-off, including ties. When fewer hits pass
+than the limit, all streams are exhausted and the counts cover all positive-scoring alignments.
+A stream is one record strand. Streams with no positive alignment and records skipped for
+unsupported characters are counted separately.
+
+Local uses the matrix's ambiguity-code rows in both query and record. For nucleotides, N/N is
+identical but scores −1 in EDNAFULL and is not similar; for proteins, N is asparagine and N/N
+scores +6 in EBLOSUM62 and is both identical and similar. T and U have equal EDNAFULL scores
+but remain different letters for identity. Whole-query and IUPAC modes instead expand query
+ambiguity codes only: nucleotide N/N and protein X/X count as mismatches there.
+
+Whitespace is removed from the query. Local accepts only symbols present in its matrix:
+`ATGCSWRYKMBVHDNU` for nucleotides and
+`ARNDCQEGHILKMFPSTWYVBZX*` for proteins, case-insensitively. Unsupported query characters,
+including `-`, are reported and prevent the search. Record alignment gaps are removed before
+searching; records with unsupported residues are skipped and named in the log and Search details.
+
+**Local metrics.** Each value comes from the reported alignment and original symbols, following
+EMBOSS water 6.6.0's report (`ajalign.c`):
+
+| Metric | Definition |
+| --- | --- |
+| Score | Sum of matrix scores for paired residues − sum of [10 + (n − 1) × 0.5] over gap runs of length n, in EMBOSS units. |
+| Length | Paired-residue columns + insertion columns + deletion columns; unaligned query ends are excluded. |
+| Identity (%) | 100 × identical-symbol columns / Length, ignoring case but keeping T and U distinct. |
+| Similarity (%) | 100 × columns with a positive matrix score / Length. |
+| Gaps (%) | 100 × gap columns / Length; each inserted or deleted base is one column. |
+| Query coverage (%) | 100 × aligned query residues / full query length; query residues opposite record gaps are included. |
+
+Query range and record range use 1-based inclusive coordinates. Local identity and whole-query
+query identity have different denominators; use the formula beside each label when comparing hits.
+E-values and bit scores are not shown. Gapped statistical significance needs parameters calibrated
+for the exact matrix, gap penalties and search-space size; no such calibration is established here
+for EDNAFULL with gap 10/0.5. Raw scores are shown with their scoring scheme.
+
+**Long searches.** A quick Local search shows a spinner. After one second, the search job monitor
+shows record strands finished out of the total, progress through the current work, elapsed time
+and **Cancel**. **Minimize** turns it into a draggable pill; click the pill to reopen the monitor.
+Cancel stops the workers immediately, and a new search can be started. Local has no fixed time
+limit; Whole query retains its 15-second guard. All sequence work stays in the browser. Once
+**Local search ready** appears, Local works offline, including after Cancel and a new search.
+Loading or worker failures show an error rather than partial results.
+
+#### Hit marks and alignment text
+
+Open **Search details** for the current mode's legend. Forward hits have an amber tint and
+reverse hits a pink tint. At base-level zoom, the marks mean:
+
+| Mark | IUPAC and Whole query | Local |
+| --- | --- | --- |
+| Hit tint, record letter; `\|` in the match line | Identical and accepted by the mode | Identical original symbols |
+| Dotted underline; `:` | Matched through a query ambiguity code | Not used |
+| Dashed outline; `:` | Not used | Different symbols with a positive matrix score (similar) |
+| Ink cell, white letter; `.` | Mismatch, including record ambiguity codes the query does not accept | Different symbols without a positive matrix score |
+| Slate cell; `−` in the query row | Record base absent from the query (Whole query only) | Record base absent from the query |
+| Violet caret between bases, inserted letters above | Extra query bases (Whole query only) | Extra query bases |
+
+The active hit shows a Query row and match line above the record. On reverse hits, this row is
+labelled **Query (reverse complement)** so it compares with the forward record letters. When
+hits overlap, the active hit's marks win, then the earlier hit in results order. Existing record
+alignment gaps keep their gap style. Zoomed out, differences appear as ticks, carets and slate
+segments. Clearing the search removes the query lane.
+
+Each result card gives column counts in words: an insertion or deletion count is a count of
+bases, not gap runs. Its **barcode** has one cell per alignment column, in query orientation on
+both strands (5′→3′ for nucleotides, N→C for proteins). Ticks mark mismatches, violet carets mark
+insertions and slate notches mark deletions; its accessible label gives the counts.
+
+Expand **Alignment** on a card to see and copy plain text in the **EMBOSS pair layout**: query,
+match line and record, in blocks of 60 columns with 1-based coordinates at both ends. The
+match line uses `|` for identity, `:` for ambiguity acceptance or Local similarity, `.` for
+mismatch and a space for a gap. For reverse hits, the query reads 5′→3′ and the record line
+shows the reverse strand with descending forward coordinates, following **NCBI BLAST's
+Plus/Minus convention**. The record line is labelled “reverse strand”.
+
+#### Annotations from a hit
+
+**Annotate** keeps the query, mode, parameters, alignment path and results as search details
+in the project file. In annotation details, **Bases inside** offers **Nothing**, **Record bases**
+or **Query aligned to record**. The last choice draws the query over the annotation's record
+columns with the hit marks. The annotation still describes the record region: its coordinates,
+exported sequence and translation come from the record. Joined annotations show record bases
+only; the query layer is unavailable for them.
+
+Moving, resizing or changing the strand makes the stored alignment stale. The query layer
+disappears and details say **“The search alignment no longer matches this annotation's region.”**
+The stored provenance remains until **Remove search details** is chosen.
+
+When creating an annotation from a hit, **Add search details to the note** is opt-in and off by
+default. If selected, export generates a human-readable GenBank `/note` or GFF3 `Note` from the
+stored details. Internal search metadata is kept in project files and never exported as
+qualifiers. Stale annotations export no search note; Remove search details also removes that
+optional note. Exported bases are always the record's bases.
+
+Method definitions and reference implementations are recorded in the
+[Local search spec](docs/specs/2026-10-16-search-local-alignment.md) and
+[hit alignment view spec](docs/specs/2026-10-16-search-hit-alignment-view.md).
 
 ### 3.2 Annotation Hub
 
