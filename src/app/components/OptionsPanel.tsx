@@ -18,6 +18,8 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useProjectActions } from '@/src/app/hooks/useProjectActions';
+import ProjectActionsSection from './ProjectActionsSection';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { THEMES, type ThemeKey } from '@/src/app/logic/theme';
 
@@ -27,6 +29,11 @@ const FEATURE_TYPES = [
 ];
 
 export interface OptionsPanelProps {
+  onSaveProject: () => string | null;
+  onOpenProject: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearWorkspace: () => void;
+  sequenceCount: number;
+  locked: boolean;
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
   themeKey: ThemeKey;
@@ -50,12 +57,14 @@ const CogIcon: React.FC<{ className?: string }> = ({ className }) => (
  * the viewport and the hub alike) and workspace preferences.
  */
 const OptionsPanel: React.FC<OptionsPanelProps> = ({
+  onSaveProject, onOpenProject, onClearWorkspace, sequenceCount, locked,
   featureColors,
   onSetFeatureColors,
   themeKey,
   onSetThemeKey,
 }) => {
   const [open, setOpen] = useState(false);
+  const { save, openPicker, picker, saved } = useProjectActions({ onSaveProject, onOpenProject, locked, onShortcut: () => setOpen(false) });
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -113,8 +122,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
         onClick={() => setOpen(o => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label="Options"
-        data-tip={open ? undefined : 'Options: feature colours, theme and workspace preferences'}
+        aria-label="Project and options"
+        data-tip={open ? undefined : 'Project and options'}
         className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
           open
             ? 'bg-env/10 border-env/40 text-env'
@@ -124,13 +133,18 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
         <CogIcon className="w-[18px] h-[18px]" />
       </button>
 
+      <input ref={picker} aria-label="Open project file" hidden type="file" accept=".json" disabled={locked} onChange={onOpenProject} />
+      <span role="status" aria-live="polite" className="pointer-events-none absolute right-0 top-full mt-2 whitespace-nowrap">
+        {saved && <span className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 shadow-xl"><i aria-hidden="true" className="fas fa-circle-check text-emerald-400" />Saved as <span className="font-mono">{saved}</span></span>}
+      </span>
       {open && (
         <div
           ref={panelRef}
           role="dialog"
-          aria-label="Options"
+          aria-label="Project and options"
           tabIndex={-1}
-          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
+          style={{ maxHeight: `calc(100vh - ${triggerRef.current?.getBoundingClientRect().bottom ?? 64}px - 28px)` }}
+          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden flex flex-col focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
             <span className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200">
@@ -147,6 +161,8 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             </button>
           </div>
 
+          <div className="overflow-y-auto min-h-0">
+          <ProjectActionsSection sequenceCount={sequenceCount} locked={locked} onSave={save} onOpen={openPicker} onClearWorkspace={onClearWorkspace} onAction={() => setOpen(false)} />
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
           <div className="px-5 py-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-3">
@@ -218,6 +234,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                 </button>
               ))}
             </div>
+          </div>
           </div>
         </div>
       )}

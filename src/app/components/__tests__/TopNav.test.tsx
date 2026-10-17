@@ -131,14 +131,12 @@ describe('switcher sizing', () => {
     expect(screen.getByRole('navigation').style.getPropertyValue('--switcher-half')).toBe('200px');
   });
 
-  it.each(['alignment', 'features'] as const)('keeps Project beside Options, past the mode tools, in %s mode', tab => {
+  it.each(['alignment', 'features'] as const)('keeps Project and options past the mode tools, in %s mode', tab => {
     render(<TopNav {...defaults} activeTab={tab} showAlignmentControls={tab === 'alignment'} />);
     const cluster = screen.getByLabelText('Workspace tools and options');
-    const project = within(cluster).getByRole('button', { name: 'Project' });
-    const options = within(cluster).getByRole('button', { name: 'Options' });
+    const options = within(cluster).getByRole('button', { name: 'Project and options' });
     const tools = within(cluster).getByLabelText('Workspace tools');
-    expect(tools.compareDocumentPosition(project) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(project.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tools.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cluster.querySelector('span[aria-hidden="true"].w-px')).not.toBeNull();
   });
 });

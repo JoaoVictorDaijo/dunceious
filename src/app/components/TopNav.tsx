@@ -20,7 +20,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, type ChangeEvent } from 'react';
 import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
-import ProjectMenu from './ProjectMenu';
 import ComparisonMenu from './ComparisonMenu';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
@@ -310,10 +309,10 @@ const TopNav: React.FC<TopNavProps> = ({
       )}
 
       </div>
-      {/* The divider splits this mode's tools from the app-level Project and Options pair. */}
+
       {(showAlignmentControls || activeTab === 'features') && <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-slate-700" />}
-      <ProjectMenu onSaveProject={onSaveProject} onOpenProject={onOpenProject} onClearWorkspace={onClearWorkspace} sequenceCount={sequenceCount} locked={workspaceLocked} />
       <div className="shrink-0"><OptionsPanel
+        onSaveProject={onSaveProject} onOpenProject={onOpenProject} onClearWorkspace={onClearWorkspace} sequenceCount={sequenceCount} locked={workspaceLocked}
         featureColors={featureColors}
         onSetFeatureColors={onSetFeatureColors}
         themeKey={themeKey}

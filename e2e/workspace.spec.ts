@@ -113,8 +113,8 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
     if (title === 'Sequence index') expect(rowBounds.height).toBe(24);
     await expect(row.getByRole('button', { name: 'Workspace actions', exact: true })).toHaveCount(0);
     const nav = page.locator('nav.app-nav');
-    await nav.getByRole('button', { name: 'Project', exact: true }).click();
-    const menu = page.getByRole('menu', { name: 'Project', exact: true });
+    await nav.getByRole('button', { name: 'Project and options', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Project and options', exact: true }).getByRole('group', { name: 'Project', exact: true });
     const menuBounds = (await menu.boundingBox())!;
     expect(menuBounds.x).toBeGreaterThanOrEqual(0);
     expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(width);
@@ -126,10 +126,10 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
   expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles(file('added.fa', '>added\nACGT\n'));
   await expect(page.locator('aside').getByText('added', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('workspace'));
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('menuitem', { name: 'Save project', exact: true }).click();
+  await page.getByRole('button', { name: 'Save project', exact: true }).click();
   const download = await downloadPromise;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -141,10 +141,10 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
   await page.keyboard.press('ControlOrMeta+s');
   expect((await shortcutDownload).suggestedFilename()).toBe('shortcut.json');
   page.once('dialog', dialog => dialog.accept('CLEAR'));
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Clear workspace…', exact: true }).click();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear workspace…', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Record Navigator', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /Annotation Hub$/ }).click();
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Clear workspace…', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Clear workspace…', exact: true })).toBeDisabled();
 });
