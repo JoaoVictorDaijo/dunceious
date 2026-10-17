@@ -180,8 +180,13 @@ Rules:
     and tooltips.
   - **H2:** the search field's minimum width drops to 140 px.
 
-  The top bar stays one row (64 px) in both modes. If a measured Hub layout still overlaps at
-  680 px after H2, stop and raise it rather than adding another step.
+  - **H3 (both modes, last step):** the wordmark hides; the sidebar toggle stays. Added after
+    measurement: at 680 px in the Hub, a `1000 / 1000` search counter with its arrows and an
+    80 px typing width still overlapped the switcher after H2 by about 110 px. The Viewport
+    never reaches this step above 680 px.
+
+  The top bar stays one row (64 px) in both modes. If a measured layout still overlaps at
+  680 px after H3, stop and raise it rather than adding another step.
 - **Labels and access:** short and icon-only forms keep the full names as accessible names and
   as tooltips (`data-tip`). Layer toggles keep their existing tooltip text, including disabled
   reasons.
