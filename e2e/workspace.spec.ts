@@ -149,21 +149,8 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
   await expect(page.getByRole('button', { name: 'Clear workspace…', exact: true })).toBeDisabled();
 });
 
-test('top bar keeps layers inline on office screens', async ({ page }) => {
-  const reference = 'reference-with-a-name-long-enough-to-hit-the-fourteen-rem-cap';
-  const bases = 'ATG'.repeat(33333) + 'ACCGGTTGCA' + 'ATG'.repeat(6667);
-  const fasta = `>${reference}\n${bases}\n>sample\n${bases.slice(0, 60000)}-${bases.slice(60001)}\n`;
-  await page.setViewportSize({ width: 1920, height: 900 });
-  await page.goto('/?shell=desktop');
+async function expectOfficeLayerLabels(page: Page) {
   const nav = page.locator('nav.app-nav');
-  await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
-  await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('records.fa', fasta));
-  await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
-  await page.getByLabel('Import pre-aligned FASTA file', { exact: true }).setInputFiles(file('aligned.fa', fasta));
-  await nav.getByRole('button', { name: 'Visual Viewport', exact: true }).click();
-  const compare = page.getByRole('button', { name: 'Compare to reference', exact: true });
-  await expect(compare).toBeVisible();
-  await page.evaluate(() => document.fonts.ready);
   const labels = ['Annotations', 'Tracks', 'Translation', 'Conservation'];
   for (const width of [1920, 1600, 1440, 1366, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -190,24 +177,62 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   await nav.getByRole('button', { name: /^Layers/ }).click();
   await expect(nav.getByRole('group', { name: 'Layer options' })).toBeVisible();
   await nav.getByRole('group', { name: 'Layer options' }).press('Escape');
+}
 
-  const noOverlap = async () => {
-    await expect.poll(() => nav.evaluate(element => {
-      const bar = element.getBoundingClientRect();
-      const boxes = ['[data-topbar-brand]', '[data-workspace-switcher]', '[aria-label="Workspace tools and options"]'].map(selector => element.querySelector(selector)!.getBoundingClientRect());
-      return boxes.every(box => box.left >= bar.left && box.right <= bar.right && box.top >= bar.top && box.bottom <= bar.bottom)
-        && boxes.every((box, index) => boxes.slice(index + 1).every(other => box.right <= other.left || other.right <= box.left));
-    })).toBe(true);
-  };
-  await page.setViewportSize({ width: 680, height: 900 });
-  await noOverlap();
+async function expectNoTopBarOverlap(page: Page) {
+  const nav = page.locator('nav.app-nav');
+  await expect.poll(() => nav.evaluate(element => {
+    const bar = element.getBoundingClientRect();
+    const boxes = ['[data-topbar-brand]', '[data-workspace-switcher]', '[aria-label="Workspace tools and options"]'].map(selector => element.querySelector(selector)!.getBoundingClientRect());
+    return boxes.every(box => box.left >= bar.left && box.right <= bar.right && box.top >= bar.top && box.bottom <= bar.bottom)
+      && boxes.every((box, index) => boxes.slice(index + 1).every(other => box.right <= other.left || other.right <= box.left));
+  })).toBe(true);
+}
+
+async function expectCogThemeReachable(page: Page) {
+  const nav = page.locator('nav.app-nav');
+  for (const [width, height] of [[1366, 768], [1024, 600]]) {
+    await page.setViewportSize({ width, height });
+    await nav.getByRole('button', { name: 'Project and options' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Project and options' });
+    const theme = dialog.getByRole('radio').last();
+    await dialog.getByRole('radio').first().focus();
+    await page.keyboard.press('End');
+    await expect(theme).toBeFocused();
+    const box = (await theme.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(64);
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    await theme.click();
+    await dialog.press('Escape');
+  }
+}
+
+test('top bar keeps layers inline on office screens', async ({ page }) => {
+  const reference = 'reference-with-a-name-long-enough-to-hit-the-fourteen-rem-cap';
+  const bases = 'ATG'.repeat(33333) + 'ACCGGTTGCA' + 'ATG'.repeat(6667);
+  const fasta = `>${reference}\n${bases}\n>sample\n${bases.slice(0, 60000)}-${bases.slice(60001)}\n`;
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.goto('/?shell=desktop');
+  const nav = page.locator('nav.app-nav');
   await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
-  await noOverlap();
+  await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('records.fa', fasta));
+  await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
+  await page.getByLabel('Import pre-aligned FASTA file', { exact: true }).setInputFiles(file('aligned.fa', fasta));
+  await nav.getByRole('button', { name: 'Visual Viewport', exact: true }).click();
+  const compare = page.getByRole('button', { name: 'Compare to reference', exact: true });
+  await expect(compare).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await expectOfficeLayerLabels(page);
+
+  await page.setViewportSize({ width: 680, height: 900 });
+  await expectNoTopBarOverlap(page);
+  await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
+  await expectNoTopBarOverlap(page);
   const search = nav.getByRole('searchbox', { name: 'Search annotations' });
   await search.fill('sample');
   await nav.locator('[data-search-counter]').evaluate(element => { element.textContent = '1000 / 1000'; });
   await expect(nav).toHaveAttribute('data-fit-step', 'no-wordmark');
-  await noOverlap();
+  await expectNoTopBarOverlap(page);
   expect((await search.boundingBox())!.width).toBeGreaterThanOrEqual(80);
   await expect(nav.getByRole('button', { name: 'Hide sidebar' })).toBeVisible();
   await expect(nav.getByText('Dunceious')).toHaveCount(0);
@@ -218,7 +243,7 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   const highlight = panel.getByRole('radio', { name: 'Differences' });
   await expect(panel.getByRole('radio', { name: 'Off' })).toBeFocused();
   await highlight.click();
-  await expect(highlight).toHaveCSS('background-color', 'rgb(43, 145, 190)');
+  await expect.poll(() => highlight.evaluate(element => getComputedStyle(element).backgroundColor === getComputedStyle(document.querySelector('nav button[aria-label="Visual Viewport"]')!).backgroundColor)).toBe(true);
   expect(await highlight.evaluate(element => {
     const rect = element.getBoundingClientRect();
     return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + 2));
@@ -257,18 +282,5 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   }
   await toolbar.getByRole('button', { name: 'Clear selection' }).click();
   await expect(nav).toHaveAttribute('data-fit-step', stepBefore!);
-  for (const [width, height] of [[1366, 768], [1024, 600]]) {
-    await page.setViewportSize({ width, height });
-    await nav.getByRole('button', { name: 'Project and options' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Project and options' });
-    const theme = dialog.getByRole('radio').last();
-    await dialog.getByRole('radio').first().focus();
-    await page.keyboard.press('End');
-    await expect(theme).toBeFocused();
-    const box = (await theme.boundingBox())!;
-    expect(box.y).toBeGreaterThanOrEqual(64);
-    expect(box.y + box.height).toBeLessThanOrEqual(height);
-    await theme.click();
-    await dialog.press('Escape');
-  }
+  await expectCogThemeReachable(page);
 });
