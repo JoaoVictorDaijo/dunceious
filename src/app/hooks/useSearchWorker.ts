@@ -201,7 +201,7 @@ export function useSearchWorker(
 
   useEffect(() => {
     clearSearch();
-  }, [records, clearSearch, moduleState.error]);
+  }, [records, clearSearch]);
 
   const applySearchResults = useCallback((results: SearchResult[], request: SearchWorkerRequest) => {
     setIsSearching(false);

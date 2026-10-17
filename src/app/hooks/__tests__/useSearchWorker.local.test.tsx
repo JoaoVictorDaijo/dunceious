@@ -18,13 +18,15 @@
  */
 
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest';
-import { act, renderHook } from '@/src/app/testing/renderHarness';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@/src/app/testing/renderHarness';
 import { useSearchWorker } from '../useSearchWorker';
 import type { SeqRecord } from '@/src/domain/bio/types';
 const pool = vi.hoisted(() => ({ ready: true, error: null, run: vi.fn(), cancel: vi.fn() }));
 vi.mock('../useLocalSearchPool', () => ({ useLocalSearchPool: () => pool }));
-vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => ({ bytes: new ArrayBuffer(8), error: null }) }));
+const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null as string | null }));
+vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState }));
+beforeEach(() => { moduleState.error = null; });
 const records: SeqRecord[] = [{ id: 'r', name: 'r', sequence: 'AAA', features: [] }];
 const counts = { exact: true, streams: 1, noPositiveStreams: 0, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 };
 it.each(['clear', 'replace', 'mode', 'new'] as const)('ignores local results after %s mid-run', async action => {
@@ -51,4 +53,19 @@ it('makes Cancel distinct from no hits and reports unsupported query symbols', a
   act(() => h.result.current.setSearchQuery('J-'));
   act(() => h.result.current.handleSearch());
   expect(h.result.current.localJob).toMatchObject({ phase: 'failed', error: expect.stringContaining('J, -') });
+});
+
+it.each(['exact', 'fuzzy'] as const)('preserves completed %s results when Local module loading fails later', async mode => {
+  const h = renderHook(() => useSearchWorker(records, vi.fn(), vi.fn(), vi.fn()));
+  act(() => { h.result.current.setSearchMode(mode); h.result.current.setSearchQuery('AA'); });
+  act(() => h.result.current.handleSearch());
+  await waitFor(() => expect(h.result.current.searchResults.length).toBeGreaterThan(0));
+  const results = h.result.current.searchResults;
+  const completed = h.result.current.completedSearch;
+  moduleState.error = 'Local module load failed: forced delayed failure';
+  h.rerender();
+  expect(h.result.current.localError).toBe(moduleState.error);
+  expect(h.result.current.searchQuery).toBe('AA');
+  expect(h.result.current.searchResults).toBe(results);
+  expect(h.result.current.completedSearch).toBe(completed);
 });
