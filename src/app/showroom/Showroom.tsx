@@ -56,7 +56,7 @@ function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; 
       showAnnotations={workspace.showAnnotations}
       showTracks={workspace.showTracks}
       showTranslation={workspace.showTranslation}
-      showConservation={false}
+      showConservation={workspace.showConservation}
       dragMode={workspace.dragMode}
       activeSelection={workspace.activeSelection}
       onSelectionChange={workspace.setActiveSelection}

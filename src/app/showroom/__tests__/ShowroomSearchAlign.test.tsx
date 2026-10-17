@@ -110,7 +110,7 @@ describe('Showroom alignment', () => {
     startSession();
     const consent = openAlignment();
     expect(screen.getByText('Test drive: nothing will be sent')).toBeTruthy();
-    expect(within(consent).getByText(/10 sequences/)).toBeTruthy();
+    expect(within(consent).getByText(/4 sequences/)).toBeTruthy();
     agreeAndAlign();
     expect(explanation('Align')).toBeTruthy();
     gotIt();
@@ -141,7 +141,7 @@ describe('Showroom alignment', () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     startSession();
-    fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide NC_012920 in viewport' }));
+    fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide OR279985 in viewport' }));
     searchFor('ACGAAC');
     fireEvent.click(within(sidebar()).getAllByRole('button', { name: /^Annotate match/ })[0]);
     gotIt();

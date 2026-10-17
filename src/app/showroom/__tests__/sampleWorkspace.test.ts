@@ -25,19 +25,37 @@ import { loadSampleRecords } from '../sampleWorkspace';
 
 const readExample = (file: string) => readFileSync(resolve(__dirname, '../../../../examples/', file), 'utf-8');
 
+/** Reads the bundled FASTA without the app's parser: it is the oracle, not a subject. */
+function alignedRows(): Map<string, string> {
+  const rows = new Map<string, string>();
+  let id = '';
+  for (const line of readExample('sars-cov-2-variants/aligned.fasta').split('\n')) {
+    if (line.startsWith('>')) { id = line.slice(1).trim().split(/\s+/)[0]; rows.set(id, ''); }
+    else if (line.trim() !== '') rows.set(id, rows.get(id)! + line.trim());
+  }
+  return rows;
+}
+
 describe('loadSampleRecords', () => {
-  it('loads the three example files as one ten-record session', () => {
-    expect(loadSampleRecords().map(r => r.id)).toEqual([
-      'NC_045512', 'NC_012920',
-      'NC_002016', 'NC_002017', 'NC_002018', 'NC_002019', 'NC_002020', 'NC_002021', 'NC_002022', 'NC_002023',
-    ]);
+  it('the sample is four aligned records of one length', () => {
+    const records = loadSampleRecords();
+    expect(records.map(r => r.id)).toEqual(['NC_045512', 'OL461693', 'OR279985', 'OR323867']);
+    expect(new Set(records.map(r => r.alignedSequence?.length))).toEqual(new Set([29_903]));
+  });
+
+  it('alignment as loaded equals the bundled FASTA', () => {
+    const rows = alignedRows();
+    expect(loadSampleRecords()).toHaveLength(rows.size);
+    for (const record of loadSampleRecords()) {
+      expect(record.alignedSequence).toBe(rows.get(record.id));
+    }
   });
 
   it('keeps every record visible and records which file it came from', () => {
     const records = loadSampleRecords();
     expect(records.every(r => r.visible === true)).toBe(true);
     expect(records[0].importedFrom).toBe('sars-cov-2-NC_045512.gb');
-    expect(records[9].importedFrom).toBe('influenza-a-pr8-8segments.gb');
+    expect(records[3].importedFrom).toBe('variants.gb');
   });
 
   it('shows SARS-CoV-2 as the workbench parses it', () => {

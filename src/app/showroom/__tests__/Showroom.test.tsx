@@ -78,7 +78,7 @@ describe('Showroom orientation', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     const viewerField = goToField(container);
     openSidebar();
-    fireEvent.click(screen.getByRole('button', { name: 'Hide NC_012920 in viewport' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide OR279985 in viewport' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select mode' }));
     fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
@@ -87,9 +87,9 @@ describe('Showroom orientation', () => {
     expect(screen.getByText('Turn your phone sideways')).toBeTruthy();
     rotate(true);
     expect(screen.queryByText('Turn your phone sideways')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show NC_012920 in viewport' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show OR279985 in viewport' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Select mode' }).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-viewer-record="NC_012920"]')).toBeNull();
+    expect(container.querySelector('[data-viewer-record="OR279985"]')).toBeNull();
     expect(goToField(container)).toBe(viewerField);
     expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('ACGAAC');
     expect(screen.getAllByRole('button', { name: /^Annotate match/ })).toHaveLength(hits);
@@ -117,18 +117,20 @@ describe('Showroom chrome', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('keeps the workbench layer order and disables Conservation with its reason', () => {
+  it('keeps the workbench layer order and lets Conservation toggle over the aligned sample', () => {
     render(<Showroom onExit={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Layers 3/4' }));
     const menu = screen.getByRole('group', { name: 'Layer options' });
     expect(within(menu).getAllByRole('button').map(button => button.textContent)).toEqual(['Annotations', 'Tracks', 'Translation', 'Conservation']);
+    // The sample opens already aligned, so the layer that needs an alignment is live.
     const conservation = within(menu).getByRole('button', { name: 'Conservation' });
-    expect(conservation.getAttribute('aria-disabled')).toBe('true');
-    expect(within(menu).getByText('Conservation needs an alignment: upload a pre-aligned FASTA first')).toBeTruthy();
+    expect(conservation.getAttribute('aria-disabled')).toBe('false');
+    expect(within(menu).queryByText('Conservation needs an alignment: upload a pre-aligned FASTA first')).toBeNull();
     fireEvent.click(conservation);
-    expect(explanation('Conservation')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Layers 4/4' })).toBeTruthy();
     fireEvent.click(within(menu).getByRole('button', { name: 'Annotations' }));
-    expect(screen.getByRole('button', { name: 'Layers 2/4' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layers 3/4' })).toBeTruthy();
   });
 
   it('explains what would load or remove', () => {

@@ -132,7 +132,8 @@ export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, sideba
     { label: 'Annotations', on: workspace.showAnnotations, dot: 'bg-sky-400 text-sky-400', toggle: () => workspace.toggle('annotations') },
     { label: 'Tracks', on: workspace.showTracks, dot: 'bg-indigo-400 text-indigo-400', toggle: () => workspace.toggle('tracks') },
     { label: 'Translation', on: workspace.showTranslation, dot: 'bg-emerald-400 text-emerald-400', toggle: () => workspace.toggle('translation') },
-    { label: 'Conservation', on: false, dot: 'bg-amber-400 text-amber-400', toggle: anchor => onExplain('conservation', anchor),
+    { label: 'Conservation', on: workspace.showConservation, dot: 'bg-amber-400 text-amber-400',
+      toggle: anchor => (isAlignmentLoaded ? workspace.toggle('conservation') : onExplain('conservation', anchor)),
       disabledReason: isAlignmentLoaded ? undefined : 'Conservation needs an alignment: upload a pre-aligned FASTA first' },
   ];
   return (
