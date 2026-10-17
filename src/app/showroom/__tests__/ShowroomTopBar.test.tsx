@@ -27,12 +27,12 @@ import { useShowroomWorkspace, type ShowroomWorkspace } from '../useShowroomWork
 function Harness({ onExplain, onWorkspace }: { onExplain: (...args: unknown[]) => void; onWorkspace: (workspace: ShowroomWorkspace) => void }) {
   const workspace = useShowroomWorkspace();
   onWorkspace(workspace);
-  return <ShowroomTopBar workspace={workspace} sidebarOpen={false} onToggleSidebar={() => {}} sidebarToggleRef={createRef()}
+  return <ShowroomTopBar workspace={workspace} tab="alignment" onTabChange={() => {}} toolsRef={() => {}} sidebarOpen={false} onToggleSidebar={() => {}} sidebarToggleRef={createRef()}
     isAlignmentLoaded={false} onExplain={onExplain} onExit={() => {}} />;
 }
 
 describe('ShowroomTopBar without an alignment', () => {
-  it('gives Conservation its reason and explains instead of switching it on', () => {
+  it('gives Conservation its reason and leaves it off, as the workbench does', () => {
     const onExplain = vi.fn();
     let latest: ShowroomWorkspace | null = null;
     render(<Harness onExplain={onExplain} onWorkspace={workspace => { latest = workspace; }} />);
@@ -43,7 +43,7 @@ describe('ShowroomTopBar without an alignment', () => {
     expect(within(menu).getByText('Conservation needs an alignment: upload a pre-aligned FASTA first')).toBeTruthy();
 
     fireEvent.click(conservation);
-    expect(onExplain).toHaveBeenCalledWith('conservation', expect.anything());
+    expect(onExplain).not.toHaveBeenCalled();
     expect(latest!.showConservation).toBe(false);
     expect(conservation.getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByRole('button', { name: 'Layers 3/4' })).toBeTruthy();

@@ -19,11 +19,13 @@
 
 import type { MouseEvent } from 'react';
 import AlignmentSection from '@/src/app/components/AlignmentSection';
+import HubIndex from '@/src/app/components/hub/HubIndex';
 import SearchPanel from '@/src/app/components/SearchPanel';
 import SectionTitle from '@/src/app/components/SectionTitle';
 import type { RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { ExplainId } from './explanations';
+import type { ShowroomView } from './useShowroomView';
 import type { ShowroomWorkspace } from './useShowroomWorkspace';
 
 type Explain = (id: ExplainId, anchor?: DOMRect) => void;
@@ -136,11 +138,16 @@ function Ingestion({ onExplain }: { onExplain: Explain }) {
   );
 }
 
-/** The real `SearchPanel` over the in-page search; annotating and joining matches explain. */
+/**
+ * The real `SearchPanel` over the in-page search; annotating and joining matches
+ * explain, and so does Local, which needs the workbench's local-alignment module.
+ */
 function Search({ workspace, onExplain }: { workspace: ShowroomWorkspace; onExplain: Explain }) {
   const { search } = workspace;
   return (
     <SearchPanel
+      localOverride={{ status: "Local search isn't part of the test drive", onSelect: () => onExplain('local-search') }}
+      completedSearch={search.completedSearch}
       searchQuery={search.query}
       onSearchQueryChange={search.setQuery}
       searchMode={search.mode}
@@ -173,25 +180,33 @@ interface ShowroomSidebarProps {
   open: boolean;
   onClose: () => void;
   workspace: ShowroomWorkspace;
+  view: ShowroomView;
   alignmentLength: number;
   alignmentState: RemoteAlignmentState;
   onOpenAlignment: () => void;
   onExplain: Explain;
 }
 
-/** The workbench sidebar as a drawer over the viewer, closed by default. */
-export function ShowroomSidebar({ open, onClose, workspace, alignmentLength, alignmentState, onOpenAlignment, onExplain }: ShowroomSidebarProps) {
+/**
+ * The workbench sidebar as a drawer over the viewer, closed by default. In the Hub
+ * it holds the Hub's sequence index instead, as the workbench sidebar does.
+ */
+export function ShowroomSidebar({ open, onClose, workspace, view, alignmentLength, alignmentState, onOpenAlignment, onExplain }: ShowroomSidebarProps) {
   return <>
     {open && <div aria-hidden="true" onClick={onClose} className="absolute inset-0 z-30 bg-slate-950/50" />}
     <aside aria-label="Sidebar" hidden={!open}
       className="custom-scrollbar-pro absolute inset-y-0 left-0 z-40 w-[320px] max-w-[85%] overflow-y-auto border-r border-slate-800/50 bg-slate-950 p-4 shadow-2xl">
-      <div className="space-y-7">
-        <RecordNavigator workspace={workspace} onExplain={onExplain} />
-        <Navigation alignmentLength={alignmentLength} onJump={workspace.setJumpTo} />
-        <Ingestion onExplain={onExplain} />
-        <AlignmentSection count={workspace.records.length} state={alignmentState} onOpen={onOpenAlignment} />
-        <Search workspace={workspace} onExplain={onExplain} />
-      </div>
+      {view.tab === 'features'
+        ? <div className="flex h-full min-h-0 flex-col">
+          <HubIndex records={workspace.records} state={view.hubState} onAddSequences={() => onExplain('ingest-sequences')} />
+        </div>
+        : <div className="space-y-7">
+          <RecordNavigator workspace={workspace} onExplain={onExplain} />
+          <Navigation alignmentLength={alignmentLength} onJump={workspace.setJumpTo} />
+          <Ingestion onExplain={onExplain} />
+          <AlignmentSection count={workspace.records.length} state={alignmentState} onOpen={onOpenAlignment} />
+          <Search workspace={workspace} onExplain={onExplain} />
+        </div>}
     </aside>
   </>;
 }

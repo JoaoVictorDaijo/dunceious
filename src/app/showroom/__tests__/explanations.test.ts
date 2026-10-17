@@ -18,14 +18,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { EXPLANATIONS, type ExplainId } from '../explanations';
+import { EXPLANATIONS, explanationBody, type ExplainId } from '../explanations';
 
 const IDS: ExplainId[] = [
-  'export', 'project', 'options', 'hub',
+  'export', 'project', 'options',
   'ingest-sequences', 'ingest-alignment', 'ingest-annotations', 'ingest-project',
-  'context-menu', 'remove-record', 'view-details', 'add-annotation', 'annotate-hit', 'join-hits',
-  'align-submit', 'external-link', 'select-mode', 'conservation', 'export-fasta',
+  'context-menu', 'remove-record', 'add-annotation', 'annotate-hit', 'join-hits',
+  'align-submit', 'external-link', 'select-mode', 'export-fasta',
+  'edit-annotation', 'delete-annotations', 'edit-record', 'drop-files', 'export-save',
+  'export-edit-details', 'copy', 'show-bases', 'remove-search-details', 'local-search',
 ];
+
+const VARS = { fileName: 'demo.gb', format: 'GenBank', count: 4 };
 
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).filter(Boolean);
 
@@ -35,12 +39,23 @@ describe('EXPLANATIONS', () => {
   });
 
   it.each(IDS)('%s has a title and two or three plain sentences', id => {
-    const { title, body } = EXPLANATIONS[id];
+    const { title } = EXPLANATIONS[id];
+    const body = explanationBody(id, VARS);
     expect(title.trim()).not.toBe('');
     expect(title[0]).toBe(title[0].toUpperCase());
     expect(sentences(body).length).toBeGreaterThanOrEqual(2);
     expect(sentences(body).length).toBeLessThanOrEqual(3);
     expect(body).toMatch(/[.!?]$/);
     expect(`${title} ${body}`).not.toContain('→');
+  });
+
+  it('export-save names the chosen file, its format and the sequence count', () => {
+    expect(explanationBody('export-save', VARS)).toContain('demo.gb, a GenBank file of these 4 sequences');
+    expect(explanationBody('export-save', { fileName: 'one.fasta', format: 'FASTA', count: 1 })).toContain('one.fasta, a FASTA file of this sequence');
+  });
+
+  it('a parameterised explanation refuses to render without its values', () => {
+    expect(() => explanationBody('export-save')).toThrow(/export choices/);
+    expect(explanationBody('copy')).toBe(EXPLANATIONS.copy.body);
   });
 });

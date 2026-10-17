@@ -125,7 +125,8 @@ export default tseslint.config(
     ignores: ['**/__tests__/**', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [
-        { regex: '^@/src/app/(App|hooks|lib|shell|greeter)(/|\\.|$)',
+        // useHubState is the one hook allowed: pure UI state for the Hub, with no workers or I/O.
+        { regex: '^@/src/app/(App|hooks(?!/useHubState$)|lib|shell|greeter)(/|\\.|$)',
           message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
         { regex: '^(\\.\\./)+(App|hooks|lib|shell|greeter)(/|\\.|$)',
           message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },

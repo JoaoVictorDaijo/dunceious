@@ -18,20 +18,27 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import HubReturnPill from '@/src/app/components/HubReturnPill';
+import { UiEffectsContext } from '@/src/app/components/uiEffects';
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { clearAlignConsent } from '@/src/app/logic/alignConsentPref';
 import { resolveEnvAccent } from '@/src/app/logic/environment';
 import { DEFAULT_THEME_KEY, getTheme, resolveThemeVars } from '@/src/app/logic/theme';
 import { ExplainCallout } from './ExplainCallout';
-import type { ExplainId } from './explanations';
+import type { ExplainId, ExplainVars } from './explanations';
 import { usePressAnchor } from './pressAnchor';
 import { RotatePrompt } from './RotatePrompt';
 import { ShowroomAlignDialog, useShowroomAlignment } from './ShowroomAlign';
+import { ShowroomDetails } from './ShowroomDetails';
+import { ShowroomHub, type ShowroomExplain } from './ShowroomHub';
 import { ShowroomSidebar } from './ShowroomSidebar';
 import { ShowroomTopBar } from './ShowroomTopBar';
 import { useLandscape } from './useLandscape';
+import { useShowroomComparison } from './useShowroomComparison';
 import { useSelectDragNotice, useShowroomGuards } from './useShowroomGuards';
+import { useShowroomUiEffects } from './useShowroomUiEffects';
+import { useShowroomView, type ShowroomView } from './useShowroomView';
 import { useShowroomWorkspace, type ShowroomWorkspace } from './useShowroomWorkspace';
 import './showroom.css';
 
@@ -47,8 +54,15 @@ function FirstVisitStrip({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
+interface ShowroomViewerProps {
+  workspace: ShowroomWorkspace;
+  view: ShowroomView;
+  comparison: ReturnType<typeof useShowroomComparison>;
+  explain: (id: ExplainId) => void;
+}
+
 /** The real viewer over the sample session; every callback that would do work explains instead. */
-function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; explain: (id: ExplainId) => void }) {
+function ShowroomViewer({ workspace, view, comparison, explain }: ShowroomViewerProps) {
   return (
     <GenomeViewer
       records={workspace.transposedRecords}
@@ -61,20 +75,35 @@ function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; 
       activeSelection={workspace.activeSelection}
       onSelectionChange={workspace.setActiveSelection}
       onClearSelection={() => workspace.setActiveSelection(null)}
-      comparisonMenu={null}
+      comparisonMenu={comparison.menu}
+      comparison={comparison.comparison}
+      onSetComparisonReference={comparison.setReference}
       onExportFasta={() => explain('export-fasta')}
       onAddAnnotation={() => explain('add-annotation')}
+      completedSearch={workspace.search.completedSearch}
       searchResults={workspace.search.results}
       currentSearchIdx={workspace.search.currentIdx}
       selectedSearchIndices={workspace.search.selected}
       jumpTo={workspace.jumpTo}
       onJumpComplete={() => workspace.setJumpTo(null)}
+      focusRequest={view.focusRequest}
+      focusedRegion={view.focusedRegion}
+      onFocusComplete={view.completeFocus}
       onExportRecord={() => explain('export')}
-      onViewDetails={() => explain('view-details')}
+      onViewDetails={view.openDetails}
       isAlignmentLocked={false}
       onRemoveRecord={() => explain('remove-record')}
     />
   );
+}
+
+/** The viewport or the Hub, whichever the switcher shows, with the way back to the Hub after a Focus jump. */
+function ShowroomWorkspaceArea({ workspace, view, comparison, toolsSlot, explain }: Omit<ShowroomViewerProps, 'explain'> & { toolsSlot: HTMLDivElement | null; explain: ShowroomExplain }) {
+  if (view.tab === 'features') return <ShowroomHub records={workspace.records} view={view} toolsSlot={toolsSlot} explain={explain} />;
+  return <>
+    {view.showHubReturn && view.hubFocus && <HubReturnPill label={view.hubFocus.label} onReturn={view.returnToHub} onDismiss={view.dismissHubReturn} />}
+    <ShowroomViewer workspace={workspace} view={view} comparison={comparison} explain={explain} />
+  </>;
 }
 
 /** The drawer closes on Escape unless a dialog above it took the key, and gives focus back to its toggle. */
@@ -100,6 +129,8 @@ function useSidebarDrawer() {
  */
 export default function Showroom({ onExit }: { onExit: () => void }) {
   const workspace = useShowroomWorkspace();
+  const view = useShowroomView(workspace.records, workspace.setActiveSelection, workspace.transposedRecords);
+  const [hubToolsSlot, setHubToolsSlot] = useState<HTMLDivElement | null>(null);
   const landscape = useLandscape();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -107,28 +138,31 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
   const [stripOpen, setStripOpen] = useState(true);
   const pressAnchor = usePressAnchor(rootRef);
   const { openExplain } = workspace;
-  const explain = useCallback((id: ExplainId, anchor?: DOMRect) => openExplain(id, anchor ?? pressAnchor()), [openExplain, pressAnchor]);
+  const explain = useCallback((id: ExplainId, anchor?: DOMRect, vars?: ExplainVars) => openExplain(id, anchor ?? pressAnchor(), vars), [openExplain, pressAnchor]);
+  const uiEffects = useShowroomUiEffects(explain, workspace.explain !== null);
   useShowroomGuards(rootRef, viewerRef, openExplain);
   useEffect(() => () => clearAlignConsent(), []);
   const alignment = useShowroomAlignment(workspace.records);
-  useSelectDragNotice(viewerRef, workspace.dragMode === 'select', openExplain);
+  useSelectDragNotice(viewerRef, workspace.dragMode === 'select' && view.tab === 'alignment', openExplain);
 
   const { alignmentLength, isAlignmentLoaded, sessionMoleculeType } = useMemo(() => deriveAlignmentState(workspace.records, false), [workspace.records]);
   const env = resolveEnvAccent('alignment', sessionMoleculeType);
   const themeStyle = resolveThemeVars(getTheme(DEFAULT_THEME_KEY), env) as CSSProperties;
+  const comparison = useShowroomComparison(workspace.records, sessionMoleculeType === 'protein');
 
   return (
+    <UiEffectsContext.Provider value={uiEffects}>
     <div ref={rootRef} data-showroom-root="" data-env={env} style={themeStyle}
       className="app-root fixed inset-0 flex flex-col overflow-hidden bg-slate-900 font-sans text-slate-200">
       <div inert={!landscape} aria-hidden={landscape ? undefined : true} className="flex min-h-0 flex-1 flex-col">
-        <ShowroomTopBar workspace={workspace} sidebarOpen={sidebar.open} onToggleSidebar={sidebar.toggle} sidebarToggleRef={sidebar.toggleRef}
+        <ShowroomTopBar workspace={workspace} tab={view.tab} onTabChange={view.setTab} toolsRef={setHubToolsSlot} sidebarOpen={sidebar.open} onToggleSidebar={sidebar.toggle} sidebarToggleRef={sidebar.toggleRef}
           isAlignmentLoaded={isAlignmentLoaded} onExplain={explain} onExit={onExit} />
         <div className="relative flex min-h-0 flex-1">
-          <ShowroomSidebar open={sidebar.open} onClose={sidebar.close} workspace={workspace}
+          <ShowroomSidebar open={sidebar.open} onClose={sidebar.close} workspace={workspace} view={view}
             alignmentLength={alignmentLength} alignmentState={alignment.state} onOpenAlignment={alignment.show} onExplain={explain} />
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-slate-900 p-1">
             <div ref={viewerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/50 bg-white shadow-2xl">
-              <ShowroomViewer workspace={workspace} explain={explain} />
+              <ShowroomWorkspaceArea workspace={workspace} view={view} comparison={comparison} toolsSlot={hubToolsSlot} explain={explain} />
             </div>
           </main>
           {stripOpen && <FirstVisitStrip onDismiss={() => setStripOpen(false)} />}
@@ -136,8 +170,10 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
       </div>
       {landscape ? <>
         <ShowroomAlignDialog alignment={alignment} onSubmit={() => explain('align-submit')} />
-        {workspace.explain && <ExplainCallout key={workspace.explainKey} id={workspace.explain} anchor={workspace.explainAnchor} onClose={workspace.closeExplain} />}
+        <ShowroomDetails view={view} explain={explain} />
+        {workspace.explain && <ExplainCallout key={workspace.explainKey} id={workspace.explain} anchor={workspace.explainAnchor} vars={workspace.explainVars} onClose={workspace.closeExplain} />}
       </> : <RotatePrompt onBack={onExit} />}
     </div>
+    </UiEffectsContext.Provider>
   );
 }

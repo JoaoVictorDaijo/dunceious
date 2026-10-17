@@ -25,7 +25,7 @@ import { runSearch } from '@/src/workers/handlers/search';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import { completedSearchFor, getSequenceContext, groupedSearchResults, type CompletedSearch } from '@/src/app/logic/searchState';
 import { loadSampleRecords } from './sampleWorkspace';
-import type { ExplainId } from './explanations';
+import type { ExplainId, ExplainVars } from './explanations';
 
 type Layer = 'annotations' | 'translation' | 'tracks' | 'conservation';
 type SearchMode = 'exact' | 'fuzzy';
@@ -121,22 +121,22 @@ export function useShowroomWorkspace() {
   const [dragMode, setDragMode] = useState<'pan' | 'select'>('pan');
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
   const [jumpTo, setJumpTo] = useState<number | null>(null);
-  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null; serial: number } | null>(null);
+  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null; vars?: ExplainVars; serial: number } | null>(null);
   const search = useSampleSearch(records, setActiveSelection);
 
   const setRecordVisible = useCallback((id: string, visible: boolean) => {
     setRecords(previous => previous.map(record => record.id === id && (record.visible !== false) !== visible ? { ...record, visible } : record));
   }, []);
   const toggle = useCallback((layer: Layer) => setLayers(previous => ({ ...previous, [layer]: !previous[layer] })), []);
-  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect) =>
-    setExplanation(previous => ({ id, anchor: anchor ?? null, serial: (previous?.serial ?? 0) + 1 })), []);
+  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect, vars?: ExplainVars) =>
+    setExplanation(previous => ({ id, anchor: anchor ?? null, vars, serial: (previous?.serial ?? 0) + 1 })), []);
   const closeExplain = useCallback(() => setExplanation(null), []);
 
   return {
     records, transposedRecords, consensus, setRecordVisible,
     showAnnotations: layers.annotations, showTranslation: layers.translation, showTracks: layers.tracks, showConservation: layers.conservation, toggle,
     dragMode, setDragMode, activeSelection, setActiveSelection, search, jumpTo, setJumpTo,
-    explain: explanation?.id ?? null, explainAnchor: explanation?.anchor ?? null, openExplain, closeExplain,
+    explain: explanation?.id ?? null, explainAnchor: explanation?.anchor ?? null, explainVars: explanation?.vars, openExplain, closeExplain,
     /** Changes with every opening, so each explanation mounts its own callout: fresh placement and focus. */
     explainKey: explanation?.serial ?? 0,
   };

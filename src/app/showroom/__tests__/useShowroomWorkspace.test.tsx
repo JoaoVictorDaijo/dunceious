@@ -113,7 +113,7 @@ describe('useShowroomWorkspace', () => {
     act(() => result.current.setRecordVisible('NC_045512', false));
     act(() => result.current.toggle('annotations'));
     act(() => result.current.setDragMode('select'));
-    act(() => result.current.openExplain('hub'));
+    act(() => result.current.openExplain('project'));
     expect(setItem).not.toHaveBeenCalled();
   });
 });
@@ -141,5 +141,16 @@ describe('the showroom workspace over the aligned sample', () => {
     }, false));
     act(() => result.current.search.clear());
     expect(result.current.search.completedSearch).toBeNull();
+  });
+});
+
+describe('the showroom explanation state', () => {
+  it('carries the export choices with the explanation that repeats them', () => {
+    const { result } = renderHook(() => useShowroomWorkspace());
+    const vars = { fileName: 'demo.gb', format: 'GenBank', count: 4 };
+    act(() => result.current.openExplain('export-save', undefined, vars));
+    expect(result.current).toMatchObject({ explain: 'export-save', explainAnchor: null, explainVars: vars });
+    act(() => result.current.openExplain('copy'));
+    expect(result.current.explainVars).toBeUndefined();
   });
 });

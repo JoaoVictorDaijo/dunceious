@@ -106,13 +106,10 @@ describe('Showroom chrome', () => {
     expect(screen.queryByText(/This is a test drive/)).toBeNull();
   });
 
-  it.each([
-    ['Annotation Hub', 'Annotation Hub'],
-    ['Project and options', 'Project and options'],
-  ])('%s explains', (control, title) => {
+  it('Project and options explains', () => {
     render(<Showroom onExit={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: control }));
-    expect(explanation(title)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
+    expect(explanation('Project and options')).toBeTruthy();
     gotIt();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -159,7 +156,7 @@ describe('Showroom viewer guards', () => {
     return part;
   };
 
-  it('clears a selection locally and has no comparison control', () => {
+  it('clears a selection locally and offers Compare over the aligned sample', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
     fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
@@ -167,14 +164,15 @@ describe('Showroom viewer guards', () => {
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Compare to reference' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Compare to reference' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('explains a tapped feature instead of opening its details', () => {
+  it('opens the details of a tapped feature', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     fireEvent.click(feature(container));
-    expect(explanation('Details')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Annotation Details' })).toBeTruthy();
+    expect(container.ownerDocument.querySelector('[data-showroom-explain]')).toBeNull();
   });
 
   it('explains a right-click and never renders the viewer menu', () => {
@@ -229,11 +227,12 @@ describe('Showroom review fixes', () => {
   it('moves focus to the new Got it when a second explanation replaces the first', () => {
     stubOrientation(true);
     render(<Showroom onExit={() => {}} />);
+    openSidebar();
     fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
-    const options = screen.getByRole('button', { name: 'Annotation Hub' });
-    options.focus();
-    fireEvent.click(options);
-    const dialog = explanation('Annotation Hub');
+    const remove = screen.getByRole('button', { name: 'Remove NC_045512' });
+    remove.focus();
+    fireEvent.click(remove);
+    const dialog = explanation('Remove sequence');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Got it' }));
   });
