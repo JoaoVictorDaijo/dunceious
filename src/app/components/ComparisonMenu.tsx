@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clampPosition } from '@/src/app/logic/floatingPosition';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -85,22 +85,32 @@ interface ComparisonPanelProps {
 
 const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, reference, candidates, onClose, anchor, panelRef }) => {
   const referenceSelectId = useId();
+  const [themeVars] = useState(() => {
+    const style = getComputedStyle(anchor);
+    return Object.fromEntries(['--env', '--env2', '--env3'].map(key => [key, style.getPropertyValue(key)]));
+  });
+  useLayoutEffect(() => { panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus(); }, [panelRef]);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  useLayoutEffect(() => {
-    const place = () => {
-      const rect = anchor.getBoundingClientRect();
-      const size = panelRef.current?.getBoundingClientRect();
-      if (size) setPosition(clampPosition({ x: rect.right - size.width, y: rect.bottom + 8 }, size, { width: window.innerWidth, height: window.innerHeight }));
-    };
-    place();
+  const place = useCallback(() => {
+    const rect = anchor.getBoundingClientRect();
+    const size = panelRef.current?.getBoundingClientRect();
+    if (!size) return;
+    const next = clampPosition({ x: rect.right - size.width, y: rect.bottom + 8 }, size, { width: window.innerWidth, height: window.innerHeight });
+    setPosition(previous => previous.x === next.x && previous.y === next.y ? previous : next);
+  }, [anchor, panelRef]);
+  // Wrapping can move the trigger after the window's resize event has fired.
+  useLayoutEffect(place);
+  useEffect(() => {
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [place]);
+  return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
   }, [anchor, panelRef]);
   return (
     <div
       ref={panelRef}
-      style={{ left: position.x, top: position.y, maxHeight: 'calc(100vh - 16px)' }}
+      style={{ ...themeVars, left: position.x, top: position.y, maxHeight: 'calc(100vh - 16px)' }}
       role="group"
       aria-label="Reference comparison"
       onKeyDown={event => { if (event.key === 'Escape') onClose(); }}

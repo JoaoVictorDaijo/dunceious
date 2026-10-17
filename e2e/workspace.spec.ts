@@ -216,7 +216,9 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   await compare.click();
   const panel = page.getByRole('group', { name: 'Reference comparison' });
   const highlight = panel.getByRole('radio', { name: 'Differences' });
+  await expect(panel.getByRole('radio', { name: 'Off' })).toBeFocused();
   await highlight.click();
+  await expect(highlight).toHaveCSS('background-color', 'rgb(43, 145, 190)');
   expect(await highlight.evaluate(element => {
     const rect = element.getBoundingClientRect();
     return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + 2));
@@ -224,9 +226,18 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   const panelBox = (await panel.boundingBox())!;
   expect(panelBox.x).toBeGreaterThanOrEqual(0);
   expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(680);
+  for (const width of [1366, 680, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(async () => {
+      const anchor = (await compare.boundingBox())!;
+      const box = (await panel.boundingBox())!;
+      return Math.abs(box.y - anchor.y - anchor.height - 8);
+    }).toBeLessThanOrEqual(1);
+  }
   await panel.press('Escape');
   await expect(compare).toBeFocused();
 
+  await page.setViewportSize({ width: 680, height: 900 });
   await page.getByPlaceholder('Enter IUPAC sequence...').fill('ACCGGTTGCA');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Clear selection', exact: true })).toBeVisible();

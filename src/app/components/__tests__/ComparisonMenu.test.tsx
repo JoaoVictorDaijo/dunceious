@@ -93,3 +93,42 @@ it('renders the panel in a portal above content and Escape returns focus', () =>
   expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
   expect(document.activeElement).toBe(trigger);
 });
+
+it('carries the trigger theme variables into the body portal', () => {
+  render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan]} />);
+  const trigger = screen.getByRole('button', { name: 'Compare to reference' });
+  trigger.style.setProperty('--env', '#b89cf3');
+  trigger.style.setProperty('--env2', '#d7c5ff');
+  trigger.style.setProperty('--env3', '#8f76c1');
+  fireEvent.click(trigger);
+  const panel = screen.getByRole('group', { name: 'Reference comparison' });
+  expect(panel.style.getPropertyValue('--env')).toBe('#b89cf3');
+  expect(panel.style.getPropertyValue('--env2')).toBe('#d7c5ff');
+  expect(panel.style.getPropertyValue('--env3')).toBe('#8f76c1');
+});
+
+it('moves keyboard focus into the comparison panel when opened', () => {
+  render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan]} />);
+  const trigger = screen.getByRole('button', { name: 'Compare to reference' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Off' }));
+});
+
+it('reanchors after a toolbar render moves the trigger without a window resize', () => {
+  let bottom = 80;
+  const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+    return this.getAttribute('aria-label') === 'Compare to reference'
+      ? { left: 400, right: 500, top: bottom - 40, bottom, width: 100, height: 40 } as DOMRect
+      : { left: 0, right: 320, top: 0, bottom: 250, width: 320, height: 250 } as DOMRect;
+  });
+  try {
+    const props = { settings: DEFAULT_ALIGNMENT_COMPARISON, onChange: vi.fn(), reference: wuhan, candidates: [wuhan] };
+    const view = render(<ComparisonMenu {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Compare to reference' }));
+    expect(screen.getByRole('group', { name: 'Reference comparison' }).style.top).toBe('88px');
+    bottom = 120;
+    view.rerender(<ComparisonMenu {...props} compact />);
+    expect(screen.getByRole('group', { name: 'Reference comparison' }).style.top).toBe('128px');
+  } finally { rect.mockRestore(); }
+});
