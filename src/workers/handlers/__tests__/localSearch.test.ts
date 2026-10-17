@@ -25,6 +25,18 @@ import type { LocalSearchResponse, LocalSearchRequest } from '../../protocol';
 const wasm = readFileSync('public/wasm/local-align.wasm');
 export const request: Extract<LocalSearchRequest, { type: 'search' }> = { type: 'search', phase: 'refine', requestId: 1, boundScore2: null, query: 'AA', scoring: 'EDNAFULL', moleculeType: 'dna', limit: 10,
   filters: { minIdentity: null, minQueryCoverage: null }, jobs: [0, 1].map(recordIndex => ({ recordIndex, record: { id: String(recordIndex), sequence: 'AAA' }, strand: 1 })) };
+it.each([
+  ['query', '\uFB05'], ['query', '\uFB06'], ['record', '\uFB05'], ['record', '\uFB06'],
+] as const)('reports unsupported %s symbol %s without publishing a result', async (side, symbol) => {
+  const messages: LocalSearchResponse[] = [];
+  const handle = createLocalSearchHandler(m => messages.push(m));
+  await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
+  await handle({ ...request, scoring: 'EBLOSUM62', moleculeType: 'protein',
+    query: side === 'query' ? `D${symbol}D` : 'DDD',
+    jobs: [{ recordIndex: 0, record: { id: 'protein', sequence: side === 'record' ? `D${symbol}D` : 'DDD', moleculeType: 'protein' }, strand: 1 }] });
+  expect(messages).toEqual([{ type: 'ready' },
+    { type: 'error', requestId: 1, error: `Unsupported ${side} characters: ${symbol}` }]);
+});
 it('initializes from supplied bytes, reports progress and finishes every stream', async () => {
   const messages: LocalSearchResponse[] = [];
   const handle = createLocalSearchHandler(m => messages.push(m));

@@ -128,3 +128,18 @@ it('maps a query layer across aligned gaps and keeps reverse mismatches in query
   expect(container.querySelector('[data-annotation-base="5"]')).toBeNull();
   expect(container.querySelector('[data-annotation-insertion]')?.getAttribute('data-annotation-insertion')).toBe('A');
 });
+
+it('outlines a similar Local query column while leaving identical neighbours unoutlined', () => {
+  const provenance = { v: 1, query: 'DDDDEDDDD', mode: 'local', alphabet: 'protein', params: { scoring: 'EBLOSUM62' }, strand: 1, cigar: '4=1X4=', span: { start: 0, end: 9, strand: 1 }, appVersion: '3.4.0', createdAt: '2026-10-16', exportNote: false };
+  const f = { ...feature, end: 9, metadata: { _showBases: 'query', _searchHit: JSON.stringify(provenance) } };
+  const { container } = show({ feature: f, sequence: 'DDDDDDDDD', moleculeType: 'protein', end: 9 });
+  expect(bases(container)).toBe('DDDDEDDDD');
+  const outlines = [...container.querySelectorAll('[data-annotation-query] rect')];
+  expect(outlines).toHaveLength(1);
+  expect(outlines[0].getAttribute('stroke-dasharray')).toBe('3,2');
+  expect(outlines[0].getAttribute('stroke')).toBe('#0f172a');
+  expect(outlines[0].getAttribute('fill')).toBe('none');
+  expect(outlines[0].getAttribute('x')).toBe('121');
+  expect(outlines[0].getAttribute('width')).toBe('28');
+  expect(container.querySelector('[data-annotation-base="4"]')?.textContent).toBe('E');
+});

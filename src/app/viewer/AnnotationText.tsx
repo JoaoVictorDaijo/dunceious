@@ -85,6 +85,8 @@ export function AnnotationText({ feature, sequence, moleculeType, alphabet, star
       const textY = ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1;
       if (dark) bases.push(<rect key={`box-${pos}`} x={pos * zoom - scrollX - left + 1} y={textY - 7}
         width={Math.max(1, zoom - 2)} height={14} rx={2} fill={mark.cls === 'deletion' ? '#475569' : '#0f172a'} />);
+      if (mark?.cls === 'similar') bases.push(<rect key={`outline-${pos}`} x={pos * zoom - scrollX - left + 1} y={textY - 7}
+        width={Math.max(1, zoom - 2)} height={14} rx={2} fill="none" stroke="#0f172a" strokeDasharray="3,2" />);
       bases.push(<text fill={dark ? '#fff' : '#0f172a'} textDecoration={mark?.cls === 'ambiguity' ? 'underline' : undefined} key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1} textAnchor="middle" dominantBaseline="central">
         {queryMode ? mark?.queryLetter ?? '−' : annotationBase(sequence[pos], direction, alphabet)}
       </text>);

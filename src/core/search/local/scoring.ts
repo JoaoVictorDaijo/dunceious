@@ -57,11 +57,16 @@ export function loadScoring(id: LocalScoringId): LocalScoring {
   return scoring;
 }
 
+function residueCode(symbol: string, scoring: LocalScoring): number {
+  const normalized = symbol.toUpperCase();
+  return normalized.length === 1 ? scoring.symbols.indexOf(normalized) : -1;
+}
+
 export function encodeResidues(sequence: string, scoring: LocalScoring): { codes: Uint8Array } | { invalid: string[] } {
   const codes = new Uint8Array(sequence.length);
   const invalid = new Set<string>();
   Array.from(sequence).forEach((symbol, index) => {
-    const code = scoring.symbols.indexOf(symbol.toUpperCase());
+    const code = residueCode(symbol, scoring);
     if (code < 0) invalid.add(symbol);
     else codes[index] = code;
   });
@@ -69,8 +74,8 @@ export function encodeResidues(sequence: string, scoring: LocalScoring): { codes
 }
 
 export function scoreOf(scoring: LocalScoring, a: string, b: string): number {
-  const i = scoring.symbols.indexOf(a.toUpperCase());
-  const j = scoring.symbols.indexOf(b.toUpperCase());
+  const i = residueCode(a, scoring);
+  const j = residueCode(b, scoring);
   if (i < 0 || j < 0) throw new Error('Residue outside the scoring alphabet');
   return scoring.matrix2[i * scoring.size + j] / 2;
 }

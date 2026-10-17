@@ -21,6 +21,16 @@ import { describe, expect, it } from 'vitest';
 import { encodeResidues, loadScoring, scoreOf, scoringFor } from '../scoring';
 
 describe('EMBOSS scoring', () => {
+  it.each(['\uFB05', '\uFB06'])('lists expanding uppercase symbol %s as unsupported', symbol => {
+    expect(encodeResidues(`D${symbol}D${symbol}`, loadScoring('EBLOSUM62'))).toEqual({ invalid: [symbol] });
+  });
+  it.each([
+    ['\uFB05', 'D'], ['D', '\uFB05'], ['\uFB06', 'D'], ['D', '\uFB06'],
+    ['ST', 'D'], ['D', 'ST'], ['', 'D'], ['D', ''],
+  ])('refuses scoring operands %j/%j unless each normalizes to one label', (a, b) => {
+    const scoring = loadScoring('EBLOSUM62');
+    expect(() => scoreOf(scoring, a, b)).toThrow('Residue outside the scoring alphabet');
+  });
   it.each([
     ['EDNAFULL', 'A', 'A', 5], ['EDNAFULL', 'A', 'T', -4],
     ['EDNAFULL', 'N', 'N', -1], ['EDNAFULL', 'U', 'T', 5],
