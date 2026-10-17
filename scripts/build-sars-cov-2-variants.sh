@@ -43,6 +43,15 @@ curl -sSf -G "$eutils/efetch.fcgi" \
   --data-urlencode "id=$accessions" \
   -o "$work/variants.gb"
 test "$(grep -c '^LOCUS' "$work/variants.gb")" -eq 3
+# The provenance block below describes these exact versioned records, so a
+# re-versioned or substituted NCBI response must abort rather than quietly
+# rewrite variants.gb underneath it.
+fetched="$(grep -E '^VERSION ' "$work/variants.gb" | awk '{print $2}' | sort | paste -sd, -)"
+expected="$(printf '%s' "$accessions" | tr ',' '\n' | sort | paste -sd, -)"
+if [ "$fetched" != "$expected" ]; then
+  echo "NCBI returned [$fetched], expected [$expected]; refusing to rewrite the data." >&2
+  exit 1
+fi
 cp "$work/variants.gb" "$out/variants.gb"
 
 # MAFFT lowercases its output unless --preservecase is given; feed it the
@@ -67,19 +76,39 @@ with open(destination, "w", encoding="utf-8") as handle:
 print("MAFFT input:", ", ".join(f"{n} ({len(s)} bp)" for n, s in rows))
 PY
 
-version="$(docker run --rm --network none "$image" mafft --version 2>&1 | tr -d '\r')"
+# Pull before any --network none run, so the alignment and the version probe
+# never trigger an implicit pull that would fail (or, with stderr captured,
+# write pull progress into the provenance).
+docker pull --quiet "$image" > /dev/null
+# MAFFT prints --version on stderr, not stdout, so the probe has to read the
+# combined streams; the pull above keeps Docker's own chatter out of them, and
+# only a line shaped like a version is kept, so nothing else reaches the
+# provenance. Empty or unexpected output aborts instead of being recorded.
+version="$(docker run --rm --network none "$image" mafft --version 2>&1 | tr -d '\r' | grep -E '^v[0-9]' || true)"
+if [ "$(printf '%s\n' "$version" | grep -c .)" -ne 1 ]; then
+  echo "Unexpected 'mafft --version' output: [$version]; refusing to record it." >&2
+  exit 1
+fi
 echo "MAFFT: $version"
-command="mafft --auto --preservecase input.fasta"
+
+command="docker run --rm --network none --user \$(id -u):\$(id -g) -v <workdir>:/data:ro -w /data $image mafft --auto --preservecase input.fasta"
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$work:/data:ro" -w /data "$image" \
-  mafft --auto --preservecase input.fasta > "$work/aligned.fasta"
+  mafft --auto --preservecase input.fasta \
+  > "$work/aligned.fasta" 2> "$work/mafft.log"
+cat "$work/mafft.log" >&2
 cp "$work/aligned.fasta" "$out/aligned.fasta"
 
+# --auto picks a strategy at run time and announces it only on stderr, under a
+# "Strategy:" heading; keep it so the provenance says which one ran.
+strategy="$(awk '/^Strategy:/ { getline; gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' "$work/mafft.log")"
+test -n "$strategy"
+
 python3 - "$out/PROVENANCE.json" "$reference" "$out/variants.gb" "$work/input.fasta" \
-  "$out/aligned.fasta" "$image" "$version" "$command" <<'PY'
+  "$out/aligned.fasta" "$image" "$version" "$command" "$strategy" <<'PY'
 import datetime, hashlib, json, sys
 
-destination, reference, variants, mafft_input, aligned, image, version, command = sys.argv[1:]
+destination, reference, variants, mafft_input, aligned, image, version, command, strategy = sys.argv[1:]
 digest = lambda path: hashlib.sha256(open(path, "rb").read()).hexdigest()
 provenance = {
     "dataset": "SARS-CoV-2 reference plus three variant genomes, aligned with MAFFT",
@@ -134,6 +163,8 @@ provenance = {
         "image": image.split("@")[0],
         "imageDigest": image.split("@")[1],
         "command": command,
+        "strategy": strategy,
+        "script": "scripts/build-sars-cov-2-variants.sh",
         "note": "MAFFT's stdout is written unedited; --preservecase keeps the uppercase residues "
                 "extracted from the GenBank records, and --auto picks MAFFT's default strategy.",
     },

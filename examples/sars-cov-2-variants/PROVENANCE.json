@@ -42,7 +42,9 @@
     "invocation": "docker",
     "image": "quay.io/biocontainers/mafft",
     "imageDigest": "sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373",
-    "command": "mafft --auto --preservecase input.fasta",
+    "command": "docker run --rm --network none --user $(id -u):$(id -g) -v <workdir>:/data:ro -w /data quay.io/biocontainers/mafft@sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373 mafft --auto --preservecase input.fasta",
+    "strategy": "FFT-NS-2 (Fast but rough)",
+    "script": "scripts/build-sars-cov-2-variants.sh",
     "note": "MAFFT's stdout is written unedited; --preservecase keeps the uppercase residues extracted from the GenBank records, and --auto picks MAFFT's default strategy."
   },
   "sha256": {

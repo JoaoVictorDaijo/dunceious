@@ -61,11 +61,16 @@ describe('bundled SARS-CoV-2 variant data', () => {
     const { sha256: sums } = provenance();
     expect(sha256(resolve(VARIANTS, 'variants.gb'))).toBe(sums['variants.gb']);
     expect(sha256(resolve(EXAMPLES, 'sars-cov-2-NC_045512.gb'))).toBe(sums['sars-cov-2-NC_045512.gb']);
+    // The MAFFT input is a build-time temporary, so this sum is the only one
+    // with no committed file behind it: at least require that it is recorded.
+    expect(sums['mafft-input.fasta']).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('each ungapped row equals its GenBank sequence, case included', () => {
     const sequences = genBankSequences();
-    for (const { id, row } of readFastaRows(resolve(VARIANTS, 'aligned.fasta'))) {
+    const rows = readFastaRows(resolve(VARIANTS, 'aligned.fasta'));
+    expect(rows).toHaveLength(4);
+    for (const { id, row } of rows) {
       expect(sequences.has(id)).toBe(true);
       expect(row.replaceAll('-', '')).toBe(sequences.get(id));
     }
@@ -90,5 +95,13 @@ describe('bundled SARS-CoV-2 variant data', () => {
     expect(ncbiRetrieved).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(mafft.command).toContain('--preservecase');
     expect(mafft.command).toContain('--auto');
+  });
+
+  it('pins the aligner it used', () => {
+    const { mafft } = provenance();
+    expect(mafft.version).toMatch(/^v[0-9]/);
+    expect(mafft.imageDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(mafft.image).toBeTruthy();
+    expect(mafft.strategy).toBeTruthy();
   });
 });

@@ -41,7 +41,9 @@ because the alignment overlay matches on them and does not strip suffixes.
 ## Alignment
 
 Computed once, offline, with [MAFFT](https://mafft.cbrc.jp/alignment/software/)
-v7.520 using its default strategy (`--auto`, which selected FFT-NS-2 here) on
+v7.520 using its default strategy (`--auto`, which selected FFT-NS-2 for this
+run — the strategy MAFFT reported is recorded as `mafft.strategy` in
+`PROVENANCE.json`) on
 the four genomes as they appear in their GenBank records — no trimming, masking
 or manual adjustment. The residues fed to MAFFT are uppercase, and
 `--preservecase` keeps them that way, so each row's ungapped residues match the
