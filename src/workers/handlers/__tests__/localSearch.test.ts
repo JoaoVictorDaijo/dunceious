@@ -31,6 +31,7 @@ it('initializes from supplied bytes, reports progress and finishes every stream'
   await handle(request);
   expect(messages[0]).toEqual({ type: 'ready' });
   expect(messages.filter(m => m.type === 'progress').length).toBeGreaterThanOrEqual(4);
+  expect(messages.filter(m => m.type === 'stream-done').every(m => m.peakMemoryBytes > 0)).toBe(true);
   expect(messages.filter(m => m.type === 'stream-done').map(m => m.outcome.recordIndex)).toEqual([0, 1]);
 });
 it('makes initialization and computation failures distinct', async () => {
@@ -48,4 +49,16 @@ it('reports an engine failure without publishing a stream result', async () => {
   await handle(request);
   expect(messages.at(-1)).toEqual({ type: 'error', requestId: 1, error: 'forced engine error' });
   expect(messages.some(m => m.type === 'stream-done')).toBe(false);
+});
+
+it('forwards each stream engine heap high-water mark in bytes', async () => {
+  const messages: LocalSearchResponse[] = [];
+  let peak = 0;
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    enumerate: () => [][Symbol.iterator](),
+    peakMemoryBytes: () => (peak += 65536),
+  }));
+  await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
+  await handle(request);
+  expect(messages.filter(m => m.type === 'stream-done').map(m => m.peakMemoryBytes)).toEqual([65536, 131072]);
 });

@@ -42,7 +42,7 @@ export function createLocalSearchHandler(post: (message: LocalSearchResponse) =>
       for (const job of request.jobs) {
         const outcome = runLocalStream(engine, { ...request, ...job, queryCodes: encoded.codes, scoring },
           fraction => post({ type: 'progress', requestId, recordIndex: job.recordIndex, strand: job.strand, fraction }));
-        post({ type: 'stream-done', requestId, outcome });
+        post({ type: 'stream-done', requestId, outcome, peakMemoryBytes: engine.peakMemoryBytes() });
       }
     } catch (e) { post({ type: 'error', requestId, error: e instanceof Error ? e.message : String(e) }); }
   };

@@ -202,5 +202,7 @@ export type LocalSearchRequest = { type: 'init'; wasm: ArrayBuffer } | {
 };
 export type LocalSearchResponse = { type: 'ready' } | { type: 'init-error'; error: string }
   | { type: 'progress'; requestId: number; recordIndex: number; strand: 1 | -1; fraction: number }
-  | { type: 'stream-done'; requestId: number; outcome: LocalStreamOutcome }
+  | { type: 'stream-done'; requestId: number; outcome: LocalStreamOutcome;
+    /** WASM linear-memory high-water mark in bytes; excludes JS and browser overhead. */
+    peakMemoryBytes: number }
   | { type: 'error'; requestId: number; error: string };
