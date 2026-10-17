@@ -18,16 +18,30 @@
  */
 
 import React from 'react';
+import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
+import { SearchResultGroup } from './search/SearchResultGroup';
+import { SearchDetails } from './search/SearchDetails';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
 import type { SearchOptions } from '@/src/workers/protocol';
 import SectionTitle from './SectionTitle';
+import LocalOptions from './search/LocalOptions';
+import LocalSearchMonitor from './search/LocalSearchMonitor';
+import type { LocalSearchJob } from '../hooks/useSearchWorker';
+import type { LocalSearchCounts } from '@/src/core/search/local/selection';
+import { localSearchOptions } from '@/src/workers/protocol';
 
 export interface GroupedSearchResults {
   [recordId: string]: { results: SearchResult[]; indices: number[] };
 }
 
 export interface SearchPanelProps {
+  localReady?: boolean;
+  localError?: string | null;
+  localJob?: LocalSearchJob;
+  localCounts?: LocalSearchCounts | null;
+  onCancelLocalSearch?: () => void;
+  completedSearch?: CompletedSearch | null;
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
@@ -49,7 +63,7 @@ export interface SearchPanelProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1, hit?: SearchAnnotationHit) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession?: boolean;
 }
@@ -59,6 +73,9 @@ export interface SearchPanelProps {
  * Supports IUPAC exact search and fuzzy search with a minimum identity.
  */
 const SearchPanel: React.FC<SearchPanelProps> = ({
+  localReady = false, localError, localJob, localCounts, onCancelLocalSearch,
+  completedSearch,
+  records,
   searchQuery,
   onSearchQueryChange,
   searchMode,
@@ -83,6 +100,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   getSequenceContext,
   isProteinSession = false,
 }) => {
+  const { fuzzyMethod, localFilters } = localSearchOptions(searchOptions);
+  const local = searchMode === 'fuzzy' && fuzzyMethod === 'local';
   const queryLength = searchQuery.replace(/\s+/g, '').length;
   return (
     <section data-sequence-search-section className="flex flex-col min-h-0 pt-4">
@@ -108,6 +127,20 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
       }>Sequence Search</SectionTitle>
 
       <div className="space-y-6 bg-slate-900/40 p-6 rounded-[2.5rem] border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
+        {searchMode === 'fuzzy' && <div className="space-y-2">
+          <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+            {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
+              disabled={method === 'local' && !localReady} title={method === 'local' && !localReady ? localError ?? 'Loading Local search module' : undefined}
+              onClick={() => onSearchOptionsChange({ ...searchOptions, fuzzyMethod: method })}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40 ${fuzzyMethod === method ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>{method === 'whole' ? 'Whole query' : 'Local'}</button>)}
+          </div>
+          <p role="status" className="text-[11px] text-slate-400">{localError ?? (localReady ? 'Local search ready' : 'Loading Local search module…')}</p>
+        </div>}
+        {localJob && onCancelLocalSearch && <LocalSearchMonitor job={localJob} onCancel={onCancelLocalSearch} />}
+        {local && <LocalOptions filters={localFilters} isProtein={isProteinSession} onChange={filters => onSearchOptionsChange({ ...searchOptions, localFilters: filters })} />}
+        {localJob?.phase === 'failed' && <p role="alert" className="text-xs text-rose-300">Search failed: {localJob.error}</p>}
+        {localJob?.phase === 'cancelled' && <p role="status" className="text-xs text-slate-300">Search cancelled</p>}
+        {localJob?.phase === 'done' && <p role="status" className="text-xs text-slate-300">Search done{searchResults.length === 0 ? ' · No hits' : ''}</p>}
         {/* Search input */}
         <div className="space-y-3">
           <div className="relative group">
@@ -142,16 +175,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         </div>
 
-        {/* Fuzzy identity threshold: identity is measured over the whole query */}
-        {searchMode === 'fuzzy' && (
+        {/* Query identity uses edit distance over the whole query. */}
+        {searchMode === 'fuzzy' && !local && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
-              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min identity</label>
+              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
               <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">
                 {searchOptions.minIdentity}%
                 {queryLength > 0 && ` · ≤ ${maxEditsForIdentity(queryLength, searchOptions.minIdentity)} edits`}
               </span>
             </div>
+            <p className="text-[11px] text-slate-400">Query identity = 100 × (query length − edits) / query length. Edits include substitutions, insertions and deletions.</p>
             <input
               id="fuzzy-min-identity"
               type="range" min={MIN_FUZZY_IDENTITY} max="100" step="5"
@@ -192,19 +226,22 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         </div>
 
+        {localCounts && searchResults.length === 0 && <SearchDetails mode="local" counts={localCounts} recordCount={0} />}
         {/* Results list */}
         {searchResults.length > 0 && (
           <div className="pt-6 border-t border-slate-800/50 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-6 px-1">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-200">{searchResults.length} matches</span>
+                  <span className="text-[11px] font-semibold text-slate-200">{localCounts && localCounts.cutoff !== null
+                    ? `Top ${searchResults.length} shown; lower-scoring alignments aren't counted`
+                    : `${searchResults.length} matches`}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-400">
-                  Across {Object.keys(groupedSearchResults).length} records
+                  Across {Object.keys(groupedSearchResults).length} {Object.keys(groupedSearchResults).length === 1 ? 'record' : 'records'}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -230,117 +267,15 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-2 max-h-[500px]">
-              {Object.entries(groupedSearchResults).map(([recordId, group]) => (
-                <div key={recordId} className="space-y-4">
-                  <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-env"></div>
-                      <span className="text-[11px] font-semibold text-slate-300 truncate max-w-[140px]">{recordId}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => onToggleRecordSelection(recordId, true)}
-                        data-tip="Select every match in this record"
-                        className="text-[11px] font-semibold text-slate-400 hover:text-env transition-colors"
-                      >
-                        Select all
-                      </button>
-                      <button
-                        onClick={() => onJoinAllInRecord(recordId)}
-                        className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors"
-                        data-tip="Create one multi-segment annotation from every match in this record"
-                      >
-                        Join all
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pl-1">
-                    {group.results.map((match, localIdx) => {
-                      const globalIdx = group.indices[localIdx];
-                      const context = getSequenceContext(match.recordId, match.start, match.end);
-                      const isActive = currentSearchIdx === globalIdx;
-                      return (
-                        <div
-                          key={globalIdx}
-                          onClick={() => {
-                            onSetCurrentIdx(globalIdx);
-                            onSetActiveTab('alignment');
-                            onSetActiveSelection({ start: match.start, end: match.end, recordIds: [match.recordId] });
-                          }}
-                          className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-env ring-2 ring-env/20 bg-env/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative flex items-center justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedSearchIndices.has(globalIdx)}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    const next = new Set(selectedSearchIndices);
-                                    if (e.target.checked) next.add(globalIdx);
-                                    else next.delete(globalIdx);
-                                    onSetSelectedIndices(next);
-                                  }}
-                                  className="w-4 h-4 rounded-lg border-slate-700 bg-slate-900 text-env focus:ring-env cursor-pointer"
-                                />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[11px] font-bold text-slate-200 tracking-tight">
-                                  {match.start.toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
-                                </span>
-                                <span className="text-[11px] font-semibold text-slate-500">Position</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {match.identity !== undefined && (
-                                <div className="flex flex-col items-end">
-                                  <span className="text-[10px] font-bold text-amber-500">
-                                    {Math.floor(match.identity)}%
-                                  </span>
-                                  <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">{match.edits === 1 ? '1 edit' : `${match.edits ?? 0} edits`}</span>
-                                </div>
-                              )}
-                              <div className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight ${match.strand === 1 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                                {match.strand === 1 ? 'Forward' : 'Reverse'}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="seq-scroll text-[11px] font-mono bg-black/60 p-3 rounded-xl border border-slate-800/50 overflow-x-auto whitespace-nowrap shadow-inner">
-                            <span className="text-slate-500">{context.pre}</span>
-                            <span className="text-sky-400 font-bold bg-sky-400/20 px-1 rounded-sm shadow-[0_0_10px_rgba(56,189,248,0.2)]">{context.match}</span>
-                            <span className="text-slate-500">{context.post}</span>
-                          </div>
-
-                          <div className="mt-3 flex justify-between items-center">
-                            <div className="flex gap-2">
-                              {isActive && (
-                                <span className="text-[11px] font-semibold text-env flex items-center gap-1 animate-pulse">
-                                  <i className="fas fa-eye"></i> Active
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                onAnnotateMatch(match.recordId, match.start, match.end, `Match: ${match.sequence}`, match.segments, match.strand);
-                              }}
-                              aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
-                              data-tip="Save this match as an annotation"
-                              className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-env transition-all text-[11px] font-semibold text-env flex items-center gap-2 bg-env/10 hover:bg-env/20 px-3 py-1.5 rounded-lg border border-env/20"
-                            >
-                              <i className="fas fa-plus text-[10px]"></i> Annotate
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              {Object.entries(groupedSearchResults).map(([recordId, group]) => <SearchResultGroup
+                key={recordId} recordId={recordId} group={group} records={records} completedSearch={completedSearch}
+                getSequenceContext={getSequenceContext} currentSearchIdx={currentSearchIdx}
+                onSetCurrentIdx={onSetCurrentIdx} onSetActiveTab={onSetActiveTab} onSetActiveSelection={onSetActiveSelection}
+                selectedSearchIndices={selectedSearchIndices} onSetSelectedIndices={onSetSelectedIndices}
+                onAnnotateMatch={onAnnotateMatch} onToggleRecordSelection={onToggleRecordSelection}
+                onJoinAllInRecord={onJoinAllInRecord} />)}
             </div>
+            <SearchDetails counts={localCounts} mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
           </div>
         )}
       </div>

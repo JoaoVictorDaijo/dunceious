@@ -44,7 +44,7 @@ describe('runSearch — exact mode', () => {
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results).toEqual([
-      { start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
+      { cigar: '3=', start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
     ]);
   });
 
@@ -88,7 +88,7 @@ describe('runSearch — fuzzy mode', () => {
     }));
     if ('error' in res) throw new Error(res.error);
     expect(res.results).toEqual([{
-      recordId: 'r1', strand: 1, start: 3, end: 11, sequence: 'ACGTACGT',
+      cigar: '8=', recordId: 'r1', strand: 1, start: 3, end: 11, sequence: 'ACGTACGT',
       edits: 0, identity: 100, segments: [{ start: 3, end: 11 }],
     }]);
   });

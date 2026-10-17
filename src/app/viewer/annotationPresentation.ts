@@ -19,7 +19,11 @@
 
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { reverseComplement } from '@/src/domain/bio/sequence';
+import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
+import { loadScoring, scoringFor, scoreOf } from '@/src/core/search/local/scoring';
+import { hitColumns } from '@/src/core/search/hitColumns';
+import type { HitMarks } from './hitMarks';
+import { getOriginalPos, reverseComplement } from '@/src/domain/bio/sequence';
 import { segmentFrameshifts, type FrameShift } from '@/src/domain/bio/frameshift';
 
 export function annotationDirection(feature: BioFeature, moleculeType?: SeqRecord['moleculeType'], strand?: 1 | -1): string {
@@ -33,11 +37,12 @@ export function annotationDirection(feature: BioFeature, moleculeType?: SeqRecor
 
 /** One base at its existing screen coordinate, not a reversed sequence or a
  * spliced product. On the minus strand the complementary letters read 3′→5′
- * left-to-right. RNA stays RNA; this display helper never changes stored data.
+ * left-to-right. The whole record's complement alphabet keeps T-written RNA
+ * consistent across every displayed base without changing stored data.
  */
-export function annotationBase(base: string, strand: ReturnType<typeof getFeatureStrand>, moleculeType?: SeqRecord['moleculeType']): string {
-  if (strand !== -1 || moleculeType === 'protein') return base;
-  return reverseComplement(base, moleculeType);
+export function annotationBase(base: string, strand: ReturnType<typeof getFeatureStrand>, alphabet: 'dna' | 'rna' | 'protein'): string {
+  if (strand !== -1 || alphabet === 'protein') return base;
+  return reverseComplement(base, alphabet);
 }
 
 /** `−1` / `+1`: a true minus sign, as the badge and the step label read it. */
@@ -60,12 +65,13 @@ export function fitAnnotationText(text: string, width: number, charWidth: number
  */
 export const SHOW_BASES_KEY = '_showBases';
 
-export const showsAnnotationBases = (feature: BioFeature): boolean => feature.metadata?.[SHOW_BASES_KEY] === '1';
+export const showsAnnotationBases = (feature: BioFeature): boolean => feature.metadata?.[SHOW_BASES_KEY] === '1' || feature.metadata?.[SHOW_BASES_KEY] === 'query';
 
 /** The feature with its bases switched on or off; off removes the flag entirely. */
-export function withAnnotationBases(feature: BioFeature, show: boolean): BioFeature {
+export function withAnnotationBases(feature: BioFeature, show: boolean | 'nothing' | 'record' | 'query'): BioFeature {
   const metadata = { ...feature.metadata };
-  if (show) metadata[SHOW_BASES_KEY] = '1';
+  if (show === 'query') metadata[SHOW_BASES_KEY] = 'query';
+  else if (show === true || show === 'record') metadata[SHOW_BASES_KEY] = '1';
   else delete metadata[SHOW_BASES_KEY];
   return { ...feature, metadata };
 }
@@ -94,4 +100,50 @@ export function terminalSegmentIndex(feature: Pick<BioFeature, 'segments' | 'str
   if (segments.length === 0) return -1;
   const perSegment = segments.some(segment => segment.strand !== undefined);
   return !perSegment && getFeatureStrand(feature as BioFeature) === -1 ? 0 : segments.length - 1;
+}
+
+const queryLayerCache = new WeakMap<BioFeature, { sequence: string; alphabet: string; value: HitMarks | null }>();
+
+/** Display features use aligned columns; staleness is checked back in the saved biological coordinates. */
+export function annotationQueryMarks(feature: BioFeature, sequence: string, alphabet: 'dna' | 'rna' | 'protein'): HitMarks | null {
+  const cached = queryLayerCache.get(feature);
+  if (cached?.sequence === sequence && cached.alphabet === alphabet) return cached.value;
+  const hit = readSearchHit(feature);
+  let value: HitMarks | null = null;
+  if (hit) {
+    const biological = { ...feature, start: getOriginalPos(sequence, feature.start), end: getOriginalPos(sequence, feature.end),
+      segments: feature.segments?.map(s => ({ ...s, start: getOriginalPos(sequence, s.start), end: getOriginalPos(sequence, s.end) })) };
+    // Transposition supplies an envelope segment even when the source feature has none.
+    if (!hit.span.segments && biological.segments?.length === 1 && biological.segments[0].start === biological.start
+      && biological.segments[0].end === biological.end && biological.segments[0].strand === undefined) biological.segments = undefined;
+    if (isSearchHitCurrent(biological)) {
+      const positions: number[] = [];
+      for (let i = feature.start; i < feature.end; i++) if (sequence[i] !== '-') positions.push(i);
+      const forward = [...positions];
+      const span = forward.map(i => sequence[i]).join('');
+      if (hit.strand === -1) positions.reverse();
+      const scoring = hit.mode === 'local' ? loadScoring(scoringFor(hit.alphabet === 'protein')) : null;
+      const columns = hitColumns({ cigar: hit.cigar, query: hit.query,
+        span: hit.strand === -1 ? reverseComplement(span, alphabet) : span, mode: hit.mode, alphabet: hit.alphabet,
+        matrixScore: scoring ? (q, r) => scoreOf(scoring, q, r) : undefined });
+      value = { marks: [], insertions: [] };
+      let r = 0;
+      for (const col of columns) {
+        if (col.op === 'I') {
+          const boundary = hit.strand === 1 ? r : positions.length - r;
+          const afterColumn = forward[boundary - 1] ?? feature.start - 1;
+          const previous = value.insertions.at(-1);
+          if (previous?.afterColumn === afterColumn) previous.bases = hit.strand === 1 ? previous.bases + col.queryBase : col.queryBase + previous.bases;
+          else value.insertions.push({ afterColumn, bases: col.queryBase!, flankStart: getOriginalPos(sequence, afterColumn + 1), flankEnd: getOriginalPos(sequence, afterColumn + 1) + 1 });
+        } else {
+          const column = positions[r++];
+          value.marks.push({ column, recordBase: sequence[column], cls: col.cls, recordAmbiguity: col.recordAmbiguity,
+            queryLetter: col.cls === 'identical' ? annotationBase(sequence[column], hit.strand, alphabet) : col.queryBase });
+        }
+      }
+      value.marks.sort((a, b) => a.column - b.column);
+    }
+  }
+  queryLayerCache.set(feature, { sequence, alphabet, value });
+  return value;
 }

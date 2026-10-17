@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { wholeQueryPath } from './editPath';
 import { residueAlternatives, type ResidueAlphabet } from '@/src/core/search/query';
 import {
   reverseComplement,
@@ -257,7 +258,10 @@ export function runFuzzySearch(
       const { ungapped, map } = removeGapsWithMap(seq);
       for (const match of findApproximateMatches(searchQuery, ungapped, maxEdits, options)) {
         const { start, end } = mapUngappedRangeToAligned(map, match.start, match.end);
+        const path = wholeQueryPath(searchQuery, ungapped.slice(match.start, match.end), options.moleculeType);
+        if (path.edits !== match.edits) throw new Error('Fuzzy hit path cost differs from its edits');
         results.push({
+          cigar: path.cigar,
           start,
           end,
           sequence: seq.substring(start, end),
@@ -278,7 +282,10 @@ export function runFuzzySearch(
         const rcRange = mapUngappedRangeToAligned(map, match.start, match.end);
         const start = L - rcRange.end;
         const end = L - rcRange.start;
+        const path = wholeQueryPath(searchQuery, ungapped.slice(match.start, match.end), options.moleculeType);
+        if (path.edits !== match.edits) throw new Error('Fuzzy hit path cost differs from its edits');
         results.push({
+          cigar: path.cigar,
           start,
           end,
           sequence: seq.substring(start, end),

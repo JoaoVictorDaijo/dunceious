@@ -87,6 +87,20 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  local-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild local alignment engine
+        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm
+
+      - name: Require reproducible artifact below 25 MiB
+        run: |
+          cmp public/wasm/local-align.wasm public/wasm/local-align.rebuilt.wasm
+          test "$(wc -c < public/wasm/local-align.wasm)" -lt 26214400
+
   # Promotions to main must carry a version bump (see CLAUDE.md > Versioning
   # & releases). Runs only on develop -> main PRs; never nags develop PRs.
   version-guard:

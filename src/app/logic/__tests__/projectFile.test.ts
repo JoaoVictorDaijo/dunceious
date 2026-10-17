@@ -89,3 +89,12 @@ it.each(['local_1', 'NC_001.2:ref-3', 'Seq|1+2/3'])('preserves safe workspace ID
     activeSelection: { start: 0, end: 4, recordIds: [id] } };
   expect(parseProject(serializeProject(project))).toEqual({ ok: true, project: { ...project, format: 2 } });
 });
+
+it('keeps search provenance through project save and load', () => {
+  const provenance = { v: 1, query: 'AC', mode: 'whole', alphabet: 'nucleotide', params: {}, strand: 1, cigar: '2=', span: { start: 0, end: 2, strand: 1 }, appVersion: '3.4.0', createdAt: '2026-10-16', exportNote: false };
+  const raw = JSON.stringify(provenance);
+  const saved = serializeProject({ records: [{ id: 'hit', name: 'hit', sequence: 'AC', features: [{ name: 'hit', type: 'misc_feature', start: 0, end: 2, strand: 1, metadata: { _searchHit: raw } }] }], featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false });
+  const loaded = parseProject(saved);
+  expect(loaded.ok).toBe(true);
+  if (loaded.ok) expect(loaded.project.records[0].features[0].metadata?._searchHit).toBe(raw);
+});

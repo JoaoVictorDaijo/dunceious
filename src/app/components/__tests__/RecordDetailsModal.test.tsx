@@ -36,3 +36,22 @@ describe('RecordDetailsModal biological coordinates', () => {
     expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
   });
 });
+
+it('offers query bases only for a hit, shows staleness and removes search details', () => {
+  const provenance = { v: 1, query: 'AC', mode: 'whole', alphabet: 'nucleotide', params: {}, strand: 1, cigar: '2=', span: { start: 0, end: 2, strand: 1 }, appVersion: '3.4.0', createdAt: '2026-10-16', exportNote: false };
+  const feature = { name: 'hit', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, metadata: { _searchHit: JSON.stringify(provenance) } };
+  const remove = vi.fn(); const mode = vi.fn();
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACG', features: [feature] }} feature={feature}
+    onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={mode} onRemoveSearchDetails={remove} />);
+  expect(screen.getByText("The search alignment no longer matches this annotation's region.")).toBeTruthy();
+  expect(screen.getByRole('option', { name: 'Query aligned to record' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove search details' }));
+  expect(remove).toHaveBeenCalledOnce();
+});
+it('keeps joined annotations on record bases only', () => {
+  const feature = { name: 'joined', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, segments: [{ start: 0, end: 1 }, { start: 2, end: 3 }] };
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACG', features: [feature] }} feature={feature}
+    onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} />);
+  expect(screen.queryByRole('option', { name: 'Query aligned to record' })).toBeNull();
+  expect(screen.getByText("The query layer isn't available for joined annotations.")).toBeTruthy();
+});

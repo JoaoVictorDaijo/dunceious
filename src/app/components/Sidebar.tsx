@@ -18,13 +18,14 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
+import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import type { SearchOptions } from '@/src/workers/protocol';
 import { getOriginalPos } from '@/src/domain/bio';
 import HubIndex from './hub/HubIndex';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import SearchPanel, { GroupedSearchResults } from './SearchPanel';
+import SearchPanel, { GroupedSearchResults, type SearchPanelProps } from './SearchPanel';
 import SectionTitle from './SectionTitle';
 import WorkspaceTitleActions from './WorkspaceTitleActions';
 import AlignmentSection from './AlignmentSection';
@@ -32,6 +33,7 @@ import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  localSearch?: Pick<SearchPanelProps, 'localReady' | 'localError' | 'localJob' | 'localCounts' | 'onCancelLocalSearch'>;
   featureColors?: Record<string, string>;
   hubState?: ReturnType<typeof useHubState>;
   onToggleRecordVisibility?: (id: string) => void;
@@ -65,6 +67,7 @@ export interface SidebarProps {
   onSearch: () => void;
   onClearSearch: () => void;
   onSelectSearchResult: (selection: SelectionArea) => void;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
@@ -76,7 +79,7 @@ export interface SidebarProps {
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1, hit?: SearchAnnotationHit) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession: boolean;
 }
@@ -86,6 +89,7 @@ export interface SidebarProps {
  * ingestion controls, sequence search, and log terminal.
  */
 const Sidebar: React.FC<SidebarProps> = ({
+  localSearch,
   open,
   hubState,
   featureColors,
@@ -118,6 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearch,
   onClearSearch,
   onSelectSearchResult,
+  completedSearch,
   searchResults,
   groupedSearchResults,
   currentSearchIdx,
@@ -383,7 +388,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <AlignmentSection count={records.length} state={remoteAlignmentState} onOpen={onAlignRemote} />
 
       {/* Search panel */}
-      <SearchPanel
+      <SearchPanel {...localSearch}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
         searchMode={searchMode}
@@ -393,6 +398,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         isSearching={isSearching}
         onSearch={onSearch}
         onClearSearch={onClearSearch}
+        completedSearch={completedSearch}
         searchResults={searchResults}
         groupedSearchResults={groupedSearchResults}
         currentSearchIdx={currentSearchIdx}

@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
 import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
@@ -28,10 +29,11 @@ import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { alignedToOriginalPositions, getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
+import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
 
@@ -45,6 +47,7 @@ export interface RowData {
   showAnnotations: boolean;
   showTranslation: boolean;
   searchResultsByRecord: Record<string, SearchResult[]>;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   currentSearchIdx: number;
   onSelectionChange: (selection: SelectionArea | null) => void;
@@ -73,7 +76,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const { 
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
-    searchResultsByRecord, searchResults, currentSearchIdx,
+    searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
@@ -88,6 +91,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const vEnd = Math.min(alignmentLength, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 30);
 
   const seq = l.record.alignedSequence || l.record.sequence;
+  const annotationAlphabet = useMemo(() => l.record.moleculeType === 'protein' ? 'protein'
+    : complementAlphabet(seq, l.record.moleculeType), [seq, l.record.moleculeType]);
   const originalPositions = useMemo(() => l.record.alignedSequence ? alignedToOriginalPositions(seq) : null,
     [seq, l.record.alignedSequence]);
   const lastBaseEnd = useMemo(() => {
@@ -104,7 +109,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const effectiveTranslation = l.translationVisible;
   const motionClass = showTranslation && l.record.moleculeType !== 'protein' ? 'translation-motion' : '';
   const lanes = l.translationLanes;
-  const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
+  const queryHeight = rowSearchResults.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+  const bandTop = l.seqBaseY - queryHeight - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
   const rowTop = typeof style.top === 'number' ? `${style.top}px` : (style.top ?? '0px');
 
   // The focus label rides the region's visible start, holding at the view edge while that start is scrolled away.
@@ -171,7 +177,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className={`absolute right-0 w-1 bg-emerald-400/30 ${motionClass}`}
           style={{ top: 0, height: 1, transformOrigin: 'top',
-            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT})` }} />
+            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT + queryHeight})` }} />
         <div className="absolute right-2 flex items-center" style={{ top: bandTop - 12, height: 12 }}>
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
@@ -207,6 +213,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
           <SequenceTrack 
             seq={seq}
+            record={l.record}
+            completedSearch={completedSearch}
             moleculeType={l.record.moleculeType}
             xScale={xScale}
             viewportWidth={viewportWidth}
@@ -360,7 +368,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                         onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
                       }}
                     />
-                    <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
+                    <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType} alphabet={annotationAlphabet}
                       start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
