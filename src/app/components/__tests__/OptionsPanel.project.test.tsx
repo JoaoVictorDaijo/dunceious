@@ -143,6 +143,7 @@ it('keeps shortcuts global with a text field focused outside the closed panel', 
   expect(save).toHaveBeenCalledOnce();
   expect(click).toHaveBeenCalledOnce();
   expect(screen.getByRole('status').textContent).toBe('Saved as focused.json');
+  expect(document.activeElement).toBe(screen.getByLabelText('Elsewhere'));
 });
 
 it.each(['workspace.json', null])('restores cog focus after keyboard saving returns %s', result => {
@@ -189,4 +190,65 @@ it('does not reclaim focus after the Open action deliberately moves it elsewhere
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(destination);
   } finally { click.mockRestore(); }
+});
+
+it.each([
+  { modifier: 'Ctrl', ctrlKey: true, metaKey: false, result: 'shortcut.json' },
+  { modifier: 'Ctrl', ctrlKey: true, metaKey: false, result: null },
+  { modifier: 'Meta', ctrlKey: false, metaKey: true, result: 'shortcut.json' },
+  { modifier: 'Meta', ctrlKey: false, metaKey: true, result: null },
+])('restores cog focus for $modifier+S inside the panel when Save returns $result', ({ ctrlKey, metaKey, result }) => {
+  const save = vi.fn(() => result);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} />);
+  openMenu();
+  const action = screen.getByRole('button', { name: 'Save project' });
+  action.focus();
+  fireEvent.keyDown(action, { key: 's', ctrlKey, metaKey });
+  expect(save).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Project and options' }));
+  expect(screen.getByRole('status').textContent).toBe(result ? `Saved as ${result}` : '');
+});
+
+it.each([
+  { ctrlKey: true, metaKey: false, key: 's' },
+  { ctrlKey: false, metaKey: true, key: 's' },
+  { ctrlKey: true, metaKey: false, key: 'o' },
+  { ctrlKey: false, metaKey: true, key: 'o' },
+])('keeps outside focus when $key closes the open panel with %o', modifier => {
+  const save = vi.fn(() => 'outside.json');
+  render(<><input aria-label="Elsewhere" /><OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} /></>);
+  const picker = vi.spyOn(screen.getByLabelText('Open project file'), 'click');
+  try {
+    openMenu();
+    const field = screen.getByLabelText('Elsewhere');
+    field.focus();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.keyDown(field, modifier);
+    expect(save).toHaveBeenCalledTimes(modifier.key === 's' ? 1 : 0);
+    expect(picker).toHaveBeenCalledTimes(modifier.key === 'o' ? 1 : 0);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(field);
+  } finally { picker.mockRestore(); }
+});
+
+it.each([{ ctrlKey: true }, { metaKey: true }])('lets the picker take focus after an inside Open shortcut with %o', modifier => {
+  render(<><button>Picker destination</button><OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} /></>);
+  const destination = screen.getByRole('button', { name: 'Picker destination' });
+  const cog = screen.getByRole('button', { name: 'Project and options' });
+  let focusAtPicker: Element | null = null;
+  const picker = vi.spyOn(screen.getByLabelText('Open project file'), 'click').mockImplementation(() => {
+    focusAtPicker = document.activeElement;
+    destination.focus();
+  });
+  try {
+    openMenu();
+    const action = screen.getByRole('button', { name: 'Open project…' });
+    action.focus();
+    fireEvent.keyDown(action, { key: 'o', ...modifier });
+    expect(picker).toHaveBeenCalledOnce();
+    expect(focusAtPicker).toBe(cog);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(destination);
+  } finally { picker.mockRestore(); }
 });

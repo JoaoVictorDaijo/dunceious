@@ -64,7 +64,6 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
   onSetThemeKey,
 }) => {
   const [open, setOpen] = useState(false);
-  const { save, openPicker, picker, saved } = useProjectActions({ onSaveProject, onOpenProject, locked, onShortcut: () => setOpen(false) });
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -99,6 +98,14 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
     setOpen(false);
     triggerRef.current?.focus();
   };
+
+  const { save, openPicker, picker, saved } = useProjectActions({
+    onSaveProject, onOpenProject, locked,
+    onShortcut: () => {
+      if (panelRef.current?.contains(document.activeElement)) closeAndRestoreFocus();
+      else setOpen(false);
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
