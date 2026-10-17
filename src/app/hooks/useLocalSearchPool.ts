@@ -25,6 +25,7 @@ import type { LocalSearchRequest, LocalSearchResponse, LocalSearchRun, LocalSear
 
 type SearchRequest = Extract<LocalSearchRequest, { type: 'search' }>;
 interface Pending {
+  dispatch: (() => void) | null;
   id: number; total: number; outcomes: Map<string, LocalStreamOutcome>;
   assigned: Map<Worker, Set<string>>; fractions: Map<string, number>;
   skipped: LocalSearchCounts['skippedRecords']; limit: number;
@@ -67,7 +68,11 @@ export function useLocalSearchPool(bytes: ArrayBuffer | null) {
             if (m.type === 'init-error') { fail(`Local worker initialization failed: ${m.error}`); return; }
             if (m.type === 'ready') {
               initialized.current.add(worker);
-              if (initialized.current.size === size) setReady(true);
+              if (initialized.current.size === size) {
+                setReady(true);
+                const dispatch = pending.current?.dispatch;
+                if (dispatch) { pending.current!.dispatch = null; dispatch(); }
+              }
               return;
             }
             const p = pending.current;
@@ -102,7 +107,7 @@ export function useLocalSearchPool(bytes: ArrayBuffer | null) {
   }, []);
   const run = useCallback((request: LocalSearchRun, onProgress: Pending['progress']): Promise<LocalSearchResult> => {
     if (pending.current) return Promise.reject(new Error('Local search already running'));
-    if (!ready || !members.current.length) return Promise.reject(new Error(error ?? 'Local search is not ready'));
+    if (!members.current.length) return Promise.reject(new Error(error ?? 'Local search is not ready'));
     const scoring = loadScoring(request.scoring);
     const q = encodeResidues(request.query, scoring);
     if ('invalid' in q) return Promise.reject(new Error(`Unsupported query characters: ${q.invalid.join(', ')}`));
@@ -119,21 +124,26 @@ export function useLocalSearchPool(bytes: ArrayBuffer | null) {
     return new Promise((resolve, reject) => {
       const groups = members.current.map(() => [] as SearchRequest['jobs']);
       jobs.forEach((job, i) => groups[i % groups.length].push(job));
-      const p: Pending = { id: ++nextId.current, total: jobs.length, outcomes: new Map(), assigned: new Map(), fractions: new Map(),
+      const p: Pending = { dispatch: null, id: ++nextId.current, total: jobs.length, outcomes: new Map(), assigned: new Map(), fractions: new Map(),
         skipped, limit: request.limit, progress: onProgress, resolve, reject };
       pending.current = p;
       onProgress({ streamsDone: 0, streamsTotal: jobs.length, currentFraction: 0 });
-      try {
-        members.current.forEach((worker, i) => {
-          if (!groups[i].length) return;
-          p.assigned.set(worker, new Set(groups[i].map(j => streamKey(j.recordIndex, j.strand))));
-          worker.postMessage({ ...request, type: 'search', requestId: p.id, jobs: groups[i] } satisfies SearchRequest);
-        });
-      } catch (e) {
-        pending.current = null; reject(new Error(`Local worker dispatch failed: ${String(e)}`));
-        retire(); setReady(false); setError(`Local worker dispatch failed: ${String(e)}`);
-      }
+      const dispatch = () => {
+        try {
+          members.current.forEach((worker, i) => {
+            if (!groups[i].length) return;
+            p.assigned.set(worker, new Set(groups[i].map(j => streamKey(j.recordIndex, j.strand))));
+            worker.postMessage({ ...request, type: 'search', requestId: p.id, jobs: groups[i] } satisfies SearchRequest);
+          });
+        } catch (e) {
+          pending.current = null; reject(new Error(`Local worker dispatch failed: ${String(e)}`));
+          retire(); setReady(false); setError(`Local worker dispatch failed: ${String(e)}`);
+        }
+      };
+      // A restart can queue the next search before React publishes replacement readiness.
+      if (initialized.current.size === members.current.length) dispatch();
+      else p.dispatch = dispatch;
     });
-  }, [ready, error, retire]);
+  }, [error, retire]);
   return { ready, error, run, cancel };
 }

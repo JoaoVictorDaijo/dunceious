@@ -86,3 +86,20 @@ it('skips invalid nucleotide records before scheduling and never makes reverse p
   expect(result.counts.streams).toBe(1);
   expect(result.results[0].strand).toBe(1);
 });
+
+it('waits for replacement readiness when restarting in the same render', async () => {
+  const h = renderHook(() => useLocalSearchPool(bytes));
+  await waitFor(() => expect(h.result.current.ready).toBe(true));
+  let first!: Promise<unknown>;
+  let replacement!: Promise<LocalSearchResult>;
+  act(() => {
+    first = h.result.current.run(request, () => {}).catch(e => e.name);
+    h.result.current.cancel();
+    replacement = h.result.current.run(request, () => {});
+    void replacement.catch(() => {});
+  });
+  expect(await first).toBe('AbortError');
+  let result!: LocalSearchResult;
+  await act(async () => { result = await replacement; });
+  expect(result.results.map(hit => [hit.recordId, hit.start, hit.end])).toEqual([['a', 0, 2], ['b', 2, 4]]);
+});
