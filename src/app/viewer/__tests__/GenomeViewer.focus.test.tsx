@@ -37,7 +37,7 @@ const focused: FocusTarget = { recordId: 'r', start: 100, end: 300, label: 'spik
 const asSelection = (t: FocusTarget): SelectionArea => ({ start: t.start, end: t.end, recordIds: [t.recordId] });
 
 function viewer(activeSelection: SelectionArea | null, focusRequest: FocusTarget | null = null) {
-  return <GenomeViewer records={records} consensus={records[0].sequence}
+  return <GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}
     showAnnotations showTranslation={false} showTracks={false} showConservation={false}
     dragMode="select" activeSelection={activeSelection} onSelectionChange={() => {}} onExportFasta={() => {}}
     onAddAnnotation={() => {}} searchResults={[]} currentSearchIdx={-1}

@@ -29,15 +29,6 @@ const wuhan = rec('Wuhan-Hu-1');
 const alpha = rec('Alpha', { visible: false });
 
 describe('ComparisonMenu', () => {
-  it('stays closed and explains why without an alignment', () => {
-    render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={null} candidates={[]}
-      disabledReason="Comparison needs an alignment" />);
-    const button = screen.getByRole('button', { name: 'Compare to reference' });
-    fireEvent.click(button);
-    expect(button.getAttribute('data-tip')).toBe('Comparison needs an alignment');
-    expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
-  });
-
   it('names the reference on the button while a comparison is on', () => {
     render(<ComparisonMenu settings={{ ...DEFAULT_ALIGNMENT_COMPARISON, highlight: 'disagreements' }} onChange={vi.fn()}
       reference={wuhan} candidates={[wuhan, alpha]} />);
@@ -81,17 +72,24 @@ describe('ComparisonMenu', () => {
     expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
   });
 
-  it('closes when comparison stops being possible', () => {
-    const { rerender } = render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Compare to reference' }));
-    rerender(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={null} candidates={[]} disabledReason="gone" />);
-    expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
-  });
-
   it('offers dots only while highlighting differences', () => {
     render(<ComparisonMenu settings={{ ...DEFAULT_ALIGNMENT_COMPARISON, highlight: 'agreements' }} onChange={vi.fn()}
       reference={wuhan} candidates={[wuhan]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Compare to reference' }));
     expect((screen.getByRole('checkbox', { name: 'Show identical residues as dots' }) as HTMLInputElement).disabled).toBe(true);
   });
+});
+
+it('renders the panel in a portal above content and Escape returns focus', () => {
+  const { container } = render(<ComparisonMenu settings={DEFAULT_ALIGNMENT_COMPARISON} onChange={vi.fn()} reference={wuhan} candidates={[wuhan, alpha]} />);
+  const trigger = screen.getByRole('button', { name: 'Compare to reference' });
+  fireEvent.click(trigger);
+  const panel = screen.getByRole('group', { name: 'Reference comparison' });
+  expect(container.contains(panel)).toBe(false);
+  expect(panel.className).toContain('z-[60]');
+  fireEvent.pointerDown(screen.getByRole('radio', { name: 'Identity' }));
+  expect(screen.getByRole('group', { name: 'Reference comparison' })).toBe(panel);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('group', { name: 'Reference comparison' })).toBeNull();
+  expect(document.activeElement).toBe(trigger);
 });

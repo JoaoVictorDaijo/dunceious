@@ -18,11 +18,7 @@
  */
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, type ChangeEvent } from 'react';
-import { SelectionArea } from '@/src/domain/bio/types';
 import OptionsPanel from './OptionsPanel';
-import ComparisonMenu from './ComparisonMenu';
-import type { SeqRecord } from '@/src/domain/bio/types';
-import type { AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import type { ThemeKey } from '@/src/app/logic/theme';
 
 const DRAG_MODES = [
@@ -44,8 +40,6 @@ export interface TopNavProps {
   showAlignmentControls: boolean;
   dragMode: 'pan' | 'select';
   onDragModeChange: (mode: 'pan' | 'select') => void;
-  activeSelection: SelectionArea | null;
-  onClearSelection: () => void;
   showAnnotations: boolean;
   onToggleAnnotations: () => void;
   showTracks: boolean;
@@ -54,13 +48,6 @@ export interface TopNavProps {
   onToggleTranslation: () => void;
   showConservation: boolean;
   onToggleConservation: () => void;
-  alignmentComparison: AlignmentComparisonSettings;
-  onAlignmentComparisonChange: (settings: AlignmentComparisonSettings) => void;
-  /** The record rows are compared against, after falling back from a missing choice. */
-  comparisonReference: SeqRecord | null;
-  comparisonCandidates: SeqRecord[];
-  /** At least two aligned records: a reference and something to compare against it. */
-  canCompare: boolean;
   isAlignmentLoaded: boolean;
   sessionMoleculeType: 'nucleotide' | 'protein' | null;
   /** Returns the saved file name, or null when saving was cancelled. */
@@ -87,8 +74,6 @@ const TopNav: React.FC<TopNavProps> = ({
   showAlignmentControls,
   dragMode,
   onDragModeChange,
-  activeSelection,
-  onClearSelection,
   showAnnotations,
   onToggleAnnotations,
   showTracks,
@@ -97,11 +82,6 @@ const TopNav: React.FC<TopNavProps> = ({
   onToggleTranslation,
   showConservation,
   onToggleConservation,
-  alignmentComparison,
-  onAlignmentComparisonChange,
-  comparisonReference,
-  comparisonCandidates,
-  canCompare,
   isAlignmentLoaded,
   sessionMoleculeType,
   onSaveProject,
@@ -156,7 +136,7 @@ const TopNav: React.FC<TopNavProps> = ({
     observer.observe(bounded);
     observer.observe(tray);
     return () => observer.disconnect();
-  }, [activeSelection, showAlignmentControls]);
+  }, [showAlignmentControls]);
   const layersElement = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!layersOpen) return;
@@ -254,15 +234,6 @@ const TopNav: React.FC<TopNavProps> = ({
             ))}
           </div>
           
-          {activeSelection && (
-            <button
-              onClick={onClearSelection}
-              className="h-10 shrink-0 px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider border border-rose-500/40 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all motion-reduce:transition-none animate-in fade-in zoom-in-95 duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
-              data-tip="Clear the current selection"
-            >
-              <i className="fas fa-xmark mr-1.5"></i>Clear
-            </button>
-          )}
           {/* Layer toggles share one style; each layer keeps its identity colour as a dot. */}
           <div ref={inlineTray} style={{ display: inlineLayers ? undefined : 'none' }} className="flex w-max shrink-0 bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1" role="group" aria-label="Viewport layers">
             {layers.map(l => (
@@ -298,13 +269,7 @@ const TopNav: React.FC<TopNavProps> = ({
               {layers.map(layer => <div key={layer.label}><button aria-pressed={layer.on} aria-disabled={Boolean(layer.disabledReason)} data-tip={layer.disabledReason ?? layer.tip} onClick={() => { if (!layer.disabledReason) layer.onToggle(); }} className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><span className={`h-1.5 w-1.5 rounded-full ${layer.on ? layer.dot : 'bg-slate-600'}`} />{layer.label}</button>{layer.disabledReason && <p className="px-2 pb-2 text-xs text-slate-400">{layer.disabledReason}</p>}</div>)}
             </div>}
           </div>
-          <ComparisonMenu
-            settings={alignmentComparison}
-            onChange={onAlignmentComparisonChange}
-            reference={comparisonReference}
-            candidates={comparisonCandidates}
-            disabledReason={canCompare ? undefined : 'Comparison needs at least two aligned sequences: upload a pre-aligned FASTA first'}
-          />
+
         </div>
       )}
 

@@ -60,6 +60,8 @@ function ShowroomViewer({ workspace, explain }: { workspace: ShowroomWorkspace; 
       dragMode={workspace.dragMode}
       activeSelection={workspace.activeSelection}
       onSelectionChange={workspace.setActiveSelection}
+      onClearSelection={() => workspace.setActiveSelection(null)}
+      comparisonMenu={null}
       onExportFasta={() => explain('export-fasta')}
       onAddAnnotation={() => explain('add-annotation')}
       searchResults={workspace.search.results}

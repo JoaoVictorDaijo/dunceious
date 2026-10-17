@@ -158,6 +158,18 @@ describe('Showroom viewer guards', () => {
     return part;
   };
 
+  it('clears a selection locally and has no comparison control', () => {
+    render(<Showroom onExit={() => {}} />);
+    openSidebar();
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Compare to reference' })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('explains a tapped feature instead of opening its details', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     fireEvent.click(feature(container));
