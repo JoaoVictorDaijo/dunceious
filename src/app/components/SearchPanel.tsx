@@ -25,12 +25,22 @@ import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy';
 import type { SearchOptions } from '@/src/workers/protocol';
 import SectionTitle from './SectionTitle';
+import LocalOptions from './search/LocalOptions';
+import LocalSearchMonitor from './search/LocalSearchMonitor';
+import type { LocalSearchJob } from '../hooks/useSearchWorker';
+import type { LocalSearchCounts } from '@/src/core/search/local/selection';
+import { localSearchOptions } from '@/src/workers/protocol';
 
 export interface GroupedSearchResults {
   [recordId: string]: { results: SearchResult[]; indices: number[] };
 }
 
 export interface SearchPanelProps {
+  localReady?: boolean;
+  localError?: string | null;
+  localJob?: LocalSearchJob;
+  localCounts?: LocalSearchCounts | null;
+  onCancelLocalSearch?: () => void;
   completedSearch?: CompletedSearch | null;
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
@@ -63,6 +73,7 @@ export interface SearchPanelProps {
  * Supports IUPAC exact search and fuzzy search with a minimum identity.
  */
 const SearchPanel: React.FC<SearchPanelProps> = ({
+  localReady = false, localError, localJob, localCounts, onCancelLocalSearch,
   completedSearch,
   records,
   searchQuery,
@@ -89,6 +100,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   getSequenceContext,
   isProteinSession = false,
 }) => {
+  const { fuzzyMethod, localFilters } = localSearchOptions(searchOptions);
+  const local = searchMode === 'fuzzy' && fuzzyMethod === 'local';
   const queryLength = searchQuery.replace(/\s+/g, '').length;
   return (
     <section data-sequence-search-section className="flex flex-col min-h-0 pt-4">
@@ -114,6 +127,20 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
       }>Sequence Search</SectionTitle>
 
       <div className="space-y-6 bg-slate-900/40 p-6 rounded-[2.5rem] border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
+        {searchMode === 'fuzzy' && <div className="space-y-2">
+          <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+            {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
+              disabled={method === 'local' && !localReady} title={method === 'local' && !localReady ? localError ?? 'Loading Local search module' : undefined}
+              onClick={() => onSearchOptionsChange({ ...searchOptions, fuzzyMethod: method })}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40 ${fuzzyMethod === method ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>{method === 'whole' ? 'Whole query' : 'Local'}</button>)}
+          </div>
+          <p role="status" className="text-[11px] text-slate-400">{localError ?? (localReady ? 'Local search ready' : 'Loading Local search module…')}</p>
+        </div>}
+        {localJob && onCancelLocalSearch && <LocalSearchMonitor job={localJob} onCancel={onCancelLocalSearch} />}
+        {local && <LocalOptions filters={localFilters} isProtein={isProteinSession} onChange={filters => onSearchOptionsChange({ ...searchOptions, localFilters: filters })} />}
+        {localJob?.phase === 'failed' && <p role="alert" className="text-xs text-rose-300">Search failed: {localJob.error}</p>}
+        {localJob?.phase === 'cancelled' && <p role="status" className="text-xs text-slate-300">Search cancelled</p>}
+        {localJob?.phase === 'done' && <p role="status" className="text-xs text-slate-300">Search done{searchResults.length === 0 ? ' · No hits' : ''}</p>}
         {/* Search input */}
         <div className="space-y-3">
           <div className="relative group">
@@ -149,7 +176,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         </div>
 
         {/* Query identity uses edit distance over the whole query. */}
-        {searchMode === 'fuzzy' && (
+        {searchMode === 'fuzzy' && !local && (
           <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
               <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
@@ -199,6 +226,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         </div>
 
+        {localCounts && searchResults.length === 0 && <SearchDetails mode="local" counts={localCounts} recordCount={0} />}
         {/* Results list */}
         {searchResults.length > 0 && (
           <div className="pt-6 border-t border-slate-800/50 flex flex-col min-h-0">
@@ -206,6 +234,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-semibold text-slate-200">{searchResults.length} matches</span>
+                  {localCounts && !localCounts.exact && <span className="text-[10px] text-slate-400">more not counted</span>}
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
                     {searchMode}
                   </span>
@@ -303,6 +332,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
+                              {match.local && <span className="text-[11px] font-bold text-amber-400">Score {match.local.score}</span>}
                               {match.identity !== undefined && (
                                 <div className="flex flex-col items-end">
                                   <span className="text-[10px] font-bold text-amber-500">
@@ -317,6 +347,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                             </div>
                           </div>
 
+                          {match.local && <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 mb-2">
+                            <span>Identity {match.local.identical}/{match.local.length} ({(100 * match.local.identical / match.local.length).toFixed(1)}%)</span>
+                            <span>Similarity {match.local.similar}/{match.local.length} ({(100 * match.local.similar / match.local.length).toFixed(1)}%)</span>
+                            <span>Gaps {match.local.gaps}/{match.local.length} ({(100 * match.local.gaps / match.local.length).toFixed(1)}%)</span>
+                            <span>Query coverage {match.local.queryEnd - match.local.queryStart}/{match.local.queryLength} ({(100 * (match.local.queryEnd - match.local.queryStart) / match.local.queryLength).toFixed(1)}%)</span>
+                            <span>Query {match.local.queryStart + 1}–{match.local.queryEnd} of {match.local.queryLength}</span>
+                            <span>Length {match.local.length}</span>
+                          </div>}
                           {record && completedSearch ? <HitAlignmentSummary result={match} record={record} search={completedSearch} /> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
                             {context.pre}<strong>{context.match}</strong>{context.post}
                           </div>}
@@ -348,7 +386,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 </div>
               ))}
             </div>
-            <SearchDetails mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
+            <SearchDetails counts={localCounts} mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
           </div>
         )}
       </div>

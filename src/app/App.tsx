@@ -176,6 +176,7 @@ const App: React.FC = () => {
   } = useFeatureManager(records, setRecords, activeSelection, addLog, { isLocked: remoteAlignment.isLocked, onRemapRows: remapHubRows });
 
   const {
+    localReady, localError, localJob, localCounts, cancelLocalSearch,
     searchQuery,
     setSearchQuery,
     searchMode,
@@ -482,7 +483,7 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar
+        <Sidebar localSearch={{ localReady, localError, localJob, localCounts, onCancelLocalSearch: cancelLocalSearch }}
           hubState={hubState}
           featureColors={featureColors}
           onToggleRecordVisibility={toggleRecordVisibility}

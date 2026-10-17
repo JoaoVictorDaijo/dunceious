@@ -21,26 +21,41 @@ import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, typ
 import { clampPosition, movePosition, restorePosition, type FloatingPosition } from '@/src/app/logic/floatingPosition';
 
 // The monitor unmounts the pill; module memory retains its position only for this page load.
-let rememberedPosition: FloatingPosition | null = null;
+const rememberedPositions = new Map<string, FloatingPosition>();
+const pills = new Set<HTMLDivElement>();
+const placed = new WeakMap<HTMLDivElement, FloatingPosition>();
 const viewportSize = () => ({ width: window.innerWidth, height: window.innerHeight });
 
-function usePillPosition(ref: RefObject<HTMLDivElement | null>) {
+function usePillPosition(ref: RefObject<HTMLDivElement | null>, key: string) {
   const [position, setPosition] = useState<FloatingPosition | null>(null);
-  const current = useRef(rememberedPosition);
+  const current = useRef(rememberedPositions.get(key) ?? null);
   const update = useCallback((next: FloatingPosition) => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) for (const other of pills) {
+      if (other === ref.current) continue;
+      const measured = other.getBoundingClientRect();
+      const point = placed.get(other) ?? { x: measured.left, y: measured.top };
+      const peer = { left: point.x, right: point.x + measured.width, top: point.y, bottom: point.y + measured.height };
+      if (next.x < peer.right && next.x + rect.width > peer.left && next.y < peer.bottom && next.y + rect.height > peer.top) {
+        next = clampPosition({ x: next.x, y: peer.top >= rect.height + 8 ? peer.top - rect.height - 8 : peer.bottom + 8 }, rect, viewportSize());
+      }
+    }
+    if (ref.current) placed.set(ref.current, next);
     current.current = next;
-    rememberedPosition = next;
+    rememberedPositions.set(key, next);
     setPosition(previous => previous?.x === next.x && previous.y === next.y ? previous : next);
-  }, []);
+  }, [ref, key]);
 
   useLayoutEffect(() => {
     const element = ref.current!;
+    pills.add(element);
     const measure = () => update(restorePosition(current.current, element.getBoundingClientRect(), viewportSize()));
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     window.addEventListener('resize', measure);
     return () => {
+      pills.delete(element);
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
@@ -96,9 +111,9 @@ function usePillPointer(ref: RefObject<HTMLDivElement | null>, update: (next: Fl
   };
 }
 
-export function useDraggableJobPill(onOpen: () => void) {
+export function useDraggableJobPill(onOpen: () => void, key = 'alignment') {
   const ref = useRef<HTMLDivElement>(null);
-  const { position, current, update } = usePillPosition(ref);
+  const { position, current, update } = usePillPosition(ref, key);
   const { dragging, suppressClick, handlers } = usePillPointer(ref, update);
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') suppressClick.current = false;

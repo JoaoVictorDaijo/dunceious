@@ -25,7 +25,7 @@ import type { SearchOptions } from '@/src/workers/protocol';
 import { getOriginalPos } from '@/src/domain/bio';
 import HubIndex from './hub/HubIndex';
 import type { useHubState } from '@/src/app/hooks/useHubState';
-import SearchPanel, { GroupedSearchResults } from './SearchPanel';
+import SearchPanel, { GroupedSearchResults, type SearchPanelProps } from './SearchPanel';
 import SectionTitle from './SectionTitle';
 import WorkspaceTitleActions from './WorkspaceTitleActions';
 import AlignmentSection from './AlignmentSection';
@@ -33,6 +33,7 @@ import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  localSearch?: Pick<SearchPanelProps, 'localReady' | 'localError' | 'localJob' | 'localCounts' | 'onCancelLocalSearch'>;
   featureColors?: Record<string, string>;
   hubState?: ReturnType<typeof useHubState>;
   onToggleRecordVisibility?: (id: string) => void;
@@ -88,6 +89,7 @@ export interface SidebarProps {
  * ingestion controls, sequence search, and log terminal.
  */
 const Sidebar: React.FC<SidebarProps> = ({
+  localSearch,
   open,
   hubState,
   featureColors,
@@ -386,7 +388,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <AlignmentSection count={records.length} state={remoteAlignmentState} onOpen={onAlignRemote} />
 
       {/* Search panel */}
-      <SearchPanel
+      <SearchPanel {...localSearch}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
         searchMode={searchMode}

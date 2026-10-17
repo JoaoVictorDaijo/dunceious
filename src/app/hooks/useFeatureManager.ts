@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { loadScoring, scoringFor } from '@/src/core/search/local/scoring';
 import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature, SequenceDetails } from '@/src/domain/bio/types';
 import { withSearchHit } from '@/src/domain/bio/searchHit';
@@ -257,8 +258,9 @@ export function useFeatureManager(
     let feature: BioFeature = { name, type: 'misc_feature', start: c.start, end: c.end, strand: strand ?? 1, segments: c.segments };
     if (hit) feature = withSearchHit(feature, {
       v: 1, query: pathQuery(hit.search.query, hit.search.mode), mode: hit.search.mode, alphabet: hit.search.alphabet,
-      params: hit.search.mode === 'whole' ? { minQueryIdentity: hit.search.options.minIdentity } : {},
-      strand: feature.strand, cigar: hit.result.cigar, edits: hit.result.edits,
+      params: hit.search.mode === 'whole' ? { minQueryIdentity: hit.search.options.minIdentity }
+        : hit.search.mode === 'local' ? { scoring: loadScoring(scoringFor(hit.search.alphabet === 'protein')).label } : {},
+      strand: feature.strand, cigar: hit.result.cigar, edits: hit.result.edits, local: hit.result.local,
       span: { start: feature.start, end: feature.end, strand: feature.strand, segments: feature.segments },
       appVersion: __APP_VERSION__, createdAt: new Date().toISOString(), exportNote: false,
     });

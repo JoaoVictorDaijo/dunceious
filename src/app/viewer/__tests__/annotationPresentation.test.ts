@@ -17,6 +17,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { withSearchHit } from '@/src/domain/bio/searchHit';
+import { annotationQueryMarks } from '../annotationPresentation';
 import { annotationBase } from '../annotationPresentation';
 import { complementAlphabet } from '@/src/domain/bio/sequence';
 import { describe, expect, it } from 'vitest';
@@ -54,4 +56,12 @@ describe('minus-strand record alphabet', () => {
     expect([...sequence].map(base => annotationBase(base, -1, alphabet)).join('')).toBe(expected);
     expect([...sequence].map(base => annotationBase(base, 1, alphabet)).join('')).toBe(sequence);
   });
+});
+
+it('draws Local soft clips and matrix similarity on the annotation layer', () => {
+  const f = withSearchHit(feature({ start: 0, end: 2 }), {
+    v: 1, query: 'CAT', mode: 'local', alphabet: 'nucleotide', params: { scoring: 'EDNAFULL, gap 10/0.5 (EMBOSS water defaults)' },
+    strand: 1, cigar: '1S1=1X', span: { start: 0, end: 2, strand: 1 }, appVersion: 'test', createdAt: '', exportNote: false,
+  });
+  expect(annotationQueryMarks(f, 'AU', 'rna')?.marks.map(m => [m.column, m.cls, m.queryLetter])).toEqual([[0, 'identical', 'A'], [1, 'similar', 'T']]);
 });

@@ -53,6 +53,6 @@ export function HitAlignmentSummary({ result, record, search }: { result: Search
     <HitBarcode columns={columns} strand={result.strand} alphabet={search.alphabet} mode={search.mode} />
     <p className="text-[11px] text-slate-400 mt-1">{hitCountsText(hitCounts(columns), search.mode)}</p>
     <HitAlignment storageKey={`${result.recordId}:${result.start}:${result.end}:${result.strand}`}
-      text={formatPairAlignment({ columns, queryName: 'Query', recordName: result.recordId, queryStart: 1, recordStart, strand: result.strand })} />
+      text={formatPairAlignment({ columns, queryName: 'Query', recordName: result.recordId, queryStart: (result.local?.queryStart ?? 0) + 1, recordStart, strand: result.strand })} />
   </>;
 }

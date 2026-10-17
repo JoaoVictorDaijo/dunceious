@@ -20,6 +20,7 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
+import { loadScoring, scoringFor, scoreOf } from '@/src/core/search/local/scoring';
 import { hitColumns } from '@/src/core/search/hitColumns';
 import type { HitMarks } from './hitMarks';
 import { getOriginalPos, reverseComplement } from '@/src/domain/bio/sequence';
@@ -109,7 +110,7 @@ export function annotationQueryMarks(feature: BioFeature, sequence: string, alph
   if (cached?.sequence === sequence && cached.alphabet === alphabet) return cached.value;
   const hit = readSearchHit(feature);
   let value: HitMarks | null = null;
-  if (hit && hit.mode !== 'local') {
+  if (hit) {
     const biological = { ...feature, start: getOriginalPos(sequence, feature.start), end: getOriginalPos(sequence, feature.end),
       segments: feature.segments?.map(s => ({ ...s, start: getOriginalPos(sequence, s.start), end: getOriginalPos(sequence, s.end) })) };
     // Transposition supplies an envelope segment even when the source feature has none.
@@ -121,8 +122,10 @@ export function annotationQueryMarks(feature: BioFeature, sequence: string, alph
       const forward = [...positions];
       const span = forward.map(i => sequence[i]).join('');
       if (hit.strand === -1) positions.reverse();
+      const scoring = hit.mode === 'local' ? loadScoring(scoringFor(hit.alphabet === 'protein')) : null;
       const columns = hitColumns({ cigar: hit.cigar, query: hit.query,
-        span: hit.strand === -1 ? reverseComplement(span, alphabet) : span, mode: hit.mode, alphabet: hit.alphabet });
+        span: hit.strand === -1 ? reverseComplement(span, alphabet) : span, mode: hit.mode, alphabet: hit.alphabet,
+        matrixScore: scoring ? (q, r) => scoreOf(scoring, q, r) : undefined });
       value = { marks: [], insertions: [] };
       let r = 0;
       for (const col of columns) {
