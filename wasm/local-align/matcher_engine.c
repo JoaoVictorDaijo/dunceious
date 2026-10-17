@@ -36,15 +36,14 @@ typedef int32_t ajint;
 typedef struct NODE {
     ajint SCORE, STARI, STARJ, ENDI, ENDJ, TOP, BOT, LEFT, RIGHT;
 } vertex, *vertexptr;
-typedef struct ONE { struct ONE *NEXT; ajint COL; } pair, *pairptr;
-#define PAIRNULL NULL
 
 typedef struct Engine {
-    ajint tt, *sapp, last, I, J, al_len, **sub;
+    ajint *sapp, last, I, J, al_len, **sub;
     vertexptr *LIST, low, most;
     ajint *CC, *DD, *RR, *SS, *EE, *FF, *HH, *WW, *II, *JJ, *XX, *YY;
     ajint m1, mm, n1, nn, rl, cl, lmin, flag, q, r, qr;
-    pairptr *row, z;
+    uint64_t *used_pairs;
+    size_t used_count, used_capacity;
     char *A, *B;
     ajint M, N, progress, step_end, numnode, capacity, pending, failed;
     ajint *script;
@@ -62,7 +61,6 @@ static void *checked_calloc(size_t count, size_t bytes) {
 }
 #define AJNEW0(p) ((p) = checked_calloc(1, sizeof(*(p))))
 #define matchergap(k) ((k) <= 0 ? 0 : q+r*(k))
-#define tt (active->tt)
 #define sapp (active->sapp)
 #define last (active->last)
 #define I (active->I)
@@ -95,8 +93,59 @@ static void *checked_calloc(size_t count, size_t bytes) {
 #define q (active->q)
 #define r (active->r)
 #define qr (active->qr)
-#define row (active->row)
-#define z (active->z)
+
+/* Traceback records 1-based residue pairs, leaving zero available as the empty key. */
+static uint64_t used_pair_key(ajint i, ajint j) {
+    return ((uint64_t)(uint32_t)i << 32) | (uint32_t)j;
+}
+
+static size_t used_pair_slot(uint64_t key, const uint64_t *entries, size_t capacity) {
+    uint64_t hash = key;
+    hash = (hash ^ (hash >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    hash = (hash ^ (hash >> 27)) * UINT64_C(0x94d049bb133111eb);
+    hash ^= hash >> 31;
+    size_t slot = (size_t)hash & (capacity - 1);
+    while (entries[slot] && entries[slot] != key)
+        slot = (slot + 1) & (capacity - 1);
+    return slot;
+}
+
+static int used_pair_contains(ajint i, ajint j) {
+    if (!active->used_capacity) return 0;
+    uint64_t key = used_pair_key(i, j);
+    size_t slot = used_pair_slot(key, active->used_pairs, active->used_capacity);
+    return active->used_pairs[slot] != 0;
+}
+
+static int used_pair_add(ajint i, ajint j) {
+    uint64_t key = used_pair_key(i, j);
+    size_t slot = 0;
+    if (active->used_capacity) {
+        slot = used_pair_slot(key, active->used_pairs, active->used_capacity);
+        if (active->used_pairs[slot] == key) return 1;
+    }
+    /* Half occupancy guarantees an empty probe terminator without a sequence-sized table. */
+    if (active->used_count >= active->used_capacity / 2) {
+        if (active->used_capacity > SIZE_MAX / (2 * sizeof(*active->used_pairs))) {
+            active->failed = 1;
+            return 0;
+        }
+        size_t capacity = active->used_capacity ? active->used_capacity * 2 : 64;
+        uint64_t *entries = checked_calloc(capacity, sizeof(*entries));
+        if (!entries) return 0;
+        for (size_t k = 0; k < active->used_capacity; k++) {
+            uint64_t entry = active->used_pairs[k];
+            if (entry) entries[used_pair_slot(entry, entries, capacity)] = entry;
+        }
+        free(active->used_pairs);
+        active->used_pairs = entries;
+        active->used_capacity = capacity;
+        slot = used_pair_slot(key, entries, capacity);
+    }
+    active->used_pairs[slot] = key;
+    active->used_count++;
+    return 1;
+}
 
 #define MATCHERDEL(k)			\
 { I += k;				\
@@ -120,10 +169,7 @@ static void *checked_calloc(size_t count, size_t bytes) {
 }
 #define MATCHERDIAG(ii, jj, x, value)				\
 {                                                		\
- for (tt = 1, z = row[(ii)]; z != PAIRNULL; z = z->NEXT)	\
-    if (z->COL == (jj))					\
-      { tt = 0; break; }					\
-  if (tt)							\
+  if (!used_pair_contains((ii), (jj)))			\
     x = (value);						\
 }
 #define MATCHERORDER(ss1, xx1, yy1, ss2, xx2, yy2)	\
@@ -797,14 +843,7 @@ static ajint matcher_Diff(const char *A,const char *B,
 
 	for(j = 1; j <= N; j++)
         {
-	    for(tt = 1, z = row[I+1]; z != PAIRNULL; z = z->NEXT)
-		if(z->COL == j+J)
-		{
-		    tt = 0;
-		    break;
-		}
-
-	    if(tt)
+	    if(!used_pair_contains(I+1, j+J))
             {
 		c = va[(ajint)B[j]] - ( matchergap(j-1) + matchergap(N-j));
 		if(c > midc)
@@ -826,11 +865,7 @@ static ajint matcher_Diff(const char *A,const char *B,
 		MATCHERREP
 
 	    I++; J++;
-	    AJNEW0(z);
-            if (!z) return 0;
-	    z->COL = J;
-	    z->NEXT = row[I];
-	    row[I] = z;
+            if (!used_pair_add(I, J)) return 0;
 
 	    if(midj < N)
 		MATCHERINS(N-midj)
@@ -966,11 +1001,7 @@ void la_destroy(int handle) {
     Engine **link = &engines;
     while (*link != e) link = &(*link)->next;
     *link = e->next;
-    if (row) for (int i = 0; i <= e->M; i++) {
-        pairptr p = row[i];
-        while (p) { pairptr next = p->NEXT; free(p); p = next; }
-    }
-    free(row);
+    free(e->used_pairs);
     for (int i = 0; i < e->capacity; i++) free(LIST[i]);
     free(LIST); free(e->index);
     free(CC); free(DD); free(RR); free(SS); free(EE); free(FF);
@@ -1011,7 +1042,6 @@ int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
     if (!sub[0]) { la_destroy((int)(intptr_t)e); return -2; }
     memcpy(sub[0], matrix, size * size * sizeof(**sub));
     for (int i = 1; i < size; i++) sub[i] = sub[0] + i * size;
-    row = checked_calloc((size_t)qlen + 1, sizeof(*row));
     CC = checked_calloc((size_t)rlen + 1, sizeof(*CC));
     DD = checked_calloc((size_t)rlen + 1, sizeof(*DD));
     RR = checked_calloc((size_t)rlen + 1, sizeof(*RR));

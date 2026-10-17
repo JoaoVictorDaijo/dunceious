@@ -40,8 +40,8 @@
   },
   "artifact": {
     "path": "public/wasm/local-align.wasm",
-    "sha256": "7a5eec1d518e52d0a7eb1ba79aa407c8093b89f0812605ff2ce3d1ccfff01532",
-    "bytes": 16725
+    "sha256": "b044bf004d192c6d34a8f5ae52f88a42984d865626df4938c2a05b104cd734a3",
+    "bytes": 17770
   },
   "licence": {
     "spdx": "GPL-2.0-or-later",
@@ -56,5 +56,9 @@
       "grant": "EMBOSS applications are released under the GNU General Public Licence.",
       "decision": "Debian main distributes matcher.c in the DFSG-reviewed source without an exception; preserve its GPL-2.0-or-later notice. Used under GPL-3.0-or-later in combination with AGPL-3.0-or-later."
     }
+  },
+  "engine": {
+    "path": "wasm/local-align/matcher_engine.c",
+    "sha256": "31ab3593b28ccc46665ce59830e57689156082a18723def88cb4b18b75bf6a80"
   }
 }

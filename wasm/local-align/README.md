@@ -15,6 +15,10 @@ matcher's largest non-fatal `-alternatives` count. Exhaustion returns zero
 instead of matcher's fatal exit. AA/AAA yields scores 20, 20, 10, 10: the
 last two hits use residue pairs not used by the first two alignments.
 
+Used residue pairs are stored in an open-addressing set of exact (query,
+record) coordinates. It grows with pairs recorded by traceback; membership
+checks preserve residue-pair exclusion without scanning per-row lists.
+
 ## Build
 
 Run `bash scripts/build-local-engine.sh` from a checkout with Docker access.

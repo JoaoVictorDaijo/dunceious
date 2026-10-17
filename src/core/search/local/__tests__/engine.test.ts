@@ -107,3 +107,11 @@ it.each([
   expect(() => engine.enumerate(codes('AA'), codes('AA'), scoring).next()).toThrow('Local alignment failed its path check');
   expect(destroy).toHaveBeenCalledWith(1);
 });
+
+const pairHashOracle = JSON.parse(readFileSync('src/core/search/local/__tests__/fixtures/engine-before-pair-hash.json', 'utf8')) as {
+  cases: Array<{ query: string; record: string; alignments: LocalAlignment[] }>;
+};
+it.each(pairHashOracle.cases)('preserves every previous-WASM alignment for $query/$record', async ({ query, record, alignments }) => {
+  const engine = await instantiateLocalEngine(module);
+  expect(all(engine.enumerate(codes(query), codes(record), scoring))).toEqual(alignments);
+});
