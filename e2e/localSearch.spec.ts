@@ -31,7 +31,7 @@ function dna(length: number, seed: number) {
 }
 const genome = dna(30000, 16);
 const fasta = `>synthetic-16\n${genome}\n`;
-const shots = '/tmp/ls-phase4-shots';
+const shots = '/tmp/ls-polish-shots';
 mkdirSync(shots, { recursive: true });
 async function restrict(context: BrowserContext, corrupt = false) {
   const forbidden: string[] = [];
@@ -77,14 +77,36 @@ test('Local search sends only enumerated static requests through search, Cancel 
   await page.getByText('Local options', { exact: true }).click();
   await start(page, genome.slice(10000, 10040));
   await done(page);
-  await expect(page.locator('[data-search-hit]').first()).toContainText('Score 200');
-  await page.locator('[data-search-hit]').first().scrollIntoViewIfNeeded();
-  await page.screenshot({ path: `${shots}/local-results.png` });
+  const card = page.locator('[data-search-hit]').first();
+  await expect(card.getByText('Score 200', { exact: true })).toBeVisible();
+  await expect(card.getByText('100.0%', { exact: true })).toBeVisible();
+  await expect(card.getByText('Forward', { exact: true })).toBeVisible();
+  const cardBox = await card.boundingBox();
+  const badgeBox = await card.getByText('Forward', { exact: true }).boundingBox();
+  expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width - 8);
+  await expect(card.locator('[data-hit-barcode]')).toBeVisible();
+  await expect(card.getByText('40 identical', { exact: true })).toBeVisible();
+  const alignment = card.locator('[data-hit-alignment]');
+  await expect(alignment).not.toHaveAttribute('open');
+  await expect(card.getByText('Identity 40/40 (100.0%)', { exact: true })).toHaveCount(0);
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${shots}/local-cards-closed.png` });
+  await alignment.locator('summary').click();
+  await expect(alignment.getByText('Identity 40/40 (100.0%)', { exact: true })).toBeVisible();
+  await expect(alignment.getByText('Length 40', { exact: true })).toBeVisible();
+  await expect(alignment.locator('pre')).toBeVisible();
+  await page.screenshot({ path: `${shots}/local-card-open.png` });
+  await alignment.locator('summary').click();
   await page.getByText('Search details', { exact: true }).click();
   await page.locator('[data-search-details]').scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-search-details]').getByText('Hits across 1 record.', { exact: true })).toBeVisible();
   await page.screenshot({ path: `${shots}/search-details.png` });
   await start(page, genome.slice(0, 10000));
   await expect(page.getByRole('dialog', { name: 'Local search job monitor' })).toBeVisible();
+  const monitor = page.getByRole('dialog', { name: 'Local search job monitor' });
+  await expect(monitor.getByText('Local search', { exact: true })).toHaveCount(1);
+  await expect(monitor.getByRole('status')).toHaveText('Searching');
+  await expect(monitor.getByText(/of 2 record strands searched/)).toBeVisible();
   await page.screenshot({ path: `${shots}/monitor.png` });
   await page.getByRole('button', { name: 'Minimize', exact: true }).click();
   await expect(page.locator('[data-local-search-pill]')).toBeVisible();

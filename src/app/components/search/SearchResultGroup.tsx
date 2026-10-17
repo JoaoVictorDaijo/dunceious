@@ -31,19 +31,6 @@ type CardProps = Omit<GroupProps, 'group' | 'onToggleRecordSelection' | 'onJoinA
   match: SearchResult; globalIdx: number;
 };
 
-function ResultMetrics({ match }: { match: SearchResult }) {
-  return <>
-    {match.local && <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400 mb-2">
-      <span>Identity {match.local.identical}/{match.local.length} ({(100 * match.local.identical / match.local.length).toFixed(1)}%)</span>
-      <span>Similarity {match.local.similar}/{match.local.length} ({(100 * match.local.similar / match.local.length).toFixed(1)}%)</span>
-      <span>Gaps {match.local.gaps}/{match.local.length} ({(100 * match.local.gaps / match.local.length).toFixed(1)}%)</span>
-      <span>Query coverage {match.local.queryEnd - match.local.queryStart}/{match.local.queryLength} ({(100 * (match.local.queryEnd - match.local.queryStart) / match.local.queryLength).toFixed(1)}%)</span>
-      <span>Query {match.local.queryStart + 1}–{match.local.queryEnd} of {match.local.queryLength}</span>
-      <span>Length {match.local.length}</span>
-    </div>}
-  </>;
-}
-
 function ResultActions({ match, isActive, onAnnotateMatch, completedSearch }: Pick<CardProps,
   'match' | 'onAnnotateMatch' | 'completedSearch'> & { isActive: boolean }) {
   return (
@@ -89,7 +76,7 @@ function SearchResultCard(props: CardProps) {
       className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-env ring-2 ring-env/20 bg-env/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
     >
       <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center ${match.local ? 'gap-1' : 'gap-3'}`}>
           <div className="relative flex items-center justify-center">
             <input
               type="checkbox"
@@ -111,9 +98,11 @@ function SearchResultCard(props: CardProps) {
             <span className="text-[11px] font-semibold text-slate-500">Position</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {match.local && <span className="text-[11px] font-bold text-amber-400">Score {match.local.score}</span>}
-          {match.identity !== undefined && (
+        <div className={`flex items-center ${match.local ? 'gap-1' : 'gap-2'}`}>
+          {match.local ? <div className="flex flex-col items-end whitespace-nowrap">
+            <span className="text-[10px] font-bold text-amber-500" data-tip="Local alignment score in EMBOSS units, using the scoring scheme in Local options">Score {match.local.score}</span>
+            <span className="text-[11px] font-semibold text-slate-400" data-tip="Identity = 100 × identical columns / alignment length, including gap columns">{(100 * match.local.identical / match.local.length).toFixed(1)}%</span>
+          </div> : match.identity !== undefined && (
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-bold text-amber-500">
                 {Math.floor(match.identity)}%
@@ -127,7 +116,6 @@ function SearchResultCard(props: CardProps) {
         </div>
       </div>
 
-      <ResultMetrics match={match} />
       {record && completedSearch ? <HitAlignmentSummary result={match} record={record} search={completedSearch} /> : <div className="seq-scroll text-[11px] font-mono overflow-x-auto whitespace-nowrap">
         {context.pre}<strong>{context.match}</strong>{context.post}
       </div>}

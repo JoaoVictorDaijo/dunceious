@@ -34,7 +34,13 @@ it('waits one second, minimizes to a draggable pill, reopens and cancels', () =>
   expect(screen.queryByRole('dialog')).toBeNull();
   act(() => vi.advanceTimersByTime(1));
   expect(screen.getByRole('dialog')).toBeTruthy();
-  expect(screen.getByText('12 of 50 streams searched')).toBeTruthy();
+  expect(screen.getAllByText('Local search')).toHaveLength(1);
+  expect(screen.getByRole('status').textContent).toBe('Searching');
+  expect(screen.getByText('12 of 50 record strands searched')).toBeTruthy();
+  const progress = screen.getByRole('progressbar') as HTMLProgressElement;
+  expect(progress.value).toBe(12);
+  expect(progress.max).toBe(50);
+  expect(screen.queryByText(/Current scoring pass|Enumeration continues/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Minimize' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: /Local search · 12\/50.*Open search job monitor/ }));

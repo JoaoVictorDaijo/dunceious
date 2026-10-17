@@ -28,18 +28,20 @@ export function SearchDetails({ mode, recordCount, counts }: { mode: HitMode; re
     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       <SectionTitle icon="fa-info-circle" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Search details</SectionTitle>
     </summary>
-    {counts && <div className="space-y-1">
+    <div className="space-y-1">
+      <p>Hits across {recordCount} {recordCount === 1 ? 'record' : 'records'}.</p>
+      {counts && <>
       <p>{counts.cutoff === null ? 'Exact counts across all alignments' : `Counts cover alignments scoring at least ${counts.cutoff} in EMBOSS units`}</p>
-      <p>{counts.streams} streams searched</p>
-      <p>{counts.noPositiveStreams} streams with no positive alignment</p>
-      <p>{counts.skippedRecords.length} records skipped</p>
+      <p>{counts.streams} {counts.streams === 1 ? 'stream' : 'streams'} searched</p>
+      <p>{counts.noPositiveStreams} {counts.noPositiveStreams === 1 ? 'stream' : 'streams'} with no positive alignment</p>
+      <p>{counts.skippedRecords.length} {counts.skippedRecords.length === 1 ? 'record' : 'records'} skipped</p>
       {counts.skippedRecords.map(r => <p key={r.recordId}>{r.recordId}: unsupported characters {r.characters.join(', ')}</p>)}
       <p>{counts.hiddenByOverlap} hidden by overlap</p>
       <p>{counts.hiddenByFilters} hidden by display filters</p>
       <p>{counts.beyondLimit} beyond the result limit</p>
-    </div>}
-    <p>Hits across {recordCount} records.</p>
-    <ul className="space-y-1 mt-2" aria-label="Search marks legend">
+      </>}
+    </div>
+    <ul className="list-disc pl-4 space-y-1 mt-2" aria-label="Search marks legend">
       <li>| Identical: hit tint and record letter</li>
       <li>{mode === 'local' ? ': Similar: dashed outline, positive matrix score' : ': Matched through an ambiguity code: dotted underline'}</li>
       <li>. Mismatch: ink cell, query letter above</li>

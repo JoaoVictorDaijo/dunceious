@@ -18,10 +18,12 @@
  */
 
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import SearchPanel, { type SearchPanelProps } from '../SearchPanel';
+import { SearchDetails } from '../search/SearchDetails';
 import type { SearchResult } from '@/src/domain/bio/types';
+beforeEach(() => sessionStorage.clear());
 const hit: SearchResult = { cigar: '2S3=', recordId: 'synthetic', sequence: 'GTA', start: 0, end: 3, strand: 1,
  local: { score: 15, length: 3, identical: 3, similar: 3, gaps: 0, queryStart: 2, queryEnd: 5, queryLength: 5 } };
 function panelProps(): SearchPanelProps & { onClearSearch: () => void } {
@@ -63,10 +65,25 @@ it('shows defined Local metrics and cutoff counts, with correct soft-clipped que
  const h = render(<SearchPanel {...props} localReady localCounts={{ cutoff: 15, streams: 2, noPositiveStreams: 0, skippedRecords: [{ recordId: 'bad', characters: ['*'] }], hiddenByOverlap: 2, hiddenByFilters: 1, beyondLimit: 4 }}
  completedSearch={{ query: 'AAGTA', mode: 'local', alphabet: 'nucleotide', options: props.searchOptions, matrixScore: (q, r) => q === r ? 5 : -4 }} />);
  expect(screen.getByText('Score 15')).toBeTruthy();
- expect(screen.getByText(/Identity 3\/3/)).toBeTruthy();
+ const card = h.container.querySelector('[data-search-hit]')!;
+ const alignment = card.querySelector<HTMLDetailsElement>('[data-hit-alignment]')!;
+ expect(alignment.open).toBe(false);
+ expect(screen.getByText('100.0%').closest('details')).toBeNull();
+ expect(screen.getByText('Forward').closest('details')).toBeNull();
+ expect(screen.getByText('Score 15').closest('details')).toBeNull();
+ expect(card.querySelector('[data-hit-barcode]')!.closest('details')).toBeNull();
+ expect(screen.getAllByText('3 identical').some(el => el.tagName === 'P' && !el.closest('details'))).toBe(true);
+ expect(screen.queryByText(/Identity 3\/3/)).toBeNull();
+ expect(screen.queryByText(/Similarity 3\/3/)).toBeNull();
+ expect(screen.queryByText(/Query coverage 3\/5/)).toBeNull();
+ alignment.open = true; fireEvent(alignment, new Event('toggle'));
+ expect(screen.getByText(/Identity 3\/3/).closest('details')).toBe(alignment);
  expect(screen.getByText(/Similarity 3\/3/)).toBeTruthy();
  expect(screen.getByText(/Gaps 0\/3/)).toBeTruthy();
  expect(screen.getByText(/Query coverage 3\/5/)).toBeTruthy();
+ expect(screen.getByText('Query 3–5 of 5')).toBeTruthy();
+ expect(screen.getByText('Length 3')).toBeTruthy();
+ expect(screen.getByText(/Identity 3\/3/).compareDocumentPosition(alignment.querySelector('pre')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(screen.getByText("Top 1 shown; lower-scoring alignments aren't counted")).toBeTruthy();
  expect(screen.getByText('Counts cover alignments scoring at least 15 in EMBOSS units')).toBeTruthy();
  expect(screen.getByText('2 hidden by overlap')).toBeTruthy();
@@ -74,6 +91,8 @@ it('shows defined Local metrics and cutoff counts, with correct soft-clipped que
  expect(screen.getByText('4 beyond the result limit')).toBeTruthy();
  expect(screen.queryByText(/lower bounds|more not counted|at least \d+ hidden/i)).toBeNull();
  expect(h.container.querySelector('pre')!.textContent).toMatch(/Query\s+3\s+GTA\s+5/);
+ alignment.open = false; fireEvent(alignment, new Event('toggle'));
+ expect(screen.queryByText(/Identity 3\/3/)).toBeNull();
 });
 
 it('preserves a fractional cutoff in EMBOSS units', () => {
@@ -83,7 +102,7 @@ it('preserves a fractional cutoff in EMBOSS units', () => {
  render(<SearchPanel {...props} localReady localCounts={{ cutoff: 0.5, streams: 2, noPositiveStreams: 1, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 2, beyondLimit: 3 }} />);
  expect(screen.getByText('Counts cover alignments scoring at least 0.5 in EMBOSS units')).toBeTruthy();
  expect(screen.getByText('2 streams searched')).toBeTruthy();
- expect(screen.getByText('1 streams with no positive alignment')).toBeTruthy();
+ expect(screen.getByText('1 stream with no positive alignment')).toBeTruthy();
  expect(screen.getByText('0 records skipped')).toBeTruthy();
  expect(screen.getByText('0 hidden by overlap')).toBeTruthy();
  expect(screen.getByText('2 hidden by display filters')).toBeTruthy();
@@ -101,4 +120,17 @@ it.each([true, false])('shows exhaustive totals without a cutoff when results ar
  expect(screen.getByText('0 beyond the result limit')).toBeTruthy();
  expect(screen.queryByText(/Counts cover alignments scoring|Top \d+ shown|lower bounds|more not counted|\(exact\)/)).toBeNull();
  if (hasResults) expect(screen.getByText('1 matches')).toBeTruthy();
+});
+
+it.each([0, 1, 2])('pluralizes Search details counts for %i records', count => {
+ render(<SearchDetails mode="local" recordCount={count} counts={{ cutoff: null, streams: count, noPositiveStreams: count,
+   skippedRecords: Array.from({ length: count }, (_, i) => ({ recordId: `bad-${i}`, characters: ['*'] })),
+   hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 }} />);
+ const noun = count === 1 ? 'record' : 'records';
+ const streams = screen.getByText(`${count} ${count === 1 ? 'stream' : 'streams'} searched`);
+ const hits = screen.getByText(`Hits across ${count} ${noun}.`);
+ expect(hits.parentElement).toBe(streams.parentElement);
+ expect(hits.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByText(`${count} ${noun} skipped`)).toBeTruthy();
+ expect(screen.getByText(`${count} ${count === 1 ? 'stream' : 'streams'} with no positive alignment`)).toBeTruthy();
 });
