@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import LocalSearchWorker from '@/src/workers/localSearch.worker.ts?worker&inline';
 import { encodeResidues, loadScoring } from '@/src/core/search/local/scoring';
 import { mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
 import type { LocalStreamOutcome } from '@/src/core/search/local/stream';
@@ -58,7 +59,7 @@ export function useLocalSearchPool(bytes: ArrayBuffer | null) {
       try {
         const size = Math.max(1, Math.min(navigator.hardwareConcurrency || 2, 8) - 1);
         for (let i = 0; i < size; i++) {
-          const worker = new Worker(new URL('@/src/workers/localSearch.worker.ts', import.meta.url), { type: 'module' });
+          const worker = new LocalSearchWorker();
           members.current.push(worker);
           worker.onerror = e => fail(`Local worker error: ${e.message}`);
           worker.onmessageerror = () => fail('Local worker response could not be decoded');
