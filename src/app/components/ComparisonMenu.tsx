@@ -105,8 +105,6 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
     window.addEventListener('scroll', place, true);
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
   }, [place]);
-  return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
-  }, [anchor, panelRef]);
   return (
     <div
       ref={panelRef}
