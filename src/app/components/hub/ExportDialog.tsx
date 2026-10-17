@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useUiEffects } from '@/src/app/components/uiEffects';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
@@ -47,6 +48,7 @@ export interface ExportDialogProps {
   onEditDetails: (ids: Set<string>) => void;
 }
 export default function ExportDialog({ featureColors, records, state, onClose, onExport, onEditDetails }: ExportDialogProps) {
+  const { portalTarget, overlayActive, closeExportOnSave } = useUiEffects();
   const [initial] = useState(() => initialExportSelection({ ...state, records }));
   const [ids, setIds] = useState(initial.ids);
   const [quickPick, setQuickPick] = useState<string | null>(() => initial.ids.size === records.length ? 'All' : initial.preset === 'selected' ? 'Selected in hub' : 'Matching filters');
@@ -88,14 +90,18 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    dialog.current?.querySelector<HTMLElement>('button')?.focus();
+    return () => { opener?.focus(); };
+  }, []);
+  useEffect(() => {
+    if (!overlayActive && !dialog.current?.closest('[inert]')) dialog.current?.querySelector<HTMLElement>('button')?.focus();
     const focusInside = (event: FocusEvent) => {
-      if (dialog.current && !dialog.current.contains(event.target as Node)) dialog.current.querySelector<HTMLElement>('button')?.focus();
+      if (!overlayActive && dialog.current && !dialog.current.closest('[inert]') && !dialog.current.contains(event.target as Node)) dialog.current.querySelector<HTMLElement>('button')?.focus();
     };
     document.addEventListener('focusin', focusInside);
-    return () => { document.removeEventListener('focusin', focusInside); opener?.focus(); };
-  }, []);
+    return () => { document.removeEventListener('focusin', focusInside); };
+  }, [overlayActive]);
   const keyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab' && (overlayActive || dialog.current?.closest('[inert]'))) return;
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
     if (event.key !== 'Tab') return;
@@ -179,10 +185,10 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
         <p data-export-summary aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} · {exportedAnnotationCount} annotations → <span className="font-mono">{fileName}</span></p>
 
         <button onClick={onClose} className="rounded px-3 py-2 hover:bg-slate-200">Cancel</button>
-        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
+        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); if (closeExportOnSave) onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
       </footer>
     </div>
-  </div>, document.querySelector('.app-root') ?? document.body);
+  </div>, portalTarget ?? (document.querySelector('.app-root') ?? document.body));
 }
 
 
