@@ -68,6 +68,18 @@ it('labels a protein barcode in query N→C orientation on both strands', () => 
   expect(screen.getByTitle('N→C (query orientation)')).toBeTruthy();
 });
 
+it('pluralizes the results header by record count', () => {
+  const props = panelProps();
+  const { rerender } = render(<SearchPanel {...props} />);
+  expect(screen.getByText('Across 1 record')).toBeTruthy();
+
+  const secondHit = { ...hit, recordId: 'second' };
+  rerender(<SearchPanel {...props} searchResults={[hit, secondHit]}
+    records={[...props.records, { ...props.records[0], id: 'second' }]}
+    groupedSearchResults={{ ...props.groupedSearchResults, second: { results: [secondHit], indices: [1] } }} />);
+  expect(screen.getByText('Across 2 records')).toBeTruthy();
+});
+
 it('keeps the IUPAC legend limited to its available column classes', () => {
   const props = panelProps();
   render(<SearchPanel {...props} searchMode="exact" completedSearch={{ query: 'TAC', mode: 'iupac', alphabet: 'nucleotide', options: props.searchOptions }} />);

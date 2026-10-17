@@ -241,7 +241,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                   </span>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-400">
-                  Across {Object.keys(groupedSearchResults).length} records
+                  Across {Object.keys(groupedSearchResults).length} {Object.keys(groupedSearchResults).length === 1 ? 'record' : 'records'}
                 </span>
               </div>
               <div className="flex gap-2">
