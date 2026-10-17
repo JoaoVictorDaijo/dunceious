@@ -70,7 +70,7 @@ is plausibly cheap — the switch is one attribute on the app root.
 
 - Viability: is it genuinely just `data-hfstyle` on a root element, or does per-style CSS bloat
   the bundle enough to matter? All nine styles currently ship as static CSS.
-- Where it lives: the existing global Options popover (PR #65) is the natural home.
+- Where it lives: the global Project and options cog panel is the natural home.
 - Persistence: localStorage vs. project file. Should a project carry its author's theme, or is
   it a per-user preference? Per-user is the safer default.
 - Reduced motion: several styles animate. The `prefers-reduced-motion` gate already exists and

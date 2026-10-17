@@ -30,7 +30,7 @@ const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Proje
 
 it('saves, opens and clears the project, closing the menu after each action', () => {
   const save = vi.fn(), open = vi.fn(), clear = vi.fn();
-  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={open} onClearWorkspace={clear} sequenceCount={3} />);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={open} onClearWorkspace={clear} sequenceCount={3} locked={false} />);
   openMenu();
   expect(screen.getByText('3 sequences in this workspace')).toBeTruthy();
   expect(screen.getByText('Asks first, then removes 3 sequences')).toBeTruthy();
@@ -67,7 +67,7 @@ it.each([
 });
 
 it('closes on Escape and returns focus to the trigger', () => {
-  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} />);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} />);
   const trigger = screen.getByRole('button', { name: 'Project and options' });
   trigger.focus();
   fireEvent.click(trigger);
@@ -80,7 +80,7 @@ it('closes on Escape and returns focus to the trigger', () => {
 
 it('confirms a save with the file name, then clears the notice', () => {
   vi.useFakeTimers();
-  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={() => 'coronaviruses.json'} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={3} />);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={() => 'coronaviruses.json'} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={3} locked={false} />);
   const status = screen.getByRole('status');
   expect(status.textContent).toBe('');
   openMenu();
@@ -91,7 +91,7 @@ it('confirms a save with the file name, then clears the notice', () => {
 });
 
 it('shows no confirmation when the save is cancelled', () => {
-  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={3} />);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={3} locked={false} />);
   openMenu();
   fireEvent.click(screen.getByRole('button', { name: 'Save project' }));
   expect(screen.getByRole('status').textContent).toBe('');
@@ -99,7 +99,7 @@ it('shows no confirmation when the save is cancelled', () => {
 
 it.each([{ ctrlKey: true }, { metaKey: true }])('saves and opens from the keyboard with %o', modifier => {
   const save = vi.fn(() => null);
-  const { rerender } = render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} />);
+  const { rerender } = render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} />);
   const click = vi.spyOn(screen.getByLabelText('Open project file') as HTMLInputElement, 'click');
   const saveEvent = new KeyboardEvent('keydown', { key: 's', bubbles: true, cancelable: true, ...modifier });
   document.dispatchEvent(saveEvent);

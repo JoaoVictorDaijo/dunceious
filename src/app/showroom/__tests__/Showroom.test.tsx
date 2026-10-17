@@ -108,8 +108,7 @@ describe('Showroom chrome', () => {
 
   it.each([
     ['Annotation Hub', 'Annotation Hub'],
-    ['Project', 'Project'],
-    ['Options', 'Options'],
+    ['Project and options', 'Project and options'],
   ])('%s explains', (control, title) => {
     render(<Showroom onExit={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: control }));
@@ -218,7 +217,7 @@ describe('Showroom review fixes', () => {
     fireEvent.pointerUp(field, touch);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(field);
-    const project = screen.getByRole('button', { name: 'Project' });
+    const project = screen.getByRole('button', { name: 'Project and options' });
     fireEvent.pointerDown(project, { ...touch, pointerId: 5 });
     act(() => { vi.advanceTimersByTime(800); });
     fireEvent.pointerUp(project, { ...touch, pointerId: 5 });
@@ -228,11 +227,11 @@ describe('Showroom review fixes', () => {
   it('moves focus to the new Got it when a second explanation replaces the first', () => {
     stubOrientation(true);
     render(<Showroom onExit={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
-    const options = screen.getByRole('button', { name: 'Options' });
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
+    const options = screen.getByRole('button', { name: 'Annotation Hub' });
     options.focus();
     fireEvent.click(options);
-    const dialog = explanation('Options');
+    const dialog = explanation('Annotation Hub');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Got it' }));
   });
@@ -242,13 +241,13 @@ describe('Showroom review fixes', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
     fireEvent.click(screen.getByRole('button', { name: 'Align sequences' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
     rotate(false);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByText('Test drive: nothing will be sent')).toBeNull();
     rotate(true);
     expect(screen.getByRole('dialog', { name: 'Your sequences will leave this browser' })).toBeTruthy();
-    expect(explanation('Project')).toBeTruthy();
+    expect(explanation('Project and options')).toBeTruthy();
   });
 
   it('asks for alignment consent again after leaving and coming back', () => {

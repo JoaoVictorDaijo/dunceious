@@ -315,7 +315,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 
 - `ProcessingOverlay` – full-screen loading overlay
 - `StatusBar` – bottom status bar: selection metrics, session molecule-type chip, version (the easter-egg trigger), license link
-- `TopNav` – top navigation: centred workspace switcher (Visual Viewport / Annotation Hub), portal tools slot for the Hub, Pan/Select and responsive viewport Layers popover; translation button disabled for protein sessions; session-type accent strip
+- `TopNav` – top navigation: measured workspace switcher (prefers the centre) (Visual Viewport / Annotation Hub), portal tools slot for the Hub, Pan/Select and responsive viewport Layers popover; translation button disabled for protein sessions; session-type accent strip
 - `Sidebar` – hub index in Annotation Hub mode; Ingestion cards, alignment, sequence search, record navigator, selection inspector and log terminal in viewport mode
 - `DropZone` – one Ingestion card: a transparent file input with idle / armed / over drop states (`data-drop`, styled per card in `index.css`)
 - `AlignmentSection`, `AlignRemoteModal`, `AlignmentJobMonitor`, `AlignmentJobPill` – remote alignment trigger, dialog, job monitor and minimized pill
@@ -324,14 +324,15 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `FeatureEditorModal` – *Create Feature* / *Metadata Inspector*: location, strand, segments (including circular wrap) and freely editable qualifiers
 - `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
-- `OptionsPanel` – chrome theme and feature colours
-- `ComparisonMenu` – the toolbar's Compare control: highlight mode, reference, match dots and a live two-row preview
+- `OptionsPanel` – Project actions (Save/Open/Clear workspace, with global shortcuts), chrome theme and feature colours
+- `ComparisonMenu` – the viewport toolbar's Compare control: highlight mode, reference, match dots and a live two-row preview
 - `TooltipLayer` – the single tooltip renderer for every `data-tip`
 - `MoleculeTypeMismatchModal` – explains a blocked nucleotide/peptide upload
 - `CentralDogmaEgg` – the version-tap easter egg
 
 ### `src/app/viewer/GenomeViewer.tsx` (Rendering Engine)
 
+- **Toolbar**: `ViewerToolbar` fits minimap and controls in a fixed order, then wraps. Compare follows the selection tools; Clear selection follows selection export. Offscreen inert copies provide variant widths without trial changes to visible controls.
 - **Virtualization**: `react-window` row-virtualized list; `computeRecordLayouts` (`layout.ts`) sizes every row.
 - **Annotation lanes**: features are packed greedily into non-overlapping lanes and drawn by `Row` as thin arrow bars (`annotationBarPath`, 14 px, name inside via `AnnotationText`). A feature opted in with *Show sequence in viewer* opens to show its bases above `ANNOT_BASES_MIN_ZOOM`; `useBasesOpenness` eases that opening without animating scroll-driven geometry.
 - **Alignment gaps**: each part of a transposed feature is one continuous bar; joins and origin crossings keep one bar per part with connectors.

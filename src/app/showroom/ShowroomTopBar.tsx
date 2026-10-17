@@ -98,11 +98,7 @@ function LayersMenu({ layers }: { layers: Layer[] }) {
 function AppActions({ onExplain, onExit }: { onExplain: Explain; onExit: () => void }) {
   return <>
     <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-slate-700" />
-    <button type="button" aria-label="Project" aria-haspopup="menu" onClick={event => onExplain('project', rectOf(event))}
-      className="flex h-8 shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
-      <i aria-hidden="true" className="fas fa-folder" /><span className="max-[899px]:hidden">Project</span><i aria-hidden="true" className="fas fa-chevron-down text-[9px] opacity-70" />
-    </button>
-    <button type="button" aria-label="Options" aria-haspopup="dialog" onClick={event => onExplain('options', rectOf(event))}
+    <button type="button" aria-label="Project and options" data-tip="Project and options" aria-haspopup="dialog" onClick={event => onExplain('project', rectOf(event))}
       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
       <i aria-hidden="true" className="fas fa-gear text-[15px]" />
     </button>
@@ -129,7 +125,7 @@ interface ShowroomTopBarProps {
 /**
  * The workbench `TopNav` rebuilt at phone height: the switcher, Pan/Select and
  * Layers work; the rest explains. It keeps the spec's controls only, so the bar
- * fits 740 px; the wordmark and the Project label give way first.
+ * fits 740 px; the wordmark gives way first.
  */
 export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, sidebarToggleRef, isAlignmentLoaded, onExplain, onExit }: ShowroomTopBarProps) {
   const layers: Layer[] = [

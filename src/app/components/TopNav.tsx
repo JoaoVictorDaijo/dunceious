@@ -115,6 +115,7 @@ const TopNav: React.FC<TopNavProps> = ({
           clone.removeAttribute('aria-label');
           clone.dataset.hubTools = form;
           clone.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+          clone.querySelectorAll('[aria-label]').forEach(element => element.removeAttribute('aria-label'));
           clone.style.cssText = 'display:flex;flex:none;width:max-content';
           const search = clone.querySelector<HTMLElement>('[data-hub-search]');
           if (search) {
