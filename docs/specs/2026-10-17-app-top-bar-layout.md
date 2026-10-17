@@ -1,9 +1,9 @@
 ---
 title: "Top bar layout: keep the layer toggles visible on office screens"
-status: proposed
+status: implemented
 date: 2026-10-17
 areas: ["app", "viewer"]
-prs: []
+prs: [187]
 issues: []
 superseded_by: null
 summary: "Project folds into the cog, Compare and Clear selection move to the viewport toolbar, and the top bar gives up niceties in a fixed order so the four layer toggles stay inline down to about 950 px."
