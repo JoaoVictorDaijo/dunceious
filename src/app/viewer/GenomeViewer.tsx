@@ -437,6 +437,7 @@ const GenomeViewer: React.FC<Props> = ({
         {/* VIRTUALIZED LIST */}
         <div 
           ref={listContainerRef}
+          onPointerDown={(event) => { if (event.pointerType === 'touch') setTooltip(null); }}
           style={{ touchAction: 'none' }}
           className={`flex-1 min-h-0 relative ${dragMode === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`} 
           onMouseDown={handleMouseDown}
