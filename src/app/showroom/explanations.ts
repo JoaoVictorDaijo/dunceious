@@ -33,8 +33,8 @@ export const EXPLANATIONS: Record<ExplainId, { title: string; body: string }> = 
     body: 'Writes the sequences you choose as FASTA, GenBank, GFF3 or a project file, with a preview of exactly what goes in. Files are created by your browser and saved to your computer.',
   },
   project: {
-    title: 'Project',
-    body: 'Saves the whole workspace as a project file on your computer, opens a project you saved before, or clears the workspace. A project keeps the records, annotations, colours and view settings.',
+    title: 'Project and options',
+    body: 'Saves the whole workspace as a project file on your computer, opens a project you saved before, or clears the workspace. A project keeps the records, annotations, colours and view settings. The same cog holds feature colours and the chrome theme.',
   },
   options: {
     title: 'Options',

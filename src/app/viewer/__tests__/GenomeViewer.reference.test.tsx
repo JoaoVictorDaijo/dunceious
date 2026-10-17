@@ -38,7 +38,7 @@ const records: SeqRecord[] = [
 ];
 
 function setup(onSetComparisonReference?: (id: string) => void) {
-  return render(<GenomeViewer records={records} consensus="ACGT"
+  return render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus="ACGT"
     showAnnotations={false} showTranslation={false} showTracks={false} showConservation={false}
     dragMode="pan" activeSelection={null} onSelectionChange={() => {}} onExportFasta={() => {}}
     onAddAnnotation={() => {}} searchResults={[]} currentSearchIdx={-1}

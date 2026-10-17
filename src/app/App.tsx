@@ -458,8 +458,6 @@ const App: React.FC = () => {
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
-        activeSelection={activeSelection}
-        onClearSelection={() => setActiveSelection(null)}
         showAnnotations={showAnnotations}
         onToggleAnnotations={() => setShowAnnotations(!showAnnotations)}
         showTracks={showTracks}
@@ -468,11 +466,6 @@ const App: React.FC = () => {
         onToggleTranslation={() => setShowTranslation(!showTranslation)}
         showConservation={showConservation}
         onToggleConservation={() => setShowConservation(!showConservation)}
-        alignmentComparison={alignmentComparison}
-        onAlignmentComparisonChange={setAlignmentComparison}
-        comparisonReference={comparisonReference}
-        comparisonCandidates={candidates}
-        canCompare={comparable}
         isAlignmentLoaded={isAlignmentLoaded}
         sessionMoleculeType={sessionMoleculeType}
         onSaveProject={exportProjectJson}
@@ -577,6 +570,8 @@ const App: React.FC = () => {
                     onViewDetails={handleViewDetails}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
+                    onClearSelection={() => setActiveSelection(null)}
+                    comparisonMenu={comparable ? { settings: alignmentComparison, onChange: setAlignmentComparison, reference: comparisonReference, candidates } : null}
                     comparison={comparison}
                     onSetComparisonReference={comparable ? setComparisonReference : undefined}
                   />

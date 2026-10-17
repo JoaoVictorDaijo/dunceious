@@ -30,6 +30,8 @@ import { ANNOT_BASES_MIN_ZOOM, TRANSLATION_MIN_ZOOM } from './constants';
 import { Ruler } from './Ruler';
 import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
+import ViewerToolbar from './ViewerToolbar';
+import type { ComparisonMenuProps } from '@/src/app/components/ComparisonMenu';
 import { Minimap } from './Minimap';
 import { useViewport } from './useViewport';
 import { useBasesOpenness } from './useBasesOpenness';
@@ -73,6 +75,8 @@ interface Props {
   showTranslation: boolean;
   dragMode: 'pan' | 'select';
   activeSelection: SelectionArea | null;
+  onClearSelection: () => void;
+  comparisonMenu: Omit<ComparisonMenuProps, 'compact' | 'arrive'> | null;
   onSelectionChange: (selection: SelectionArea | null) => void;
   onExportFasta: () => void;
   onAddAnnotation: (recordId: string, start: number, end: number, name: string) => void;
@@ -107,6 +111,7 @@ const GenomeViewer: React.FC<Props> = ({
   showTranslation,
   dragMode,
   activeSelection,
+  onClearSelection, comparisonMenu,
   onSelectionChange,
   onExportFasta,
   onAddAnnotation,
@@ -160,7 +165,6 @@ const GenomeViewer: React.FC<Props> = ({
     });
     return ranges;
   }, [records]);
-  const minimapContainerRef = useRef<HTMLDivElement>(null);
 
 
   const searchResultsByRecord = useMemo(() => {
@@ -284,24 +288,13 @@ const GenomeViewer: React.FC<Props> = ({
     showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel, comparison
   ]);
 
-  // Segmented-inset toolbar (design direction B): two surface levels — recessed
-  // track/fields vs raised segments. Session accent = interactive, emerald = export.
-  const segTrack = "flex items-stretch gap-[3px] bg-[#12203c] rounded-lg p-[3px]";
-  const trackShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 0 rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.2)' };
-  const segBtn = "px-2 py-1 rounded-md text-[10px] leading-4 font-bold uppercase bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
-  const segIcon = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-[#c3cfe8] border border-white/10 hover:bg-[#35497a] hover:text-env transition-colors";
-  const segExport = "w-6 h-6 rounded-md flex items-center justify-center bg-[#2b3f66] text-emerald-400 border border-white/10 hover:bg-[#35497a] hover:text-emerald-300 transition-colors";
-  const raisedShadow = { boxShadow: '0 1px 1.5px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' };
-  const segField = "bg-[#0f1c37] border border-white/[0.07] rounded-md";
-  const fieldShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)' };
-
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
-      {/* 1. COMPACT TOOLBAR & GLOBAL OVERVIEW */}
-      <div ref={minimapContainerRef} className="h-[48px] flex-none bg-[#1b2b4d] border-b border-[#060b18] px-3 flex items-center gap-3 z-20 min-w-0" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
-        
-        {/* MINIMAP SECTION */}
+      <ViewerToolbar activeSelection={activeSelection} alignmentLength={alignmentLength} comparisonMenu={comparisonMenu}
+        onClearSelection={onClearSelection} onExportFasta={onExportFasta} gotoPos={gotoPos} setGotoPos={setGotoPos}
+        handleGoto={handleGoto} handleCenterOnSelection={handleCenterOnSelection} handleZoomToSelection={handleZoomToSelection}
+        handleFit={handleFit} handleZoom={handleZoom} minimap={
         <Minimap
           records={records}
           consensus={consensus}
@@ -316,62 +309,7 @@ const GenomeViewer: React.FC<Props> = ({
           customColors={customColors}
           onZoomChange={applyZoom}
           touchArbiter={touchArbiter}
-        />
-
-        {/* CONTROLS SECTION */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Go to — recessed field */}
-          <div className={`flex items-center ${segField}`} style={fieldShadow}>
-            <div className="relative flex items-center">
-              <i className="fas fa-location-arrow absolute left-2 text-[10px] text-[#7c8bb0]"></i>
-              <input
-                type="text"
-                placeholder="Go to..."
-                aria-label="Go to position"
-                data-tip="Type a base position and press Enter"
-                className="w-24 bg-transparent pl-5 pr-2 py-1 text-[11px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-env rounded"
-                value={gotoPos}
-                onChange={e => setGotoPos(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleGoto(parseInt(gotoPos.replace(/,/g, '')));
-                    setGotoPos('');
-                  }
-                }}
-              />
-            </div>
-          </div>
-          {activeSelection && (
-            <>
-              {/* Readout — twin of the Go-to field, tied to the selection by a sky left-rule */}
-              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 ${segField} border-l-2 border-l-sky-400 text-[10px] font-bold text-[#e8edf7] uppercase tracking-tight`} style={fieldShadow}>
-                <i className="fas fa-vector-square text-[10px] text-sky-400/70"></i>
-                <span>{activeSelection.start.toLocaleString()} - {activeSelection.end.toLocaleString()}</span>
-                <span className="text-[#8ea2c9]">|</span>
-                {/* For circular wrap-around selections (start > end), compute length
-                    as (seqLength - start) + end to avoid a negative/wrong value. */}
-                <span className="text-[#8ea2c9]">{(activeSelection.start <= activeSelection.end
-                  ? activeSelection.end - activeSelection.start
-                  : (alignmentLength - activeSelection.start) + activeSelection.end
-                ).toLocaleString()} bp</span>
-              </div>
-              {/* Selection actions — segmented track + emerald export */}
-              <div className={segTrack} style={trackShadow}>
-                <button onClick={handleCenterOnSelection} className={segBtn} style={raisedShadow} data-tip="Scroll the selection to the middle of the view" data-tip-kbd="C">Center</button>
-                <button onClick={() => handleZoomToSelection()} className={segBtn} style={raisedShadow} data-tip="Zoom until the selection fills the view">Zoom Sel</button>
-              </div>
-              <button onClick={onExportFasta} className={segExport} style={raisedShadow} aria-label="Export selection as FASTA" data-tip="Download the selected region as FASTA"><i className="fas fa-download text-[8px]"></i></button>
-            </>
-          )}
-          {/* Fit — raised segment */}
-          <button onClick={handleFit} className={segBtn} style={raisedShadow} data-tip="Zoom out to fit the whole sequence" data-tip-kbd="F">Fit</button>
-          {/* Zoom — segmented track */}
-          <div className={segTrack} style={trackShadow}>
-            <button onClick={() => handleZoom(1)} className={segIcon} style={raisedShadow} aria-label="Zoom in" data-tip="Zoom in" data-tip-kbd="+"><i className="fas fa-plus text-[9px]"></i></button>
-            <button onClick={() => handleZoom(-1)} className={segIcon} style={raisedShadow} aria-label="Zoom out" data-tip="Zoom out" data-tip-kbd="−"><i className="fas fa-minus text-[9px]"></i></button>
-          </div>
-        </div>
-      </div>
+        />      } />
 
       {/* 2. MAIN VISUAL VIEWPORT */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative bg-[#f6f8fc]">
