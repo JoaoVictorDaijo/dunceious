@@ -1,0 +1,574 @@
+########################################
+# Program: matcher
+# Rundate: Sat 17 Oct 2026 02:57:34
+# Commandline: matcher
+#    -auto
+#    -asequence src/core/search/local/__tests__/fixtures/emboss/seeded-protein-1/query.fa
+#    -bsequence src/core/search/local/__tests__/fixtures/emboss/seeded-protein-1/record.fa
+#    -sprotein1
+#    -sprotein2
+#    -datafile src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+#    -gapopen 20
+#    -gapextend 1
+#    -alternatives 24
+#    -aformat3 srspair
+#    -awidth3 60
+#    -outfile stdout
+# Align_format: srspair
+# Report_file: stdout
+########################################
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 3
+# Identity:       2/3 (66.7%)
+# Similarity:     2/3 (66.7%)
+# Gaps:           0/3 ( 0.0%)
+# Score: 14
+# 
+#
+#=======================================
+
+Query              1 IAT      3
+                     |.|
+record             6 IYT      8
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 12
+# 
+#
+#=======================================
+
+Query              7 G      7
+                     |
+record             5 G      5
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     |
+record             1 I      1
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     |
+record            16 I     16
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query             10 B     10
+                     :
+record            10 D     10
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     |
+record            17 I     17
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     |
+record            14 L     14
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 8
+# 
+#
+#=======================================
+
+Query             10 B     10
+                     :
+record            15 D     15
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 6
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     :
+record             2 V      2
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 6
+# 
+#
+#=======================================
+
+Query              9 Q      9
+                     :
+record            12 Z     12
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record            17 I     17
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record            16 I     16
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              9 Q      9
+                     :
+record             3 E      3
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record            13 M     13
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record             4 M      4
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query             12 H     12
+                     :
+record             7 Y      7
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record             1 I      1
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record             6 I      6
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 4
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     :
+record            14 L     14
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query             10 B     10
+                     :
+record            12 Z     12
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     :
+record            13 M     13
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query             10 B     10
+                     :
+record             3 E      3
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query              1 I      1
+                     :
+record             4 M      4
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query              5 L      5
+                     :
+record             2 V      2
+
+
+#---------------------------------------
+#---------------------------------------
