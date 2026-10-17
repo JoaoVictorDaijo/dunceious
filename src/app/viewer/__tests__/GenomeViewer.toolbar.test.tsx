@@ -22,7 +22,9 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import GenomeViewer from '../GenomeViewer';
 import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
+import TopNav from '@/src/app/components/TopNav';
+import type { SelectionArea } from '@/src/domain/bio/types';
 
 beforeEach(() => {
   installCanvasRecorder(); stubResizeObserver();
@@ -80,4 +82,30 @@ it('measured widths compact Compare and make Center and Zoom sel accessible icon
   expect(screen.getByRole('button', { name: 'Compare to reference' }).textContent).toBe('Compare');
   expect(screen.getByRole('button', { name: 'Center' }).textContent).toBe('');
   expect(screen.getByRole('button', { name: 'Zoom Sel' }).textContent).toBe('');
+});
+
+it('dismissing the cog with Escape preserves selection and restores focus before a later Escape clears bases', () => {
+  function Workspace() {
+    const [activeSelection, setSelection] = useState<SelectionArea | null>(selection);
+    return <>
+      <TopNav sidebarOpen onToggleSidebar={noop} activeTab="alignment" onTabChange={noop}
+        featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop}
+        showAlignmentControls dragMode="select" onDragModeChange={noop}
+        showAnnotations onToggleAnnotations={noop} showTracks onToggleTracks={noop}
+        showTranslation onToggleTranslation={noop} showConservation={false} onToggleConservation={noop}
+        isAlignmentLoaded sessionMoleculeType="nucleotide" onSaveProject={() => null}
+        onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} />
+      <GenomeViewer {...defaults} activeSelection={activeSelection} onSelectionChange={setSelection} onClearSelection={() => setSelection(null)} />
+    </>;
+  }
+  render(<Workspace />);
+  expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
+  const cog = screen.getByRole('button', { name: 'Project and options' });
+  fireEvent.click(cog);
+  fireEvent.keyDown(screen.getByRole('dialog', { name: 'Project and options' }), { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Project and options' })).toBeNull();
+  expect(document.activeElement).toBe(cog);
+  expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
+  fireEvent.keyDown(cog, { key: 'Escape' });
+  expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 });

@@ -106,7 +106,11 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
     const onPointerDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAndRestoreFocus(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closeAndRestoreFocus();
+    };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -162,7 +166,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           </div>
 
           <div className="overflow-y-auto min-h-0">
-          <ProjectActionsSection sequenceCount={sequenceCount} locked={locked} onSave={save} onOpen={openPicker} onClearWorkspace={onClearWorkspace} onAction={() => setOpen(false)} />
+          <ProjectActionsSection sequenceCount={sequenceCount} locked={locked} onSave={save} onOpen={openPicker} onClearWorkspace={onClearWorkspace} onAction={closeAndRestoreFocus} />
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
           <div className="px-5 py-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-3">

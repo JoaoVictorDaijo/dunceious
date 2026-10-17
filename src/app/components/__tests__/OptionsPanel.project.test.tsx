@@ -18,6 +18,7 @@
  */
 
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@/src/app/testing/renderHarness';
 import OptionsPanel from '../OptionsPanel';
@@ -142,4 +143,50 @@ it('keeps shortcuts global with a text field focused outside the closed panel', 
   expect(save).toHaveBeenCalledOnce();
   expect(click).toHaveBeenCalledOnce();
   expect(screen.getByRole('status').textContent).toBe('Saved as focused.json');
+});
+
+it.each(['workspace.json', null])('restores cog focus after keyboard saving returns %s', result => {
+  const save = vi.fn(() => result);
+  render(<OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={save} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} />);
+  openMenu();
+  const action = screen.getByRole('button', { name: 'Save project' });
+  action.focus();
+  expect(document.activeElement).toBe(action);
+  fireEvent.click(action, { detail: 0 });
+  expect(save).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Project and options' }));
+  expect(screen.getByRole('status').textContent).toBe(result ? `Saved as ${result}` : '');
+});
+
+it('lets the Clear workspace confirmation take focus when its action closes the cog', () => {
+  function Workspace() {
+    const [confirming, setConfirming] = useState(false);
+    return <>
+      <OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={() => setConfirming(true)} sequenceCount={1} locked={false} />
+      {confirming && <div role="dialog" aria-label="Clear workspace confirmation"><button autoFocus>Confirm clear workspace</button></div>}
+    </>;
+  }
+  render(<Workspace />);
+  openMenu();
+  const action = screen.getByRole('button', { name: 'Clear workspace…' });
+  action.focus();
+  fireEvent.click(action, { detail: 0 });
+  expect(screen.queryByRole('dialog', { name: 'Project and options' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Confirm clear workspace' }));
+});
+
+it('does not reclaim focus after the Open action deliberately moves it elsewhere', () => {
+  render(<><button>Picker destination</button><OptionsPanel featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop} onSaveProject={saveNothing} onOpenProject={noop} onClearWorkspace={noop} sequenceCount={1} locked={false} /></>);
+  const destination = screen.getByRole('button', { name: 'Picker destination' });
+  const click = vi.spyOn(screen.getByLabelText('Open project file'), 'click').mockImplementation(() => destination.focus());
+  try {
+    openMenu();
+    const action = screen.getByRole('button', { name: 'Open project…' });
+    action.focus();
+    fireEvent.click(action, { detail: 0 });
+    expect(click).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(destination);
+  } finally { click.mockRestore(); }
 });
