@@ -18,17 +18,38 @@
  */
 
 import { expect, vi } from 'vitest';
-import { fireEvent, installCanvasRecorder, render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { act, fireEvent, installCanvasRecorder, render, screen, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import Showroom from '../Showroom';
+
+type Listener = (event: { matches: boolean }) => void;
+
+/** A controllable `(orientation: landscape)` query; every other query is false. Returns `rotate`. */
+export function stubOrientation(landscape: boolean) {
+  const listeners = new Set<Listener>();
+  let current = landscape;
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    media: query,
+    get matches() { return query === '(orientation: landscape)' ? current : false; },
+    addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
+  }));
+  return (next: boolean) => { current = next; act(() => listeners.forEach(listener => listener({ matches: next }))); };
+}
+
+/** jsdom ignores `inert`, but browsers refuse focus inside it, which is what keeps a portrait dialog from taking focus. */
+export function emulateInert() {
+  const focus = HTMLElement.prototype.focus;
+  vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement, options?: FocusOptions) {
+    if (!this.closest('[inert]')) focus.call(this, options);
+  });
+}
 
 /**
  * The showroom held sideways at phone size, as the existing showroom tests set it
  * up, with every side effect a visitor must never trigger under a spy.
  */
-export function mountShowroom() {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    media: query, matches: query === '(orientation: landscape)', addEventListener: () => {}, removeEventListener: () => {},
-  }));
+export function mountShowroom({ onExit = () => {} }: { onExit?: () => void } = {}) {
+  const rotate = stubOrientation(true);
   installCanvasRecorder();
   stubResizeObserver();
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800);
@@ -41,9 +62,10 @@ export function mountShowroom() {
     fileClick: vi.spyOn(HTMLInputElement.prototype, 'click'),
     storage: (['getItem', 'setItem', 'removeItem', 'clear'] as const).map(method => vi.spyOn(Storage.prototype, method)),
   };
-  const view = render(<Showroom onExit={() => {}} />);
+  const view = render(<Showroom onExit={onExit} />);
   return {
     ...view,
+    rotate,
     /** No native dialog, clipboard write, file picker or storage access happened. */
     expectNoSideEffects() {
       expect(effects.confirm).not.toHaveBeenCalled();

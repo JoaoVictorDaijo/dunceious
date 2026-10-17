@@ -169,6 +169,22 @@ it('Export focus trap stands down while overlayActive and resumes afterward', ()
   outside.focus();
   expect(document.activeElement).not.toBe(outside);
 });
+it('Export keeps focus inside the dialog when overlayActive ends, and pulls it back from outside', () => {
+  const host = effects();
+  const { rerender } = render(<UiEffectsContext.Provider value={host}><Export /></UiEffectsContext.Provider>);
+  const dialog = screen.getByRole('dialog');
+  const first = dialog.querySelector('button')!;
+  expect(document.activeElement).toBe(first);
+  rerender(<UiEffectsContext.Provider value={{ ...host, overlayActive: true }}><Export /></UiEffectsContext.Provider>);
+  const last = within(dialog).getByRole('button', { name: 'Export 2 sequences' });
+  last.focus();
+  rerender(<UiEffectsContext.Provider value={host}><Export /></UiEffectsContext.Provider>);
+  expect(document.activeElement).toBe(last);
+  rerender(<UiEffectsContext.Provider value={{ ...host, overlayActive: true }}><Export /></UiEffectsContext.Provider>);
+  screen.getByRole('button', { name: 'Outside' }).focus();
+  rerender(<UiEffectsContext.Provider value={host}><Export /></UiEffectsContext.Provider>);
+  expect(document.activeElement).toBe(first);
+});
 it('Export focus and Tab traps stand down inside an inert ancestor', () => {
   const host = effects(), onKeyDown = vi.fn();
   render(<UiEffectsContext.Provider value={host}><Export onKeyDown={onKeyDown} /></UiEffectsContext.Provider>);

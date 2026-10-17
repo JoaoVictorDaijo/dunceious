@@ -93,7 +93,8 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     return () => { opener?.focus(); };
   }, []);
   useEffect(() => {
-    if (!overlayActive && !dialog.current?.closest('[inert]')) dialog.current?.querySelector<HTMLElement>('button')?.focus();
+    // An explanation closing over the dialog has already handed focus back to the control that opened it.
+    if (!overlayActive && !dialog.current?.closest('[inert]') && !dialog.current?.contains(document.activeElement)) dialog.current?.querySelector<HTMLElement>('button')?.focus();
     const focusInside = (event: FocusEvent) => {
       if (!overlayActive && dialog.current && !dialog.current.closest('[inert]') && !dialog.current.contains(event.target as Node)) dialog.current.querySelector<HTMLElement>('button')?.focus();
     };

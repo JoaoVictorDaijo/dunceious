@@ -84,18 +84,31 @@ function guardLinks(explain: Explain): () => void {
 
 type Press = { id: number; x: number; y: number; timer: ReturnType<typeof setTimeout> | null; explained: boolean };
 
+/** The Hub and the dialogs portalled over the showroom, where the workbench has no context menu to explain. */
+const QUIET_AREAS = '[data-showroom-hub], [data-showroom-portals]';
+
+type Zone = 'viewer' | 'quiet';
+
 /**
- * Right-clicks and long-presses explain the workbench's context menu. iOS fires
- * no `contextmenu` on a long-press, hence the timer. A long-press that fires owns
- * its touch until release: its moves would pan and its release click would run
- * the tapped feature's action over the explanation. A native `contextmenu` of
- * the same press is stopped without a second explanation.
+ * Right-clicks and long-presses in the viewer explain the workbench's context
+ * menu. iOS fires no `contextmenu` on a long-press, hence the timer. A long-press
+ * that fires owns its touch until release: its moves would pan and its release
+ * click would run the tapped feature's action over the explanation. A native
+ * `contextmenu` of the same press is stopped without a second explanation.
+ * In the quiet areas the browser's menu is suppressed and nothing else happens,
+ * so the press's click still lands; the root's `-webkit-touch-callout` covers iOS.
  */
-function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
+function guardPresses(root: HTMLElement, workspace: HTMLElement, explain: Explain): () => void {
   const touches = new Set<number>();
   let press: Press | null = null;
   let consumed: number | null = null;
   let release: { x: number; y: number; until: number } | null = null;
+
+  const zoneOf = (target: EventTarget | null): Zone | null => {
+    if (!(target instanceof Element) || inField(target)) return null;
+    if (target.closest(QUIET_AREAS)) return 'quiet';
+    return workspace.contains(target) ? 'viewer' : null;
+  };
 
   const cancelTimer = () => {
     if (press?.timer) clearTimeout(press.timer);
@@ -109,7 +122,7 @@ function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
   };
   const onAnyDown = () => { release = null; };
   const onDown = (event: PointerEvent) => {
-    if (event.pointerType !== 'touch' || inField(event.target)) return;
+    if (event.pointerType !== 'touch' || zoneOf(event.target) !== 'viewer') return;
     touches.add(event.pointerId);
     if (touches.size > 1) { cancelTimer(); return; }
     const current: Press = { id: event.pointerId, x: event.clientX, y: event.clientY, timer: null, explained: false };
@@ -129,7 +142,9 @@ function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
     }
   };
   const onMenu = (event: MouseEvent) => {
-    if (inField(event.target)) return;
+    const zone = zoneOf(event.target);
+    if (zone === null) return;
+    if (zone === 'quiet') { event.preventDefault(); return; }
     stop(event);
     if (press) {
       if (!press.explained) explain('context-menu', menuAnchor(event));
@@ -145,9 +160,9 @@ function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
   const onRotate = () => { cancelTimer(); press = null; };
 
   const removers = [
-    listen(document, 'pointerdown', onAnyDown), listen(viewer, 'pointerdown', onDown), listen(document, 'pointermove', onMove),
+    listen(document, 'pointerdown', onAnyDown), listen(root, 'pointerdown', onDown), listen(document, 'pointermove', onMove),
     listen(document, 'pointerup', onEnd), listen(document, 'pointercancel', onEnd),
-    listen(viewer, 'contextmenu', onMenu), listen(document, 'click', onClick), listen(window, 'orientationchange', onRotate),
+    listen(root, 'contextmenu', onMenu), listen(document, 'click', onClick), listen(window, 'orientationchange', onRotate),
   ];
   return () => { cancelTimer(); removers.forEach(remove => remove()); };
 }
@@ -155,19 +170,42 @@ function guardPresses(viewer: HTMLElement, explain: Explain): () => void {
 /**
  * Registers every showroom guard on mount and removes them on unmount: no text
  * selection on the root, links guarded on the whole document, and context menus
- * and long-presses guarded on the viewer only, where they would open its menu.
+ * and long-presses guarded in the workspace (viewer and Hub) and the portalled
+ * dialogs, but not in the chrome around them. `workspaceRef` must stay mounted
+ * while the switcher swaps the viewer for the Hub.
  */
-export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, viewerRef: RefObject<HTMLElement | null>, onExplain: Explain): void {
+export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, workspaceRef: RefObject<HTMLElement | null>, onExplain: Explain): void {
   const explainRef = useRef(onExplain);
   useEffect(() => { explainRef.current = onExplain; }, [onExplain]);
   useEffect(() => {
     const root = rootRef.current;
-    const viewer = viewerRef.current;
-    if (!root || !viewer) return;
+    const workspace = workspaceRef.current;
+    if (!root || !workspace) return;
     const explain: Explain = (id, anchor) => explainRef.current(id, anchor);
-    const cleanups = [lockSelection(root), guardLinks(explain), guardPresses(viewer, explain)];
+    const cleanups = [lockSelection(root), guardLinks(explain), guardPresses(root, workspace, explain)];
     return () => cleanups.forEach(cleanup => cleanup());
-  }, [rootRef, viewerRef]);
+  }, [rootRef, workspaceRef]);
+}
+
+/**
+ * Ctrl/⌘+S and Ctrl/⌘+O would open the browser's Save Page and Open File dialogs;
+ * in the workbench they save and open a project, so they explain that. The capture
+ * phase reaches keys that a dialog stops from bubbling, and a held key stays
+ * prevented without explaining again.
+ */
+export function useProjectKeys(active: boolean, onExplain: Explain): void {
+  const explainRef = useRef(onExplain);
+  useEffect(() => { explainRef.current = onExplain; }, [onExplain]);
+  useEffect(() => {
+    if (!active) return;
+    return listen<KeyboardEvent>(document, 'keydown', event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (key !== 's' && key !== 'o') return;
+      event.preventDefault();
+      if (!event.repeat) explainRef.current('project');
+    });
+  }, [active]);
 }
 
 /** A touch drag pans in either mode, so the first touch drag in Select mode says how selecting works in the workbench. */

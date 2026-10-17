@@ -36,7 +36,7 @@ import { ShowroomSidebar } from './ShowroomSidebar';
 import { ShowroomTopBar } from './ShowroomTopBar';
 import { useLandscape } from './useLandscape';
 import { useShowroomComparison } from './useShowroomComparison';
-import { useSelectDragNotice, useShowroomGuards } from './useShowroomGuards';
+import { useProjectKeys, useSelectDragNotice, useShowroomGuards } from './useShowroomGuards';
 import { useShowroomUiEffects } from './useShowroomUiEffects';
 import { useShowroomView, type ShowroomView } from './useShowroomView';
 import { useShowroomWorkspace, type ShowroomWorkspace } from './useShowroomWorkspace';
@@ -99,7 +99,9 @@ function ShowroomViewer({ workspace, view, comparison, explain }: ShowroomViewer
 
 /** The viewport or the Hub, whichever the switcher shows, with the way back to the Hub after a Focus jump. */
 function ShowroomWorkspaceArea({ workspace, view, comparison, toolsSlot, explain }: Omit<ShowroomViewerProps, 'explain'> & { toolsSlot: HTMLDivElement | null; explain: ShowroomExplain }) {
-  if (view.tab === 'features') return <ShowroomHub records={workspace.records} view={view} toolsSlot={toolsSlot} explain={explain} />;
+  if (view.tab === 'features') return <div data-showroom-hub="" className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <ShowroomHub records={workspace.records} view={view} toolsSlot={toolsSlot} explain={explain} />
+  </div>;
   return <>
     {view.showHubReturn && view.hubFocus && <HubReturnPill label={view.hubFocus.label} onReturn={view.returnToHub} onDismiss={view.dismissHubReturn} />}
     <ShowroomViewer workspace={workspace} view={view} comparison={comparison} explain={explain} />
@@ -123,9 +125,10 @@ function useSidebarDrawer() {
 /**
  * A read-only test drive of the workbench for phones held sideways. Portrait
  * covers it with the rotate prompt without unmounting it, so the viewer keeps
- * its zoom and scroll and the session survives rotation; dialogs over it wait
- * for landscape. Leaving ends the alignment consent given here, so the next
- * visit asks again.
+ * its zoom and scroll and the session survives rotation. The workbench's dialogs
+ * portal into the inert part, so their focus traps cannot take focus from the
+ * prompt's Back; the showroom's own overlays wait for landscape. Leaving ends the
+ * alignment consent given here, so the next visit asks again.
  */
 export default function Showroom({ onExit }: { onExit: () => void }) {
   const workspace = useShowroomWorkspace();
@@ -133,17 +136,19 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
   const [hubToolsSlot, setHubToolsSlot] = useState<HTMLDivElement | null>(null);
   const landscape = useLandscape();
   const rootRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [portals, setPortals] = useState<HTMLDivElement | null>(null);
   const sidebar = useSidebarDrawer();
   const [stripOpen, setStripOpen] = useState(true);
   const pressAnchor = usePressAnchor(rootRef);
   const { openExplain } = workspace;
   const explain = useCallback((id: ExplainId, anchor?: DOMRect, vars?: ExplainVars) => openExplain(id, anchor ?? pressAnchor(), vars), [openExplain, pressAnchor]);
-  const uiEffects = useShowroomUiEffects(explain, workspace.explain !== null);
-  useShowroomGuards(rootRef, viewerRef, openExplain);
+  const uiEffects = useShowroomUiEffects(explain, workspace.explain !== null, portals);
+  useShowroomGuards(rootRef, workspaceRef, openExplain);
+  useProjectKeys(landscape, openExplain);
   useEffect(() => () => clearAlignConsent(), []);
   const alignment = useShowroomAlignment(workspace.records);
-  useSelectDragNotice(viewerRef, workspace.dragMode === 'select' && view.tab === 'alignment', openExplain);
+  useSelectDragNotice(workspaceRef, workspace.dragMode === 'select' && view.tab === 'alignment', openExplain);
 
   const { alignmentLength, isAlignmentLoaded, sessionMoleculeType } = useMemo(() => deriveAlignmentState(workspace.records, false), [workspace.records]);
   const env = resolveEnvAccent('alignment', sessionMoleculeType);
@@ -161,12 +166,13 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
           <ShowroomSidebar open={sidebar.open} onClose={sidebar.close} workspace={workspace} view={view}
             alignmentLength={alignmentLength} alignmentState={alignment.state} onOpenAlignment={alignment.show} onExplain={explain} />
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-slate-900 p-1">
-            <div ref={viewerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/50 bg-white shadow-2xl">
+            <div ref={workspaceRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/50 bg-white shadow-2xl">
               <ShowroomWorkspaceArea workspace={workspace} view={view} comparison={comparison} toolsSlot={hubToolsSlot} explain={explain} />
             </div>
           </main>
           {stripOpen && <FirstVisitStrip onDismiss={() => setStripOpen(false)} />}
         </div>
+        <div ref={setPortals} data-showroom-portals="" />
       </div>
       {landscape ? <>
         <ShowroomAlignDialog alignment={alignment} onSubmit={() => explain('align-submit')} />

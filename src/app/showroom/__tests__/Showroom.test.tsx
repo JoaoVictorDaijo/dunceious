@@ -21,21 +21,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, installCanvasRecorder, render, screen, stubResizeObserver, within } from '@/src/app/testing/renderHarness';
 import Showroom from '../Showroom';
-
-type Listener = (event: { matches: boolean }) => void;
-
-/** A controllable `(orientation: landscape)` query; every other query is false. */
-function stubOrientation(landscape: boolean) {
-  const listeners = new Set<Listener>();
-  let current = landscape;
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    media: query,
-    get matches() { return query === '(orientation: landscape)' ? current : false; },
-    addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
-    removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
-  }));
-  return (next: boolean) => { current = next; act(() => listeners.forEach(listener => listener({ matches: next }))); };
-}
+import { stubOrientation } from './showroomTestKit';
 
 beforeEach(() => {
   installCanvasRecorder();
