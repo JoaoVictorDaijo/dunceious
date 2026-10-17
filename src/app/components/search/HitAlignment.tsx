@@ -27,8 +27,10 @@ import { HitBarcode } from './HitBarcode';
 import { useState, type ReactNode } from 'react';
 import { useSessionOpenState } from '../../hooks/useSessionOpenState';
 import SectionTitle from '../SectionTitle';
+import { useUiEffects } from '../uiEffects';
 
 export function HitAlignment({ text, storageKey, metrics }: { text: string; storageKey: string; metrics?: ReactNode }) {
+  const { copyText } = useUiEffects();
   const [open, setOpen] = useSessionOpenState(`alignment:${storageKey}`);
   const [copyStatus, setCopyStatus] = useState('');
   return <details data-hit-alignment="" open={open} onToggle={e => setOpen(e.currentTarget.open)}
@@ -38,7 +40,7 @@ export function HitAlignment({ text, storageKey, metrics }: { text: string; stor
     </summary>
     {open && metrics}
     <button type="button" className="text-xs text-env px-2 py-1" onClick={async () => {
-      try { await navigator.clipboard.writeText(text); setCopyStatus('Copied'); }
+      try { setCopyStatus(await copyText(text) ? 'Copied' : ''); }
       catch { setCopyStatus('Copy failed'); }
     }}>Copy</button><span role="status" className="text-xs">{copyStatus}</span>
     <pre className="overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded">{text}</pre>
