@@ -87,7 +87,7 @@ function ToolbarControls({ activeSelection, alignmentLength, comparisonMenu, onC
         </div>
         <div className={segTrack} style={trackShadow}>
           <button onClick={handleCenterOnSelection} aria-label="Center" className={step.iconActions ? segIcon : segBtn} style={raisedShadow} data-tip="Scroll the selection to the middle of the view" data-tip-kbd="C">{step.iconActions ? <i aria-hidden="true" className="fas fa-crosshairs" /> : 'Center'}</button>
-          <button onClick={() => handleZoomToSelection()} aria-label="Zoom sel" className={step.iconActions ? segIcon : segBtn} style={raisedShadow} data-tip="Zoom until the selection fills the view">{step.iconActions ? <i aria-hidden="true" className="fas fa-magnifying-glass-plus" /> : 'Zoom Sel'}</button>
+          <button onClick={() => handleZoomToSelection()} aria-label="Zoom Sel" className={step.iconActions ? segIcon : segBtn} style={raisedShadow} data-tip="Zoom until the selection fills the view">{step.iconActions ? <i aria-hidden="true" className="fas fa-magnifying-glass-plus" /> : 'Zoom Sel'}</button>
         </div>
         <button onClick={onExportFasta} className={segExport} style={raisedShadow} aria-label="Export selection as FASTA" data-tip="Download the selected region as FASTA"><i className="fas fa-download text-[8px]"></i></button>
         <button onClick={onClearSelection} className={segIcon} style={raisedShadow} aria-label="Clear selection" data-tip="Clear the current selection"><i aria-hidden="true" className="fas fa-xmark text-rose-400" /></button>

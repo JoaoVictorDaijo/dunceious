@@ -79,5 +79,5 @@ it('measured widths compact Compare and make Center and Zoom sel accessible icon
   render(<GenomeViewer {...defaults} activeSelection={selection} comparisonMenu={menu} />);
   expect(screen.getByRole('button', { name: 'Compare to reference' }).textContent).toBe('Compare');
   expect(screen.getByRole('button', { name: 'Center' }).textContent).toBe('');
-  expect(screen.getByRole('button', { name: 'Zoom sel' }).textContent).toBe('');
+  expect(screen.getByRole('button', { name: 'Zoom Sel' }).textContent).toBe('');
 });

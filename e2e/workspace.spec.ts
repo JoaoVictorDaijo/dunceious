@@ -270,7 +270,7 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   const stepBefore = await nav.getAttribute('data-fit-step');
   for (const width of [1366, 1024, 900, 680]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const name of ['Center', 'Zoom sel', 'Export selection as FASTA', 'Clear selection', 'Compare to reference', 'Fit', 'Zoom in', 'Zoom out']) {
+    for (const name of ['Center', 'Zoom Sel', 'Export selection as FASTA', 'Clear selection', 'Compare to reference', 'Fit', 'Zoom in', 'Zoom out']) {
       const control = toolbar.getByRole('button', { name, exact: true });
       await expect(control).toBeVisible();
       await expect.poll(async () => {

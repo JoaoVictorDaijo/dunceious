@@ -58,7 +58,7 @@ test('the showroom test-drives the workbench sideways and never leaves the origi
   await expect(sidebar.getByRole('button', { name: /Annotate match .* in NC_045512/ }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Hide sidebar', exact: true }).tap();
   // The first hit becomes the viewer's selection, which brings up its selection controls.
-  await expect(page.getByRole('button', { name: 'Zoom sel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zoom Sel', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Show sidebar', exact: true }).tap();
   await sidebar.getByRole('button', { name: 'Align sequences', exact: true }).tap();
