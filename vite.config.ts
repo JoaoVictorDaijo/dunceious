@@ -53,7 +53,7 @@ const COVERAGE_THRESHOLDS = {
   },
   "src/app/viewer/annotationPresentation.ts": {
     lines: 97,
-    branches: 80,
+    branches: 85,
     functions: 88,
     statements: 92,
   },
