@@ -20,22 +20,11 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import type { HubFocusOrigin } from '@/src/app/components/AnnotationHubPanel';
 import { useHubState } from '@/src/app/hooks/useHubState';
+import { featureIndexOf } from '@/src/app/logic/featureIndex';
 import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import type { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 
 export type ShowroomTab = 'alignment' | 'features';
-
-/**
- * Details can open from the hub (a copy carrying `index`) or from the viewer (the
- * aligned copy, in the same order as the record's own features), so resolve by
- * position, as App does.
- */
-function featureIndexOf(records: SeqRecord[], transposedRecords: SeqRecord[], recordId: string, feature: BioFeature): number {
-  const hubIndex = (feature as BioFeature & { index?: number }).index;
-  if (typeof hubIndex === 'number') return hubIndex;
-  const own = records.find(record => record.id === recordId)?.features.indexOf(feature) ?? -1;
-  return own >= 0 ? own : transposedRecords.find(record => record.id === recordId)?.features.indexOf(feature) ?? -1;
-}
 
 /**
  * App's view wiring without the workbench's state owners: which workspace the
