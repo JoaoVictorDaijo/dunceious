@@ -18,6 +18,7 @@
  */
 
 
+import { loadLocalEngineBytes } from './lib/localEngineModule';
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -65,6 +66,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const App: React.FC = () => {
+  useEffect(() => { void loadLocalEngineBytes().catch(() => {}); }, []);
   // ── Logger ────────────────────────────────────────────────────────────────
   const { logs, addLog } = useAppLogger();
 
