@@ -19,7 +19,7 @@
 
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { afterEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within, act } from '@/src/app/testing/renderHarness';
 import TopNav, { type TopNavProps } from '../TopNav';
 import HubToolbar from '../hub/HubToolbar';
@@ -36,12 +36,13 @@ function Subject() {
 }
 describe('workspace header', () => {
   it('keeps the same centred switcher and swaps only the tools', () => {
+    barWidth = 1920;
     render(<Subject />);
     const switcher = screen.getByRole('group', { name: 'Workspace' });
     // The measured switcher bounds keep workspace tools from overlapping navigation.
     const bounds = document.querySelector<HTMLElement>('[data-workspace-switcher]')!;
-    expect(bounds.style.left).toBe('50%');
-    expect(bounds.style.transform).toBe('translateX(-50%)');
+    expect(bounds.style.left).toBe('788px');
+    expect(bounds.style.width).toBe('max-content');
     const viewport = within(switcher).getByRole('button', { name: 'Visual Viewport' });
     expect(viewport.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('group', { name: 'Drag mode' })).toBeTruthy();
@@ -73,61 +74,87 @@ describe('workspace header', () => {
   });
 });
 
-describe('layer tray fit', () => {
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-  it('rechecks natural tray width on resize and selection changes', () => {
-    // The Compare control (100) counts against the tray's room like the other tools.
-    let available = 580;
-    let resized = () => {};
-    vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
-      const label = this.getAttribute('aria-label');
-      const width = label === 'Workspace tools' ? available : label === 'Viewport layers' ? 360 : label === 'Drag mode' ? 80 : this.hasAttribute('data-comparison-menu') ? 100 : this.textContent?.trim() === 'Clear' ? 80 : 600;
-      return { left: 0, right: width, top: 0, bottom: 40, width, height: 40 } as DOMRect;
-    });
-    const { rerender } = render(<TopNav {...defaults} />);
-    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Layers/ })).toBeNull();
-    rerender(<TopNav {...defaults} />);
-    expect(screen.getByRole('button', { name: /^Layers/ })).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Viewport layers' })).toBeNull();
-    rerender(<TopNav {...defaults} />);
-    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
-    available = 500; act(resized);
-    expect(screen.getByRole('button', { name: /^Layers/ })).toBeTruthy();
-    available = 700; act(resized);
-    expect(screen.getByRole('group', { name: 'Viewport layers' })).toBeTruthy();
+
+let barWidth = 900;
+let fontScale = 1;
+let resized = () => {};
+const observed: Element[] = [];
+beforeEach(() => {
+  barWidth = 900; fontScale = 1; observed.length = 0;
+  vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resized = callback; } observe(element: Element) { observed.push(element); } disconnect() {} });
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+    const key = this.getAttribute('data-topbar-measure');
+    const widths: Record<string, number> = { 'brand-full': 345, 'brand-plain': 221, 'brand-toggle': 40, 'modes-full': 344, 'modes-short': 250, 'modes-icon': 100,
+      'layers-full': 557, 'layers-tight': 540, 'layers-short': 470, 'layers-menu': 270, 'hub-full': 450, 'hub-icon': 350, 'hub-narrow': 290 };
+    const width = this.tagName === 'NAV' ? barWidth : key ? (widths[key] ?? 0) * fontScale : 0;
+    return { width, height: 64, left: 0, right: width, top: 0, bottom: 64 } as DOMRect;
   });
 });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-
-describe('switcher sizing', () => {
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-  it('fits its buttons and bounds the tools using its measured half width', () => {
-    let width = 340;
-    const callbacks: (() => void)[] = [];
-    vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) { callbacks.push(callback); }
-      observe() {}
-      disconnect() {}
-    });
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
-      const measured = this.hasAttribute('data-workspace-switcher') ? width : 0;
-      return { width: measured, height: 40, left: 0, right: measured, top: 0, bottom: 40 } as DOMRect;
-    });
-    render(<TopNav {...defaults} />);
-    const wrapper = document.querySelector<HTMLElement>('[data-workspace-switcher]')!;
-    const cluster = screen.getByLabelText('Workspace tools and options');
-    // Measured bounds prevent tools from covering the workspace switcher after resize.
-    expect(wrapper.style.width).toBe('max-content');
-    expect(cluster.style.maxWidth).toBe('calc(50% - var(--switcher-half) - 16px)');
-    expect(screen.getByRole('navigation').style.getPropertyValue('--switcher-half')).toBe('170px');
-    width = 400;
-    act(() => callbacks.forEach(callback => callback()));
-    expect(screen.getByRole('navigation').style.getPropertyValue('--switcher-half')).toBe('200px');
+describe('fixed compression order', () => {
+  it('centres the switcher at 1920 and shows the slogan', () => {
+    barWidth = 1920; render(<TopNav {...defaults} />);
+    expect(document.querySelector<HTMLElement>('[data-workspace-switcher]')!.style.left).toBe('788px');
+    expect(within(screen.getByRole('navigation')).getByText('Because geniality is overpriced.')).toBeTruthy();
+    expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe('centred');
   });
-
-  it.each(['alignment', 'features'] as const)('keeps Project and options past the mode tools, in %s mode', tab => {
+  it('uses short layer names at 1040 and keeps accessible names and tooltips', () => {
+    barWidth = 1040; render(<TopNav {...defaults} />);
+    const annot = screen.getByRole('button', { name: 'Annotations' });
+    expect(annot.textContent).toBe('Annot');
+    expect(annot.getAttribute('data-tip')).toBe('Hide the annotation lanes above each sequence');
+    expect(screen.getByRole('button', { name: 'Translation' }).textContent).toBe('Transl');
+  });
+  it('keeps the layer popover at 900', () => {
+    render(<TopNav {...defaults} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Layers/ }));
+    expect(screen.getByRole('group', { name: 'Layer options' })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole('group', { name: 'Layer options' }), { key: 'Escape' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Layers/ }));
+  });
+  it('uses icon-only modes at 700 and keeps their full accessible names', () => {
+    barWidth = 700; render(<TopNav {...defaults} />);
+    expect(screen.getByRole('button', { name: 'Visual Viewport' }).textContent).toBe('');
+    expect(screen.getByRole('button', { name: 'Annotation Hub' }).textContent).toBe('');
+  });
+  it('has no selection input that could change its fit', () => {
+    barWidth = 1040;
+    const view = render(<TopNav {...defaults} />);
+    const step = screen.getByRole('navigation').getAttribute('data-fit-step');
+    view.rerender(<TopNav {...defaults} />);
+    expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe(step);
+  });
+  it('remeasures when fonts become ready and on loadingdone', async () => {
+    barWidth = 1440;
+    let ready!: () => void;
+    const fonts = new EventTarget();
+    Object.assign(fonts, { ready: new Promise<void>(resolve => { ready = resolve; }) });
+    vi.stubGlobal('document', document);
+    Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+    render(<TopNav {...defaults} />);
+    expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe('slide');
+    fontScale = 0.7;
+    await act(async () => { ready(); });
+    expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe('centred');
+    fontScale = 1;
+    act(() => fonts.dispatchEvent(new Event('loadingdone')));
+    expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe('slide');
+    Reflect.deleteProperty(document, 'fonts');
+  });
+  it('observes only the nav and never mutates its size while measuring', () => {
+    barWidth = 1920; render(<TopNav {...defaults} />);
+    const nav = screen.getByRole('navigation');
+    expect(observed).toEqual([nav]);
+    const style = nav.getAttribute('style');
+    barWidth = 900; act(resized);
+    expect(nav.getAttribute('style')).toBe(style);
+    expect(nav.getAttribute('data-fit-step')).toBe('layers-menu');
+    barWidth = 1920; act(resized);
+    expect(nav.getAttribute('data-fit-step')).toBe('centred');
+    expect(observed).toEqual([nav]);
+  });
+  it.each(['alignment', 'features'] as const)('keeps the cog past the mode tools in %s mode', tab => {
     render(<TopNav {...defaults} activeTab={tab} showAlignmentControls={tab === 'alignment'} />);
     const cluster = screen.getByLabelText('Workspace tools and options');
     const options = within(cluster).getByRole('button', { name: 'Project and options' });
@@ -135,4 +162,14 @@ describe('switcher sizing', () => {
     expect(tools.compareDocumentPosition(options) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cluster.querySelector('span[aria-hidden="true"].w-px')).not.toBeNull();
   });
+});
+
+it('hides only the wordmark at the last Hub step with a wide counter', () => {
+  barWidth = 680;
+  // Larger content metrics force the last step while the sidebar toggle still fits.
+  fontScale = 1.4;
+  render(<TopNav {...defaults} activeTab="features" showAlignmentControls={false} />);
+  expect(screen.getByRole('navigation').getAttribute('data-fit-step')).toBe('no-wordmark');
+  expect(within(screen.getByRole('navigation')).queryByText('Dunceious')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Hide sidebar' })).toBeTruthy();
 });

@@ -23,7 +23,7 @@ export type HubForm = 'full' | 'icon' | 'narrow';
 export type ToolsVariant = `layers-${LayerForm}` | `hub-${HubForm}`;
 export interface TopBarStep {
   id: 'centred' | 'slide' | 'gap-min' | 'no-slogan' | 'tight-layers' | 'short-modes'
-    | 'short-layers' | 'layers-menu' | 'icon-modes' | 'hub-icon-tools' | 'hub-narrow-search';
+    | 'short-layers' | 'layers-menu' | 'icon-modes' | 'hub-icon-tools' | 'hub-narrow-search' | 'no-wordmark';
   logoGap: number;
   slogan: boolean;
   modeLabels: ModeLabels;
@@ -43,12 +43,12 @@ const layersMenu: TopBarStep = { ...shortLayers, id: 'layers-menu', layers: 'men
 const iconModes: TopBarStep = { ...layersMenu, id: 'icon-modes', logoGap: 16, modeLabels: 'icon' };
 const hubIcon: TopBarStep = { ...iconModes, id: 'hub-icon-tools', hub: 'icon' };
 const hubNarrow: TopBarStep = { ...hubIcon, id: 'hub-narrow-search', hub: 'narrow' };
-export const TOP_BAR_STEPS: readonly TopBarStep[] = [centred, slide, gapMin, noSlogan, tightLayers, shortModes, shortLayers, layersMenu, iconModes, hubIcon, hubNarrow];
+export const TOP_BAR_STEPS: readonly TopBarStep[] = [centred, slide, gapMin, noSlogan, tightLayers, shortModes, shortLayers, layersMenu, iconModes, hubIcon, hubNarrow, { ...hubNarrow, id: 'no-wordmark' }];
 
 export interface TopBarMeasurements {
   barWidth: number;
   paddingX: number;
-  brandWidth: { withSlogan: number; withoutSlogan: number };
+  brandWidth: { withSlogan: number; withoutSlogan: number; toggleOnly: number };
   switcherWidth: Record<ModeLabels, number>;
   toolsGap: number;
   toolsWidth: Partial<Record<ToolsVariant, number>>;
@@ -65,7 +65,7 @@ export function chooseTopBarStep(m: TopBarMeasurements, mode: 'viewport' | 'hub'
     const variant: ToolsVariant = mode === 'viewport' ? `layers-${step.layers}` : `hub-${step.hub}`;
     const toolsWidth = m.toolsWidth[variant] ?? Infinity;
     const preferredLeft = (m.barWidth - switcherWidth) / 2;
-    const minLeft = m.paddingX + m.brandWidth[step.slogan ? 'withSlogan' : 'withoutSlogan'] + step.logoGap;
+    const minLeft = m.paddingX + m.brandWidth[step.id === 'no-wordmark' ? 'toggleOnly' : step.slogan ? 'withSlogan' : 'withoutSlogan'] + step.logoGap;
     const maxLeft = m.barWidth - m.paddingX - toolsWidth - m.toolsGap - switcherWidth;
     const fits = minLeft <= maxLeft && (step.allowSlide || (minLeft <= preferredLeft && preferredLeft <= maxLeft));
     result = { step, switcherLeft: Math.max(minLeft, Math.min(preferredLeft, maxLeft)), fits };

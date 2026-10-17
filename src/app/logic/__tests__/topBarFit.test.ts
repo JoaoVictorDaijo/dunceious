@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseTopBarStep, TOP_BAR_STEPS, type TopBarMeasurements } from '../topBarFit';
 
 const measured: TopBarMeasurements = {
-  barWidth: 1920, paddingX: 24, brandWidth: { withSlogan: 345, withoutSlogan: 221 },
+  barWidth: 1920, paddingX: 24, brandWidth: { withSlogan: 345, withoutSlogan: 221, toggleOnly: 40 },
   switcherWidth: { full: 344, short: 250, icon: 100 }, toolsGap: 16,
   toolsWidth: { 'layers-full': 557, 'layers-tight': 540, 'layers-short': 470, 'layers-menu': 270 },
 };
@@ -56,7 +56,7 @@ describe('chooseTopBarStep', () => {
     expect(chooseTopBarStep(at(1300), 'viewport')).toEqual(alone);
   });
   it('may sit right of centre when the brand reaches past it', () => {
-    const fit = chooseTopBarStep({ ...at(1200), brandWidth: { withSlogan: 700, withoutSlogan: 700 } }, 'viewport');
+    const fit = chooseTopBarStep({ ...at(1200), brandWidth: { withSlogan: 700, withoutSlogan: 700, toggleOnly: 40 } }, 'viewport');
     expect(fit.switcherLeft).toBe(24 + 700 + fit.step.logoGap);
   });
   it('hub skips layer steps and uses hub variants', () => {
@@ -69,6 +69,13 @@ describe('chooseTopBarStep', () => {
   it.each(['viewport', 'hub'] as const)('reports fits false on the last %s step', mode => {
     const fit = chooseTopBarStep({ ...at(300), toolsWidth: { ...measured.toolsWidth, 'hub-full': 500, 'hub-icon': 400, 'hub-narrow': 300 } }, mode);
     expect(fit.fits).toBe(false);
-    expect(fit.step.id).toBe(mode === 'viewport' ? 'icon-modes' : 'hub-narrow-search');
+    expect(fit.step.id).toBe('no-wordmark');
   });
+});
+
+it.each(['viewport', 'hub'] as const)('hides the wordmark last in %s mode', mode => {
+  const fit = chooseTopBarStep({ ...at(680), toolsWidth: { 'layers-full': 800, 'layers-tight': 700, 'layers-short': 600, 'layers-menu': 401, 'hub-full': 600, 'hub-icon': 500, 'hub-narrow': 401 } }, mode);
+  expect(fit.step.id).toBe('no-wordmark');
+  expect(fit.fits).toBe(true);
+  expect(fit.switcherLeft).toBeGreaterThanOrEqual(80);
 });
