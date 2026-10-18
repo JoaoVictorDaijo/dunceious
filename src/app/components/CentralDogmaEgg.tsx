@@ -208,13 +208,12 @@ interface CentralDogmaEggProps {
  * and the ribosome reads codons that spell the app's name — two of them only
  * because the cell recodes a stop codon.
  */
-const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
 const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  // Replays and reduced motion open on the finished picture; Play runs the whole story on request.
-  const [playing, setPlaying] = useState(() => !replay && !prefersReducedMotion());
+  // The egg plays even under reduced motion: seven deliberate taps ask for it. Replays open on
+  // the finished picture, and Play runs the whole story again.
+  const [playing, setPlaying] = useState(!replay);
   const [elapsed, setElapsed] = useState(playing ? 0 : FINAL_FRAME);
   const [backdropArmed, setBackdropArmed] = useState(false);
 
