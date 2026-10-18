@@ -72,7 +72,7 @@ describe('updateSelectionAfterRecordRemoval', () => {
 });
 
 function makeResult(recordId: string): SearchResult {
-  return { start: 0, end: 3, sequence: 'ATG', recordId, strand: 1 };
+  return { cigar: '3=', start: 0, end: 3, sequence: 'ATG', recordId, strand: 1 };
 }
 
 describe('sanitizeSearchStateAfterRecordRemoval', () => {

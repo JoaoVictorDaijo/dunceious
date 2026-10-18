@@ -15,9 +15,9 @@ In the Visual Viewport, the **Ingestion** section of the sidebar has one card pe
 - **Import annotations**: Upload `.gff`, `.gff3`, `.bed` or BedGraph files to merge additional features into loaded records. The importer first matches exact workspace IDs; a name or accession fallback must identify exactly one record. Ambiguous and unmatched IDs are reported in the **Log Terminal**.
   - A BED file with a numerical score in the 5th column is rendered as an **Interval Track**.
   - A BED file with many data points automatically packs overlapping intervals into multiple rows.
-- **Load project JSON**: Restore a whole workspace saved with **Save project**, after confirmation. **Project → Open project…** in the top bar does the same. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
+- **Load project JSON**: Restore a whole workspace saved with **Save project**, after confirmation. **Project and options → Open project…** in the top bar does the same. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
 
-The **Project** menu sits at the right of the top bar, next to **Options**, in both modes. It saves the whole workspace (**Save project**), opens a saved one (**Open project…**) and empties it (**Clear workspace…**, which asks you to type CLEAR first). `Ctrl S` and `Ctrl O` (`⌘ S` and `⌘ O` on Mac) save and open from anywhere. After a save, a short notice under the button shows the file name.
+The **Project and options** cog sits at the right of the top bar in both modes. Its **Project** section saves the whole workspace (**Save project**), opens a saved one (**Open project…**) and empties it (**Clear workspace…**, which asks you to type CLEAR first). `Ctrl S` and `Ctrl O` (`⌘ S` and `⌘ O` on Mac) save and open from anywhere. After a save, a short notice under the cog shows the file name. Feature colours and theme controls sit below the Project actions in the same panel.
 
 If you leave the page with unsaved work, the browser asks you to confirm first.
 
@@ -46,7 +46,7 @@ You can align in two ways. Both end in the same place: the alignment is overlaid
 4. Enter an email address (EMBL-EBI requires one per job; it is remembered in this browser) and click **Align**.
 5. Follow the job in the monitor: validated, submitted, queued, aligning, fetching, applied. **Minimize** keeps it as a small status pill while you keep browsing; drag the pill anywhere it is out of your way, or focus it and move it with the arrow keys (Shift for bigger steps). Click it to reopen the monitor. **Cancel** only stops Dunceious waiting; the job finishes at EMBL-EBI anyway.
 
-While a job runs, anything that would change the loaded records (uploading, loading a project, removing records, Clear All) is locked. Viewing, search, annotations and exports keep working.
+While a job runs, anything that would change the loaded records (uploading, loading a project, removing records, Clear workspace) is locked. Viewing, search, annotations and exports keep working.
 
 **B. Compute it yourself** and upload the result (nothing leaves your machine):
 
@@ -58,7 +58,7 @@ Once an alignment is loaded, the conservation heatmap (toggled via the **Conserv
 
 #### Comparing against a reference
 
-The **Compare** button in the top bar compares every aligned sequence against one **reference** sequence, column by column.
+The **Compare** button appears in the viewport toolbar once two or more sequences are aligned, after the selection tools and before **Fit**. It compares every aligned sequence against one **reference** sequence, column by column.
 
 - **Reference**: by default the first aligned sequence. Pick another in the Compare menu, or right-click an aligned sequence and choose **Use as Reference** (this also switches an idle comparison to **Differences**). Compare needs at least two aligned sequences; sequences outside the alignment are never compared. The reference row keeps all its colours and carries a **REF** badge. A hidden reference is still used, so hiding it never changes what the other rows are compared to.
 - **Differences**: only residues that differ from the reference keep their colour. With **Show identical residues as dots** on (the default), identical residues are drawn as `·`, as in NCBI's MSA Viewer, Geneious and UGENE.
@@ -79,7 +79,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Scroll**: Use the horizontal scrollbar, Shift + mouse wheel, or the arrow keys. The column with sequence names is sticky and stays visible.
 - **Pan Mode**: Click and drag to move the viewport.
 - **Touch screens**: Drag one finger over the viewer to pan horizontally and vertically; pinch two fingers to zoom around their midpoint. Tap an annotation to open its details. On the minimap, tap to centre the view or drag one finger to move the visible window at the current zoom. Touch pans in either Pan or Select mode; selecting a region still uses a mouse.
-- **Select Mode**: Click and drag to highlight a specific genomic region across all records. Double-click an annotation to select exactly its span. `Esc` clears the selection.
+- **Select Mode**: Click and drag to highlight a specific genomic region across all records. Double-click an annotation to select exactly its span. The **×** (**Clear selection**) at the end of the selection tools, after selection export in the viewport toolbar, clears the selection. `Esc` also clears it; dismissing the **Project and options** panel with `Esc` keeps the selection.
 - **Go to position**: Type a position in the sidebar's **Navigation** box and press Enter. The field shows its unit: `bp` in a nucleotide session, `aa` in a peptide session.
 - **Keyboard shortcuts** (when not typing in a field): `+` / `-` zoom, arrow keys pan and scroll, `Page Up` / `Page Down` scroll a screen of rows, `Home` / `End` jump to the start or end, `F` fits the whole alignment, `C` centres on the selection.
 
@@ -126,8 +126,8 @@ The supported degenerate codes depend on the active **session molecule type**:
 | `M`  | A, C    |      |               |
 
 Literal `T` and `U` queries match their own residues. Reverse-strand searches
-use RNA complements (`A` pairs with `U`) for RNA records and DNA complements
-(`A` pairs with `T`) for DNA records.
+use the record's alphabet: `A` pairs with `U` when the record contains U, or has neither
+T nor U and is declared RNA; otherwise `A` pairs with `T`. T-written RNA records keep T.
 
 **Peptide sessions**
 
@@ -144,22 +144,156 @@ All 20 standard one-letter amino acid codes are accepted literally. Additional a
 
 Results are highlighted in the viewer and listed in the sidebar. Use the **↑ / ↓** arrows to jump between matches. **Annotate** turns one hit into an annotation; **Join selected** / **Join all** turn several hits into one.
 
-#### Fuzzy Mode
+#### Fuzzy mode
 
-- Finds places where the **whole query** matches with a few differences: substitutions, insertions or deletions.
-- A **Min identity** slider (60–100 %) appears below the search bar. Identity is the share of the query that matches: at 80 %, a 50-base query may differ in up to 10 bases. The badge beside the slider shows the edit limit for the current query. Only hits at or above the threshold are searched for and listed.
-- Each hit shows its identity and number of edits. Results are sorted by identity (best match first).
-- IUPAC codes in the query work as in IUPAC mode.
-- A hit must cover the whole query; a match of only part of it is not reported.
-- Both the forward strand and its **reverse complement** are searched automatically for nucleotide sessions. Reverse-complement search is suppressed in peptide sessions, where strand orientation does not apply.
+Choose **Whole query** or **Local** below the Fuzzy toggle. Nucleotide searches support the
+forward strand and reverse complement; peptide searches have no reverse strand.
 
-> **Tip**: Use IUPAC mode for known motifs or primer sequences, and Fuzzy mode to find similar but not identical sequences (e.g., for mutation detection or homology searches).
+**Whole query** finds spans matching the entire query with substitutions, insertions or
+deletions, using Myers' bit-parallel edit distance (as in edlib). IUPAC query codes work as in
+IUPAC mode. **Min query identity** sets the threshold; the badge shows the allowed edits:
+
+- Query identity (%) = 100 × (query length − edits) / query length.
+- Allowed edits = floor(query length × (100 − min query identity) / 100).
+- Edits = mismatch columns + inserted query bases + record bases absent from the query.
+
+The slider runs from 60% to 100%. For example, at 80%, a query of length 50 allows 10 edits.
+Hits cover the whole query and are ranked by edits, then forward position, with non-overlapping
+hits per strand. A match covering only part of the query needs Local mode.
+
+**Local** finds stretches similar to part of the query. It uses Waterman–Eggert in Huang and
+Miller's linear-space form, following **EMBOSS matcher 6.6.0**, with **EMBOSS water 6.6.0**
+scoring defaults:
+
+| Sequence type | Matrix | Gap open | Gap extend |
+| --- | --- | --- | --- |
+| DNA or RNA | EDNAFULL | 10 | 0.5 |
+| Protein | EBLOSUM62 | 10 | 0.5 |
+
+A gap of length n costs 10 + (n − 1) × 0.5. These penalties and matrix values are in EMBOSS
+score units. The first alignment on each record strand is an optimal Smith–Waterman alignment
+with affine gaps (Gotoh). Later alignments cannot reuse an aligned query–record residue pair
+from any earlier alignment, even one hidden from the results. Only positive scores produce hits.
+
+Local can return several non-overlapping hits per record strand. In score order, the overlap
+filter hides an alignment whose record span overlaps a hit already kept on that strand. The
+span includes record bases opposite query gaps. Equal scores follow matcher's enumeration order;
+forward and reverse hits may overlap each other. This greedy filter does not maximize the sum
+of the kept scores.
+
+Open **Local options** for **Min identity** and **Min query coverage**. Both are off by default
+and hide hits after the overlap filter; they never change an alignment. **Result limit** defaults
+to 100 hits overall. Results sort by score descending, then record order, forward before reverse,
+record start, record end and query start. Ties are deterministic. When several first alignments
+have the optimal score, matcher may choose a different path from water, so their path metrics
+can differ even when their optimal scores agree.
+
+When the result limit is reached, the header says **“Top N shown; lower-scoring alignments aren't
+counted”**, with N replaced by the shown count. **Search details** gives the cut-off score: the
+score of the last shown hit. Hidden-by-overlap, hidden-by-display-filter and beyond-limit counts
+then cover only alignments scoring at least that cut-off, including ties. When fewer hits pass
+than the limit, all streams are exhausted and the counts cover all positive-scoring alignments.
+A stream is one record strand. Streams with no positive alignment and records skipped for
+unsupported characters are counted separately.
+
+Local uses the matrix's ambiguity-code rows in both query and record. For nucleotides, N/N is
+identical but scores −1 in EDNAFULL and is not similar; for proteins, N is asparagine and N/N
+scores +6 in EBLOSUM62 and is both identical and similar. T and U have equal EDNAFULL scores
+but remain different letters for identity. Whole-query and IUPAC modes instead expand query
+ambiguity codes only: nucleotide N/N and protein X/X count as mismatches there.
+
+Whitespace is removed from the query. Local accepts only symbols present in its matrix:
+`ATGCSWRYKMBVHDNU` for nucleotides and
+`ARNDCQEGHILKMFPSTWYVBZX*` for proteins, case-insensitively. Unsupported query characters,
+including `-`, are reported and prevent the search. Record alignment gaps are removed before
+searching; records with unsupported residues are skipped and named in the log and Search details.
+
+**Local metrics.** Each value comes from the reported alignment and original symbols, following
+EMBOSS water 6.6.0's report (`ajalign.c`):
+
+| Metric | Definition |
+| --- | --- |
+| Score | Sum of matrix scores for paired residues − sum of [10 + (n − 1) × 0.5] over gap runs of length n, in EMBOSS units. |
+| Length | Paired-residue columns + insertion columns + deletion columns; unaligned query ends are excluded. |
+| Identity (%) | 100 × identical-symbol columns / Length, ignoring case but keeping T and U distinct. |
+| Similarity (%) | 100 × columns with a positive matrix score / Length. |
+| Gaps (%) | 100 × gap columns / Length; each inserted or deleted base is one column. |
+| Query coverage (%) | 100 × aligned query residues / full query length; query residues opposite record gaps are included. |
+
+Query range and record range use 1-based inclusive coordinates. Local identity and whole-query
+query identity have different denominators; use the formula beside each label when comparing hits.
+E-values and bit scores are not shown. Gapped statistical significance needs parameters calibrated
+for the exact matrix, gap penalties and search-space size; no such calibration is established here
+for EDNAFULL with gap 10/0.5. Raw scores are shown with their scoring scheme.
+
+**Long searches.** A quick Local search shows a spinner. After one second, the search job monitor
+shows record strands finished out of the total, progress through the current work, elapsed time
+and **Cancel**. **Minimize** turns it into a draggable pill; click the pill to reopen the monitor.
+Cancel stops the workers immediately, and a new search can be started. Local has no fixed time
+limit; Whole query retains its 15-second guard. All sequence work stays in the browser. Once
+**Local search ready** appears, Local works offline, including after Cancel and a new search.
+Loading or worker failures show an error rather than partial results.
+
+#### Hit marks and alignment text
+
+Open **Search details** for the current mode's legend. Forward hits have an amber tint and
+reverse hits a pink tint. At base-level zoom, the marks mean:
+
+| Mark | IUPAC and Whole query | Local |
+| --- | --- | --- |
+| Hit tint, record letter; `\|` in the match line | Identical and accepted by the mode | Identical original symbols |
+| Dotted underline; `:` | Matched through a query ambiguity code | Not used |
+| Dashed outline; `:` | Not used | Different symbols with a positive matrix score (similar) |
+| Ink cell, white letter; `.` | Mismatch, including record ambiguity codes the query does not accept | Different symbols without a positive matrix score |
+| Slate cell; `−` in the query row | Record base absent from the query (Whole query only) | Record base absent from the query |
+| Violet caret between bases, inserted letters above | Extra query bases (Whole query only) | Extra query bases |
+
+The active hit shows a Query row and match line above the record. On reverse hits, this row is
+labelled **Query (reverse complement)** so it compares with the forward record letters. When
+hits overlap, the active hit's marks win, then the earlier hit in results order. Existing record
+alignment gaps keep their gap style. Zoomed out, differences appear as ticks, carets and slate
+segments. Clearing the search removes the query lane.
+
+Each result card gives column counts in words: an insertion or deletion count is a count of
+bases, not gap runs. Its **barcode** has one cell per alignment column, in query orientation on
+both strands (5′→3′ for nucleotides, N→C for proteins). Ticks mark mismatches, violet carets mark
+insertions and slate notches mark deletions; its accessible label gives the counts.
+
+Expand **Alignment** on a card to see and copy plain text in the **EMBOSS pair layout**: query,
+match line and record, in blocks of 60 columns with 1-based coordinates at both ends. The
+match line uses `|` for identity, `:` for ambiguity acceptance or Local similarity, `.` for
+mismatch and a space for a gap. For reverse hits, the query reads 5′→3′ and the record line
+shows the reverse strand with descending forward coordinates, following **NCBI BLAST's
+Plus/Minus convention**. The record line is labelled “reverse strand”.
+
+#### Annotations from a hit
+
+**Annotate** keeps the query, mode, parameters, alignment path and results as search details
+in the project file. In annotation details, **Bases inside** offers **Nothing**, **Record bases**
+or **Query aligned to record**. The last choice draws the query over the annotation's record
+columns with the hit marks. The annotation still describes the record region: its coordinates,
+exported sequence and translation come from the record. Joined annotations show record bases
+only; the query layer is unavailable for them.
+
+Moving, resizing or changing the strand makes the stored alignment stale. The query layer
+disappears and details say **“The search alignment no longer matches this annotation's region.”**
+The stored provenance remains until **Remove search details** is chosen.
+
+When creating an annotation from a hit, **Add search details to the note** is opt-in and off by
+default. If selected, export generates a human-readable GenBank `/note` or GFF3 `Note` from the
+stored details. Internal search metadata is kept in project files and never exported as
+qualifiers. Stale annotations export no search note; Remove search details also removes that
+optional note. Exported bases are always the record's bases.
+
+Method definitions and reference implementations are recorded in the
+[Local search spec](docs/specs/2026-10-16-search-local-alignment.md) and
+[hit alignment view spec](docs/specs/2026-10-16-search-hit-alignment-view.md).
 
 ### 3.2 Annotation Hub
 
-Switch to **Annotation Hub** in the centred top-bar switcher; it stays in the same place in both workspaces. Search and the joined **Import / Export** buttons sit on its right, beside Options. **Add annotation** is in the filter bar, before the strand control. The viewport has Pan/Select and Layers in that area instead; when inline controls do not fit the available space, **Layers** opens the layer toggles and explains unavailable layers. Its index, search, folds, grouping, density, selection and scroll positions stay in place when you switch to the viewport and back.
+Switch to **Annotation Hub** in the top-bar workspace switcher, which stays centred while space permits. Search and the joined **Import / Export** buttons sit on its right, beside the **Project and options** cog. **Add annotation** is in the filter bar, before the strand control. The viewport has Pan/Select and Layers in that area instead; when inline controls do not fit the available space, **Layers** opens the layer toggles and explains unavailable layers. Its index, search, folds, grouping, density, selection and scroll positions stay in place when you switch to the viewport and back.
 
-**Find, add and group sequences.** The **+** beside the Sequence index title adds GenBank or FASTA files without leaving the hub (dropping files on the hub works too). The sidebar's **Find sequence** searches IDs/accessions, display names, isolate text, details and definitions. **List** shows each sequence once; **Grouped** partitions them by Organism, Host, Location (country before `:`), Collection year or Imported from. The grouping menu previews counts; unavailable fields say **No data in these files**. Missing values are in **Not specified**, last. Sort by load order, accession or fewest annotations. **Needs attention** is a toggle chip with a sequence count, limiting the index to unannotated, partial or edited sequences. Each track card shows its accession or display name, isolate, length, annotation count, status flags and mini genome track. The current card has an amber edge and window showing the span of annotations visible in the main list. The index scrolls through every sequence without pagination; only the visible cards are rendered. The eye hides a sequence in the hub only; its dimmed card stays with a **Hidden in hub** flag. Click the card or its jump control to unhide it and jump to the sequence; mini-track features still jump to their annotation rows. The title shows visible/total counts when sequences are hidden; its compact **Show all** control restores them without moving the cards. At narrow widths it shows an eye-slash icon and the hidden count. Hub visibility persists across workspace tabs for the session and resets on workspace replacement; it is not saved in projects. Viewport visibility is separate: use the eye beside each record in the viewport sidebar’s **Record Navigator**.
+**Find, add and group sequences.** The **Add sequences…** button beside the Sequence index title adds GenBank or FASTA files without leaving the hub (dropping files on the hub works too). The sidebar's **Find sequence** searches IDs/accessions, display names, isolate text, details and definitions. **List** shows each sequence once; **Grouped** partitions them by Organism, Host, Location (country before `:`), Collection year or Imported from. The grouping menu previews counts; unavailable fields say **No data in these files**. Missing values are in **Not specified**, last. Sort by load order, accession or fewest annotations. **Needs attention** is a toggle chip with a sequence count, limiting the index to unannotated, partial or edited sequences. Each track card shows its accession or display name, isolate, length, annotation count, status flags and mini genome track. The current card has an amber edge and window showing the span of annotations visible in the main list. The index scrolls through every sequence without pagination; only the visible cards are rendered. The eye hides a sequence in the hub only; its dimmed card stays with a **Hidden in hub** flag. Click the card or its jump control to unhide it and jump to the sequence; mini-track features still jump to their annotation rows. The title shows visible/total counts when sequences are hidden; its compact **Show all** control restores them without moving the cards. At narrow widths it shows an eye-slash icon and the hidden count. Hub visibility persists across workspace tabs for the session and resets on workspace replacement; it is not saved in projects. Viewport visibility is separate: use the eye beside each record in the viewport sidebar’s **Record Navigator**.
 
 **By sequence tab.** The tabs carry counts and the row's right side shows the filtered annotation and sequence totals. Each sequence and its rows share a rounded white card in a grey well. Its full header shows the accession followed by the display name, details chips, length, annotation count and genome track. The current card has an amber border and ring. The header scrolls away; once it is entirely above the list, a slim bar keeps its identity, live track window and counts visible. The bar moves up at the end of the card so it cannot cover the next header. Missing Host, Location and Collected values have **+** buttons that open the details editor focused on that field. Collapse a section to its type summary, or use the **Expand all / Collapse all** icons for visible sections. Choose Compact or Comfortable in the density control; the large genome track uses 10 px lanes with 3 px gaps in both densities. Mini tracks stay the same size. The scroll rail on the right combines group blocks, search ticks and a draggable thumb. Click a block to jump to its group, drag the thumb to scroll, or click empty rail space to page toward it; the sidebar follows the group at a reading line 30% down the list, bounded to 140–280 px below its top. A jump keeps its target group current until you scroll away from its landing position. A trailing slim bar stays white when its group is no longer current. Arrow and Page Up/Down keys scroll the focused list.
 
@@ -179,7 +313,7 @@ Switch to **Annotation Hub** in the centred top-bar switcher; it stays in the sa
 
 **Selection.** Index/header checkboxes select sequences; row checkboxes select annotations, with a select-all-visible checkbox above the rows. Sequence actions include Show only these / Show all, Export…, Hide in hub, Set detail and Remove… with confirmation. **Set detail** fills only empty values by default; untick **Only where empty** to overwrite existing values. Selected annotations can be exported to GFF3 or deleted with Undo. Clear removes the selection. Bulk detail changes, sequence removals and annotation deletion remain locked during remote alignment.
 
-**Import, save and drop.** The toolbar **Import** menu offers **Sequences** (GenBank, GenPept or FASTA), **Annotations** (GFF3, BED or bedGraph), **Alignment** (pre-aligned FASTA) and **Dunceious project** (replaces the workspace). Annotations and Alignment require loaded sequences. The **+** and **⋯** Workspace actions controls appear beside both the hub’s Sequence index title and the viewport’s Record Navigator title. **+** opens the GenBank/FASTA picker; **⋯** offers **Save project** for the whole workspace and **Clear workspace…** (type `CLEAR` to confirm). Clear is disabled when empty or during an alignment job; imports and Add annotation are also locked during alignment. Drop `.gb`/`.genbank`/`.fasta`/`.fa` sequences and `.bed`/`.gff`/`.gff3`/`.bedgraph` annotations together: sequences load first, then annotations attach to the records imported in that batch, even when their IDs gain suffixes. Duplicate incoming IDs make annotation routing ambiguous and are reported. Drop a project `.json` on its own; mixed project drops are refused. Drops always add FASTA as sequences; use **Import → Alignment** explicitly for an alignment overlay.
+**Import, save and drop.** The toolbar **Import** menu offers **Sequences** (GenBank, GenPept or FASTA), **Annotations** (GFF3, BED or bedGraph), **Alignment** (pre-aligned FASTA) and **Dunceious project** (replaces the workspace). Annotations and Alignment require loaded sequences. The **Add sequences…** button beside both the hub’s Sequence index title and the viewport’s Record Navigator title opens the GenBank/FASTA picker. The **Project and options** cog offers **Save project** for the whole workspace and **Clear workspace…** (type `CLEAR` to confirm). Clear is disabled when empty or during an alignment job; imports and Add annotation are also locked during alignment. Drop `.gb`/`.genbank`/`.fasta`/`.fa` sequences and `.bed`/`.gff`/`.gff3`/`.bedgraph` annotations together: sequences load first, then annotations attach to the records imported in that batch, even when their IDs gain suffixes. Duplicate incoming IDs make annotation routing ambiguous and are reported. Drop a project `.json` on its own; mixed project drops are refused. Drops always add FASTA as sequences; use **Import → Alignment** explicitly for an alignment overlay.
 
 **Keyboard.** Press `?` or use **Keyboard shortcuts** above Log in the sidebar to open the shortcut sheet. Esc or its close button dismisses it and returns focus to the opener. Tooltips show shortcut hints for search, match navigation and folding. These shortcuts apply while the hub has focus and you are not typing:
 
@@ -219,7 +353,7 @@ Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the filen
 - **FASTA** writes original residues and ID-only headers by default. **Keep alignment gaps** is optional and unavailable without an alignment. **Include details in the header (NCBI format)** writes details, isolate/strain and kept unknown modifiers; deprecated modifiers are omitted. Whole-record FASTA from the viewport also defaults to original residues. Viewport selection export retains exactly the selected aligned columns.
 - **GenBank / GenPept** writes sequences and annotations with molecule-appropriate qualifiers, quoted text, unquoted numeric values and bare flags. Annotation type and **Only matching annotations** filters retain source details. Missing organism warns without blocking export. Repeated qualifiers imported from GenBank keep only their last value.
 - **GFF3** writes annotations and full-sequence details regions (`gbkey=Src`), with type and matching filters. Load the sequences separately before importing it. Geometry, strand, phase and multipart identity are preserved; exact extracted residue order for unusual all-inner-complement joins is not guaranteed.
-- **Dunceious project** saves the chosen subset, retaining every workspace value, including invalid details, originals, edit markers, display names, modifiers and colours. It reopens only in Dunceious. **Save project** in the top bar’s **Project** menu saves the whole workspace.
+- **Dunceious project** saves the chosen subset, retaining every workspace value, including invalid details, originals, edit markers, display names, modifiers and colours. It reopens only in Dunceious. **Save project** in the top bar’s **Project and options** cog saves the whole workspace.
 
 **What this file will contain** previews written details and omissions using the selected export options, including invalid edits, non-GenBank attributes and deprecated FASTA modifiers. Display names stay in Dunceious. The missing-organism warning offers **Edit details**. The footer shows the sequence count and filename. See [the format preservation table](./ARCHITECTURE.md#export-format-contracts) for what each export retains.
 
@@ -233,7 +367,7 @@ Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the filen
 
 ## 5. Options
 
-The gear in the top bar opens **Options**:
+The **Project and options** cog in the top bar holds the Project actions (Save, Open and Clear workspace), followed by these options:
 
 - **Chrome theme**: Clean, Halo, Aurora or Mesh. Remembered in this browser.
 - **Feature Colors**: a colour per feature type; **Reset to Defaults** restores them. Colours are saved with the project.

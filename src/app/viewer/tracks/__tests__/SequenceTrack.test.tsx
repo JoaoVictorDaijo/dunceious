@@ -204,7 +204,7 @@ describe('translation zoom boundary', () => {
 
   it('keeps low-zoom search highlights within the nucleotide band', () => {
     const recorder = installCanvasRecorder();
-    const hit = { recordId: 'r', start: 0, end: 3, strand: 1 as const, sequence: 'ATG' };
+    const hit = { cigar: '3=', recordId: 'r', start: 0, end: 3, strand: 1 as const, sequence: 'ATG' };
     render(<SequenceTrack {...props('ATG')} zoomLevel={5} searchResults={[hit]} />);
     expect(recorder.fillRects()[0][3]).toBe(22);
   });
@@ -347,4 +347,63 @@ describe('reference comparison', () => {
     expect(recorder.texts()).toEqual([]);
     expect(recorder.fillColors()).toContain('#e2e8f0');
   });
+});
+
+it('exposes active hit marks and the reverse query label', () => {
+  const recorder = installCanvasRecorder();
+  const hit = { sequence: 'ACGT', recordId: 'r', start: 0, end: 4, strand: -1 as const, cigar: '1=1X1I1D1=' };
+  const { container } = render(<SequenceTrack {...props('ACGT', [])} showTranslation={false}
+    record={{ id: 'r', name: 'r', sequence: 'ACGT', features: [] }}
+    completedSearch={{ query: 'ATAT', mode: 'whole', alphabet: 'nucleotide', options: { minIdentity: 80, strand: 'both', maxResults: 100 } }}
+    searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(container.querySelector('[data-sequence-band]')?.getAttribute('data-hit-marks')).toBe('|-.|');
+  expect(container.querySelector('[data-sequence-band]')?.getAttribute('data-hit-insertions')).toBe('1');
+  expect(recorder.texts()).toContain('Query (reverse complement)');
+});
+
+it('keeps the query lane directly above the record and translation above the query', () => {
+  installCanvasRecorder();
+  const hit = { sequence: 'ATG', recordId: 'r', start: 0, end: 3, strand: 1 as const, cigar: '3=' };
+  const { container } = render(<SequenceTrack {...props('ATG')} y={100}
+    searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(container.querySelector<HTMLElement>('[data-query-band]')?.style.transform).toBe('translateY(52px)');
+  expect(container.querySelector<HTMLElement>('[data-translation-band="forward"]')?.style.transform).toBe('translateY(34px)');
+});
+
+it.each(['nucleotide', 'protein'] as const)('explains identical-letter ambiguity mismatches for %s', alphabet => {
+  installCanvasRecorder();
+  const seq = alphabet === 'protein' ? 'X' : 'N';
+  const hit = { sequence: seq, recordId: 'r', start: 0, end: 1, strand: 1 as const, cigar: '1=' };
+  const { getByRole } = render(<SequenceTrack {...props(seq, [])} showTranslation={false}
+    moleculeType={alphabet === 'protein' ? 'protein' : 'dna'} record={{ id: 'r', name: 'r', sequence: seq, features: [] }}
+    completedSearch={{ query: seq, mode: 'whole', alphabet, options: { minIdentity: 80, strand: 'both', maxResults: 100 } }}
+    searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(getByRole('button', { name: "Ambiguity code in the record: the search doesn't count it as a match" }).getAttribute('data-tip'))
+    .toBe("Ambiguity code in the record: the search doesn't count it as a match");
+});
+
+it.each([1, -1] as const)('preserves strand %s tint at overview zoom', strand => {
+  const recorder = installCanvasRecorder();
+  const hit = { sequence: 'A'.repeat(100), recordId: 'r', start: 0, end: 100, strand, cigar: '100=' };
+  render(<SequenceTrack {...props('A'.repeat(100), [])} showTranslation={false} zoomLevel={0.25}
+    xScale={d3.scaleLinear().domain([0, 100]).range([0, 25])} searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(recorder.fillColors()).not.toContain('#22c55e');
+  expect(recorder.fillColors()).toContain(strand === 1 ? '#fbbf24' : '#f472b6');
+});
+
+it('gives an active forward hit priority over a later reverse background', () => {
+  const recorder = installCanvasRecorder();
+  const active = { sequence: 'A', recordId: 'r', start: 0, end: 1, strand: 1 as const, cigar: '1=' };
+  const other = { ...active, strand: -1 as const };
+  render(<SequenceTrack {...props('A', [])} showTranslation={false}
+    searchResults={[active, other]} allSearchResults={[active, other]} currentSearchIdx={0} />);
+  expect(recorder.fillColors().at(-1)).toBe('#fbbf24');
+});
+
+it('keeps even a subpixel hit visible when its base is not the pixel sample', () => {
+  const recorder = installCanvasRecorder();
+  const hit = { sequence: 'A', recordId: 'r', start: 0, end: 1, strand: 1 as const, cigar: '1=' };
+  render(<SequenceTrack {...props('A'.repeat(100), [])} showTranslation={false} zoomLevel={0.25}
+    xScale={d3.scaleLinear().domain([0, 100]).range([0, 25])} searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
+  expect(recorder.fillRects().filter(([x, , width]) => x === 0 && width === 1.2)).toEqual([]);
 });

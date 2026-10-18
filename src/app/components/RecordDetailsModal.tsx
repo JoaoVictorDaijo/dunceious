@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -31,6 +32,8 @@ export interface RecordDetailsModalProps {
   onExportRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
+  onSetBasesMode?: (mode: 'nothing' | 'record' | 'query') => void;
+  onRemoveSearchDetails?: () => void;
   onSetShowBases?: (show: boolean) => void;
 }
 
@@ -46,7 +49,12 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onExportRecord,
   onCopyLog,
   onSetShowBases,
+  onSetBasesMode,
+  onRemoveSearchDetails,
 }) => {
+  const searchHit = feature ? readSearchHit(feature) : null;
+  const current = feature ? isSearchHitCurrent(feature) : false;
+  const joined = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const displaySeq = getDisplaySeq(record.sequence, feature);
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
@@ -123,7 +131,18 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
                 </p>
               </div>
-              {onSetShowBases && (
+              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
+                <label className="flex items-center gap-3">Bases inside
+                  <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
+                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded p-2">
+                    <option value="nothing">Nothing</option><option value="record">Record bases</option>
+                    {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
+                  </select>
+                </label>
+                {joined && <p>The query layer isn't available for joined annotations.</p>}
+                {searchHit && !current && <p>The search alignment no longer matches this annotation's region.</p>}
+                {searchHit && onRemoveSearchDetails && <button type="button" onClick={onRemoveSearchDetails} className="text-rose-600">Remove search details</button>}
+              </div> : onSetShowBases && (
                 <div className="col-span-2 flex items-center justify-between gap-4 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
                   <div>
                     <span className="text-[11px] font-bold text-slate-700 block">Show sequence in viewer</span>

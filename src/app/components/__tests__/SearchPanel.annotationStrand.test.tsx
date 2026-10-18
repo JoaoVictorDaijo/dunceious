@@ -23,7 +23,7 @@ import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import SearchPanel, { type SearchPanelProps } from '../SearchPanel';
 import type { SearchResult } from '@/src/domain/bio/types';
 
-const hit: SearchResult = { recordId: 'synthetic', sequence: 'TAC', start: 3, end: 8, strand: -1,
+const hit: SearchResult = { cigar: '3=', recordId: 'synthetic', sequence: 'TAC', start: 3, end: 8, strand: -1,
   segments: [{ start: 3, end: 4 }, { start: 6, end: 8 }] };
 function panelProps(): SearchPanelProps & { onClearSearch: () => void } {
   return {
@@ -41,5 +41,5 @@ it('passes reverse direction and aligned segments from the Annotate button', () 
   const props = panelProps();
   render(<SearchPanel {...props} />);
   fireEvent.click(screen.getByRole('button', { name: /^Annotate(?: match)?/ }));
-  expect(props.onAnnotateMatch).toHaveBeenCalledWith('synthetic', 3, 8, 'Match: TAC', hit.segments, -1);
+  expect(props.onAnnotateMatch).toHaveBeenCalledWith('synthetic', 3, 8, 'Match: TAC', hit.segments, -1, undefined);
 });

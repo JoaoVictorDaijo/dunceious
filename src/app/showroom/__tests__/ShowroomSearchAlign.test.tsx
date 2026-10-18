@@ -148,7 +148,7 @@ describe('Showroom alignment', () => {
     agreeAndAlign();
     gotIt();
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Align with EMBL-EBI' })).getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
     gotIt();
     expect(fetch).not.toHaveBeenCalled();
     expect(xhrOpen).not.toHaveBeenCalled();

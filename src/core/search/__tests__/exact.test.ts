@@ -23,7 +23,7 @@ import { runExactSearch } from '../exact';
 describe('runExactSearch — forward strand', () => {
   it('finds a forward match with rebased coordinates and non-gap segments', () => {
     expect(runExactSearch('ACG', [{ id: 'r1', sequence: 'TTACGTT' }], false, 'fwd')).toEqual([
-      { start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
+      { cigar: '3=', start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
     ]);
   });
 
@@ -38,7 +38,7 @@ describe('runExactSearch — reverse strand remap', () => {
   it('remaps a reverse match onto forward coordinates (start = L - rcEnd)', () => {
     const out = runExactSearch('ACG', [{ id: 'r1', sequence: 'TTACGTT' }], false, 'rev');
     expect(out).toEqual([
-      { start: 3, end: 6, sequence: 'ACG', recordId: 'r1', strand: -1, segments: [{ start: 3, end: 6 }] },
+      { cigar: '3=', start: 3, end: 6, sequence: 'ACG', recordId: 'r1', strand: -1, segments: [{ start: 3, end: 6 }] },
     ]);
   });
 
@@ -58,9 +58,9 @@ describe('runExactSearch — reverse strand remap', () => {
     const seq = 'AACGTTTTTTTTCGTT';
     const out = runExactSearch('AACG', [{ id: 'r1', sequence: seq }], false, 'both');
     expect(out).toEqual([
-      { start: 0, end: 4, sequence: 'AACG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 4 }] },
-      { start: 12, end: 16, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 12, end: 16 }] },
-      { start: 2, end: 6, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 2, end: 6 }] },
+      { cigar: '4=', start: 0, end: 4, sequence: 'AACG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 4 }] },
+      { cigar: '4=', start: 12, end: 16, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 12, end: 16 }] },
+      { cigar: '4=', start: 2, end: 6, sequence: 'AACG', recordId: 'r1', strand: -1, segments: [{ start: 2, end: 6 }] },
     ]);
     const fwdIdx = out.findIndex(r => r.strand === 1);
     const revIdx = out.findIndex(r => r.strand === -1);
@@ -76,7 +76,7 @@ describe('runExactSearch — gapped alignedSequence & empty guard', () => {
     // matched substring is 'A-CG'; getNonGapSegments splits it at the gap.
     const out = runExactSearch('ACG', [{ id: 'r1', sequence: 'AAA', alignedSequence: 'A-CGTT' }], false, 'fwd');
     expect(out).toEqual([
-      { start: 0, end: 4, sequence: 'A-CG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }] },
+      { cigar: '3=', start: 0, end: 4, sequence: 'A-CG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }] },
     ]);
   });
 
