@@ -63,6 +63,25 @@ describe('CentralDogmaEgg', () => {
     expect(screen.getByLabelText('Translated protein').textContent).toMatch(/^D.*U.*N.*C.*E.*I.*O.*U.*S/);
   });
 
+  it('opens on the finished picture under reduced motion and plays the whole story on request', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query }));
+    try {
+      render(<CentralDogmaEgg onClose={() => {}} />);
+      expect(screen.getByText('DUNCEIOUS expressed')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /Play animation/ }));
+      expect(screen.queryByText('DUNCEIOUS expressed')).toBeNull();
+      expect(screen.getByText('DNA')).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('plays a replay again on request', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Play animation/ }));
+    expect(screen.queryByText('DUNCEIOUS expressed')).toBeNull();
+  });
+
   it('signs the finale with the science credit', () => {
     render(<CentralDogmaEgg replay onClose={() => {}} />);
     const finale = screen.getByText('Made with passion and built for science');

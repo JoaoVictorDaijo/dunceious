@@ -208,10 +208,14 @@ interface CentralDogmaEggProps {
  * and the ribosome reads codons that spell the app's name — two of them only
  * because the cell recodes a stop codon.
  */
+const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [elapsed, setElapsed] = useState(replay ? FINAL_FRAME : 0);
+  // Replays and reduced motion open on the finished picture; Play runs the whole story on request.
+  const [playing, setPlaying] = useState(() => !replay && !prefersReducedMotion());
+  const [elapsed, setElapsed] = useState(playing ? 0 : FINAL_FRAME);
   const [backdropArmed, setBackdropArmed] = useState(false);
 
   useEffect(() => {
@@ -230,7 +234,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-    const still = replay || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
+    const still = !playing;
     let frame = 0;
     const start = performance.now();
     const render = (now: number) => {
@@ -241,7 +245,6 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
         canvas.height = Math.round(height * dpr);
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // Replays and reduced motion land on the finished picture with a still helix.
       const t = still ? FINAL_FRAME : now - start;
       drawFrame(ctx, width, height, t);
       setElapsed(t);
@@ -249,7 +252,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
     };
     frame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(frame);
-  }, [replay]);
+  }, [playing]);
 
   const shown = elapsed < TRANSLATE_AT ? 0 : Math.min(CODONS.length, Math.floor((elapsed - TRANSLATE_AT) / CODON_MS) + 1);
   const caption =
@@ -310,6 +313,14 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
           >
             {AUTHORS.map(login => <AuthorCard key={login} login={login} />)}
           </div>
+          {!playing && (
+            <button
+              onClick={e => { e.stopPropagation(); setElapsed(0); setPlaying(true); }}
+              className="mt-5 px-4 py-2 rounded-xl border border-slate-700 bg-slate-900/70 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-300 hover:text-white hover:border-sky-500/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+            >
+              <i className="fas fa-play mr-2"></i>Play animation
+            </button>
+          )}
           <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Geniality is overpriced · click anywhere to close</p>
         </div>
       )}
