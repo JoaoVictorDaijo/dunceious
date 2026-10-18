@@ -22,6 +22,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.5.1] — 2026-10-18
+
+### Changed
+
+- Each release on main is tagged vX.Y.Z automatically by the Release tag workflow instead of by hand.
+
 ## [3.5.0] — 2026-10-18
 
 ### Added
