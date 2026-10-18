@@ -124,17 +124,18 @@ Each PR adds one `changes/unreleased/<short-slug>.md` fragment; see
      npm run changelog:release -- X.Y.Z  # optional second argument: YYYY-MM-DD
    Commit: chore(release): vX.Y.Z  — include CHANGELOG.md and fragment deletions
 3. Open the develop → main promotion PR; CI must be green.
-4. After merge, tag the MAIN merge commit and push:
-     git tag -a vX.Y.Z <main-merge-sha> -m "Release vX.Y.Z"
-     git push origin vX.Y.Z
+4. After merge, the Release tag workflow tags the MAIN merge commit vX.Y.Z.
+   Do not push tags by hand. Confirm the tag exists; if the run failed, re-run
+   it from the Actions tab (workflow_dispatch, optional `sha` input).
 5. Verify the deployed StatusBar shows vX.Y.Z and a fresh export carries it.
 ```
 
 Going forward, tags are annotated `vX.Y.Z`, created **only** on `main` promotion
-commits, so a tag means "this was deployed." **The reconstructed backfill is the
-exception:** `v1.0.0`–`v2.4.1` sit on the *develop-line* commits where each wave
-landed (main is behind and diverged), so they mark **reconstructed development
-milestones**, not deployments — only `v1.0.0`–`v2.0.1` are also reachable from
+commits by `.github/workflows/release-tag.yml`, so a tag means "this was deployed."
+Agent sessions cannot push tags, which is why tagging lives in CI. **The
+reconstructed backfill is the exception:** `v1.0.0`–`v2.4.1` sit on the
+*develop-line* commits where each wave landed (main is behind and diverged), so
+they mark **reconstructed development milestones**, not deployments — only `v1.0.0`–`v2.0.1` are also reachable from
 `main`. The deploy-means-tag rule binds from the first real promotion onward.
 
 ## Pushes and Cloudflare Pages builds
