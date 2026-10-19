@@ -38,7 +38,7 @@ function setup(showTranslation = true, moleculeType: SeqRecord['moleculeType'] =
       { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1 },
     ],
   }));
-  return render(<GenomeViewer records={records} consensus={records[0].sequence}
+  return render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}
     showAnnotations={false} showTranslation={showTranslation} showTracks={false} showConservation={false}
     dragMode="pan" activeSelection={null} onSelectionChange={() => {}} onExportFasta={() => {}}
     onAddAnnotation={() => {}} searchResults={[]} currentSearchIdx={-1} />);

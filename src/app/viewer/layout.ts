@@ -19,6 +19,8 @@
 
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
+import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
+import type { SearchResult } from '@/src/domain/bio/types';
 import { showsAnnotationBases } from './annotationPresentation';
 import { assignTranslationLanes, NO_TRANSLATION_LANES, type TranslationLanes } from './cds';
 
@@ -61,6 +63,7 @@ export interface RecordLayout {
 }
 
 export interface LayoutOptions {
+  searchResultsByRecord?: Record<string, SearchResult[]>;
   showAnnotations: boolean;
   /** Bases are legible at this zoom: opted-in annotations open to show them. */
   basesVisible?: boolean;
@@ -204,7 +207,8 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
       const translationLanes = translationLanesFor(record, effectiveTranslation);
       const forwardHeight = effectiveTranslation ? AA_ROW_HEIGHT * translationLanes.forward : 0;
       const reverseHeight = effectiveTranslation ? AA_ROW_HEIGHT * translationLanes.reverse : 0;
-      const seqBaseY = annotHeight + quantHeight + topPadding + forwardHeight;
+      const queryHeight = opts.searchResultsByRecord?.[record.id]?.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+      const seqBaseY = annotHeight + quantHeight + topPadding + forwardHeight + queryHeight;
       const height = seqBaseY + reverseHeight + NT_ROW_HEIGHT + 20;
 
       return {

@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 
-const GENOME_FILE = 'examples/sars-cov-2-NC_045512.gb';
+const GENOME_FILE = 'examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb';
 const genbank = readFileSync(GENOME_FILE, 'utf8');
 const genome = genbank.slice(genbank.indexOf('\nORIGIN') + '\nORIGIN'.length).replace(/[^acgt]/gi, '').toUpperCase();
 const SWAP: Record<string, string> = { A: 'C', C: 'G', G: 'T', T: 'A' };

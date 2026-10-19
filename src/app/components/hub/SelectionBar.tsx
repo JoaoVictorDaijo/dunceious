@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useUiEffects } from '@/src/app/components/uiEffects';
 import { useEffect, useRef, useState } from 'react';
 import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
 import type { useHubState } from '@/src/app/hooks/useHubState';
@@ -29,6 +30,7 @@ export interface SelectionBarProps {
   organismEditRequest?: number;
 }
 export default function SelectionBar({ records, state, locked, onSetDetail, onRemoveRecords, onExport, onExportRows, onDeleteRows, organismEditRequest = 0 }: SelectionBarProps) {
+  const { confirm, allowAction } = useUiEffects();
   const [field, setField] = useState<DetailKey>('host');
   const [value, setValue] = useState('');
   const [onlyEmpty, setOnlyEmpty] = useState(true);
@@ -54,13 +56,13 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onRe
       <input ref={valueInput} aria-label="Detail value" value={value} onChange={e => setValue(e.target.value)} className="w-32 rounded border border-slate-300 bg-slate-950 text-slate-200 p-1" />
       <label className="flex gap-1"><input type="checkbox" checked={onlyEmpty} onChange={e => setOnlyEmpty(e.target.checked)} />only where empty</label>
       <button disabled={locked || !value.trim()} onClick={() => {
-        if (locked || !value.trim()) return;
+        if (locked || !value.trim() || !allowAction('set-detail')) return;
         const eligible = chosen.filter(r => !onlyEmpty || !readDetails(r)[field]?.trim());
         const kept = chosen.length - eligible.length;
         onSetDetail(new Set(eligible.map(r => r.id)), field, value);
         setMessage(`Set ${label} on ${eligible.length} sequences${kept ? ` · ${kept} already had a value and kept it` : ''}`);
       }} className="rounded border border-slate-300 bg-slate-800 px-2 py-1 disabled:opacity-40">Apply</button>
-      <button disabled={locked} className="text-rose-300 disabled:opacity-40" onClick={() => { if (!locked && window.confirm(`Remove ${chosen.length} sequences from the workspace?`)) { onRemoveRecords(new Set(chosen.map(r => r.id))); state.setSelectedRecords(new Set()); } }}>Remove…</button>
+      <button disabled={locked} className="text-rose-300 disabled:opacity-40" onClick={() => { if (!locked && allowAction('remove-records') && confirm(`Remove ${chosen.length} sequences from the workspace?`)) { onRemoveRecords(new Set(chosen.map(r => r.id))); state.setSelectedRecords(new Set()); } }}>Remove…</button>
     </>}
     {rows.size > 0 && <><strong>{rows.size} annotations selected</strong><button onClick={exportRows}>Export GFF3</button><button disabled={locked} className="text-rose-300 disabled:opacity-40" onClick={() => { if (!locked) { onDeleteRows(new Set(rows)); state.setSelectedRows(new Set()); } }}>Delete with undo</button></>}
     <button onClick={() => { state.setSelectedRecords(new Set()); state.setSelectedRows(new Set()); }}>Clear</button>

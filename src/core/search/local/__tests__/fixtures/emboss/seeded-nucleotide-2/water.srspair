@@ -1,0 +1,44 @@
+########################################
+# Program: water
+# Rundate: Sat 17 Oct 2026 02:57:32
+# Commandline: water
+#    -auto
+#    -asequence src/core/search/local/__tests__/fixtures/emboss/seeded-nucleotide-2/query.fa
+#    -bsequence src/core/search/local/__tests__/fixtures/emboss/seeded-nucleotide-2/record.fa
+#    -snucleotide1
+#    -snucleotide2
+#    -datafile src/core/search/local/matrices/EDNAFULL
+#    -gapopen 10
+#    -gapextend 0.5
+#    -aformat3 srspair
+#    -awidth3 60
+#    -outfile stdout
+# Align_format: srspair
+# Report_file: stdout
+########################################
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/matrices/EDNAFULL
+# Gap_penalty: 10.0
+# Extend_penalty: 0.5
+#
+# Length: 6
+# Identity:       2/6 (33.3%)
+# Similarity:     4/6 (66.7%)
+# Gaps:           0/6 ( 0.0%)
+# Score: 12.0
+# 
+#
+#=======================================
+
+Query              4 TAUUCA      9
+                     :.|:.|
+record             2 UCUTUA      7
+
+
+#---------------------------------------
+#---------------------------------------

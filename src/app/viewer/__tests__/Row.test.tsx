@@ -330,7 +330,7 @@ describe('aligned annotation bars', () => {
     const letters = [...container.querySelectorAll('[data-annotation-base]')];
     expect(letters.map(t => t.textContent).join('')).toBe('AC--GT');
     expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([2, 3, 4, 5, 6, 7]);
-    fireEvent.mouseOver(glyphs(container)[0]);
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
     expect(setTooltip).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('Locus: 1..4') }));
   });
 
@@ -537,7 +537,7 @@ describe('biological frameshifts in aligned annotations', () => {
     const setTooltip = vi.fn();
     const { container } = renderRow(processTransposition([record])[0], { setTooltip });
     expect(container.querySelector('[data-frameshift]')).toBeNull();
-    fireEvent.mouseOver(glyphs(container)[0]);
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
     expect(setTooltip.mock.calls.at(-1)?.[0].content).not.toContain('Ribosomal frameshift');
   });
 
@@ -550,7 +550,7 @@ describe('biological frameshifts in aligned annotations', () => {
     const mark = container.querySelector('[data-frameshift]');
     expect(mark?.getAttribute('data-frameshift')).toBe('1');
     expect(Number(mark?.getAttribute('data-x'))).toBeCloseTo(8 * ZOOM);
-    fireEvent.mouseOver(glyphs(container)[0]);
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
     expect(setTooltip.mock.calls.at(-1)?.[0].content).toContain('Ribosomal frameshift: +1 at 5');
   });
 });

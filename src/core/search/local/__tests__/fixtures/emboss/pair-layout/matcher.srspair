@@ -1,0 +1,3295 @@
+########################################
+# Program: matcher
+# Rundate: Sat 17 Oct 2026 02:57:31
+# Commandline: matcher
+#    -auto
+#    -asequence src/core/search/local/__tests__/fixtures/emboss/pair-layout/query.fa
+#    -bsequence src/core/search/local/__tests__/fixtures/emboss/pair-layout/record.fa
+#    -snucleotide1
+#    -snucleotide2
+#    -datafile src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+#    -gapopen 20
+#    -gapextend 1
+#    -alternatives 139
+#    -aformat3 srspair
+#    -awidth3 60
+#    -outfile stdout
+# Align_format: srspair
+# Report_file: stdout
+########################################
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 70
+# Identity:      70/70 (100.0%)
+# Similarity:    70/70 (100.0%)
+# Gaps:           0/70 ( 0.0%)
+# Score: 700
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             61 AAAAAAAAAA     70
+                     ||||||||||
+record           161 AAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 69
+# Identity:      69/69 (100.0%)
+# Similarity:    69/69 (100.0%)
+# Gaps:           0/69 ( 0.0%)
+# Score: 690
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           102 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    161
+
+Query             61 AAAAAAAAA     69
+                     |||||||||
+record           162 AAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 69
+# Identity:      69/69 (100.0%)
+# Similarity:    69/69 (100.0%)
+# Gaps:           0/69 ( 0.0%)
+# Score: 690
+# 
+#
+#=======================================
+
+Query              2 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     61
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             62 AAAAAAAAA     70
+                     |||||||||
+record           161 AAAAAAAAA    169
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 68
+# Identity:      68/68 (100.0%)
+# Similarity:    68/68 (100.0%)
+# Gaps:           0/68 ( 0.0%)
+# Score: 680
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           103 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    162
+
+Query             61 AAAAAAAA     68
+                     ||||||||
+record           163 AAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 68
+# Identity:      68/68 (100.0%)
+# Similarity:    68/68 (100.0%)
+# Gaps:           0/68 ( 0.0%)
+# Score: 680
+# 
+#
+#=======================================
+
+Query              3 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     62
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             63 AAAAAAAA     70
+                     ||||||||
+record           161 AAAAAAAA    168
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 67
+# Identity:      67/67 (100.0%)
+# Similarity:    67/67 (100.0%)
+# Gaps:           0/67 ( 0.0%)
+# Score: 670
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           104 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    163
+
+Query             61 AAAAAAA     67
+                     |||||||
+record           164 AAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 67
+# Identity:      67/67 (100.0%)
+# Similarity:    67/67 (100.0%)
+# Gaps:           0/67 ( 0.0%)
+# Score: 670
+# 
+#
+#=======================================
+
+Query              4 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     63
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             64 AAAAAAA     70
+                     |||||||
+record           161 AAAAAAA    167
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 66
+# Identity:      66/66 (100.0%)
+# Similarity:    66/66 (100.0%)
+# Gaps:           0/66 ( 0.0%)
+# Score: 660
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           105 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    164
+
+Query             61 AAAAAA     66
+                     ||||||
+record           165 AAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 66
+# Identity:      66/66 (100.0%)
+# Similarity:    66/66 (100.0%)
+# Gaps:           0/66 ( 0.0%)
+# Score: 660
+# 
+#
+#=======================================
+
+Query              5 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     64
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             65 AAAAAA     70
+                     ||||||
+record           161 AAAAAA    166
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 65
+# Identity:      65/65 (100.0%)
+# Similarity:    65/65 (100.0%)
+# Gaps:           0/65 ( 0.0%)
+# Score: 650
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           106 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    165
+
+Query             61 AAAAA     65
+                     |||||
+record           166 AAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 65
+# Identity:      65/65 (100.0%)
+# Similarity:    65/65 (100.0%)
+# Gaps:           0/65 ( 0.0%)
+# Score: 650
+# 
+#
+#=======================================
+
+Query              6 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     65
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             66 AAAAA     70
+                     |||||
+record           161 AAAAA    165
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 64
+# Identity:      64/64 (100.0%)
+# Similarity:    64/64 (100.0%)
+# Gaps:           0/64 ( 0.0%)
+# Score: 640
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           107 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    166
+
+Query             61 AAAA     64
+                     ||||
+record           167 AAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 64
+# Identity:      64/64 (100.0%)
+# Similarity:    64/64 (100.0%)
+# Gaps:           0/64 ( 0.0%)
+# Score: 640
+# 
+#
+#=======================================
+
+Query              7 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     66
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             67 AAAA     70
+                     ||||
+record           161 AAAA    164
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 63
+# Identity:      63/63 (100.0%)
+# Similarity:    63/63 (100.0%)
+# Gaps:           0/63 ( 0.0%)
+# Score: 630
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           108 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    167
+
+Query             61 AAA     63
+                     |||
+record           168 AAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 63
+# Identity:      63/63 (100.0%)
+# Similarity:    63/63 (100.0%)
+# Gaps:           0/63 ( 0.0%)
+# Score: 630
+# 
+#
+#=======================================
+
+Query              8 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     67
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             68 AAA     70
+                     |||
+record           161 AAA    163
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 62
+# Identity:      62/62 (100.0%)
+# Similarity:    62/62 (100.0%)
+# Gaps:           0/62 ( 0.0%)
+# Score: 620
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           109 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    168
+
+Query             61 AA     62
+                     ||
+record           169 AA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 62
+# Identity:      62/62 (100.0%)
+# Similarity:    62/62 (100.0%)
+# Gaps:           0/62 ( 0.0%)
+# Score: 620
+# 
+#
+#=======================================
+
+Query              9 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     68
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             69 AA     70
+                     ||
+record           161 AA    162
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 61
+# Identity:      61/61 (100.0%)
+# Similarity:    61/61 (100.0%)
+# Gaps:           0/61 ( 0.0%)
+# Score: 610
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           110 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    169
+
+Query             61 A     61
+                     |
+record           170 A    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 61
+# Identity:      61/61 (100.0%)
+# Similarity:    61/61 (100.0%)
+# Gaps:           0/61 ( 0.0%)
+# Score: 610
+# 
+#
+#=======================================
+
+Query             10 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     69
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+Query             70 A     70
+                     |
+record           161 A    161
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 60
+# Identity:      60/60 (100.0%)
+# Similarity:    60/60 (100.0%)
+# Gaps:           0/60 ( 0.0%)
+# Score: 600
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     60
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           111 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 60
+# Identity:      60/60 (100.0%)
+# Similarity:    60/60 (100.0%)
+# Gaps:           0/60 ( 0.0%)
+# Score: 600
+# 
+#
+#=======================================
+
+Query             11 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    160
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 59
+# Identity:      59/59 (100.0%)
+# Similarity:    59/59 (100.0%)
+# Gaps:           0/59 ( 0.0%)
+# Score: 590
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     59
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           112 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 59
+# Identity:      59/59 (100.0%)
+# Similarity:    59/59 (100.0%)
+# Gaps:           0/59 ( 0.0%)
+# Score: 590
+# 
+#
+#=======================================
+
+Query             12 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    159
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 58
+# Identity:      58/58 (100.0%)
+# Similarity:    58/58 (100.0%)
+# Gaps:           0/58 ( 0.0%)
+# Score: 580
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     58
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           113 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 58
+# Identity:      58/58 (100.0%)
+# Similarity:    58/58 (100.0%)
+# Gaps:           0/58 ( 0.0%)
+# Score: 580
+# 
+#
+#=======================================
+
+Query             13 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    158
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 57
+# Identity:      57/57 (100.0%)
+# Similarity:    57/57 (100.0%)
+# Gaps:           0/57 ( 0.0%)
+# Score: 570
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     57
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           114 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 57
+# Identity:      57/57 (100.0%)
+# Similarity:    57/57 (100.0%)
+# Gaps:           0/57 ( 0.0%)
+# Score: 570
+# 
+#
+#=======================================
+
+Query             14 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    157
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 56
+# Identity:      56/56 (100.0%)
+# Similarity:    56/56 (100.0%)
+# Gaps:           0/56 ( 0.0%)
+# Score: 560
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     56
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           115 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 56
+# Identity:      56/56 (100.0%)
+# Similarity:    56/56 (100.0%)
+# Gaps:           0/56 ( 0.0%)
+# Score: 560
+# 
+#
+#=======================================
+
+Query             15 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    156
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 55
+# Identity:      55/55 (100.0%)
+# Similarity:    55/55 (100.0%)
+# Gaps:           0/55 ( 0.0%)
+# Score: 550
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     55
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           116 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 55
+# Identity:      55/55 (100.0%)
+# Similarity:    55/55 (100.0%)
+# Gaps:           0/55 ( 0.0%)
+# Score: 550
+# 
+#
+#=======================================
+
+Query             16 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    155
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 54
+# Identity:      54/54 (100.0%)
+# Similarity:    54/54 (100.0%)
+# Gaps:           0/54 ( 0.0%)
+# Score: 540
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     54
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           117 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 54
+# Identity:      54/54 (100.0%)
+# Similarity:    54/54 (100.0%)
+# Gaps:           0/54 ( 0.0%)
+# Score: 540
+# 
+#
+#=======================================
+
+Query             17 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    154
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 53
+# Identity:      53/53 (100.0%)
+# Similarity:    53/53 (100.0%)
+# Gaps:           0/53 ( 0.0%)
+# Score: 530
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     53
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           118 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 53
+# Identity:      53/53 (100.0%)
+# Similarity:    53/53 (100.0%)
+# Gaps:           0/53 ( 0.0%)
+# Score: 530
+# 
+#
+#=======================================
+
+Query             18 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    153
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 52
+# Identity:      52/52 (100.0%)
+# Similarity:    52/52 (100.0%)
+# Gaps:           0/52 ( 0.0%)
+# Score: 520
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     52
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           119 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 52
+# Identity:      52/52 (100.0%)
+# Similarity:    52/52 (100.0%)
+# Gaps:           0/52 ( 0.0%)
+# Score: 520
+# 
+#
+#=======================================
+
+Query             19 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    152
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 51
+# Identity:      51/51 (100.0%)
+# Similarity:    51/51 (100.0%)
+# Gaps:           0/51 ( 0.0%)
+# Score: 510
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     51
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||
+record           120 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 51
+# Identity:      51/51 (100.0%)
+# Similarity:    51/51 (100.0%)
+# Gaps:           0/51 ( 0.0%)
+# Score: 510
+# 
+#
+#=======================================
+
+Query             20 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    151
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 50
+# Identity:      50/50 (100.0%)
+# Similarity:    50/50 (100.0%)
+# Gaps:           0/50 ( 0.0%)
+# Score: 500
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     50
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||
+record           121 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 50
+# Identity:      50/50 (100.0%)
+# Similarity:    50/50 (100.0%)
+# Gaps:           0/50 ( 0.0%)
+# Score: 500
+# 
+#
+#=======================================
+
+Query             21 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    150
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 49
+# Identity:      49/49 (100.0%)
+# Similarity:    49/49 (100.0%)
+# Gaps:           0/49 ( 0.0%)
+# Score: 490
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     49
+                     |||||||||||||||||||||||||||||||||||||||||||||||||
+record           122 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 49
+# Identity:      49/49 (100.0%)
+# Similarity:    49/49 (100.0%)
+# Gaps:           0/49 ( 0.0%)
+# Score: 490
+# 
+#
+#=======================================
+
+Query             22 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    149
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 48
+# Identity:      48/48 (100.0%)
+# Similarity:    48/48 (100.0%)
+# Gaps:           0/48 ( 0.0%)
+# Score: 480
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     48
+                     ||||||||||||||||||||||||||||||||||||||||||||||||
+record           123 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 48
+# Identity:      48/48 (100.0%)
+# Similarity:    48/48 (100.0%)
+# Gaps:           0/48 ( 0.0%)
+# Score: 480
+# 
+#
+#=======================================
+
+Query             23 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    148
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 47
+# Identity:      47/47 (100.0%)
+# Similarity:    47/47 (100.0%)
+# Gaps:           0/47 ( 0.0%)
+# Score: 470
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     47
+                     |||||||||||||||||||||||||||||||||||||||||||||||
+record           124 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 47
+# Identity:      47/47 (100.0%)
+# Similarity:    47/47 (100.0%)
+# Gaps:           0/47 ( 0.0%)
+# Score: 470
+# 
+#
+#=======================================
+
+Query             24 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    147
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 46
+# Identity:      46/46 (100.0%)
+# Similarity:    46/46 (100.0%)
+# Gaps:           0/46 ( 0.0%)
+# Score: 460
+# 
+#
+#=======================================
+
+Query             25 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    146
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 46
+# Identity:      46/46 (100.0%)
+# Similarity:    46/46 (100.0%)
+# Gaps:           0/46 ( 0.0%)
+# Score: 460
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     46
+                     ||||||||||||||||||||||||||||||||||||||||||||||
+record           125 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 45
+# Identity:      45/45 (100.0%)
+# Similarity:    45/45 (100.0%)
+# Gaps:           0/45 ( 0.0%)
+# Score: 450
+# 
+#
+#=======================================
+
+Query             26 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    145
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 45
+# Identity:      45/45 (100.0%)
+# Similarity:    45/45 (100.0%)
+# Gaps:           0/45 ( 0.0%)
+# Score: 450
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     45
+                     |||||||||||||||||||||||||||||||||||||||||||||
+record           126 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 44
+# Identity:      44/44 (100.0%)
+# Similarity:    44/44 (100.0%)
+# Gaps:           0/44 ( 0.0%)
+# Score: 440
+# 
+#
+#=======================================
+
+Query             27 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    144
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 44
+# Identity:      44/44 (100.0%)
+# Similarity:    44/44 (100.0%)
+# Gaps:           0/44 ( 0.0%)
+# Score: 440
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     44
+                     ||||||||||||||||||||||||||||||||||||||||||||
+record           127 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 43
+# Identity:      43/43 (100.0%)
+# Similarity:    43/43 (100.0%)
+# Gaps:           0/43 ( 0.0%)
+# Score: 430
+# 
+#
+#=======================================
+
+Query             28 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    143
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 43
+# Identity:      43/43 (100.0%)
+# Similarity:    43/43 (100.0%)
+# Gaps:           0/43 ( 0.0%)
+# Score: 430
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     43
+                     |||||||||||||||||||||||||||||||||||||||||||
+record           128 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 42
+# Identity:      42/42 (100.0%)
+# Similarity:    42/42 (100.0%)
+# Gaps:           0/42 ( 0.0%)
+# Score: 420
+# 
+#
+#=======================================
+
+Query             29 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    142
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 42
+# Identity:      42/42 (100.0%)
+# Similarity:    42/42 (100.0%)
+# Gaps:           0/42 ( 0.0%)
+# Score: 420
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     42
+                     ||||||||||||||||||||||||||||||||||||||||||
+record           129 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 41
+# Identity:      41/41 (100.0%)
+# Similarity:    41/41 (100.0%)
+# Gaps:           0/41 ( 0.0%)
+# Score: 410
+# 
+#
+#=======================================
+
+Query             30 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    141
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 41
+# Identity:      41/41 (100.0%)
+# Similarity:    41/41 (100.0%)
+# Gaps:           0/41 ( 0.0%)
+# Score: 410
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     41
+                     |||||||||||||||||||||||||||||||||||||||||
+record           130 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 40
+# Identity:      40/40 (100.0%)
+# Similarity:    40/40 (100.0%)
+# Gaps:           0/40 ( 0.0%)
+# Score: 400
+# 
+#
+#=======================================
+
+Query             31 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    140
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 40
+# Identity:      40/40 (100.0%)
+# Similarity:    40/40 (100.0%)
+# Gaps:           0/40 ( 0.0%)
+# Score: 400
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     40
+                     ||||||||||||||||||||||||||||||||||||||||
+record           131 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 39
+# Identity:      39/39 (100.0%)
+# Similarity:    39/39 (100.0%)
+# Gaps:           0/39 ( 0.0%)
+# Score: 390
+# 
+#
+#=======================================
+
+Query             32 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    139
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 39
+# Identity:      39/39 (100.0%)
+# Similarity:    39/39 (100.0%)
+# Gaps:           0/39 ( 0.0%)
+# Score: 390
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     39
+                     |||||||||||||||||||||||||||||||||||||||
+record           132 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 38
+# Identity:      38/38 (100.0%)
+# Similarity:    38/38 (100.0%)
+# Gaps:           0/38 ( 0.0%)
+# Score: 380
+# 
+#
+#=======================================
+
+Query             33 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    138
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 38
+# Identity:      38/38 (100.0%)
+# Similarity:    38/38 (100.0%)
+# Gaps:           0/38 ( 0.0%)
+# Score: 380
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     38
+                     ||||||||||||||||||||||||||||||||||||||
+record           133 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 37
+# Identity:      37/37 (100.0%)
+# Similarity:    37/37 (100.0%)
+# Gaps:           0/37 ( 0.0%)
+# Score: 370
+# 
+#
+#=======================================
+
+Query             34 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    137
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 37
+# Identity:      37/37 (100.0%)
+# Similarity:    37/37 (100.0%)
+# Gaps:           0/37 ( 0.0%)
+# Score: 370
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     37
+                     |||||||||||||||||||||||||||||||||||||
+record           134 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 36
+# Identity:      36/36 (100.0%)
+# Similarity:    36/36 (100.0%)
+# Gaps:           0/36 ( 0.0%)
+# Score: 360
+# 
+#
+#=======================================
+
+Query             35 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    136
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 36
+# Identity:      36/36 (100.0%)
+# Similarity:    36/36 (100.0%)
+# Gaps:           0/36 ( 0.0%)
+# Score: 360
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     36
+                     ||||||||||||||||||||||||||||||||||||
+record           135 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 35
+# Identity:      35/35 (100.0%)
+# Similarity:    35/35 (100.0%)
+# Gaps:           0/35 ( 0.0%)
+# Score: 350
+# 
+#
+#=======================================
+
+Query             36 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    135
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 35
+# Identity:      35/35 (100.0%)
+# Similarity:    35/35 (100.0%)
+# Gaps:           0/35 ( 0.0%)
+# Score: 350
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     35
+                     |||||||||||||||||||||||||||||||||||
+record           136 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 34
+# Identity:      34/34 (100.0%)
+# Similarity:    34/34 (100.0%)
+# Gaps:           0/34 ( 0.0%)
+# Score: 340
+# 
+#
+#=======================================
+
+Query             37 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    134
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 34
+# Identity:      34/34 (100.0%)
+# Similarity:    34/34 (100.0%)
+# Gaps:           0/34 ( 0.0%)
+# Score: 340
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     34
+                     ||||||||||||||||||||||||||||||||||
+record           137 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 33
+# Identity:      33/33 (100.0%)
+# Similarity:    33/33 (100.0%)
+# Gaps:           0/33 ( 0.0%)
+# Score: 330
+# 
+#
+#=======================================
+
+Query             38 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    133
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 33
+# Identity:      33/33 (100.0%)
+# Similarity:    33/33 (100.0%)
+# Gaps:           0/33 ( 0.0%)
+# Score: 330
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     33
+                     |||||||||||||||||||||||||||||||||
+record           138 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 32
+# Identity:      32/32 (100.0%)
+# Similarity:    32/32 (100.0%)
+# Gaps:           0/32 ( 0.0%)
+# Score: 320
+# 
+#
+#=======================================
+
+Query             39 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    132
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 32
+# Identity:      32/32 (100.0%)
+# Similarity:    32/32 (100.0%)
+# Gaps:           0/32 ( 0.0%)
+# Score: 320
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     32
+                     ||||||||||||||||||||||||||||||||
+record           139 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 31
+# Identity:      31/31 (100.0%)
+# Similarity:    31/31 (100.0%)
+# Gaps:           0/31 ( 0.0%)
+# Score: 310
+# 
+#
+#=======================================
+
+Query             40 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    131
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 31
+# Identity:      31/31 (100.0%)
+# Similarity:    31/31 (100.0%)
+# Gaps:           0/31 ( 0.0%)
+# Score: 310
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     31
+                     |||||||||||||||||||||||||||||||
+record           140 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 30
+# Identity:      30/30 (100.0%)
+# Similarity:    30/30 (100.0%)
+# Gaps:           0/30 ( 0.0%)
+# Score: 300
+# 
+#
+#=======================================
+
+Query             41 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    130
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 30
+# Identity:      30/30 (100.0%)
+# Similarity:    30/30 (100.0%)
+# Gaps:           0/30 ( 0.0%)
+# Score: 300
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA     30
+                     ||||||||||||||||||||||||||||||
+record           141 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 29
+# Identity:      29/29 (100.0%)
+# Similarity:    29/29 (100.0%)
+# Gaps:           0/29 ( 0.0%)
+# Score: 290
+# 
+#
+#=======================================
+
+Query             42 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA    129
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 29
+# Identity:      29/29 (100.0%)
+# Similarity:    29/29 (100.0%)
+# Gaps:           0/29 ( 0.0%)
+# Score: 290
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA     29
+                     |||||||||||||||||||||||||||||
+record           142 AAAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 28
+# Identity:      28/28 (100.0%)
+# Similarity:    28/28 (100.0%)
+# Gaps:           0/28 ( 0.0%)
+# Score: 280
+# 
+#
+#=======================================
+
+Query             43 AAAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAAA    128
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 28
+# Identity:      28/28 (100.0%)
+# Similarity:    28/28 (100.0%)
+# Gaps:           0/28 ( 0.0%)
+# Score: 280
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAAA     28
+                     ||||||||||||||||||||||||||||
+record           143 AAAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 27
+# Identity:      27/27 (100.0%)
+# Similarity:    27/27 (100.0%)
+# Gaps:           0/27 ( 0.0%)
+# Score: 270
+# 
+#
+#=======================================
+
+Query             44 AAAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAAA    127
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 27
+# Identity:      27/27 (100.0%)
+# Similarity:    27/27 (100.0%)
+# Gaps:           0/27 ( 0.0%)
+# Score: 270
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAAA     27
+                     |||||||||||||||||||||||||||
+record           144 AAAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 26
+# Identity:      26/26 (100.0%)
+# Similarity:    26/26 (100.0%)
+# Gaps:           0/26 ( 0.0%)
+# Score: 260
+# 
+#
+#=======================================
+
+Query             45 AAAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAAA    126
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 26
+# Identity:      26/26 (100.0%)
+# Similarity:    26/26 (100.0%)
+# Gaps:           0/26 ( 0.0%)
+# Score: 260
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAAA     26
+                     ||||||||||||||||||||||||||
+record           145 AAAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 25
+# Identity:      25/25 (100.0%)
+# Similarity:    25/25 (100.0%)
+# Gaps:           0/25 ( 0.0%)
+# Score: 250
+# 
+#
+#=======================================
+
+Query             46 AAAAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAAA    125
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 25
+# Identity:      25/25 (100.0%)
+# Similarity:    25/25 (100.0%)
+# Gaps:           0/25 ( 0.0%)
+# Score: 250
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAAA     25
+                     |||||||||||||||||||||||||
+record           146 AAAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 24
+# Identity:      24/24 (100.0%)
+# Similarity:    24/24 (100.0%)
+# Gaps:           0/24 ( 0.0%)
+# Score: 240
+# 
+#
+#=======================================
+
+Query             47 AAAAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAAA    124
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 24
+# Identity:      24/24 (100.0%)
+# Similarity:    24/24 (100.0%)
+# Gaps:           0/24 ( 0.0%)
+# Score: 240
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAAA     24
+                     ||||||||||||||||||||||||
+record           147 AAAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 23
+# Identity:      23/23 (100.0%)
+# Similarity:    23/23 (100.0%)
+# Gaps:           0/23 ( 0.0%)
+# Score: 230
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAAA     23
+                     |||||||||||||||||||||||
+record           148 AAAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 23
+# Identity:      23/23 (100.0%)
+# Similarity:    23/23 (100.0%)
+# Gaps:           0/23 ( 0.0%)
+# Score: 230
+# 
+#
+#=======================================
+
+Query             48 AAAAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAAA    123
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 22
+# Identity:      22/22 (100.0%)
+# Similarity:    22/22 (100.0%)
+# Gaps:           0/22 ( 0.0%)
+# Score: 220
+# 
+#
+#=======================================
+
+Query             49 AAAAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAAA    122
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 22
+# Identity:      22/22 (100.0%)
+# Similarity:    22/22 (100.0%)
+# Gaps:           0/22 ( 0.0%)
+# Score: 220
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAAA     22
+                     ||||||||||||||||||||||
+record           149 AAAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 21
+# Identity:      21/21 (100.0%)
+# Similarity:    21/21 (100.0%)
+# Gaps:           0/21 ( 0.0%)
+# Score: 210
+# 
+#
+#=======================================
+
+Query             50 AAAAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAAA    121
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 21
+# Identity:      21/21 (100.0%)
+# Similarity:    21/21 (100.0%)
+# Gaps:           0/21 ( 0.0%)
+# Score: 210
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAAA     21
+                     |||||||||||||||||||||
+record           150 AAAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 20
+# Identity:      20/20 (100.0%)
+# Similarity:    20/20 (100.0%)
+# Gaps:           0/20 ( 0.0%)
+# Score: 200
+# 
+#
+#=======================================
+
+Query             51 AAAAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAAA    120
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 20
+# Identity:      20/20 (100.0%)
+# Similarity:    20/20 (100.0%)
+# Gaps:           0/20 ( 0.0%)
+# Score: 200
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAAA     20
+                     ||||||||||||||||||||
+record           151 AAAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 19
+# Identity:      19/19 (100.0%)
+# Similarity:    19/19 (100.0%)
+# Gaps:           0/19 ( 0.0%)
+# Score: 190
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAAA     19
+                     |||||||||||||||||||
+record           152 AAAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 19
+# Identity:      19/19 (100.0%)
+# Similarity:    19/19 (100.0%)
+# Gaps:           0/19 ( 0.0%)
+# Score: 190
+# 
+#
+#=======================================
+
+Query             52 AAAAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAAA    119
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 18
+# Identity:      18/18 (100.0%)
+# Similarity:    18/18 (100.0%)
+# Gaps:           0/18 ( 0.0%)
+# Score: 180
+# 
+#
+#=======================================
+
+Query             53 AAAAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAAA    118
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 18
+# Identity:      18/18 (100.0%)
+# Similarity:    18/18 (100.0%)
+# Gaps:           0/18 ( 0.0%)
+# Score: 180
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAAA     18
+                     ||||||||||||||||||
+record           153 AAAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 17
+# Identity:      17/17 (100.0%)
+# Similarity:    17/17 (100.0%)
+# Gaps:           0/17 ( 0.0%)
+# Score: 170
+# 
+#
+#=======================================
+
+Query             54 AAAAAAAAAAAAAAAAA     70
+                     |||||||||||||||||
+record           101 AAAAAAAAAAAAAAAAA    117
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 17
+# Identity:      17/17 (100.0%)
+# Similarity:    17/17 (100.0%)
+# Gaps:           0/17 ( 0.0%)
+# Score: 170
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAAA     17
+                     |||||||||||||||||
+record           154 AAAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 16
+# Identity:      16/16 (100.0%)
+# Similarity:    16/16 (100.0%)
+# Gaps:           0/16 ( 0.0%)
+# Score: 160
+# 
+#
+#=======================================
+
+Query             55 AAAAAAAAAAAAAAAA     70
+                     ||||||||||||||||
+record           101 AAAAAAAAAAAAAAAA    116
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 16
+# Identity:      16/16 (100.0%)
+# Similarity:    16/16 (100.0%)
+# Gaps:           0/16 ( 0.0%)
+# Score: 160
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAAA     16
+                     ||||||||||||||||
+record           155 AAAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 15
+# Identity:      15/15 (100.0%)
+# Similarity:    15/15 (100.0%)
+# Gaps:           0/15 ( 0.0%)
+# Score: 150
+# 
+#
+#=======================================
+
+Query             56 AAAAAAAAAAAAAAA     70
+                     |||||||||||||||
+record           101 AAAAAAAAAAAAAAA    115
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 15
+# Identity:      15/15 (100.0%)
+# Similarity:    15/15 (100.0%)
+# Gaps:           0/15 ( 0.0%)
+# Score: 150
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAAA     15
+                     |||||||||||||||
+record           156 AAAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 14
+# Identity:      14/14 (100.0%)
+# Similarity:    14/14 (100.0%)
+# Gaps:           0/14 ( 0.0%)
+# Score: 140
+# 
+#
+#=======================================
+
+Query             57 AAAAAAAAAAAAAA     70
+                     ||||||||||||||
+record           101 AAAAAAAAAAAAAA    114
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 14
+# Identity:      14/14 (100.0%)
+# Similarity:    14/14 (100.0%)
+# Gaps:           0/14 ( 0.0%)
+# Score: 140
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAAA     14
+                     ||||||||||||||
+record           157 AAAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 13
+# Identity:      13/13 (100.0%)
+# Similarity:    13/13 (100.0%)
+# Gaps:           0/13 ( 0.0%)
+# Score: 130
+# 
+#
+#=======================================
+
+Query             58 AAAAAAAAAAAAA     70
+                     |||||||||||||
+record           101 AAAAAAAAAAAAA    113
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 13
+# Identity:      13/13 (100.0%)
+# Similarity:    13/13 (100.0%)
+# Gaps:           0/13 ( 0.0%)
+# Score: 130
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAAA     13
+                     |||||||||||||
+record           158 AAAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 12
+# Identity:      12/12 (100.0%)
+# Similarity:    12/12 (100.0%)
+# Gaps:           0/12 ( 0.0%)
+# Score: 120
+# 
+#
+#=======================================
+
+Query             59 AAAAAAAAAAAA     70
+                     ||||||||||||
+record           101 AAAAAAAAAAAA    112
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 12
+# Identity:      12/12 (100.0%)
+# Similarity:    12/12 (100.0%)
+# Gaps:           0/12 ( 0.0%)
+# Score: 120
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAAA     12
+                     ||||||||||||
+record           159 AAAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 11
+# Identity:      11/11 (100.0%)
+# Similarity:    11/11 (100.0%)
+# Gaps:           0/11 ( 0.0%)
+# Score: 110
+# 
+#
+#=======================================
+
+Query             60 AAAAAAAAAAA     70
+                     |||||||||||
+record           101 AAAAAAAAAAA    111
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 11
+# Identity:      11/11 (100.0%)
+# Similarity:    11/11 (100.0%)
+# Gaps:           0/11 ( 0.0%)
+# Score: 110
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAAA     11
+                     |||||||||||
+record           160 AAAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 10
+# Identity:      10/10 (100.0%)
+# Similarity:    10/10 (100.0%)
+# Gaps:           0/10 ( 0.0%)
+# Score: 100
+# 
+#
+#=======================================
+
+Query             61 AAAAAAAAAA     70
+                     ||||||||||
+record           101 AAAAAAAAAA    110
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 10
+# Identity:      10/10 (100.0%)
+# Similarity:    10/10 (100.0%)
+# Gaps:           0/10 ( 0.0%)
+# Score: 100
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAAA     10
+                     ||||||||||
+record           161 AAAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 9
+# Identity:       9/9 (100.0%)
+# Similarity:     9/9 (100.0%)
+# Gaps:           0/9 ( 0.0%)
+# Score: 90
+# 
+#
+#=======================================
+
+Query             62 AAAAAAAAA     70
+                     |||||||||
+record           101 AAAAAAAAA    109
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 9
+# Identity:       9/9 (100.0%)
+# Similarity:     9/9 (100.0%)
+# Gaps:           0/9 ( 0.0%)
+# Score: 90
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAAA      9
+                     |||||||||
+record           162 AAAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 8
+# Identity:       8/8 (100.0%)
+# Similarity:     8/8 (100.0%)
+# Gaps:           0/8 ( 0.0%)
+# Score: 80
+# 
+#
+#=======================================
+
+Query             63 AAAAAAAA     70
+                     ||||||||
+record           101 AAAAAAAA    108
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 8
+# Identity:       8/8 (100.0%)
+# Similarity:     8/8 (100.0%)
+# Gaps:           0/8 ( 0.0%)
+# Score: 80
+# 
+#
+#=======================================
+
+Query              1 AAAAAAAA      8
+                     ||||||||
+record           163 AAAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 7
+# Identity:       7/7 (100.0%)
+# Similarity:     7/7 (100.0%)
+# Gaps:           0/7 ( 0.0%)
+# Score: 70
+# 
+#
+#=======================================
+
+Query             64 AAAAAAA     70
+                     |||||||
+record           101 AAAAAAA    107
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 7
+# Identity:       7/7 (100.0%)
+# Similarity:     7/7 (100.0%)
+# Gaps:           0/7 ( 0.0%)
+# Score: 70
+# 
+#
+#=======================================
+
+Query              1 AAAAAAA      7
+                     |||||||
+record           164 AAAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 6
+# Identity:       6/6 (100.0%)
+# Similarity:     6/6 (100.0%)
+# Gaps:           0/6 ( 0.0%)
+# Score: 60
+# 
+#
+#=======================================
+
+Query             65 AAAAAA     70
+                     ||||||
+record           101 AAAAAA    106
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 6
+# Identity:       6/6 (100.0%)
+# Similarity:     6/6 (100.0%)
+# Gaps:           0/6 ( 0.0%)
+# Score: 60
+# 
+#
+#=======================================
+
+Query              1 AAAAAA      6
+                     ||||||
+record           165 AAAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 5
+# Identity:       5/5 (100.0%)
+# Similarity:     5/5 (100.0%)
+# Gaps:           0/5 ( 0.0%)
+# Score: 50
+# 
+#
+#=======================================
+
+Query             66 AAAAA     70
+                     |||||
+record           101 AAAAA    105
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 5
+# Identity:       5/5 (100.0%)
+# Similarity:     5/5 (100.0%)
+# Gaps:           0/5 ( 0.0%)
+# Score: 50
+# 
+#
+#=======================================
+
+Query              1 AAAAA      5
+                     |||||
+record           166 AAAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 4
+# Identity:       4/4 (100.0%)
+# Similarity:     4/4 (100.0%)
+# Gaps:           0/4 ( 0.0%)
+# Score: 40
+# 
+#
+#=======================================
+
+Query             67 AAAA     70
+                     ||||
+record           101 AAAA    104
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 4
+# Identity:       4/4 (100.0%)
+# Similarity:     4/4 (100.0%)
+# Gaps:           0/4 ( 0.0%)
+# Score: 40
+# 
+#
+#=======================================
+
+Query              1 AAAA      4
+                     ||||
+record           167 AAAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 3
+# Identity:       3/3 (100.0%)
+# Similarity:     3/3 (100.0%)
+# Gaps:           0/3 ( 0.0%)
+# Score: 30
+# 
+#
+#=======================================
+
+Query              1 AAA      3
+                     |||
+record           168 AAA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 3
+# Identity:       3/3 (100.0%)
+# Similarity:     3/3 (100.0%)
+# Gaps:           0/3 ( 0.0%)
+# Score: 30
+# 
+#
+#=======================================
+
+Query             68 AAA     70
+                     |||
+record           101 AAA    103
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 2
+# Identity:       2/2 (100.0%)
+# Similarity:     2/2 (100.0%)
+# Gaps:           0/2 ( 0.0%)
+# Score: 20
+# 
+#
+#=======================================
+
+Query             69 AA     70
+                     ||
+record           101 AA    102
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 2
+# Identity:       2/2 (100.0%)
+# Similarity:     2/2 (100.0%)
+# Gaps:           0/2 ( 0.0%)
+# Score: 20
+# 
+#
+#=======================================
+
+Query              1 AA      2
+                     ||
+record           169 AA    170
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 10
+# 
+#
+#=======================================
+
+Query             70 A     70
+                     |
+record           101 A    101
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EDNAFULL.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 10
+# 
+#
+#=======================================
+
+Query              1 A      1
+                     |
+record           170 A    170
+
+
+#---------------------------------------
+#---------------------------------------

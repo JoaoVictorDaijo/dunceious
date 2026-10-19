@@ -113,8 +113,8 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
     if (title === 'Sequence index') expect(rowBounds.height).toBe(24);
     await expect(row.getByRole('button', { name: 'Workspace actions', exact: true })).toHaveCount(0);
     const nav = page.locator('nav.app-nav');
-    await nav.getByRole('button', { name: 'Project', exact: true }).click();
-    const menu = page.getByRole('menu', { name: 'Project', exact: true });
+    await nav.getByRole('button', { name: 'Project and options', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Project and options', exact: true }).getByRole('group', { name: 'Project', exact: true });
     const menuBounds = (await menu.boundingBox())!;
     expect(menuBounds.x).toBeGreaterThanOrEqual(0);
     expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(width);
@@ -126,10 +126,10 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
   expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles(file('added.fa', '>added\nACGT\n'));
   await expect(page.locator('aside').getByText('added', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
   page.once('dialog', dialog => dialog.accept('workspace'));
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('menuitem', { name: 'Save project', exact: true }).click();
+  await page.getByRole('button', { name: 'Save project', exact: true }).click();
   const download = await downloadPromise;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -141,10 +141,146 @@ test('sidebar titles add sequences and the top-bar Project menu saves and clears
   await page.keyboard.press('ControlOrMeta+s');
   expect((await shortcutDownload).suggestedFilename()).toBe('shortcut.json');
   page.once('dialog', dialog => dialog.accept('CLEAR'));
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Clear workspace…', exact: true }).click();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear workspace…', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Record Navigator', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /Annotation Hub$/ }).click();
-  await page.getByRole('button', { name: 'Project', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: 'Clear workspace…', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Project and options', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Clear workspace…', exact: true })).toBeDisabled();
+});
+
+async function expectOfficeLayerLabels(page: Page) {
+  const nav = page.locator('nav.app-nav');
+  const labels = ['Annotations', 'Tracks', 'Translation', 'Conservation'];
+  for (const width of [1920, 1600, 1440, 1366, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const label of labels) {
+      const button = nav.getByRole('button', { name: label, exact: true });
+      await expect(button).toBeVisible();
+      await expect(button).toHaveText(label);
+    }
+    const tray = (await nav.getByRole('group', { name: 'Viewport layers' }).boundingBox())!;
+    const cog = (await nav.getByRole('button', { name: 'Project and options' }).boundingBox())!;
+    expect(tray.x + tray.width).toBeLessThanOrEqual(cog.x);
+    if (width === 1920) {
+      const switcher = (await nav.locator('[data-workspace-switcher]').boundingBox())!;
+      const bar = (await nav.boundingBox())!;
+      expect(Math.abs(switcher.x + switcher.width / 2 - bar.x - bar.width / 2)).toBeLessThanOrEqual(1);
+      await expect(nav.getByText('Because geniality is overpriced.')).toBeVisible();
+    }
+  }
+  await page.setViewportSize({ width: 1024, height: 900 });
+  for (const [index, short] of ['Annot', 'Tracks', 'Transl', 'Conserv'].entries()) {
+    await expect(nav.getByRole('button', { name: labels[index], exact: true })).toHaveText(short);
+  }
+  await page.setViewportSize({ width: 900, height: 900 });
+  await nav.getByRole('button', { name: /^Layers/ }).click();
+  await expect(nav.getByRole('group', { name: 'Layer options' })).toBeVisible();
+  await nav.getByRole('group', { name: 'Layer options' }).press('Escape');
+}
+
+async function expectNoTopBarOverlap(page: Page) {
+  const nav = page.locator('nav.app-nav');
+  await expect.poll(() => nav.evaluate(element => {
+    const bar = element.getBoundingClientRect();
+    const boxes = ['[data-topbar-brand]', '[data-workspace-switcher]', '[aria-label="Workspace tools and options"]'].map(selector => element.querySelector(selector)!.getBoundingClientRect());
+    return boxes.every(box => box.left >= bar.left && box.right <= bar.right && box.top >= bar.top && box.bottom <= bar.bottom)
+      && boxes.every((box, index) => boxes.slice(index + 1).every(other => box.right <= other.left || other.right <= box.left));
+  })).toBe(true);
+}
+
+async function expectCogThemeReachable(page: Page) {
+  const nav = page.locator('nav.app-nav');
+  for (const [width, height] of [[1366, 768], [1024, 600]]) {
+    await page.setViewportSize({ width, height });
+    await nav.getByRole('button', { name: 'Project and options' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Project and options' });
+    const theme = dialog.getByRole('radio').last();
+    await dialog.getByRole('radio').first().focus();
+    await page.keyboard.press('End');
+    await expect(theme).toBeFocused();
+    const box = (await theme.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(64);
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    await theme.click();
+    await dialog.press('Escape');
+  }
+}
+
+test('top bar keeps layers inline on office screens', async ({ page }) => {
+  const reference = 'reference-with-a-name-long-enough-to-hit-the-fourteen-rem-cap';
+  const bases = 'ATG'.repeat(33333) + 'ACCGGTTGCA' + 'ATG'.repeat(6667);
+  const fasta = `>${reference}\n${bases}\n>sample\n${bases.slice(0, 60000)}-${bases.slice(60001)}\n`;
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.goto('/?shell=desktop');
+  const nav = page.locator('nav.app-nav');
+  await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
+  await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('records.fa', fasta));
+  await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
+  await page.getByLabel('Import pre-aligned FASTA file', { exact: true }).setInputFiles(file('aligned.fa', fasta));
+  await nav.getByRole('button', { name: 'Visual Viewport', exact: true }).click();
+  const compare = page.getByRole('button', { name: 'Compare to reference', exact: true });
+  await expect(compare).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await expectOfficeLayerLabels(page);
+
+  await page.setViewportSize({ width: 680, height: 900 });
+  await expectNoTopBarOverlap(page);
+  await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
+  await expectNoTopBarOverlap(page);
+  const search = nav.getByRole('searchbox', { name: 'Search annotations' });
+  await search.fill('sample');
+  await nav.locator('[data-search-counter]').evaluate(element => { element.textContent = '1000 / 1000'; });
+  await expect(nav).toHaveAttribute('data-fit-step', 'no-wordmark');
+  await expectNoTopBarOverlap(page);
+  expect((await search.boundingBox())!.width).toBeGreaterThanOrEqual(80);
+  await expect(nav.getByRole('button', { name: 'Hide sidebar' })).toBeVisible();
+  await expect(nav.getByText('Dunceious')).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Visual Viewport', exact: true }).click();
+
+  await compare.click();
+  const panel = page.getByRole('group', { name: 'Reference comparison' });
+  const highlight = panel.getByRole('radio', { name: 'Differences' });
+  await expect(panel.getByRole('radio', { name: 'Off' })).toBeFocused();
+  await highlight.click();
+  await expect.poll(() => highlight.evaluate(element => getComputedStyle(element).backgroundColor === getComputedStyle(document.querySelector('nav button[aria-label="Visual Viewport"]')!).backgroundColor)).toBe(true);
+  expect(await highlight.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + 2));
+  })).toBe(true);
+  const panelBox = (await panel.boundingBox())!;
+  expect(panelBox.x).toBeGreaterThanOrEqual(0);
+  expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(680);
+  for (const width of [1366, 680, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(async () => {
+      const anchor = (await compare.boundingBox())!;
+      const box = (await panel.boundingBox())!;
+      return Math.abs(box.y - anchor.y - anchor.height - 8);
+    }).toBeLessThanOrEqual(1);
+  }
+  await panel.press('Escape');
+  await expect(compare).toBeFocused();
+
+  await page.setViewportSize({ width: 680, height: 900 });
+  await page.getByPlaceholder('Enter IUPAC sequence...').fill('ACCGGTTGCA');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Clear selection', exact: true })).toBeVisible();
+  const toolbar = page.locator('[data-viewer-toolbar]');
+  const stepBefore = await nav.getAttribute('data-fit-step');
+  for (const width of [1366, 1024, 900, 680]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const name of ['Center', 'Zoom Sel', 'Export selection as FASTA', 'Clear selection', 'Compare to reference', 'Fit', 'Zoom in', 'Zoom out']) {
+      const control = toolbar.getByRole('button', { name, exact: true });
+      await expect(control).toBeVisible();
+      await expect.poll(async () => {
+        const box = (await control.boundingBox())!;
+        const bounds = (await toolbar.boundingBox())!;
+        return box.x >= bounds.x && box.x + box.width <= bounds.x + bounds.width + 0.5 && box.y >= bounds.y && box.y + box.height <= bounds.y + bounds.height + 0.5;
+      }).toBe(true);
+    }
+  }
+  await toolbar.getByRole('button', { name: 'Clear selection' }).click();
+  await expect(nav).toHaveAttribute('data-fit-step', stepBefore!);
+  await expectCogThemeReachable(page);
 });

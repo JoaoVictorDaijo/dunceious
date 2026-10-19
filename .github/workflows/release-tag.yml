@@ -1,0 +1,73 @@
+#
+# Dunceious
+#
+# This file is part of Dunceious.
+#
+# Dunceious is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Dunceious is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+
+name: Release tag
+
+# Tags each develop -> main promotion with its package.json version, so a tag
+# means "this was deployed" without anyone pushing tags by hand (agent sessions
+# cannot push tags). See CLAUDE.md > Versioning & releases.
+on:
+  push:
+    branches: [main]
+  # Backfill or repair: tag a given main commit with its package.json version.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Main commit to tag (defaults to the tip of main)
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # The commit and version are only passed as argv or env and validated
+      # before use, so a crafted package.json version can't inject a command.
+      - name: Create the vX.Y.Z tag if it is missing
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          sha="${INPUT_SHA:-$PUSH_SHA}"
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main"; exit 1; }
+          version="$(git show "$sha:package.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')"
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::Not a release version: $version"; exit 1; }
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag already exists at $(git rev-list -n1 "$tag"); nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$sha" -m "Release $tag"
+          git push origin "refs/tags/$tag"
+          echo "Tagged $sha as $tag."

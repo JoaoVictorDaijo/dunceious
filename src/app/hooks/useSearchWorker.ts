@@ -23,10 +23,26 @@ import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 import {
+  type CompletedSearch,
+  type SearchAnnotationHit,
+  completedSearchFor,
   groupedSearchResults as computeGroupedSearchResults,
   joinSegments,
   getSequenceContext as computeSequenceContext,
 } from '@/src/app/logic/searchState';
+
+import { useLocalEngineBytes } from '../lib/localEngineModule';
+import { useLocalSearchPool } from './useLocalSearchPool';
+import { encodeResidues, loadScoring, scoringFor, scoreOf } from '@/src/core/search/local/scoring';
+import type { LocalSearchCounts } from '@/src/core/search/local/selection';
+import { localSearchOptions, type LocalSearchProgress } from '@/src/workers/protocol';
+
+export interface LocalSearchJob {
+  phase: 'idle' | 'running' | 'done' | 'cancelled' | 'failed';
+  startedAt: number; endedAt?: number; progress: LocalSearchProgress; error?: string;
+}
+const idleLocalJob: LocalSearchJob = { phase: 'idle', startedAt: 0,
+  progress: { streamsDone: 0, streamsTotal: 0, currentFraction: 0 } };
 
 export type { SearchOptions };
 
@@ -36,6 +52,12 @@ export const SEARCH_WORKER_TIMEOUT_MS = 15_000;
 const DEFAULT_RESULT_LIMIT = 100;
 
 export interface UseSearchWorkerReturn {
+  localReady: boolean;
+  localError: string | null;
+  localJob: LocalSearchJob;
+  localCounts: LocalSearchCounts | null;
+  cancelLocalSearch: () => void;
+  completedSearch: CompletedSearch | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
@@ -85,20 +107,32 @@ export function useSearchWorker(
     name: string,
     segments?: { start: number; end: number }[],
     strand?: 1 | -1,
+    hit?: SearchAnnotationHit,
   ) => void,
   onFirstResult: (selection: SelectionArea) => void,
 ): UseSearchWorkerReturn {
+  const [completedSearch, setCompletedSearch] = useState<CompletedSearch | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<'exact' | 'fuzzy'>('exact');
+  const [searchMode, updateSearchMode] = useState<'exact' | 'fuzzy'>('exact');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIdx, setCurrentSearchIdx] = useState(-1);
   const [selectedSearchIndices, setSelectedSearchIndices] = useState<Set<number>>(new Set());
   const [isSearching, setIsSearching] = useState(false);
-  const [searchOptions, setSearchOptions] = useState<SearchOptions>({
+  const [searchOptions, updateSearchOptions] = useState<SearchOptions>({
+    fuzzyMethod: 'whole', localFilters: { minIdentity: null, minQueryCoverage: null },
     minIdentity: 80,
     strand: 'both',
     maxResults: DEFAULT_RESULT_LIMIT,
   });
+
+  const moduleState = useLocalEngineBytes();
+  const pool = useLocalSearchPool(moduleState.bytes);
+  const poolRef = useRef(pool);
+  poolRef.current = pool;
+  const localGeneration = useRef(0);
+  const localActive = useRef(false);
+  const [localJob, setLocalJob] = useState<LocalSearchJob>(idleLocalJob);
+  const [localCounts, setLocalCounts] = useState<LocalSearchCounts | null>(null);
 
   const isProteinSession = useMemo(
     () => computeIsProteinSession(records),
@@ -142,6 +176,9 @@ export function useSearchWorker(
   }, []);
 
   const cancelPendingSearch = useCallback(() => {
+    localGeneration.current++;
+    if (localActive.current) { localActive.current = false; poolRef.current.cancel(); }
+    setLocalJob(idleLocalJob); setLocalCounts(null);
     // Termination releases a busy worker instead of queueing the next scan behind it.
     if (pendingRequestIdRef.current !== null) retireWorker();
     pendingRequestIdRef.current = null;
@@ -155,6 +192,7 @@ export function useSearchWorker(
 
   const clearSearch = useCallback(() => {
     cancelPendingSearch();
+    setCompletedSearch(null);
     setSearchQuery('');
     setSearchResults([]);
     setCurrentSearchIdx(-1);
@@ -166,9 +204,13 @@ export function useSearchWorker(
     clearSearch();
   }, [records, clearSearch]);
 
-  const applySearchResults = useCallback((results: SearchResult[], queryForLog: string) => {
+  const applySearchResults = useCallback((results: SearchResult[], request: SearchWorkerRequest) => {
     setIsSearching(false);
     setSearchResults(results);
+    const local = request.mode === 'fuzzy' && localSearchOptions(request.options).fuzzyMethod === 'local';
+    const scoring = local ? loadScoring(scoringFor(request.moleculeType === 'protein')) : null;
+    setCompletedSearch(completedSearchFor(request, local,
+      scoring ? (q: string, r: string) => scoreOf(scoring, q, r) : undefined));
 
     addLogRef.current(`Search complete: ${results.length} matches found.`);
 
@@ -182,7 +224,7 @@ export function useSearchWorker(
       }, 0);
     } else {
       setCurrentSearchIdx(-1);
-      addLogRef.current(`No matches found for '${queryForLog}'.`);
+      addLogRef.current(`No matches found for '${request.searchQuery}'.`);
     }
   }, []);
 
@@ -224,11 +266,11 @@ export function useSearchWorker(
         failSearch(`Search Error: ${msg.error}. Try searching again.`);
         return;
       }
-      const queryForLog = lastRequestRef.current!.searchQuery;
+      const request = lastRequestRef.current!;
       clearSearchTimeout();
       pendingRequestIdRef.current = null;
       lastRequestRef.current = null;
-      applySearchResults(msg.results, queryForLog);
+      applySearchResults(msg.results, request);
     };
     worker.onerror = (event: ErrorEvent) => {
       if (!isCurrentWorker()) return;
@@ -261,18 +303,14 @@ export function useSearchWorker(
     const options = Number.isNaN(searchOptions.maxResults)
       ? { ...searchOptions, maxResults: DEFAULT_RESULT_LIMIT }
       : searchOptions;
-    if (options !== searchOptions) setSearchOptions(options);
+    if (options !== searchOptions) updateSearchOptions(options);
+    setCompletedSearch(null);
     setIsSearching(true);
     setSearchResults([]);
     setCurrentSearchIdx(-1);
     setSelectedSearchIndices(new Set());
     addLog(`Initiating ${searchMode} search for '${normalizedQuery}'...`);
 
-    const worker = searchWorkerRef.current ?? spawnWorker();
-    if (!worker) {
-      setIsSearching(false);
-      return;
-    }
     const requestId = ++nextRequestIdRef.current;
     const request: SearchWorkerRequest = {
       requestId,
@@ -283,6 +321,45 @@ export function useSearchWorker(
       moleculeType: isProteinSession ? 'protein' : 'dna',
     };
     lastRequestRef.current = request;
+    if (searchMode === 'fuzzy' && localSearchOptions(options).fuzzyMethod === 'local') {
+      const startedAt = Date.now();
+      const generation = localGeneration.current;
+      const scoring = loadScoring(scoringFor(isProteinSession));
+      const encoded = encodeResidues(normalizedQuery, scoring);
+      const fail = (error: string) => {
+        setIsSearching(false); localActive.current = false;
+        setLocalJob({ ...idleLocalJob, phase: 'failed', startedAt, endedAt: Date.now(), error });
+        addLogRef.current(error);
+      };
+      if ('invalid' in encoded) { fail(`Unsupported query characters: ${encoded.invalid.join(', ')}`); return; }
+      if (!poolRef.current.ready) { fail(moduleState.error ?? poolRef.current.error ?? 'Local search is not ready'); return; }
+      localActive.current = true;
+      setLocalJob({ ...idleLocalJob, phase: 'running', startedAt });
+      void poolRef.current.run({ query: normalizedQuery, records: searchableRecords,
+        moleculeType: request.moleculeType!, scoring: scoring.id, limit: options.maxResults,
+        filters: localSearchOptions(options).localFilters, strand: options.strand }, progress => {
+        if (localGeneration.current === generation) setLocalJob({ phase: 'running', startedAt, progress });
+      }).then(({ results, counts }) => {
+        if (!isMountedRef.current || localGeneration.current !== generation) return;
+        localActive.current = false; setLocalCounts(counts);
+        setLocalJob(job => ({ ...job, phase: 'done', endedAt: Date.now() }));
+        for (const skipped of counts.skippedRecords) addLogRef.current(`Local search skipped ${skipped.recordId}: unsupported characters ${skipped.characters.join(', ')}`);
+        applySearchResults(results, request);
+      }, error => {
+        if (!isMountedRef.current || localGeneration.current !== generation) return;
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          localActive.current = false; setIsSearching(false);
+          setLocalJob(job => ({ ...job, phase: 'cancelled', endedAt: Date.now() }));
+        } else fail(String(error));
+      });
+      return;
+    }
+
+    const worker = searchWorkerRef.current ?? spawnWorker();
+    if (!worker) {
+      setIsSearching(false);
+      return;
+    }
     pendingRequestIdRef.current = requestId;
     searchTimeoutRef.current = window.setTimeout(() => {
       if (!isMountedRef.current || pendingRequestIdRef.current !== requestId) return;
@@ -293,7 +370,21 @@ export function useSearchWorker(
     } catch (err) {
       failSearch(`Search Worker dispatch failed: ${String(err)}. Try searching again.`);
     }
-  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, spawnWorker, failSearch, cancelPendingSearch, clearSearch]);
+  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, spawnWorker, failSearch, cancelPendingSearch, clearSearch, applySearchResults, moduleState.error]);
+
+  const cancelLocalSearch = useCallback(() => {
+    localGeneration.current++; localActive.current = false; poolRef.current.cancel();
+    setIsSearching(false); setSearchResults([]); setCompletedSearch(null);
+    setLocalJob(job => ({ ...job, phase: 'cancelled', endedAt: Date.now() }));
+  }, []);
+  const setSearchMode = useCallback((mode: 'exact' | 'fuzzy') => {
+    if (localActive.current) { cancelPendingSearch(); setIsSearching(false); }
+    updateSearchMode(mode);
+  }, [cancelPendingSearch]);
+  const setSearchOptions = useCallback((opts: SearchOptions) => {
+    if (localActive.current) { cancelPendingSearch(); setIsSearching(false); }
+    updateSearchOptions(opts);
+  }, [cancelPendingSearch]);
 
   // ── Grouped results (keyed by recordId) ───────────────────────────────────
   const groupedSearchResults = useMemo<GroupedSearchResults>(
@@ -363,6 +454,9 @@ export function useSearchWorker(
   };
 
   return {
+    localReady: pool.ready, localError: moduleState.error ?? pool.error,
+    localJob, localCounts, cancelLocalSearch,
+    completedSearch,
     searchQuery,
     setSearchQuery,
     searchMode,

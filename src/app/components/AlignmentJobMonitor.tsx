@@ -17,20 +17,15 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ALIGNMENT_ENGINES } from '@/src/core/alignment';
 import { ALIGNMENT_STEPS, isAlignmentActive, type RemoteAlignmentState, type StepId } from '@/src/app/logic/remoteAlignment';
 
+import JobMonitor from './JobMonitor';
+import { useUiEffects } from './uiEffects';
+export { useJobClock } from './JobMonitor';
+
 export const STEP_LABELS: Record<StepId, string> = { validated: 'Validated', submitted: 'Submitted', queued: 'Queued at EBI', running: 'Aligning', fetching: 'Fetching result', applied: 'Applied' };
-export function useJobClock(active: boolean): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
-}
 export function alignmentStage(state: RemoteAlignmentState): string {
   switch (state.phase) {
     case 'submitting': return state.jobId ? 'Checking job status' : 'Submitting…';
@@ -51,42 +46,35 @@ export function elapsedSeconds(state: RemoteAlignmentState, now: number): number
 }
 
 export default function AlignmentJobMonitor({ state, now }: { state: RemoteAlignmentState; now: number }) {
+  // The job ID goes to the clipboard through the host, not straight to the browser: today a
+  // showroom visitor never reaches this monitor because `ShowroomAlign` never leaves
+  // `configuring`, but that is a state invariant, not a promise. `copyMessage` below is the
+  // channel for both answers — '' when the host declines, the fallback advice when a real
+  // write fails.
+  const { copyText } = useUiEffects();
   const [copyMessage, setCopyMessage] = useState('');
   if (!('steps' in state)) return null;
   const engine = ALIGNMENT_ENGINES.find(engine => engine.id === state.engineId)!;
-  const icons = { pending: 'fa-circle', active: 'fa-circle-notch', done: 'fa-check', failed: 'fa-xmark', skipped: 'fa-minus' };
   const copyJob = async () => {
-    try { await navigator.clipboard.writeText(state.jobId ?? ''); setCopyMessage('Copied'); }
+    try { setCopyMessage(await copyText(state.jobId ?? '') ? 'Copied' : ''); }
     catch { setCopyMessage('Select the job ID to copy it.'); }
   };
+  const steps = ALIGNMENT_STEPS.map(id => {
+    const step = state.steps[id];
+    const detail = id === 'validated' ? `${engine.label} · ${state.sequenceCount} sequences · ${Math.ceil(state.bytes / 1000)} KB`
+      : id === 'submitted' ? state.jobId : id === 'fetching' ? state.resultType : id === 'applied' && state.alignedLength !== undefined ? `${state.alignedLength} aligned columns` : undefined;
+    return { ...step, id, label: STEP_LABELS[id], detail,
+      extra: id === 'submitted' && state.jobId ? <button type="button" onClick={() => { void copyJob(); }} className="mt-1 text-[10px] underline">Copy job ID</button> : undefined,
+      error: step.status === 'failed' && state.phase === 'failed' ? state.detail : undefined };
+  });
   return (
-    <div className="space-y-4">
-      <p role="status" className="text-sm font-medium text-slate-200">{alignmentStage(state)}{state.phase === 'running' ? ` (${engine.label})` : ''}</p>
-      <ol aria-label="Alignment steps" className="space-y-1">
-        {ALIGNMENT_STEPS.map(id => {
-          const step = state.steps[id];
-          const detail = id === 'validated' ? `${engine.label} · ${state.sequenceCount} sequences · ${Math.ceil(state.bytes / 1000)} KB`
-            : id === 'submitted' ? state.jobId : id === 'fetching' ? state.resultType : id === 'applied' && state.alignedLength !== undefined ? `${state.alignedLength} aligned columns` : undefined;
-          const duration = step.enteredAt === undefined ? null : Math.max(0, Math.floor(((step.leftAt ?? now) - step.enteredAt) / 1000));
-          return (
-            <li key={id} data-step={id} data-status={step.status} className={`flex gap-3 rounded-lg px-3 py-2 ${step.status === 'failed' ? 'bg-rose-500/10 text-rose-300' : step.status === 'active' ? 'bg-slate-800 text-[var(--env)]' : 'text-slate-400'}`}>
-              <i aria-hidden="true" className={`fas ${icons[step.status]} mt-1 text-xs ${step.status === 'active' ? 'motion-safe:animate-pulse' : ''}`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2 text-sm"><span>{STEP_LABELS[id]}</span><span className="text-[10px] capitalize">{step.status === 'skipped' ? 'Skipped' : step.status}</span></div>
-                {detail && <p className="mt-1 select-text break-all text-xs font-mono">{detail}</p>}
-                {step.enteredAt !== undefined && <p className="mt-1 text-[10px] text-slate-500">{new Date(step.enteredAt).toLocaleTimeString()} · {duration} s</p>}
-                {id === 'submitted' && state.jobId && <button type="button" onClick={() => { void copyJob(); }} className="mt-1 text-[10px] underline">Copy job ID</button>}
-                {step.status === 'failed' && state.phase === 'failed' && <p role="alert" className="mt-2 whitespace-pre-wrap break-words text-xs">{state.detail}</p>}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+    <JobMonitor status={<>{alignmentStage(state)}{state.phase === 'running' ? ` (${engine.label})` : ''}</>}
+      steps={steps} stepsLabel="Alignment steps" now={now}>
       {copyMessage && <p className="text-xs text-slate-400">{copyMessage}</p>}
       {state.phase === 'queued' && now - state.since >= 120000 && <p className="text-sm text-amber-200">EBI's queue is busy — you can keep waiting or cancel.</p>}
       {isAlignmentActive(state) && <p className="text-xs text-slate-500">{state.retryCount > 0 ? `Connection hiccup — retrying (${state.retryCount}/5)`
         : state.lastCheckedAt !== undefined ? `Last checked ${Math.max(0, Math.floor((now - state.lastCheckedAt) / 1000))} s ago${state.nextCheckAt !== undefined ? ` · next check in ${Math.max(0, Math.ceil((state.nextCheckAt - now) / 1000))} s` : ' · checking…'}` : 'Waiting for the first status check'}</p>}
       {isAlignmentActive(state) && <p className="text-xs text-slate-500">Cancelling stops waiting here. The job keeps running at EBI.</p>}
-    </div>
+    </JobMonitor>
   );
 }

@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import type { ExplainId } from './explanations';
+import type { ShowroomTab } from './useShowroomView';
 import type { ShowroomWorkspace } from './useShowroomWorkspace';
 
 type Explain = (id: ExplainId, anchor?: DOMRect) => void;
@@ -32,19 +33,26 @@ const DRAG_MODES = [
   { mode: 'select', icon: 'fa-vector-square', label: 'Select mode' },
 ] as const;
 
-function WorkspaceSwitcher({ onExplain }: { onExplain: Explain }) {
+const SWITCHER = [
+  { tab: 'alignment', icon: 'fa-crosshairs', label: 'Visual Viewport', on: 'bg-env-strong', tileOn: 'bg-white/15 text-white', labelOn: 'text-white' },
+  { tab: 'features', icon: 'fa-table-list', label: 'Annotation Hub', on: 'bg-env', tileOn: 'bg-slate-950/15 text-slate-950', labelOn: 'text-slate-950' },
+] as const;
+
+function WorkspaceSwitcher({ tab, onTabChange }: { tab: ShowroomTab; onTabChange: (tab: ShowroomTab) => void }) {
   const tile = 'w-5 h-5 rounded-md flex items-center justify-center text-[9px]';
   const label = 'text-[10px] font-bold uppercase whitespace-nowrap';
   return (
     <div role="group" aria-label="Workspace" className="mx-auto flex shrink-0 gap-0.5 rounded-xl border border-slate-800 bg-slate-950 p-0.5 shadow-xl">
-      <button type="button" aria-pressed="true" className="flex items-center gap-1.5 rounded-lg bg-env-strong py-1 pl-1 pr-2 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
-        <span className={`${tile} bg-white/15 text-white`}><i className="fas fa-crosshairs" aria-hidden="true" /></span>
-        <span className={`${label} text-white`}>Visual Viewport</span>
-      </button>
-      <button type="button" aria-pressed="false" onClick={event => onExplain('hub', rectOf(event))} className="group flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 hover:bg-slate-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
-        <span className={`${tile} bg-slate-800 text-slate-400 group-hover:text-slate-300`}><i className="fas fa-table-list" aria-hidden="true" /></span>
-        <span className={`${label} text-slate-400 group-hover:text-slate-200`}>Annotation Hub</span>
-      </button>
+      {SWITCHER.map(choice => {
+        const active = tab === choice.tab;
+        return (
+          <button key={choice.tab} type="button" aria-pressed={active} onClick={() => onTabChange(choice.tab)}
+            className={`group flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${active ? `${choice.on} shadow-lg` : 'hover:bg-slate-800/50'}`}>
+            <span className={`${tile} ${active ? choice.tileOn : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}><i className={`fas ${choice.icon}`} aria-hidden="true" /></span>
+            <span className={`${label} ${active ? choice.labelOn : 'text-slate-400 group-hover:text-slate-200'}`}>{choice.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -62,7 +70,7 @@ function DragModes({ dragMode, onChange }: { dragMode: 'pan' | 'select'; onChang
   );
 }
 
-type Layer = { label: string; on: boolean; dot: string; toggle: (anchor: DOMRect) => void; disabledReason?: string };
+type Layer = { label: string; on: boolean; dot: string; toggle: () => void; disabledReason?: string };
 
 function LayersMenu({ layers }: { layers: Layer[] }) {
   const [open, setOpen] = useState(false);
@@ -84,7 +92,7 @@ function LayersMenu({ layers }: { layers: Layer[] }) {
       {open && <div role="group" aria-label="Layer options" onKeyDown={event => { if (event.key === 'Escape') { setOpen(false); box.current?.querySelector('button')?.focus(); } }}
         className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border border-slate-800 bg-slate-950 p-1.5 shadow-xl">
         {layers.map(layer => <div key={layer.label}>
-          <button type="button" aria-pressed={layer.on} aria-disabled={Boolean(layer.disabledReason)} onClick={event => layer.toggle(rectOf(event))}
+          <button type="button" aria-pressed={layer.on} aria-disabled={Boolean(layer.disabledReason)} onClick={() => { if (!layer.disabledReason) layer.toggle(); }}
             className="flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">
             <span className={`h-1.5 w-1.5 rounded-full ${layer.on ? layer.dot : 'bg-slate-600'}`} />{layer.label}
           </button>
@@ -98,11 +106,7 @@ function LayersMenu({ layers }: { layers: Layer[] }) {
 function AppActions({ onExplain, onExit }: { onExplain: Explain; onExit: () => void }) {
   return <>
     <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-slate-700" />
-    <button type="button" aria-label="Project" aria-haspopup="menu" onClick={event => onExplain('project', rectOf(event))}
-      className="flex h-8 shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
-      <i aria-hidden="true" className="fas fa-folder" /><span className="max-[899px]:hidden">Project</span><i aria-hidden="true" className="fas fa-chevron-down text-[9px] opacity-70" />
-    </button>
-    <button type="button" aria-label="Options" aria-haspopup="dialog" onClick={event => onExplain('options', rectOf(event))}
+    <button type="button" aria-label="Project and options" data-tip="Project and options" aria-haspopup="dialog" onClick={event => onExplain('project', rectOf(event))}
       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
       <i aria-hidden="true" className="fas fa-gear text-[15px]" />
     </button>
@@ -118,6 +122,10 @@ function AppActions({ onExplain, onExit }: { onExplain: Explain; onExit: () => v
 
 interface ShowroomTopBarProps {
   workspace: ShowroomWorkspace;
+  tab: ShowroomTab;
+  onTabChange: (tab: ShowroomTab) => void;
+  /** Receives the slot the Hub portals its toolbar into, as the workbench's `TopNav` does. */
+  toolsRef: (element: HTMLDivElement | null) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   sidebarToggleRef: RefObject<HTMLButtonElement | null>;
@@ -128,15 +136,16 @@ interface ShowroomTopBarProps {
 
 /**
  * The workbench `TopNav` rebuilt at phone height: the switcher, Pan/Select and
- * Layers work; the rest explains. It keeps the spec's controls only, so the bar
- * fits 740 px; the wordmark and the Project label give way first.
+ * Layers work, and in the Hub the workspace tools become the Hub's toolbar; the
+ * rest explains. It keeps the spec's controls only, so the bar fits 740 px; the
+ * wordmark gives way first.
  */
-export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, sidebarToggleRef, isAlignmentLoaded, onExplain, onExit }: ShowroomTopBarProps) {
+export function ShowroomTopBar({ workspace, tab, onTabChange, toolsRef, sidebarOpen, onToggleSidebar, sidebarToggleRef, isAlignmentLoaded, onExplain, onExit }: ShowroomTopBarProps) {
   const layers: Layer[] = [
     { label: 'Annotations', on: workspace.showAnnotations, dot: 'bg-sky-400 text-sky-400', toggle: () => workspace.toggle('annotations') },
     { label: 'Tracks', on: workspace.showTracks, dot: 'bg-indigo-400 text-indigo-400', toggle: () => workspace.toggle('tracks') },
     { label: 'Translation', on: workspace.showTranslation, dot: 'bg-emerald-400 text-emerald-400', toggle: () => workspace.toggle('translation') },
-    { label: 'Conservation', on: false, dot: 'bg-amber-400 text-amber-400', toggle: anchor => onExplain('conservation', anchor),
+    { label: 'Conservation', on: workspace.showConservation, dot: 'bg-amber-400 text-amber-400', toggle: () => workspace.toggle('conservation'),
       disabledReason: isAlignmentLoaded ? undefined : 'Conservation needs an alignment: upload a pre-aligned FASTA first' },
   ];
   return (
@@ -148,9 +157,15 @@ export function ShowroomTopBar({ workspace, sidebarOpen, onToggleSidebar, sideba
           <i aria-hidden="true" className={`fas ${sidebarOpen ? 'fa-arrow-left-long' : 'fa-bars-staggered'}`} />
         </button>
         <span className="shrink-0 text-[14px] font-black uppercase italic tracking-wide text-white max-[799px]:hidden">Dunceious</span>
-        <WorkspaceSwitcher onExplain={onExplain} />
-        <DragModes dragMode={workspace.dragMode} onChange={workspace.setDragMode} />
-        <LayersMenu layers={layers} />
+        <WorkspaceSwitcher tab={tab} onTabChange={onTabChange} />
+        <div ref={toolsRef} aria-label="Workspace tools" data-hub-tools="narrow" data-hub-focus={tab === 'features' ? true : undefined}
+          data-showroom-hub={tab === 'features' ? '' : undefined}
+          className="flex min-w-0 items-center justify-end gap-1.5">
+          {tab === 'alignment' && <>
+            <DragModes dragMode={workspace.dragMode} onChange={workspace.setDragMode} />
+            <LayersMenu layers={layers} />
+          </>}
+        </div>
         <AppActions onExplain={onExplain} onExit={onExit} />
       </div>
     </nav>

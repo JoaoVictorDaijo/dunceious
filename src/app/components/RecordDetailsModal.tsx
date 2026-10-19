@@ -17,8 +17,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { useUiEffects } from './uiEffects';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { featureLength, getDisplaySeq } from '@/src/app/logic/viewModel';
 import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -31,6 +34,8 @@ export interface RecordDetailsModalProps {
   onExportRecord: (recordId: string) => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
+  onSetBasesMode?: (mode: 'nothing' | 'record' | 'query') => void;
+  onRemoveSearchDetails?: () => void;
   onSetShowBases?: (show: boolean) => void;
 }
 
@@ -46,14 +51,36 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onExportRecord,
   onCopyLog,
   onSetShowBases,
+  onSetBasesMode,
+  onRemoveSearchDetails,
 }) => {
+  const { copyText, hoverTips, portalTarget } = useUiEffects();
+  const searchHit = feature ? readSearchHit(feature) : null;
+  const current = feature ? isSearchHitCurrent(feature) : false;
+  const joined = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const displaySeq = getDisplaySeq(record.sequence, feature);
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(displaySeq);
-    onCopyLog(`Sequence for ${logLabel} copied to clipboard.`);
+  // A host that declines (`false`) said no and stays quiet; a clipboard that rejects — denied
+  // permission, an insecure context, Safari's gesture rules — is a failure the log must name,
+  // as `HitAlignment` does, or the copy disappears with no sign at all.
+  const handleCopy = async () => {
+    try {
+      if (await copyText(displaySeq)) onCopyLog(`Sequence for ${logLabel} copied to clipboard.`);
+    } catch {
+      onCopyLog(`Copy failed for ${logLabel}.`);
+    }
+  };
+
+  const handleCopyTranslation = async () => {
+    const translated = feature;
+    if (!translated?.translation) return;
+    try {
+      if (await copyText(translated.translation)) onCopyLog(`Translation for ${translated.name} copied.`);
+    } catch {
+      onCopyLog(`Copy failed for the translation of ${translated.name}.`);
+    }
   };
 
   const handleFocus = () => {
@@ -68,9 +95,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
     onClose();
   };
 
-  return (
+  const modal = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out border border-slate-200">
+      <div data-record-details="" className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out border border-slate-200">
         {/* Header */}
         <div className="bg-slate-50 px-8 py-6 border-b border-slate-200 flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -97,7 +124,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro scrollbar-on-light space-y-6">
+        <div data-record-details-body="" className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro scrollbar-on-light space-y-6">
           {/* Metadata grid */}
           {feature ? (
             <div className="grid grid-cols-2 gap-6">
@@ -123,7 +150,18 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
                 </p>
               </div>
-              {onSetShowBases && (
+              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
+                <label className="flex items-center gap-3">Bases inside
+                  <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
+                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded p-2">
+                    <option value="nothing">Nothing</option><option value="record">Record bases</option>
+                    {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
+                  </select>
+                </label>
+                {joined && <p>The query layer isn't available for joined annotations.</p>}
+                {searchHit && !current && <p>The search alignment no longer matches this annotation's region.</p>}
+                {searchHit && onRemoveSearchDetails && <button type="button" onClick={onRemoveSearchDetails} className="text-rose-600">Remove search details</button>}
+              </div> : onSetShowBases && (
                 <div className="col-span-2 flex items-center justify-between gap-4 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
                   <div>
                     <span className="text-[11px] font-bold text-slate-700 block">Show sequence in viewer</span>
@@ -209,10 +247,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(feature.translation!);
-                    onCopyLog(`Translation for ${feature.name} copied.`);
-                  }}
+                  onClick={handleCopyTranslation}
                   data-tip="Copy the protein sequence to the clipboard"
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase hover:bg-emerald-100 transition-colors"
                 >
@@ -235,7 +270,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{key}</span>
-                    <span className="text-[11px] font-bold text-slate-700 max-w-[300px] truncate" data-tip={String(value)}>
+                    <span className={`text-[11px] font-bold text-slate-700 max-w-[300px] ${hoverTips ? 'truncate' : 'min-w-0 break-words whitespace-normal'}`} data-tip={hoverTips ? String(value) : undefined}>
                       {String(value)}
                     </span>
                   </div>
@@ -276,6 +311,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
       </div>
     </div>
   );
+
+  return portalTarget ? createPortal(modal, portalTarget) : modal;
 };
 
 export default RecordDetailsModal;

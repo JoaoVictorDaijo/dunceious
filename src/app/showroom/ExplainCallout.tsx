@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { EXPLANATIONS, type ExplainId } from './explanations';
+import { EXPLANATIONS, explanationBody, type ExplainId, type ExplainVars } from './explanations';
 
 const MARGIN = 8;
 
@@ -41,12 +41,22 @@ export function placeCallout(
   return { kind: 'anchored', top, left: Math.min(Math.max(centred, MARGIN), viewport.width - size.width - MARGIN) };
 }
 
+interface ExplainCalloutProps {
+  id: ExplainId;
+  anchor: DOMRect | null;
+  vars?: ExplainVars;
+  onClose: () => void;
+}
+
 /**
  * A guide's note on what a control does in the workbench. The sky outline and
- * label keep it apart from the workbench's own tooltips and dialogs.
+ * label keep it apart from the workbench's own tooltips and dialogs. While open it
+ * holds the keyboard: Tab stays on "Got it", so it can sit over a dialog whose own
+ * focus trap has stood down, and closing gives focus back to the opener.
  */
-export function ExplainCallout({ id, anchor, onClose }: { id: ExplainId; anchor: DOMRect | null; onClose: () => void }) {
-  const { title, body } = EXPLANATIONS[id];
+export function ExplainCallout({ id, anchor, vars, onClose }: ExplainCalloutProps) {
+  const { title } = EXPLANATIONS[id];
+  const body = explanationBody(id, vars);
   const box = useRef<HTMLDivElement>(null);
   const gotIt = useRef<HTMLButtonElement>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
@@ -64,6 +74,12 @@ export function ExplainCallout({ id, anchor, onClose }: { id: ExplainId; anchor:
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        gotIt.current?.focus();
+        return;
+      }
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();

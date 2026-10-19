@@ -21,7 +21,7 @@ import React from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, MONO_STACK } from './constants';
-import { annotationBase, annotationDirection, fitAnnotationText } from './annotationPresentation';
+import { annotationBase, annotationDirection, fitAnnotationText, annotationQueryMarks } from './annotationPresentation';
 
 /** Advance widths of the 10px name and 9px direction text in the mono stack. */
 const NAME_CHAR = 6.0;
@@ -33,6 +33,7 @@ interface Props {
   feature: BioFeature;
   sequence: string;
   moleculeType?: SeqRecord['moleculeType'];
+  alphabet: 'dna' | 'rna' | 'protein';
   start: number;
   end: number;
   strand?: 1 | -1;
@@ -53,7 +54,7 @@ interface Props {
  * An expanded bar also holds the bases on a second line, inside the shape; only
  * visible bases are visited, so zooming into a long feature stays cheap.
  */
-export function AnnotationText({ feature, sequence, moleculeType, start, end, strand, y, height, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
+export function AnnotationText({ feature, sequence, moleculeType, alphabet, start, end, strand, y, height, zoom, scrollX, viewportWidth, expanded = false, labelled = true }: Props) {
   const clipHeight = height ?? ANNOT_BAR_HEIGHT + (expanded ? ANNOT_BASES_HEIGHT : 0);
   const left = Math.max(0, start * zoom - scrollX);
   const right = Math.min(viewportWidth, end * zoom - scrollX);
@@ -70,14 +71,31 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
     : dirRoom >= shortDirection.length * DIR_CHAR ? shortDirection : '';
   const midY = ANNOT_BAR_HEIGHT / 2;
 
+  const queryMode = feature.metadata?._showBases === 'query';
+  const queryLayer = queryMode ? annotationQueryMarks(feature, sequence, alphabet) : null;
+  const queryMap = new Map(queryLayer?.marks.map(m => [m.column, m]));
   const bases: React.ReactElement[] = [];
-  if (expanded) {
+  if (expanded && (!queryMode || queryLayer)) {
     const first = Math.max(start, 0, Math.floor((scrollX + left) / zoom));
     const last = Math.min(end, sequence.length, Math.ceil((scrollX + right) / zoom));
     for (let pos = first; pos < last; pos++) {
-      bases.push(<text key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1} textAnchor="middle" dominantBaseline="central">
-        {annotationBase(sequence[pos], direction, moleculeType)}
+      const mark = queryMap.get(pos);
+      if (queryMode && !mark) continue;
+      const dark = mark?.cls === 'mismatch' || mark?.cls === 'deletion';
+      const textY = ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1;
+      if (dark) bases.push(<rect key={`box-${pos}`} x={pos * zoom - scrollX - left + 1} y={textY - 7}
+        width={Math.max(1, zoom - 2)} height={14} rx={2} fill={mark.cls === 'deletion' ? '#475569' : '#0f172a'} />);
+      if (mark?.cls === 'similar') bases.push(<rect key={`outline-${pos}`} x={pos * zoom - scrollX - left + 1} y={textY - 7}
+        width={Math.max(1, zoom - 2)} height={14} rx={2} fill="none" stroke="#0f172a" strokeDasharray="3,2" />);
+      bases.push(<text fill={dark ? '#fff' : '#0f172a'} textDecoration={mark?.cls === 'ambiguity' ? 'underline' : undefined} key={pos} data-annotation-base={pos} x={(pos + 0.5) * zoom - scrollX - left} y={ANNOT_BAR_HEIGHT + ANNOT_BASES_HEIGHT / 2 - 1} textAnchor="middle" dominantBaseline="central">
+        {queryMode ? mark?.queryLetter ?? '−' : annotationBase(sequence[pos], direction, alphabet)}
       </text>);
+    }
+    if (queryMode) for (const insertion of queryLayer?.insertions ?? []) {
+      const x = (insertion.afterColumn + 1) * zoom - scrollX - left;
+      if (x < 0 || x > width) continue;
+      bases.push(<path key={`insertion-${insertion.afterColumn}`} data-annotation-insertion={insertion.bases}
+        d={`M${x - 4},${ANNOT_BAR_HEIGHT}h8l-4,5z`} fill="#7c3aed"><title>Extra query bases: {insertion.bases}</title></path>);
     }
   }
   return (
@@ -87,7 +105,7 @@ export function AnnotationText({ feature, sequence, moleculeType, start, end, st
         {directionText && (
           <text data-annotation-direction="" x={4 + name.length * NAME_CHAR + 10} y={midY} fontSize={9} fill="#475569">{directionText}</text>
         )}
-        {expanded && <g className="annot-bases" fontSize={11} fontWeight={600}>{bases}</g>}
+        {expanded && <g data-annotation-query={queryMode && queryLayer ? '' : undefined} className="annot-bases" fontSize={11} fontWeight={600}>{bases}</g>}
       </g>
     </svg>
   );

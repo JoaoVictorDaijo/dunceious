@@ -22,6 +22,7 @@ import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult } from '../exportReport';
+import { searchHitNote } from '../formats/searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
 
 /** Rebuild an edited/custom location from its existing segments, preserving
@@ -110,6 +111,8 @@ export function exportToGenBank(records: SeqRecord[]): ExportResult {
         }
         gb += formatQualifier(key, value, syntax).map(line => line + '\n').join('');
       }
+      const searchNote = searchHitNote(feature);
+      if (searchNote) gb += formatQualifier('note', searchNote, 'quoted').map(line => line + '\n').join('');
     }
     gb += 'ORIGIN\n';
     const residues = r.sequence.toLowerCase();

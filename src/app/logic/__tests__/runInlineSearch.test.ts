@@ -43,7 +43,7 @@ describe('runInlineSearch — exact mode (delegates to runExactSearch)', () => {
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],
       mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }))).toEqual([
-      { start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
+      { cigar: '3=', start: 2, end: 5, sequence: 'ACG', recordId: 'r1', strand: 1, segments: [{ start: 2, end: 5 }] },
     ]);
   });
 
@@ -52,7 +52,7 @@ describe('runInlineSearch — exact mode (delegates to runExactSearch)', () => {
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],
       mode: 'exact', options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     }))).toEqual([
-      { start: 3, end: 6, sequence: 'ACG', recordId: 'r1', strand: -1, segments: [{ start: 3, end: 6 }] },
+      { cigar: '3=', start: 3, end: 6, sequence: 'ACG', recordId: 'r1', strand: -1, segments: [{ start: 3, end: 6 }] },
     ]);
   });
 
@@ -62,8 +62,8 @@ describe('runInlineSearch — exact mode (delegates to runExactSearch)', () => {
       mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 2 },
     }));
     expect(out).toEqual([
-      { start: 0, end: 2, sequence: 'AA', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 2 }] },
-      { start: 1, end: 3, sequence: 'AA', recordId: 'r1', strand: 1, segments: [{ start: 1, end: 3 }] },
+      { cigar: '2=', start: 0, end: 2, sequence: 'AA', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 2 }] },
+      { cigar: '2=', start: 1, end: 3, sequence: 'AA', recordId: 'r1', strand: 1, segments: [{ start: 1, end: 3 }] },
     ]);
   });
 
@@ -84,7 +84,7 @@ describe('runInlineSearch — exact mode (delegates to runExactSearch)', () => {
       mode: 'exact', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }));
     expect(out).toEqual([
-      { start: 0, end: 4, sequence: 'A-CG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }] },
+      { cigar: '3=', start: 0, end: 4, sequence: 'A-CG', recordId: 'r1', strand: 1, segments: [{ start: 0, end: 1 }, { start: 2, end: 4 }] },
     ]);
   });
 });
@@ -96,7 +96,7 @@ describe('runInlineSearch — fuzzy mode', () => {
       mode: 'fuzzy', options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     }));
     expect(out).toEqual([{
-      recordId: 'r1', strand: 1, start: 3, end: 11, sequence: 'ACGTACGT',
+      cigar: '8=', recordId: 'r1', strand: 1, start: 3, end: 11, sequence: 'ACGTACGT',
       edits: 0, identity: 100, segments: [{ start: 3, end: 11 }],
     }]);
   });

@@ -214,7 +214,7 @@ describe('runFuzzySearch', () => {
   it('reports identity and edits for a forward hit in aligned coordinates', () => {
     const results = runFuzzySearch(query, [{ id: 'r1', sequence: 'TTACG--TTCGTACTT' }], false, 'fwd', 'dna', 80, 100);
     expect(results).toEqual([{
-      recordId: 'r1', strand: 1, start: 2, end: 14, sequence: 'ACG--TTCGTAC',
+      cigar: '4=1X5=', recordId: 'r1', strand: 1, start: 2, end: 14, sequence: 'ACG--TTCGTAC',
       edits: 1, identity: 90, segments: [{ start: 2, end: 5 }, { start: 7, end: 14 }],
     }]);
   });
@@ -223,7 +223,7 @@ describe('runFuzzySearch', () => {
     // Reverse complement of ACGTACGTAC is GTACGTACGT.
     const results = runFuzzySearch(query, [{ id: 'r1', sequence: 'CCGTACGTACGTCC' }], false, 'rev', 'dna', 100, 100);
     expect(results).toEqual([{
-      recordId: 'r1', strand: -1, start: 2, end: 12, sequence: 'GTACGTACGT',
+      cigar: '10=', recordId: 'r1', strand: -1, start: 2, end: 12, sequence: 'GTACGTACGT',
       edits: 0, identity: 100, segments: [{ start: 2, end: 12 }],
     }]);
   });

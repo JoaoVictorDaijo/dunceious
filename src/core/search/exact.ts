@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { iupacPath } from './editPath';
 import { degenerateToRegex } from '@/src/core/search/query';
 import { reverseComplement, getNonGapSegments, complementAlphabet } from '@/src/domain/bio';
 import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
@@ -46,7 +47,7 @@ function siftDown(heap: ExactCandidate[]): void {
   }
 }
 
-function createCollector(maxResults?: number) {
+function createCollector(searchQuery: string, maxResults?: number) {
   const results: SearchResult[] = [];
   const capacity = maxResults !== undefined && Number.isFinite(maxResults) && maxResults >= 0
     ? Math.floor(maxResults)
@@ -56,7 +57,10 @@ function createCollector(maxResults?: number) {
 
   const retain = (start: number, end: number, sequence: string, recordId: string, strand: 1 | -1, source: string) => {
     if (capacity === null) {
-      results.push({ start, end, sequence, recordId, strand, segments: getNonGapSegments(source, start, end) });
+      results.push({
+        cigar: iupacPath(searchQuery, sequence.replace(/-/g, '')),
+        start, end, sequence, recordId, strand, segments: getNonGapSegments(source, start, end),
+      });
       return;
     }
     const encounter = order++;
@@ -87,6 +91,7 @@ function createCollector(maxResults?: number) {
   const finish = (): SearchResult[] => {
     if (capacity !== null) {
       return heap.sort(compareCandidates).map(hit => ({
+        cigar: iupacPath(searchQuery, hit.sequence.replace(/-/g, '')),
         start: hit.start,
         end: hit.end,
         sequence: hit.sequence,
@@ -118,7 +123,7 @@ export function runExactSearch(
 ): SearchResult[] {
   const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
   if (maxResults !== undefined && maxResults >= 0 && maxResults < 1) return [];
-  const { retain, finish } = createCollector(maxResults);
+  const { retain, finish } = createCollector(searchQuery, maxResults);
 
   for (const record of records) {
     const seq = record.alignedSequence || record.sequence;

@@ -17,7 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useUiEffects } from './uiEffects';
+import { clampPosition } from '@/src/app/logic/floatingPosition';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { residueStyle, type AlignmentComparisonSettings, type ComparisonHighlight, type ResidueStyle } from '@/src/app/logic/alignmentComparison';
 import { getNucleotideColor } from '@/src/app/viewer/colors';
@@ -67,8 +70,8 @@ export interface ComparisonMenuProps {
   /** The record actually compared against, after falling back from a missing choice. */
   reference: SeqRecord | null;
   candidates: SeqRecord[];
-  /** Why comparison is unavailable; undefined while an alignment is loaded. */
-  disabledReason?: string;
+  compact?: boolean;
+  arrive?: boolean;
 }
 
 interface ComparisonPanelProps {
@@ -77,16 +80,40 @@ interface ComparisonPanelProps {
   reference: SeqRecord | null;
   candidates: SeqRecord[];
   onClose: () => void;
+  anchor: HTMLButtonElement;
+  panelRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, reference, candidates, onClose }) => {
+const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, reference, candidates, onClose, anchor, panelRef }) => {
   const referenceSelectId = useId();
+  const [themeVars] = useState(() => {
+    const style = getComputedStyle(anchor);
+    return Object.fromEntries(['--env', '--env2', '--env3'].map(key => [key, style.getPropertyValue(key)]));
+  });
+  useLayoutEffect(() => { panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus(); }, [panelRef]);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const place = useCallback(() => {
+    const rect = anchor.getBoundingClientRect();
+    const size = panelRef.current?.getBoundingClientRect();
+    if (!size) return;
+    const next = clampPosition({ x: rect.right - size.width, y: rect.bottom + 8 }, size, { width: window.innerWidth, height: window.innerHeight });
+    setPosition(previous => previous.x === next.x && previous.y === next.y ? previous : next);
+  }, [anchor, panelRef]);
+  // Wrapping can move the trigger after the window's resize event has fired.
+  useLayoutEffect(place);
+  useEffect(() => {
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [place]);
   return (
     <div
+      ref={panelRef}
+      style={{ ...themeVars, left: position.x, top: position.y, maxHeight: 'calc(100vh - 16px)' }}
       role="group"
       aria-label="Reference comparison"
       onKeyDown={event => { if (event.key === 'Escape') onClose(); }}
-      className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 space-y-3"
+      className="fixed z-[60] overflow-y-auto w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 space-y-3"
     >
       <ComparisonPreview settings={settings} />
       <div>
@@ -140,44 +167,51 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
 };
 
 /** Toolbar control for comparing every aligned row against one reference sequence. */
-const ComparisonMenu: React.FC<ComparisonMenuProps> = ({ settings, onChange, reference, candidates, disabledReason }) => {
+const ComparisonMenu: React.FC<ComparisonMenuProps> = ({ settings, onChange, reference, candidates, compact = false, arrive = false }) => {
+  const { portalTarget } = useUiEffects();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const active = !disabledReason && settings.highlight !== 'none' && reference;
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const active = settings.highlight !== 'none' && reference;
 
   useEffect(() => {
     if (!open) return;
-    const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) setOpen(false); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); trigger.current?.focus(); } };
     document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
   }, [open]);
-  useEffect(() => { if (disabledReason) setOpen(false); }, [disabledReason]);
 
   const update = (patch: Partial<AlignmentComparisonSettings>) => onChange({ ...settings, ...patch });
 
   return (
     <div ref={root} data-comparison-menu="" className="relative shrink-0">
       <button
+        ref={trigger}
+        data-arrive={arrive}
         aria-label="Compare to reference"
         aria-expanded={open}
-        aria-disabled={disabledReason ? true : undefined}
-        data-tip={disabledReason ?? (active ? `Comparing every row against ${reference.name}` : 'Compare every aligned row against a reference sequence')}
-        onClick={() => { if (!disabledReason) setOpen(value => !value); }}
-        className={`h-10 flex max-w-[14rem] items-center gap-2 rounded-xl border px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
-          disabledReason
-            ? 'border-slate-800 bg-slate-950 text-slate-500 cursor-not-allowed'
-            : active
+        data-tip={active ? `Comparing every row against ${reference.name}` : 'Compare every aligned row against a reference sequence'}
+        onClick={() => setOpen(value => !value)}
+        className={`${arrive ? 'compare-arrival motion-reduce:animate-none' : ''} h-10 flex max-w-[14rem] items-center gap-2 rounded-xl border px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
+          active
               ? 'border-env/50 bg-env/10 text-env'
               : 'border-slate-800 bg-slate-950 text-slate-200 hover:bg-slate-800/60'
         }`}
       >
         <i className="fas fa-code-compare" aria-hidden="true"></i>
-        <span className="truncate">{active ? `vs ${reference.name}` : 'Compare'}</span>
+        <span className="truncate">{active && !compact ? `vs ${reference.name}` : 'Compare'}</span>
       </button>
-      {open && (
-        <ComparisonPanel settings={settings} update={update} reference={reference} candidates={candidates}
+      <style>{`@keyframes compare-slide { from { opacity: 0; transform: translateX(8px); } }
+        @keyframes compare-ring { from { box-shadow: 0 0 0 0 var(--env); } to { box-shadow: 0 0 0 8px transparent; } }
+        .compare-arrival { animation: compare-slide 450ms ease-out, compare-ring 1s 450ms ease-out; }
+        @media (prefers-reduced-motion: reduce) { .compare-arrival { animation: none; } }`}</style>
+      {open && trigger.current && createPortal(
+        <ComparisonPanel anchor={trigger.current} panelRef={panel} settings={settings} update={update} reference={reference} candidates={candidates}
           onClose={() => { setOpen(false); root.current?.querySelector('button')?.focus(); }} />
-      )}
+      , portalTarget ?? document.body)}
     </div>
   );
 };

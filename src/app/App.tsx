@@ -18,6 +18,7 @@
  */
 
 
+import { loadLocalEngineBytes } from './lib/localEngineModule';
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { BioFeature, SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -33,6 +34,7 @@ import { useRemoteAlignment } from './hooks/useRemoteAlignment';
 import { useHubState } from './hooks/useHubState';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import { featureIndexOf as resolveFeatureIndex } from '@/src/app/logic/featureIndex';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { DEFAULT_ALIGNMENT_COMPARISON, activeComparison, canCompare, comparisonCandidates, resolveReference, withReference, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { resolveEnvAccent } from './logic/environment';
@@ -45,6 +47,7 @@ import {
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import TooltipLayer from './components/TooltipLayer';
+import { withoutSearchHit } from '@/src/domain/bio/searchHit';
 import { withAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import TopNav from './components/TopNav';
 import { TrackTooltipProvider } from './components/hub/TrackTooltip';
@@ -64,6 +67,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const App: React.FC = () => {
+  useEffect(() => { void loadLocalEngineBytes().catch(() => {}); }, []);
   // ── Logger ────────────────────────────────────────────────────────────────
   const { logs, addLog } = useAppLogger();
 
@@ -173,6 +177,7 @@ const App: React.FC = () => {
   } = useFeatureManager(records, setRecords, activeSelection, addLog, { isLocked: remoteAlignment.isLocked, onRemapRows: remapHubRows });
 
   const {
+    localReady, localError, localJob, localCounts, cancelLocalSearch,
     searchQuery,
     setSearchQuery,
     searchMode,
@@ -180,6 +185,7 @@ const App: React.FC = () => {
     searchOptions,
     setSearchOptions,
     searchResults,
+    completedSearch,
     currentSearchIdx,
     setCurrentSearchIdx,
     selectedSearchIndices,
@@ -249,12 +255,8 @@ const App: React.FC = () => {
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
   // aligned copy, same order as the record's features), so resolve by position.
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
-  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number => {
-    const hubIndex = (feature as BioFeature & { index?: number }).index;
-    if (typeof hubIndex === 'number') return hubIndex;
-    const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-    return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-  }, [records, transposedRecords]);
+  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number =>
+    resolveFeatureIndex(records, transposedRecords, recordId, feature), [records, transposedRecords]);
 
   const handleViewDetails = useCallback((recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
@@ -272,7 +274,7 @@ const App: React.FC = () => {
     focusOn(target);
   }, [focusOn]);
 
-  const handleSetShowBases = (show: boolean) => {
+  const handleSetShowBases = (show: boolean | 'nothing' | 'record' | 'query') => {
     const recordId = viewingRecordDetails?.id;
     const index = viewingFeatureIndex;
     if (!recordId || index < 0) return;
@@ -387,6 +389,13 @@ const App: React.FC = () => {
           onExportRecord={handleExportRecord}
           onCopyLog={addLog}
           onSetShowBases={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
+          onSetBasesMode={viewingFeatureDetails && viewingFeatureIndex >= 0 ? handleSetShowBases : undefined}
+          onRemoveSearchDetails={() => {
+            const id = viewingRecordDetails?.id; const index = viewingFeatureIndex;
+            if (!id || index < 0) return;
+            setRecords(prev => prev.map(r => r.id !== id ? r : { ...r, features: r.features.map((f, i) => i === index ? withoutSearchHit(f) : f) }));
+            setViewingFeatureDetails(current => current ? withoutSearchHit(current) : current);
+          }}
         />
       )}
 
@@ -446,8 +455,6 @@ const App: React.FC = () => {
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
-        activeSelection={activeSelection}
-        onClearSelection={() => setActiveSelection(null)}
         showAnnotations={showAnnotations}
         onToggleAnnotations={() => setShowAnnotations(!showAnnotations)}
         showTracks={showTracks}
@@ -456,11 +463,6 @@ const App: React.FC = () => {
         onToggleTranslation={() => setShowTranslation(!showTranslation)}
         showConservation={showConservation}
         onToggleConservation={() => setShowConservation(!showConservation)}
-        alignmentComparison={alignmentComparison}
-        onAlignmentComparisonChange={setAlignmentComparison}
-        comparisonReference={comparisonReference}
-        comparisonCandidates={candidates}
-        canCompare={comparable}
         isAlignmentLoaded={isAlignmentLoaded}
         sessionMoleculeType={sessionMoleculeType}
         onSaveProject={exportProjectJson}
@@ -471,7 +473,7 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar
+        <Sidebar localSearch={{ localReady, localError, localJob, localCounts, onCancelLocalSearch: cancelLocalSearch }}
           hubState={hubState}
           featureColors={featureColors}
           onToggleRecordVisibility={toggleRecordVisibility}
@@ -503,6 +505,7 @@ const App: React.FC = () => {
           onSearch={handleSearch}
           onClearSearch={handleClearSearch}
           onSelectSearchResult={selectSearchResult}
+          completedSearch={completedSearch}
           searchResults={searchResults}
           groupedSearchResults={groupedSearchResults}
           currentSearchIdx={currentSearchIdx}
@@ -550,6 +553,7 @@ const App: React.FC = () => {
                     onSelectionChange={setActiveSelection}
                     onExportFasta={exportSelection}
                     onAddAnnotation={addAnnotationFromSearch}
+                    completedSearch={completedSearch}
                     searchResults={searchResults}
                     currentSearchIdx={currentSearchIdx}
                     selectedSearchIndices={selectedSearchIndices}
@@ -563,6 +567,8 @@ const App: React.FC = () => {
                     onViewDetails={handleViewDetails}
                     isAlignmentLocked={remoteAlignment.isAlignmentLocked}
                     onRemoveRecord={handleRemoveRecord}
+                    onClearSelection={() => setActiveSelection(null)}
+                    comparisonMenu={comparable ? { settings: alignmentComparison, onChange: setAlignmentComparison, reference: comparisonReference, candidates } : null}
                     comparison={comparison}
                     onSetComparisonReference={comparable ? setComparisonReference : undefined}
                   />

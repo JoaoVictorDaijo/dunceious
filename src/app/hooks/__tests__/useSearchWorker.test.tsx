@@ -39,7 +39,7 @@ class SearchWorker extends DeferredWorker {
   }
 }
 const records: SeqRecord[] = [{ id: 'synthetic', name: 'synthetic', sequence: 'AAAACCCCAAAA', features: [] }];
-const match: SearchResult = { recordId: 'synthetic', start: 0, end: 4, strand: 1, sequence: 'AAAA', edits: 0, identity: 100 };
+const match: SearchResult = { cigar: '4=', recordId: 'synthetic', start: 0, end: 4, strand: 1, sequence: 'AAAA', edits: 0, identity: 100 };
 
 function setup() {
   const focus = vi.fn();

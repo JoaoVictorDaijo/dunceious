@@ -70,7 +70,7 @@ async function setup(page: Page) {
   });
   await page.goto('/?shell=desktop');
   await page.locator('input[type=file][multiple]').first().setInputFiles([
-    'examples/sars-cov-2-NC_045512.gb', 'examples/influenza-a-pr8-8segments.gb',
+    'examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'examples/nucleotide/influenza-a-pr8-8segments.gb',
   ]);
   await expect(page.locator('[data-annotation-part]').first()).toBeVisible();
   await expect(page.locator('aside').getByRole('button', { name: /^Hide .+ in viewport$/ })).toHaveCount(9);

@@ -104,9 +104,9 @@ describe('remote alignment application integration', () => {
     expect(captured.sidebar!.records).toHaveLength(2);
     fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }));
     expect((screen.getByRole('button', { name: 'Remove…' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
-    expect((screen.getByRole('menuitem', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
+    expect((screen.getByRole('button', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Project and options' }), { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
     const alignmentSection = screen.getByRole('region', { name: 'Alignment' });
     expect(within(alignmentSection).getByRole('status').textContent).toBe('MAFFT · Checking job status');

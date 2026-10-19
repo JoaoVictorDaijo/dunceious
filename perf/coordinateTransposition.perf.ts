@@ -24,7 +24,7 @@ import { processTransposition } from '../src/domain/bio/coordinate';
 import { bench } from './perfUtils';
 
 const [record] = parseGenBank(readFileSync(
-  new URL('../examples/arabidopsis-chloroplast-NC_000932.gb', import.meta.url), 'utf8',
+  new URL('../examples/nucleotide/arabidopsis-chloroplast-NC_000932.gb', import.meta.url), 'utf8',
 ));
 const records = [{ ...record, alignedSequence: record.sequence }];
 

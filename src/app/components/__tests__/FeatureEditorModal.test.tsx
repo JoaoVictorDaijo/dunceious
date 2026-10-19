@@ -83,3 +83,12 @@ it('refuses to render a source feature in the generic editor', () => {
   expect(screen.queryByText('Create Feature')).toBeNull();
   expect(screen.queryByText('Feature Key')).toBeNull();
 });
+
+it('offers the export note only on new hits, off by default', () => {
+  const provenance = { v: 1, query: 'ACGTACG', mode: 'whole', alphabet: 'nucleotide', params: {}, strand: 1, cigar: '7=', span: { start: 1, end: 8, strand: 1 }, appVersion: '3.4.0', createdAt: '2026-10-16', exportNote: false };
+  const change = show({ ...editing, feature: { ...editing.feature, metadata: { _searchHit: JSON.stringify(provenance) } } });
+  const box = screen.getByRole('checkbox', { name: 'Add search details to the note' }) as HTMLInputElement;
+  expect(box.checked).toBe(false);
+  fireEvent.click(box);
+  expect(JSON.parse(change.mock.calls[0][0].feature.metadata._searchHit).exportNote).toBe(true);
+});

@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useUiEffects } from '@/src/app/components/uiEffects';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
@@ -47,6 +48,7 @@ export interface ExportDialogProps {
   onEditDetails: (ids: Set<string>) => void;
 }
 export default function ExportDialog({ featureColors, records, state, onClose, onExport, onEditDetails }: ExportDialogProps) {
+  const { portalTarget, overlayActive, closeExportOnSave } = useUiEffects();
   const [initial] = useState(() => initialExportSelection({ ...state, records }));
   const [ids, setIds] = useState(initial.ids);
   const [quickPick, setQuickPick] = useState<string | null>(() => initial.ids.size === records.length ? 'All' : initial.preset === 'selected' ? 'Selected in hub' : 'Matching filters');
@@ -88,14 +90,19 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    dialog.current?.querySelector<HTMLElement>('button')?.focus();
+    return () => { opener?.focus(); };
+  }, []);
+  useEffect(() => {
+    // An explanation closing over the dialog has already handed focus back to the control that opened it.
+    if (!overlayActive && !dialog.current?.closest('[inert]') && !dialog.current?.contains(document.activeElement)) dialog.current?.querySelector<HTMLElement>('button')?.focus();
     const focusInside = (event: FocusEvent) => {
-      if (dialog.current && !dialog.current.contains(event.target as Node)) dialog.current.querySelector<HTMLElement>('button')?.focus();
+      if (!overlayActive && dialog.current && !dialog.current.closest('[inert]') && !dialog.current.contains(event.target as Node)) dialog.current.querySelector<HTMLElement>('button')?.focus();
     };
     document.addEventListener('focusin', focusInside);
-    return () => { document.removeEventListener('focusin', focusInside); opener?.focus(); };
-  }, []);
+    return () => { document.removeEventListener('focusin', focusInside); };
+  }, [overlayActive]);
   const keyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab' && (overlayActive || dialog.current?.closest('[inert]'))) return;
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
     if (event.key !== 'Tab') return;
@@ -133,7 +140,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] max-sm:grid-cols-1">
         <section className="flex min-h-0 flex-col border-r border-slate-200 p-4">
           <StepHeading number={1} label="Sequences" trailing={`${chosen.length} of ${records.length}`} />
-          <div className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-label={pick.label} disabled={pick.label !== 'None' && pick.values.size === 0} aria-pressed={pick.active} onClick={() => { setQuickPick(pick.label); setIds(pick.values); }} className={`inline-flex h-[30px] items-center gap-1 rounded-full border px-3 text-xs font-semibold disabled:cursor-default disabled:opacity-40 ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}{pick.label !== 'None' && <span aria-hidden="true" className="font-mono text-[11px] text-slate-500">{pick.values.size}</span>}</button>)}</div>
+          <div data-export-quick-picks className="mb-3 flex flex-wrap gap-1">{quickPicks.map(pick => <button key={pick.label} aria-label={pick.label} disabled={pick.label !== 'None' && pick.values.size === 0} aria-pressed={pick.active} onClick={() => { setQuickPick(pick.label); setIds(pick.values); }} className={`inline-flex h-[30px] items-center gap-1 rounded-full border px-3 text-xs font-semibold disabled:cursor-default disabled:opacity-40 ${pick.active ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 bg-white hover:bg-slate-100'}`}>{pick.label}{pick.label !== 'None' && <span aria-hidden="true" className="font-mono text-[11px] text-slate-500">{pick.values.size}</span>}</button>)}</div>
           <ExportSequenceTree records={records} state={state} ids={ids} onChange={values => { setQuickPick(null); setIds(values); }} />
         </section>
         <section role="region" aria-label="Export options" className="min-h-0 overflow-y-auto bg-slate-50/50 px-5 py-3 text-xs">
@@ -179,10 +186,10 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
         <p data-export-summary aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} · {exportedAnnotationCount} annotations → <span className="font-mono">{fileName}</span></p>
 
         <button onClick={onClose} className="rounded px-3 py-2 hover:bg-slate-200">Cancel</button>
-        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
+        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); if (closeExportOnSave) onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
       </footer>
     </div>
-  </div>, document.querySelector('.app-root') ?? document.body);
+  </div>, portalTarget ?? (document.querySelector('.app-root') ?? document.body));
 }
 
 

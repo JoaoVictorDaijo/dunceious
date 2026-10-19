@@ -22,8 +22,10 @@ name: CI
 on:
   pull_request:
     branches: [main, develop]
+  # develop is not listed: every develop commit arrives through a PR that this
+  # workflow already gated, and the develop -> main promotion PR re-runs it.
   push:
-    branches: [main, develop]
+    branches: [main]
 
 permissions:
   contents: read
@@ -34,7 +36,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  static:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,20 +65,47 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run lint:headers
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No worker cap: the runner is a dedicated VM, unlike a shared dev machine.
       - name: Test
-        if: ${{ !cancelled() }}
-        run: npm run test:coverage -- --maxWorkers=25%
+        run: npm run test:coverage
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
-        if: ${{ !cancelled() }}
         run: npm run build
 
       - name: Install Chromium
-        if: ${{ success() }}
         run: npx playwright install --with-deps chromium
 
       - name: Browser e2e on production build
-        if: ${{ success() }}
         run: npm run test:e2e:run
 
       - name: Upload browser failure results
@@ -86,6 +115,36 @@ jobs:
           name: browser-test-results
           path: test-results/
           if-no-files-found: ignore
+
+  local-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild local alignment engine
+        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm
+
+      - name: Require reproducible artifact below 25 MiB
+        run: |
+          cmp public/wasm/local-align.wasm public/wasm/local-align.rebuilt.wasm
+          test "$(wc -c < public/wasm/local-align.wasm)" -lt 26214400
+
+  # Branch protection requires a check named "ci"; this job carries that name
+  # so the parallel jobs above can be renamed or split without touching it.
+  ci:
+    if: ${{ always() }}
+    needs: [static, test, e2e, local-engine]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for r in $RESULTS; do
+            [ "$r" = success ] || { echo "::error::A required CI job did not succeed."; exit 1; }
+          done
 
   # Promotions to main must carry a version bump (see CLAUDE.md > Versioning
   # & releases). Runs only on develop -> main PRs; never nags develop PRs.
