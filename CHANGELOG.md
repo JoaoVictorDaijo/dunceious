@@ -22,6 +22,16 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.6.0] — 2026-10-19
+
+### Added
+
+- Test-drive the Annotation Hub, Export dialog, details panel, Conservation and Compare on a phone, over an aligned SARS-CoV-2 reference with Alpha, Delta and Omicron genomes. On the desktop workbench too, the Annotation Hub no longer crashes when two jumps land in quick succession at short window heights.
+
+### Fixed
+
+- Prevent touch taps from opening viewer hover tooltips while preserving mouse and pen hover.
+
 ## [3.5.1] — 2026-10-18
 
 ### Changed
