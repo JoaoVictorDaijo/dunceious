@@ -65,12 +65,18 @@
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
-    padding: 0.375rem 0.5rem;
+    padding: 0.125rem 0.5rem;
   }
   [data-showroom-root] [data-showroom-hub] div:has(> [data-filter-types])::-webkit-scrollbar { display: none; }
   [data-showroom-root] [data-showroom-hub] [data-filter-types] { flex: none; flex-wrap: nowrap; }
   [data-showroom-root] [data-showroom-hub] [data-filter-types] > * { flex: none; white-space: nowrap; }
   [data-showroom-root] [data-showroom-hub] [data-filter-controls] { margin-left: 0; align-items: center; }
+
+  /* The list is what a visitor came to see, so the column header above it keeps its sort
+     controls and loses its padding (the filter row above does the same, where it is laid out).
+     This is the one `.hub-row-grid` directly inside the tab panel; the annotation rows each sit
+     inside a `[data-hub-entry]` wrapper and keep their own spacing. */
+  [data-showroom-root] [data-showroom-hub] [role="tabpanel"] > .hub-row-grid { padding-block: 0.125rem; }
 
   /* The row grid's desktop columns left the name cell no width beside the row actions,
      which a touchscreen always shows. Narrower fixed columns give the name its room;
@@ -107,9 +113,23 @@
     border-right: 0;
     padding: 0.5rem 0.75rem;
   }
-  /* The sequence tree scrolls on its own inside the sheet, short enough that the Format
-     step starts on the first screen. */
-  [data-showroom-root] [aria-labelledby="hub-export-title"] > div > section:first-child { height: min(13.5rem, 60dvh); border-bottom: 1px solid rgb(226 232 240); }
+  /* Capping the whole step spent its height on the quick picks, the find field and the tree
+     header, leaving about one sequence row clipped at the tree's edge. The cap now belongs to
+     the tree's own list, which sizes to its rows so none is cut, and the sheet body scrolls to
+     the Format step; the cap still stops a large workspace from pushing Format off the sheet. */
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > div > section:first-child { border-bottom: 1px solid rgb(226 232 240); }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [role="region"][aria-label="Sequences to export"] {
+    flex: none;
+    margin-top: 0.25rem;
+    max-height: 70dvh;
+  }
+  /* What stands between the step heading and the tree is sized for a desktop column; trimming
+     the quick picks' gutter and the find field's padding puts three rows on the first screen. */
+  [data-showroom-root] [aria-labelledby="hub-export-title"] section:first-child > div:has(> button[aria-label="None"]) { margin-bottom: 0.25rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [aria-label="Find sequences to export"] { padding-block: 0.25rem; }
+  /* …and the tree's own rows, so three of them and the group header share the first screen. */
+  [data-showroom-root] [aria-labelledby="hub-export-title"] div:has(> input[aria-label^="Export group"]) { padding-block: 0.125rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [data-export-row] { padding-block: 0.25rem; }
   [data-showroom-root] [aria-labelledby="hub-export-title"] > footer { padding: 0.375rem 0.75rem; }
   [data-showroom-root] [aria-labelledby="hub-export-title"] > footer > p { min-width: 0; }
 

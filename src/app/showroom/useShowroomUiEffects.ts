@@ -49,6 +49,7 @@ export function useShowroomUiEffects(explain: (id: ExplainId) => void, overlayAc
     allowAction: action => { explain(ACTION_EXPLANATION[action]); return false; },
     persistOpenState: false,
     hoverTips: false,
+    compactHubCards: true,
     portalTarget,
     overlayActive,
     closeExportOnSave: false,

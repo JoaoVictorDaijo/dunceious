@@ -27,12 +27,12 @@ import type { BioFeature, DetailKey } from '@/src/domain/bio/types';
 import GenomeStrip, { genomeStripHeight } from './GenomeStrip';
 const layout = { padding: 8, title: 32, line: 24, detailGap: 4, summaryGap: 8, border: 2 };
 
-export function sequenceSectionHeight(section: SequenceSection, folded: boolean, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact', gap = 0): number {
+export function sequenceSectionHeight(section: SequenceSection, folded: boolean, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact', gap = 0, slimStrip = false): number {
   const base = layout.padding * 2 + layout.title + layout.border;
-  return gap + base + (folded ? layout.summaryGap + layout.line : layout.detailGap * 2 + layout.line + genomeStripHeight(section.record, true, featureColors, density));
+  return gap + base + (folded ? layout.summaryGap + layout.line : layout.detailGap * 2 + layout.line + genomeStripHeight(section.record, true, featureColors, density, slimStrip));
 }
 
-function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, pinned, onEditDetails, onRename, featureColors, density = 'compact', gap = 0, current, searching, trackWindow }: { gap?: number; density?: 'compact' | 'comfortable'; current?: boolean; searching?: boolean; trackWindow?: import('./trackWindow').TrackWindow; section: SequenceSection; featureColors?: Record<string, string>; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; pinned?: BioFeature | null; onEditDetails?: (field?: DetailKey) => void; onRename?: () => void }) {
+function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, onVisibility, onPick, highlight, pinned, onEditDetails, onRename, featureColors, density = 'compact', gap = 0, slimStrip = false, current, searching, trackWindow }: { gap?: number; slimStrip?: boolean; density?: 'compact' | 'comfortable'; current?: boolean; searching?: boolean; trackWindow?: import('./trackWindow').TrackWindow; section: SequenceSection; featureColors?: Record<string, string>; folded: boolean; selected: boolean; onFold: () => void; onSelect: () => void; onVisibility: () => void; onPick: (feature: BioFeature) => void; highlight?: BioFeature | null; pinned?: BioFeature | null; onEditDetails?: (field?: DetailKey) => void; onRename?: () => void }) {
   const { record, rows, total } = section;
   const composition = useMemo(() => {
     const counts = new Map<string, number>();
@@ -40,9 +40,9 @@ function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, on
     return [...counts].map(([type, count]) => `${count} ${type}`).join(' · ');
   }, [record]);
   const highlighted = useCallback((feature: BioFeature) => highlight ? feature === highlight : rows.includes(feature), [highlight, rows]);
-  return <div data-section-entry style={{ height: sequenceSectionHeight(section, folded, featureColors, density, gap) }}>
+  return <div data-section-entry style={{ height: sequenceSectionHeight(section, folded, featureColors, density, gap, slimStrip) }}>
     {gap > 0 && <div data-section-gap className="bg-transparent" style={{ height: gap }} />}
-    <div data-section-surface data-state={current ? 'current' : 'idle'} className={`border-b border-slate-100 px-5 text-xs text-slate-600 ${current ? 'hub-surface-current' : 'bg-white'}`} style={{ height: sequenceSectionHeight(section, folded, featureColors, density), paddingTop: layout.padding, paddingBottom: layout.padding, lineHeight: `${layout.line}px`, borderTopWidth: layout.border / 2, borderBottomWidth: layout.border / 2, boxSizing: 'border-box' }}>
+    <div data-section-surface data-state={current ? 'current' : 'idle'} className={`border-b border-slate-100 px-5 text-xs text-slate-600 ${current ? 'hub-surface-current' : 'bg-white'}`} style={{ height: sequenceSectionHeight(section, folded, featureColors, density, 0, slimStrip), paddingTop: layout.padding, paddingBottom: layout.padding, lineHeight: `${layout.line}px`, borderTopWidth: layout.border / 2, borderBottomWidth: layout.border / 2, boxSizing: 'border-box' }}>
     <div className="flex items-center gap-3" style={{ height: layout.title }}>
       <button aria-label={`${folded ? 'Expand' : 'Collapse'} ${record.id}`} aria-expanded={!folded} data-tip={folded ? 'Expand sequence' : 'Collapse sequence'} data-tip-kbd="O" onClick={onFold} className="p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas fa-chevron-down transition-transform motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} /></button>
       <input type="checkbox" aria-label={`Select sequence ${record.id}`} checked={selected} onChange={onSelect} />
@@ -53,7 +53,7 @@ function SequenceSectionHeader({ section, folded, selected, onFold, onSelect, on
     {folded ? <p data-section-composition className="truncate" data-tip={composition} style={{ height: layout.line, marginTop: layout.summaryGap, marginBottom: 0 }}>{composition}</p> : <>
       <div className="flex items-center gap-3" style={{ height: layout.line, marginTop: layout.detailGap, marginBottom: layout.detailGap }}><DetailsLine record={record} onAdd={onEditDetails} />{onEditDetails && <button onClick={() => onEditDetails()} className="whitespace-nowrap text-amber-800 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-pen mr-1" aria-hidden="true" />Edit details</button>}
       {record.isCircular && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">CIRCULAR</span>}{isPartial(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Partial</span>}{isUnannotated(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Unannotated</span>}{isEdited(record) && <span className="rounded bg-slate-100 px-2 font-mono text-[10px]">Edited</span>}<span className="rounded bg-slate-100 px-2 font-mono text-[10px]">{record.moleculeType || 'dna'}</span></div>
-      <GenomeStrip pinned={pinned} density={density} trackWindow={trackWindow} record={record} featureColors={featureColors} large highlight={highlighted} onPick={onPick} />
+      <GenomeStrip pinned={pinned} density={density} trackWindow={trackWindow} record={record} featureColors={featureColors} large slim={slimStrip} highlight={highlighted} onPick={onPick} />
     </>}
     </div>
   </div>;

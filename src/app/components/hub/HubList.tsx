@@ -33,7 +33,7 @@ import SequenceSectionHeader, { sequenceSectionHeight } from './SequenceSectionH
 import FeatureSectionHeader, { featureSectionHeight } from './FeatureSectionHeader';
 import AnnotationRow from './AnnotationRow';
 import SlimSectionBar from './SlimSectionBar';
-import { HEADER_GAP, SLIM_BAR_HEIGHT, slimBarHeight, listBounds, sectionsAt as computeSections, cardBounds, pinnedGeometry, jumpOffset } from '@/src/app/logic/hubListGeometry';
+import { COMPACT_HEADER_GAP, HEADER_GAP, SLIM_BAR_HEIGHT, slimBarHeight, listBounds, sectionsAt as computeSections, cardBounds, pinnedGeometry, jumpOffset } from '@/src/app/logic/hubListGeometry';
 import GroupedInner, { CardContext } from './GroupedInner';
 import OverviewRail, { railThumb } from './OverviewRail';
 import DetailsEditor, { detailsEditorHeight } from './DetailsEditor';
@@ -82,7 +82,11 @@ const ScrollRegion = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElem
 });
 
 function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
-  const { confirm } = useUiEffects();
+  const { confirm, compactHubCards } = useUiEffects();
+  // A phone's Hub gets the slim strip and a thin gutter so annotation rows reach the first
+  // screen; `DEFAULT_UI_EFFECTS` keeps the workbench on the full card.
+  const headerGap = compactHubCards ? COMPACT_HEADER_GAP : HEADER_GAP;
+  const slimStrip = compactHubCards;
   const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
   useEffect(() => {
     const media = window.matchMedia?.('(min-width: 1280px)');
@@ -142,7 +146,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
         result.push({ type: 'divider', key: `divider:${group}`, sectionKey: item.key, size: 32, label: group, count: items.filter(other => (kind === 'sequences' ? (other as SequenceSection).group : (other as FeatureGroup).organism) === group).length });
       }
       previousGroup = group;
-      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key), cardWidth, 14) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, 14), item });
+      result.push({ type: 'header', key: item.key, sectionKey: item.key, size: kind === 'features' ? featureSectionHeight(item as FeatureGroup, folded(item.key), cardWidth, headerGap) : sequenceSectionHeight(item as SequenceSection, folded(item.key), featureColors, state.density, headerGap, slimStrip), item });
       if (kind === 'sequences' && editor?.id === item.key) result.push({ type: 'editor', key: `${item.key}:editor`, sectionKey: item.key, size: editor.kind === 'details' ? detailsEditorHeight((item as SequenceSection).record, draft?.id === item.key ? draft.details ?? {} : {}, wideDetails) : 112, record: (item as SequenceSection).record, editor: editor.kind });
       if (folded(item.key)) continue;
       const rowSize = state.density === 'compact' ? 44 : 64;
@@ -157,7 +161,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const lastSize = result.slice(lastHeader).reduce((sum, entry) => sum + entry.size, 0);
     if (lastHeader >= 0 && lastSize < height) result.push({ type: 'spacer', key: 'end-space', sectionKey: result[lastHeader].sectionKey, size: height - lastSize });
     return result;
-  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, cardWidth]);
+  }, [items, kind, folded, state.density, height, editor, featureColors, draft, wideDetails, cardWidth, headerGap, slimStrip]);
   const sectionKeys = useMemo(() => new Set(items.map(item => item.key)), [items]);
   const { starts, total, maxOffset } = useMemo(() => listBounds(entries, height), [entries, height]);
   const offset = Math.min(scrollOffset.current, maxOffset);
@@ -185,7 +189,7 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
   }, [saveOffset]);
   const cards = useMemo(() => cardBounds(entries, starts, folded), [entries, starts, folded]);
   const barHeight = (index: number) => entries[index]?.type === 'header' ? slimBarHeight(entries[index].item as SequenceSection | FeatureGroup, kind, featureColors) : SLIM_BAR_HEIGHT;
-  const geometry = (index: number, value: number) => pinnedGeometry(entries, starts, cards, index, value, barHeight(index), entries[index] ? folded(entries[index].key) : false);
+  const geometry = (index: number, value: number) => pinnedGeometry(entries, starts, cards, index, value, barHeight(index), entries[index] ? folded(entries[index].key) : false, headerGap);
   const paintBar = (index: number, value: number) => {
     const element = pinnedElement.current;
     if (!element) return;
@@ -312,11 +316,11 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const index = section.record.features.findIndex((_, i) => `${section.record.id}:${i}` === currentRowKey);
     return index < 0 ? null : section.record.features[index];
   };
-  const header = (entry: Entry, gap = HEADER_GAP) => {
+  const header = (entry: Entry, gap = headerGap) => {
     if (entry.type !== 'header') return null;
     if (kind === 'features') return <FeatureSectionHeader featureColors={featureColors} current={entry.key === currentSection} width={cardWidth} gap={gap} records={records} group={entry.item as FeatureGroup} folded={folded(entry.key)} onFold={headerActions.get(entry.key)!.onFold} onSequence={sequenceJump} />;
     const section = entry.item as SequenceSection;
-    return <SequenceSectionHeader pinned={pinnedFeature(section)} gap={gap} density={state.density} current={entry.key === currentSection} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
+    return <SequenceSectionHeader pinned={pinnedFeature(section)} gap={gap} slimStrip={slimStrip} density={state.density} current={entry.key === currentSection} searching={Boolean(state.filters.query)} trackWindow={state.trackWindow} section={section} featureColors={featureColors} folded={folded(entry.key)} selected={state.selectedRecords.has(section.record.id)} {...headerActions.get(entry.key)!} highlight={hovered && section.record.features.includes(hovered) ? hovered : null} />;
   };
   const renderEntry = (index: number, style: React.CSSProperties) => {
     const entry = entries[index];
