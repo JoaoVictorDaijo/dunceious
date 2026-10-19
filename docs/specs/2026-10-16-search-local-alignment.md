@@ -123,7 +123,14 @@ each **stream** (a record and one strand) is searched on its own.
   6. query start.
 - **Stopping each stream exactly:** each stream's enumeration never increases in score (rescoring
   only lowers candidates; the engine checks it). The search keeps the global top N passing hits
-  under T and their N-th score b, which only rises as hits arrive. A stream stops when it is
+  under T and their N-th score b, which only rises as hits arrive. With both display filters off,
+  at least N positive streams guarantee N passing first hits at their ub scores: the first hit
+  cannot overlap an occupied span and no display filter can reject it. After scoring, seed b
+  with the N-th largest positive ub (ties counted separately), taking max(b, seed) if b exists.
+  This seed is at most the final cut-off s*. With fewer than N positive streams, or either display
+  filter set, there is no seed: a filter could reject the first hit, so ub alone would not
+  guarantee a passing hit. Bounds use doubled scores (score2), and equality remains eligible.
+  A stream stops when it is
   **exhausted** (no positive-scoring alignment remains) or when its last alignment scores strictly
   below the current b. Since b never exceeds the final cut-off s* (the N-th best passing score),
   every alignment scoring at least s* is enumerated in every stream; equal scores at s* are always
@@ -131,7 +138,9 @@ each **stream** (a record and one strand) is searched on its own.
 - **Schedule** (speed only; results are the same for any schedule that obeys the rule above):
   1. every stream computes a score-only Gotoh local maximum, ub, using matcher's exact doubled
      matrix scores and affine gap arithmetic (open qr, extend r), without candidate nodes or origins;
-  2. ub = 0 marks a stream with no positive alignment. Positive streams run once in descending ub
+  2. ub = 0 marks a stream with no positive alignment. If both display filters are off and at
+     least N streams have ub > 0, seed b from their N-th largest ub and broadcast the rising bound
+     to every worker before dispatching any align job. Positive streams run once in descending ub
      order (ties by record order, then forward before reverse), enumerating under the live b;
   3. skip a stream only when ub < b. Since its enumeration cannot exceed ub and b ≤ s*, it has
      no alignments in scope. Skipped streams still contribute to the stream count, but no in-scope

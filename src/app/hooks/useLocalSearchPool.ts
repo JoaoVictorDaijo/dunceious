@@ -50,6 +50,17 @@ interface PoolState {
   pending: { current: Pending | null };
 }
 
+function raiseBound(p: Pending, boundScore2: number, members: Worker[], fail: PoolFailure): boolean {
+  if (p.boundScore2 !== null && boundScore2 <= p.boundScore2) return true;
+  p.boundScore2 = boundScore2;
+  try {
+    for (const member of members) {
+      member.postMessage({ type: 'bound', requestId: p.id, boundScore2 } satisfies LocalSearchRequest);
+    }
+    return true;
+  } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); return false; }
+}
+
 function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () => boolean,
   { members, initialized, pending }: PoolState, setReady: (ready: boolean) => void, fail: PoolFailure) {
   return (event: MessageEvent<LocalSearchResponse>) => {
@@ -84,14 +95,7 @@ function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () =
       p.top.length = Math.min(p.top.length, p.limit);
       if (p.top.length === p.limit) {
         const boundScore2 = p.top[p.limit - 1].hit.local!.score * 2;
-        if (p.boundScore2 === null || boundScore2 > p.boundScore2) {
-          p.boundScore2 = boundScore2;
-          try {
-            for (const member of members.current) {
-              member.postMessage({ type: 'bound', requestId: p.id, boundScore2 } satisfies LocalSearchRequest);
-            }
-          } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); }
-        }
+        raiseBound(p, boundScore2, members.current, fail);
       }
       return;
     }
@@ -165,6 +169,13 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
             .filter(entry => !entry.outcome.exhausted)
             .sort((a, b) => b.outcome.firstScore2! - a.outcome.firstScore2! || a.order - b.order)
             .map(entry => entry.job);
+          // Each unfiltered positive stream guarantees a passing first hit, so the N-th ub
+          // bounds the final cutoff from below. Display filters can reject those first hits,
+          // making this seed unsound when either filter is set.
+          if (request.filters.minIdentity === null && request.filters.minQueryCoverage === null && queue.length >= p.limit) {
+            const seedScore2 = p.outcomes.get(streamKey(queue[p.limit - 1].recordIndex, queue[p.limit - 1].strand))!.firstScore2!;
+            if (!raiseBound(p, seedScore2, members.current, fail)) return;
+          }
           for (const member of members.current) p.dispatchNext(member);
         } else p.dispatchNext(worker);
       } else {

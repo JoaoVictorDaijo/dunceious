@@ -179,7 +179,7 @@ it('raises the live score bound when a later stream improves the global best', a
   await waitFor(() => expect(h.result.current.ready).toBe(true));
   let result!: LocalSearchResult;
   await act(async () => {
-    result = await h.result.current.run({ ...request, query: 'AAAA', strand: 'fwd', limit: 1,
+    result = await h.result.current.run({ ...request, query: 'AAAA', strand: 'fwd', limit: 1, filters: { minIdentity: 100, minQueryCoverage: null },
       records: [{ id: 'short', sequence: 'AA' }, { id: 'long', sequence: 'AAAA' }, { id: 'tie', sequence: 'AAAA' }] }, () => {});
   });
   const messages = InProcessWorker.instances[0].sent;
@@ -336,4 +336,66 @@ it.each([
       expect(result).toEqual(exhaustive);
     } finally { h.unmount(); }
   }
+});
+
+it('seeds the bound before aligning and stops an overlap-heavy stream below the score seed', async () => {
+  const { instantiateLocalEngine } = await import('@/src/core/search/local/engine');
+  const { runLocalStream } = await import('@/src/core/search/local/stream');
+  const { loadScoring, encodeResidues } = await import('@/src/core/search/local/scoring');
+  const { mergeLocalOutcomes } = await import('@/src/core/search/local/selection');
+  const scoring = loadScoring('EDNAFULL');
+  const input = { ...request, query: 'AAAAAAAA', strand: 'fwd' as const, limit: 3,
+    records: [{ id: 'overlaps', sequence: 'AAAAAAAAAAAA' }, { id: 'tie', sequence: 'AAAAAAAA' },
+      { id: 'another-tie', sequence: 'AAAAAAAA' }, { id: 'zero', sequence: 'CCCCCCCC' }] };
+  const encoded = encodeResidues(input.query, scoring);
+  if (!('codes' in encoded)) throw new Error('Invalid synthetic query');
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const exhaustive = input.records.map((record, recordIndex) => runLocalStream(engine,
+    { ...input, record, recordIndex, strand: 1, queryCodes: encoded.codes, scoring }));
+  const reference = mergeLocalOutcomes(exhaustive, input.limit, []);
+  const alignments = Array.from({ [Symbol.iterator]: () => engine.enumerate(encoded.codes,
+    (encodeResidues(input.records[0].sequence, scoring) as { codes: Uint8Array }).codes, scoring) });
+  const firstBelowSeed = alignments.findIndex(a => a.score2 < 80);
+  expect(firstBelowSeed).toBeGreaterThan(0);
+  expect(firstBelowSeed + 1).toBeLessThan(alignments.length);
+  for (const concurrency of [2, 5]) {
+    InProcessWorker.events = [];
+    vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(concurrency);
+    const h = renderHook(() => useLocalSearchPool(bytes));
+    try {
+      await waitFor(() => expect(h.result.current.ready).toBe(true));
+      let result!: LocalSearchResult;
+      await act(async () => { result = await h.result.current.run(input, () => {}); });
+      expect(result).toEqual(reference);
+      const events = InProcessWorker.events;
+      const firstAlign = events.findIndex(m => m.type === 'search' && m.phase === 'align');
+      const done = events.find(m => m.type === 'stream-done' && m.phase === 'align' && m.outcome.recordIndex === 0);
+      expect(done).toMatchObject({ outcome: { exhausted: false, alignmentsEnumerated: firstBelowSeed + 1 } });
+      expect(exhaustive[0].alignmentsEnumerated).toBeGreaterThan(firstBelowSeed + 1);
+      expect(events.slice(0, firstAlign).filter(m => m.type === 'bound').map(m => m.boundScore2))
+        .toEqual(Array.from({ length: concurrency - 1 }, () => 80));
+      expect(events.filter(m => m.type === 'search').filter(m => m.phase === 'align').map(m => m.boundScore2))
+        .toEqual([80, 80, 80]);
+      expect(result.counts).toMatchObject({ streams: 4, noPositiveStreams: 1, cutoff: 40 });
+    } finally { h.unmount(); }
+  }
+});
+
+it.each([
+  { minIdentity: 100, minQueryCoverage: null },
+  { minIdentity: null, minQueryCoverage: 100 },
+])('does not seed the bound with display filters %j', async filters => {
+  vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(2);
+  const h = renderHook(() => useLocalSearchPool(bytes));
+  try {
+    await waitFor(() => expect(h.result.current.ready).toBe(true));
+    await act(async () => { await h.result.current.run({ ...request, filters }, () => {}); });
+    const events = InProcessWorker.events;
+    const firstAlign = events.findIndex(m => m.type === 'search' && m.phase === 'align');
+    expect(firstAlign).toBeGreaterThan(0);
+    expect(events.slice(0, firstAlign).filter(m => m.type === 'bound')).toEqual([]);
+    expect(events.find(m => m.type === 'search' && m.phase === 'align')).toMatchObject({ boundScore2: null });
+    const firstHit = events.findIndex(m => m.type === 'hit');
+    expect(events.findIndex(m => m.type === 'bound')).toBeGreaterThan(firstHit);
+  } finally { h.unmount(); }
 });
