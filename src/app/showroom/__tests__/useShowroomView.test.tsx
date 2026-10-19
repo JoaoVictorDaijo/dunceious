@@ -139,16 +139,16 @@ describe('useShowroomView', () => {
 describe('useShowroomView details for an annotation the record does not own', () => {
   it('opens nothing rather than the record panel', () => {
     const { records, result } = viewHook();
-    const alpha = records.find(record => record.id === 'OL461693')!;
-    const foreign = { ...alpha.features[3], name: 'not in this record', start: 0, end: 7 };
+    const t3 = records.find(record => record.id === 'NC_003298')!;
+    const foreign = { ...t3.features[3], name: 'not in this record', start: 0, end: 7 };
 
-    act(() => result.current.openDetails('OL461693', foreign));
+    act(() => result.current.openDetails('NC_003298', foreign));
     expect(result.current.details).toBeNull();
 
     // A panel already open is left as it was, not swapped for the record's own.
-    act(() => result.current.openDetails('OL461693', alpha.features[3]));
-    act(() => result.current.openDetails('OL461693', foreign));
-    expect(result.current.details).toEqual({ record: alpha, feature: alpha.features[3] });
+    act(() => result.current.openDetails('NC_003298', t3.features[3]));
+    act(() => result.current.openDetails('NC_003298', foreign));
+    expect(result.current.details).toEqual({ record: t3, feature: t3.features[3] });
   });
 });
 

@@ -184,16 +184,18 @@ describe('the showroom Hub editors', () => {
     const view = mountShowroom();
     openHub();
     fireEvent.click(firstButton(/^Edit details$/));
-    const details = screen.getByRole('form', { name: 'Details for NC_045512' });
-    fireEvent.change(within(details).getByLabelText('Host'), { target: { value: 'pangolin' } });
+    const details = screen.getByRole('form', { name: 'Details for NC_001604' });
+    // T7's record already names Escherichia coli, and only a draft that differs from the
+    // record reaches the discard question at all.
+    fireEvent.change(within(details).getByLabelText('Host'), { target: { value: 'Escherichia coli BL21' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename NC_045512' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename NC_001604' }));
     expect(explanation('Edit sequence details')).toBeTruthy();
     gotIt();
 
     // The draft survived: the same editor is still open with the typed value in it.
-    const stillOpen = screen.getByRole('form', { name: 'Details for NC_045512' });
-    expect((within(stillOpen).getByLabelText('Host') as HTMLInputElement).value).toBe('pangolin');
+    const stillOpen = screen.getByRole('form', { name: 'Details for NC_001604' });
+    expect((within(stillOpen).getByLabelText('Host') as HTMLInputElement).value).toBe('Escherichia coli BL21');
     expect(screen.queryByRole('textbox', { name: /display name/i })).toBeNull();
     view.expectNoSideEffects();
   });
