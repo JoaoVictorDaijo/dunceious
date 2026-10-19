@@ -21,9 +21,34 @@ and is a natural human isolate whose submitters claim no rights.
 
 | Lineage | Accession | Isolate | Collected | Length | Lineage evidence |
 |---------|-----------|---------|-----------|--------|------------------|
-| Alpha (B.1.1.7) | [OL461693.1](https://www.ncbi.nlm.nih.gov/nuccore/OL461693.1) | `SARS-CoV-2/human/MEX/ZAC_1244/2021` | 2021-05-15, Mexico | 29,738 bp | The record's reference title: "The Alpha variant (B.1.1.7) of SARS-CoV-2 failed to become…". |
+| Alpha (B.1.1.7) | [OL461693.1](https://www.ncbi.nlm.nih.gov/nuccore/OL461693.1) | `SARS-CoV-2/human/MEX/ZAC_1244/2021` | 2021-05-15, Mexico | 29,738 bp | **No lineage field in the record**; it carries the full set of B.1.1.7-defining changes (below). |
 | Delta (B.1.617.2) | [OR279985.1](https://www.ncbi.nlm.nih.gov/nuccore/OR279985.1) | `SARS-CoV-2/human/FRA/IHUCOVID-016831/2021` | 2021-07, France | 29,689 bp | Explicit in the record: `/note="genotype: B.1.617.2"`. |
 | Omicron (BA.1.1, a BA.1 sublineage) | [OR323867.1](https://www.ncbi.nlm.nih.gov/nuccore/OR323867.1) | `SARS-CoV-2/human/FRA/IHUCOVID-071401/2022` | 2022-03, France | 29,738 bp | Explicit in the record: `/note="genotype: BA.1.1"`. |
+
+**On the Alpha record.** Unlike the other two, OL461693 states no Pango lineage:
+it has no `genotype` note and no lineage in its strain name, and its only
+mention of B.1.1.7 is the title of reference 1 ("The Alpha variant (B.1.1.7) of
+SARS-CoV-2 failed to become dominant in Mexico") — a study of Mexican genomes of
+many lineages, which assigns nothing to this record. The Alpha label therefore
+rests on the sequence itself: every one of the 17 lineage-defining nucleotide
+changes in Table 1 of [Rambaut et al. 2020](https://virological.org/t/563),
+*Preliminary genomic characterisation of an emergent SARS-CoV-2 lineage in the UK
+defined by a novel set of spike mutations*, is present in this record. Checked at
+the table's NC_045512.2 coordinates in `aligned.fasta` (the reference row is
+ungapped, so a reference position is that alignment column):
+
+| Gene | Change | Gene | Change |
+|------|--------|------|--------|
+| ORF1ab | C3267T, C5388A, T6954C, 11288-11296 del | spike | 21765-21770 del, 21991-21993 del, A23063T, C23271A |
+| spike | C23604A, C23709T, T24506G, G24914C | ORF8 | C27972T, G28048T, A28111G |
+| N | 28280 `GAT`→`CTA`, C28977T | | |
+
+Six of these are asserted against `aligned.fasta` in
+`src/app/showroom/__tests__/variantData.test.ts`. **What was not verified:** no
+Pango assignment tool (pangolin, UShER) was run on the record, and the
+amino-acid consequences the table names (N501Y, P681H, ORF8 Q27stop and the
+rest) were not re-derived here from a translation — only the nucleotide states
+were checked.
 
 **On the Omicron record.** It is designated **BA.1.1**, a sublineage of BA.1,
 not plain BA.1. Every candidate designated bare BA.1 carried at least one

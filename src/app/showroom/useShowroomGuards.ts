@@ -82,6 +82,21 @@ function guardLinks(explain: Explain): () => void {
   return () => removers.forEach(remove => remove());
 }
 
+/**
+ * Backstop behind the showroom's `chooseFile` redirection: any click that would
+ * reach a file input — a `<label for>`, or a hidden input a control activates
+ * through `.click()`, which dispatches a cancelable click — is cancelled, so no
+ * real picker can open. Capture on the document covers the portalled dialogs.
+ */
+function guardFilePickers(explain: Explain): () => void {
+  return listen(document, 'click', (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+    stop(event);
+    explain('ingest-sequences', target.getBoundingClientRect());
+  });
+}
+
 type Press = { id: number; x: number; y: number; timer: ReturnType<typeof setTimeout> | null; explained: boolean };
 
 /** The Hub, its toolbar in the top bar and the dialogs portalled over the showroom, where the workbench has no context menu to explain. */
@@ -169,7 +184,7 @@ function guardPresses(root: HTMLElement, workspace: HTMLElement, explain: Explai
 
 /**
  * Registers every showroom guard on mount and removes them on unmount: no text
- * selection on the root, links guarded on the whole document, and context menus
+ * selection on the root, links and file inputs guarded on the whole document, and context menus
  * and long-presses guarded in the workspace (viewer and Hub) and the portalled
  * dialogs, but not in the chrome around them. `workspaceRef` must stay mounted
  * while the switcher swaps the viewer for the Hub.
@@ -182,7 +197,7 @@ export function useShowroomGuards(rootRef: RefObject<HTMLElement | null>, worksp
     const workspace = workspaceRef.current;
     if (!root || !workspace) return;
     const explain: Explain = (id, anchor) => explainRef.current(id, anchor);
-    const cleanups = [lockSelection(root), guardLinks(explain), guardPresses(root, workspace, explain)];
+    const cleanups = [lockSelection(root), guardLinks(explain), guardFilePickers(explain), guardPresses(root, workspace, explain)];
     return () => cleanups.forEach(cleanup => cleanup());
   }, [rootRef, workspaceRef]);
 }
@@ -193,8 +208,10 @@ const PROJECT_CODES = new Set(['KeyS', 'KeyO']);
 /**
  * Ctrl/⌘+S and Ctrl/⌘+O would open the browser's Save Page and Open File dialogs,
  * in portrait too; in the workbench they save and open a project, so they explain
- * that where an explanation can show. `code` catches layouts whose S and O keys
- * type other letters, where the browser still saves on Ctrl+S. The capture phase
+ * that where an explanation can show. Browsers key these shortcuts off the typed
+ * letter on any Latin layout, so `code` is consulted only when the layout types
+ * something else (Cyrillic, Greek): matching it as well would catch Dvorak's and
+ * Colemak's physical S/O keys, blocking Ctrl+R. The capture phase
  * reaches keys that a dialog stops from bubbling, and a held key stays prevented
  * without explaining again.
  */
@@ -204,7 +221,8 @@ export function useProjectKeys(canExplain: boolean, onExplain: Explain): void {
   useEffect(() => { explainRef.current = onExplain; canExplainRef.current = canExplain; }, [onExplain, canExplain]);
   useEffect(() => listen<KeyboardEvent>(document, 'keydown', event => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
-    if (!PROJECT_KEYS.has(event.key.toLowerCase()) && !PROJECT_CODES.has(event.code)) return;
+    const typesLatin = /^[a-z]$/i.test(event.key);
+    if (typesLatin ? !PROJECT_KEYS.has(event.key.toLowerCase()) : !PROJECT_CODES.has(event.code)) return;
     event.preventDefault();
     if (!event.repeat && canExplainRef.current) explainRef.current('project');
   }), []);

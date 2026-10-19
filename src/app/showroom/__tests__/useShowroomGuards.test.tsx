@@ -210,6 +210,53 @@ describe('useShowroomGuards: links', () => {
   });
 });
 
+describe('useShowroomGuards: file inputs', () => {
+  const withFileInput = (body: (input: HTMLInputElement) => void) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    document.body.append(input);
+    try { body(input); } finally { input.remove(); }
+  };
+
+  it('cancels a programmatic .click() on a file input, so no picker opens', () => {
+    render(<Guarded />);
+    withFileInput(input => {
+      // The guard stops propagation, so the only seat left for an observer is
+      // the document's capture phase, alongside the guard itself.
+      const seen: Event[] = [];
+      const observe = (event: Event) => seen.push(event);
+      document.addEventListener('click', observe, { capture: true });
+      input.click();
+      document.removeEventListener('click', observe, { capture: true });
+      expect(seen).toHaveLength(1);
+      expect(seen[0].defaultPrevented).toBe(true);
+    });
+    expect(explained()).toEqual(['ingest-sequences']);
+  });
+
+  it('cancels a click dispatched through a label', () => {
+    render(<Guarded />);
+    withFileInput(input => {
+      input.id = 'guarded-file-input';
+      const label = document.createElement('label');
+      label.htmlFor = input.id;
+      label.textContent = 'Choose files';
+      document.body.append(label);
+      expect(fireEvent.click(input)).toBe(false);
+      label.remove();
+    });
+    expect(explained()).toEqual(['ingest-sequences']);
+  });
+
+  it('leaves other inputs alone and stops guarding once unmounted', () => {
+    const { unmount } = render(<Guarded />);
+    expect(fireEvent.click(screen.getByLabelText('Search field'))).toBe(true);
+    unmount();
+    withFileInput(input => { expect(fireEvent.click(input)).toBe(true); });
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
 describe('useShowroomGuards: lifecycle', () => {
   it('stops text selection on the root and removes everything on unmount', () => {
     const { unmount } = render(<Guarded />);
@@ -261,6 +308,27 @@ describe('useProjectKeys', () => {
     unmount();
     expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(true);
     expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
+describe('useProjectKeys: keyboard layouts', () => {
+  it('leaves Ctrl+R alone on Dvorak, where the physical O key types r', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'r', code: 'KeyO', ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(document.body, { key: 'y', code: 'KeyO', ctrlKey: true })).toBe(true);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+
+  it('still catches the physical S key when the layout types a non-Latin letter', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'ы', code: 'KeyS', ctrlKey: true })).toBe(false);
+    expect(explained()).toEqual(['project']);
+  });
+
+  it('catches Dvorak Ctrl+S by the letter it types, whatever key carries it', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 's', code: 'Semicolon', ctrlKey: true })).toBe(false);
+    expect(explained()).toEqual(['project']);
   });
 });
 

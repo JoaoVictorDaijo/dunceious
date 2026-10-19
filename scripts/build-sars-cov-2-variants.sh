@@ -19,8 +19,9 @@
 #
 # Rebuilds examples/sars-cov-2-variants/ from NCBI: the three variant records,
 # their MAFFT alignment against the bundled reference, and the provenance file.
-# Network access is limited to NCBI E-utilities; MAFFT runs in a digest-pinned
-# container so the alignment is reproducible.
+# Two hosts are contacted: NCBI E-utilities for the records, and the container
+# registry for the MAFFT image. MAFFT itself is digest-pinned and runs with
+# --network none, so the alignment is reproducible and offline.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -95,7 +96,8 @@ command="docker run --rm --network none --user \$(id -u):\$(id -g) -v <workdir>:
 docker run --rm --network none --user "$(id -u):$(id -g)" \
   -v "$work:/data:ro" -w /data "$image" \
   mafft --auto --preservecase input.fasta \
-  > "$work/aligned.fasta" 2> "$work/mafft.log"
+  > "$work/aligned.fasta" 2> "$work/mafft.log" \
+  || { cat "$work/mafft.log" >&2; exit 1; }  # set -e would exit before the log below is shown
 cat "$work/mafft.log" >&2
 cp "$work/aligned.fasta" "$out/aligned.fasta"
 
@@ -118,9 +120,21 @@ provenance = {
             "accession": "OL461693",
             "version": "OL461693.1",
             "why": "Complete 29,738 bp genome with 11 gene and 12 CDS features and no ambiguity "
-                   "codes anywhere, spike included. The lineage is stated in the record's "
-                   "reference title ('The Alpha variant (B.1.1.7) of SARS-CoV-2...'). A human "
-                   "isolate submitted without any claim of rights.",
+                   "codes anywhere, spike included. The record carries no lineage field and no "
+                   "lineage in its strain name; its only mention of B.1.1.7 is a reference "
+                   "title, which assigns nothing. The Alpha label rests instead on the record "
+                   "carrying every lineage-defining change of B.1.1.7: all 17 nucleotide "
+                   "changes in Table 1 of Rambaut et al. 2020, 'Preliminary genomic "
+                   "characterisation of an emergent SARS-CoV-2 lineage in the UK defined by a "
+                   "novel set of spike mutations' (https://virological.org/t/563), were checked "
+                   "against this record in the bundled alignment at their NC_045512.2 "
+                   "coordinates and all 17 are present: ORF1ab C3267T, C5388A, T6954C and the "
+                   "11288-11296 deletion; spike 21765-21770 and 21991-21993 deletions, A23063T, "
+                   "C23271A, C23604A, C23709T, T24506G, G24914C; ORF8 C27972T, G28048T, "
+                   "A28111G; N 28280 GAT->CTA and C28977T. Six of them are asserted in "
+                   "src/app/showroom/__tests__/variantData.test.ts. No Pango assignment tool "
+                   "was run, and the amino-acid consequences were not re-derived from a "
+                   "translation. A human isolate submitted without any claim of rights.",
         },
         {
             "lineage": "Delta (B.1.617.2)",

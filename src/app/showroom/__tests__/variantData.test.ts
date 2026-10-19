@@ -105,3 +105,42 @@ describe('bundled SARS-CoV-2 variant data', () => {
     expect(mafft.strategy).toBeTruthy();
   });
 });
+
+// OL461693's GenBank record states no Pango lineage, so the Alpha label rests on
+// the record carrying the lineage-defining changes. These are read from Table 1 of
+// Rambaut et al. 2020, "Preliminary genomic characterisation of an emergent
+// SARS-CoV-2 lineage in the UK defined by a novel set of spike mutations"
+// (https://virological.org/t/563), in NC_045512.2 coordinates, 1-based.
+describe('OL461693 carries the B.1.1.7-defining changes', () => {
+  const rows = () => new Map(readFastaRows(resolve(VARIANTS, 'aligned.fasta')).map(r => [r.id, r.row]));
+  /** The reference row is ungapped, so reference position p is alignment column p. */
+  const columnOf = (position: number) => position - 1;
+
+  it('has an ungapped reference row, so columns are reference coordinates', () => {
+    const reference = rows().get('NC_045512');
+    expect(reference).toBeDefined();
+    expect(reference).not.toContain('-');
+  });
+
+  it.each([
+    ['spike N501Y (A23063T)', 23063, 'A', 'T'],
+    ['spike A570D (C23271A)', 23271, 'C', 'A'],
+    ['spike D1118H (G24914C)', 24914, 'G', 'C'],
+    ['ORF8 Q27stop (C27972T)', 27972, 'C', 'T'],
+    ['N S235F (C28977T)', 28977, 'C', 'T'],
+  ])('%s', (_change, position, referenceBase, alphaBase) => {
+    const aligned = rows();
+    expect(aligned.get('NC_045512')?.[columnOf(position)]).toBe(referenceBase);
+    expect(aligned.get('OL461693')?.[columnOf(position)]).toBe(alphaBase);
+  });
+
+  it.each([
+    ['spike HV 69-70 deletion (21765-21770)', 21765, 21770],
+    ['spike Y144 deletion (21991-21993)', 21991, 21993],
+  ])('%s', (_change, start, end) => {
+    const aligned = rows();
+    const span = (id: string) => aligned.get(id)?.slice(columnOf(start), end);
+    expect(span('NC_045512')).toMatch(/^[ACGT]+$/);
+    expect(span('OL461693')).toBe('-'.repeat(end - start + 1));
+  });
+});
