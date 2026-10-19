@@ -18,7 +18,7 @@
 
 </div>
 
-![Dunceious showing SARS-CoV-2, the human mitochondrion and the Arabidopsis chloroplast with annotations and translations](docs/assets/app-screenshot.webp)
+![Dunceious showing phage T7, the human mitochondrion and the Arabidopsis chloroplast with annotations and translations](docs/assets/app-screenshot.webp)
 
 ## What it does
 

@@ -16,77 +16,146 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  D614G_INDEX, D614G_POSITION, D614G_WINDOW, GENES, GENOME_LENGTH, ORF1AB_START, TRS_HITS, TRS_MOTIF,
+  FRAMESHIFT_POSITION, GENE1_RESIDUES, GENE1_START, GENES, GENOME_LENGTH, PHI10_PROMOTERS, PROMOTER_HITS, PROMOTER_MOTIF,
 } from '../greeterContent';
 import { BASE_SPAN, codonAt, geneAt, regionName, windowAround } from '../genomeZoom';
-import { SARS_COV_2 } from '../sarsCov2Sequence';
+import { T7_GENOME } from '../t7Sequence';
 
-// The greeter's facts must match the reference genome the workbench ships as an example.
-const genbank = readFileSync(new URL('../../../../examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', import.meta.url), 'utf-8');
-const sequence = (genbank.split('ORIGIN')[1].match(/[acgt]+/g) ?? []).join('').toUpperCase();
+// The greeter's facts must match the genomes the workbench ships as examples.
+const read = (file: string) => readFileSync(new URL(`../../../../examples/nucleotide/t7-phages/${file}`, import.meta.url), 'utf-8');
+const genbank = read('phage-t7-NC_001604.gb');
+const sequenceOf = (record: string) => (record.split('ORIGIN')[1].match(/[acgt]+/g) ?? []).join('').toUpperCase();
+const sequence = sequenceOf(genbank);
 const at = (start: number, length: number) => sequence.slice(start - 1, start - 1 + length);
 
+interface Feature { type: string; location: string; qualifiers: Record<string, string> }
+
+/** Every feature of a GenBank record, read straight from the flat file rather than through the app's parser. */
+function features(record: string): Feature[] {
+  const table = record.split('\nFEATURES')[1].split('\nORIGIN')[0];
+  return table.split(/\n {5}(?=\S)/).slice(1).map((block) => {
+    const [type, ...rest] = block.split(/\s+/);
+    const flat = rest.join(' ').replace(/\s+/g, ' ');
+    const qualifiers = Object.fromEntries([...flat.matchAll(/\/(\w+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+    return { type, location: block.split('\n')[0].slice(type.length).trim(), qualifiers };
+  });
+}
+
+const cds = features(genbank).filter((f) => f.type === 'CDS');
+const spansOf = (location: string) => [...location.matchAll(/(\d+)\.\.(\d+)/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+const locationOf = (g: (typeof GENES)[number]) =>
+  g.segments.length > 1 ? `join(${g.segments.map(([s, e]) => `${s}..${e}`).join(',')})` : `${g.start}..${g.end}`;
+const translationOf = (g: (typeof GENES)[number]) => cds.find((f) => f.location === locationOf(g))!.qualifiers.translation.replace(/\s+/g, '');
+const named = (name: string) => GENES.find((g) => g.name === name)!;
+
 describe('greeter content', () => {
-  it('matches NC_045512.2', () => {
-    expect(sequence).toHaveLength(GENOME_LENGTH);
-    expect(at(266, ORF1AB_START.length)).toBe(ORF1AB_START);
-    expect(at(23_394, D614G_WINDOW.length)).toBe(D614G_WINDOW);
-    expect(at(23_394 + D614G_INDEX, 1)).toBe('A');
-    const hits = [...sequence.matchAll(new RegExp(`(?=${TRS_MOTIF})`, 'g'))].map((m) => m.index! + 1);
-    expect(hits).toEqual([...TRS_HITS]);
-  });
-
-  it('lists every CDS with its GenBank span', () => {
-    for (const g of GENES) {
-      const span = g.name === 'ORF1ab' ? `join(${g.start}..13468,13468..${g.end})` : `${g.start}..${g.end}`;
-      expect(genbank).toContain(`     CDS             ${span}`);
-    }
-  });
-
   it('ships the same sequence as the example file', () => {
-    expect(SARS_COV_2).toBe(sequence);
-    expect(at(D614G_POSITION - D614G_INDEX, D614G_WINDOW.length)).toBe(D614G_WINDOW);
+    expect(sequence).toHaveLength(GENOME_LENGTH);
+    expect(T7_GENOME).toBe(sequence);
+  });
+
+  it('lists exactly the CDS no other CDS contains, each with its GenBank span and product', () => {
+    const outermost = cds.filter((f, i) => {
+      const [[start], last] = [spansOf(f.location)[0], spansOf(f.location).at(-1)!];
+      return !cds.some((other, j) => {
+        const spans = spansOf(other.location);
+        const [os, oe] = [spans[0][0], spans.at(-1)![1]];
+        return j !== i && os <= start && last[1] <= oe && (os !== start || oe !== last[1] || j < i);
+      });
+    });
+    expect(GENES.map(locationOf)).toEqual(outermost.map((f) => f.location));
+    for (const [i, g] of GENES.entries()) expect(g.product, g.name).toBe(outermost[i].qualifiers.product);
+  });
+
+  it('names genes as the RefSeq notes do wherever a note states the gene number', () => {
+    let checked = 0;
+    for (const g of GENES) {
+      const stated = cds.find((f) => f.location === locationOf(g))!.qualifiers.note?.match(/^(?:possible )?gene ([0-9.]+[A-Z]?(?:-[0-9.]+)?)\b/);
+      if (!stated) continue;
+      expect(g.name).toBe(stated[1]);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(20);
+  });
+
+  it('starts gene 1 with the RNA polymerase codons it shows', () => {
+    expect(named('1').start).toBe(3_171);
+    expect(at(3_171, GENE1_START.length)).toBe(GENE1_START);
+    expect(translationOf(named('1')).startsWith(GENE1_RESIDUES)).toBe(true);
+  });
+
+  it('finds every exact promoter hit, each ending on an annotated T7 promoter', () => {
+    const hits = [...sequence.matchAll(new RegExp(`(?=${PROMOTER_MOTIF})`, 'g'))].map((m) => m.index! + 1);
+    expect(hits).toEqual([...PROMOTER_HITS]);
+    const promoters = new Map(features(genbank).filter((f) => f.type === 'regulatory').map((f) => [f.location, f.qualifiers.note]));
+    for (const hit of hits) expect(promoters.get(String(hit + PROMOTER_MOTIF.length - 1)), String(hit)).toMatch(/^T7 promoter phi/);
+  });
+
+  it('shows each phage its own annotated gene 10 promoter', () => {
+    const [t7, phage13a, t3] = PHI10_PROMOTERS;
+    expect(at(t7.start, t7.sequence.length)).toBe(t7.sequence);
+    expect(features(genbank).find((f) => f.location === String(t7.start + 17))!.qualifiers.note).toBe('T7 promoter phi10');
+    for (const [{ start, sequence: shown }, file, note] of [
+      [phage13a, 'phage-13a-NC_011045.gb', 'phi10'],
+      [t3, 'phage-t3-NC_003298.gb', 'T3 promoter phi10'],
+    ] as const) {
+      const record = read(file);
+      const span = `${start}..${start + shown.length - 1}`;
+      expect(features(record).find((f) => f.type === 'regulatory' && f.location === span)!.qualifiers.note).toBe(note);
+      expect(sequenceOf(record).slice(start - 1, start - 1 + shown.length)).toBe(shown);
+    }
   });
 });
 
-/** The /translation qualifier of the first CDS for `gene`, as GenBank prints it. */
-function translation(gene: string): string {
-  // Each split piece starts with a CDS location; its first qualifier names the gene.
-  const block = genbank.split(/\n {5}CDS {13}/).slice(1).find((b) => b.split('\n')[1].trim() === `/gene="${gene}"`)!;
-  return block.match(/\/translation="([^"]+)"/)![1].replace(/\s+/g, '');
-}
-
 describe('codonAt', () => {
   it('reads codons in frame, matching the GenBank translations', () => {
-    const spike = translation('S');
-    for (const pos of [21_563, 21_564, 22_000, D614G_POSITION, 25_381]) {
+    const polymerase = translationOf(named('1'));
+    for (const pos of [3_171, 3_172, 4_000, 5_000, 5_819]) {
       const c = codonAt(pos)!;
-      expect(c.gene.name).toBe('S');
-      expect(c.residue).toBe(spike[c.number - 1]);
+      expect(c.gene.name).toBe('1');
+      expect(c.residue).toBe(polymerase[c.number - 1]);
     }
-    expect(codonAt(D614G_POSITION)).toMatchObject({ number: 614, phase: 1, residue: 'D' });
   });
 
-  it('follows the ORF1ab frameshift into the shifted frame', () => {
-    const pp1ab = translation('ORF1ab');
-    for (const pos of [266, 13_460, 13_466, 13_468, 13_469, 13_471, 15_000, 21_552]) {
+  it('follows the −1 gene 10 frameshift into the shifted frame', () => {
+    const gp10b = translationOf(named('10B'));
+    for (const pos of [22_967, 23_980, 23_987, FRAMESHIFT_POSITION, 23_990, 23_992, 24_100, 24_159]) {
       const c = codonAt(pos)!;
-      expect(c.residue).toBe(pp1ab[c.number - 1]);
+      expect(c.gene.name).toBe('10B');
+      expect(c.residue, String(pos)).toBe(gp10b[c.number - 1]);
     }
-    expect(codonAt(13_469)!.positions).toEqual([13_468, 13_469, 13_470]);
+    expect(codonAt(FRAMESHIFT_POSITION + 1)!.positions).toEqual([FRAMESHIFT_POSITION, FRAMESHIFT_POSITION + 1, FRAMESHIFT_POSITION + 2]);
   });
 
-  it('names the stop codon and the untranslated regions', () => {
-    expect(codonAt(25_384)).toMatchObject({ gene: expect.objectContaining({ name: 'S' }), residue: '*' });
+  it('steps over the base the +1 gene 0.6B frameshift skips', () => {
+    const gp06b = translationOf(named('0.6B'));
+    expect(codonAt(1_795)).toBeUndefined();
+    expect(regionName(1_795)).toBe('Skipped by the +1 frameshift in gene 0.6B');
+    // 1,636–1,639 also belong to gene 0.5, which is listed first, so start past it.
+    for (const pos of [1_640, 1_794, 1_796, 1_969]) {
+      const c = codonAt(pos)!;
+      expect(c.gene.name).toBe('0.6B');
+      expect(c.residue, String(pos)).toBe(gp06b[c.number - 1]);
+    }
+  });
+
+  it('shows an alternative start codon as its literal residue', () => {
+    // Gene 19 starts on GTG: GenBank's /translation writes the initiator as M.
+    expect(at(37_370, 3)).toBe('GTG');
+    expect(translationOf(named('19'))[0]).toBe('M');
+    expect(codonAt(37_370)).toMatchObject({ number: 1, residue: 'V' });
+  });
+
+  it('names the stop codon and the regions between and around the genes', () => {
+    expect(codonAt(5_822)).toMatchObject({ gene: expect.objectContaining({ name: '1' }), residue: '*' });
     expect(codonAt(100)).toBeUndefined();
-    expect(regionName(100)).toBe('5′ untranslated region');
-    expect(regionName(21_558)).toBe('Between genes');
-    expect(regionName(29_800)).toBe('3′ untranslated region');
-    expect(geneAt(27_757)!.name).toBe('ORF7a');
+    expect(regionName(100)).toBe('Left end of the genome');
+    expect(regionName(3_120)).toBe('Between genes');
+    expect(regionName(39_800)).toBe('Right end of the genome');
+    expect(geneAt(1_278)!.name).toBe('0.3');
   });
 
   it('keeps windows inside the genome', () => {

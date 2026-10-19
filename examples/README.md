@@ -27,7 +27,7 @@ examples/
 │   ├── coronaviruses/      # aligned set
 │   ├── sars-cov-2-variants/ # aligned set, with its alignment
 │   ├── t4-phages/          # aligned set
-│   └── t7-phages/          # aligned set
+│   └── t7-phages/          # aligned set, with its alignment
 └── peptide/
     ├── human-insulin-NP_000198.gb
     ├── sars-cov-2-orf1ab-polyprotein-YP_009724389.gb
@@ -52,6 +52,11 @@ fails if a file is added, moved or removed without updating
 | `phage-t7-NC_001604.gb` | [NC_001604](https://www.ncbi.nlm.nih.gov/nuccore/NC_001604.1) | 39,937 bp | A `+1` frameshift (`join(1636..1794,1796..1972)`) and two `−1` frameshifts, including the gene 10A/10B capsid `join(22967..23989,23989..24162)`; 26 `regulatory`, 10 `misc_structure`, 5 `mRNA`. |
 | `phage-13a-NC_011045.gb` | [NC_011045](https://www.ncbi.nlm.nih.gov/nuccore/NC_011045.1) | 38,841 bp | T7's closest relative here. Its DNA polymerase is split by a 601-nt intron — a `join` that is *not* a frameshift. |
 | `phage-t3-NC_003298.gb` | [NC_003298](https://www.ncbi.nlm.nih.gov/nuccore/NC_003298.1) | 38,208 bp | The same `−1` capsid frameshift as T7, and 10 `stem_loop` features. More divergent from T7 than 13a. |
+| `aligned.fasta` | — | 3 rows | A MAFFT alignment of the three. Load the three genomes as sequences, then `aligned.fasta` as an alignment. Counting matching bases over the columns where both rows have a base, T7 and 13a are 92.8% identical and T7 and T3 77.1%. |
+
+This set is the phone test drive's sample, and the greeter's genome is T7.
+`PROVENANCE.json` records why each genome was chosen, the pinned MAFFT image and
+command, and checksums; `scripts/build-t7-phages-alignment.sh` rebuilds it.
 
 ### `nucleotide/t4-phages/` — size, introns and a bypass
 
@@ -83,8 +88,8 @@ All three exercise the RNA molecule-type path. In each, the polymerase
 | `aligned.fasta` | — | 4 rows | A MAFFT alignment of the three against `coronaviruses/sars-cov-2-NC_045512.gb`. Load `variants.gb` and the reference as sequences, then `aligned.fasta` as an alignment. |
 
 Where the other sets differ between species, this one differs by point
-mutations and short deletions within one. It feeds the phone test drive; see
-its [README](nucleotide/sars-cov-2-variants/README.md) and `PROVENANCE.json`.
+mutations and short deletions within one. See its
+[README](nucleotide/sars-cov-2-variants/README.md) and `PROVENANCE.json`.
 
 ## Nucleotide single records
 

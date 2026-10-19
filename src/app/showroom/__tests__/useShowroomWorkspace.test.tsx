@@ -37,10 +37,10 @@ function searchFor(result: { current: ReturnType<typeof useShowroomWorkspace> },
 }
 
 describe('useShowroomWorkspace', () => {
-  it('starts with the four sample records, all visible, in Pan mode with the default layers', () => {
+  it('starts with the three sample records, all visible, in Pan mode with the default layers', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
-    expect(result.current.records).toHaveLength(4);
-    expect(result.current.transposedRecords).toHaveLength(4);
+    expect(result.current.records).toHaveLength(3);
+    expect(result.current.transposedRecords).toHaveLength(3);
     const processed = handleBioMessage({ type: 'PROCESS_RECORDS', records: loadSampleRecords() });
     if (processed.type !== 'SUCCESS') throw new Error('processing failed');
     expect(result.current.transposedRecords).toEqual(processed.records);
@@ -53,10 +53,10 @@ describe('useShowroomWorkspace', () => {
 
   it('runs the exact search the workbench runs, over every loaded record', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
-    searchFor(result, 'ACG AAC');
-    const expected = runInlineSearch({ searchQuery: 'ACGAAC', records: searchable(), mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
+    searchFor(result, 'TAATACGAC TCACTATAG');
+    const expected = runInlineSearch({ searchQuery: 'TAATACGACTCACTATAG', records: searchable(), mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
     expect(result.current.search.results).toEqual(expected);
-    expect(result.current.search.results.filter(hit => hit.recordId === 'NC_045512' && hit.strand === 1)).toHaveLength(9);
+    expect(result.current.search.results.filter(hit => hit.recordId === 'NC_001604' && hit.strand === 1)).toHaveLength(7);
     expect(result.current.search.currentIdx).toBe(0);
     expect(result.current.activeSelection).toEqual({ start: expected[0].start, end: expected[0].end, recordIds: [expected[0].recordId] });
   });
@@ -64,8 +64,8 @@ describe('useShowroomWorkspace', () => {
   it('runs fuzzy search through the search worker body', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
     act(() => result.current.search.setMode('fuzzy'));
-    searchFor(result, 'ACGAACTTTA');
-    const response = runSearch({ searchQuery: 'ACGAACTTTA', records: searchable(), mode: 'fuzzy', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
+    searchFor(result, 'TAATACGACTCACTATAGGG');
+    const response = runSearch({ searchQuery: 'TAATACGACTCACTATAGGG', records: searchable(), mode: 'fuzzy', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna' });
     if (!('results' in response)) throw new Error('fuzzy search failed');
     expect(result.current.search.results).toEqual(response.results);
     expect(result.current.search.results.length).toBeGreaterThan(0);
@@ -74,7 +74,7 @@ describe('useShowroomWorkspace', () => {
 
   it('clears the search and the selection it made', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
-    searchFor(result, 'ACGAAC');
+    searchFor(result, 'TAATACGACTCACTATAG');
     act(() => result.current.search.clear());
     expect(result.current.search).toMatchObject({ query: '', results: [], currentIdx: -1 });
     expect(result.current.activeSelection).toBeNull();
@@ -86,11 +86,11 @@ describe('useShowroomWorkspace', () => {
     act(() => result.current.toggle('translation'));
     act(() => result.current.toggle('tracks'));
     expect(result.current).toMatchObject({ showAnnotations: false, showTranslation: false, showTracks: false });
-    act(() => result.current.setRecordVisible('OR279985', false));
-    expect(result.current.records.find(r => r.id === 'OR279985')?.visible).toBe(false);
-    expect(result.current.transposedRecords.map(r => r.id)).not.toContain('OR279985');
-    act(() => result.current.setRecordVisible('OR279985', true));
-    expect(result.current.transposedRecords).toHaveLength(4);
+    act(() => result.current.setRecordVisible('NC_003298', false));
+    expect(result.current.records.find(r => r.id === 'NC_003298')?.visible).toBe(false);
+    expect(result.current.transposedRecords.map(r => r.id)).not.toContain('NC_003298');
+    act(() => result.current.setRecordVisible('NC_003298', true));
+    expect(result.current.transposedRecords).toHaveLength(3);
   });
 
   it('opens and closes one explanation at a time', () => {
@@ -109,8 +109,8 @@ describe('useShowroomWorkspace', () => {
   it('keeps everything in memory', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     const { result } = renderHook(() => useShowroomWorkspace());
-    searchFor(result, 'ACGAAC');
-    act(() => result.current.setRecordVisible('NC_045512', false));
+    searchFor(result, 'TAATACGACTCACTATAG');
+    act(() => result.current.setRecordVisible('NC_001604', false));
     act(() => result.current.toggle('annotations'));
     act(() => result.current.setDragMode('select'));
     act(() => result.current.openExplain('project'));
@@ -134,9 +134,9 @@ describe('the showroom workspace over the aligned sample', () => {
   it('completedSearch is set after a run and cleared on clear', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
     expect(result.current.search.completedSearch).toBeNull();
-    searchFor(result, 'ACG AAC');
+    searchFor(result, 'TAATACGAC TCACTATAG');
     expect(result.current.search.completedSearch).toEqual(completedSearchFor({
-      searchQuery: 'ACGAAC', mode: 'exact', records: searchable(),
+      searchQuery: 'TAATACGACTCACTATAG', mode: 'exact', records: searchable(),
       options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
     }, false));
     act(() => result.current.search.clear());

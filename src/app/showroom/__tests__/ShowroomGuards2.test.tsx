@@ -92,7 +92,7 @@ describe('showroom guards beyond the viewer', () => {
 
   it('the viewer keeps explaining its menu, and a long-press there consumes its touch', () => {
     const view = mountShowroom();
-    const row = view.container.querySelector('[data-viewer-record="NC_045512"]')!;
+    const row = view.container.querySelector('[data-viewer-record="NC_001604"]')!;
     expect(fireEvent.contextMenu(row, { clientX: 30, clientY: 40 })).toBe(false);
     expect(explanation('Right-click menu')).toBeTruthy();
     gotIt();
@@ -198,7 +198,7 @@ describe('showroom portrait over open dialogs', () => {
     expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBe(sheet);
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close keyboard shortcuts' }));
 
-    fireEvent.click(screen.getAllByRole('button', { name: /^Inspect .* on NC_045512$/ })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Inspect .* on NC_001604$/ })[0]);
     expect(screen.getByRole('heading', { name: 'Annotation Details' })).toBeTruthy();
     view.rotate(false);
     expectBackReachable(onExit);
@@ -214,7 +214,7 @@ describe('showroom Export focus', () => {
     openHub();
     const dialog = openExport();
     fireEvent.click(within(dialog).getByRole('radio', { name: 'GenBank' }));
-    const final = within(dialog).getByRole('button', { name: 'Export 4 sequences' });
+    const final = within(dialog).getByRole('button', { name: 'Export 3 sequences' });
 
     final.focus();
     fireEvent.click(final);
@@ -243,13 +243,13 @@ describe('showroom exit', () => {
     const onExit = vi.fn();
     const first = mountShowroom({ onExit });
     fireEvent.click(screen.getByRole('button', { name: 'Show sidebar' }));
-    fireEvent.change(within(sidebar()).getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.change(within(sidebar()).getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'TAATACGACTCACTATAG' } });
     fireEvent.click(within(sidebar()).getByRole('button', { name: 'Search' }));
     openEveryDisclosure();
     expect(document.querySelectorAll('details[open]').length).toBeGreaterThan(0);
 
     const hub = openHub();
-    fireEvent.change(within(nav()).getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'ORF1ab' } });
+    fireEvent.change(within(nav()).getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'major head protein' } });
     fireEvent.click(within(hub.querySelector<HTMLElement>('[data-filter-types]')!).getByRole('button', { name: /^CDS/ }));
     const dialog = openExport();
     fireEvent.click(within(dialog).getByRole('radio', { name: 'GenBank' }));

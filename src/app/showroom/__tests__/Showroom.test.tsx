@@ -54,7 +54,7 @@ describe('Showroom orientation', () => {
     expect(screen.queryByText('Turn your phone sideways')).toBeNull();
     expect(screen.getByText('Test drive')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Visual Viewport' }).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-viewer-record="NC_045512"]')).not.toBeNull();
+    expect(container.querySelector('[data-viewer-record="NC_001604"]')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Exit' }));
     expect(onExit).toHaveBeenCalledTimes(1);
   });
@@ -64,20 +64,20 @@ describe('Showroom orientation', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     const viewerField = goToField(container);
     openSidebar();
-    fireEvent.click(screen.getByRole('button', { name: 'Hide OR279985 in viewport' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide NC_003298 in viewport' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select mode' }));
-    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'TAATACGACTCACTATAG' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     const hits = screen.getAllByRole('button', { name: /^Annotate match/ }).length;
     rotate(false);
     expect(screen.getByText('Turn your phone sideways')).toBeTruthy();
     rotate(true);
     expect(screen.queryByText('Turn your phone sideways')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show OR279985 in viewport' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show NC_003298 in viewport' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Select mode' }).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-viewer-record="OR279985"]')).toBeNull();
+    expect(container.querySelector('[data-viewer-record="NC_003298"]')).toBeNull();
     expect(goToField(container)).toBe(viewerField);
-    expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('ACGAAC');
+    expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('TAATACGACTCACTATAG');
     expect(screen.getAllByRole('button', { name: /^Annotate match/ })).toHaveLength(hits);
   });
 });
@@ -125,7 +125,7 @@ describe('Showroom chrome', () => {
       expect(explanation(card)).toBeTruthy();
       gotIt();
     }
-    fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove NC_045512' }));
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove NC_001604' }));
     expect(explanation('Remove sequence')).toBeTruthy();
     gotIt();
     fireEvent.click(within(sidebar).getByRole('button', { name: 'Add sequences…' }));
@@ -137,7 +137,7 @@ describe('Showroom viewer guards', () => {
   beforeEach(() => { stubOrientation(true); });
 
   const feature = (container: HTMLElement) => {
-    const part = container.querySelector('[data-viewer-record="NC_045512"] [data-annotation-part]');
+    const part = container.querySelector('[data-viewer-record="NC_001604"] [data-annotation-part]');
     if (!part) throw new Error('no annotation rendered');
     return part;
   };
@@ -145,7 +145,7 @@ describe('Showroom viewer guards', () => {
   it('clears a selection locally and offers Compare over the aligned sample', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
-    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'TAATACGACTCACTATAG' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
@@ -215,7 +215,7 @@ describe('Showroom review fixes', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
     fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
-    const remove = screen.getByRole('button', { name: 'Remove NC_045512' });
+    const remove = screen.getByRole('button', { name: 'Remove NC_001604' });
     remove.focus();
     fireEvent.click(remove);
     const dialog = explanation('Remove sequence');
