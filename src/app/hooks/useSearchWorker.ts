@@ -22,7 +22,6 @@ import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
 import { isProteinSession as computeIsProteinSession } from '@/src/domain/bio';
 import type { SearchWorkerRequest, SearchWorkerResponse, SearchableRecord, SearchOptions } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
-import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
   type CompletedSearch,
   type SearchAnnotationHit,
@@ -47,12 +46,10 @@ const idleLocalJob: LocalSearchJob = { phase: 'idle', startedAt: 0,
 
 export type { SearchOptions };
 
-/**
- * How long a fuzzy search may run in the worker before it is abandoned. The
- * worker is replaced rather than reused, since a stuck job would hold every
- * later request in its queue.
- */
-export const FUZZY_WORKER_TIMEOUT_MS = 15_000;
+/** A stalled scan must release its worker so later requests can run. */
+export const SEARCH_WORKER_TIMEOUT_MS = 15_000;
+
+const DEFAULT_RESULT_LIMIT = 100;
 
 export interface UseSearchWorkerReturn {
   localReady: boolean;
@@ -92,8 +89,8 @@ export interface UseSearchWorkerReturn {
 /**
  * Manages the searchWorker Web Worker lifecycle and all sequence-search state.
  *
- * The worker is created once and reused; refs keep callback/query values fresh
- * for response handling without worker churn during typing.
+ * Idle workers are reused; abandoned or failed scans terminate their worker.
+ * Query edits preserve displayed results until the next explicit search or clear.
  *
  * @param records                 - Current active records to search over.
  * @param addLog                  - Callback to append a timestamped message.
@@ -125,7 +122,7 @@ export function useSearchWorker(
     fuzzyMethod: 'whole', localFilters: { minIdentity: null, minQueryCoverage: null },
     minIdentity: 80,
     strand: 'both',
-    maxResults: 100,
+    maxResults: DEFAULT_RESULT_LIMIT,
   });
 
   const moduleState = useLocalEngineBytes();
@@ -151,44 +148,47 @@ export function useSearchWorker(
     }));
   }, [records]);
 
-  const executeSearchInline = useCallback(
-    (request: SearchWorkerRequest): SearchResult[] => runInlineSearch(request),
-    [],
-  );
-
   const searchWorkerRef = useRef<Worker | null>(null);
   const lastRequestRef = useRef<SearchWorkerRequest | null>(null);
   const nextRequestIdRef = useRef(0);
   const pendingRequestIdRef = useRef<number | null>(null);
-  const fuzzyTimeoutRef = useRef<number | null>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestQueryRef = useRef(searchQuery);
   const addLogRef = useRef(addLog);
   const onFirstResultRef = useRef(onFirstResult);
   const isMountedRef = useRef(true);
-  const replaceWorkerRef = useRef<() => void>(() => {});
 
-  const clearFuzzyTimeout = useCallback(() => {
-    if (fuzzyTimeoutRef.current !== null) {
-      window.clearTimeout(fuzzyTimeoutRef.current);
-      fuzzyTimeoutRef.current = null;
+  const clearSearchTimeout = useCallback(() => {
+    if (searchTimeoutRef.current !== null) {
+      window.clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
     }
+  }, []);
+
+  const retireWorker = useCallback(() => {
+    const worker = searchWorkerRef.current;
+    searchWorkerRef.current = null;
+    if (!worker) return;
+    worker.onmessage = null;
+    worker.onerror = null;
+    worker.onmessageerror = null;
+    worker.terminate();
   }, []);
 
   const cancelPendingSearch = useCallback(() => {
     localGeneration.current++;
     if (localActive.current) { localActive.current = false; poolRef.current.cancel(); }
     setLocalJob(idleLocalJob); setLocalCounts(null);
-    // A worker still busy with the abandoned job would hold the next request in its queue.
-    if (pendingRequestIdRef.current !== null) replaceWorkerRef.current();
+    // Termination releases a busy worker instead of queueing the next scan behind it.
+    if (pendingRequestIdRef.current !== null) retireWorker();
     pendingRequestIdRef.current = null;
     lastRequestRef.current = null;
-    clearFuzzyTimeout();
+    clearSearchTimeout();
     if (navigationTimeoutRef.current !== null) {
       clearTimeout(navigationTimeoutRef.current);
       navigationTimeoutRef.current = null;
     }
-  }, [clearFuzzyTimeout]);
+  }, [clearSearchTimeout, retireWorker]);
 
   const clearSearch = useCallback(() => {
     cancelPendingSearch();
@@ -228,112 +228,86 @@ export function useSearchWorker(
     }
   }, []);
 
-  const runInlineFallback = useCallback((request: SearchWorkerRequest, reason: string) => {
+  const failSearch = useCallback((reason: string) => {
+    cancelPendingSearch();
+    retireWorker();
+    setIsSearching(false);
+    setSearchResults([]);
+    setCurrentSearchIdx(-1);
+    setSelectedSearchIndices(new Set());
     addLogRef.current(reason);
-    try {
-      const results = executeSearchInline(request);
-      applySearchResults(results, request);
-    } catch (err) {
-      addLogRef.current(`Fallback search failed: ${String(err)}`);
-      setIsSearching(false);
-      setCurrentSearchIdx(-1);
-      setSearchResults([]);
-    } finally {
-      pendingRequestIdRef.current = null;
-      clearFuzzyTimeout();
-    }
-  }, [executeSearchInline, applySearchResults, clearFuzzyTimeout]);
+  }, [cancelPendingSearch, retireWorker]);
 
   useEffect(() => {
-    latestQueryRef.current = searchQuery;
     addLogRef.current = addLog;
     onFirstResultRef.current = onFirstResult;
-  }, [searchQuery, addLog, onFirstResult]);
+  }, [addLog, onFirstResult]);
 
-  // ── Worker lifecycle ───────────────────────────────────────────────────────
-  useEffect(() => {
-    isMountedRef.current = true;
+  const spawnWorker = useCallback((): Worker | null => {
+    let worker: Worker;
+    try {
+      worker = new Worker(
+        new URL('@/src/workers/search.worker.ts', import.meta.url),
+        { type: 'module' },
+      );
+    } catch (err) {
+      addLogRef.current(`Search Worker could not start: ${String(err)}. Try searching again.`);
+      return null;
+    }
+    searchWorkerRef.current = worker;
 
-    const retire = () => {
-      const worker = searchWorkerRef.current;
-      if (!worker) return;
-      worker.onmessage = null;
-      worker.onerror = null;
-      worker.terminate();
-      searchWorkerRef.current = null;
-    };
-
-    const spawn = () => {
-      let worker: Worker;
-      try {
-        worker = new Worker(
-          new URL('@/src/workers/search.worker.ts', import.meta.url),
-          { type: 'module' },
-        );
-      } catch (err) {
-        // Without a worker, fuzzy searches take the inline fallback in `handleSearch`.
-        addLogRef.current(`Search Worker could not start: ${String(err)}`);
+    // Queued callbacks can outlive termination, including responses without request IDs.
+    const isCurrentWorker = () => isMountedRef.current && searchWorkerRef.current === worker;
+    worker.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
+      if (!isCurrentWorker() || pendingRequestIdRef.current === null) return;
+      const msg = e.data;
+      if (typeof msg.requestId === 'number' && msg.requestId !== pendingRequestIdRef.current) return;
+      if ('error' in msg) {
+        failSearch(`Search Error: ${msg.error}. Try searching again.`);
         return;
       }
-
-      worker.onmessage = (e: MessageEvent<SearchWorkerResponse>) => {
-        if (!isMountedRef.current) return;
-        const msg = e.data;
-
-        if (pendingRequestIdRef.current === null) return;
-        if (typeof msg.requestId === 'number' && msg.requestId !== pendingRequestIdRef.current) return;
-
-        clearFuzzyTimeout();
-        pendingRequestIdRef.current = null;
-        setIsSearching(false);
-        if ('error' in msg) {
-          // The inline path runs the same search core, so retrying there would fail the same way.
-          addLogRef.current(`Search Error: ${msg.error}`);
-          return;
-        }
-
-        if (lastRequestRef.current) applySearchResults(msg.results, lastRequestRef.current);
-      };
-
-      worker.onerror = (event: ErrorEvent) => {
-        if (!isMountedRef.current || pendingRequestIdRef.current === null) return;
-        const pending = lastRequestRef.current;
-        if (pending && pending.mode === 'fuzzy') {
-          runInlineFallback(pending, `Search Worker Error: ${event.message}. Using local fallback.`);
-          return;
-        }
-        clearFuzzyTimeout();
-        pendingRequestIdRef.current = null;
-        setIsSearching(false);
-        addLogRef.current(`Search Worker Error: ${event.message}`);
-      };
-
-      searchWorkerRef.current = worker;
+      const request = lastRequestRef.current!;
+      clearSearchTimeout();
+      pendingRequestIdRef.current = null;
+      lastRequestRef.current = null;
+      applySearchResults(msg.results, request);
     };
+    worker.onerror = (event: ErrorEvent) => {
+      if (!isCurrentWorker()) return;
+      failSearch(`Search Worker Error: ${event.message}. Try searching again.`);
+    };
+    worker.onmessageerror = () => {
+      if (!isCurrentWorker()) return;
+      failSearch('Search Worker response could not be read. Try searching again.');
+    };
+    return worker;
+  }, [applySearchResults, clearSearchTimeout, failSearch]);
 
-    replaceWorkerRef.current = () => { retire(); spawn(); };
-    spawn();
-
+  useEffect(() => {
+    isMountedRef.current = true;
+    spawnWorker();
     return () => {
-      replaceWorkerRef.current = () => {};
-      cancelPendingSearch();
-      retire();
       isMountedRef.current = false;
+      cancelPendingSearch();
+      retireWorker();
     };
-  }, []);
+  }, [spawnWorker, cancelPendingSearch, retireWorker]);
 
-  // ── Dispatch search request ───────────────────────────────────────────────
   const handleSearch = useCallback(() => {
     cancelPendingSearch();
     const normalizedQuery = searchQuery.replace(/\s+/g, '');
-    if (!normalizedQuery || normalizedQuery.length < 1) {
+    if (!normalizedQuery) {
       clearSearch();
       return;
     }
+    const options = Number.isNaN(searchOptions.maxResults)
+      ? { ...searchOptions, maxResults: DEFAULT_RESULT_LIMIT }
+      : searchOptions;
+    if (options !== searchOptions) updateSearchOptions(options);
     setCompletedSearch(null);
+    setIsSearching(true);
     setSearchResults([]);
     setCurrentSearchIdx(-1);
-    setIsSearching(true);
     setSelectedSearchIndices(new Set());
     addLog(`Initiating ${searchMode} search for '${normalizedQuery}'...`);
 
@@ -343,11 +317,11 @@ export function useSearchWorker(
       searchQuery: normalizedQuery,
       records: searchableRecords,
       mode: searchMode,
-      options: searchOptions,
+      options,
       moleculeType: isProteinSession ? 'protein' : 'dna',
     };
     lastRequestRef.current = request;
-    if (searchMode === 'fuzzy' && localSearchOptions(searchOptions).fuzzyMethod === 'local') {
+    if (searchMode === 'fuzzy' && localSearchOptions(options).fuzzyMethod === 'local') {
       const startedAt = Date.now();
       const generation = localGeneration.current;
       const scoring = loadScoring(scoringFor(isProteinSession));
@@ -362,8 +336,8 @@ export function useSearchWorker(
       localActive.current = true;
       setLocalJob({ ...idleLocalJob, phase: 'running', startedAt });
       void poolRef.current.run({ query: normalizedQuery, records: searchableRecords,
-        moleculeType: request.moleculeType!, scoring: scoring.id, limit: searchOptions.maxResults,
-        filters: localSearchOptions(searchOptions).localFilters, strand: searchOptions.strand }, progress => {
+        moleculeType: request.moleculeType!, scoring: scoring.id, limit: options.maxResults,
+        filters: localSearchOptions(options).localFilters, strand: options.strand }, progress => {
         if (localGeneration.current === generation) setLocalJob({ phase: 'running', startedAt, progress });
       }).then(({ results, counts }) => {
         if (!isMountedRef.current || localGeneration.current !== generation) return;
@@ -381,65 +355,22 @@ export function useSearchWorker(
       return;
     }
 
-    // Keep exact/IUPAC deterministic and independent of worker state.
-    if (searchMode === 'exact') {
-      try {
-        const exactResults = executeSearchInline(request);
-        applySearchResults(exactResults, request);
-      } catch (err) {
-        addLog(`Search execution failed: ${String(err)}`);
-        setCurrentSearchIdx(-1);
-        setSearchResults([]);
-      }
+    const worker = searchWorkerRef.current ?? spawnWorker();
+    if (!worker) {
       setIsSearching(false);
-      pendingRequestIdRef.current = null;
-      clearFuzzyTimeout();
       return;
     }
-
-    const worker = searchWorkerRef.current;
-    if (worker) {
-      try {
-        pendingRequestIdRef.current = requestId;
-        worker.postMessage(request);
-
-        clearFuzzyTimeout();
-        fuzzyTimeoutRef.current = window.setTimeout(() => {
-          fuzzyTimeoutRef.current = null;
-          if (!isMountedRef.current || pendingRequestIdRef.current !== requestId) return;
-          // Rerunning inline would freeze the page for at least as long.
-          pendingRequestIdRef.current = null;
-          replaceWorkerRef.current();
-          setIsSearching(false);
-          setSearchResults([]);
-          setCurrentSearchIdx(-1);
-          addLogRef.current(`Fuzzy search stopped after ${FUZZY_WORKER_TIMEOUT_MS / 1000} s; try a shorter query.`);
-        }, FUZZY_WORKER_TIMEOUT_MS);
-
-        return;
-      } catch (err) {
-        if (searchMode === 'fuzzy') {
-          runInlineFallback(request, `Search Worker dispatch failed: ${String(err)}. Using local fallback.`);
-          return;
-        }
-        addLog(`Search Worker dispatch failed: ${String(err)}`);
-        setIsSearching(false);
-        pendingRequestIdRef.current = null;
-        clearFuzzyTimeout();
-        return;
-      }
-    } else {
-      if (searchMode === 'fuzzy') {
-        runInlineFallback(request, 'Search Worker unavailable for fuzzy search; using local fallback.');
-        return;
-      }
-      addLog('Search Worker unavailable.');
-      setIsSearching(false);
-      pendingRequestIdRef.current = null;
-      clearFuzzyTimeout();
-      return;
+    pendingRequestIdRef.current = requestId;
+    searchTimeoutRef.current = window.setTimeout(() => {
+      if (!isMountedRef.current || pendingRequestIdRef.current !== requestId) return;
+      failSearch(`Search stopped after ${SEARCH_WORKER_TIMEOUT_MS / 1000} s; try a shorter query.`);
+    }, SEARCH_WORKER_TIMEOUT_MS);
+    try {
+      worker.postMessage(request);
+    } catch (err) {
+      failSearch(`Search Worker dispatch failed: ${String(err)}. Try searching again.`);
     }
-  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, executeSearchInline, applySearchResults, runInlineFallback, clearFuzzyTimeout, cancelPendingSearch, clearSearch, moduleState.error]);
+  }, [searchQuery, searchableRecords, searchMode, searchOptions, isProteinSession, addLog, spawnWorker, failSearch, cancelPendingSearch, clearSearch, applySearchResults, moduleState.error]);
 
   const cancelLocalSearch = useCallback(() => {
     localGeneration.current++; localActive.current = false; poolRef.current.cancel();

@@ -17,7 +17,6 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SearchResult } from '@/src/domain/bio/types';
 import type { SearchWorkerRequest, SearchWorkerResponse } from '@/src/workers/protocol';
 import { runExactSearch } from '@/src/core/search/exact';
 import { runFuzzySearch } from '@/src/core/search/fuzzy';
@@ -37,9 +36,9 @@ export function runSearch(request: SearchWorkerRequest): SearchWorkerResponse {
       return { requestId, results: runFuzzySearch(searchQuery, records, isProtein, strand, moleculeType, minIdentity, maxResults) };
     }
 
-    const results: SearchResult[] = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
-    results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-    return { requestId, results: results.slice(0, maxResults) };
+    // Preserve the worker's unconditional slice behavior for a NaN limit.
+    const limit = Number.isNaN(maxResults) ? 0 : maxResults;
+    return { requestId, results: runExactSearch(searchQuery, records, isProtein, strand, moleculeType, limit) };
   } catch (error) {
     return { requestId, error: String(error) };
   }

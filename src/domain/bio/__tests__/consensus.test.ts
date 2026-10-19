@@ -85,3 +85,26 @@ describe('calculateConsensus', () => {
     expect(result[1]).toBe('-');
   });
 });
+
+describe('singleton aligned consensus', () => {
+  it('preserves gaps and letter case among empty and unaligned overlays', () => {
+    expect(calculateConsensus([
+      makeRecord('unaligned-before', 'TTTT'),
+      makeRecord('empty-before', 'AAAA', ''),
+      makeRecord('eligible', 'ACGT', '--aCgT--'),
+      makeRecord('empty-after', 'CCCC', ''),
+      makeRecord('unaligned-after', 'GGGG'),
+    ])).toBe('--aCgT--');
+  });
+
+  it('returns empty consensus for empty overlays mixed with unaligned records', () => {
+    expect(calculateConsensus([makeRecord('empty', 'ACGT', ''), makeRecord('unaligned', 'ACGT')])).toBe('');
+  });
+
+  it('keeps voting when more than one truthy alignment remains', () => {
+    expect(calculateConsensus([
+      makeRecord('first', 'A', 'a-C'), makeRecord('second', 'A', 'A-CG'),
+      makeRecord('third', 'A', 'A-cG'), makeRecord('empty', 'A', ''),
+    ])).toBe('A-CG');
+  });
+});

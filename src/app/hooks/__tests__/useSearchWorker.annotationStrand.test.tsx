@@ -20,10 +20,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
+import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
+import { runSearch } from '@/src/workers/handlers/search';
 import { useSearchWorker } from '../useSearchWorker';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
-beforeEach(() => vi.stubGlobal('Worker', class { postMessage() {} terminate() {} }));
+const DeferredWorker = createDeferredWorker(runSearch);
+beforeEach(() => {
+  DeferredWorker.instances = [];
+  vi.stubGlobal('Worker', DeferredWorker);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 const records: SeqRecord[] = [{ id: 'synthetic', name: 'synthetic', sequence: 'AACGTAACGTA', features: [] }];
@@ -36,6 +42,7 @@ describe('joining reverse search hits', () => {
       result.current.setSearchOptions({ minIdentity: 80, strand: 'rev', maxResults: 100 });
     });
     act(() => result.current.handleSearch());
+    act(() => DeferredWorker.instances.at(-1)!.release(0));
     expect(result.current.searchResults.map(hit => hit.strand)).toEqual([-1, -1]);
     if (mode === 'record') act(() => result.current.joinAllInRecord('synthetic'));
     else {

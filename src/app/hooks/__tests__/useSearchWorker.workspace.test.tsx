@@ -18,7 +18,7 @@
  */
 
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
 import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
 import { runSearch } from '@/src/workers/handlers/search';
@@ -36,27 +36,31 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-it.each([
-  ['clear', []],
-  ['replacement', replacement],
-] as const)('clears pending fuzzy search state after workspace %s and ignores late results', (_action, next) => {
-  const log = vi.fn();
-  const focus = vi.fn();
-  const h = renderHook(({ active }) => useSearchWorker(active, log, vi.fn(), focus), { initialProps: { active: records } });
-  const worker = DeferredWorker.instances.at(-1)!;
-  act(() => { h.result.current.setSearchQuery('AAAA'); h.result.current.setSearchMode('fuzzy'); });
-  act(() => h.result.current.handleSearch());
-  expect(h.result.current.isSearching).toBe(true);
-  h.rerender({ active: [...next] });
-  const logCount = log.mock.calls.length;
-  act(() => worker.release(0));
-  act(() => vi.advanceTimersByTime(5000));
-  expect(h.result.current.searchResults).toEqual([]);
-  expect(h.result.current.groupedSearchResults).toEqual({});
-  expect(h.result.current.searchQuery).toBe('');
-  expect(h.result.current.currentSearchIdx).toBe(-1);
-  expect(h.result.current.selectedSearchIndices.size).toBe(0);
-  expect(h.result.current.isSearching).toBe(false);
-  expect(focus).not.toHaveBeenCalled();
-  expect(log).toHaveBeenCalledTimes(logCount);
+describe.each(['exact', 'fuzzy'] as const)('%s workspace isolation', mode => {
+  it.each([
+    ['clear', []],
+    ['replacement', replacement],
+  ] as const)('clears pending search state after workspace %s and ignores late results', (_action, next) => {
+    const log = vi.fn();
+    const focus = vi.fn();
+    const h = renderHook(({ active }) => useSearchWorker(active, log, vi.fn(), focus), { initialProps: { active: records } });
+    const worker = DeferredWorker.instances.at(-1)!;
+    act(() => { h.result.current.setSearchQuery('AAAA'); h.result.current.setSearchMode(mode); });
+    act(() => h.result.current.handleSearch());
+    expect(h.result.current.isSearching).toBe(true);
+    const lateResponse = worker.queueResponse(0);
+    h.rerender({ active: [...next] });
+    expect(worker.terminationCount).toBe(1);
+    const logCount = log.mock.calls.length;
+    act(() => lateResponse());
+    act(() => vi.advanceTimersByTime(5000));
+    expect(h.result.current.searchResults).toEqual([]);
+    expect(h.result.current.groupedSearchResults).toEqual({});
+    expect(h.result.current.searchQuery).toBe('');
+    expect(h.result.current.currentSearchIdx).toBe(-1);
+    expect(h.result.current.selectedSearchIndices.size).toBe(0);
+    expect(h.result.current.isSearching).toBe(false);
+    expect(focus).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledTimes(logCount);
+  });
 });

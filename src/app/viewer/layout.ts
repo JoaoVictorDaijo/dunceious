@@ -83,6 +83,58 @@ function translationLanesFor(record: SeqRecord, visible: boolean): TranslationLa
   return lanes;
 }
 
+interface AnnotationPacking {
+  placements: FeaturePlacement[];
+  laneHasBases: boolean[];
+}
+
+// Record edits replace identity; weak keys let removed records and placements be collected.
+const annotationPackingCache = new WeakMap<SeqRecord, AnnotationPacking>();
+
+function annotationPackingFor(record: SeqRecord): AnnotationPacking {
+  const cached = annotationPackingCache.get(record);
+  if (cached) return cached;
+  const genomeLength = (record.alignedSequence || record.sequence).length;
+  // Imported finite coordinates can extend beyond the sequence. The bounded
+  // sweep proof does not cover those intervals, so they retain exact comparisons.
+  const bounded = record.features.every(feature => Number.isFinite(feature.start) && Number.isFinite(feature.end)
+    && feature.start >= 0 && feature.end >= 0 && feature.start <= genomeLength && feature.end <= genomeLength);
+  const rows: { firstStart: number; lastEnd: number; intervals: { start: number; end: number }[] }[] = [];
+  const laneHasBases: boolean[] = [];
+  const placements = [...record.features].sort((a, b) => a.start - b.start).map(feature => {
+    const { start, end } = feature;
+    const wraps = start > end;
+    const intervals = bounded ? [] : wraps
+      ? [{ start, end: genomeLength }, { start: 0, end }]
+      : [{ start, end }];
+    let row = 0;
+    while (row < rows.length) {
+      const occupied = rows[row];
+      // Sorted starts make lastEnd sufficient for the tail; a wrap also checks
+      // firstStart for its head, preserving the unoccupied middle between them.
+      const overlaps = bounded
+        ? start < occupied.lastEnd + 10 || (wraps && occupied.firstStart < end + 10)
+        : occupied.intervals.some(other => intervals.some(piece =>
+          piece.start < other.end + 10 && other.start < piece.end + 10));
+      if (!overlaps) break;
+      row++;
+    }
+    if (row === rows.length) {
+      rows.push({ firstStart: wraps ? 0 : start, lastEnd: wraps ? genomeLength : end, intervals: [] });
+      laneHasBases.push(false);
+    }
+    const occupied = rows[row];
+    occupied.firstStart = Math.min(occupied.firstStart, wraps ? 0 : start);
+    occupied.lastEnd = Math.max(occupied.lastEnd, wraps ? genomeLength : end);
+    if (!bounded) occupied.intervals.push(...intervals);
+    if (showsAnnotationBases(feature)) laneHasBases[row] = true;
+    return { feature, row };
+  });
+  const result = { placements, laneHasBases };
+  annotationPackingCache.set(record, result);
+  return result;
+}
+
 /**
  * Computes the vertical layout of every record for the virtualized viewer.
  *
@@ -96,42 +148,8 @@ function translationLanesFor(record: SeqRecord, visible: boolean): TranslationLa
 export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions): RecordLayout[] {
   const { showAnnotations, translationVisible, showTracks, basesVisible = false } = opts;
   return records.map(record => {
-      // 1. Feature Packing (Annotations)
-      const rows: { start: number, end: number }[][] = [];
-      const laneHasBases: boolean[] = [];
-      const sortedFeatures = [...record.features].sort((a, b) => a.start - b.start);
-
-      const placements = sortedFeatures.map(feat => {
-        const genomeLength = (record.alignedSequence || record.sequence).length;
-        const featIntervals = feat.start > feat.end
-          ? [{ start: feat.start, end: genomeLength }, { start: 0, end: feat.end }]
-          : [{ start: feat.start, end: feat.end }];
-
-        let rowIdx = 0;
-        const buffer = 10;
-
-        while (rowIdx < rows.length) {
-          const row = rows[rowIdx];
-          const hasOverlap = row.some(interval =>
-            featIntervals.some(fi =>
-              fi.start < interval.end + buffer && interval.start < fi.end + buffer
-            )
-          );
-          if (!hasOverlap) break;
-          rowIdx++;
-        }
-
-        if (rowIdx === rows.length) {
-          rows.push([]);
-          laneHasBases.push(false);
-        }
-
-        rows[rowIdx].push(...featIntervals);
-        if (showsAnnotationBases(feat)) laneHasBases[rowIdx] = true;
-        return { feature: feat, row: rowIdx };
-      });
-
-      const featRowsCount = showAnnotations ? rows.length : 0;
+      const { placements, laneHasBases } = annotationPackingFor(record);
+      const featRowsCount = showAnnotations ? laneHasBases.length : 0;
       // Lanes stay one thin bar tall; a lane grows only while its opted-in
       // annotation actually shows bases (legible zoom), so no gap opens elsewhere.
       const laneHeights = laneHasBases.map(b => ANNOT_BAR_HEIGHT + (b && basesVisible ? ANNOT_BASES_HEIGHT : 0));

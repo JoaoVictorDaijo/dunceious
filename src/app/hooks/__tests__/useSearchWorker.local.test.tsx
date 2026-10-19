@@ -18,8 +18,10 @@
  */
 
 // @vitest-environment jsdom
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@/src/app/testing/renderHarness';
+import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
+import { runSearch } from '@/src/workers/handlers/search';
 import { useSearchWorker } from '../useSearchWorker';
 import type { LocalSearchProgress, LocalSearchResult } from '@/src/workers/protocol';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -27,6 +29,7 @@ const pool = vi.hoisted(() => ({ ready: true, error: null as string | null, run:
 vi.mock('../useLocalSearchPool', () => ({ useLocalSearchPool: () => pool }));
 const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null as string | null }));
 vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState }));
+afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => { moduleState.error = null; pool.ready = true; pool.error = null; pool.run.mockReset(); pool.cancel.mockReset(); });
 const records: SeqRecord[] = [{ id: 'r', name: 'r', sequence: 'AAA', features: [] }];
 const counts = { cutoff: null, streams: 1, noPositiveStreams: 0, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 };
@@ -57,9 +60,13 @@ it('makes Cancel distinct from no hits and reports unsupported query symbols', a
 });
 
 it.each(['exact', 'fuzzy'] as const)('preserves completed %s results when Local module loading fails later', async mode => {
+  // Exact and Whole-query searches run only in the search worker; this one answers with the real handler.
+  const SearchWorker = createDeferredWorker(runSearch);
+  vi.stubGlobal('Worker', SearchWorker);
   const h = renderHook(() => useSearchWorker(records, vi.fn(), vi.fn(), vi.fn()));
   act(() => { h.result.current.setSearchMode(mode); h.result.current.setSearchQuery('AA'); });
   act(() => h.result.current.handleSearch());
+  act(() => SearchWorker.instances.at(-1)!.release(0));
   await waitFor(() => expect(h.result.current.searchResults.length).toBeGreaterThan(0));
   const results = h.result.current.searchResults;
   const completed = h.result.current.completedSearch;
