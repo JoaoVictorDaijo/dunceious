@@ -136,6 +136,22 @@ describe('useShowroomView', () => {
   });
 });
 
+describe('useShowroomView details for an annotation the record does not own', () => {
+  it('opens nothing rather than the record panel', () => {
+    const { records, result } = viewHook();
+    const alpha = records.find(record => record.id === 'OL461693')!;
+    const foreign = { ...alpha.features[3], name: 'not in this record', start: 0, end: 7 };
+
+    act(() => result.current.openDetails('OL461693', foreign));
+    expect(result.current.details).toBeNull();
+
+    // A panel already open is left as it was, not swapped for the record's own.
+    act(() => result.current.openDetails('OL461693', alpha.features[3]));
+    act(() => result.current.openDetails('OL461693', foreign));
+    expect(result.current.details).toEqual({ record: alpha, feature: alpha.features[3] });
+  });
+});
+
 describe('useShowroomComparison', () => {
   it('comparison menu appears with NC_045512 as the default reference', () => {
     const records = loadSampleRecords();

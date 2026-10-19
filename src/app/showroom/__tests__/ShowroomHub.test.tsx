@@ -179,6 +179,44 @@ describe('the showroom Hub explains every commit', () => {
   });
 });
 
+describe('the showroom Hub editors', () => {
+  it('opening a second editor keeps the first draft and explains instead of discarding it', () => {
+    const view = mountShowroom();
+    openHub();
+    fireEvent.click(firstButton(/^Edit details$/));
+    const details = screen.getByRole('form', { name: 'Details for NC_045512' });
+    fireEvent.change(within(details).getByLabelText('Host'), { target: { value: 'pangolin' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename NC_045512' }));
+    expect(explanation('Edit sequence details')).toBeTruthy();
+    gotIt();
+
+    // The draft survived: the same editor is still open with the typed value in it.
+    const stillOpen = screen.getByRole('form', { name: 'Details for NC_045512' });
+    expect((within(stillOpen).getByLabelText('Host') as HTMLInputElement).value).toBe('pangolin');
+    expect(screen.queryByRole('textbox', { name: /display name/i })).toBeNull();
+    view.expectNoSideEffects();
+  });
+});
+
+describe('the showroom Hub row export', () => {
+  it('explains the annotations it would write, not the sequences', () => {
+    const view = mountShowroom();
+    const hub = openHub();
+    const rows = within(hub).getAllByRole('checkbox', { name: /^Select annotation / }).slice(0, 2);
+    rows.forEach(row => fireEvent.click(row));
+    fireEvent.click(within(hub).getByRole('button', { name: 'Export GFF3' }));
+
+    const callout = explanation('Export file');
+    expect(callout.textContent).toContain('selected_annotations.gff3');
+    expect(callout.textContent).toContain('GFF3');
+    expect(callout.textContent).toContain('these 2 annotations from one sequence');
+    expect(callout.textContent).not.toContain('these 1 sequences');
+    gotIt();
+    view.expectNoSideEffects();
+  });
+});
+
 describe('the showroom Export', () => {
   it("Export's final button explains with the file name, format and count", () => {
     const view = mountShowroom();

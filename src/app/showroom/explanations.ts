@@ -25,8 +25,12 @@ export type ExplainId =
   | 'edit-annotation' | 'delete-annotations' | 'edit-record' | 'drop-files' | 'export-save'
   | 'export-edit-details' | 'copy' | 'show-bases' | 'remove-search-details' | 'local-search';
 
-/** What the visitor chose in Export, for the one explanation that repeats it back. */
-export interface ExplainVars { fileName: string; format: string; count: number }
+/**
+ * What the visitor chose in Export, for the one explanation that repeats it back. `rows` is
+ * set only by the Hub's "Export GFF3" over selected annotation rows, where the file holds
+ * those rows rather than whole sequences.
+ */
+export interface ExplainVars { fileName: string; format: string; count: number; rows?: number }
 
 /**
  * What each control that would do work does in the workbench. The title is the
@@ -115,8 +119,13 @@ export const EXPLANATIONS: Record<ExplainId, { title: string; body: string | ((v
   },
   'export-save': {
     title: 'Export file',
-    body: ({ fileName, format, count }) =>
-      `Your browser would build ${fileName}, a ${format} file of ${count === 1 ? 'this sequence' : `these ${count} sequences`}, and save it to your computer. The test drive doesn't download anything.`,
+    body: ({ fileName, format, count, rows }) => {
+      const sequences = count === 1 ? 'one sequence' : `${count} sequences`;
+      const contents = rows === undefined
+        ? count === 1 ? 'this sequence' : `these ${count} sequences`
+        : `${rows === 1 ? 'this annotation' : `these ${rows} annotations`} from ${sequences}`;
+      return `Your browser would build ${fileName}, a ${format} file of ${contents}, and save it to your computer. The test drive doesn't download anything.`;
+    },
   },
   'export-edit-details': {
     title: 'Edit details',

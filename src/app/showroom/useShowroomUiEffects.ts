@@ -37,13 +37,15 @@ const ACTION_EXPLANATION: Record<HostAction, ExplainId> = {
 /**
  * What the reused components do on their own, redirected: copies, file pickers and
  * vetoed actions explain, nothing persists and no hover tooltip is promised.
- * `confirm` is reached only by the discard of a dirty draft, after every commit has
- * been vetoed, so nothing would be lost by discarding without asking. Dialogs
- * portal into `portalTarget`, inside the wrapper that portrait makes inert.
+ * `confirm` is reached only by the discard of a dirty draft when a second editor opens.
+ * Saving is vetoed here, so no record would change either way — but the visitor's
+ * keystrokes would, so the answer is no: the draft stays and the explanation says what
+ * saving details would do. Dialogs portal into `portalTarget`, inside the wrapper that
+ * portrait makes inert.
  */
 export function useShowroomUiEffects(explain: (id: ExplainId) => void, overlayActive: boolean, portalTarget: HTMLElement | null): UiEffects {
   return useMemo<UiEffects>(() => ({
-    confirm: () => true,
+    confirm: () => { explain('edit-record'); return false; },
     copyText: async () => { explain('copy'); return false; },
     chooseFile: kind => explain(IMPORT_EXPLANATION[kind]),
     allowAction: action => { explain(ACTION_EXPLANATION[action]); return false; },

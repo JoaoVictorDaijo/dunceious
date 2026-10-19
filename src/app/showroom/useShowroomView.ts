@@ -84,6 +84,9 @@ export function useShowroomView(
     const record = records.find(candidate => candidate.id === recordId);
     if (!record) return;
     const index = feature ? featureIndexOf(records, transposedRecords, recordId, feature) : -1;
+    // An annotation the record does not own (-1) would silently open the record's own panel
+    // instead, which looks like the wrong panel opened for no reason. Open nothing.
+    if (feature && index < 0) return;
     setDetails({ record, feature: record.features[index] ?? null });
   }, [records, transposedRecords]);
   const closeDetails = useCallback(() => setDetails(null), []);
