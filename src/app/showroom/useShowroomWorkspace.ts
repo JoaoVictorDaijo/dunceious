@@ -23,11 +23,11 @@ import type { SearchOptions, SearchWorkerRequest } from '@/src/workers/protocol'
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { runSearch } from '@/src/workers/handlers/search';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
-import { getSequenceContext, groupedSearchResults } from '@/src/app/logic/searchState';
+import { completedSearchFor, getSequenceContext, groupedSearchResults, type CompletedSearch } from '@/src/app/logic/searchState';
 import { loadSampleRecords } from './sampleWorkspace';
-import type { ExplainId } from './explanations';
+import type { ExplainId, ExplainVars } from './explanations';
 
-type Layer = 'annotations' | 'translation' | 'tracks';
+type Layer = 'annotations' | 'translation' | 'tracks' | 'conservation';
 type SearchMode = 'exact' | 'fuzzy';
 
 /** The workbench runs exact search in the page and fuzzy search in its worker; both bodies run here in the page. */
@@ -43,12 +43,13 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
   const [mode, setMode] = useState<SearchMode>('exact');
   const [options, setOptions] = useState<SearchOptions>({ minIdentity: 80, strand: 'both', maxResults: 100 });
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [completedSearch, setCompletedSearch] = useState<CompletedSearch | null>(null);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const searchSelection = useRef<SelectionArea | null>(null);
 
   const reset = useCallback(() => {
-    setQuery(''); setResults([]); setCurrentIdx(-1); setSelected(new Set());
+    setQuery(''); setResults([]); setCurrentIdx(-1); setSelected(new Set()); setCompletedSearch(null);
   }, []);
   useEffect(() => { reset(); }, [records, reset]);
 
@@ -63,13 +64,16 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
     const searchQuery = query.replace(/\s+/g, '');
     if (!searchQuery) { clear(); return; }
     setSelected(new Set());
-    const found = searchSamples({
+    const request: SearchWorkerRequest = {
       searchQuery, mode,
       records: records.map(({ id, sequence, alignedSequence, moleculeType }) => ({ id, sequence, alignedSequence, moleculeType })),
       options,
       moleculeType: 'dna',
-    });
+    };
+    const found = searchSamples(request);
     setResults(found);
+    // The showroom never reaches the local engine, so every run is a page-side search.
+    setCompletedSearch(completedSearchFor(request, false));
     setCurrentIdx(found.length > 0 ? 0 : -1);
     if (found.length === 0) return;
     const selection = { start: found[0].start, end: found[0].end, recordIds: [found[0].recordId] };
@@ -89,7 +93,7 @@ function useSampleSearch(records: SeqRecord[], setActiveSelection: Dispatch<SetS
     getSequenceContext(records.find(record => record.id === recordId), start, end);
 
   return {
-    query, setQuery, mode, setMode, options, setOptions, results, grouped,
+    query, setQuery, mode, setMode, options, setOptions, results, grouped, completedSearch,
     run, clear, currentIdx, setCurrentIdx, selected, setSelected, toggleRecord, context,
     /** Lets a search result row select its match as the workbench's `selectSearchResult` does. */
     select: (selection: SelectionArea) => { searchSelection.current = selection; setActiveSelection(selection); },
@@ -112,27 +116,27 @@ function processVisible(records: SeqRecord[]): { transposedRecords: SeqRecord[];
 export function useShowroomWorkspace() {
   const [records, setRecords] = useState<SeqRecord[]>(loadSampleRecords);
   const { transposedRecords, consensus } = useMemo(() => processVisible(records), [records]);
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ annotations: true, translation: true, tracks: true });
+  const [layers, setLayers] = useState<Record<Layer, boolean>>({ annotations: true, translation: true, tracks: true, conservation: false });
   // Pan first: a finger drag pans in either mode, so Pan names what a visitor's drag does.
   const [dragMode, setDragMode] = useState<'pan' | 'select'>('pan');
   const [activeSelection, setActiveSelection] = useState<SelectionArea | null>(null);
   const [jumpTo, setJumpTo] = useState<number | null>(null);
-  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null; serial: number } | null>(null);
+  const [explanation, setExplanation] = useState<{ id: ExplainId; anchor: DOMRect | null; vars?: ExplainVars; serial: number } | null>(null);
   const search = useSampleSearch(records, setActiveSelection);
 
   const setRecordVisible = useCallback((id: string, visible: boolean) => {
     setRecords(previous => previous.map(record => record.id === id && (record.visible !== false) !== visible ? { ...record, visible } : record));
   }, []);
   const toggle = useCallback((layer: Layer) => setLayers(previous => ({ ...previous, [layer]: !previous[layer] })), []);
-  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect) =>
-    setExplanation(previous => ({ id, anchor: anchor ?? null, serial: (previous?.serial ?? 0) + 1 })), []);
+  const openExplain = useCallback((id: ExplainId, anchor?: DOMRect, vars?: ExplainVars) =>
+    setExplanation(previous => ({ id, anchor: anchor ?? null, vars, serial: (previous?.serial ?? 0) + 1 })), []);
   const closeExplain = useCallback(() => setExplanation(null), []);
 
   return {
     records, transposedRecords, consensus, setRecordVisible,
-    showAnnotations: layers.annotations, showTranslation: layers.translation, showTracks: layers.tracks, toggle,
+    showAnnotations: layers.annotations, showTranslation: layers.translation, showTracks: layers.tracks, showConservation: layers.conservation, toggle,
     dragMode, setDragMode, activeSelection, setActiveSelection, search, jumpTo, setJumpTo,
-    explain: explanation?.id ?? null, explainAnchor: explanation?.anchor ?? null, openExplain, closeExplain,
+    explain: explanation?.id ?? null, explainAnchor: explanation?.anchor ?? null, explainVars: explanation?.vars, openExplain, closeExplain,
     /** Changes with every opening, so each explanation mounts its own callout: fresh placement and focus. */
     explainKey: explanation?.serial ?? 0,
   };

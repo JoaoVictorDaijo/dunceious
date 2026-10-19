@@ -26,6 +26,7 @@ import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import {
   type CompletedSearch,
   type SearchAnnotationHit,
+  completedSearchFor,
   groupedSearchResults as computeGroupedSearchResults,
   joinSegments,
   getSequenceContext as computeSequenceContext,
@@ -208,9 +209,8 @@ export function useSearchWorker(
     setSearchResults(results);
     const local = request.mode === 'fuzzy' && localSearchOptions(request.options).fuzzyMethod === 'local';
     const scoring = local ? loadScoring(scoringFor(request.moleculeType === 'protein')) : null;
-    setCompletedSearch({ query: request.searchQuery, mode: local ? 'local' : request.mode === 'exact' ? 'iupac' : 'whole',
-      ...(scoring ? { matrixScore: (q: string, r: string) => scoreOf(scoring, q, r) } : {}),
-      alphabet: request.moleculeType === 'protein' ? 'protein' : 'nucleotide', options: { ...request.options } });
+    setCompletedSearch(completedSearchFor(request, local,
+      scoring ? (q: string, r: string) => scoreOf(scoring, q, r) : undefined));
 
     addLogRef.current(`Search complete: ${results.length} matches found.`);
 

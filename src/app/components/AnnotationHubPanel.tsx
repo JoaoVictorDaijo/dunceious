@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useUiEffects } from '@/src/app/components/uiEffects';
 import { createPortal } from 'react-dom';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { BioFeature, DetailKey, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
@@ -75,6 +76,7 @@ export interface AnnotationHubPanelProps {
 }
 
 export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
+  const { chooseFile, allowAction } = useUiEffects();
   const { records, state, isAlignmentLocked, lastFocusedKey } = props;
   const sequenceInput = useRef<HTMLInputElement>(null);
   const { currentRow, setCurrentRow, searchKey, setSearchKey } = state;
@@ -163,20 +165,24 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
     const direction = active?.column === column ? active.direction : 'none';
     return <button aria-sort={direction} data-tip={`Sort within each ${state.tab === 'sequences' ? 'sequence' : 'feature'}`} onClick={() => state.setRowSort(previous => ({ ...previous, [state.tab]: cycleRowSort(previous[state.tab], column) }))} className="flex items-center gap-1 text-left uppercase focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500">{label}<i aria-hidden="true" className={`fas ${direction === 'none' ? 'fa-sort opacity-40' : direction === 'ascending' ? 'fa-arrow-up text-amber-800' : 'fa-arrow-down text-amber-800'}`} /></button>;
   };
-  const importSequences = useCallback(() => {
+  const openSequences = useCallback(() => {
     if (isAlignmentLocked) return;
     state.setMenu(null);
     sequenceInput.current?.click();
   }, [isAlignmentLocked, state.setMenu]);
+  const importSequences = useCallback(() => {
+    if (isAlignmentLocked) return;
+    chooseFile('sequences', openSequences);
+  }, [isAlignmentLocked, chooseFile, openSequences]);
   const clearFilters = () => {
     state.setFilters({ query: '', types: new Set(), strand: 'all', editedOnly: false, sequenceQuery: '', needsAttention: false });
     state.setOnlyProblems(false);
   };
-  const importAnnotations = useCallback(() => document.querySelector<HTMLInputElement>('[aria-label="Import annotations files"]')?.click(), []);
+  const importAnnotations = useCallback(() => chooseFile('annotations', () => document.querySelector<HTMLInputElement>('[aria-label="Import annotations files"]')?.click()), [chooseFile]);
   const removeFeature = useCallback((id: string, index: number) => { props.onRemoveFeature(id, index); state.setSelectedRows(new Set()); }, [props.onRemoveFeature, state.setSelectedRows]);
   return <section role="region" aria-label="Annotation Hub" tabIndex={0} data-hub-focus onDragOver={event => { event.preventDefault(); setDragOver(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }} onDrop={event => { event.preventDefault(); setDragOver(false); if (isAlignmentLocked) setNotice('Workspace changes are blocked while the alignment is locked.'); else props.onDroppedFiles(Array.from(event.dataTransfer.files)); }} className={`relative flex min-h-0 flex-1 flex-col bg-white text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${dragOver ? 'ring-2 ring-inset ring-amber-400' : ''}`}>
     <h1 className="sr-only">Annotation Hub</h1>
-    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onExport={() => setExportOpen(true)} imports={<ImportMenu sequenceInputRef={sequenceInput} onImportSequences={importSequences} state={state} locked={isAlignmentLocked} empty={!records.length} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
+    {props.toolsSlot ? createPortal(<HubToolbar state={state} matchIndex={searchIndex} matchCount={matches.length} onNavigate={navigate} onExport={() => setExportOpen(true)} imports={<ImportMenu sequenceInputRef={sequenceInput} onImportSequences={openSequences} state={state} locked={isAlignmentLocked} empty={!records.length} onFileUpload={props.onFileUpload} onAlignmentUpload={props.onAlignmentUpload} onAnnotationUpload={props.onAnnotationUpload} onProjectUpload={props.onProjectUpload} />} />, props.toolsSlot) : null}
     <HubTabs summary={`${visibleAnnotations.toLocaleString('en-US')} of ${totalAnnotations.toLocaleString('en-US')} annotations in ${visibleRecords} of ${records.length} sequences${state.hubHidden.size ? ` · ${state.hubHidden.size} hidden` : ''}${editSummary ? ` · ${editSummary}` : ''}`} state={state} sequences={hubRecords.length} features={featureCount} />
     <div role="tabpanel" id={`hub-panel-${state.tab}`} aria-labelledby={`hub-tab-${state.tab}`} className="relative flex min-h-0 flex-1 flex-col">
     <FilterBar onStartNewFeature={props.onStartNewFeature} locked={isAlignmentLocked} empty={!records.length} editedCount={markedCount} groups={groups} featureColors={props.featureColors} state={displayState} types={types} keys={items.map(item => item.key)} />
@@ -189,6 +195,7 @@ export default function AnnotationHubPanel(props: AnnotationHubPanelProps) {
     {items.length ? <HubList filtersPending={query !== state.filters.query} key={state.tab} items={items} kind={state.tab} state={displayState} records={records} onNotice={setNotice} onSetRecordDetails={props.onSetRecordDetails} onSetRecordLabel={props.onSetRecordLabel} featureColors={props.featureColors} lastFocusedKey={lastFocusedKey} currentRowKey={currentRow} onCurrentRow={key => setCurrentRow(previous => previous === key ? null : key)} onFocusItem={props.onFocusItem} onViewFeatureDetails={props.onViewFeatureDetails} onEditFeature={props.onEditFeature} onRemoveFeature={removeFeature} isAlignmentLocked={isAlignmentLocked} onImportAnnotations={importAnnotations} addLog={props.addLog} /> : <HubEmptyState kind={!records.length ? 'workspace' : allMatchingHidden ? 'hidden' : 'filtered'} locked={isAlignmentLocked} onImport={importSequences} onClearFilters={clearFilters} onShowAll={() => state.setHubHidden(new Set())} />}
     </div>
     {exportOpen && <ExportDialog featureColors={props.featureColors} records={records} state={state} onClose={() => setExportOpen(false)} onExport={props.onExportRecords} onEditDetails={ids => {
+      if (!allowAction('export-edit-details')) return;
       const hiddenCount = [...ids].filter(id => state.hubHidden.has(id)).length;
       state.setHubHidden(previous => new Set([...previous].filter(id => !ids.has(id))));
       if (hiddenCount) setNotice(`Unhid ${hiddenCount} sequences to edit their details.`);

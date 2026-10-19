@@ -205,7 +205,7 @@ describe('RNA IUPAC search', () => {
 
 // GenBank writes RNA genomes with T while the LOCUS line declares RNA.
 describe('reverse search on a T-written RNA genome', () => {
-  const [genome] = parseGenBank(readFileSync('examples/sars-cov-2-NC_045512.gb', 'utf8'));
+  const [genome] = parseGenBank(readFileSync('examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'utf8'));
   const record = { id: genome.id, sequence: genome.sequence, moleculeType: genome.moleculeType };
   const source = genome.sequence.substring(28_500, 28_560);
   const query = reverseComplement(source, 'dna');

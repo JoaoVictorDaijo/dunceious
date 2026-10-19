@@ -1,0 +1,213 @@
+LOCUS       NP_776576                265 aa            linear   MAM 27-APR-2025
+DEFINITION  pro-opiomelanocortin precursor [Bos taurus].
+ACCESSION   NP_776576
+VERSION     NP_776576.1
+DBSOURCE    REFSEQ: accession NM_174151.1
+KEYWORDS    RefSeq.
+SOURCE      Bos taurus (domestic cattle)
+  ORGANISM  Bos taurus
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Laurasiatheria; Artiodactyla; Ruminantia;
+            Pecora; Bovidae; Bovinae; Bos.
+REFERENCE   1  (residues 1 to 265)
+  AUTHORS   Li,Q., Hegge,R., Bridges,P.J. and Matthews,J.C.
+  TITLE     Pituitary genomic expression profiles of steers are altered by
+            grazing of high vs. low endophyte-infected tall fescue forages
+  JOURNAL   PLoS One 12 (9), e0184612 (2017)
+   PUBMED   28902910
+REFERENCE   2  (residues 1 to 265)
+  AUTHORS   Seong,J. and Kong,H.S.
+  TITLE     Association between polymorphisms of the CRH and POMC genes with
+            economic traits in Korean cattle (Hanwoo)
+  JOURNAL   Genet Mol Res 14 (3), 10415-10421 (2015)
+   PUBMED   26400272
+  REMARK    GeneRIF: The association has been reported between polymorphisms of
+            the CRH and POMC genes with economic traits in Korean cattle.
+REFERENCE   3  (residues 1 to 265)
+  AUTHORS   Khan,M.J., Graugnard,D.E. and Loor,J.J.
+  TITLE     Endocannabinoid system and proopiomelanocortin gene expression in
+            peripartal bovine liver in response to prepartal plane of nutrition
+  JOURNAL   J Anim Physiol Anim Nutr (Berl) 96 (5), 907-919 (2012)
+   PUBMED   21812840
+  REMARK    GeneRIF: Expression of the hepatic endocannabinoid system and
+            proopiomelanocortin was altered by plane of dietary energy
+            prepartum particularly during the first 2-week postpartum.
+REFERENCE   4  (residues 1 to 265)
+  AUTHORS   Deobald,H.M. and Buchanan,F.C.
+  TITLE     Characterization of two pro-opiomelanocortin gene variants and
+            their effects on carcass traits in beef cattle
+  JOURNAL   BMC Genet 12, 2 (2011)
+   PUBMED   21205304
+  REMARK    GeneRIF: Significant associations were observed between POMC
+            c.288C>T with start-of-finishing weight (SOF WT; P = 0.04), hot
+            carcass weight (HCW; P = 0.02), average fat and grade fat (both P =
+            0.05), carcass rib-eye area (REA; P = 0.03) and marbling
+REFERENCE   5  (residues 1 to 265)
+  AUTHORS   Zhang,C.L., Wang,Y.H., Chen,H., Lei,C.Z., Fang,X.T., Wang,J.Q.,
+            Ma,G.B., Niu,H. and Xiao,J.
+  TITLE     [The polymorphism of bovine POMC gene and its association with the
+            growth traits of Nanyang cattle]
+  JOURNAL   Yi Chuan 31 (12), 1221-1225 (2009)
+   PUBMED   20042389
+  REMARK    GeneRIF: The polymorphism of POMC gene is associated with the
+            growth traits of Nanyang cattle.
+REFERENCE   6  (residues 1 to 265)
+  AUTHORS   Bateman,A., Solomon,S. and Bennett,H.P.
+  TITLE     Post-translational modification of bovine pro-opiomelanocortin.
+            Tyrosine sulfation and pyroglutamate formation, a mass
+            spectrometric study
+  JOURNAL   J Biol Chem 265 (36), 22130-22136 (1990)
+   PUBMED   2266117
+REFERENCE   7  (residues 1 to 265)
+  AUTHORS   Mertvetsov,N.P., Golovin,S.Ia., Beklemishev,A.B., Karginov,V.A. and
+            Mamaev,L.V.
+  TITLE     [Cloning of DNA complementary to mRNA for proopiomelanocortin from
+            the bovine, rat and human hypophysis. Hormonal regulation of
+            proopiomelanocortin mRNA in the rat hypophysis]
+  JOURNAL   Biokhimiia 52 (5), 707-714 (1987)
+   PUBMED   3474031
+REFERENCE   8  (residues 1 to 265)
+  AUTHORS   Nakanishi,S., Inoue,A., Kita,T., Nakamura,M., Chang,A.C.,
+            Cohen,S.N. and Numa,S.
+  TITLE     Nucleotide sequence of cloned cDNA for bovine
+            corticotropin-beta-lipotropin precursor
+  JOURNAL   Nature 278 (5703), 423-427 (1979)
+   PUBMED   221818
+REFERENCE   9  (residues 1 to 265)
+  AUTHORS   Nakanishi,S., Inoue,A., Kita,T., Numa,S., Chang,A.C., Cohen,S.N.,
+            Nunberg,J. and Schimke,R.T.
+  TITLE     Construction of bacterial plasmids that contain the nucleotide
+            sequence for bovine corticotropin-beta-lipotropin precursor
+  JOURNAL   Proc Natl Acad Sci U S A 75 (12), 6021-6025 (1978)
+   PUBMED   216007
+REFERENCE   10 (residues 1 to 265)
+  AUTHORS   Simantov,R. and Snyder,S.H.
+  TITLE     Morphine-like peptides in mammalian brain: isolation, structure
+            elucidation, and interactions with the opiate receptor
+  JOURNAL   Proc Natl Acad Sci U S A 73 (7), 2515-2519 (1976)
+   PUBMED   1065904
+COMMENT     PROVISIONAL REFSEQ: This record has not yet been subject to final
+            NCBI review. The reference sequence was derived from M25587.1.
+            
+            Publication Note:  This RefSeq record includes a subset of the
+            publications that are available for this gene. Please see the Gene
+            record to access additional publications.
+            
+            ##Evidence-Data-START##
+            Transcript exon combination :: M25587.1, CO879715.1 [ECO:0000332]
+            RNAseq introns              :: single sample supports all introns
+                                           SAMN03145419, SAMN03145429
+                                           [ECO:0000348]
+            ##Evidence-Data-END##
+FEATURES             Location/Qualifiers
+     source          1..265
+                     /organism="Bos taurus"
+                     /db_xref="taxon:9913"
+                     /chromosome="11"
+                     /map="11"
+     Protein         1..265
+                     /product="pro-opiomelanocortin precursor"
+                     /note="pro-opiomelanocortin; adrenocorticotropin;
+                     beta-lipotropin; alpha-melanocyte stimulating hormone;
+                     beta-melanocyte stimulating hormone; beta-endorphin;
+                     corticotropin-lipotropin; proopiomelanocortin
+                     (adrenocorticotropin/ beta-lipotropin/ alpha-melanocyte
+                     stimulating hormone/ beta-melanocyte stimulating hormone/
+                     beta-endorphin)"
+                     /calculated_mol_wt=26472
+     sig_peptide     1..26
+                     /inference="COORDINATES: ab initio prediction:SignalP:6.0"
+                     /calculated_mol_wt=2787
+     Region          28..70
+                     /region_name="NPP"
+                     /note="Pro-opiomelanocortin, N-terminal region; pfam08384"
+                     /db_xref="CDD:429962"
+     Site            71
+                     /site_type="glycosylation"
+                     /note="O-linked (GalNAc...) threonine.
+                     /evidence=ECO:0000269|PubMed:4030947. /id=CAR_000202;
+                     propagated from UniProtKB/Swiss-Prot (P01190.1)"
+     Region          74..91
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     77..88
+                     /product="gamma-melanocortin (gamma-MSH)"
+                     /calculated_mol_wt=1571
+     Site            87
+                     /site_type="amidation"
+                     /note="Phenylalanine amide.
+                     /evidence=ECO:0000269|PubMed:7274457; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     Region          89..138
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01190.1)"
+     Site            91
+                     /site_type="glycosylation"
+                     /note="N-linked (GlcNAc...) asparagine.
+                     /evidence=ECO:0000269|PubMed:4030947. /id=CAR_000034;
+                     propagated from UniProtKB/Swiss-Prot (P01190.1)"
+     mat_peptide     132..145
+                     /product="adrenocorticotropic hormone (ACTH)"
+                     /calculated_mol_wt=1622
+     Site            132
+                     /site_type="acetylation"
+                     /note="N-acetylserine, in Corticotropin.
+                     /evidence=ECO:0000250|UniProtKB:P01191; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     Site            144
+                     /site_type="amidation"
+                     /note="Valine amide.
+                     /evidence=ECO:0000269|PubMed:13642798; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     Site            162
+                     /site_type="phosphorylation"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0000250|UniProtKB:P01189; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     mat_peptide     173..265
+                     /product="beta-lipotropin"
+                     /calculated_mol_wt=10291
+     Site            173
+                     /site_type="pyrrolidone-carboxylic-acid"
+                     /note="Pyrrolidone carboxylic acid (Glu), partial.
+                     /evidence=ECO:0000269|PubMed:2266117; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     Site            200
+                     /site_type="sulfatation"
+                     /note="Sulfotyrosine.
+                     /evidence=ECO:0000269|PubMed:2266117; propagated from
+                     UniProtKB/Swiss-Prot (P01190.1)"
+     Region          209..240
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01190.1)"
+     mat_peptide     215..232
+                     /product="beta-melanocortin (beta-MSH)"
+                     /calculated_mol_wt=2134
+     Region          217..234
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     235..265
+                     /product="beta-endorphin"
+                     /calculated_mol_wt=3438
+     Region          235..262
+                     /region_name="Op_neuropeptide"
+                     /note="Opioids neuropeptide; pfam08035"
+                     /db_xref="CDD:462343"
+     CDS             1..265
+                     /gene="POMC"
+                     /coded_by="NM_174151.1:114..911"
+                     /db_xref="BGD:BT11259"
+                     /db_xref="GeneID:281416"
+                     /db_xref="VGNC:VGNC:33155"
+ORIGIN      
+        1 mprlcssrsa alllalllqa smevrgwcle ssqcqdltte snllacirac kpdlsaetpv
+       61 fpgngdeqpl tenprkyvmg hfrwdrfgrr ngssssgvgg aaqkreeeva vgegpgprgd
+      121 daetgpredk rsysmehfpw gkpvgkkrrp vkvypngaed esaqafplef kreltgerle
+      181 qargpeaqae saaarpeley glvaeaeaea aekkdsgpyk mehfrwgspp kdkryggfmt
+      241 seksqtplvt lfknaiikna hkkgq
+//
+

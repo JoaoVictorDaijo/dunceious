@@ -37,6 +37,11 @@ import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
 
+/** Touch compatibility mouse events can precede pointerdown, so hover uses pointer identity. */
+export function showsHoverTooltip(pointerType: string): boolean {
+  return pointerType !== 'touch';
+}
+
 export interface RowData {
   recordLayouts: RecordLayout[];
   alignmentLength: number;
@@ -352,8 +357,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
                       style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                      onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() })}
-                      onMouseOut={() => setTooltip(null)}
+                      onPointerOver={(ev) => {
+                        if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
+                      }}
+                      onPointerOut={() => setTooltip(null)}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onViewDetails?.(l.id, f);
@@ -493,7 +500,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 key={track.id} 
                 className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5" 
                 style={{ height: track.height, top: trackTop }}
-                onMouseMove={(e) => {
+                onPointerMove={(e) => {
+                  if (!showsHoverTooltip(e.pointerType)) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
@@ -508,7 +516,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     setTooltip(null);
                   }
                 }}
-                onMouseLeave={() => setTooltip(null)}
+                onPointerLeave={() => setTooltip(null)}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();

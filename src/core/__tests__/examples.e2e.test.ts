@@ -23,8 +23,9 @@
  * These vendored NCBI RefSeq snapshots (checked in, never re-downloaded at test
  * time) close the suite-wide blind spots the minimal SCU49845 fixture cannot:
  * spliced/multi-segment joins, tRNA/rRNA feature types, circular topology, a
- * real multi-record file, and an ss-RNA molecule type. Exact counts are pinned
- * to the accession versions noted per describe block.
+ * real multi-record file, and a non-standard genetic code. The aligned sets
+ * live in exampleSets.e2e.test.ts. Exact counts are pinned to the accession
+ * versions noted per describe block.
  *
  * Scope: only behaviour the current code renders CORRECTLY is asserted. The
  * mitochondrial file (non-standard genetic code) and the mixed-strand
@@ -34,42 +35,20 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { extractCodingSequence, translateSequence, detectEarlyStop } from '@/src/domain/bio/sequence';
 import { processTransposition } from '@/src/domain/bio';
-import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
+import type { SeqRecord } from '@/src/domain/bio/types';
+import { EXAMPLES, loadExample, typeHistogram } from './fixtures/examples';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function loadExample(file: string): string {
-  try {
-    return readFileSync(resolve(__dirname, '../../../examples/', file), 'utf-8');
-  } catch {
-    return '';
-  }
-}
-
-function typeHistogram(records: SeqRecord[]): Record<string, number> {
-  const h: Record<string, number> = {};
-  for (const r of records) for (const f of r.features) h[f.type] = (h[f.type] || 0) + 1;
-  return h;
-}
 
 // ---------------------------------------------------------------------------
 // Arabidopsis thaliana chloroplast — NC_000932.1
 // Spliced joins, tRNA/rRNA types, circular topology, standard-code translation.
 // ---------------------------------------------------------------------------
 
-describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
-  const content = loadExample('arabidopsis-chloroplast-NC_000932.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
+  const content = loadExample(EXAMPLES.arabidopsisChloroplast);
   let records: SeqRecord[];
   let record: SeqRecord;
   beforeAll(() => {
@@ -206,13 +185,8 @@ describe('examples/arabidopsis-chloroplast-NC_000932.gb', () => {
 // Multi-record file whose records each carry features; spliced CDS.
 // ---------------------------------------------------------------------------
 
-describe('examples/influenza-a-pr8-8segments.gb', () => {
-  const content = loadExample('influenza-a-pr8-8segments.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+describe(`examples/${EXAMPLES.influenzaPr8}`, () => {
+  const content = loadExample(EXAMPLES.influenzaPr8);
   let records: SeqRecord[];
   beforeAll(() => {
     records = parseGenBank(content);
@@ -238,65 +212,12 @@ describe('examples/influenza-a-pr8-8segments.gb', () => {
 });
 
 // ---------------------------------------------------------------------------
-// SARS-CoV-2 — NC_045512.2
-// ss-RNA molecule type; ORF1ab -1 ribosomal-frameshift join.
-// ---------------------------------------------------------------------------
-
-describe('examples/sars-cov-2-NC_045512.gb', () => {
-  const content = loadExample('sars-cov-2-NC_045512.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
-  let records: SeqRecord[];
-  let record: SeqRecord;
-  beforeAll(() => {
-    records = parseGenBank(content);
-    record = records[0];
-  });
-
-  it('classifies a real ss-RNA record as an RNA molecule type', () => {
-    expect(records).toHaveLength(1);
-    expect(record.moleculeType).toBe('rna');
-    expect(record.isCircular).toBe(false);
-  });
-
-  it('parses mat_peptide and stem_loop feature types', () => {
-    const h = typeHistogram(records);
-    expect(h.CDS).toBe(12);
-    expect(h.mat_peptide).toBe(26);
-    expect(h.stem_loop).toBe(5);
-    expect(h.gene).toBe(11);
-  });
-
-  it('parses the ORF1ab frameshift join with a coincident boundary base', () => {
-    const orf1ab = record.features.find(
-      (f: BioFeature) => f.type === 'CDS' && (f.segments?.length ?? 0) === 2,
-    );
-    expect(orf1ab).toBeDefined();
-    const segs = orf1ab!.segments!;
-    // The -1 ribosomal frameshift re-reads one base: the last base of segment 0
-    // is the first base of segment 1 (half-open coords ⇒ seg0.end - 1 === seg1.start).
-    expect(segs[0].end - 1).toBe(segs[1].start);
-    // The re-read keeps the concatenated ORF in frame.
-    const { codingSeq } = extractCodingSequence(orf1ab!, record.sequence);
-    expect(codingSeq.length % 3).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Human mitochondrion — NC_012920.1
 // Non-standard genetic code (vertebrate mitochondrial, transl_table=2).
 // ---------------------------------------------------------------------------
 
-describe('examples/human-mitochondrion-NC_012920.gb', () => {
-  const content = loadExample('human-mitochondrion-NC_012920.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+describe(`examples/${EXAMPLES.humanMitochondrion}`, () => {
+  const content = loadExample(EXAMPLES.humanMitochondrion);
   let record: SeqRecord;
   beforeAll(() => {
     record = parseGenBank(content)[0];

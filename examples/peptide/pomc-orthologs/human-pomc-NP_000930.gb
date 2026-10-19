@@ -1,0 +1,292 @@
+LOCUS       NP_000930                267 aa            linear   PRI 09-SEP-2026
+DEFINITION  pro-opiomelanocortin preproprotein [Homo sapiens].
+ACCESSION   NP_000930
+VERSION     NP_000930.1
+DBSOURCE    REFSEQ: accession NM_000939.4
+KEYWORDS    RefSeq; MANE Select.
+SOURCE      Homo sapiens (human)
+  ORGANISM  Homo sapiens
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Euarchontoglires; Primates; Haplorrhini;
+            Catarrhini; Hominidae; Homo.
+REFERENCE   1  (residues 1 to 267)
+  AUTHORS   Santana,C.V.N., Magno,L.A.V., Ramos,A.V., Rios,M.A., Sandrim,V.C.,
+            De Marco,L.A., de Miranda,D.M. and Romano-Silva,M.A.
+  TITLE     Genetic Variations in AMPK, FOXO3A, and POMC Increase the Risk of
+            Extreme Obesity
+  JOURNAL   J Obes 2024, 3813621 (2024)
+   PUBMED   39484290
+  REMARK    GeneRIF: Genetic Variations in AMPK, FOXO3A, and POMC Increase the
+            Risk of Extreme Obesity.
+REFERENCE   2  (residues 1 to 267)
+  AUTHORS   Bando,H., Yamamoto,M., Urai,S., Motomura,Y., Sasaki,Y., Ohmachi,Y.,
+            Kobatake,M., Tsujimoto,Y., Oi-Yo,Y., Suzuki,M., Yamamoto,N.,
+            Takahashi,M., Fukuoka,H., Iguchi,G. and Ogawa,W.
+  TITLE     Fluctuations in plasma adrenocorticotropic hormone concentration
+            may predict the onset of immune checkpoint inhibitor-related
+            hypophysitis
+  JOURNAL   J Immunother Cancer 12 (2), e008634 (2024)
+   PUBMED   38418395
+  REMARK    GeneRIF: Fluctuations in serum adrenocorticotropic hormone
+            concentration may predict the onset of immune checkpoint
+            inhibitor-related hypophysitis.
+            Erratum:[J Immunother Cancer. 2024 Mar 29;12(3):e008634corr1. doi:
+            10.1136/jitc-2023-008634corr1. PMID: 38553010]
+REFERENCE   3  (residues 1 to 267)
+  AUTHORS   Singh,M. and Mukhopadhyay,K.
+  TITLE     Alpha-melanocyte stimulating hormone: an emerging anti-inflammatory
+            antimicrobial peptide
+  JOURNAL   Biomed Res Int 2014, 874610 (2014)
+   PUBMED   25140322
+  REMARK    Review article
+REFERENCE   4  (residues 1 to 267)
+  AUTHORS   Pritchard,L.E. and White,A.
+  TITLE     Neuropeptide processing and its impact on melanocortin pathways
+  JOURNAL   Endocrinology 148 (9), 4201-4207 (2007)
+   PUBMED   17584964
+  REMARK    Review article
+REFERENCE   5  (residues 1 to 267)
+  AUTHORS   Raffin-Sanson,M.L., de Keyzer,Y. and Bertagna,X.
+  TITLE     Proopiomelanocortin, a polypeptide precursor with multiple
+            functions: from physiology to pathological conditions
+  JOURNAL   Eur J Endocrinol 149 (2), 79-90 (2003)
+   PUBMED   12887283
+  REMARK    GeneRIF: POMC has become a paradigmatic polypeptide precursor model
+            illustrating the variable roles of a single gene and its various
+            products in different localities--review
+            Review article
+REFERENCE   6  (residues 1 to 267)
+  AUTHORS   Challis,B.G. and Millington,G.W.M.
+  TITLE     Proopiomelanocortin Deficiency - RETIRED CHAPTER, FOR HISTORICAL
+            REFERENCE ONLY
+  JOURNAL   (in) Adam MP, Bick S, Mirzaa GM, Wallace SE and Amemiya A (Eds.);
+            GENEREVIEWS(R);
+            (1993)
+   PUBMED   24354022
+REFERENCE   7  (residues 1 to 267)
+  AUTHORS   Mountjoy,K.G., Robbins,L.S., Mortrud,M.T. and Cone,R.D.
+  TITLE     The cloning of a family of genes that encode the melanocortin
+            receptors
+  JOURNAL   Science 257 (5074), 1248-1251 (1992)
+   PUBMED   1325670
+REFERENCE   8  (residues 1 to 267)
+  AUTHORS   Takahashi,H., Hakamata,Y., Watanabe,Y., Kikuno,R., Miyata,T. and
+            Numa,S.
+  TITLE     Complete nucleotide sequence of the human
+            corticotropin-beta-lipotropin precursor gene
+  JOURNAL   Nucleic Acids Res 11 (19), 6847-6858 (1983)
+   PUBMED   6314261
+REFERENCE   9  (residues 1 to 267)
+  AUTHORS   Dragon,N., Seidah,N.G., Lis,M., Routhier,R. and Chretien,M.
+  TITLE     Primary structure and morphine-like activity of human
+            beta-endorphin
+  JOURNAL   Can J Biochem 55 (6), 666-670 (1977)
+   PUBMED   195688
+REFERENCE   10 (residues 1 to 267)
+  AUTHORS   Li,C.H. and Chung,D.
+  TITLE     Primary structure of human beta-lipotropin
+  JOURNAL   Nature 260 (5552), 622-624 (1976)
+   PUBMED   1264228
+COMMENT     REVIEWED REFSEQ: This record has been curated by NCBI staff. The
+            reference sequence was derived from HY050419.1, CD108235.1,
+            BC065832.1 and T29537.1.
+            This sequence is a reference standard in the RefSeqGene project.
+            
+            Summary: This gene encodes a preproprotein that undergoes
+            extensive, tissue-specific, post-translational processing via
+            cleavage by subtilisin-like enzymes known as prohormone
+            convertases. There are eight potential cleavage sites within the
+            preproprotein and, depending on tissue type and the available
+            convertases, processing may yield as many as ten biologically
+            active peptides involved in diverse cellular functions. The encoded
+            protein is synthesized mainly in corticotroph cells of the anterior
+            pituitary where four cleavage sites are used; adrenocorticotrophin,
+            essential for normal steroidogenesis and the maintenance of normal
+            adrenal weight, and lipotropin beta are the major end products. In
+            other tissues, including the hypothalamus, placenta, and
+            epithelium, all cleavage sites may be used, giving rise to peptides
+            with roles in pain and energy homeostasis, melanocyte stimulation,
+            and immune modulation. These include several distinct
+            melanotropins, lipotropins, and endorphins that are contained
+            within the adrenocorticotrophin and beta-lipotropin peptides. The
+            antimicrobial melanotropin alpha peptide exhibits antibacterial and
+            antifungal activity. Mutations in this gene have been associated
+            with early onset obesity, adrenal insufficiency, and red hair
+            pigmentation. Alternatively spliced transcript variants encoding
+            the same protein have been described. [provided by RefSeq, Jan
+            2016].
+            
+            Transcript Variant: This variant (2) differs in the 5' UTR compared
+            to variant 3. Variants 1-4 encode the same protein.
+            
+            Publication Note:  This RefSeq record includes a subset of the
+            publications that are available for this gene. Please see the Gene
+            record to access additional publications.
+            
+            ##Evidence-Data-START##
+            Transcript exon combination :: SRR1163657.394204.1, CD513772.1
+                                           [ECO:0000332]
+            RNAseq introns              :: single sample supports all introns
+                                           SAMEA1968968, SAMEA2145544
+                                           [ECO:0000348]
+            ##Evidence-Data-END##
+            
+            ##RefSeq-Attributes-START##
+            MANE Ensembl match                 :: ENST00000395826.7/
+                                                  ENSP00000379170.2
+            Protein has antimicrobial activity :: PMID: 25140322
+            RefSeq Select criteria             :: based on conservation,
+                                                  expression, longest protein
+            ##RefSeq-Attributes-END##
+FEATURES             Location/Qualifiers
+     source          1..267
+                     /organism="Homo sapiens"
+                     /db_xref="taxon:9606"
+                     /chromosome="2"
+                     /map="2p23.3"
+     Protein         1..267
+                     /product="pro-opiomelanocortin preproprotein"
+                     /note="met-enkephalin; melanotropin gamma; gamma-MSH;
+                     adrenocorticotropic hormone; melanotropin alpha;
+                     alpha-MSH; corticotropin-like intermediary peptide;
+                     lipotropin beta; beta-LPH; lipotropin gamma; gamma-LPH;
+                     melanotropin beta; beta-MSH; beta-endorphin;
+                     alpha-melanocyte-stimulating hormone; pro-ACTH-endorphin;
+                     beta-melanocyte-stimulating hormone; adrenocorticotropin;
+                     proopiomelanocortin preproprotein;
+                     corticotropin-lipotropin; opiomelanocortin prepropeptide"
+                     /calculated_mol_wt=26679
+     sig_peptide     1..26
+                     /inference="COORDINATES: ab initio prediction:SignalP:6.0"
+                     /calculated_mol_wt=2763
+     mat_peptide     27..102
+                     /product="NPP. /id=PRO_0000024966"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=8469
+     Region          28..70
+                     /region_name="NPP"
+                     /note="Pro-opiomelanocortin, N-terminal region; pfam08384"
+                     /db_xref="CDD:429962"
+     Site            71
+                     /site_type="glycosylation"
+                     /note="O-linked (HexNAc...) threonine.
+                     /evidence=ECO:0000269|PubMed:6267033; propagated from
+                     UniProtKB/Swiss-Prot (P01189.2)"
+     Region          74..91
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     77..87
+                     /product="Melanotropin gamma.
+                     /evidence=ECO:0000269|PubMed:2839146. /id=PRO_0000024967"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=1514
+     Site            87
+                     /site_type="amidation"
+                     /note="Phenylalanine amide. /evidence=ECO:0000250;
+                     propagated from UniProtKB/Swiss-Prot (P01189.2)"
+     Region          88..175
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+     Site            91
+                     /site_type="glycosylation"
+                     /note="N-linked (GlcNAc...) asparagine; propagated from
+                     UniProtKB/Swiss-Prot (P01189.2)"
+     mat_peptide     105..134
+                     /product="Potential peptide. /id=PRO_0000024968"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=3006
+     Site            134
+                     /site_type="amidation"
+                     /note="Glutamic acid 1-amide.
+                     /evidence=ECO:0000269|PubMed:6272808; propagated from
+                     UniProtKB/Swiss-Prot (P01189.2)"
+     Region          136..154
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     138..176
+                     /product="Corticotropin. /id=PRO_0000024969"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=4541
+     mat_peptide     138..150
+                     /product="Melanotropin alpha"
+                     /experiment="DESCRIPTION:antimicrobial
+                     peptide[PMID:25140322]"
+                     /exception="alternative processing"
+                     /note="occurs in cells other than corticotroph cells of
+                     the anterior pituitary"
+                     /calculated_mol_wt=1624
+     Site            138
+                     /site_type="acetylation"
+                     /note="N-acetylserine, in Corticotropin.
+                     /evidence=ECO:0000250|UniProtKB:P01191; propagated from
+                     UniProtKB/Swiss-Prot (P01189.2)"
+     Site            150
+                     /site_type="amidation"
+                     /note="Valine amide. /evidence=ECO:0000250; propagated
+                     from UniProtKB/Swiss-Prot (P01189.2)"
+     mat_peptide     156..176
+                     /product="Corticotropin-like intermediary peptide.
+                     /id=PRO_0000024971"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=2310
+     Site            168
+                     /site_type="phosphorylation"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:16807684; propagated from
+                     UniProtKB/Swiss-Prot (P01189.2)"
+     mat_peptide     179..267
+                     /product="Lipotropin beta. /id=PRO_0000024972"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=9806
+     mat_peptide     179..234
+                     /product="Lipotropin gamma. /id=PRO_0000024973"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=6075
+     Region          181..200
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+     mat_peptide     217..234
+                     /product="Melanocyte-stimulating hormone beta.
+                     /id=PRO_0000024974"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=2204
+     Region          218..236
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     Region          222..241
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+     mat_peptide     237..267
+                     /product="Beta-endorphin. /id=PRO_0000024975"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=3465
+     Region          237..264
+                     /region_name="Op_neuropeptide"
+                     /note="Opioids neuropeptide; pfam08035"
+                     /db_xref="CDD:462343"
+     mat_peptide     237..241
+                     /product="Met-enkephalin. /id=PRO_0000024976"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01189.2)"
+                     /calculated_mol_wt=574
+     CDS             1..267
+                     /gene="POMC"
+                     /gene_synonym="ACTH; CLIP; LPH; MSH; NPP; OBAIRH; POC"
+                     /coded_by="NM_000939.4:104..907"
+                     /db_xref="CCDS:CCDS1717.1"
+                     /db_xref="GeneID:5443"
+                     /db_xref="HGNC:HGNC:9201"
+                     /db_xref="MIM:176830"
+ORIGIN      
+        1 mprsccsrsg alllalllqa smevrgwcle ssqcqdltte snllecirac kpdlsaetpm
+       61 fpgngdeqpl tenprkyvmg hfrwdrfgrr nssssgssga gqkredvsag edcgplpegg
+      121 peprsdgakp gpregkrsys mehfrwgkpv gkkrrpvkvy pngaedesae afplefkrel
+      181 tgqrlregdg pdgpaddgag aqadlehsll vaaekkdegp yrmehfrwgs ppkdkryggf
+      241 mtseksqtpl vtlfknaiik naykkge
+//
+

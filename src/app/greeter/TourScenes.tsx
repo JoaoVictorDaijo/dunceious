@@ -18,8 +18,7 @@
  */
 
 import {
-  BASE_COLORS, D614G_INDEX, D614G_LINEAGES, D614G_WINDOW, GENOME_LENGTH,
-  ORF1AB_RESIDUES, ORF1AB_START, TRS_HITS, TRS_MOTIF, seededNoise,
+  BASE_COLORS, GENE1_RESIDUES, GENE1_START, GENOME_LENGTH, PHI10_PROMOTERS, PROMOTER_HITS, PROMOTER_MOTIF, seededNoise,
 } from './greeterContent';
 
 const caption = 'text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400';
@@ -28,14 +27,14 @@ function DropScene() {
   return (
     <div className="flex h-[220px] w-[280px] flex-col items-center justify-center gap-3.5 rounded-[20px] border-2 border-dashed border-sky-400">
       <div className="-rotate-[4deg] rounded-xl border border-[#263450] bg-slate-950 px-4 py-3 font-mono text-sm font-bold shadow-[0_10px_24px_rgba(0,0,0,0.4)]">
-        sars-cov-2.gb
+        phage-t7.gb
       </div>
       <div className="text-sm text-slate-400">GenBank · FASTA · GFF3 · BED · project</div>
     </div>
   );
 }
 
-// Decorative mismatch density, hotter over the accessory genes as on the real overview.
+// Decorative mismatch density, with one hotter stretch as a real overview would show.
 const DENSITY = (() => {
   const rnd = seededNoise(3);
   return Array.from({ length: 50 }, (_, i) => {
@@ -56,15 +55,15 @@ function ZoomScene() {
       <div className="flex flex-col gap-1">
         <span className={caption}>Every base</span>
         <div className="flex">
-          {[...ORF1AB_START].map((b, i) => (
+          {[...GENE1_START].map((b, i) => (
             <span key={i} className="flex-1 text-center font-mono text-[13px] font-bold leading-6 text-slate-950" style={{ background: BASE_COLORS[b] }}>{b}</span>
           ))}
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <span className={caption}>Amino acids · F1</span>
+        <span className={caption}>Amino acids · gene 1</span>
         <div className="flex">
-          {[...ORF1AB_RESIDUES].map((a, i) => (
+          {[...GENE1_RESIDUES].map((a, i) => (
             <span key={i} className="flex-1 border border-white bg-slate-800 text-center font-mono text-sm font-extrabold leading-[26px] text-amber-300">{a}</span>
           ))}
         </div>
@@ -77,43 +76,43 @@ function SearchScene() {
   return (
     <div className="flex w-[300px] max-w-full flex-col gap-[18px]">
       <div className="flex h-12 items-center rounded-xl border border-sky-700 bg-slate-950 px-3.5 font-mono text-lg font-bold tracking-[0.08em]">
-        {TRS_MOTIF}
+        {PROMOTER_MOTIF}
       </div>
       <div className="relative h-[26px] rounded-md bg-slate-800">
-        {TRS_HITS.map((p) => (
+        {PROMOTER_HITS.map((p) => (
           <span key={p} className="absolute -bottom-1 -top-1 w-1 rounded-sm bg-amber-400" style={{ left: `${(p / GENOME_LENGTH) * 100}%` }} />
         ))}
       </div>
-      <div className="text-sm text-slate-300">{TRS_HITS.length} hits · one before almost every gene</div>
+      <div className="text-sm text-slate-300">{PROMOTER_HITS.length} hits · each one a T7 promoter</div>
     </div>
   );
 }
 
 function CompareScene() {
-  const rows = ['Wuhan-Hu-1', ...D614G_LINEAGES];
+  const reference = PHI10_PROMOTERS[0].sequence;
   return (
     <div className="flex w-[300px] max-w-full flex-col gap-1.5">
-      {rows.map((name, r) => (
-        <div key={name} className="flex items-center gap-2">
-          <span className="w-[70px] shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-300">{name}</span>
+      {PHI10_PROMOTERS.map(({ phage, sequence }, r) => (
+        <div key={phage} className="flex items-center gap-2">
+          <span className="w-[40px] shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-300">{phage}</span>
           <div className="flex flex-1">
-            {[...D614G_WINDOW].map((c, i) => {
+            {[...sequence].map((c, i) => {
               const ref = r === 0;
-              const change = !ref && i === D614G_INDEX;
+              const change = !ref && c !== reference[i];
               return (
                 <span
                   key={i}
-                  className={`flex-1 text-center font-mono text-xs font-bold leading-[22px] ${ref || change ? 'text-slate-950' : 'text-slate-500'}`}
+                  className={`flex-1 text-center font-mono text-[11px] font-bold leading-[22px] ${ref || change ? 'text-slate-950' : 'text-slate-500'}`}
                   style={{ background: ref ? BASE_COLORS[c] : change ? '#facc15' : 'transparent' }}
                 >
-                  {ref ? c : change ? 'G' : '·'}
+                  {ref || change ? c : '·'}
                 </span>
               );
             })}
           </div>
         </div>
       ))}
-      <div className="pt-2 text-sm text-slate-300">D614G, the spike change that took over in 2020.</div>
+      <div className="pt-2 text-sm text-slate-300">The gene 10 promoter: identical in 13a, different in T3.</div>
     </div>
   );
 }

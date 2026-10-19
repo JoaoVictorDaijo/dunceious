@@ -1,11 +1,11 @@
 ---
 title: "CI Pipeline — Phase 1: The Merge Gate"
-status: implemented
+status: superseded
 date: 2026-06-30
 areas: ["ci"]
 prs: [37]
 issues: []
-superseded_by: null
+superseded_by: 201
 summary: "Use one unprivileged CI job to gate merges on type checking, lint, tests and the production build."
 ---
 # CI Pipeline — Phase 1: The Merge Gate

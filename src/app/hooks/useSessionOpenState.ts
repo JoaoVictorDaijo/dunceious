@@ -18,15 +18,19 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useUiEffects } from '../components/uiEffects';
 
 export function useSessionOpenState(key: string): [boolean, (open: boolean) => void] {
+  const { persistOpenState } = useUiEffects();
   const storageKey = `search-section:${key}`;
   const [open, setOpen] = useState(() => {
+    if (!persistOpenState) return false;
     try { return sessionStorage.getItem(storageKey) === '1'; } catch { return false; }
   });
   const update = useCallback((next: boolean) => {
     setOpen(next);
+    if (!persistOpenState) return;
     try { sessionStorage.setItem(storageKey, next ? '1' : '0'); } catch { /* Storage can be denied by the browser. */ }
-  }, [storageKey]);
+  }, [storageKey, persistOpenState]);
   return [open, update];
 }
