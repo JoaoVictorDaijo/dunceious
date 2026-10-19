@@ -131,8 +131,10 @@ provenance = {
                    "coordinates and all 17 are present: ORF1ab C3267T, C5388A, T6954C and the "
                    "11288-11296 deletion; spike 21765-21770 and 21991-21993 deletions, A23063T, "
                    "C23271A, C23604A, C23709T, T24506G, G24914C; ORF8 C27972T, G28048T, "
-                   "A28111G; N 28280 GAT->CTA and C28977T. Six of them are asserted in "
-                   "src/app/showroom/__tests__/variantData.test.ts. No Pango assignment tool "
+                   "A28111G; N 28280 GAT->CTA and C28977T. A subset covering both kinds of "
+                   "change - substitutions and the spike deletions - is asserted against "
+                   "aligned.fasta in src/app/showroom/__tests__/variantData.test.ts. No Pango "
+                   "assignment tool "
                    "was run, and the amino-acid consequences were not re-derived from a "
                    "translation. A human isolate submitted without any claim of rights.",
         },

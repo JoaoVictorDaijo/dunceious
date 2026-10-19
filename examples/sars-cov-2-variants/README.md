@@ -43,7 +43,8 @@ ungapped, so a reference position is that alignment column):
 | spike | C23604A, C23709T, T24506G, G24914C | ORF8 | C27972T, G28048T, A28111G |
 | N | 28280 `GAT`→`CTA`, C28977T | | |
 
-Six of these are asserted against `aligned.fasta` in
+A subset covering both kinds of change — substitutions and the spike deletions —
+is asserted against `aligned.fasta` in
 `src/app/showroom/__tests__/variantData.test.ts`. **What was not verified:** no
 Pango assignment tool (pangolin, UShER) was run on the record, and the
 amino-acid consequences the table names (N501Y, P681H, ORF8 Q27stop and the

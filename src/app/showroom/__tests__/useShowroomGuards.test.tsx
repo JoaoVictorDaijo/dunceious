@@ -234,7 +234,7 @@ describe('useShowroomGuards: file inputs', () => {
     expect(explained()).toEqual(['ingest-sequences']);
   });
 
-  it('cancels a click dispatched through a label', () => {
+  it('cancels the input click a <label for> forwards', () => {
     render(<Guarded />);
     withFileInput(input => {
       input.id = 'guarded-file-input';
@@ -242,10 +242,24 @@ describe('useShowroomGuards: file inputs', () => {
       label.htmlFor = input.id;
       label.textContent = 'Choose files';
       document.body.append(label);
-      expect(fireEvent.click(input)).toBe(false);
+      fireEvent.click(label);
       label.remove();
     });
     expect(explained()).toEqual(['ingest-sequences']);
+  });
+
+  it.each([
+    ['Import annotations files', 'ingest-annotations'],
+    ['Import pre-aligned FASTA file', 'ingest-alignment'],
+    ['Load project file', 'ingest-project'],
+    ['Import sequences files', 'ingest-sequences'],
+  ])('explains %s as %s', (ariaLabel, id) => {
+    render(<Guarded />);
+    withFileInput(input => {
+      input.setAttribute('aria-label', ariaLabel);
+      expect(fireEvent.click(input)).toBe(false);
+    });
+    expect(explained()).toEqual([id]);
   });
 
   it('leaves other inputs alone and stops guarding once unmounted', () => {

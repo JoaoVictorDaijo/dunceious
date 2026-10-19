@@ -82,6 +82,19 @@ function guardLinks(explain: Explain): () => void {
   return () => removers.forEach(remove => remove());
 }
 
+/** The workbench's file inputs are told apart by their labels ("Import annotations files", "Load project file", ...). */
+const INGEST_BY_LABEL: [RegExp, ExplainId][] = [
+  [/annotation/i, 'ingest-annotations'],
+  [/aligned/i, 'ingest-alignment'],
+  [/project/i, 'ingest-project'],
+];
+
+/** An unlabelled input (the drop zones') takes the sequences explanation, the one every drop zone in the showroom opens. */
+function ingestIdFor(input: HTMLInputElement): ExplainId {
+  const label = input.getAttribute('aria-label') ?? '';
+  return INGEST_BY_LABEL.find(([pattern]) => pattern.test(label))?.[1] ?? 'ingest-sequences';
+}
+
 /**
  * Backstop behind the showroom's `chooseFile` redirection: any click that would
  * reach a file input — a `<label for>`, or a hidden input a control activates
@@ -93,7 +106,7 @@ function guardFilePickers(explain: Explain): () => void {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
     stop(event);
-    explain('ingest-sequences', target.getBoundingClientRect());
+    explain(ingestIdFor(target), target.getBoundingClientRect());
   });
 }
 
