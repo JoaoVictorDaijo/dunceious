@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
 #
-# Rebuilds examples/sars-cov-2-variants/ from NCBI: the three variant records,
+# Rebuilds examples/nucleotide/sars-cov-2-variants/ from NCBI: the three variant records,
 # their MAFFT alignment against the bundled reference, and the provenance file.
 # Two hosts are contacted: NCBI E-utilities for the records, and the container
 # registry for the MAFFT image. MAFFT itself is digest-pinned and runs with
@@ -26,8 +26,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-reference="examples/sars-cov-2-NC_045512.gb"
-out="examples/sars-cov-2-variants"
+reference="examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb"
+out="examples/nucleotide/sars-cov-2-variants"
 image="quay.io/biocontainers/mafft@sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373"
 accessions="OL461693.1,OR279985.1,OR323867.1"
 eutils="https://eutils.ncbi.nlm.nih.gov/entrez/eutils"

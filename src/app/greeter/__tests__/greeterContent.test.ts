@@ -26,7 +26,7 @@ import { BASE_SPAN, codonAt, geneAt, regionName, windowAround } from '../genomeZ
 import { SARS_COV_2 } from '../sarsCov2Sequence';
 
 // The greeter's facts must match the reference genome the workbench ships as an example.
-const genbank = readFileSync(new URL('../../../../examples/sars-cov-2-NC_045512.gb', import.meta.url), 'utf-8');
+const genbank = readFileSync(new URL('../../../../examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', import.meta.url), 'utf-8');
 const sequence = (genbank.split('ORIGIN')[1].match(/[acgt]+/g) ?? []).join('').toUpperCase();
 const at = (start: number, length: number) => sequence.slice(start - 1, start - 1 + length);
 

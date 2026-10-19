@@ -29,7 +29,7 @@ const readExample = (file: string) => readFileSync(resolve(__dirname, '../../../
 function alignedRows(): Map<string, string> {
   const rows = new Map<string, string>();
   let id = '';
-  for (const line of readExample('sars-cov-2-variants/aligned.fasta').split('\n')) {
+  for (const line of readExample('nucleotide/sars-cov-2-variants/aligned.fasta').split('\n')) {
     if (line.startsWith('>')) { id = line.slice(1).trim().split(/\s+/)[0]; rows.set(id, ''); }
     else if (line.trim() !== '') rows.set(id, rows.get(id)! + line.trim());
   }
@@ -59,7 +59,7 @@ describe('loadSampleRecords', () => {
   });
 
   it('shows SARS-CoV-2 as the workbench parses it', () => {
-    const direct = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'sars-cov-2-NC_045512.gb', content: readExample('sars-cov-2-NC_045512.gb') });
+    const direct = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'sars-cov-2-NC_045512.gb', content: readExample('nucleotide/coronaviruses/sars-cov-2-NC_045512.gb') });
     if (direct.type !== 'PARSE_SUCCESS') throw new Error(`parse failed: ${direct.type}`);
     const sars = loadSampleRecords()[0];
     expect(sars.sequence).toHaveLength(29_903);

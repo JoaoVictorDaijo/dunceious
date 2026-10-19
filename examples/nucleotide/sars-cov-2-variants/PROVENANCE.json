@@ -23,7 +23,7 @@
   "reference": {
     "accession": "NC_045512",
     "version": "NC_045512.2",
-    "path": "examples/sars-cov-2-NC_045512.gb",
+    "path": "examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb",
     "note": "The bundled RefSeq reference, unchanged by this script."
   },
   "ncbiRetrieved": "2026-10-17",

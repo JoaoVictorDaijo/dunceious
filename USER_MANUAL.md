@@ -4,7 +4,7 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
-**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive of the real workbench: hold the phone sideways. It opens on one aligned sample, the SARS-CoV-2 reference NC_045512 with one published genome each for Alpha (OL461693), Delta (OR279985) and Omicron BA.1.1 (OR323867), aligned with MAFFT (the same files are in `examples/sars-cov-2-variants/`, with their provenance). What works as on a computer:
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive of the real workbench: hold the phone sideways. It opens on one aligned sample, the SARS-CoV-2 reference NC_045512 with one published genome each for Alpha (OL461693), Delta (OR279985) and Omicron BA.1.1 (OR323867), aligned with MAFFT (the same files are in `examples/nucleotide/sars-cov-2-variants/`, with their provenance). What works as on a computer:
 
 - **Visual Viewport**: zoom and pan, the layers (Conservation included, off by default), showing or hiding records, sequence search with its hit marks, and **Compare** in the viewer toolbar, with NC_045512 as the reference and the Differences and Identity highlights.
 - **Annotation Hub**: the switcher in the top bar opens it. Browse by sequence or by feature, search annotations and step through the matches, filter by type, strand or Needs attention, group, sort, change density and select rows. The sequence index is in the sidebar drawer. The crosshair button on a row (Open in the Visual Viewport) jumps to the annotation, and **Back to Annotation Hub** returns.
@@ -96,7 +96,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Medium Zoom**: Individual nucleotide bases (A, T, C, G) become visible.
 - **High Zoom**: With **Translation** on, the amino-acid translation of each CDS opens in rows above (forward strand) and below (reverse strand) the bases. Only the rows a record needs are shown: overlapping CDSs in the same reading frame share a row, and a record without a CDS gets none. Not shown in peptide sessions.
 
-At a **programmed ribosomal frameshift** (for example SARS-CoV-2 ORF1ab), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
+At a **programmed ribosomal frameshift** (for example the T7 capsid gene 10 in `examples/nucleotide/t7-phages/`), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
 
 ### 2.3 Annotations in the Viewer
 

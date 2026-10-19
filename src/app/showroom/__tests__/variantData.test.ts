@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 
 const EXAMPLES = resolve(__dirname, '../../../../examples');
-const VARIANTS = resolve(EXAMPLES, 'sars-cov-2-variants');
+const VARIANTS = resolve(EXAMPLES, 'nucleotide/sars-cov-2-variants');
 
 const read = (path: string) => readFileSync(path, 'utf-8');
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -48,7 +48,7 @@ function readFastaRows(path: string): { id: string; row: string }[] {
 
 const provenance = () => JSON.parse(read(resolve(VARIANTS, 'PROVENANCE.json')));
 const genBankSequences = () => new Map([
-  ...parseRecords(resolve(EXAMPLES, 'sars-cov-2-NC_045512.gb'), 'sars-cov-2-NC_045512.gb'),
+  ...parseRecords(resolve(EXAMPLES, 'nucleotide/coronaviruses/sars-cov-2-NC_045512.gb'), 'sars-cov-2-NC_045512.gb'),
   ...parseRecords(resolve(VARIANTS, 'variants.gb'), 'variants.gb'),
 ].map(record => [record.id, record.sequence]));
 
@@ -60,7 +60,7 @@ describe('bundled SARS-CoV-2 variant data', () => {
   it('variants.gb and the reference match their recorded checksums', () => {
     const { sha256: sums } = provenance();
     expect(sha256(resolve(VARIANTS, 'variants.gb'))).toBe(sums['variants.gb']);
-    expect(sha256(resolve(EXAMPLES, 'sars-cov-2-NC_045512.gb'))).toBe(sums['sars-cov-2-NC_045512.gb']);
+    expect(sha256(resolve(EXAMPLES, 'nucleotide/coronaviruses/sars-cov-2-NC_045512.gb'))).toBe(sums['sars-cov-2-NC_045512.gb']);
     // The MAFFT input is a build-time temporary, so this sum is the only one
     // with no committed file behind it: at least require that it is recorded.
     expect(sums['mafft-input.fasta']).toMatch(/^[0-9a-f]{64}$/);

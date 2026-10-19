@@ -17,9 +17,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import sarsCov2 from '@/examples/sars-cov-2-NC_045512.gb?raw';
-import variants from '@/examples/sars-cov-2-variants/variants.gb?raw';
-import alignedFasta from '@/examples/sars-cov-2-variants/aligned.fasta?raw';
+import sarsCov2 from '@/examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb?raw';
+import variants from '@/examples/nucleotide/sars-cov-2-variants/variants.gb?raw';
+import alignedFasta from '@/examples/nucleotide/sars-cov-2-variants/aligned.fasta?raw';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { applyFastaResponse, applyParseSuccess } from '@/src/app/logic/bioResponse';

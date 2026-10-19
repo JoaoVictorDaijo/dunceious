@@ -28,7 +28,7 @@ import { loadSampleRecords } from '../sampleWorkspace';
 import { useShowroomComparison } from '../useShowroomComparison';
 import { useShowroomView } from '../useShowroomView';
 
-const ALIGNED = resolve(__dirname, '../../../../examples/sars-cov-2-variants/aligned.fasta');
+const ALIGNED = resolve(__dirname, '../../../../examples/nucleotide/sars-cov-2-variants/aligned.fasta');
 
 /** Reads the bundled FASTA without the app's parser, so the expected columns come from the file. */
 function alignedRows(): Map<string, string> {

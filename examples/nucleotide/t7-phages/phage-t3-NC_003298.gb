@@ -1,0 +1,1941 @@
+LOCUS       NC_003298              38208 bp    DNA     linear   PHG 07-JAN-2023
+DEFINITION  Enterobacteria phage T3, complete genome.
+ACCESSION   NC_003298
+VERSION     NC_003298.1
+DBLINK      BioProject: PRJNA485481
+KEYWORDS    RefSeq; 0.3B protein; 0.6 gene; 0.65 gene; 5.9 gene; bacterial RNA
+            polymerase inhibitor; capsid assembly protein; DNA ligase; DNA
+            packaging protein A; DNA packaging protein B; DNA polymerase; DNA
+            primase/helicase; endonuclease; endopeptidase; exonuclease; gene
+            0.3 gene; gene 0.3B gene; gene 0.6 protein; gene 0.65 protein; gene
+            0.7 gene; gene 1 gene; gene 1.05 gene; gene 1.05 protein; gene 1.1
+            gene; gene 1.1 protein; gene 1.2 gene; gene 1.2 protein; gene 1.3
+            gene; gene 1.5 gene; gene 1.5 protein; gene 1.6 gene; gene 1.6
+            protein; gene 1.7 gene; gene 1.7 protein; gene 1.8 gene; gene 1.8
+            protein; gene 10A gene; gene 11 gene; gene 12 gene; gene 13 gene;
+            gene 14 gene; gene 15 gene; gene 16 gene; gene 17 gene; gene 17.5
+            gene; gene 18 gene; gene 18.5 gene; gene 18.7 gene; gene 18.7
+            protein; gene 19 gene; gene 19.2 gene; gene 19.2 protein; gene 19.3
+            gene; gene 19.3 protein; gene 19.5 gene; gene 19.5 protein; gene 2
+            gene; gene 2.5 gene; gene 3 gene; gene 3.5 gene; gene 3.7 gene;
+            gene 3.7 protein; gene 4.2 gene; gene 4.2 protein; gene 4.3 gene;
+            gene 4.3 protein; gene 4.5 gene; gene 4.5 protein; gene 4A gene;
+            gene 4B gene; gene 5 gene; gene 5.1 gene; gene 5.1 protein; gene
+            5.3 gene; gene 5.3 protein; gene 5.5 gene; gene 5.7 gene; gene 5.7
+            protein; gene 5.9 protein; gene 5B gene; gene 5B protein; gene 6
+            gene; gene 6.3 gene; gene 6.3 protein; gene 6.5 gene; gene 6.5
+            protein; gene 6.7 gene; gene 6.7 protein; gene 7.3 gene; gene 8
+            gene; gene 9 gene; growth on lambda lysogens; head-to-tail joining
+            protein; helicase; host range; internal virion protein A; internal
+            virion protein B; internal virion protein C; internal virion
+            protein D; lysis protein; major capsid protein 10A; minor capsid
+            protein 10B; N-acetylmuramoyl-L-alanine amidase; protein kinase;
+            RNA polymerase; S-adenosyl-L-methionine hydrolase; single-stranded
+            DNA-binding protein; tail fiber protein; tail tubular protein A;
+            tail tubular protein B.
+SOURCE      Enterobacteria phage T3
+  ORGANISM  Enterobacteria phage T3
+            Viruses; Duplodnaviria; Heunggongvirae; Uroviricota;
+            Caudoviricetes; Autographivirales; Autotranscriptaviridae;
+            Studiervirinae; Teetrevirus; Teetrevirus T3.
+REFERENCE   1  (bases 1 to 38208)
+  AUTHORS   Pajunen,M.I., Elizondo,M.R., Skurnik,M., Kieleczawa,J. and
+            Molineux,I.J.
+  TITLE     Complete nucleotide sequence and likely recombinatorial origin of
+            bacteriophage T3
+  JOURNAL   J. Mol. Biol. 319 (5), 1115-1132 (2002)
+   PUBMED   12079351
+REFERENCE   2  (bases 1 to 38208)
+  AUTHORS   Pajunen,M.I.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (27-JUN-2001) Pajunen M.I., Department of Medical
+            Biochemistry, University of Turku, Kiinamyllynkatu 10, Turku 20520,
+            Finland
+REFERENCE   3  (bases 1 to 38208)
+  CONSRTM   NCBI Genome Project
+  TITLE     Direct Submission
+  JOURNAL   Submitted (01-AUG-2000) National Center for Biotechnology
+            Information, NIH, Bethesda, MD 20894, USA
+COMMENT     VALIDATED REFSEQ: This record has undergone validation or
+            preliminary review. The reference sequence was derived from
+            AJ318471.
+            COMPLETENESS: full length.
+FEATURES             Location/Qualifiers
+     source          1..38208
+                     /organism="Enterobacteria phage T3"
+                     /mol_type="genomic DNA"
+                     /strain="Luria"
+                     /host="Escherichia coli"
+                     /db_xref="taxon:10759"
+     repeat_region   1..231
+                     /note="redundant terminal repeat"
+                     /rpt_type=DIRECT
+     regulatory      complement(126..131)
+                     /regulatory_class="minus_10_signal"
+                     /note="E. coli promoter A0 (leftward)"
+     regulatory      complement(145..150)
+                     /regulatory_class="minus_35_signal"
+                     /note="E. coli promoter A0 (leftward)"
+     regulatory      366..388
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phiOL"
+     regulatory      443..448
+                     /regulatory_class="minus_35_signal"
+                     /note="E. coli promoter A1"
+     regulatory      467..472
+                     /regulatory_class="minus_10_signal"
+                     /note="E. coli promoter A1"
+     regulatory      572..577
+                     /regulatory_class="minus_35_signal"
+                     /note="E. coli promoter A2"
+     regulatory      596..601
+                     /regulatory_class="minus_10_signal"
+                     /note="E. coli promoter A2"
+     regulatory      683..688
+                     /regulatory_class="minus_35_signal"
+                     /note="E. coli promoter A3"
+     regulatory      706..711
+                     /regulatory_class="minus_10_signal"
+                     /note="E. coli promoter A3"
+     stem_loop       822..875
+                     /note="RNase III recognition site R0.3"
+     gene            901..1359
+                     /locus_tag="T3p01"
+                     /gene_synonym="gene 0.3"
+                     /db_xref="GeneID:927434"
+     CDS             901..1359
+                     /locus_tag="T3p01"
+                     /gene_synonym="gene 0.3"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="SAM-dependent methyltransferase"
+                     /protein_id="NP_523296.1"
+                     /db_xref="GOA:Q8W5V0"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5V0"
+                     /db_xref="GeneID:927434"
+                     /translation="MIFTKEPANVFYVLVSAFRSNLCDEVNMSRHRHMVSTLRAAPGL
+                     YGSVESTDLTGCYREAISSAPTEEKTVRVRCKDKAQALNVARLACNEWEQDCVLVYKS
+                     QTHTAGLVYAKGIDGYKAERLPGSFQEVPKGAPLQGCFTIDEFGRRWQVQ"
+     gene            982..1359
+                     /locus_tag="T3p02"
+                     /gene_synonym="gene 0.3B"
+                     /db_xref="GeneID:927435"
+     CDS             982..1359
+                     /locus_tag="T3p02"
+                     /gene_synonym="gene 0.3B"
+                     /note="in-frame internal initiation"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="SAM-dependent methyltransferase"
+                     /protein_id="NP_523297.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U9"
+                     /db_xref="GeneID:927435"
+                     /translation="MSRHRHMVSTLRAAPGLYGSVESTDLTGCYREAISSAPTEEKTV
+                     RVRCKDKAQALNVARLACNEWEQDCVLVYKSQTHTAGLVYAKGIDGYKAERLPGSFQE
+                     VPKGAPLQGCFTIDEFGRRWQVQ"
+     regulatory      1328..1333
+                     /regulatory_class="minus_35_signal"
+                     /locus_tag="T3p02"
+                     /gene_synonym="gene 0.3B"
+                     /note="E. coli B promoter"
+     regulatory      1352..1357
+                     /regulatory_class="minus_10_signal"
+                     /locus_tag="T3p02"
+                     /gene_synonym="gene 0.3B"
+                     /note="E. coli B promoter"
+     stem_loop       1359..1408
+                     /note="RNase III recognition site R0.5"
+     gene            1430..1627
+                     /locus_tag="T3p03"
+                     /gene_synonym="0.6"
+                     /db_xref="GeneID:927430"
+     CDS             1430..1627
+                     /locus_tag="T3p03"
+                     /gene_synonym="0.6"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 0.6 protein"
+                     /protein_id="NP_523298.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U8"
+                     /db_xref="GeneID:927430"
+                     /translation="MLTALIALVYLCIAMYFMRDFKRGLVVHKATLSYFKWGFIPRFT
+                     VRERNGRFKANKVGVFYIATH"
+     gene            1614..1781
+                     /locus_tag="T3p04"
+                     /gene_synonym="0.65"
+                     /db_xref="GeneID:927431"
+     CDS             1614..1781
+                     /locus_tag="T3p04"
+                     /gene_synonym="0.65"
+                     /note="UUG start codon"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 0.65 protein"
+                     /protein_id="NP_523299.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U7"
+                     /db_xref="GeneID:927431"
+                     /translation="MLRTNSKHVKTALYAMAYGASKRKVKRILTRHRKMTARQAASAV
+                     KWAEFTLYSYR"
+     gene            1796..2905
+                     /locus_tag="T3p05"
+                     /gene_synonym="gene 0.7"
+                     /db_xref="GeneID:927436"
+     CDS             1796..2905
+                     /locus_tag="T3p05"
+                     /gene_synonym="gene 0.7"
+                     /note="The T7 seryl-threonyl protein kinase gp0.7 is
+                     involved in host transcription shutoff and Col Ib
+                     exclusion. Phosphorylates E. coli RNA polymerase. Other
+                     names: gp0.7."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="serine-threonine kinase"
+                     /protein_id="NP_523300.1"
+                     /db_xref="GOA:Q8W5U6"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U6"
+                     /db_xref="GeneID:927436"
+                     /translation="MTFTEAQAALEAIRNLPIERLNERQTMLVALAAAIVNAETQDGQ
+                     LTQAAGNTALERMDYWQTLAARMRDVGFIKLGNGHFSAAYQHEMLPGKVIKVGFKKED
+                     SGAAYAAFCRMNQGREGIPTVYDIQRHAGCYTVVLDYLNPLNDWCYGESDKVRHHFKA
+                     AREIIEEDCFDAAEEYPISDGFIETCKDIRKFFLGIASFDCHSGNMMKDQMGRLIITD
+                     PVSFSADDKLKPGEFHCDPDELIAEIEALRAQEAIERCVNRKARRDPKGAFQVARKAR
+                     VKWRRKAAKREKCNAKVLARMRMDANQNRRDEPRARMVWGDKHWRNAWMHHNNLNFAE
+                     LERRAAAVMMLHDEVRIQWGKPLHIDAYLDKRLQG"
+     regulatory      2883..2888
+                     /regulatory_class="minus_35_signal"
+                     /locus_tag="T3p05"
+                     /gene_synonym="gene 0.7"
+                     /note="E. coli C promoter"
+     regulatory      2906..2911
+                     /regulatory_class="minus_10_signal"
+                     /note="E. coli C promoter"
+     stem_loop       2908..2956
+                     /note="RNase III recognition site R1"
+     gene            2976..5630
+                     /locus_tag="T3p06"
+                     /gene_synonym="gene 1"
+                     /db_xref="GeneID:927437"
+     CDS             2976..5630
+                     /locus_tag="T3p06"
+                     /gene_synonym="gene 1"
+                     /note="A family of single subunit RNA polymerases."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="RNA polymerase"
+                     /protein_id="NP_523301.1"
+                     /db_xref="GeneID:927437"
+                     /translation="MNIIENIEKNDFSEIELAAIPFNTLADHYGSALAKEQLALEHES
+                     YELGERRFLKMLERQAKAGEIADNAAAKPLLATLLPKLTTRIVEWLEEYASKKGRKPS
+                     AYAPLQLLKPEASAFITLKVILASLTSTNMTTIQAAAGMLGKAIEDEARFGRIRDLEA
+                     KHFKKHVEEQLNKRHGQVYKKAFMQVVEADMIGRGLLGGEAWSSWDKETTMHVGIRLI
+                     EMLIESTGLVELQRHNAGNAGSDHEALQLAQEYVDVLAKRAGALAGISPMFQPCVVPP
+                     KPWVAITGGGYWANGRRPLALVRTHSKKGLMRYEDVYMPEVYKAVNLAQNTAWKINKK
+                     VLAVVNEIVNWKNCPVADIPSLERQELPPKPDDIDTNEAALKEWKKAAAGIYRLDKAR
+                     VSRRISLEFMLEQANKFASKKAIWFPYNMDWRGRVYAVPMFNPQGNDMTKGLLTLAKG
+                     KPIGEEGFYWLKIHGANCAGVDKVPFPERIAFIEKHVDDILACAKDPINNTWWAEQDS
+                     PFCFLAFCFEYAGVTHHGLSYNCSLPLAFDGSCSGIQHFSAMLRDEVGGRAVNLLPSE
+                     TVQDIYGIVAQKVNEILKQDAINGTPNEMITVTDKDTGEISEKLKLGTSTLAQQWLAY
+                     GVTRSVTKRSVMTLAYGSKEFGFRQQVLDDTIQPAIDSGKGLMFTQPNQAAGYMAKLI
+                     WDAVSVTVVAAVEAMNWLKSAAKLLAAEVKDKKTKEILRHRCAVHWTTPDGFPVWQEY
+                     RKPLQKRLDMIFLGQFRLQPTINTLKDSGIDAHKQESGIAPNFVHSQDGSHLRMTVVY
+                     AHEKYGIESFALIHDSFGTIPADAGKLFKAVRETMVITYENNDVLADFYSQFADQLHE
+                     TQLDKMPPLPKKGNLNLQDILKSDFAFA"
+     regulatory      5642..5664
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi1.05"
+     rep_origin      5682..5758
+                     /note="primary origin of DNA replication"
+     gene            5717..5989
+                     /locus_tag="T3p07"
+                     /gene_synonym="gene 1.05"
+                     /db_xref="GeneID:927438"
+     CDS             5717..5989
+                     /locus_tag="T3p07"
+                     /gene_synonym="gene 1.05"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 1.05 protein"
+                     /protein_id="NP_523302.1"
+                     /db_xref="GeneID:927438"
+                     /translation="MINIKTFFKNIFKLNRLTSIKFYAWMPGSDDLRKTEFKLGLGPC
+                     GKVVTKLECYSTSSGMVIFQTTEDNEMKSFYYPKGSTCGRIERTYS"
+     regulatory      5984..6006
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi1.1"
+     stem_loop       6003..6053
+                     /note="RNase III recognition site R1.1"
+     gene            6082..6222
+                     /locus_tag="T3p08"
+                     /gene_synonym="gene 1.1"
+                     /db_xref="GeneID:927439"
+     CDS             6082..6222
+                     /locus_tag="T3p08"
+                     /gene_synonym="gene 1.1"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523303.1"
+                     /db_xref="GeneID:927439"
+                     /translation="MRTNFEKFTKRDSVVNEQGEQWQERRDRMKKRHKQQRGNSQKRE
+                     WN"
+     gene            6222..6500
+                     /locus_tag="T3p09"
+                     /gene_synonym="gene 1.2"
+                     /db_xref="GeneID:927440"
+     CDS             6222..6500
+                     /locus_tag="T3p09"
+                     /gene_synonym="gene 1.2"
+                     /function="necessary to overcome F plasmid-mediated
+                     exclusion; deoxyguanosine triphosphohydrolase inhibitor"
+                     /note="inhibits activity of the host dGTPase [dgt].
+                     Essential only in strains that overexpress dGTPase [optA1
+                     mutation]. In T7, gp1.2 also causes F plasmid exclusion.
+                     In T3, however, gp1.2 overcomes the exclusion system.
+                     Other names: dGTP triphosphohydrolase inhibitor; gp1.2."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="dGTPase inhibitor; target for F exclusion"
+                     /protein_id="NP_523304.1"
+                     /db_xref="GeneID:927440"
+                     /translation="MMMGRIYSGNLNDYKDAVARLQEDHDVTVKMESFSYENPAKMCR
+                     SCGEVLSVFTRSGHLVASRTFEHSDSDVQINAQTAWLRKVHSELKHWK"
+     regulatory      6498..6520
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi1.3"
+     stem_loop       6519..6558
+                     /note="RNase III recognition site R1.3"
+     gene            6595..7635
+                     /locus_tag="T3p10"
+                     /gene_synonym="gene 1.3"
+                     /db_xref="GeneID:927441"
+     CDS             6595..7635
+                     /locus_tag="T3p10"
+                     /gene_synonym="gene 1.3"
+                     /note="Catalyzes the ATP-dependent formation of a
+                     phosphodiester bond at the site of single-stranded breaks
+                     in double-stranded DNA. T7 ligase is essential in
+                     ligase-deficient hosts only."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DNA ligase"
+                     /protein_id="NP_523305.1"
+                     /db_xref="GeneID:927441"
+                     /translation="MNIFNTNPFKAVSFVESAVKKALETSGYLIADCKYDGVRGNIVV
+                     DNVAEAAWLSRVSKFIPALEHLNGFDKRWQQLLNDDRCIFPDGFMLDGELMVKGVDFN
+                     TGSGLLRTKWVKRDNMGFHLTNVPTKLTPKGREVIDGKFEFHLDPKRLSVRLYAVMPI
+                     HIAESGEDYDVQNLLMPYHVEAMRSLLVEYFPEIEWLIAETYEVYDMDSLTELYEEKR
+                     AEGHEGLIVKDPQGIYKRGKKSGWWKLKPECEADGIIQGVNWGTEGLANEGKVIGFSV
+                     LLETGRLVDANNISRALMDEFTSNVKAHGEDFYNGWACQVNYMEATPDGSLRHPSFEK
+                     FRGTEDNPQEKM"
+     regulatory      7646..7667
+                     /regulatory_class="terminator"
+                     /note="rho-independent early transcriptional terminator TE
+                     for E. coli RNA polymerase"
+     regulatory      7683..7705
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi1.5"
+     gene            7714..7791
+                     /locus_tag="T3p11"
+                     /gene_synonym="gene 1.5"
+                     /db_xref="GeneID:927442"
+     CDS             7714..7791
+                     /locus_tag="T3p11"
+                     /gene_synonym="gene 1.5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 1.5 protein"
+                     /protein_id="NP_523306.1"
+                     /db_xref="GeneID:927442"
+                     /translation="MWLILFAIVATLGLMVADDNIWPDC"
+     gene            7804..8061
+                     /locus_tag="T3p12"
+                     /gene_synonym="gene 1.6"
+                     /db_xref="GeneID:927443"
+     CDS             7804..8061
+                     /locus_tag="T3p12"
+                     /gene_synonym="gene 1.6"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="BC10 family protein"
+                     /protein_id="NP_523307.1"
+                     /db_xref="GeneID:927443"
+                     /translation="MRLHFNTSNGIFSVRREDRSTAVASERNAKLPLIGSVVPLSPRV
+                     HLLITRGEFIKAMNKERPHLEAVVTYWPRIRLFVKLIKEVL"
+     gene            8061..8552
+                     /locus_tag="T3p13"
+                     /gene_synonym="gene 1.7"
+                     /db_xref="GeneID:927445"
+     CDS             8061..8552
+                     /locus_tag="T3p13"
+                     /gene_synonym="gene 1.7"
+                     /note="previously gene 1.9"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DUF3310 domain-containing protein"
+                     /protein_id="NP_523308.1"
+                     /db_xref="GeneID:927445"
+                     /translation="MLQHHWNKPDLEARFPVNSVVRYSGGGLKRILGMSGVVTGHSHT
+                     GLVKVRFGTQYAEVLPNNLIPLPKADVKTPNVEAPKTEVKSDVTHPNHYMLFDNVEAI
+                     EVIARSMTVEAFRGYCLGNILKYRLRAGKKSELATMDKDLKKAAFYQELFDKHRGLCY
+                     DAS"
+     gene            8539..8670
+                     /locus_tag="T3p14"
+                     /gene_synonym="gene 1.8"
+                     /db_xref="GeneID:927447"
+     CDS             8539..8670
+                     /locus_tag="T3p14"
+                     /gene_synonym="gene 1.8"
+                     /note="not essential in T7. Other names: gp1.8"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523309.1"
+                     /db_xref="GeneID:927447"
+                     /translation="MTLRECCDWCAAKWNQAIEDGDKAAADAYQQLYALWERRFKEA"
+     gene            8672..8836
+                     /locus_tag="T3p15"
+                     /gene_synonym="gene 2"
+                     /db_xref="GeneID:927452"
+     CDS             8672..8836
+                     /locus_tag="T3p15"
+                     /gene_synonym="gene 2"
+                     /note="T7 RNA polymerase inhibitor binds to host RNA pol
+                     and suppresses its activity on a subset of promoters. gp2
+                     deficient T7 display reduced DNA replication and premature
+                     breakdown of replicating DNA, specifically at the left end
+                     of the genome, along with the presence of empty proheads.
+                     Rifampin can compensate for the missing gp2 function.
+                     Other names: gp2."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="RNA polymerase inhibitor"
+                     /protein_id="NP_523310.1"
+                     /db_xref="GeneID:927452"
+                     /translation="MEQREIKYLLTMEGNTESFEVPVFARSLEEATLQAEQYEDAGFV
+                     VTRIRPEVKA"
+     regulatory      8834..8856
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi2.5"
+     gene            8888..9586
+                     /locus_tag="T3p16"
+                     /gene_synonym="gene 2.5"
+                     /db_xref="GeneID:927413"
+     CDS             8888..9586
+                     /locus_tag="T3p16"
+                     /gene_synonym="gene 2.5"
+                     /note="binds single-stranded DNA. In phage T7 gp2.5 is
+                     essential for DNA replication and recombination. Other
+                     names: gp2.5; SSB."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="Gp2.5-like ssDNA binding protein and ssDNA
+                     annealing protein"
+                     /protein_id="NP_523311.1"
+                     /db_xref="GeneID:927413"
+                     /translation="MAGFKKKVYTSGLGTAEPYAYLSKPDYGNEERGFGNPRGVYKVD
+                     LTLSNKDPRCQAMVDEIVKTHEEAYAAAVEEFEANPPQVQRGKKPLTPYEGDMPFFDN
+                     GDGTTTFKFKCYASFQDKKTKETKHINLVVVDSKGKKIQEVPIIGGGSKLKVKYSLVP
+                     YKWNTAVGASVKLQLESVMLVELATFGGGGEDEWADEVEDGGYTASESRQSRDEQEWQ
+                     EDEHEETPDDDEDF"
+     gene            9586..10044
+                     /locus_tag="T3p17"
+                     /gene_synonym="gene 3"
+                     /db_xref="GeneID:927412"
+     CDS             9586..10044
+                     /locus_tag="T3p17"
+                     /gene_synonym="gene 3"
+                     /note="T7 endonuclease I is a Holliday junction resolvase
+                     encoded by T7 gene 3. Mutants in gene 3 are defective in
+                     recombination and accumulate branched DNA. Endonuclease I
+                     may also play a role in the degradation of the host genome
+                     following infection with T7."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="endonuclease"
+                     /protein_id="NP_523312.1"
+                     /db_xref="GeneID:927412"
+                     /translation="MAGAYAARCTQGRAFRSGLEDKVSKQLESKGIKFDYELWRIPYV
+                     IPESDHLYTPDFLLPNGIFIETKGLWDSDDRKKHLLIREQHPELDIRLVFSSSRSKLY
+                     KGSPTSYGEWCEKHGILFADKLIPVAGVKEPKKEVPFDKFKTKKGVKKNG"
+     gene            10037..10492
+                     /locus_tag="T3p18"
+                     /gene_synonym="gene 3.5"
+                     /db_xref="GeneID:927411"
+     CDS             10037..10492
+                     /locus_tag="T3p18"
+                     /gene_synonym="gene 3.5"
+                     /function="inhibits T3 RNA polymerase"
+                     /note="T7 lysozyme hydrolyzes an amide bond in the host
+                     cell wall following its release from the cytoplasm. In
+                     addition, T7 lysozyme inhibits T7 RNA polymerase
+                     initiation. This inhibition is greater for class II
+                     promoters than class III promoters and therefore may aid
+                     in temporal regulation of transcription and the switch to
+                     particle assembly. In T7, lysozyme, unlike the T7 holin,
+                     is expressed with and lies in the same region as the
+                     replication genes. Lack of gp3.5 reduces replication and
+                     burst size and delays, but does not completely prevent
+                     lysis. Mutations in the muralytic domain of gene 16, an
+                     inner capsid protein, can partially compensate for a
+                     deletion of gp3.5. Other names: gp3.5; amidase;
+                     N-acetylmuramoyl-L-alanine amidase"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="amidase"
+                     /protein_id="NP_523313.1"
+                     /db_xref="GeneID:927411"
+                     /translation="MAKVQFKPRATTEAIFVHCSATKPSQNVGVREIRQWHKEQGWLD
+                     VGYHFIIKRDGTVEAGRDELAVGSHAKGYNHNSIGVCLVGGIDDKGKFDANFTPAQMQ
+                     SLRSLLVTLLAKYEGSVLRAHHDVAPKACPSFDLKRWWEKNELVTSDRG"
+     gene            10497..10604
+                     /locus_tag="T3p19"
+                     /gene_synonym="gene 3.7"
+                     /db_xref="GeneID:927410"
+     CDS             10497..10604
+                     /locus_tag="T3p19"
+                     /gene_synonym="gene 3.7"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 3.7 protein"
+                     /protein_id="NP_523314.1"
+                     /db_xref="GeneID:927410"
+                     /translation="MRMICIRCDKPLKSRVPSRQCQCKDPIKAEEHTEK"
+     regulatory      10603..10625
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi3.8"
+     stem_loop       10616..10642
+                     /note="RNase III recognition site R3.8"
+     gene            10670..12370
+                     /locus_tag="T3p20"
+                     /gene_synonym="gene 4A"
+                     /db_xref="GeneID:927458"
+     CDS             10670..12370
+                     /locus_tag="T3p20"
+                     /gene_synonym="gene 4A"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DNA primase/helicase"
+                     /protein_id="NP_523315.1"
+                     /db_xref="GeneID:927458"
+                     /translation="MEREDDSIFLFHAPCENCGSSDGNSVYSDGHEWCFVCEHRVPAN
+                     EEREAKLSTRRRTGGSKPMSYDVWNFGDSNGRYSDLTARGISKETCQKAGYWLAKVDN
+                     RMYQVADYRDQNGSIVSQKVRDKDKNFKTTGSHKSDALFLKHLWSGGKKIVVTEGEID
+                     ALTVMELQDCKYPVVSLGHGASAAKKTCAANYEYFDQFEQIILMFDMDDAGRKAVEEA
+                     AQVLPAGKVRVAVLPCKDANECHIMGEDKAILEQVWNANPWVPDGVVSALSLKDRVKE
+                     AMTSEDAVGLLFDGCQGLNDRTLGARGGEVVMVTSGSGMGKSTFVRQQALAWGKRMGK
+                     RVGLAMLEESVEDTIQDMMGLNNKVRLRQSDEVKKAIAEDGRFDEWYDELFGDDTFHL
+                     YDSFAEAEADRLLAKLAYMRTGLGCDVIVLDHISIVVSASEESDERKMIDRLMTKLKG
+                     FAKSTGVVLVVICHLKNPEKGKAHEEGRAVSITDLRGSGALRQLSDTIIALERNQQGD
+                     MPNLVLVRLLKCRFTGDTGIAGYMEYNRETGWLEPSSYTGGEGEGDTGWTEQDGQSDF
+                     "
+     gene            10856..12370
+                     /locus_tag="T3p21"
+                     /gene_synonym="gene 4B"
+                     /db_xref="GeneID:927429"
+     CDS             10856..12370
+                     /locus_tag="T3p21"
+                     /gene_synonym="gene 4B"
+                     /note="in-frame internal initiation"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DNA primase/helicase"
+                     /protein_id="NP_523316.1"
+                     /db_xref="GOA:Q8W5U5"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U5"
+                     /db_xref="GeneID:927429"
+                     /translation="MSYDVWNFGDSNGRYSDLTARGISKETCQKAGYWLAKVDNRMYQ
+                     VADYRDQNGSIVSQKVRDKDKNFKTTGSHKSDALFLKHLWSGGKKIVVTEGEIDALTV
+                     MELQDCKYPVVSLGHGASAAKKTCAANYEYFDQFEQIILMFDMDDAGRKAVEEAAQVL
+                     PAGKVRVAVLPCKDANECHIMGEDKAILEQVWNANPWVPDGVVSALSLKDRVKEAMTS
+                     EDAVGLLFDGCQGLNDRTLGARGGEVVMVTSGSGMGKSTFVRQQALAWGKRMGKRVGL
+                     AMLEESVEDTIQDMMGLNNKVRLRQSDEVKKAIAEDGRFDEWYDELFGDDTFHLYDSF
+                     AEAEADRLLAKLAYMRTGLGCDVIVLDHISIVVSASEESDERKMIDRLMTKLKGFAKS
+                     TGVVLVVICHLKNPEKGKAHEEGRAVSITDLRGSGALRQLSDTIIALERNQQGDMPNL
+                     VLVRLLKCRFTGDTGIAGYMEYNRETGWLEPSSYTGGEGEGDTGWTEQDGQSDF"
+     gene            12090..12419
+                     /locus_tag="T3p22"
+                     /gene_synonym="gene 4.2"
+                     /db_xref="GeneID:927432"
+     CDS             12090..12419
+                     /locus_tag="T3p22"
+                     /gene_synonym="gene 4.2"
+                     /note="overlap gene 4"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523317.1"
+                     /db_xref="GeneID:927432"
+                     /translation="MKKDALCLLLTYVVAVPCVSYLILSSPWSVTSKVICLTWCWFAC
+                     LSVVSLATLELLDTWNTTEKPGGLNRLATLAEKEKEILAGLNKTDSQTSKGCPCGHSD
+                     CDGIMYH"
+     regulatory      12418..12440
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi4.3"
+     gene            12466..12678
+                     /locus_tag="T3p23"
+                     /gene_synonym="gene 4.3"
+                     /db_xref="GeneID:927451"
+     CDS             12466..12678
+                     /locus_tag="T3p23"
+                     /gene_synonym="gene 4.3"
+                     /note="not essential in T7; Other names: gp4.3."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523318.1"
+                     /db_xref="GeneID:927451"
+                     /translation="MFKFINTLGKLVVKLYFIEAKKLDKKAKADSQRAIELAKQSREK
+                     SDAAVSGVHKSAAIAAKAQSMSKFFE"
+     gene            12691..12975
+                     /locus_tag="T3p24"
+                     /gene_synonym="gene 4.5"
+                     /db_xref="GeneID:927416"
+     CDS             12691..12975
+                     /locus_tag="T3p24"
+                     /gene_synonym="gene 4.5"
+                     /note="not essential in T7. Other names: gp4.5."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523319.1"
+                     /db_xref="GeneID:927416"
+                     /translation="MSKSIKHANTIRLPDTADQFARRVHINVRGEKVTMVYRWKDHKS
+                     PKAHTQRMTLDDKQVGRLMGALTMAADNVVGDNRERLVEFGAGMQEIIEK"
+     stem_loop       12970..13018
+                     /note="RNase III recognition site R4.7"
+     gene            13043..15157
+                     /locus_tag="T3p25"
+                     /gene_synonym="gene 5"
+                     /db_xref="GeneID:927419"
+     CDS             13043..15157
+                     /locus_tag="T3p25"
+                     /gene_synonym="gene 5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DNA polymerase I"
+                     /protein_id="NP_523320.1"
+                     /db_xref="GeneID:927419"
+                     /translation="MLVSDIEANNLLEKVTKFHCGVIYDYRDGEYHSYRPGDFGAYLD
+                     ALEAEVKRGGLIVFHNGHKYDVPALTKLAKLQLNREFHLPRENCIDTLVLSRLIHSNL
+                     KDTDMGLLRSGKLPGKRFGSHALEAWGYRLGEMKGEYKDDFKRMLEEQGEEYVDGMEW
+                     WNFNEEMMDYNVQDVVVTKALLEKLLSDKHYFPPEIDFTDVGYTTFWSESLEAVDVEH
+                     RAAWLLAKQERNGFPFDTKAIEELYVELAARRSELLRNLTETFGSWYQPKGGTEMFCH
+                     PRTGKPLPKYPRIKIPKVGGIFKKPKNKAQREGREPCELDTREYVAGAPYTPVEHVVF
+                     NPSSRDHIQKKLQEAGWVPTKFTDKGAPVVDDEVLEGVRVDDPEKQAAIDLIKEYLMI
+                     QKRIGQSAEGDKAWLRYVAEDGKIHGSVNPNGAVTGRATHAFPNLAQIPGVRSPYGEQ
+                     CRAAFGAEHHLDGITGKPWVQAGIDASGLELRCLAHFMARFDNGEYAHEILNGDIHTK
+                     NQMAAELPTRDNAKTFIYGFLYGAGDEKIGQIVGAGKERGKELKKKFLENTPAIAALR
+                     ESIQQTLVESSQWVAGEQQVKWKRRWIKGLDGRKVHVRSPHAALNTLLQSAGALICKL
+                     WIIKTEEMLVEKGLKHGWDGDFAYMAWIHDEIQVACRTEEIAKTVIEVAQEAMRWVGE
+                     HWNFRCLLDTEGKMGANWKECH"
+     gene            13686..13775
+                     /locus_tag="T3p26"
+                     /gene_synonym="gene 5.1"
+                     /db_xref="GeneID:927420"
+     CDS             13686..13775
+                     /locus_tag="T3p26"
+                     /gene_synonym="gene 5.1"
+                     /note="overlap gene 5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 5.1 protein"
+                     /protein_id="NP_523321.1"
+                     /db_xref="GeneID:927420"
+                     /translation="MLNIALHGYSLSKSAMDSRLTRKQSKSCT"
+     gene            14039..15157
+                     /locus_tag="T3p27"
+                     /gene_synonym="gene 5B"
+                     /db_xref="GeneID:927424"
+     CDS             14039..15157
+                     /locus_tag="T3p27"
+                     /gene_synonym="gene 5B"
+                     /note="in-frame internal initiation"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DNA polymerase I"
+                     /protein_id="NP_523322.1"
+                     /db_xref="GOA:Q38544"
+                     /db_xref="UniProtKB/TrEMBL:Q38544"
+                     /db_xref="GeneID:927424"
+                     /translation="MFNPSSRDHIQKKLQEAGWVPTKFTDKGAPVVDDEVLEGVRVDD
+                     PEKQAAIDLIKEYLMIQKRIGQSAEGDKAWLRYVAEDGKIHGSVNPNGAVTGRATHAF
+                     PNLAQIPGVRSPYGEQCRAAFGAEHHLDGITGKPWVQAGIDASGLELRCLAHFMARFD
+                     NGEYAHEILNGDIHTKNQMAAELPTRDNAKTFIYGFLYGAGDEKIGQIVGAGKERGKE
+                     LKKKFLENTPAIAALRESIQQTLVESSQWVAGEQQVKWKRRWIKGLDGRKVHVRSPHA
+                     ALNTLLQSAGALICKLWIIKTEEMLVEKGLKHGWDGDFAYMAWIHDEIQVACRTEEIA
+                     KTVIEVAQEAMRWVGEHWNFRCLLDTEGKMGANWKECH"
+     gene            15168..15473
+                     /locus_tag="T3p28"
+                     /gene_synonym="gene 5.3"
+                     /db_xref="GeneID:927421"
+     CDS             15168..15473
+                     /locus_tag="T3p28"
+                     /gene_synonym="gene 5.3"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="HNH endonuclease"
+                     /protein_id="NP_523323.1"
+                     /db_xref="GeneID:927421"
+                     /translation="MGGVATLRFHKMPTGCIVCVSHKRNQDGYFRYSIGSSRKGEKKH
+                     FMFHRWVWEQHKGPIPDGYEIDHICLNRGCCNVEHLQCIPKRDHIIKTNKERKLVKK"
+     gene            15487..15783
+                     /locus_tag="T3p29"
+                     /gene_synonym="gene 5.5"
+                     /db_xref="GeneID:927422"
+     CDS             15487..15783
+                     /locus_tag="T3p29"
+                     /gene_synonym="gene 5.5"
+                     /function="growth on lambda lysogens"
+                     /note="in Enterobacteria phage T7, gp5.5 abolishes E. coli
+                     nucleoid protein H-NS-mediated inhibition of transcription
+                     by T7 RNA polymerases in vitro. Not essential, but mutants
+                     have lower burst size. Mutants in this gene are not
+                     capable of replicating in phage lambda lysogens. Other
+                     names: gp5.5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="Gp5.5-like host HNS inhibition"
+                     /protein_id="NP_523324.1"
+                     /db_xref="GeneID:927422"
+                     /translation="MAITKKFKVSFDVTLKLDSETEELMREKILDLAHRAGAGEEITP
+                     MDRELLVQALTRGPDGAAAFAVRQGIRNAVKEMFEETSDKSLLKLSPATVREVF"
+     gene            15783..15992
+                     /locus_tag="T3p30"
+                     /gene_synonym="gene 5.7"
+                     /db_xref="GeneID:927423"
+     CDS             15783..15992
+                     /locus_tag="T3p30"
+                     /gene_synonym="gene 5.7"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523325.1"
+                     /db_xref="GeneID:927423"
+                     /translation="MSDYLKVLQAIKGCPKTFQSNYVRNNASLVAEAASRGHISCLTT
+                     SGRNGGAWEITASGTRFLKRMGGCV"
+     gene            15992..16150
+                     /locus_tag="T3p31"
+                     /gene_synonym="5.9"
+                     /db_xref="GeneID:927433"
+     CDS             15992..16150
+                     /locus_tag="T3p31"
+                     /gene_synonym="5.9"
+                     /function="inactivates host recBCD nuclease"
+                     /note="not essential. Other names: gp5.9; exonuclease V
+                     inhibitor"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="Gp5.9-like inihibitor of recBCD nuclease"
+                     /protein_id="NP_523326.1"
+                     /db_xref="GeneID:927433"
+                     /translation="MSRDLVTIPRDVWNDMQGYIDSLERENDSLKNQLMEADEYVAEL
+                     EEKLNGTS"
+     gene            16137..17045
+                     /locus_tag="T3p32"
+                     /gene_synonym="gene 6"
+                     /db_xref="GeneID:927425"
+     CDS             16137..17045
+                     /locus_tag="T3p32"
+                     /gene_synonym="gene 6"
+                     /note="The T7 exonuclease encoded by gene 6 is required
+                     for (a) recombination and (b) for the degradation of host
+                     chromosomal DNA. The latter process provides nucleotides
+                     for phage DNA replication. Both processes are carried out
+                     together with the T7 gene 3-encoded endonuclease/Holliday
+                     junction resolvase. In addition, the exonuclease also
+                     functions as an RNase H that removes RNA primers during
+                     DNA replication and promotes concatemer formation."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="exonuclease"
+                     /protein_id="NP_523327.1"
+                     /db_xref="GeneID:927425"
+                     /translation="MALLDLKQFYELREGCDDKGILVMDGDWLVFQAMSAAEFDASWE
+                     EEIWHRCCDHAKARQILEDSIKSYETRKKAWVGAPIVLAFTDSVNWRKELVDPNYKAN
+                     RKATKKPVGYFEFLEALFEREEFYCIREPMLEGDDVMGVIASNPSAFGARKAVIISCD
+                     KDFKTIPNCDFLWCTTGNILTQTKETADWWHLFQTIKGDMTDGYSGIPGWGDTAEGFL
+                     NDPFIVEPVESVLKSGKNKGQTVTKWVKRAPDATETLWDCIKSIGAKAGMTEQEIIKQ
+                     GQMARILRFEEYNYIDKEIYLWTPRS"
+     gene            17027..17140
+                     /locus_tag="T3p33"
+                     /gene_synonym="gene 6.3"
+                     /db_xref="GeneID:927426"
+     CDS             17027..17140
+                     /locus_tag="T3p33"
+                     /gene_synonym="gene 6.3"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="gene 6.3 protein"
+                     /protein_id="NP_523328.1"
+                     /db_xref="GeneID:927426"
+                     /translation="MDAAKLITVAVLVGMLARGLWMFALIVRDVKRDSEIK"
+     stem_loop       17135..17206
+                     /note="RNase III recognition site R6.5"
+     regulatory      17160..17182
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi6.5"
+     gene            17234..17479
+                     /locus_tag="T3p34"
+                     /gene_synonym="gene 6.5"
+                     /db_xref="GeneID:927427"
+     CDS             17234..17479
+                     /locus_tag="T3p34"
+                     /gene_synonym="gene 6.5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DUF2717 domain-containing protein"
+                     /protein_id="NP_523329.1"
+                     /db_xref="GeneID:927427"
+                     /translation="MLQPINHVLTHPDDIPSMPRAAKEYLQVRFNQAYVMESGEYRAL
+                     RAAGYSESFIAGVMHGLYLASRTLDEIEVRKEQLRQE"
+     gene            17484..17735
+                     /locus_tag="T3p35"
+                     /gene_synonym="gene 6.7"
+                     /db_xref="GeneID:927428"
+     CDS             17484..17735
+                     /locus_tag="T3p35"
+                     /gene_synonym="gene 6.7"
+                     /function="adsorption"
+                     /note="may be involved in virion morphogenesis and is
+                     injected from virion into host cell. Other names: gp6.7"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DUF5476 family protein"
+                     /protein_id="NP_523330.1"
+                     /db_xref="GeneID:927428"
+                     /translation="MCWKPKVKVPKMDTNQIRAAEPAPLTEPPKSVVWGGDDDEDTSV
+                     SSSEVPTTPSSGKSSLKVKLDDSAAKNKSKSSIRSKAFG"
+     gene            17762..18082
+                     /locus_tag="T3p36"
+                     /gene_synonym="gene 7.3"
+                     /db_xref="GeneID:927414"
+     CDS             17762..18082
+                     /locus_tag="T3p36"
+                     /gene_synonym="gene 7.3"
+                     /note="required for virion infectivity but not
+                     morphogenesis. In T7, gp 7.3 appears to be required for
+                     the assembly of tail fibers on capsids. Other names:
+                     gp7.3"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="host range and adsorption protein"
+                     /protein_id="NP_523331.1"
+                     /db_xref="GeneID:927414"
+                     /translation="MGFFKKIKKAVKKVVKEVGKPIEKAGKEVGKAVGGALGAGKQEI
+                     IQQEAPAPVVAAPPPAQVVDVPEQDKAEGEDEAQTESARKKARAGGKKALSVARSSGG
+                     GINI"
+     gene            18093..19700
+                     /locus_tag="T3p37"
+                     /gene_synonym="gene 8"
+                     /db_xref="GeneID:927409"
+     CDS             18093..19700
+                     /locus_tag="T3p37"
+                     /gene_synonym="gene 8"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="head-tail adaptor"
+                     /protein_id="NP_523332.1"
+                     /db_xref="GeneID:927409"
+                     /translation="MADSKRTGLGEDGAKATYDRLTNDRRAYETRAENCAQYTIPSLF
+                     PKESDNESTDYTTPWQAVGARGLNNLASKLMLALFPMQSWMKLTISEYEAKQLVGDPD
+                     GLAKVDEGLSMVERIIMNYIESNSYRVTLFECLKQLIVAGNALLYLPEPEGSYNPMKL
+                     YRLSSYVVQRDAYGNVLQIVTRDQIAFGALPEDVRSAVEKSGGEKKMDEMVDVYTHVY
+                     LDEESGDYLKYEEVEDVEIDGSDATYPTDAMPYIPVRMVRIDGESYGRSYCEEYLGDL
+                     RSLENLQEAIVKMSMISAKVIGLVNPAGITQPRRLTKAQTGDFVPGRREDIDFLQLEK
+                     QADFTVAKAVSDQIEARLSYAFMLNSAVQRTGERVTAEEIRYVASELEDTLGGVYSIL
+                     SQELQLPLVRVLLKQLQATSQIPELPKEAVEPTISTGLEAIGRGQDLDKLERCISAWA
+                     ALAPMQGDPDINLAVIKLRIANAIGIDTSGILLTDEQKQALMMQDAAQTGVENAAAAG
+                     GAGVGALATSSPEAMQGAAAKAGLNAT"
+     regulatory      19698..19720
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi9"
+     gene            19802..20734
+                     /locus_tag="T3p38"
+                     /gene_synonym="gene 9"
+                     /db_xref="GeneID:927415"
+     CDS             19802..20734
+                     /locus_tag="T3p38"
+                     /gene_synonym="gene 9"
+                     /function="scaffolding protein"
+                     /note="Phage T7-like scaffolding protein. The protein is
+                     encoded by gene 9 in T7 (gp9) and is required for the
+                     formation of pro-capsids."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="head assembly"
+                     /protein_id="NP_523333.1"
+                     /db_xref="GeneID:927415"
+                     /translation="MAESNADVYASFGVNNAVMTGSTPTEHEQNMLSLDVAARDGDDA
+                     IVLSDEPTSHNDDPYAAGVDPFADGEDDEGRIQVRISEDGNEAGFDTDGDNSEVETEG
+                     EDVEFEPLGDTPEELSQVTEQLGQHEEGFQAMVEQAVERGLSADSVSRIYEEYEADGI
+                     SEKSYAELEAAGYSRAFVDSYISGQEALVDQYVNQVVAFAGGQERFSAIHTHLEATNP
+                     AAAESLESAMMNRDLATVKAIINLAGESYTKKFGKPANRSVTKRATPVKPVARQKEGF
+                     TNQAEMIKAMSDPRYRSDSAYRQMVEQKVIDSSF"
+     regulatory      20733..20755
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi10"
+     gene            20891..22191
+                     /locus_tag="T3p39"
+                     /gene_synonym="gene 10B"
+                     /db_xref="GeneID:927449"
+     CDS             join(20891..21919,21919..22191)
+                     /locus_tag="T3p39"
+                     /gene_synonym="gene 10B"
+                     /note="produced by a -1 frameshift at the end of gene 10,
+                     which also encodes the major capsid protein gp10A.
+                     Frameshifting defective mutants of gene 10 are only mildly
+                     replication-impaired and capsids withtout gp10B are
+                     stable. Other names: gp10B"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="major head protein"
+                     /protein_id="NP_523334.1"
+                     /db_xref="GeneID:927449"
+                     /translation="MANIQGGQQIGTNQGKGQSAADKLALFLKVFGGEVLTAFARTSV
+                     TMPRHMLRSIASGKSAQFPVIGRTKAAYLKPGENLDDKRKDIKHTEKVIHIDGLLTAD
+                     VLIYDIEDAMNHYDVRAEYTAQLGESLAMAADGAVLAELAGLVNLPDGSNENIEGLGK
+                     PTVLTLVKPTTGSLTDPVELGKAIIAQLTIARASLTKNYVPAADRTFYTTPDNYSAIL
+                     AALMPNAANYQALLDPERGTIRNVMGFEVVEVPHLTAGGAGDTREDAPADQKHAFPAT
+                     SSTTVKVALDNVVGLFQHRSAVGTVKLKDLALERARRANYQADQIIAKYAMGHGGLRP
+                     EAAGAIVLPKGVGVIPDPTGVTLSQKTMTLVEGASRALTGTVQPSDANQSLSWSSSAE
+                     DVAVWEAGKVVAKGVGTADITATTSNGLIASCKVIVNAATS"
+     gene            20891..22190
+                     /locus_tag="T3p40"
+                     /gene_synonym="gene 10B"
+                     /db_xref="GeneID:1489580"
+     misc_feature    20891..22190
+                     /locus_tag="T3p40"
+                     /gene_synonym="gene 10B"
+     gene            20891..21934
+                     /locus_tag="T3p41"
+                     /gene_synonym="gene 10A"
+                     /db_xref="GeneID:927448"
+     CDS             20891..21934
+                     /locus_tag="T3p41"
+                     /gene_synonym="gene 10A"
+                     /note="major capsid protein. Involved in F-exclusion of wt
+                     T7 phage. A minor capsid protein (gp10B) is produced from
+                     gene 10 by a -1 frameshift towards the end of 10A,
+                     resulting in a slightly larger protein. Other names:
+                     gp10A."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="major head protein"
+                     /protein_id="NP_523335.1"
+                     /db_xref="GeneID:927448"
+                     /translation="MANIQGGQQIGTNQGKGQSAADKLALFLKVFGGEVLTAFARTSV
+                     TMPRHMLRSIASGKSAQFPVIGRTKAAYLKPGENLDDKRKDIKHTEKVIHIDGLLTAD
+                     VLIYDIEDAMNHYDVRAEYTAQLGESLAMAADGAVLAELAGLVNLPDGSNENIEGLGK
+                     PTVLTLVKPTTGSLTDPVELGKAIIAQLTIARASLTKNYVPAADRTFYTTPDNYSAIL
+                     AALMPNAANYQALLDPERGTIRNVMGFEVVEVPHLTAGGAGDTREDAPADQKHAFPAT
+                     SSTTVKVALDNVVGLFQHRSAVGTVKLKDLALERARRANYQADQIIAKYAMGHGGLRP
+                     EAAGAIVLPKVSE"
+     regulatory      22352..22390
+                     /regulatory_class="terminator"
+                     /note="rho-independent major transcriptional terminator
+                     Tphi for T3 RNA polymerase"
+     regulatory      22395..22417
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi11"
+     gene            22425..23015
+                     /locus_tag="T3p42"
+                     /gene_synonym="gene 11"
+                     /db_xref="GeneID:927450"
+     CDS             22425..23015
+                     /locus_tag="T3p42"
+                     /gene_synonym="gene 11"
+                     /note="Tail tubular proteins A and B are required for
+                     assembly of tails of T7-like phages."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="tail protein"
+                     /protein_id="NP_523336.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U4"
+                     /db_xref="GeneID:927450"
+                     /translation="MRSYEMNIETAEELSAVNDILASIGEPPVSTLEGDANADVANAR
+                     RVLNKINRQIQSRGWTFNIEEGVTLLPDAFSGMIPFSSDYLSVMATSGQTQYVNRGGY
+                     LYDRSAKTDRFPSGVQVNLIRLREFDEMPECFRNYIVTKASRQFNNRFFGAPEVDGVL
+                     QEEEQEAWSACFEYELDYGNYNMLDGDAFTSGLLNR"
+     gene            23031..25436
+                     /locus_tag="T3p43"
+                     /gene_synonym="gene 12"
+                     /db_xref="GeneID:927453"
+     CDS             23031..25436
+                     /locus_tag="T3p43"
+                     /gene_synonym="gene 12"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="tail protein"
+                     /protein_id="NP_523337.1"
+                     /db_xref="GOA:Q8W5U3"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U3"
+                     /db_xref="GeneID:927453"
+                     /translation="MALISQSIKNLKGGISQQPDILRFTEQGSVQINGWSSESEGIQK
+                     RPPMIHLKTLGTAGYVGAQPYVHLINRDEFEQYFVVFTGEDIKVFDLDGKEYQVRGDR
+                     SYVRTANPREDLRMVTVADYTFVTNRKVVVQSNDQSVNLPGFKDQGDALINVRGGQYG
+                     RRLSIEFNGAERAAVQLPDGSQPAHVNEVDGQAIAEKLAAQLRNNLGNPNNDQDPNKW
+                     RFNVGPGFIHILAPNNDNVWGLQTKDGYADQLINPVTHYTQSFQKLPINAPDGYIVKI
+                     VGDTSKTADQYYVRFDLNRKVWVETIGWNTRTHLHYHTMPWALVRASDGNFDFKYLEW
+                     GARTVGDDTTNPYPSFTGQTINDIFFFRNRLGFLSGENIILSRTSKYFNFFPASVSNY
+                     SDDDPIDVAVSHDRVSTLKYAVPFSEELLLWSDQAQFVLTASDILSSRSVGLNLTTQF
+                     DVQDRARPHGVGRNVYFSSPRASFTSINRYYAVQDVSSVKNAEDMTAHVPNYIPNGVF
+                     SISGTTAENFVAILTSGAPNRVYIYKFLYIDEEIRQQSWSHWDFGDNVTVFAAQVINS
+                     TMTVLMSNEHAVWMGRLHFTKDSIDLPGEPYRLYIDAKRKYTIPAGTYNDDTYQTSIS
+                     LSTIYGMNFTKGRVSVVFPDGKIVEIDQPINGWSSDPMLRLDGNQEGQVVYIGFNIPF
+                     TYTFSKFLIKKTAEDGSTATEDIGRLQLRRAWVNYEDSGAFIIRVNNLSREFIYTMAG
+                     ARLGSDNLRVGGSNIGTGQYRFPVVGNAQTNTVTIESDASTPLNIIGCGWEGNYLRRS
+                     SGI"
+     stem_loop       25443..25480
+                     /note="RNase III recognition site R13"
+     regulatory      25457..25479
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phi13"
+     gene            25521..25931
+                     /locus_tag="T3p44"
+                     /gene_synonym="gene 13"
+                     /db_xref="GeneID:927454"
+     CDS             25521..25931
+                     /locus_tag="T3p44"
+                     /gene_synonym="gene 13"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="internal virion protein"
+                     /protein_id="NP_523338.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U2"
+                     /db_xref="GeneID:927454"
+                     /translation="MYITKCLQSHADSFKPSIEDILEAEALGVEPKVIPDENTVAMLS
+                     DSAVLSIGGNQGDRVWFLTSKYVPLFTLKERLEFRRLIIEYRDMMLSQYESIWNFVWV
+                     GNKSHIRFLKTIGAVFHNEFTADGQFQLFTISRR"
+     gene            25934..26527
+                     /locus_tag="T3p45"
+                     /gene_synonym="gene 14"
+                     /db_xref="GeneID:927455"
+     CDS             25934..26527
+                     /locus_tag="T3p45"
+                     /gene_synonym="gene 14"
+                     /note="Approximately 12 copies of the internal virion
+                     protein B encoded in phage T7 by gene 14 are part of the
+                     internal core of the T7 virion. Along with gp16 and gp15,
+                     the other internal core proteins, gp14 is ejected from the
+                     phage head and forms part of a putative channel that spans
+                     the entire host cell envelope and allows entry of DNA.
+                     gp14 appears to localize to the outer host membrane after
+                     ejection. Other names: gp14"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="internal virion protein"
+                     /protein_id="NP_523339.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U1"
+                     /db_xref="GeneID:927455"
+                     /translation="MCWMAAIPIAMAGAQALSSQNSADKARVAQTEAGRRQAIEMVKE
+                     MNIQNANASLEQRDALEAASSELTSRNMQKVQAMGTIRAAIGEGMLEGESMKRIKRIE
+                     EGNYIREANSVTENYRRDYASIFAQQLGRTQSTASQVDAMYKSEAKGKSGLMRVLDPL
+                     SIMGQEAASQYAAGGFDKKGGNQAAPISAAKGTKTGR"
+     gene            26530..28776
+                     /locus_tag="T3p46"
+                     /gene_synonym="gene 15"
+                     /db_xref="GeneID:927456"
+     CDS             26530..28776
+                     /locus_tag="T3p46"
+                     /gene_synonym="gene 15"
+                     /note="Approximately 12 copies of the internal virion
+                     protein C encoded by phage T7 gene 15 (gp15) are part of
+                     the internal core of the T7 virion. Along with gp14 and
+                     gp16, the other internal core proteins, gp15 is ejected
+                     from the phage head and forms part of a putative channel
+                     that spans the entire host cell envelope and allows entry
+                     of DNA."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="internal virion protein"
+                     /protein_id="NP_523340.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5U0"
+                     /db_xref="GeneID:927456"
+                     /translation="MASKLNSVLGNMATPGMERLRGVRGMDYRAATIQAEQPRASLLD
+                     SIGRFAKAGADMYIAKEQRARDLADERSNEIIRKLTPEQRREALNNGTLLYQDDPYAM
+                     EALRVKTGRNAAYLVDDDVMQKVKEGVFRTREEMEQYRHSRLQEGAKAYAEQFGIDPE
+                     DVDYQRGFNGDITERNISLYGAHDNFLSQQAQKGAIMNSRVELNGVLQDPDMLRRPDS
+                     ADFFEKYIDNGLVTGAIPSDAQATQLISQALSDASSRAGGADFLMRVGDKKVTLNGAT
+                     TTYRELMGEEQWNALMVTAQRSQFENDAKLNEQYRLKINSALNQEDPRTAWEMLQGIK
+                     AELDKVQPDEQMTPQREWLISAQEQVQNQMNAWTKAQAKALDDSMKSMNKLDVIDKQF
+                     QKRINGEWVSTDFKDMPTNENTGEFKHSDMVNYANKKLAEIDRMDIPDSAKDMMKLKY
+                     LQADSKDGAFRTAIGTMVTDAGQEWSAAVINGKLPERTPALDALRRIRNADPQLIAAL
+                     YPDQAELFLTMDMMDKQGIDPQVILDADRLTAKRSKEQRFEDDKAFESALNSSTAPEI
+                     ARMPASLRESARKIYDSVKYRSGNESMAMEQMTKFLKESTYTFTGDDVDGDTIGVIPK
+                     NMMQVNSDPKSWEQGRDILEEARKGIIASNQWITNKQLTMYSQGDSIYLMDTTGQVRV
+                     RYDKELLSKVWSENQKKLEEKAREKALADVNKRAPIVAATKARESAAKRVREKRKQTP
+                     KFIYGRKE"
+     gene            28803..32759
+                     /locus_tag="T3p47"
+                     /gene_synonym="gene 16"
+                     /db_xref="GeneID:927457"
+     CDS             28803..32759
+                     /locus_tag="T3p47"
+                     /gene_synonym="gene 16"
+                     /note="Approximately 3 copies of the internal virion
+                     protein D encoded by phage T7 gene 16 (gp16) are part of
+                     the internal core of the T7 virion. Along with gp14 and
+                     gp15, the other internal core proteins, gp16 is ejected
+                     from the phage head and forms part of a putative channel
+                     that spans the entire host cell envelope and allows entry
+                     of DNA. The N-terminus has similarity to a lytic
+                     transglycosylase and may help form a channel for phage DNA
+                     translocation through the crosslinked peptidoglycan layer
+                     of the host envelope."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="internal virion protein with endolysin domain"
+                     /protein_id="NP_523341.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T9"
+                     /db_xref="GeneID:927457"
+                     /translation="MDKYDKNVPSDYDGLFQKEADANGVSYDLLRKVAWTESRFVPTA
+                     KSKTGPLGIMQFTKATANALGLRVTDGPDDDRLNPELAINAAAKHLAGLVGKFDGDEL
+                     KAALAYNQGEGRLGNPQLEAYSKGDFASISEEGRNYLRNLLDVAKSPMAGQLETFGGI
+                     TPKGKGIPADVGLAGIDHSQKVTQELPESTSFDVKGIEQEAPAKPFAKDFWETHGETL
+                     DEYNSRSTFFGFKNATEAELSNSVAGMAFRAGRLDNGFDVFKDTITPTRWNSHIWTPE
+                     ELEKIRTEVKNPAYINVVTGGSPENLDDLIKLANENFENDSRSAEAGLGAKLSAGIIG
+                     AGVDPLSYVPMVGVTGKSFKLINKALVVGAESAALNVASEGLRTSVAGGDADYSGAAL
+                     GGFVFGAGMSAISDAIAAGLKRSKPETEFDNEFIGPMMRMEARETARNANSTDLSRMN
+                     TDNMKFEGEHNGVPYEDLPTEKGAVVLHDGSVISANNPINPKTLKEFSEVDPEKAARG
+                     IKLAGFTEIGLKTLGSDDADIRRVAIDLVRSPTGMQSGASGKFGATASDIHERLHGTD
+                     QRTYNDLYKAMSDAMKDPEFSTGGAKMSREETRYTIYRRAALAIERPELQKALTPSER
+                     IVMDTIKRHFDTKRELMENPAIFGNTKSVSIFPESRHKGTYVPHVYDRHAKALMIQRY
+                     GAEGLQEGIARSWMNSYVSRPGVKVRVDEMLKELHGVKEVTPEMVEKYAMDKAYGISH
+                     SDQFTNSSIIEENIEGLVGIENNSFLEARNLFDSDLSITMPDGQQFSVNDLRDFDMFR
+                     IMPAYDRRINGDIAIMGSTGKTTKELKDEILALKAKAEGDGKKTGEVHALMDTVKILT
+                     GRARRNQDTVWETTLRSINDLGFFAKNAYMGAQNITEIAGMIVTGNVRALGHGIPILR
+                     DTLYKSKPVSAKELKELHASLFGKEVDQLIRPQRADIVQRLREATDTGPVVANIVGTL
+                     KYSTQELAARSPWTKLLNGTTNYLLDAARQGMLGDVISATLTGKTTRWEKEGFLRGAS
+                     VTPEQMAGIKSLIKEHMVRGEDGKFTVKDKQAFSMDPRAMDLWRLADKVADEAMLRPH
+                     KVSLQDSHAFGALGKMVMQFKSFTIKSLNSKFLRTFYDGYKNNRAIDAALSIITSMGL
+                     AGGFYAMAAHVKAYALPKEKRKEYLERALDPTMIAHAALSRSSQLGAPLAMADLVGGV
+                     LGFESSKMARSTILPKDTMKERDPNKPYTSREVMGAMGSNLLEQMPSAGFVANVGATL
+                     MNAAGVVNSPNKATEQDFMTGLMNSTKELVPNDPLTQQLVVKIYEANGVNLRERKK"
+     misc_feature    32757..32779
+                     /note="T7 promoter sequence, which is not used by T3 RNA
+                     polymerase either in vivo or in vitro"
+     gene            32832..34508
+                     /locus_tag="T3p48"
+                     /gene_synonym="gene 17"
+                     /db_xref="GeneID:927406"
+     CDS             32832..34508
+                     /locus_tag="T3p48"
+                     /gene_synonym="gene 17"
+                     /note="in phages T7 and T3 trimers of gp17 form each of
+                     the 6 kinked tail fibers. Other names: gp17."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="tail fiber protein"
+                     /protein_id="NP_523342.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T8"
+                     /db_xref="GeneID:927406"
+                     /translation="MANVIKTVLTYQLDGSNRDFNIPFEYLARKFVVVTLIGVDRKVL
+                     TINADYRFATRTTISLTKAWGPADGYTTIELRRVTSTTDRLVDFTDGSILRAYDLNVA
+                     QIQTMHVAEEARDLTADTIGVNNDGHLDARGRRIVNLANAVDDRDAVPFGQLKTMNQN
+                     SWQARNEALQFRNEAETFRNQTEVFKNESGTNATNTKQWRDEANGSRDEAEQFKNTAG
+                     QYATSAGNSATAAHQSEVNAENSATAAANSANLAEQHADRAEREADKLGNFNGLAGAI
+                     DRVDGTNVYWKGGIHANGRLYLTSDGFDCGQYQQFFGGSAGRYSVMEWGDENGWLMHV
+                     QRREWTTAIGDNIQLVVNGHIIAQGGDMTGPLKLQNGHALYLESASDKAQYILSKDGN
+                     RNNWYIGRGSDNNNDCTFHSYVYGTNLTLKPDYAVVNKRFHVGQAVVATDGNIQGTKW
+                     GGKWLDAYLNDTYVKKTMAWTQVWAAASGSYMGGGSQTDTLPQDLRFRNIWIKTRNNY
+                     WNFFRTGPDGIYFLSAEGGWLKFQIHSNGRVFKNIADRDAPPTAIAVEDV"
+     gene            34567..34770
+                     /locus_tag="T3p49"
+                     /gene_synonym="gene 17.5"
+                     /db_xref="GeneID:927446"
+     CDS             34567..34770
+                     /locus_tag="T3p49"
+                     /gene_synonym="gene 17.5"
+                     /note="Type II holins have two putative transmembrane
+                     domains and are thought to allow endolysins access to the
+                     cell wall at the optimal lysis time. However, in phage T7
+                     the holin protein gp17.5 does not appear to be essential
+                     and gp17.5 mutants only show a minor delay in lysis. Other
+                     names: gp17.5; lysis protein"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="holin"
+                     /protein_id="NP_523343.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T7"
+                     /db_xref="GeneID:927446"
+                     /translation="MLSLDFNNELIKAAPIVGTGVADVSARLFFGLSLNEWFYVAAIA
+                     YTVVQIGAKVVDKIIDWKKATKE"
+     gene            34775..35044
+                     /locus_tag="T3p50"
+                     /gene_synonym="gene 18"
+                     /db_xref="GeneID:927444"
+     CDS             34775..35044
+                     /locus_tag="T3p50"
+                     /gene_synonym="gene 18"
+                     /note="involved in the packaging of genome monomers into a
+                     procapsid using head-to-tail concatemers of genomes. other
+                     names: DNA packaging protein A; DNA maturation protein A;
+                     terminase, small subunit"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="terminase small subunit"
+                     /protein_id="NP_523344.1"
+                     /db_xref="GeneID:927444"
+                     /translation="MEVDKSLIAFLEMLDTAMAQRMLADLANDEKRTPQLYNAINKLL
+                     DRHKFQIGKLQPDVHILGGLAGALEEYKEKVGDNGLTDDDIYTLQ"
+     stem_loop       35038..35088
+                     /note="RNase III recognition site R18.5"
+     gene            35138..35581
+                     /locus_tag="T3p51"
+                     /gene_synonym="gene 18.5"
+                     /db_xref="GeneID:927417"
+     CDS             35138..35581
+                     /locus_tag="T3p51"
+                     /gene_synonym="gene 18.5"
+                     /function="lambda Rz homologue; cell lysis"
+                     /note="analog of phage lambda protein Rz, a cell lysis
+                     protein. Rz and gp18.5 share distant sequence similarity,
+                     similar function, and a similar genome neighborhood. In
+                     T7, gp18.5 interacts with gp18.7, a lambda RZ1-like lysis
+                     protein. Other names: gp18.5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="Rz-like spanin"
+                     /protein_id="NP_523345.1"
+                     /db_xref="GOA:Q8W5T6"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T6"
+                     /db_xref="GeneID:927417"
+                     /translation="MLEFLRKLIPWVLAGMLFGLGWHLGSDSMDAKWKQEVHNEYVKR
+                     VEATASTQRAINEISAKYQEDLAALEGSTDRIISDLRSDNKRLRVRVKPTGTSEGQCG
+                     FEPDDRAELDDRDAKRILSVTQKGDAWIRALQDTIRELQRKQEIK"
+     gene            35253..35504
+                     /locus_tag="T3p52"
+                     /gene_synonym="gene 18.7"
+                     /db_xref="GeneID:927418"
+     CDS             35253..35504
+                     /locus_tag="T3p52"
+                     /gene_synonym="gene 18.7"
+                     /note="in Enterobacteria phage T7, this protein interacts
+                     with gp18.5 and is expressed from the -1 frame of a gene
+                     completely overlapping gene 18.5. This suggests that it
+                     may be an analog of lambda lysis protein Rz1. Other names:
+                     gp18.7."
+                     /codon_start=1
+                     /transl_table=11
+                     /product="Rz-like spanin"
+                     /protein_id="NP_523346.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T5"
+                     /db_xref="GeneID:927418"
+                     /translation="MSTLRELRLRRALKEQSMKYRLSIKKTLPRWKGALIGLFLICVA
+                     TISGCASESNLPEPPKVSVDSSLMIEPNLTTEMLNVFSQ"
+     gene            35591..37351
+                     /locus_tag="T3p53"
+                     /gene_synonym="gene 19"
+                     /db_xref="GeneID:927460"
+     CDS             35591..37351
+                     /locus_tag="T3p53"
+                     /gene_synonym="gene 19"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="terminase large subunit"
+                     /protein_id="NP_523347.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T4"
+                     /db_xref="GeneID:927460"
+                     /translation="MSTQSNRNALVVAQLKGDFVAFLFVLWKALNLPVPTKCQIDMAK
+                     VLANGDNKKFILQAFRGIGKSFITCAFVVWTLWRDPQLKILIVSASKERADANSIFIK
+                     NIIDLLPFLAELKPRPGQRDSVISFDVGPAKPDHSPSVKSVGITGQLTGSRADIIIAD
+                     DVEIPSNSATQGAREKLWTLVQEFAALLKPLPTSRVIYLGTPQTEMTLYKELEDNRGY
+                     TTIIWPALYPRSREEDLYYGERLAPMLREEFNDGFEMLQGQPTDPVRFDMEDLREREL
+                     EYGKAGFTLQFMLNPNLSDAEKYPLRLRDAIVCGLDFEKAPMHYQWLPNRQNRNEELP
+                     NVGLKGDDIHSYHSCSQNTGQYQQRILVIDPSGRGKDETGYAVLFTLNGYIYLMEAGG
+                     FRDGYSDKTLESLAKKAKQWKVQTVVFESNFGDGMFGKVFSPVLLKHHAAALEEIRAR
+                     GMKELRICDTLEPVLSTHRLVIRDEVIREDYQTARDADGKHDVRYSLFYQLTRMAREK
+                     GAVAHDDRLDALALGVEFLRSTMELDAVKVEAEVLEAFLEEHMEHPIHSAGHVVTAMV
+                     DGMELYWEDDDVNGDRFINW"
+     gene            36237..36677
+                     /locus_tag="T3p54"
+                     /gene_synonym="gene 19.2"
+                     /db_xref="GeneID:927407"
+     CDS             36237..36677
+                     /locus_tag="T3p54"
+                     /gene_synonym="gene 19.2"
+                     /note="overlaps with gene 19"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523348.1"
+                     /db_xref="GeneID:927407"
+                     /translation="MGTPQSSGLRSIRVAVRKTCTMVNVWPLCSVRSSTMGSRCSKAN
+                     QLTPCDSTWKTYGNVSWNTVRLASLYSSCLTRTLVMPRSTPYASVTLSCAVLTSRKPQ
+                     CTTSGFRTVRIAMRSCLTWALRVMTFIAIIRAARTLDSTSNASS"
+     gene            36774..36947
+                     /locus_tag="T3p55"
+                     /gene_synonym="gene 19.3"
+                     /db_xref="GeneID:927408"
+     CDS             36774..36947
+                     /locus_tag="T3p55"
+                     /gene_synonym="gene 19.3"
+                     /note="overlaps with gene 19"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="DUF5466 domain-containing protein"
+                     /protein_id="NP_523349.1"
+                     /db_xref="UniProtKB/TrEMBL:Q8W5T3"
+                     /db_xref="GeneID:927408"
+                     /translation="MVIPIRPLSPSLRKRSSGRFRQWSSRVTSGMVCLVRYSALCSLN
+                     TMQQLWKRFVLVV"
+     regulatory      37432..37454
+                     /regulatory_class="promoter"
+                     /note="T3 promoter phiOR"
+     gene            37595..37744
+                     /locus_tag="T3p56"
+                     /gene_synonym="gene 19.5"
+                     /db_xref="GeneID:927459"
+     CDS             37595..37744
+                     /locus_tag="T3p56"
+                     /gene_synonym="gene 19.5"
+                     /codon_start=1
+                     /transl_table=11
+                     /product="hypothetical protein"
+                     /protein_id="NP_523350.1"
+                     /db_xref="GeneID:927459"
+                     /translation="MLRLLIALLRHRVTWRFLLVLTATLGYAGLNDHLGQLEVAFCSI
+                     LSCGD"
+     repeat_region   37978..38208
+                     /note="redundant direct terminal repeat"
+                     /rpt_type=DIRECT
+ORIGIN      
+        1 tctcatagtt caagaaccca aagtaccccc cccatagccc ctcttaaagc cacccaaagc
+       61 tggccctacc cctagggttt aaccttcggt taaccttggg tctttcctca agtggcctat
+      121 aggatagcct aaagtgatgc ctaaagtcaa tacctaaagt gatggctgcc tattggagac
+      181 ttaaagagtg tcctagtgta ccagtatgat agtacatctc tatgtgtccc tatctgttag
+      241 ccccttaaag taaaccctaa agccaccacc taaagagcga cgctatctta aagacaacca
+      301 gaccgataga cccactgtta acctgtagtg ctgccctgta gttgtctata atatccaacg
+      361 ttgtctattt accctcacta aagggaataa ggtggatact taaagaggga ataaagattt
+      421 aataaaagat tagaattaag tgttgacttt aagttacctt taaggctatt attcatctcg
+      481 tcaacgggac aacggcctta aagccactcc ctgagatacc ggagtcaacc ggataagtag
+      541 acagcctgat aagtcatacg aaaaacaggc attgacaacg caaggtaaca agtagtaaga
+      601 tgtaccacat aacgttaacc accgcttcgg tgtcttctag gtgacttaag cgcaccacgg
+      661 cacataaagt taaacaaagt ggttgacaac atgaagtaag cacggtacga tgtaccatat
+      721 gaaacgacag tgaggcggga cactgaaagc cgctagggtc taacgaaacc agaccgacac
+      781 gctctttaac aatctggata atagctcttg agtgtaccat ataagcgaat aactcaaggt
+      841 cgcactgaaa gcgtggcctt tatgatattc acttaacgaa ctaacatgag gtaacaccaa
+      901 atgattttca ctaaagagcc tgcgaacgtc ttctatgtac tggtttccgc tttccgttct
+      961 aacctctgcg atgaggtgaa tatgagcaga caccgccaca tggtaagcac tttacgtgcc
+     1021 gcaccgggtc tttatggctc cgttgagtca accgatttga ccgggtgcta tcgtgaggca
+     1081 atctcaagcg caccaactga ggaaaaaact gttcgtgtac gctgcaagga caaagcgcag
+     1141 gcactcaatg ttgcacgcct agcttgtaat gagtgggagc aagattgcgt actggtatac
+     1201 aaatcacaga ctcacacggc tggtctggtg tacgctaaag gtatcgacgg gtataaggct
+     1261 gaacgtctgc cgggtagttt ccaagaggtt cctaaaggcg caccgctgca aggctgcttc
+     1321 actattgatg agttcggtcg ccgctggcaa gtacaataag tgttaaactc aaggtcatgc
+     1381 acgatgcgtg gcctttatga ttaacattct ctccatatga ggtattgaaa tgctcacagc
+     1441 actaattgca ctggtctatc tgtgcatcgc tatgtacttt atgcgagact tcaagcgcgg
+     1501 tctggtagtc cataaggcaa cactgagtta ctttaagtgg ggattcatcc cacggtttac
+     1561 ggttcgtgaa cgcaatggac gctttaaggc caataaggta ggagtattct acattgctac
+     1621 gcactaactc aaagcacgta aagaccgcac tgtatgcgat ggcgtatggt gcatcgaaac
+     1681 gcaaggtcaa acgcatctta acgagacacc gcaagatgac cgcacgacag gctgcaagcg
+     1741 ctgtcaaatg ggctgaattt actctttact cttacagata acaggacact gaacgatgac
+     1801 tttcaccgaa gcacaagccg cactcgaagc tatccgcaac ctaccgattg agcgcctgaa
+     1861 cgaacgccag actatgctgg tggctcttgc ggctgccatc gtgaacgctg agacccaaga
+     1921 tgggcaattg acgcaggcag caggaaacac ggcgctagaa cgcatggact actggcagac
+     1981 cctagcggcg cgcatgaggg atgttggttt catcaagcta ggtaatggtc actttagcgc
+     2041 agcgtatcag cacgagatgt tgccgggtaa ggtcatcaag gtaggcttta agaaagagga
+     2101 ttcaggcgca gcctatgcag cattctgccg tatgaatcaa gggcgcgaag gtatccctac
+     2161 ggtgtacgac attcagcgtc atgcaggctg ttacacggtg gttcttgact atctgaaccc
+     2221 gcttaacgat tggtgctatg gtgagagtga caaggtgcgt caccacttca aagccgcacg
+     2281 ggaaatcatt gaggaggatt gctttgatgc tgccgaagag tacccaataa gtgacgggtt
+     2341 cattgagacc tgcaaggata tccgtaagtt cttcttaggg atcgcatcgt tcgattgtca
+     2401 cagcggtaac atgatgaaag accaaatggg ccgcttgatt atcacagacc cggtatcgtt
+     2461 cagcgcagac gacaagttaa agccgggtga gtttcactgt gacccggatg aactaatagc
+     2521 cgagattgag gcgctaaggg cacaggaagc cattgagcgc tgtgtcaatc gtaaggcacg
+     2581 ccgtgaccct aaaggagcct ttcaggtagc gcgtaaagca cgcgtcaagt ggcgcagaaa
+     2641 ggccgctaag cgtgagaagt gcaacgctaa ggtactcgct aggatgcgca tggacgccaa
+     2701 tcagaatcgc agggatgagc ctagggcgcg tatggtgtgg ggcgataagc actggcgcaa
+     2761 cgcttggatg caccacaaca acctaaactt tgcagaactg gagcgccgcg ctgctgcggt
+     2821 aatgatgctg catgatgagg tgcgcattca gtggggcaaa ccgttacaca tagacgcata
+     2881 ccttgacaag cgtctacaag gctgatagag tcttttctta caggtcatca tgaggtggcc
+     2941 tgaataggaa cgatttattc acaatgaggt aagcaatgaa catcatcgaa aacatcgaaa
+     3001 agaatgactt ctcagaaatc gaactggctg ctatcccgtt caacacactg gctgaccact
+     3061 acggaagcgc cttggctaaa gagcagttgg ctttagaaca tgagtcttat gagctaggcg
+     3121 agcgccgctt cctcaagatg cttgagcgtc aagcgaaagc tggtgagatt gcagacaacg
+     3181 cagccgctaa gccgttactc gctacgcttc tccctaagtt aaccacacgt atcgtcgagt
+     3241 ggctcgaaga gtacgcatcg aagaaaggcc gcaagcctag cgcatacgca ccgctccagt
+     3301 tactcaagcc ggaggcctcc gcgtttatca ccctgaaagt tatccttgcg tcactaacca
+     3361 gtacgaacat gacaaccatt caggccgctg ctggtatgct ggggaaagcc attgaggacg
+     3421 aggcacgatt tgggcgcatc cgtgacctag aagcgaagca cttcaagaag cacgttgagg
+     3481 aacagcttaa caagcgccac gggcaagtct acaagaaagc atttatgcag gtggtcgagg
+     3541 ccgatatgat tggtcgaggt ctgcttggtg gcgaggcgtg gtctagctgg gataaagaaa
+     3601 ccacgatgca cgtagggatt cgcctgattg aaatgctgat tgaatccacg ggtctggtgg
+     3661 aattacagcg ccacaacgca ggtaacgcag gctctgacca tgaggcactg caactggccc
+     3721 aagagtacgt ggacgtatta gcgaagcgtg caggcgctct ggcgggtatc tctccgatgt
+     3781 tccagccgtg tgtcgtaccg ccgaaacctt gggtagcaat cacagggggc ggctattggg
+     3841 ctaacggtcg cagacctttg gcactcgttc gcactcactc taagaagggc ttgatgcgct
+     3901 acgaagacgt ttacatgcca gaagtctaca aggctgtgaa cctcgcgcaa aacaccgcat
+     3961 ggaaaatcaa caagaaagtt cttgctgttg tcaatgagat tgttaactgg aagaattgcc
+     4021 cggtagcaga cattccatcg ctggagcgcc aagagttacc gcctaagcct gacgacattg
+     4081 acaccaacga ggcagcgctc aaggagtgga agaaagccgc tgctggtatc tatcgcttgg
+     4141 acaaggcacg agtgtctcgc cgtatcagct tagagttcat gctggagcag gccaacaagt
+     4201 tcgcaagtaa gaaagcaatc tggttccctt acaacatgga ctggcgcggt cgtgtgtacg
+     4261 ctgtgccgat gttcaacccg caaggcaacg acatgacgaa aggtctgctg acccttgcta
+     4321 aaggcaagcc aatcggtgag gaaggtttct actggctgaa aatccacggt gcgaactgtg
+     4381 cgggtgttga taaggttcca ttcccggagc gcatcgcgtt cattgagaag cacgtagacg
+     4441 acattctggc ttgcgctaaa gacccaatca ataacacttg gtgggctgag caggattcac
+     4501 cgttctgttt cctcgcgttt tgcttcgagt atgcaggcgt tacgcaccac ggtctgagct
+     4561 acaattgctc tctgccgctg gcgttcgacg ggtcttgctc tggtatccag cacttctccg
+     4621 cgatgctccg cgatgaggta ggcggtcgtg cggttaacct gctgccaagc gaaaccgtgc
+     4681 aggacattta cggcatcgtt gcacagaaag taaacgagat tctcaaacag gatgcaatca
+     4741 acggcacgcc taacgagatg attaccgtga ccgacaagga caccggggaa atctcagaga
+     4801 agctcaaact tggaacctca acgctggcgc aacagtggct ggcatatggt gtaacccgta
+     4861 gcgtaactaa acgttcggtc atgacgctgg cttacggttc caaggagttc ggctttcgtc
+     4921 aacaggtatt ggatgacacc attcagcctg caattgacag cggtaagggc ttgatgttca
+     4981 cccaaccgaa ccaagcggct ggctatatgg ctaagctgat ttgggatgcg gtaagcgtga
+     5041 ccgtagttgc agcggttgag gcgatgaact ggctcaaatc tgccgctaag ctgctggctg
+     5101 ctgaggtcaa ggacaagaag accaaggaga ttctgcgcca ccgttgcgcg gttcactgga
+     5161 ctacgccgga cggcttcccg gtctggcagg aataccgcaa gccactccag aagcgtctcg
+     5221 atatgatttt cttagggcaa ttccgtctgc aaccgacgat taataccctc aaggattcag
+     5281 gcattgacgc acacaagcag gagtctggca tcgctcctaa ctttgttcac tcacaggacg
+     5341 gtagccacct ccgcatgaca gtcgtttatg ctcacgagaa gtatggcatt gagtcctttg
+     5401 cgctcatcca tgacagcttt gggactatcc cggcagacgc tggtaagctc tttaaggctg
+     5461 tgcgtgaaac gatggttatc acctatgaga acaacgatgt gctggcagac ttctactctc
+     5521 agtttgccga ccagctacac gagacccaac tggacaagat gcctccgctt ccgaagaaag
+     5581 gaaacctgaa cctgcaagac attctcaagt ctgactttgc ctttgcataa caagcactta
+     5641 gcattaaccc tcactaacgg gagactactt aaggtctccc actttaagac actttaggta
+     5701 ctaagagatt aaatttatga ttaacattaa gactttcttt aagaacatct ttaagttaaa
+     5761 ccgtttgact tccattaagt tctacgcttg gatgcccggt agtgatgacc tccgcaagac
+     5821 tgaatttaag ttaggcttag ggccgtgcgg taaggtggtc acgaagttgg aatgttactc
+     5881 aacgtcctcc gggatggtca tcttccagac cactgaggac aacgaaatga aatccttcta
+     5941 ctacccgaaa ggttcaacgt gtggtcgtat cgaacggaca tacagttaac cctcactaac
+     6001 gggagagtta aacttaaggt catcaccaac ggtggccttt gtgattaact ttcaatacac
+     6061 atcaacatga ggtaagatac tatgcgtacc aactttgaga aatttaccaa gcgcgattca
+     6121 gtggtcaacg agcagggcga acagtggcaa gagcgccgtg accgcatgaa gaaacgccac
+     6181 aagcaacagc gcggtaactc acagaaacgg gagtggaact gatgatgatg ggacgtattt
+     6241 atagcggcaa cctgaacgat tacaaagatg cggtagcgcg tctacaggaa gaccatgatg
+     6301 tgaccgtgaa gatggagtca ttcagctacg aaaacccagc gaagatgtgc aggtcatgcg
+     6361 gtgaggttct cagtgtgttc acacgctccg ggcatctggt ggcatccaga accttcgagc
+     6421 atagcgacag cgatgtacaa atcaacgcgc agactgcatg gctccgtaag gttcacagcg
+     6481 aattgaaaca ctggaagtaa taaccctcac taacaggaga atccttaagg tcactttaac
+     6541 gagtggcctt cgtgattcga actgattaac tttcaaacaa tgaggaacaa ccgtatgaac
+     6601 atcttcaata ccaacccatt caaagctgtg tcattcgtag agtctgccgt taagaaagcg
+     6661 ctggagacct ccggctatct tatagcggat tgtaaatatg atggcgtgcg cggtaacatt
+     6721 gtggttgata acgtggctga ggctgcgtgg ctgtcccgtg tgtccaagtt tatcccggcg
+     6781 ctggaacacc tgaacggttt cgataagcgc tggcaacaac tgctgaacga tgaccgatgc
+     6841 atcttcccgg atggcttcat gctggatggc gaactgatgg tcaaaggtgt agacttcaac
+     6901 accgggtctg gcctgctgcg taccaagtgg gtgaagcgtg acaacatggg gttccacctt
+     6961 acgaacgtcc caactaagct gaccccgaaa ggccgcgaag ttatcgacgg taagtttgag
+     7021 ttccaccttg acccgaagcg cctgagcgtg cgactctacg ctgtcatgcc gattcacatt
+     7081 gcggagtctg gcgaggacta cgatgtacag aacctgctga tgccgtatca tgtggaagcc
+     7141 atgcgctctc ttctggttga atacttcccg gaaatcgagt ggcttatcgc tgagacctac
+     7201 gaggtctacg atatggattc gctgactgaa ctgtacgaag agaagcgtgc cgaaggtcac
+     7261 gagggtctca ttgtgaaaga cccgcaaggc atctacaagc gaggcaagaa gtctggctgg
+     7321 tggaagctca agcctgagtg tgaagctgac ggtatcattc agggtgtcaa ttggggaacc
+     7381 gaagggttag ccaacgaggg taaagtgata ggctttagtg tgcttcttga gactggtcgt
+     7441 ttagtagacg ccaacaacat ctctcgcgca ttgatggacg agttcacatc caacgttaaa
+     7501 gcccacggtg aagacttcta caatggttgg gcctgtcagg tcaactacat ggaagcgacc
+     7561 ccggacggct ccctgcgaca ccctagcttc gagaagttcc gaggaactga ggacaaccct
+     7621 caagagaaaa tgtaaccaac tcactggctc accttcacgg gtgggccttt cttcgttccg
+     7681 ggcattaacc ctcactaaca ggagacacac accatgtggc ttatcctatt cgctatcgtc
+     7741 gcaacgctgg gattaatggt tgccgacgac aacatttggc ctgattgtta aggagacaac
+     7801 atcatgcgtt tacacttcaa cacatcaaat ggtatctttt cggttcgccg tgaagaccgc
+     7861 tctacagcag tggcctctga gcgcaacgcc aagctgccgc tgattggttc ggtcgtccca
+     7921 ttgtcaccac gtgttcacct actgatcact cgtggagagt tcattaaggc gatgaacaaa
+     7981 gagcgcccac atctggaagc cgtggtcact tactggcctc gcatccgtct gttcgttaag
+     8041 ttgattaagg aggtgctgta atgttacaac atcattggaa caaaccagac ttagaggctc
+     8101 gcttcccggt taactctgtt gtgcgatact ccggcggtgg cctcaagcgc atcttaggga
+     8161 tgagcggagt ggtcactggt cactcacaca cgggtctagt taaggttcgc ttcggtactc
+     8221 aatacgctga ggttcttccg aacaacctga ttccgctgcc taaagctgac gttaagactc
+     8281 cgaacgtgga agcaccgaag acagaagtca agtctgacgt aacccaccct aaccactaca
+     8341 tgctgttcga caacgtggaa gccattgagg ttatcgcccg gtcaatgaca gtcgaggcgt
+     8401 tccgtgggta ctgcttaggg aacatcctca agtatcgcct gcgtgctggc aagaagtccg
+     8461 aactggcaac gatggataaa gacctcaaga aagctgcatt ctatcaggaa ctctttgaca
+     8521 aacaccgggg gctgtgttat gacgcttcgt gaatgctgcg attggtgtgc cgctaagtgg
+     8581 aaccaagcta ttgaggatgg tgacaaggcg gctgctgacg cttaccaaca actgtacgcg
+     8641 ctgtgggagc ggcgctttaa ggaggcttaa cgtggagcaa cgtgaaatta aataccttct
+     8701 gacgatggaa ggtaacaccg agtcctttga ggttccggta ttcgcccggt ctctcgaaga
+     8761 ggcaactcta caggctgaac aatatgagga cgctgggttc gtagtgactc gcatccgtcc
+     8821 agaagtgaaa gcctaattac cctcactaaa gggaacaacc caacctatca accaaaggag
+     8881 aaacaatatg gctggtttca agaagaaagt ttacacctcc ggtctcggta ctgctgaacc
+     8941 ttatgcttac ctgagcaagc cggactatgg taacgaagag cgtggcttcg gcaaccctcg
+     9001 tggtgtctac aaggtagacc tgactctttc caacaaagac ccgcgctgtc aggcaatggt
+     9061 cgatgaaatc gtgaagactc acgaagaggc ttatgctgct gccgttgaag agttcgaggc
+     9121 taatccgcca caggtacagc gcggtaagaa accacttaca ccttacgagg gcgacatgcc
+     9181 gttcttcgat aatggtgacg gtacgactac cttcaagttc aaatgctatg cgtctttcca
+     9241 agacaagaag accaaagaga ccaagcacat caatctggtc gtggttgata gcaaaggtaa
+     9301 gaagattcag gaagtgccga ttatcggtgg cggctccaag ctgaaagtga aatactcact
+     9361 ggtgccctac aagtggaaca ccgctgtggg agcaagcgtc aagctgcaac tggagtccgt
+     9421 gatgctggtc gaactggcta ccttcggcgg tggcggtgaa gatgagtggg ccgatgaagt
+     9481 cgaagatggt ggttacactg cgagtgaatc ccgtcagtcc cgcgatgagc aggagtggca
+     9541 ggaagacgag cacgaagaaa ccccggatga tgacgaggac ttctaatggc tggcgcatac
+     9601 gctgcgaggt gtacgcaagg tcgggctttc cgctccggcc tagaagataa agtctcaaag
+     9661 cagcttgaga gtaagggcat taagttcgac tatgaacttt ggcgaatccc ttacgtcatc
+     9721 cctgagagtg accacttata cactccagac ttcctgctac ctaacggtat cttcattgag
+     9781 accaaagggc tgtgggattc cgatgaccgc aagaaacacc ttttgattcg tgagcaacac
+     9841 cctgaactgg acattcgctt ggtcttctca agcagccgct caaagctcta caagggtagc
+     9901 ccaacaagct acggtgagtg gtgcgagaag catggcattc tgtttgctga caagctgata
+     9961 ccagtggctg gcgtcaaaga acccaagaag gaggttccgt tcgataaatt taagactaag
+    10021 aaaggagtaa agaaaaatgg ctaaagttca attcaaacca cgagcaacca cggaggcaat
+    10081 ctttgtgcat tgctctgcaa ccaaaccgag ccagaacgtt ggtgttcgtg agattcgtca
+    10141 gtggcataaa gagcaaggct ggctggacgt agggtatcac ttcatcatca agcgcgatgg
+    10201 tactgtggaa gcaggccgtg atgaactggc tgtaggttcc cacgctaagg gctacaatca
+    10261 caactctatt ggtgtctgcc ttgtaggtgg tatcgacgat aaaggtaagt ttgacgctaa
+    10321 ctttacgcca gcccaaatgc aatctcttcg ctcactgctg gtcacactgc tggcgaagta
+    10381 cgaagggtct gttctccgtg ctcaccacga tgttgcacct aaagcctgcc cgtccttcga
+    10441 cttgaagcgc tggtgggaga agaacgaact ggttacatct gaccgagggt agacctatga
+    10501 ggatgatttg cattcgttgt gacaagcctt tgaagagtcg cgtaccatca cgtcagtgtc
+    10561 agtgcaaaga cccgatcaag gctgaggaac acaccgagaa gtaattaaca ctcactaaag
+    10621 ggagacttaa cgtttccctt tgttctcgca actgattaag gaatgtacaa tggaacgaga
+    10681 agacgatagt atctttctgt ttcatgctcc gtgtgaaaac tgtgggtctt ctgatggtaa
+    10741 ctctgtgtac tctgacgggc atgaatggtg cttcgtgtgt gaacatcgag tacccgcaaa
+    10801 cgaagagcgt gaagcaaagt tatcaacgag aagacgtaca ggaggcagca agcctatgag
+    10861 ctatgacgta tggaatttcg gtgacagcaa cggtcgatac tctgacctga ctgcccgtgg
+    10921 catctcgaag gagacgtgcc aaaaggctgg ctactggctg gcgaaagtgg acaaccgaat
+    10981 gtatcaggtt gccgactaca gagaccagaa cggctccatc gtgtcacaga aggtgcgcga
+    11041 taaggacaag aactttaaga ccaccggaag ccacaagagt gatgcgttgt tcttgaagca
+    11101 cctctggtct ggtggtaaga aaattgtggt cactgagggt gaaattgatg cgctcactgt
+    11161 gatggaactc caagactgta agtaccctgt cgtatcattg ggtcacggtg cctctgctgc
+    11221 taagaagaca tgcgccgcta actatgaata ctttgaccag ttcgagcaga ttatcttgat
+    11281 gttcgacatg gatgacgcag gccgtaaggc agtcgaagag gccgcacagg ttctcccggc
+    11341 tggcaaggtt cgtgttgccg tgttaccgtg taaggacgcc aacgagtgtc acatcatggg
+    11401 tgaagacaaa gcaatcttgg agcaggtctg gaacgcaaac ccttgggtgc ctgacggtgt
+    11461 tgtctctgcg ttgtcactca aagaccgcgt taaggaagct atgacctccg aggacgccgt
+    11521 aggtttatta ttcgatggtt gtcaaggtct gaacgataga accttgggtg ctcgtggtgg
+    11581 tgaagtcgtt atggtaactt ccggttccgg tatgggtaag tcaactttcg tccgtcaaca
+    11641 ggcgctggct tggggtaaac ggatgggtaa acgtgtcggc ttagcgatgc tggaggaatc
+    11701 cgttgaggac accattcagg atatgatggg cctgaacaat aaggttcgtc tacgtcagtc
+    11761 tgatgaagtc aagaaggcta tcgcggagga tggacgtttc gatgaatggt atgatgaact
+    11821 attcggagac gacacgttcc acctttatga ctcctttgcg gaggccgaag ctgacagact
+    11881 gttagcgaag ctggcctaca tgcgaactgg actagggtgc gatgttatag tgctcgacca
+    11941 catctcaata gtcgtatctg cctctgagga atcagatgag cgtaagatga ttgaccgcct
+    12001 catgacgaag ctcaaagggt tcgctaagtc aactggcgtt gtgctcgtag tgatttgtca
+    12061 cttgaagaac ccggagaagg ggaaagcgca tgaagaagga cgcgctgtgt ctattactga
+    12121 cctacgtggt agcggtgcct tgcgtcagtt atctgatact atcatcgcct tggagcgtaa
+    12181 ccagcaaggt gatatgccta acttggtgtt ggttcgcctg cttaagtgtc gtttcactgg
+    12241 cgacactgga attgctggat acatggaata caacagagaa accgggtggc ttgaaccgtc
+    12301 tagctacact ggcggagaag gagaaggaga tactggctgg actgaacaag acggacagtc
+    12361 agacttctaa aggatgcccg tgtgggcatt ccgattgcga tggaatcatg taccactaat
+    12421 taaccctcac taacgggaac aacctcaaac cataggagac acatcatgtt taaattcatt
+    12481 aacactttag gtaagctggt agtcaaactg tacttcatcg aagccaagaa gctggacaag
+    12541 aaagccaaag ctgattcaca gcgtgccatt gagttggcga aacagtcccg tgagaaatcc
+    12601 gatgcggctg ttagtggcgt ccataagtcg gcagcgattg cagccaaagc gcagtccatg
+    12661 agcaaattct ttgagtaata ggagcacaac atgagtaaat caatcaagca cgcaaacacc
+    12721 atccgtctgc cggacactgc tgaccagttc gctcgtcggg tacacattaa tgtgcgtggc
+    12781 gagaaggtca caatggtcta ccgctggaaa gaccacaagt ctccgaaggc acacactcag
+    12841 cgtatgacct tggacgacaa gcaggtaggc cgcctgatgg gtgccctgac tatggctgct
+    12901 gacaatgtgg ttggggataa ccgcgagcgt ctggtagagt tcggcgctgg tatgcaagag
+    12961 attatcgaga agtgataaac tcaaggtcgc ccaagggtgg cctttatgat tatcatttag
+    13021 cacgaaacca aaggagggca ttatgctcgt aagtgacatt gaggccaaca acctcttaga
+    13081 gaaagtcacc aagtttcact gtggcgtcat ctatgactac cgtgatggtg agtatcatag
+    13141 ttatcgtccg ggcgacttcg gggcgtatct ggatgcgctg gaagccgagg tgaagcgagg
+    13201 tgggcttatt gttttccata acggtcacaa gtatgacgtt cctgcattga ccaaactggc
+    13261 aaagctgcaa ttgaaccgag agttccacct tcctcgtgag aactgtatcg acacccttgt
+    13321 gctgtcacgc ttgattcact ctaacctaaa ggacaccgat atgggtcttc tgcgttccgg
+    13381 taaacttccg gggaaacgct ttgggtctca cgctctggag gcgtggggtt atcgcttagg
+    13441 cgagatgaag ggtgaataca aggatgactt taagcgtatg cttgaagagc aaggcgaaga
+    13501 atacgttgac ggaatggagt ggtggaactt caatgaagag atgatggact ataacgttca
+    13561 ggacgttgtg gtcactaagg ctctccttga gaagctactc tctgacaaac attacttccc
+    13621 tcctgagatt gactttacgg acgtaggtta cactacgttc tggtcagaat cccttgaggc
+    13681 cgttgatgtt gaacatcgcg ctgcatggct actcgctaag caagagcgca atggattccc
+    13741 gtttgacacg aaagcaatcg aagagttgta cgtagagtta gctgctagac gctctgagtt
+    13801 gctacgtaac ttgaccgaaa cgtttggctc gtggtatcaa cctaaaggtg gaacagaaat
+    13861 gttctgccat ccacgaacag gtaagccact acctaaatac cctcgcatta agatacctaa
+    13921 agttggtggt atctttaaga agcctaagaa caaggcacag cgagaaggcc gtgagccttg
+    13981 cgaactggat acccgcgagt acgttgctgg cgctccttat actccagtgg agcacgtagt
+    14041 gtttaaccct tcgtctcgtg accacatcca gaagaaactc caagaggctg ggtgggtccc
+    14101 aactaagttc accgataagg gtgctcctgt ggtggacgat gaggtactcg aaggagtacg
+    14161 cgtagatgac cctgagaagc aagcggctat cgacctcatt aaagagtact tgatgattca
+    14221 gaagcgaatc ggacagtctg ctgagggaga caaggcatgg cttcgttacg ttgctgagga
+    14281 cggtaagatt catggttctg ttaaccctaa tggagcagtt acgggtcgtg cgacccatgc
+    14341 gttccccaac cttgcgcaaa ttccgggtgt acgttctcct tatggagagc agtgtcgcgc
+    14401 tgcttttggc gctgagcacc atttggatgg gataactggt aagccttggg ttcaggcagg
+    14461 tatcgacgca tccggccttg agttgcgctg cttggcccac ttcatggctc gctttgataa
+    14521 cggtgagtat gctcacgaga ttcttaatgg tgacatccac actaagaacc agatggctgc
+    14581 tgaattacct acccgtgata acgctaagac gttcatctat gggttcctct atggtgctgg
+    14641 tgatgagaag attgggcaga ttgttggtgc tggtaaagag cgcggtaagg aactcaagaa
+    14701 gaaattcctt gagaacacac ctgcgattgc agcactacgt gagtctatac aacagacgct
+    14761 tgtcgaatcc tctcagtggg tagctggtga gcagcaagtc aagtggaaac gccgctggat
+    14821 taaaggtctg gatggtcgta aggtacacgt tcgtagtcct cacgctgccc tgaataccct
+    14881 actgcaatcc gctggtgctc tcatctgcaa actgtggatt atcaagaccg aagagatgct
+    14941 cgtagagaaa ggcttgaagc acggctggga tggggacttt gcgtacatgg catggataca
+    15001 cgacgaaatt caggtagctt gtcgtaccga agaaatcgct aagactgtca tagaggtcgc
+    15061 acaagaagcg atgcgttggg ttggagagca ttggaacttc cgttgcttac tcgacaccga
+    15121 gggtaagatg ggagccaact ggaaagaatg tcactaatgg aggtattatg ggaggcgttg
+    15181 caacattgcg gtttcacaag atgcctaccg gatgtatcgt gtgcgtttcc cataagagaa
+    15241 accaagatgg atacttccgg tatagcatag ggtcttctcg taaaggtgag aagaaacact
+    15301 ttatgtttca tcgatgggtg tgggaacaac ataaaggtcc gataccagat ggttacgaga
+    15361 tagaccacat atgtcttaat agaggttgtt gtaacgtaga gcacctacag tgtataccaa
+    15421 agcgagacca cattattaag acaaacaaag agcgtaaact tgtcaagaaa taaaggagaa
+    15481 attattatgg ctatcactaa gaaatttaaa gtgtcctttg atgttaccct taagctggac
+    15541 agcgagaccg aagaactgat gcgagaaaag attctggact tagcgcatcg tgctggtgct
+    15601 ggtgaggaga ttactcctat ggaccgagag ttgctcgttc aggccctaac acgcggtcca
+    15661 gacggtgctg ctgcatttgc tgtacgccaa ggtatccgta atgctgtcaa ggagatgttc
+    15721 gaagagacta gtgataaatc actgttaaaa ctctctcctg caactgtacg ggaggtgttc
+    15781 tgatgtctga ctacctgaaa gtgctacaag caatcaaagg ttgccctaag actttccagt
+    15841 ccaactatgt acggaacaat gcgagcctcg tagcggaggc cgcttcccgt ggtcacatct
+    15901 cgtgcctgac cacaagtgga cgtaacggtg gcgcttggga aattactgct tctggtactc
+    15961 gctttttgaa acgaatggga ggttgtgtct aatgtctcgt gaccttgtga ctattccgcg
+    16021 cgatgtgtgg aacgatatgc aaggctacat cgactctctt gaacgtgaga acgatagcct
+    16081 taagaatcaa ctgatggaag ctgacgaata cgtggctgag ctagaggaga aacttaatgg
+    16141 cacttcttga ccttaaacaa ttctacgagt tacgtgaagg ctgtgacgac aaaggtatcc
+    16201 ttgtgatgga tggagactgg ctggtcttcc aagcgatgag tgctgctgag tttgatgcct
+    16261 catgggagga agagatttgg caccgctgct gcgaccacgc taaggcccgt cagattcttg
+    16321 aggattccat taagtcctac gagacccgca agaaggcttg ggtaggtgct ccgattgtcc
+    16381 ttgcgttcac cgatagtgtt aactggcgta aagaactggt tgacccgaac tacaaggcta
+    16441 accgcaaggc aaccaagaaa cctgtaggtt actttgagtt ccttgaggct ctctttgagc
+    16501 gtgaagagtt ctattgcatc cgtgagccta tgcttgaagg tgatgacgtt atgggagtta
+    16561 tcgcttccaa cccgtctgca ttcggtgctc gtaaggctgt aatcatctcg tgcgataagg
+    16621 actttaagac catccctaac tgtgacttcc tgtggtgtac cactggtaac atcctgactc
+    16681 agaccaaaga gaccgctgat tggtggcatc tcttccagac catcaagggt gatatgaccg
+    16741 atggctactc cgggattccc ggctggggcg atacggcaga aggtttcctg aatgacccgt
+    16801 tcattgtgga gcctgtagag tccgtgttga agtctggtaa gaacaagggg cagacagtaa
+    16861 ccaagtgggt gaagcgtgct cctgatgcga ctgagactct gtgggactgc attaaatcca
+    16921 ttggtgcaaa ggctgggatg accgagcagg aaatcatcaa gcaaggccag atggctcgca
+    16981 ttcttcgctt cgaggaatac aattacattg acaaggagat ctacttatgg acgccgcgaa
+    17041 gctgattacc gtcgctgtgc tggtaggtat gctggcgcgt ggtctctgga tgttcgctct
+    17101 catagtccga gacgtgaagc gagactcaga gattaagtga taaactcaag gctctctaca
+    17161 attaaccctc actaaaggga agagggagcc tttatgatta ttactttaag acttaaccct
+    17221 aagaggtgaa attatgttac aaccaattaa tcatgtttta actcatcccg atgatattcc
+    17281 tagtatgcct cgtgcagcta aagagtatct acaggtgcgc ttcaatcagg cttatgtgat
+    17341 ggagtccggg gagtaccgtg cgctccgcgc tgctggatac tctgagtctt tcattgcggg
+    17401 tgtgatgcat ggtctgtacc ttgcctctcg tacacttgat gagattgagg tgcgtaaaga
+    17461 gcaactgaga caggagtaat tatatgtgct ggaaaccgaa ggtgaaagtc cctaagatgg
+    17521 acactaacca gattcgcgct gccgaaccag cacctttgac tgaaccaccg aaatctgtgg
+    17581 tatggggagg cgatgacgat gaggacacca gcgtgtcttc ctctgaggtg ccaaccacac
+    17641 cgagcagcgg taagagcagt ctaaaggtaa agctggacga cagcgcagcc aagaacaaga
+    17701 gtaaatcctc cattcgctcc aaggcgtttg ggtaattgtg acataacata ggggacacat
+    17761 tatgggattc ttcaagaaaa tcaagaaagc tgttaagaaa gtagttaagg aagttggtaa
+    17821 accgatcgag aaggctggta aggaagtcgg taaagccgtt ggtggggcgc tgggtgctgg
+    17881 taagcaggag attatccaac aagaggctcc ggcaccagta gtagctgcac caccaccagc
+    17941 acaggttgta gatgtacctg aacaggataa ggctgagggt gaggatgagg cgcaaaccga
+    18001 gagcgcacgt aagaaggccc gcgctggtgg taagaaggca cttagcgtag ctcgcagttc
+    18061 cggcggtgga atcaatatct gaggaggact gaatggctga ttcaaaacgt acaggattgg
+    18121 gcgaagacgg tgctaaagct acctatgacc gcctaacaaa cgaccgtaga gcctatgaga
+    18181 ctcgtgcgga gaactgtgcg caatacacca ttccgtcctt gttcccgaag gagtccgata
+    18241 acgaatctac cgactacacg actccgtggc aggctgtagg tgcgcggggt ctcaacaatc
+    18301 tagcctctaa gttaatgctt gcgttattcc cgatgcagtc gtggatgaag ctgaccatta
+    18361 gcgaatatga ggcgaagcag cttgttggag accctgatgg actcgctaag gtggacgaag
+    18421 gtctgtcaat ggttgagcgc ataatcatga actatatcga atccaacagt taccgcgtaa
+    18481 cactctttga gtgcctcaag cagttgatcg tggctggtaa cgccctgctt tacttaccgg
+    18541 aaccagaagg tagctacaat ccgatgaagc tgtaccgatt gtcttcttat gttgtccaaa
+    18601 gagacgcata cggcaatgtg ttacagattg tcactcgtga ccagatagcc tttggtgctc
+    18661 tcccggaaga cgttaggtct gcggtagaga aatctggtgg tgagaagaag atggacgaaa
+    18721 tggtcgatgt gtacacccat gtgtatctcg atgaagagtc cggcgattac ctcaagtacg
+    18781 aggaagtaga ggacgttgag attgatggtt ccgatgccac ctatccgact gacgcgatgc
+    18841 cctacattcc ggttcgcatg gttcgcattg atggcgagtc ttacggtcgc tcctactgtg
+    18901 aagaatactt aggtgactta aggtcgcttg agaatctcca agaggctatc gttaagatga
+    18961 gtatgattag cgcgaaggtc attggtctgg tgaacccggc tggcattacg cagccccgta
+    19021 gattaaccaa agctcagact ggtgacttcg ttccaggccg tcgagaagat attgacttcc
+    19081 tgcaactgga gaagcaagct gactttaccg tagcgaaagc tgtgagtgac cagatagaag
+    19141 cacgcttatc gtatgccttt atgttgaact ctgcggtaca gcgcacaggc gaacgtgtga
+    19201 ccgccgaaga gattcgatac gttgcgtcag aactggaaga tacgcttggt ggcgtctact
+    19261 cgattctgtc tcaagaattg caattgcctc tggtacgtgt gctcttgaag caactccaag
+    19321 caacctcgca gattcctgag ctaccgaaag aagccgttga gcctactatc agtacaggtc
+    19381 tggaagcaat tggtcgtggt caagacctcg ataagctgga gcgttgcatc tcagcgtggg
+    19441 cggctcttgc ccctatgcag ggagacccgg acattaatct tgctgtcatt aagctacgca
+    19501 ttgctaacgc tataggtatt gatacttctg gtatcctact gacggatgaa cagaagcaag
+    19561 cccttatgat gcaggatgcg gcacaaacag gcgtcgagaa tgctgcggct gctggtggtg
+    19621 ctggtgttgg tgctttggct acctcaagtc cagaagccat gcaaggtgct gctgccaagg
+    19681 ctggcctcaa cgccacctaa ttaccctcac taaagggaga cctcatcttt gaaatgagcg
+    19741 atgactaaag gttggagtcc tttggtttcc ctttatcttt aataacttag gagatttaat
+    19801 aatggctgaa tctaatgcag acgtttatgc gtccttcggt gtgaacaacg cggtaatgac
+    19861 cggaagcaca cctactgaac acgaacagaa tatgctgagt ctcgacgttg ctgcccgtga
+    19921 tggcgatgat gcaatcgtgc ttagcgatga accgacttcc cataacgatg acccctatgc
+    19981 ggcaggtgta gacccgttcg ctgatggtga agatgatgag ggccgcattc aggttcgtat
+    20041 cagtgaagat ggcaatgaag ccgggttcga cactgatggc gataactctg aggtggagac
+    20101 cgaaggtgag gacgttgagt ttgaaccgct gggtgacacc ccagaagaac taagccaagt
+    20161 gactgagcaa ttaggtcagc acgaagaagg ctttcaggcg atggtcgagc aggcagttga
+    20221 gcgtggactg agcgcagact ctgtgagtcg aatctacgaa gagtatgaag ccgatggcat
+    20281 ctccgagaaa tcctatgctg aactagaagc tgctggctat agtcgtgcct ttgtggactc
+    20341 atacatctca ggtcaggaag ctctggtaga ccagtacgtc aatcaggtag ttgcctttgc
+    20401 tggtggtcag gagcgcttta gtgcaatcca tactcacctc gaagcgacaa accctgctgc
+    20461 tgctgagtcc cttgagtctg ccatgatgaa ccgagacttg gcgaccgtca aagcgattat
+    20521 caatctggct ggtgagagct acacgaagaa attcggtaag cctgccaacc gtagtgttac
+    20581 caagcgtgct actccggtta aacccgtagc tcgtcagaaa gagggcttta cgaatcaggc
+    20641 tgagatgatt aaagctatga gcgacccgcg ctatcgtagc gattctgcct accgccaaat
+    20701 ggtagaacag aaggttatcg actctagttt ctaattaacc ctcactaaag ggagagacca
+    20761 tagatgccta caatggttga atcacctgag cacagaactt tgtggtcact cccataggtg
+    20821 aaacattgag aaccaactcg attcaagtag taaccaaact tttctttaaa ttaacataag
+    20881 gagattcaac atggctaaca ttcaaggcgg acagcaaatt ggtactaatc agggtaaggg
+    20941 tcagtccgca gcggacaaat tggcgctgtt cctgaaagtg ttcggcggtg aagtcctgac
+    21001 ggctttcgct cgcacctccg tgaccatgcc tcgtcacatg ctgcgctcta ttgcttctgg
+    21061 taagtccgca cagttccctg tgattggtcg caccaaagct gcttacctga aaccgggtga
+    21121 gaacctcgat gacaaacgta aagatatcaa acacaccgag aaggtaatcc acattgatgg
+    21181 cctgctgact gcggatgtgc tgatttacga cattgaggac gcgatgaacc actatgacgt
+    21241 tcgcgctgag tacaccgccc agttgggtga atctctggcg atggcggctg acggtgctgt
+    21301 actggcagaa ctggctggtc ttgttaatct gccggacggc tctaacgaga acattgaggg
+    21361 tctcggtaag ccaaccgtac tgactctggt taagcctacc actggcagcc tgactgaccc
+    21421 ggttgagttg ggtaaagcga ttattgctca gttgactatc gctcgtgcat ccctgaccaa
+    21481 gaactacgtt ccggctgctg atcgcacctt ctacaccact cctgacaact actctgcgat
+    21541 tctggctgct ctgatgccga acgcagcaaa ctatcaggca ctgctcgacc ctgagcgcgg
+    21601 tactatccgt aacgtgatgg gcttcgaggt ggttgaggtt ccgcacctga ccgctggtgg
+    21661 tgcaggcgat acccgtgagg atgccccggc tgaccagaag cacgctttcc cggctacttc
+    21721 cagcactacc gttaaggttg ctctggataa cgttgtgggc ctgttccagc accgctctgc
+    21781 ggttggtacg gtcaaactga aagacttggc tctggagcgt gctcgtcgtg cgaactatca
+    21841 ggctgaccag attatcgcta aatatgcgat gggtcacggc ggtctgcgtc cagaagctgc
+    21901 tggcgctatc gtgctcccaa aggtgtcgga gtaattcccg accccactgg agttacgtta
+    21961 agtcaaaaga ccatgacgct tgttgagggt gcatcccgtg ccctcacagg aacagtccag
+    22021 ccttccgatg cgaatcagtc gttaagctgg tcgtcttctg cggaagatgt ggctgtatgg
+    22081 gaagctggaa aggttgtagc caaaggtgtg ggaacggcgg acattacagc tactacctcc
+    22141 aatggcctga tcgcttcctg taaagtgatt gttaacgccg caacgtctta aaacacgtag
+    22201 tgcccaatta gggcatcatg tggcgtgaag cactctcaag ccgcgaagtg gcacatacgt
+    22261 ctgactatgg ggactaccaa gagctacgac tatcatgtgg gcaaccaccc tgaaagctcg
+    22321 ttgtgattgg gataacaatc tactaatatg caaacccctt gggttccctc tttgggagtc
+    22381 tgaggggttt tttgctttaa ccctcactaa caggaggtaa catcatgcgc tcttatgaga
+    22441 tgaacattga gaccgcagaa gagctatcag ccgtcaacga cattctggct tccatcggtg
+    22501 agccaccagt atcgaccctt gagggtgatg caaacgctga tgttgcaaat gctcgacgtg
+    22561 tactcaacaa gattaaccga cagattcagt cacgaggatg gacattcaac atcgaagagg
+    22621 gcgtgactct tctaccagat gcattctctg gcatgatacc gtttagctct gactatctgt
+    22681 cagtaatggc tacaagcggt cagacccaat atgtcaaccg tggtggctat ctctatgacc
+    22741 gctctgcgaa gactgaccga tttccttctg gtgttcaggt caacctgatt cgtctgagag
+    22801 agttcgatga gatgcctgag tgcttccgaa actatatcgt taccaaggct tcccgccagt
+    22861 ttaacaaccg cttctttggt gcgccggagg tagacggagt gttgcaggaa gaggaacagg
+    22921 aagcatggag tgcgtgcttc gagtacgagc tagactacgg caactataac atgctggatg
+    22981 gtgacgcatt cacctctggt ctacttaacc gctaatcata aggaggctct atggctctca
+    23041 ttagtcaatc aatcaagaac ctcaagggtg gtatcagtca acaaccagat attctcaggt
+    23101 tcactgaaca gggtagcgta cagattaatg gctggtcttc tgagtcagag ggtatccaga
+    23161 agcgcccacc gatgattcac cttaagaccc ttggcactgc tgggtatgtg ggtgcgcaac
+    23221 cttacgttca cctcatcaac cgggatgagt tcgagcagta tttcgttgtg ttcactggtg
+    23281 aagatattaa ggtattcgac ctcgatggta aggagtacca agtccgtgga gaccgctcat
+    23341 atgttcgtac agcaaaccca cgggaagacc ttcggatggt aacggtggct gattatacct
+    23401 ttgtgactaa ccgcaaggtg gttgtgcaga gtaacgacca atctgtcaac cttccgggat
+    23461 ttaaagacca aggcgatgcg ctaattaacg ttcgaggtgg acaatatggg cgtagactct
+    23521 caatcgagtt caacggggct gagcgtgctg ctgtgcaact accagacggt tcacaaccag
+    23581 cacacgtcaa tgaggttgac ggtcaggcca tcgctgagaa gctggcggct cagttgcgga
+    23641 ataacctagg gaaccccaac aatgaccaag acccaaataa gtggcggttc aatgttggcc
+    23701 ccggattcat ccatatcctt gcgccaaata acgataacgt ttggggacta cagactaagg
+    23761 atggttacgc agaccagcta atcaaccctg taacccatta cactcagtcg ttccagaagc
+    23821 tgcctattaa cgcgccagat gggtacattg tgaagattgt aggtgacacc tccaagactg
+    23881 ccgaccagta ttacgttagg ttcgacctca accgtaaggt gtgggtagaa acaatcggct
+    23941 ggaacacaag gactcacctg cactaccaca cgatgccttg ggcgctggta cgcgcttctg
+    24001 acgggaactt tgacttcaag taccttgagt ggggtgctcg tactgttggc gatgatacaa
+    24061 ctaacccata cccttccttt accggacaga caatcaacga tattttcttc tttcgtaacc
+    24121 gtttaggatt ccttagcggg gagaacatca tcttgtctcg cacctcgaaa tacttcaact
+    24181 tcttcccggc ctccgtgtca aactactccg acgatgaccc aatcgacgtt gcggttagcc
+    24241 atgaccgggt gtcaaccttg aagtatgccg ttccgttctc cgaagagttg ctcctgtggt
+    24301 ctgaccaagc gcagttcgtt ctgacagcct ctgatatcct ttcgagtcgc tccgtagggt
+    24361 tgaaccttac gactcagttc gacgtgcagg acagggcacg cccacatggt gtagggcgga
+    24421 atgtatactt ttcgtcacct cgcgcttcct tcacatccat taaccgatac tatgcggtac
+    24481 aggatgtaag ctctgtgaag aacgcagagg acatgacggc tcacgttccg aactacatac
+    24541 cgaatggggt atttagtatc tcaggaacaa ctgctgagaa cttcgtggct atccttacga
+    24601 gcggtgcgcc gaaccgagtg tatatctaca agttcctcta cattgacgag gaaatcaggc
+    24661 agcagtcgtg gtctcattgg gactttgggg acaacgttac ggtgttcgca gcacaggtca
+    24721 taaactcaac aatgacagta ttgatgagca atgaacatgc tgtgtggatg gggcgcttac
+    24781 acttcacgaa ggactccata gaccttccgg gagaacctta taggttgtat atcgacgcta
+    24841 agagaaagta caccatccct gctgggacgt acaacgatga tacctaccag acgtcaataa
+    24901 gcctctcaac gatttacggg atgaacttca cgaagggtag ggtttcggtg gtctttcctg
+    24961 atgggaagat tgtagagata gaccagccaa tcaacgggtg gagtagcgac ccaatgctga
+    25021 gacttgatgg gaaccaagag ggacaagtag tctacattgg gttcaacatc ccattcacgt
+    25081 atacgttctc gaagttcctc atcaagaaga ccgctgagga cggctcgacg gctactgagg
+    25141 atatcggtcg cttacagctt cggcgtgcat gggtaaacta tgaggactct ggagcgttca
+    25201 tcatccgtgt gaacaacctg tcccgtgagt tcatctacac aatggcgggt gcacgattgg
+    25261 ggtctgacaa cctccgtgtt ggaggctcaa acattggtac agggcagtac cgcttcccgg
+    25321 tggtaggcaa tgctcagact aacacagtaa ccatcgagtc agatgcgtca accccattga
+    25381 acatcattgg gtgcggatgg gagggtaact acctgagacg ttcttctggt atttaactca
+    25441 aagtctccct gcggtgaatt aaccctcact aaagggagac actaatagat acgaaggggg
+    25501 gggggggggg ttaaagcatt atgtatatta caaagtgttt acaaagccac gctgacagct
+    25561 ttaagccgtc catagaggac attctggaag ctgaggcatt gggtgtcgaa cctaaagtaa
+    25621 ttcctgatga gaacactgtg gcgatgctaa gcgatagcgc tgtgctgtcc attggtggaa
+    25681 atcagggaga ccgagtatgg ttccttacct ctaagtacgt cccgctgttt accttgaagg
+    25741 agcgcttaga gtttcgtaga cttatcattg aatatcgtga tatgatgctg agccagtacg
+    25801 agtccatttg gaatttcgtt tgggtaggca ataagtcaca cattcgtttc ctaaagacca
+    25861 taggtgcggt attccataat gagtttaccg ctgatggtca atttcaatta tttactatca
+    25921 gtaggaggta actatgtgct ggatggcagc gattcctatt gctatggcgg gtgcccaagc
+    25981 tctaagtagc cagaacagtg ctgacaaggc gcgcgtggca cagacagaag ctggacgccg
+    26041 acaggcaatt gagatggtaa aagagatgaa tatccaaaat gccaacgcct cattggaaca
+    26101 acgggacgcc cttgaagctg catcctctga gttgacttca cgtaacatgc agaaggtaca
+    26161 ggctatggga accatccgtg cagcgattgg tgagggtatg ctcgaaggtg aatccatgaa
+    26221 gcgcatcaag cgtatcgaag aaggcaacta cattcgggag gcaaatagtg tcaccgagaa
+    26281 ttaccgccga gactacgcga gtatctttgc gcaacagttg ggacgcactc agtccacagc
+    26341 aagtcaagtc gatgcaatgt acaagagcga ggccaaaggt aagtctggtc tgatgcgtgt
+    26401 actagaccct ctgtccatta tgggtcagga agctgcaagt caatatgcgg ctggtggatt
+    26461 tgacaagaaa ggtggcaacc aagcagcacc tatcagtgcc gccaaaggaa ctaagaccgg
+    26521 gaggtaataa tggctagtaa actaaatagt gttttaggca acatggcgac tcccggtatg
+    26581 gaacgactca ggggagtccg ggggatggac tacagggcag caaccattca ggcagagcaa
+    26641 cctagagcga gtcttctgga ctccattggt cgattcgcta aggctggtgc cgatatgtat
+    26701 atcgctaagg aacaacgagc acgcgaccta gctgacgaac gctctaacga gattatccgt
+    26761 aagctgacac ctgagcaacg tcgagaggct ctcaacaatg ggacccttct gtatcaggat
+    26821 gacccatacg ctatggaagc actgcgagtc aagactggtc gtaacgctgc gtaccttgtg
+    26881 gacgacgacg ttatgcagaa ggtcaaagaa ggtgtcttcc gtactcgtga ggagatggaa
+    26941 cagtatcgcc atagtcgtct tcaagagggc gctaaggcat acgctgagca gttcggtatt
+    27001 gaccctgagg acgttgatta tcagcgtggt ttcaatgggg acattaccga gcgtaacatc
+    27061 tcactgtatg gcgcacacga taacttcttg agccagcaag ctcagaaggg tgccatcatg
+    27121 aacagccgag tggaactcaa cggtgtcctt caagaccctg atatgcttcg tcgcccagac
+    27181 tctgcggact tctttgagaa gtacatcgac aacggtctgg ttaccggagc aatcccgtct
+    27241 gacgctcagg ctacacagct tataagccaa gcgctcagtg acgcttctag ccgtgctggt
+    27301 ggtgctgact tcctgatgcg agtcggtgac aagaaggtaa cacttaatgg agccactacg
+    27361 acttaccgag agttgatggg tgaagaacag tggaatgctc tcatggtcac agcacaacgt
+    27421 tctcagtttg agaatgacgc taagctgaac gagcagtacc gcttgaagat taactctgcg
+    27481 ctgaaccaag aggaccctcg tactgcgtgg gagatgcttc aaggtatcaa ggctgaactc
+    27541 gataaggttc aacctgatga gcagatgaca ccgcaacgtg agtggctaat ctcggcacag
+    27601 gaacaagttc agaatcagat gaacgcatgg acgaaggctc aagccaaagc tctggatgac
+    27661 tcaatgaagt ctatgaacaa acttgacgta atcgacaagc agttccagaa gcgaatcaac
+    27721 ggtgagtggg tctcaacgga cttcaaggat atgccaacaa acgagaacac tggtgagttc
+    27781 aaacatagtg atatggttaa ctacgccaat aagaagctcg cggagattga ccgcatggac
+    27841 atcccagata gcgccaagga catgatgaag ttgaagtacc ttcaagcgga ctctaaggac
+    27901 ggggcattcc gtacagcaat cggaactatg gtgactgacg ctggtcaaga gtggtctgcc
+    27961 gctgtgatta acggtaagtt gccagaacga accccagctc tggatgctct acgtagaatc
+    28021 cgtaatgccg acccccagtt gattgctgcg ctatacccag accaagctga gctattcctg
+    28081 acgatggaca tgatggacaa gcagggtatt gaccctcagg ttattcttga cgctgaccga
+    28141 ctgactgcca agcgttccaa agagcaacga ttcgaggacg ataaagcatt cgagtctgca
+    28201 ttgaatagct ctacggcccc tgagattgcc cgtatgccag cgtcacttcg tgaatctgca
+    28261 cgtaagattt atgactcagt taagtaccgc tctgggaacg aaagcatggc tatggagcag
+    28321 atgaccaagt tccttaagga atctacctac acgttcactg gtgacgatgt tgacggtgat
+    28381 accatcggtg tgattcctaa gaacatgatg caagtcaact ctgacccgaa atcatgggag
+    28441 caaggtcgcg atattctgga ggaagcacgt aagggaatca ttgcgagcaa ccagtggata
+    28501 accaacaagc aactgaccat gtattctcaa ggtgactcca tttacctcat ggacaccact
+    28561 ggtcaagtcc gcgtccgtta tgataaagag ttactctcga aggtctggag tgagaaccag
+    28621 aagaaactcg aagagaaggc tcgtgagaag gctctggctg atgtgaacaa gcgggcacct
+    28681 atcgttgccg caacgaaggc ccgtgaatct gctgctaaac gagtccgaga gaaacgtaaa
+    28741 cagactccga agttcatcta tggacgcaag gagtaactaa aggctacata aggaggccct
+    28801 aaatggataa gtacgataag aacgtaccaa gtgattatga tggtctgttc caaaaggagg
+    28861 ctgatgccaa cggggtctct tatgaccttt tacgtaaagt cgcttggaca gagtcacgat
+    28921 ttgtacccac agctaaatct aagactggac cattaggcat aatgcaattc accaaggcaa
+    28981 ccgctaatgc ccttggtctg cgagttacag atggtccaga cgacgaccga cttaaccctg
+    29041 agttagctat caacgctgcc gctaagcacc ttgcaggtct ggtaggtaaa ttcgacggtg
+    29101 atgaacttaa agctgccctt gcatacaacc aaggcgaggg acgcttgggt aatccacaac
+    29161 ttgaggcata ctctaaggga gacttcgcgt ccatctctga ggaaggacgt aactatctgc
+    29221 gtaaccttct ggatgtcgct aagtcaccga tggctggaca gttggaaact tttggaggta
+    29281 tcaccccaaa gggtaaaggc attccggctg acgttggact agctggaatc gaccacagtc
+    29341 agaaagtaac acaggaactt cctgagtcca caagttttga cgttaaaggt atcgaacagg
+    29401 aggctccggc gaaaccattc gccaaggact tttgggagac ccacggagaa acacttgatg
+    29461 agtacaacag tcgttcaacc ttcttcggat tcaaaaatgc taccgaagct gaactctcca
+    29521 actcagtcgc tgggatggct ttccgtgctg gtcgcctcga taatggtttt gatgtgttta
+    29581 aagacaccat tacgccgact cgctggaact ctcacatctg gactccagaa gagttagaga
+    29641 agattcgaac tgaggttaag aaccctgcgt atatcaacgt ggtaactggt ggttctcctg
+    29701 agaatcttga cgacctcatt aagttggcta acgagaactt tgagaatgac tcacgctctg
+    29761 ccgaagctgg actgggtgcc aaactgagtg ctggtattat cggtgctggt gtggacccac
+    29821 tcagctatgt tcctatggtc ggtgtgactg gtaagagctt taagttaatc aataaggctc
+    29881 ttgtagttgg tgccgaaagt gctgcgctga acgttgcatc cgaaggtcta cgtacctccg
+    29941 tagctggtgg tgacgctgac tactcagggg ctgctttagg tggctttgtg tttggtgctg
+    30001 gtatgtccgc aatcagtgac gctatcgctg ctggactgaa acgtagtaaa cccgaaactg
+    30061 agttcgacaa tgagttcatc ggacctatga tgcgaatgga agcccgtgag accgcacgca
+    30121 acgcaaactc tacggacctc tctcgtatga acactgataa catgaagttt gaaggtgagc
+    30181 ataacggagt accttatgag gaccttccta ctgagaaggg cgctgtggta ctgcacgatg
+    30241 gctccgttat aagtgcaaac aacccaatca accctaagac cctcaaagag ttctctgagg
+    30301 ttgaccctga gaaggctgcg cgaggaatca aacttgctgg gttcaccgag ataggcttga
+    30361 agaccttggg gtctgacgat gctgacatcc gcagagtggc tatcgacctc gttcgctctc
+    30421 ctactggtat gcagtctggt gcctcaggga agttcggtgc aacagcttct gacatccatg
+    30481 agagacttca cggtaccgac cagcgtactt ataatgactt gtacaaagca atgtctgacg
+    30541 ctatgaaaga ccctgagttc tctactggcg gagctaagat gtcccgtgaa gaaactcgct
+    30601 acactatcta ccgtagagcg gcactggcta ttgagcgtcc agagttacag aaggcactca
+    30661 ctccgtctga gagaatagtt atggacacta ttaagcgtca ctttgacacc aagcgtgaac
+    30721 ttatggagaa cccagcaatc ttcggtaata cgaagtctgt tagtattttc cctgagagtc
+    30781 gccacaaagg gacttacgtt cctcacgttt acgaccgtca tgcaaaagca ctgatgattc
+    30841 aacgctacgg tgccgaaggt ttacaggaag gtattgctcg ttcgtggatg aacagctacg
+    30901 tctccagacc tggggtcaag gtcagagtcg atgagatgct taaggaatta cacggggtga
+    30961 aggaagtaac accagagatg gtagagaagt acgctatgga taaggcttac ggtatctccc
+    31021 actcagacca gttcaccaac agttccataa tcgaagagaa cattgagggc ttagtaggta
+    31081 tagagaacaa ctcattcctt gaggcacgta acttgtttga ttcggaccta tccatcacta
+    31141 tgccagacgg acagcaattc tcagtgaacg acctaaggga cttcgatatg ttccgcatca
+    31201 tgccagcgta tgaccgccgt atcaatggtg acatcgctat catggggtct acagggaaaa
+    31261 ccactaagga acttaaggat gagattttgg ctctcaaagc gaaagctgag ggagacggta
+    31321 agaagactgg cgaggttcat gctctaatgg ataccgttaa gattcttact ggtcgtgctc
+    31381 gacgtaatca ggacactgtg tgggaaacca cattacgttc catcaatgac ctagggttct
+    31441 tcgctaagaa cgcctacatg ggtgctcaga acattacgga gattgctggg atgattgtca
+    31501 ctggtaacgt gcgtgctctc ggtcacggta tcccaattct gcgtgacacc ctctacaagt
+    31561 ctaaaccagt ttccgctaag gaactcaagg aactccatgc gtctctgttc ggaaaggagg
+    31621 tggaccagtt gattagacct caacgtgctg atatagtgca gcgtctaagg gaagcaactg
+    31681 atacagggcc tgttgtggcg aacatcgtag gtaccttgaa gtattccaca caggaactgg
+    31741 ctgctcgctc tccgtggact aagctgctga acggaaccac taactacctt ctggatgctg
+    31801 cgcgtcaagg tatgcttggg gacgttatta gtgccaccct aacaggcaag actacccgct
+    31861 gggagaaaga aggcttcctt cgtggtgcct ccgtaactcc tgagcagatg gctggcatca
+    31921 agtctctcat caaggaacat atggtacgtg gtgaggacgg gaagtttaca gttaaggaca
+    31981 agcaagcgtt ctctatggac ccacgggcta tggacttatg gcgactggct gacaaggtag
+    32041 ctgatgaggc aatgctgcgt ccgcataagg tgtccttaca ggattcccat gcgttcggag
+    32101 cattaggtaa gatggttatg cagtttaagt ctttcactat caagtccctt aactctaagt
+    32161 tcctgcgaac cttctatgat ggatacaaga acaaccgagc gattgacgct gcgctgagca
+    32221 ttatcacctc tatgggtctc gctggtggtt tctatgctat ggctgcacac gtcaaagcat
+    32281 acgctctgcc taaggagaaa cgtaaggagt acttggagcg tgcactggac ccaaccatga
+    32341 ttgcccacgc tgcgttatct cgtagttctc aattgggcgc tcctttggct atggctgacc
+    32401 tagttggcgg tgtcttaggg ttcgaatctt ccaagatggc tcgctcaacg attctgccta
+    32461 aggacaccat gaaggaacgt gacccaaaca aaccgtacac ctctagagag gtaatgggag
+    32521 ctatgggttc gaaccttctg gagcagatgc cttccgctgg ctttgtggct aacgtagggg
+    32581 ctaccttaat gaatgctgct ggtgtggtta actcacctaa caaagcaacc gagcaggact
+    32641 tcatgactgg attgatgaac tctaccaaag agttagtgcc taacgaccct cttactcaac
+    32701 agcttgtggt taagatttat gaggcgaacg gtgttaacct gagggagcgt aagaaataat
+    32761 acgactcact atagggagag gcgaaataat cttctccctg tagtctctta gatttacttt
+    32821 aaggaggtca aatggctaac gtaattaaaa ccgttttgac ttaccagtta gatggctcca
+    32881 atcgtgattt taatatcccg tttgagtatc tagcccgtaa gttcgtagta gtaaccctta
+    32941 ttggcgtaga ccgcaaggtc cttacgatta atgcagacta ccgttttgct acgcgtacta
+    33001 ccatctcact taccaaggct tggggtccag cggatggata cactaccatc gagttacgcc
+    33061 gagtaacctc cacaaccgac cgattggttg actttacgga tggttcaatc ctccgtgcgt
+    33121 atgaccttaa cgtcgctcag attcaaacga tgcacgtagc ggaagaggcc cgtgacctca
+    33181 ctgctgatac cataggtgtc aataatgatg gtcatttgga tgctcgtggt cgtcgaattg
+    33241 ttaacctagc gaacgctgtg gatgaccgcg acgctgttcc gtttggtcaa cttaagacca
+    33301 tgaaccagaa ctcgtggcag gcgcgtaatg aggcactaca gttccgtaat gaggctgaga
+    33361 ctttcagaaa tcaaacggag gtttttaaga atgagtccgg tactaacgct acgaacacaa
+    33421 agcagtggcg agatgaggct aatgggtccc gagatgaagc cgagcagttc aagaatacgg
+    33481 ctggtcaata cgctacatct gctgggaact ctgctactgc tgcgcatcaa tctgaggtaa
+    33541 acgctgagaa ctccgctaca gcagcagcga actctgcgaa tttggcagaa caacacgcag
+    33601 accgtgcgga acgtgaagca gacaagctgg ggaattttaa tggactggct ggtgcaattg
+    33661 acagggtgga tggaaccaat gtgtactgga aaggaggtat ccatgcgaac ggacgccttt
+    33721 accttacctc agatggtttc gactgtggtc agtatcaaca gttctttggt ggttctgctg
+    33781 gtcgttactc tgtcatggag tggggtgatg agaacggatg gctgatgcat gttcaacgta
+    33841 gagagtggac aacagcgata ggtgataaca tccagctagt agtaaacgga catatcatcg
+    33901 cccaaggtgg agacatgact ggtccgctga aattgcagaa tggacatgcc ctttacttag
+    33961 agtccgcatc cgacaaggcg caatatattc tatctaaaga tggtaacaga aacaactggt
+    34021 acattggtag aggatcagat aacaacaatg actgtacctt ccactcctat gtgtatggta
+    34081 cgaacttaac actcaagccg gactatgcag tagttaacaa acgcttccac gtaggtcagg
+    34141 cagttgtagc cactgatggt aatattcaag gtactaagtg gggaggtaag tggcttgatg
+    34201 cttacctaaa cgatacttac gttaagaaga caatggcctg gactcaagta tgggctgctg
+    34261 ctagtggtag ttacatggga ggaggttctc agactgatac tctcccacag gacttgcgat
+    34321 tccgcaacat atggattaag accagaaaca actattggaa cttcttccga actggtcctg
+    34381 acggtatcta cttcctttca gccgagggcg gttggctaaa attccagata cactctaatg
+    34441 gcagggtatt taagaacata gcggatagag atgcgcctcc aacagcaata gccgtagagg
+    34501 acgtgtaata agcatcaaag gaactacttt aagtccacgg atggactatc acactaagga
+    34561 ggacacatgt tgtcattgga ttttaacaac gaactaatta aagcggcacc gattgtaggt
+    34621 acaggtgttg cagatgttag tgcaagactg ttcttcgggc taagcctgaa tgaatggttc
+    34681 tatgtggctg ctatcgccta cacagtggtt cagattggtg ccaaggtagt cgataagatt
+    34741 attgattgga agaaagcaac taaggagtaa ctctatggaa gtcgataaga gcctgatagc
+    34801 tttcttagag atgttggata cagcgatggc tcaacgtatg ctggcagacc tagctaacga
+    34861 cgagaagcgc accccacaac tctataacgc tatcaacaaa ctgttagacc gtcacaagtt
+    34921 ccaaatcggt aagttgcagc cggatgttca catcttgggt ggccttgctg gtgctcttga
+    34981 ggagtacaaa gagaaagtcg gtgacaacgg tcttacggat gacgatattt atacattaca
+    35041 gtgatatgct caaggtctcc tacgggtggc ctttatggat gtcattgtct acacgagatg
+    35101 ctcctaccgt gaaatctgaa agttaacggg aggcattatg ctagaatttt tacgtaagct
+    35161 aatcccttgg gttctcgctg ggatgctatt cggattggga tggcatctag ggtcagactc
+    35221 aatggacgct aaatggaaac aggaggtaca caatgagtac gttaagagag ttgaggctac
+    35281 ggcgagcact caaagagcaa tcaatgaaat atcggctaag tatcaagaag accttgccgc
+    35341 gctggaaggg agcactgata ggattatttc tgatttgcgt agcgacaata agcggctgcg
+    35401 cgtcagagtc aaacctaccg gaacctccga aggtcagtgt ggattcgagc ctgatgatcg
+    35461 agccgaactt gacgaccgag atgctaaacg tattctctca gtgacccaga agggtgacgc
+    35521 atggattcgt gcgttacagg atactattcg tgaactgcaa cgtaagcagg aaatcaagta
+    35581 aggaggcaac gtgtctactc aatccaatcg taatgcgctc gtagtggcgc aactgaaagg
+    35641 agacttcgtg gcgttcctgt tcgtcttatg gaaggcgtta aatcttccgg tgccaactaa
+    35701 gtgccaaata gatatggcta aggtgctggc gaatggagac aacaagaagt tcatcctaca
+    35761 ggctttccgt ggtatcggta agtcgttcat cacatgtgcg ttcgttgtgt ggacgttatg
+    35821 gcgtgaccct cagttgaaga tactgattgt ctctgcatcc aaagaacgtg cggacgctaa
+    35881 ctccatcttc atcaagaaca tcattgacct gctgcccttc ttggctgagc taaagccacg
+    35941 ccccggtcag cgtgactctg tgattagttt cgatgttggc cctgccaagc ctgaccactc
+    36001 tccgtctgtg aagtcggtgg gtatcactgg tcagttgact ggtagccgtg ctgatatcat
+    36061 catagcggat gacgttgaga ttccgtctaa ctccgcaact caaggtgccc gtgagaagct
+    36121 gtggactctg gtgcaggaat ttgctgcgct tctgaaaccg ctgccgacct ctcgcgttat
+    36181 ctaccttggt acgcctcaaa ccgaaatgac cttgtacaag gaactcgaag ataaccgtgg
+    36241 gtacaccaca atcatctggc ctgcgctcta tccgcgtagc cgtgaggaag acttgtacta
+    36301 tggtgaacgt ctggccccta tgctccgtga ggagttcaac gatgggttcg agatgctcca
+    36361 aggccaacca actgaccccg tgcgattcga catggaagac ctacgggaac gtgagttgga
+    36421 atacggtaag gctggcttca ctttacagtt catgcttaac ccgaacctta gtgatgccga
+    36481 gaagtacccc ttacgcctcc gtgacgctat cgtgtgcggt cttgacttcg agaaagcccc
+    36541 aatgcactac cagtggcttc cgaaccgtca gaatcgcaat gaggagctgc ctaacgtggg
+    36601 ccttaagggt gatgacattc atagctatca ttcgtgcagc cagaacactg gacagtacca
+    36661 gcaacgcatc ctcgtgattg accctagtgg tcgaggtaag gatgagacag gttacgcagt
+    36721 gttgttcacc ctgaatggct acatctatct gatggaagct ggcgggttcc gcgatggtta
+    36781 ttccgataag acccttgagt ccctcgctaa gaaagcgaag cagtggaagg ttcagacagt
+    36841 ggtcttcgag agtaacttcg gggatggtat gtttggtaag gtattcagcc ctgtgctcct
+    36901 taaacaccat gcagcagctc tggaagagat tcgtgctcgt ggtatgaagg aactacgcat
+    36961 ttgtgatacg ctggagcctg tactctctac gcaccgcctt gtgattcgtg atgaggtgat
+    37021 tcgtgaggac taccagactg cccgtgacgc tgatggcaag catgacgttc gctattcgct
+    37081 gttctaccag ttgacccgta tggctcgtga gaagggcgct gtggcccatg atgaccgact
+    37141 tgatgcgtta gcgttaggtg tggagttctt gcgctctacg atggaactgg acgccgtgaa
+    37201 ggtggaagcc gaggtgcttg aggcattctt agaggaacac atggagcacc caatacattc
+    37261 ggctggtcac gtagttaccg ctatggttga cgggatggaa ctctattggg aggatgacga
+    37321 tgtgaatggc gataggttca ttaactggta gttatgcata atgagtgcat aaggaatcat
+    37381 tgagaccacg gatggtcact ttaagaaact ccttaagaat caatgagttt gcattaaccc
+    37441 tcactaaagg gagagagggg acttaaagct actatatagg ttagtcattc aggttatgca
+    37501 atgacccttt atgcacttta agtctacctc tgtgattggt gatattatca ttgtataatc
+    37561 accctacctt agagcaactg aaaggaggtg gctcatgtta cgcttgctga ttgccctgct
+    37621 gcgtcataga gtcacttggc gatttcttct ggtacttact gctacccttg ggtacgcagg
+    37681 tcttaatgac cacctcggtc aactggaagt ggccttttgc tctatactct cttgtgggga
+    37741 ttaaattatt gttgatgacc gacaagcggc tctagggatt cgtaggtata gtttcactac
+    37801 accaactcat ccctgtagag tcaaccctaa aggttatacc taaagatgcc ctgtagttct
+    37861 taatggcctt acagggtctt taagtgtctc ctgtggtctc acatatggtg tggccttacc
+    37921 taaagtggtt gcctaaagag accctttaag aatttaccac aaaaatctga atgggtatct
+    37981 catagttcaa gaacccaaag tacccccccc atagcccctc ttaaagccac ccaaagctgg
+    38041 ccctacccct agggtttaac cttcggttaa ccttgggtct ttcctcaagt ggcctatagg
+    38101 atagcctaaa gtgatgccta aagtcaatac ctaaagtgat ggctgcctat tggagactta
+    38161 aagagtgtcc tagtgtacca gtatgatagt acatctctat gtgtccct
+//
+

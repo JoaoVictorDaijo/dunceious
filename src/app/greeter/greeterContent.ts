@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Everything genomic here is real NC_045512.2 data (examples/sars-cov-2-NC_045512.gb),
+// Everything genomic here is real NC_045512.2 data (examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb),
 // so the greeter never shows a number the workbench would contradict.
 
 export const REPO_URL = 'https://github.com/JoaoVictorDaijo/dunceious';

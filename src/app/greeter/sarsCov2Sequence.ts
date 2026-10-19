@@ -18,7 +18,7 @@
  */
 
 // NC_045512.2, the SARS-CoV-2 reference genome, copied from
-// examples/sars-cov-2-NC_045512.gb (greeterContent.test.ts checks they match).
+// examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb (greeterContent.test.ts checks they match).
 export const SARS_COV_2 =
   'ATTAAAGGTTTATACCTTCCCAGGTAACAAACCAACCAACTTTCGATCTCTTGTAGATCTGTTCTCTAAACGAACTTTAAAATCTGTGTGGCTGTCACTC'
   + 'GGCTGCATGCTTAGTGCACTCACGCAGTATAATTAATAACTAATTACTGTCGTTGACAGGACACGAGTAACTCGTCTATCTTCTGCAGGCTGCTTACGGT'

@@ -1,7 +1,7 @@
 # SARS-CoV-2 variant workspace
 
 Three published SARS-CoV-2 variant genomes and a pre-computed alignment of them
-against the bundled reference, `../sars-cov-2-NC_045512.gb`.
+against the bundled reference, `../coronaviruses/sars-cov-2-NC_045512.gb`.
 
 | File | What it is |
 |------|------------|
@@ -9,7 +9,7 @@ against the bundled reference, `../sars-cov-2-NC_045512.gb`.
 | `aligned.fasta` | MAFFT's output, unedited: four rows of 29,903 columns. |
 | `PROVENANCE.json` | Accessions and reasons, retrieval date, the MAFFT version, image digest and command, and SHA-256 checksums of every input and the output. |
 
-Rebuild everything with [`../../scripts/build-sars-cov-2-variants.sh`](../../scripts/build-sars-cov-2-variants.sh).
+Rebuild everything with [`../../../scripts/build-sars-cov-2-variants.sh`](../../../scripts/build-sars-cov-2-variants.sh).
 Do not hand-edit `aligned.fasta`: it is the oracle the data tests check against
 (`src/app/showroom/__tests__/variantData.test.ts`).
 
