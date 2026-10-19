@@ -66,6 +66,22 @@ it('resumes a SmallPass and preserves the same first 128 alignments', async () =
   expect(on.diagnostics.resumes).toBeGreaterThan(0);
   expect(off.diagnostics.resumes).toBe(0);
 });
+it('preserves the first four alignments when the budget widens checkpoints to 512 columns', async () => {
+  const query = sequence(1024, 17);
+  const background = sequence(45056, 73);
+  const record = background.slice(0, 2048) + query + background.slice(2048 + query.length);
+  const on = await enumerate(query, record, true, 4);
+  const off = await enumerate(query, record, false, 4);
+  expect(on.alignments).toHaveLength(4);
+  expect(on.alignments[0].recordStart).toBe(2048);
+  expect(on.alignments).toEqual(off.alignments);
+  expect(on.exhausted).toBe(off.exhausted);
+  expect(on.diagnostics.step).toBe(512);
+  expect(on.diagnostics.bytes).toBe(2164800);
+  expect(on.diagnostics.resumes).toBeGreaterThan(0);
+  expect(off.diagnostics.bytes).toBe(0);
+  expect(off.diagnostics.resumes).toBe(0);
+});
 it('plans checkpoint storage within 4 MiB without allocating large inputs', async () => {
   const instance = await WebAssembly.instantiate(module, { env: { emscripten_notify_memory_growth() {} } });
   const plan = instance.exports.la_checkpoint_step as (q: number, r: number) => number;
