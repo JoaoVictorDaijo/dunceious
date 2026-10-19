@@ -20,9 +20,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import LocalSearchWorker from '@/src/workers/localSearch.worker.ts?worker&inline';
 import { encodeResidues, loadScoring } from '@/src/core/search/local/scoring';
-import { compareLocalHits, mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
+import { mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
 import type { LocalStreamOutcome } from '@/src/core/search/local/stream';
-import type { SearchResult } from '@/src/domain/bio/types';
+import { LocalScoreBound } from '@/src/core/search/local/bound';
 import type { LocalSearchRequest, LocalSearchResponse, LocalSearchRun, LocalSearchProgress, LocalSearchResult } from '@/src/workers/protocol';
 
 type SearchRequest = Extract<LocalSearchRequest, { type: 'search' }>;
@@ -36,7 +36,7 @@ interface Pending {
   phase: Phase; finished: Set<string>;
   acceptOutcome: (worker: Worker, outcome: LocalStreamOutcome) => void;
   reportProgress: () => void;
-  top: Array<{ hit: SearchResult; recordIndex: number }>;
+  ranking: LocalScoreBound;
   boundScore2: number | null;
   skipped: LocalSearchCounts['skippedRecords']; limit: number;
   progress: (p: LocalSearchProgress) => void;
@@ -50,8 +50,8 @@ interface PoolState {
   pending: { current: Pending | null };
 }
 
-function raiseBound(p: Pending, boundScore2: number, members: Worker[], fail: PoolFailure): boolean {
-  if (p.boundScore2 !== null && boundScore2 <= p.boundScore2) return true;
+function raiseBound(p: Pending, boundScore2: number | null, members: Worker[], fail: PoolFailure): boolean {
+  if (boundScore2 === null || (p.boundScore2 !== null && boundScore2 <= p.boundScore2)) return true;
   p.boundScore2 = boundScore2;
   try {
     for (const member of members) {
@@ -90,13 +90,9 @@ function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () =
         fail('Local worker returned a hit for an unassigned record or strand'); return;
       }
       if (assigned.phase !== 'align') { fail('Local worker returned an alignment during scoring'); return; }
-      p.top.push({ hit: m.hit, recordIndex: m.recordIndex });
-      p.top.sort(compareLocalHits);
-      p.top.length = Math.min(p.top.length, p.limit);
-      if (p.top.length === p.limit) {
-        const boundScore2 = p.top[p.limit - 1].hit.local!.score * 2;
-        raiseBound(p, boundScore2, members.current, fail);
-      }
+      try {
+        raiseBound(p, p.ranking.acceptHit(key, m.hit.local!.score * 2), members.current, fail);
+      } catch (e) { fail(`Local search failed: ${e instanceof Error ? e.message : String(e)}`); }
       return;
     }
     if (m.type === 'progress') {
@@ -118,7 +114,7 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
     let scoresDone = 0;
     const p: Pending = { dispatch: null, dispatchNext: () => {}, acceptOutcome: () => {}, reportProgress: () => {},
       id: ++nextId.current, total: jobs.length, phase: 'score', finished: new Set(),
-      outcomes: new Map(), assigned: new Map(), fractions: new Map(), top: [], boundScore2: null,
+      outcomes: new Map(), assigned: new Map(), fractions: new Map(), ranking: new LocalScoreBound(request.limit), boundScore2: null,
       skipped, limit: request.limit, progress: onProgress, resolve, reject };
     pending.current = p;
     p.reportProgress = () => {
@@ -142,6 +138,7 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
         // Equality can still change which hits survive the canonical tie ordering.
         if (p.phase === 'align' && p.boundScore2 !== null
           && p.outcomes.get(key)!.firstScore2! < p.boundScore2) {
+          p.ranking.finishStream(key);
           p.finished.add(key); p.reportProgress();
           continue;
         }
@@ -169,16 +166,17 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
             .filter(entry => !entry.outcome.exhausted)
             .sort((a, b) => b.outcome.firstScore2! - a.outcome.firstScore2! || a.order - b.order)
             .map(entry => entry.job);
-          // Each unfiltered positive stream guarantees a passing first hit, so the N-th ub
-          // bounds the final cutoff from below. Display filters can reject those first hits,
-          // making this seed unsound when either filter is set.
-          if (request.filters.minIdentity === null && request.filters.minQueryCoverage === null && queue.length >= p.limit) {
-            const seedScore2 = p.outcomes.get(streamKey(queue[p.limit - 1].recordIndex, queue[p.limit - 1].strand))!.firstScore2!;
-            if (!raiseBound(p, seedScore2, members.current, fail)) return;
-          }
+          // Filters can reject a stream's first hit, so only unfiltered streams guarantee
+          // passing scores before those hits arrive.
+          const firstScores = request.filters.minIdentity === null && request.filters.minQueryCoverage === null
+            ? queue.map(job => [streamKey(job.recordIndex, job.strand),
+              p.outcomes.get(streamKey(job.recordIndex, job.strand))!.firstScore2!] as const) : [];
+          p.ranking = new LocalScoreBound(p.limit, firstScores);
+          if (!raiseBound(p, p.ranking.score2, members.current, fail)) return;
           for (const member of members.current) p.dispatchNext(member);
         } else p.dispatchNext(worker);
       } else {
+        p.ranking.finishStream(key);
         p.finished.add(key); p.dispatchNext(worker);
       }
       p.reportProgress(); finishIfDone();

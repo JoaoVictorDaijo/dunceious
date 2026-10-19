@@ -399,3 +399,46 @@ it.each([
     expect(events.findIndex(m => m.type === 'bound')).toBeGreaterThan(firstHit);
   } finally { h.unmount(); }
 });
+
+it('raises the bound from a hit that displaces an unaligned stream placeholder', async () => {
+  const { instantiateLocalEngine } = await import('@/src/core/search/local/engine');
+  const { runLocalStream } = await import('@/src/core/search/local/stream');
+  const { loadScoring, encodeResidues } = await import('@/src/core/search/local/scoring');
+  const { mergeLocalOutcomes } = await import('@/src/core/search/local/selection');
+  const scoring = loadScoring('EDNAFULL');
+  const input = { ...request, query: 'AAAA', strand: 'fwd' as const, limit: 3,
+    records: [{ id: 'two-hits', sequence: 'AAAACCCCAAA' }, { id: 'middle', sequence: 'AAA' },
+      { id: 'weak', sequence: 'AA' }] };
+  const codes = (s: string) => {
+    const encoded = encodeResidues(s, scoring);
+    if (!('codes' in encoded)) throw new Error('Invalid synthetic query');
+    return encoded.codes;
+  };
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const exhaustive = input.records.map((record, recordIndex) => runLocalStream(engine,
+    { ...input, record, recordIndex, strand: 1, queryCodes: codes(input.query), scoring }));
+  const reference = mergeLocalOutcomes(exhaustive, input.limit, []);
+  const alignments = Array.from({ [Symbol.iterator]: () => engine.enumerate(codes(input.query), codes(input.records[0].sequence), scoring) });
+  const firstBelowBound = alignments.findIndex(a => a.score2 < 30);
+  expect(firstBelowBound).toBeGreaterThan(0);
+  expect(firstBelowBound + 1).toBeLessThan(alignments.length);
+  for (const concurrency of [2, 5]) {
+    InProcessWorker.instances = []; InProcessWorker.events = [];
+    vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(concurrency);
+    const h = renderHook(() => useLocalSearchPool(bytes));
+    try {
+      await waitFor(() => expect(h.result.current.ready).toBe(true));
+      let result!: LocalSearchResult;
+      await act(async () => { result = await h.result.current.run(input, () => {}); });
+      expect(result).toEqual(reference);
+      const events = InProcessWorker.events;
+      const raisedAt = events.findIndex(m => m.type === 'bound' && m.boundScore2 === 30);
+      expect(raisedAt).toBeGreaterThan(0);
+      if (concurrency === 2) {
+        expect(InProcessWorker.instances[0].responses.find(m => m.type === 'stream-done' && m.phase === 'align'
+          && m.outcome.recordIndex === 0)).toMatchObject({ outcome: { alignmentsEnumerated: firstBelowBound + 1, exhausted: false } });
+        expect(events.slice(0, raisedAt).filter(m => m.type === 'hit')).toHaveLength(2);
+      }
+    } finally { h.unmount(); }
+  }
+});
