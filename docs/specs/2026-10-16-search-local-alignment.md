@@ -158,6 +158,15 @@ each **stream** (a record and one strand) is searched on its own.
   4. check the first enumerated score against ub before classifying or publishing it. A mismatch,
      including unexpected exhaustion, ends the search with a visible error and no partial results.
 
+  *Sources.* Scoring first and then running Huang–Miller follows FASTA's `lalign36`: its SIMD build
+  links `smith_waterman_sse2.o` (Farrar's striped score pass) with `lsim4.o` (the SIM code)
+  (fasta36, `make/Makefile`, `DROPLAL_SSE_O`). Here the score pass is scalar, so it uses
+  `matcher`'s exact arithmetic. The bound rests on the property that recomputed values never
+  exceed the originals, "H2(i,j) ≤ H1(i,j)" (Huang, Miller, Schwartz & Hardison 1992, p. 156,
+  after Waterman & Eggert 1987). The first alignment, the matrix maximum, therefore bounds every
+  later alignment in its stream. The same paper parallelizes one stream exactly by column bands.
+  This engine parallelizes across streams instead.
+
   One engine is alive per worker at a time. The first N hits under T among the enumerated
   passing hits are shown, so results don't depend on timing, worker count or completion order.
   Example: query `A`, record `TT`, reverse strand, limit 1. Both reverse hits score the same, so
@@ -259,6 +268,12 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
     only grow, so replaying those prefix cells would be a no-op. SmallPass can resume exactly
     at any saved c ≤ min(n0 − 1, nn), with row 1's diagonal predecessor (0, 0, c).
     Every other SmallPass region uses the unchanged path. Locate, ties and traceback do not change.
+  - Saving full-state DP columns and recomputing forward from them is the checkpointing technique
+    of Grice, Hughey & Speck (1997), analysed by Wheeler & Hughey (2000). It is also the grid-line
+    cache of FastLSA (Driga et al. 2006), here restricted to one level of uniformly spaced columns.
+    Those methods recover a single traceback. This project's addition is narrow: reusing the saved
+    columns for recomputation after Waterman–Eggert exclusions, together with the exactness
+    argument above. Same-build on/off tests on synthetic and real records check that argument.
   - Checkpoint steps are powers of two, at least 256, chosen per engine so that
     floor(record length / step) × (query length + 1) × 6 × 4 bytes stays within 4 MiB. If no
     useful step fits, or the record is shorter than the step, no checkpoints are stored.
@@ -451,6 +466,16 @@ only in the search context and minimizes, with Local's extra options collapsed b
 - Waterman & Eggert (1987), *J Mol Biol* 197:723–728, doi:10.1016/0022-2836(87)90478-5.
 - Huang & Miller (1991), *Adv Appl Math* 12:337–357, doi:10.1016/0196-8858(91)90017-D. The
   `matcher.c` header gives pages 373–381; Crossref gives 337–357.
+- Huang, Miller, Schwartz & Hardison (1992), *CABIOS* 8(2):155–165,
+  doi:10.1093/bioinformatics/8.2.155 (exact parallel form; the H2 ≤ H1 property, p. 156).
+- Grice, Hughey & Speck (1997), *CABIOS* 13(1):45–53, doi:10.1093/bioinformatics/13.1.45.
+- Wheeler & Hughey (2000), *Bioinformatics* 16(12):1082–1090, doi:10.1093/bioinformatics/16.12.1082.
+- Driga, Lu, Schaeffer, Szafron, Charter & Parsons (2006), FastLSA, *Algorithmica* 45(3):337–375,
+  doi:10.1007/s00453-006-1217-y.
+- Farrar (2007), *Bioinformatics* 23(2):156–161, doi:10.1093/bioinformatics/btl582.
+- FASTA package `fasta36` (W. R. Pearson; Apache-2.0), github.com/wrpearson/fasta36 at commit
+  5146347545: `lalign36` build rules in `make/Makefile` and `make/Makefile.pcom`, with
+  `src/dropgsw2.c` and `src/lsim4.c`.
 - Karlin & Altschul (1990), *PNAS* 87:2264–2268, doi:10.1073/pnas.87.6.2264.
 - EMBOSS 6.6.0:
   - `emboss/matcher.c` and `acd/matcher.acd` (GPL-2.0-or-later);
