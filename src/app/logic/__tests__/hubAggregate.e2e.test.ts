@@ -26,30 +26,14 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { buildFlattenedFeatures } from '@/src/app/logic/featureManager';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { EXAMPLES, loadExample } from '@/src/core/__tests__/fixtures/examples';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function loadExample(file: string): string {
-  try {
-    return readFileSync(resolve(__dirname, '../../../../examples/', file), 'utf-8');
-  } catch {
-    return '';
-  }
-}
 
 describe('Annotation Hub aggregate — influenza-a-pr8-8segments.gb', () => {
-  const content = loadExample('influenza-a-pr8-8segments.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+  const content = loadExample(EXAMPLES.influenzaPr8);
   let records: SeqRecord[];
   beforeAll(() => {
     records = parseGenBank(content);

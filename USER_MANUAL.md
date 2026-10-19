@@ -71,7 +71,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Medium Zoom**: Individual nucleotide bases (A, T, C, G) become visible.
 - **High Zoom**: With **Translation** on, the amino-acid translation of each CDS opens in rows above (forward strand) and below (reverse strand) the bases. Only the rows a record needs are shown: overlapping CDSs in the same reading frame share a row, and a record without a CDS gets none. Not shown in peptide sessions.
 
-At a **programmed ribosomal frameshift** (for example SARS-CoV-2 ORF1ab), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
+At a **programmed ribosomal frameshift** (for example the T7 capsid gene 10 in `examples/nucleotide/t7-phages/`), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
 
 ### 2.3 Annotations in the Viewer
 
