@@ -1,0 +1,3630 @@
+{
+  "source": "develop 600ddd8; wasm b044bf004d192c6d34a8f5ae52f88a42984d865626df4938c2a05b104cd734a3",
+  "seed": "0x6a09e667",
+  "cases": [
+    {
+      "matrix": "EDNAFULL",
+      "query": "GCATGCATGCATGCATGCAT",
+      "record": "GCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 20,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 4,
+          "recordEnd": 24,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 8,
+          "recordEnd": 28,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 12,
+          "recordEnd": 32,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 16,
+          "recordEnd": 36,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 20,
+          "recordEnd": 40,
+          "cigar": "20="
+        },
+        {
+          "score2": 180,
+          "queryStart": 0,
+          "queryEnd": 18,
+          "recordStart": 24,
+          "recordEnd": 42,
+          "cigar": "18=2S"
+        },
+        {
+          "score2": 160,
+          "queryStart": 4,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 16,
+          "cigar": "4S16="
+        },
+        {
+          "score2": 140,
+          "queryStart": 0,
+          "queryEnd": 14,
+          "recordStart": 28,
+          "recordEnd": 42,
+          "cigar": "14=6S"
+        },
+        {
+          "score2": 120,
+          "queryStart": 8,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 12,
+          "cigar": "8S12="
+        },
+        {
+          "score2": 100,
+          "queryStart": 0,
+          "queryEnd": 10,
+          "recordStart": 32,
+          "recordEnd": 42,
+          "cigar": "10=10S"
+        },
+        {
+          "score2": 80,
+          "queryStart": 12,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 8,
+          "cigar": "12S8="
+        },
+        {
+          "score2": 60,
+          "queryStart": 0,
+          "queryEnd": 6,
+          "recordStart": 36,
+          "recordEnd": 42,
+          "cigar": "6=14S"
+        },
+        {
+          "score2": 40,
+          "queryStart": 16,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 4,
+          "cigar": "16S4="
+        },
+        {
+          "score2": 20,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 40,
+          "recordEnd": 42,
+          "cigar": "2=18S"
+        }
+      ]
+    },
+    {
+      "matrix": "EDNAFULL",
+      "query": "GCATGCATGCATGCATGCAT",
+      "record": "GCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC",
+      "strand": -1,
+      "alignments": [
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 20,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 4,
+          "recordEnd": 24,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 8,
+          "recordEnd": 28,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 12,
+          "recordEnd": 32,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 16,
+          "recordEnd": 36,
+          "cigar": "20="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 20,
+          "recordEnd": 40,
+          "cigar": "20="
+        },
+        {
+          "score2": 180,
+          "queryStart": 0,
+          "queryEnd": 18,
+          "recordStart": 24,
+          "recordEnd": 42,
+          "cigar": "18=2S"
+        },
+        {
+          "score2": 160,
+          "queryStart": 4,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 16,
+          "cigar": "4S16="
+        },
+        {
+          "score2": 140,
+          "queryStart": 0,
+          "queryEnd": 14,
+          "recordStart": 28,
+          "recordEnd": 42,
+          "cigar": "14=6S"
+        },
+        {
+          "score2": 120,
+          "queryStart": 8,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 12,
+          "cigar": "8S12="
+        },
+        {
+          "score2": 100,
+          "queryStart": 0,
+          "queryEnd": 10,
+          "recordStart": 32,
+          "recordEnd": 42,
+          "cigar": "10=10S"
+        },
+        {
+          "score2": 80,
+          "queryStart": 12,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 8,
+          "cigar": "12S8="
+        },
+        {
+          "score2": 60,
+          "queryStart": 0,
+          "queryEnd": 6,
+          "recordStart": 36,
+          "recordEnd": 42,
+          "cigar": "6=14S"
+        },
+        {
+          "score2": 40,
+          "queryStart": 16,
+          "queryEnd": 20,
+          "recordStart": 0,
+          "recordEnd": 4,
+          "cigar": "16S4="
+        },
+        {
+          "score2": 20,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 40,
+          "recordEnd": 42,
+          "cigar": "2=18S"
+        }
+      ]
+    },
+    {
+      "matrix": "EDNAFULL",
+      "query": "ATGCATGCATGCATGCATGCATG",
+      "record": "CATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCAT",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 1,
+          "recordEnd": 24,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 5,
+          "recordEnd": 28,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 9,
+          "recordEnd": 32,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 13,
+          "recordEnd": 36,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 17,
+          "recordEnd": 40,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 21,
+          "recordEnd": 44,
+          "cigar": "23="
+        },
+        {
+          "score2": 220,
+          "queryStart": 0,
+          "queryEnd": 22,
+          "recordStart": 25,
+          "recordEnd": 47,
+          "cigar": "22=1S"
+        },
+        {
+          "score2": 200,
+          "queryStart": 3,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 20,
+          "cigar": "3S20="
+        },
+        {
+          "score2": 180,
+          "queryStart": 0,
+          "queryEnd": 18,
+          "recordStart": 29,
+          "recordEnd": 47,
+          "cigar": "18=5S"
+        },
+        {
+          "score2": 160,
+          "queryStart": 7,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 16,
+          "cigar": "7S16="
+        },
+        {
+          "score2": 140,
+          "queryStart": 0,
+          "queryEnd": 14,
+          "recordStart": 33,
+          "recordEnd": 47,
+          "cigar": "14=9S"
+        },
+        {
+          "score2": 120,
+          "queryStart": 11,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 12,
+          "cigar": "11S12="
+        },
+        {
+          "score2": 100,
+          "queryStart": 0,
+          "queryEnd": 10,
+          "recordStart": 37,
+          "recordEnd": 47,
+          "cigar": "10=13S"
+        },
+        {
+          "score2": 80,
+          "queryStart": 15,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 8,
+          "cigar": "15S8="
+        },
+        {
+          "score2": 60,
+          "queryStart": 0,
+          "queryEnd": 6,
+          "recordStart": 41,
+          "recordEnd": 47,
+          "cigar": "6=17S"
+        },
+        {
+          "score2": 40,
+          "queryStart": 19,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 4,
+          "cigar": "19S4="
+        },
+        {
+          "score2": 20,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 45,
+          "recordEnd": 47,
+          "cigar": "2=21S"
+        }
+      ]
+    },
+    {
+      "matrix": "EDNAFULL",
+      "query": "ATGCATGCATGCATGCATGCATG",
+      "record": "ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATG",
+      "strand": -1,
+      "alignments": [
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 23,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 4,
+          "recordEnd": 27,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 8,
+          "recordEnd": 31,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 12,
+          "recordEnd": 35,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 16,
+          "recordEnd": 39,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 20,
+          "recordEnd": 43,
+          "cigar": "23="
+        },
+        {
+          "score2": 230,
+          "queryStart": 0,
+          "queryEnd": 23,
+          "recordStart": 24,
+          "recordEnd": 47,
+          "cigar": "23="
+        },
+        {
+          "score2": 190,
+          "queryStart": 4,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 19,
+          "cigar": "4S19="
+        },
+        {
+          "score2": 190,
+          "queryStart": 0,
+          "queryEnd": 19,
+          "recordStart": 28,
+          "recordEnd": 47,
+          "cigar": "19=4S"
+        },
+        {
+          "score2": 150,
+          "queryStart": 8,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 15,
+          "cigar": "8S15="
+        },
+        {
+          "score2": 150,
+          "queryStart": 0,
+          "queryEnd": 15,
+          "recordStart": 32,
+          "recordEnd": 47,
+          "cigar": "15=8S"
+        },
+        {
+          "score2": 110,
+          "queryStart": 12,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 11,
+          "cigar": "12S11="
+        },
+        {
+          "score2": 110,
+          "queryStart": 0,
+          "queryEnd": 11,
+          "recordStart": 36,
+          "recordEnd": 47,
+          "cigar": "11=12S"
+        },
+        {
+          "score2": 70,
+          "queryStart": 16,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 7,
+          "cigar": "16S7="
+        },
+        {
+          "score2": 70,
+          "queryStart": 0,
+          "queryEnd": 7,
+          "recordStart": 40,
+          "recordEnd": 47,
+          "cigar": "7=16S"
+        },
+        {
+          "score2": 30,
+          "queryStart": 20,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 3,
+          "cigar": "20S3="
+        },
+        {
+          "score2": 30,
+          "queryStart": 0,
+          "queryEnd": 3,
+          "recordStart": 44,
+          "recordEnd": 47,
+          "cigar": "3=20S"
+        }
+      ]
+    },
+    {
+      "matrix": "EDNAFULL",
+      "query": "GCATGCATGCATGCATGCATGCATGC",
+      "record": "ATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGC",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 2,
+          "recordEnd": 28,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 6,
+          "recordEnd": 32,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 10,
+          "recordEnd": 36,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 14,
+          "recordEnd": 40,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 18,
+          "recordEnd": 44,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 22,
+          "recordEnd": 48,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 26,
+          "recordEnd": 52,
+          "cigar": "26="
+        },
+        {
+          "score2": 240,
+          "queryStart": 2,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 24,
+          "cigar": "2S24="
+        },
+        {
+          "score2": 220,
+          "queryStart": 0,
+          "queryEnd": 22,
+          "recordStart": 30,
+          "recordEnd": 52,
+          "cigar": "22=4S"
+        },
+        {
+          "score2": 200,
+          "queryStart": 6,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 20,
+          "cigar": "6S20="
+        },
+        {
+          "score2": 180,
+          "queryStart": 0,
+          "queryEnd": 18,
+          "recordStart": 34,
+          "recordEnd": 52,
+          "cigar": "18=8S"
+        },
+        {
+          "score2": 160,
+          "queryStart": 10,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 16,
+          "cigar": "10S16="
+        },
+        {
+          "score2": 140,
+          "queryStart": 0,
+          "queryEnd": 14,
+          "recordStart": 38,
+          "recordEnd": 52,
+          "cigar": "14=12S"
+        },
+        {
+          "score2": 120,
+          "queryStart": 14,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 12,
+          "cigar": "14S12="
+        },
+        {
+          "score2": 100,
+          "queryStart": 0,
+          "queryEnd": 10,
+          "recordStart": 42,
+          "recordEnd": 52,
+          "cigar": "10=16S"
+        },
+        {
+          "score2": 80,
+          "queryStart": 18,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 8,
+          "cigar": "18S8="
+        },
+        {
+          "score2": 60,
+          "queryStart": 0,
+          "queryEnd": 6,
+          "recordStart": 46,
+          "recordEnd": 52,
+          "cigar": "6=20S"
+        },
+        {
+          "score2": 40,
+          "queryStart": 22,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 4,
+          "cigar": "22S4="
+        },
+        {
+          "score2": 20,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 50,
+          "recordEnd": 52,
+          "cigar": "2=24S"
+        }
+      ]
+    },
+    {
+      "matrix": "EDNAFULL",
+      "query": "GCATGCATGCATGCATGCATGCATGC",
+      "record": "GCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCAT",
+      "strand": -1,
+      "alignments": [
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 26,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 4,
+          "recordEnd": 30,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 8,
+          "recordEnd": 34,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 12,
+          "recordEnd": 38,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 16,
+          "recordEnd": 42,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 20,
+          "recordEnd": 46,
+          "cigar": "26="
+        },
+        {
+          "score2": 260,
+          "queryStart": 0,
+          "queryEnd": 26,
+          "recordStart": 24,
+          "recordEnd": 50,
+          "cigar": "26="
+        },
+        {
+          "score2": 240,
+          "queryStart": 0,
+          "queryEnd": 24,
+          "recordStart": 28,
+          "recordEnd": 52,
+          "cigar": "24=2S"
+        },
+        {
+          "score2": 220,
+          "queryStart": 4,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 22,
+          "cigar": "4S22="
+        },
+        {
+          "score2": 200,
+          "queryStart": 0,
+          "queryEnd": 20,
+          "recordStart": 32,
+          "recordEnd": 52,
+          "cigar": "20=6S"
+        },
+        {
+          "score2": 180,
+          "queryStart": 8,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 18,
+          "cigar": "8S18="
+        },
+        {
+          "score2": 160,
+          "queryStart": 0,
+          "queryEnd": 16,
+          "recordStart": 36,
+          "recordEnd": 52,
+          "cigar": "16=10S"
+        },
+        {
+          "score2": 140,
+          "queryStart": 12,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 14,
+          "cigar": "12S14="
+        },
+        {
+          "score2": 120,
+          "queryStart": 0,
+          "queryEnd": 12,
+          "recordStart": 40,
+          "recordEnd": 52,
+          "cigar": "12=14S"
+        },
+        {
+          "score2": 100,
+          "queryStart": 16,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 10,
+          "cigar": "16S10="
+        },
+        {
+          "score2": 80,
+          "queryStart": 0,
+          "queryEnd": 8,
+          "recordStart": 44,
+          "recordEnd": 52,
+          "cigar": "8=18S"
+        },
+        {
+          "score2": 60,
+          "queryStart": 20,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 6,
+          "cigar": "20S6="
+        },
+        {
+          "score2": 40,
+          "queryStart": 0,
+          "queryEnd": 4,
+          "recordStart": 48,
+          "recordEnd": 52,
+          "cigar": "4=22S"
+        },
+        {
+          "score2": 20,
+          "queryStart": 24,
+          "queryEnd": 26,
+          "recordStart": 0,
+          "recordEnd": 2,
+          "cigar": "24S2="
+        }
+      ]
+    },
+    {
+      "matrix": "EBLOSUM62",
+      "query": "HGNITSPFCDYWHDNIASNW",
+      "record": "CGYFHDEITKNQAGYFHSLFHDLITVLFHVPQCKPWHSPQTK",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 80,
+          "queryStart": 8,
+          "queryEnd": 19,
+          "recordStart": 0,
+          "recordEnd": 11,
+          "cigar": "8S1=1X1=1X2=1X1=2X1=1S"
+        },
+        {
+          "score2": 56,
+          "queryStart": 6,
+          "queryEnd": 13,
+          "recordStart": 30,
+          "recordEnd": 37,
+          "cigar": "6S1=1X1=2X2=7S"
+        },
+        {
+          "score2": 52,
+          "queryStart": 0,
+          "queryEnd": 13,
+          "recordStart": 4,
+          "recordEnd": 17,
+          "cigar": "1=2X2=5X1=1X1=7S"
+        },
+        {
+          "score2": 36,
+          "queryStart": 7,
+          "queryEnd": 16,
+          "recordStart": 15,
+          "recordEnd": 24,
+          "cigar": "7S1=4X2=1X1=4S"
+        },
+        {
+          "score2": 28,
+          "queryStart": 0,
+          "queryEnd": 8,
+          "recordStart": 20,
+          "recordEnd": 28,
+          "cigar": "1=2X2=2X1=12S"
+        },
+        {
+          "score2": 24,
+          "queryStart": 1,
+          "queryEnd": 10,
+          "recordStart": 13,
+          "recordEnd": 22,
+          "cigar": "1S1=3X1=1X1=1X1=10S"
+        },
+        {
+          "score2": 22,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "19S1="
+        },
+        {
+          "score2": 22,
+          "queryStart": 5,
+          "queryEnd": 7,
+          "recordStart": 37,
+          "recordEnd": 39,
+          "cigar": "5S2=13S"
+        },
+        {
+          "score2": 18,
+          "queryStart": 11,
+          "queryEnd": 13,
+          "recordStart": 27,
+          "recordEnd": 29,
+          "cigar": "11S1X1=7S"
+        },
+        {
+          "score2": 18,
+          "queryStart": 7,
+          "queryEnd": 10,
+          "recordStart": 3,
+          "recordEnd": 6,
+          "cigar": "7S1=1X1=10S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "1=19S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "1=19S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "1=19S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 6,
+          "queryEnd": 8,
+          "recordStart": 34,
+          "recordEnd": 36,
+          "cigar": "6S1=1X12S"
+        },
+        {
+          "score2": 14,
+          "queryStart": 14,
+          "queryEnd": 17,
+          "recordStart": 10,
+          "recordEnd": 13,
+          "cigar": "14S1=1X1=3S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "1S1=18S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "2S1=17S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "4S1=15S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 14,
+          "queryEnd": 16,
+          "recordStart": 28,
+          "recordEnd": 30,
+          "cigar": "14S2X4S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 2,
+          "queryEnd": 4,
+          "recordStart": 28,
+          "recordEnd": 30,
+          "cigar": "2S2X16S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "17S1=2S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 17,
+          "recordEnd": 18,
+          "cigar": "17S1=2S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 2,
+          "queryEnd": 4,
+          "recordStart": 17,
+          "recordEnd": 19,
+          "cigar": "2S2X16S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 2,
+          "queryEnd": 4,
+          "recordStart": 21,
+          "recordEnd": 23,
+          "cigar": "2S2X16S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 14,
+          "queryEnd": 16,
+          "recordStart": 21,
+          "recordEnd": 23,
+          "cigar": "14S2X4S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "3S1X16S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "15S1X4S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "7S1X12S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 3,
+          "recordEnd": 4,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 17,
+          "queryEnd": 20,
+          "recordStart": 12,
+          "recordEnd": 15,
+          "cigar": "17S3X"
+        },
+        {
+          "score2": 6,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "7S1X12S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 15,
+          "recordEnd": 16,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 19,
+          "recordEnd": 20,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 27,
+          "recordEnd": 28,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 14,
+          "queryEnd": 16,
+          "recordStart": 17,
+          "recordEnd": 19,
+          "cigar": "14S2X4S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "1X19S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "12S1X7S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "1X19S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "11S1X8S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "15S1X4S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "3S1X16S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "19S1X"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 6,
+          "recordEnd": 7,
+          "cigar": "9S1X10S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "11S1X8S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "12S1X7S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 6,
+          "recordEnd": 7,
+          "cigar": "13S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "10S1X9S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "13S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "17S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 8,
+          "recordEnd": 9,
+          "cigar": "17S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 17,
+          "recordEnd": 18,
+          "cigar": "4S1X15S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 8,
+          "recordEnd": 9,
+          "cigar": "5S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "5S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "5S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 16,
+          "queryEnd": 17,
+          "recordStart": 17,
+          "recordEnd": 18,
+          "cigar": "16S1X3S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 17,
+          "recordEnd": 18,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 3,
+          "recordEnd": 4,
+          "cigar": "19S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "5S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "9S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "4S1X15S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "17S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "5S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 19,
+          "recordEnd": 20,
+          "cigar": "19S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "17S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "2S1X17S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 16,
+          "queryEnd": 17,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "16S1X3S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 15,
+          "recordEnd": 16,
+          "cigar": "19S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 27,
+          "recordEnd": 28,
+          "cigar": "19S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "18S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "14S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 10,
+          "recordEnd": 11,
+          "cigar": "12S1X7S"
+        }
+      ]
+    },
+    {
+      "matrix": "EBLOSUM62",
+      "query": "PRASEWTKEQCGNIHDYFCGYQT",
+      "record": "SEFMVPRMVEIHDEQAKPRADNWMSPQCVNRMSEFTVLWASPRASLI",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 84,
+          "queryStart": 0,
+          "queryEnd": 13,
+          "recordStart": 17,
+          "recordEnd": 30,
+          "cigar": "3=2X1=3X2=1X1=10S"
+        },
+        {
+          "score2": 42,
+          "queryStart": 3,
+          "queryEnd": 16,
+          "recordStart": 0,
+          "recordEnd": 13,
+          "cigar": "3S2=8X3=7S"
+        },
+        {
+          "score2": 40,
+          "queryStart": 0,
+          "queryEnd": 4,
+          "recordStart": 41,
+          "recordEnd": 45,
+          "cigar": "4=19S"
+        },
+        {
+          "score2": 38,
+          "queryStart": 1,
+          "queryEnd": 7,
+          "recordStart": 30,
+          "recordEnd": 36,
+          "cigar": "1S1=1X2=1X1=16S"
+        },
+        {
+          "score2": 36,
+          "queryStart": 0,
+          "queryEnd": 10,
+          "recordStart": 5,
+          "recordEnd": 15,
+          "cigar": "2=2X1=3X2=13S"
+        },
+        {
+          "score2": 26,
+          "queryStart": 4,
+          "queryEnd": 13,
+          "recordStart": 13,
+          "recordEnd": 22,
+          "cigar": "4S1=2X1=4X1=10S"
+        },
+        {
+          "score2": 24,
+          "queryStart": 5,
+          "queryEnd": 14,
+          "recordStart": 38,
+          "recordEnd": 47,
+          "cigar": "5S1=7X1=9S"
+        },
+        {
+          "score2": 18,
+          "queryStart": 18,
+          "queryEnd": 19,
+          "recordStart": 27,
+          "recordEnd": 28,
+          "cigar": "18S1=4S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 25,
+          "recordEnd": 27,
+          "cigar": "1=1X21S"
+        },
+        {
+          "score2": 16,
+          "queryStart": 2,
+          "queryEnd": 4,
+          "recordStart": 39,
+          "recordEnd": 41,
+          "cigar": "2S2=19S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "17S1=5S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 34,
+          "recordEnd": 35,
+          "cigar": "17S1=5S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "15S1=7S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "21S1=1S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "21S1=1S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 1,
+          "queryEnd": 3,
+          "recordStart": 14,
+          "recordEnd": 16,
+          "cigar": "1S1X1=20S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "8S1=14S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "22S1="
+        },
+        {
+          "score2": 10,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "8S1=14S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "8S1=14S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 15,
+          "queryEnd": 17,
+          "recordStart": 1,
+          "recordEnd": 3,
+          "cigar": "15S2X6S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 15,
+          "queryEnd": 17,
+          "recordStart": 33,
+          "recordEnd": 35,
+          "cigar": "15S2X6S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 13,
+          "queryEnd": 15,
+          "recordStart": 28,
+          "recordEnd": 30,
+          "cigar": "13S2X8S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "3S1=19S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 8,
+          "queryEnd": 10,
+          "recordStart": 12,
+          "recordEnd": 14,
+          "cigar": "8S2X13S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 20,
+          "queryEnd": 23,
+          "recordStart": 22,
+          "recordEnd": 25,
+          "cigar": "20S3X"
+        },
+        {
+          "score2": 6,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 8,
+          "recordEnd": 9,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 20,
+          "queryEnd": 21,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "20S1X2S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 3,
+          "queryEnd": 5,
+          "recordStart": 19,
+          "recordEnd": 21,
+          "cigar": "3S2X18S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 15,
+          "queryEnd": 17,
+          "recordStart": 21,
+          "recordEnd": 23,
+          "cigar": "15S2X6S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 7,
+          "queryEnd": 9,
+          "recordStart": 13,
+          "recordEnd": 15,
+          "cigar": "7S2X14S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 20,
+          "queryEnd": 21,
+          "recordStart": 34,
+          "recordEnd": 35,
+          "cigar": "20S1X2S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 12,
+          "queryEnd": 14,
+          "recordStart": 44,
+          "recordEnd": 46,
+          "cigar": "12S2X9S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "1S1X21S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 16,
+          "queryEnd": 17,
+          "recordStart": 38,
+          "recordEnd": 39,
+          "cigar": "16S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 3,
+          "queryEnd": 5,
+          "recordStart": 15,
+          "recordEnd": 17,
+          "cigar": "3S2X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "4S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 6,
+          "queryEnd": 8,
+          "recordStart": 0,
+          "recordEnd": 2,
+          "cigar": "6S2X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 6,
+          "recordEnd": 7,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 13,
+          "recordEnd": 14,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 20,
+          "queryEnd": 21,
+          "recordStart": 11,
+          "recordEnd": 12,
+          "cigar": "20S1X2S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 16,
+          "queryEnd": 17,
+          "recordStart": 11,
+          "recordEnd": 12,
+          "cigar": "16S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 18,
+          "recordEnd": 19,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 13,
+          "recordEnd": 14,
+          "cigar": "15S1X7S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 20,
+          "queryEnd": 21,
+          "recordStart": 38,
+          "recordEnd": 39,
+          "cigar": "20S1X2S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "4S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "9S1X13S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "9S1X13S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "15S1X7S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "9S1X13S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 42,
+          "recordEnd": 43,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "8S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "8S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 30,
+          "recordEnd": 31,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 6,
+          "queryEnd": 8,
+          "recordStart": 32,
+          "recordEnd": 34,
+          "cigar": "6S2X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "4S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 42,
+          "recordEnd": 43,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "3S1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "2S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 29,
+          "recordEnd": 30,
+          "cigar": "3S1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 6,
+          "recordEnd": 7,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 6,
+          "queryEnd": 7,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "6S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 8,
+          "queryEnd": 9,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "8S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 30,
+          "recordEnd": 31,
+          "cigar": "9S1X13S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 18,
+          "recordEnd": 19,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "9S1X13S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 7,
+          "recordEnd": 8,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 3,
+          "recordEnd": 4,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 11,
+          "recordEnd": 12,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 32,
+          "recordEnd": 33,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 6,
+          "queryEnd": 7,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "6S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 32,
+          "recordEnd": 33,
+          "cigar": "22S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "22S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "7S1X15S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 29,
+          "recordEnd": 30,
+          "cigar": "15S1X7S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "2S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 38,
+          "recordEnd": 39,
+          "cigar": "17S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 23,
+          "recordEnd": 24,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 39,
+          "recordEnd": 40,
+          "cigar": "3S1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "3S1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 6,
+          "queryEnd": 7,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "6S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "22S1X"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "2S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 31,
+          "recordEnd": 32,
+          "cigar": "13S1X9S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 32,
+          "recordEnd": 33,
+          "cigar": "2S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "2S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 43,
+          "recordEnd": 44,
+          "cigar": "3S1X19S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 12,
+          "queryEnd": 13,
+          "recordStart": 40,
+          "recordEnd": 41,
+          "cigar": "12S1X10S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "14S1X8S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 22,
+          "recordEnd": 23,
+          "cigar": "17S1X5S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 30,
+          "recordEnd": 31,
+          "cigar": "21S1X1S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "22S1X"
+        }
+      ]
+    },
+    {
+      "matrix": "EBLOSUM62",
+      "query": "MSNWAKPQCKYQCKLWTVPQCKLFCG",
+      "record": "YQHGLITGNIADEWHVYWCKNIMKLRMGEIAVPQHKEQTKPRADEQAVYWTK",
+      "strand": 1,
+      "alignments": [
+        {
+          "score2": 56,
+          "queryStart": 5,
+          "queryEnd": 17,
+          "recordStart": 39,
+          "recordEnd": 51,
+          "cigar": "5S2=4X1=3X2=9S"
+        },
+        {
+          "score2": 50,
+          "queryStart": 0,
+          "queryEnd": 14,
+          "recordStart": 26,
+          "recordEnd": 40,
+          "cigar": "1=3X1=1X2=1X1=1X1=1X1=12S"
+        },
+        {
+          "score2": 48,
+          "queryStart": 3,
+          "queryEnd": 22,
+          "recordStart": 17,
+          "recordEnd": 36,
+          "cigar": "3S1=1X1=3X1=7X3=1X1=4S"
+        },
+        {
+          "score2": 44,
+          "queryStart": 15,
+          "queryEnd": 22,
+          "recordStart": 13,
+          "recordEnd": 20,
+          "cigar": "15S1=1X1=2X2=4S"
+        },
+        {
+          "score2": 38,
+          "queryStart": 3,
+          "queryEnd": 15,
+          "recordStart": 13,
+          "recordEnd": 25,
+          "cigar": "3S1=4X2=3X2=11S"
+        },
+        {
+          "score2": 38,
+          "queryStart": 10,
+          "queryEnd": 14,
+          "recordStart": 16,
+          "recordEnd": 20,
+          "cigar": "10S1=1X2=12S"
+        },
+        {
+          "score2": 32,
+          "queryStart": 3,
+          "queryEnd": 6,
+          "recordStart": 49,
+          "recordEnd": 52,
+          "cigar": "3S1=1X1=20S"
+        },
+        {
+          "score2": 28,
+          "queryStart": 4,
+          "queryEnd": 14,
+          "recordStart": 42,
+          "recordEnd": 52,
+          "cigar": "4S1=2X1=2X1=2X1=12S"
+        },
+        {
+          "score2": 26,
+          "queryStart": 5,
+          "queryEnd": 10,
+          "recordStart": 35,
+          "recordEnd": 40,
+          "cigar": "5S1=1X1=1X1=16S"
+        },
+        {
+          "score2": 26,
+          "queryStart": 10,
+          "queryEnd": 17,
+          "recordStart": 0,
+          "recordEnd": 7,
+          "cigar": "10S2=2X1=1X1=9S"
+        },
+        {
+          "score2": 26,
+          "queryStart": 15,
+          "queryEnd": 26,
+          "recordStart": 17,
+          "recordEnd": 28,
+          "cigar": "15S1=5X2=2X1="
+        },
+        {
+          "score2": 26,
+          "queryStart": 11,
+          "queryEnd": 20,
+          "recordStart": 33,
+          "recordEnd": 42,
+          "cigar": "11S1=1X1=2X1=1X1=1X6S"
+        },
+        {
+          "score2": 20,
+          "queryStart": 23,
+          "queryEnd": 25,
+          "recordStart": 17,
+          "recordEnd": 19,
+          "cigar": "23S1X1=1S"
+        },
+        {
+          "score2": 18,
+          "queryStart": 22,
+          "queryEnd": 26,
+          "recordStart": 4,
+          "recordEnd": 8,
+          "cigar": "22S1=2X1="
+        },
+        {
+          "score2": 18,
+          "queryStart": 19,
+          "queryEnd": 22,
+          "recordStart": 37,
+          "recordEnd": 40,
+          "cigar": "19S1=1X1=4S"
+        },
+        {
+          "score2": 14,
+          "queryStart": 2,
+          "queryEnd": 5,
+          "recordStart": 8,
+          "recordEnd": 11,
+          "cigar": "2S1=1X1=21S"
+        },
+        {
+          "score2": 14,
+          "queryStart": 2,
+          "queryEnd": 6,
+          "recordStart": 20,
+          "recordEnd": 24,
+          "cigar": "2S1=2X1=20S"
+        },
+        {
+          "score2": 12,
+          "queryStart": 25,
+          "queryEnd": 26,
+          "recordStart": 3,
+          "recordEnd": 4,
+          "cigar": "25S1="
+        },
+        {
+          "score2": 10,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 22,
+          "recordEnd": 23,
+          "cigar": "1=25S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 45,
+          "recordEnd": 46,
+          "cigar": "19S1=6S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "7S1=18S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 51,
+          "recordEnd": 52,
+          "cigar": "9S1=16S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 51,
+          "recordEnd": 52,
+          "cigar": "21S1=4S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "19S1=6S"
+        },
+        {
+          "score2": 10,
+          "queryStart": 17,
+          "queryEnd": 23,
+          "recordStart": 21,
+          "recordEnd": 27,
+          "cigar": "17S6X3S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 22,
+          "queryEnd": 24,
+          "recordStart": 47,
+          "recordEnd": 49,
+          "cigar": "22S2X2S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 4,
+          "queryEnd": 5,
+          "recordStart": 46,
+          "recordEnd": 47,
+          "cigar": "4S1=21S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 22,
+          "queryEnd": 24,
+          "recordStart": 15,
+          "recordEnd": 17,
+          "cigar": "22S2X2S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 9,
+          "queryEnd": 12,
+          "recordStart": 33,
+          "recordEnd": 36,
+          "cigar": "9S3X14S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 47,
+          "recordEnd": 48,
+          "cigar": "17S1=8S"
+        },
+        {
+          "score2": 8,
+          "queryStart": 13,
+          "queryEnd": 15,
+          "recordStart": 25,
+          "recordEnd": 27,
+          "cigar": "13S2X11S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 0,
+          "queryEnd": 3,
+          "recordStart": 9,
+          "recordEnd": 12,
+          "cigar": "3X23S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 29,
+          "recordEnd": 30,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 14,
+          "queryEnd": 16,
+          "recordStart": 47,
+          "recordEnd": 49,
+          "cigar": "14S2X10S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 9,
+          "queryEnd": 11,
+          "recordStart": 1,
+          "recordEnd": 3,
+          "cigar": "9S2X15S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 9,
+          "queryEnd": 11,
+          "recordStart": 12,
+          "recordEnd": 14,
+          "cigar": "9S2X15S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 21,
+          "queryEnd": 23,
+          "recordStart": 28,
+          "recordEnd": 30,
+          "cigar": "21S2X3S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 14,
+          "queryEnd": 16,
+          "recordStart": 15,
+          "recordEnd": 17,
+          "cigar": "14S2X10S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 23,
+          "queryEnd": 24,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "23S1X2S"
+        },
+        {
+          "score2": 6,
+          "queryStart": 13,
+          "queryEnd": 15,
+          "recordStart": 28,
+          "recordEnd": 30,
+          "cigar": "13S2X11S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 5,
+          "recordEnd": 7,
+          "cigar": "2X24S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 22,
+          "recordEnd": 23,
+          "cigar": "14S1X11S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "14S1X11S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 22,
+          "recordEnd": 23,
+          "cigar": "22S1X3S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 0,
+          "queryEnd": 2,
+          "recordStart": 29,
+          "recordEnd": 31,
+          "cigar": "2X24S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 1,
+          "queryEnd": 3,
+          "recordStart": 42,
+          "recordEnd": 44,
+          "cigar": "1S2X23S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 41,
+          "recordEnd": 42,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "3S1X22S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 16,
+          "recordEnd": 17,
+          "cigar": "3S1X22S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 41,
+          "recordEnd": 42,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "22S1X3S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 3,
+          "queryEnd": 4,
+          "recordStart": 48,
+          "recordEnd": 49,
+          "cigar": "3S1X22S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 41,
+          "recordEnd": 42,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 41,
+          "recordEnd": 42,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 49,
+          "recordEnd": 50,
+          "cigar": "10S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "10S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 10,
+          "queryEnd": 11,
+          "recordStart": 17,
+          "recordEnd": 18,
+          "cigar": "10S1X15S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "14S1X11S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "14S1X11S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 15,
+          "queryEnd": 16,
+          "recordStart": 0,
+          "recordEnd": 1,
+          "cigar": "15S1X10S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 5,
+          "recordEnd": 6,
+          "cigar": "22S1X3S"
+        },
+        {
+          "score2": 4,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 9,
+          "recordEnd": 10,
+          "cigar": "22S1X3S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 14,
+          "queryEnd": 15,
+          "recordStart": 31,
+          "recordEnd": 32,
+          "cigar": "14S1X11S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 41,
+          "recordEnd": 42,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 45,
+          "recordEnd": 46,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 4,
+          "recordEnd": 5,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 23,
+          "queryEnd": 24,
+          "recordStart": 13,
+          "recordEnd": 14,
+          "cigar": "23S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 39,
+          "recordEnd": 40,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 24,
+          "recordEnd": 25,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 26,
+          "recordEnd": 27,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 39,
+          "recordEnd": 40,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 39,
+          "recordEnd": 40,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 19,
+          "recordEnd": 20,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 45,
+          "recordEnd": 46,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 23,
+          "queryEnd": 24,
+          "recordStart": 49,
+          "recordEnd": 50,
+          "cigar": "23S1X2S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 45,
+          "recordEnd": 46,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 25,
+          "recordEnd": 26,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 51,
+          "recordEnd": 52,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 12,
+          "recordEnd": 13,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 1,
+          "recordEnd": 2,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 51,
+          "recordEnd": 52,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 22,
+          "queryEnd": 23,
+          "recordStart": 31,
+          "recordEnd": 32,
+          "cigar": "22S1X3S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 5,
+          "queryEnd": 6,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "5S1X20S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 19,
+          "recordEnd": 20,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 7,
+          "queryEnd": 8,
+          "recordStart": 23,
+          "recordEnd": 24,
+          "cigar": "7S1X18S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 45,
+          "recordEnd": 46,
+          "cigar": "13S1X12S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 19,
+          "queryEnd": 20,
+          "recordStart": 35,
+          "recordEnd": 36,
+          "cigar": "19S1X6S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 34,
+          "recordEnd": 35,
+          "cigar": "2S1X23S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 44,
+          "recordEnd": 45,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 14,
+          "recordEnd": 15,
+          "cigar": "2S1X23S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 36,
+          "recordEnd": 37,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 2,
+          "queryEnd": 3,
+          "recordStart": 2,
+          "recordEnd": 3,
+          "cigar": "2S1X23S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 50,
+          "recordEnd": 51,
+          "cigar": "1S1X24S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 46,
+          "recordEnd": 47,
+          "cigar": "1S1X24S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 21,
+          "queryEnd": 22,
+          "recordStart": 37,
+          "recordEnd": 38,
+          "cigar": "21S1X4S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 38,
+          "recordEnd": 39,
+          "cigar": "1S1X24S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 20,
+          "recordEnd": 21,
+          "cigar": "1S1X24S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 1,
+          "queryEnd": 2,
+          "recordStart": 8,
+          "recordEnd": 9,
+          "cigar": "1S1X24S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 47,
+          "recordEnd": 48,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 31,
+          "recordEnd": 32,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 9,
+          "queryEnd": 10,
+          "recordStart": 28,
+          "recordEnd": 29,
+          "cigar": "9S1X16S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 19,
+          "recordEnd": 20,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 23,
+          "recordEnd": 24,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 11,
+          "queryEnd": 12,
+          "recordStart": 51,
+          "recordEnd": 52,
+          "cigar": "11S1X14S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 21,
+          "recordEnd": 22,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 0,
+          "queryEnd": 1,
+          "recordStart": 15,
+          "recordEnd": 16,
+          "cigar": "1X25S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 17,
+          "queryEnd": 18,
+          "recordStart": 22,
+          "recordEnd": 23,
+          "cigar": "17S1X8S"
+        },
+        {
+          "score2": 2,
+          "queryStart": 13,
+          "queryEnd": 14,
+          "recordStart": 33,
+          "recordEnd": 34,
+          "cigar": "13S1X12S"
+        }
+      ]
+    }
+  ]
+}

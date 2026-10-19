@@ -50,6 +50,8 @@ typedef struct Engine {
     vertexptr *index;
     size_t index_size;
     struct Engine *next;
+    vertexptr last_node;
+    uint32_t *filter;
 } Engine;
 
 /* ABI calls are synchronous; selecting a context preserves independent iterators. */
@@ -110,8 +112,14 @@ static size_t used_pair_slot(uint64_t key, const uint64_t *entries, size_t capac
     return slot;
 }
 
+#define FILTER_BITS (1u << 20)
+static uint32_t filter_bit(ajint i, ajint j) {
+    return ((uint32_t)i * 0x9E3779B1u + (uint32_t)j) & (FILTER_BITS - 1);
+}
 static int used_pair_contains(ajint i, ajint j) {
-    if (!active->used_capacity) return 0;
+    if (!active->used_count) return 0;
+    uint32_t b = filter_bit(i, j);
+    if (!(active->filter[b >> 5] & (1u << (b & 31)))) return 0;
     uint64_t key = used_pair_key(i, j);
     size_t slot = used_pair_slot(key, active->used_pairs, active->used_capacity);
     return active->used_pairs[slot] != 0;
@@ -142,8 +150,14 @@ static int used_pair_add(ajint i, ajint j) {
         active->used_capacity = capacity;
         slot = used_pair_slot(key, entries, capacity);
     }
+    if (!active->filter) {
+        active->filter = checked_calloc(FILTER_BITS / 32, sizeof(*active->filter));
+        if (!active->filter) return 0;
+    }
     active->used_pairs[slot] = key;
     active->used_count++;
+    uint32_t b = filter_bit(i, j);
+    active->filter[b >> 5] |= 1u << (b & 31);
     return 1;
 }
 
@@ -172,18 +186,11 @@ static int used_pair_add(ajint i, ajint j) {
   if (!used_pair_contains((ii), (jj)))			\
     x = (value);						\
 }
-#define MATCHERORDER(ss1, xx1, yy1, ss2, xx2, yy2)	\
-{ if (ss1 < ss2)					\
-    { ss1 = ss2; xx1 = xx2; yy1 = yy2; }		\
-  else							\
-    if (ss1 == ss2)					\
-      { if (xx1 < xx2)				\
-	  { xx1 = xx2; yy1 = yy2; }			\
-	else						\
-	  if (xx1 == xx2 && yy1 < yy2)		\
-	    yy1 = yy2;					\
-      }							\
-}
+/* Equal scores must retain matcher's lexicographic origin tie order. */
+#define MATCHERORDER(ss1, xx1, yy1, ss2, xx2, yy2)			\
+{ ajint t_ = ((ss1) < (ss2)) | (((ss1) == (ss2)) &			\
+     (((xx1) < (xx2)) | (((xx1) == (xx2)) & ((yy1) < (yy2)))));	\
+  ss1 = t_ ? (ss2) : (ss1); xx1 = t_ ? (xx2) : (xx1); yy1 = t_ ? (yy2) : (yy1); }
 
 static ajint matcher_Addnode(ajint, ajint, ajint, ajint, ajint, ajint, ajint, ajint *);
 static ajint matcher_Diff(const char *, const char *, ajint, ajint, ajint, ajint);
@@ -225,6 +232,7 @@ static int grow_nodes(int count) {
     return 1;
 }
 static void remove_node(vertexptr node) {
+    if (active->last_node == node) active->last_node = NULL;
     size_t slot = node_slot(node->STARI, node->STARJ);
     active->index[slot] = NULL;
     /* Reinsert the collision cluster so lookup still terminates at an empty slot. */
@@ -735,7 +743,10 @@ static ajint matcher_Addnode(ajint c, ajint ci, ajint cj, ajint i, ajint j,
     (void)K;
     (void)d;
     found = 0;
-    if (active->index_size) {
+    if (active->last_node && active->last_node->STARI == ci && active->last_node->STARJ == cj) {
+        most = active->last_node;
+        found = 1;
+    } else if (active->index_size) {
         most = active->index[node_slot(ci, cj)];
         found = most != NULL;
     }
@@ -772,9 +783,9 @@ static ajint matcher_Addnode(ajint c, ajint ci, ajint cj, ajint i, ajint j,
 	most->ENDJ = j;
 	most->TOP = most->BOT = i;
 	most->LEFT = most->RIGHT = j;
+        active->index[node_slot(ci, cj)] = most;
     }
-
-    active->index[node_slot(ci, cj)] = most;
+    active->last_node = most;
 
     return cost;
 }
@@ -1002,6 +1013,7 @@ void la_destroy(int handle) {
     while (*link != e) link = &(*link)->next;
     *link = e->next;
     free(e->used_pairs);
+    free(e->filter);
     for (int i = 0; i < e->capacity; i++) free(LIST[i]);
     free(LIST); free(e->index);
     free(CC); free(DD); free(RR); free(SS); free(EE); free(FF);
