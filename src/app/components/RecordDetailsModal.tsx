@@ -62,9 +62,24 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const displaySeq = getDisplaySeq(record.sequence, feature);
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
 
+  // A host that declines (`false`) said no and stays quiet; a clipboard that rejects — denied
+  // permission, an insecure context, Safari's gesture rules — is a failure the log must name,
+  // as `HitAlignment` does, or the copy disappears with no sign at all.
   const handleCopy = async () => {
-    if (await copyText(displaySeq)) {
-      onCopyLog(`Sequence for ${logLabel} copied to clipboard.`);
+    try {
+      if (await copyText(displaySeq)) onCopyLog(`Sequence for ${logLabel} copied to clipboard.`);
+    } catch {
+      onCopyLog(`Copy failed for ${logLabel}.`);
+    }
+  };
+
+  const handleCopyTranslation = async () => {
+    const translated = feature;
+    if (!translated?.translation) return;
+    try {
+      if (await copyText(translated.translation)) onCopyLog(`Translation for ${translated.name} copied.`);
+    } catch {
+      onCopyLog(`Copy failed for the translation of ${translated.name}.`);
     }
   };
 
@@ -232,11 +247,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
                 <button
-                  onClick={async () => {
-                    if (await copyText(feature.translation!)) {
-                      onCopyLog(`Translation for ${feature.name} copied.`);
-                    }
-                  }}
+                  onClick={handleCopyTranslation}
                   data-tip="Copy the protein sequence to the clipboard"
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase hover:bg-emerald-100 transition-colors"
                 >
