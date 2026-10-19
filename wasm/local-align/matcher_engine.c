@@ -52,10 +52,29 @@ typedef struct Engine {
     struct Engine *next;
     vertexptr last_node;
     uint32_t *filter;
+    ajint *checkpoints;
+    ajint checkpoint_step, checkpoint_count, checkpoints_enabled, checkpoints_started;
+    ajint min_starj, last_checkpoint_column;
+    uint64_t checkpoint_small_passes, checkpoint_resumes;
 } Engine;
 
 /* ABI calls are synchronous; selecting a context preserves independent iterators. */
 static Engine *active, *engines;
+#define CHECKPOINT_BUDGET (4u * 1024u * 1024u)
+#define CHECKPOINT_FIELDS 6u
+
+int la_checkpoint_step(int qlen, int rlen) {
+    if (qlen < 1 || rlen < 256) return 0;
+    uint64_t row_bytes = ((uint64_t)qlen + 1) * CHECKPOINT_FIELDS * sizeof(ajint);
+    if (row_bytes > CHECKPOINT_BUDGET) return 0;
+    for (int step = 256; step <= rlen;) {
+        if ((uint64_t)(rlen / step) <= CHECKPOINT_BUDGET / row_bytes) return step;
+        if (step > rlen / 2) break;
+        step *= 2;
+    }
+    return 0;
+}
+
 static void *checked_calloc(size_t count, size_t bytes) {
     void *p = calloc(count, bytes);
     if (!p) active->failed = 1;
@@ -359,6 +378,12 @@ static ajint matcher_BigPass(const char *A,const char *B,
 	    if(c > lmin)
 		lmin = matcher_Addnode(c, ci, cj, i, j, K, lmin, numnode);
         if (active->failed) return -2;
+        if (active->checkpoints && !(j & (active->checkpoint_step - 1))) {
+            ajint *saved = active->checkpoints +
+                ((size_t)(j / active->checkpoint_step - 1) * (M + 1) + i) * CHECKPOINT_FIELDS;
+            saved[0] = c; saved[1] = ci; saved[2] = cj;
+            saved[3] = f; saved[4] = fi; saved[5] = fj;
+        }
 	}
     }
 
@@ -654,7 +679,27 @@ static ajint matcher_SmallPass(const char *A,const char *B,
     ajint  *va;
     ajint  limit;
 
-    for(j = n1 + 1; j <= nn; j++)
+    ajint start = 0;
+    const ajint *checkpoint = NULL;
+    active->checkpoint_small_passes++;
+    /* At the origin, SmallPass equals BigPass under the current exclusions. Columns
+     * below min_starj have no used pairs or removed-node cells; their growing node
+     * aggregates need no replay. Saved H/origins/f per row therefore resume exactly
+     * at c <= min(min_starj - 1, nn), with row 1's predecessor (0, 0, c).
+     */
+    if (m1 == 0 && n1 == 0 && active->checkpoints) {
+        ajint bound = active->min_starj - 1 < nn ? active->min_starj - 1 : nn;
+        ajint k = bound / active->checkpoint_step;
+        if (k > active->checkpoint_count) k = active->checkpoint_count;
+        if (k >= 1) {
+            start = k * active->checkpoint_step;
+            checkpoint = active->checkpoints + (size_t)(k - 1) * (active->M + 1) * CHECKPOINT_FIELDS;
+            active->checkpoint_resumes++;
+            active->last_checkpoint_column = start;
+        }
+    }
+
+    for(j = n1 + 1 + start; j <= nn; j++)
     {
 	CC[j] = 0;
 	RR[j] = m1;
@@ -686,6 +731,15 @@ static ajint matcher_SmallPass(const char *A,const char *B,
 	    cj = fj = i;
 	    limit = i + 1;
 	}
+
+        if (checkpoint) {
+            const ajint *saved = checkpoint + (size_t)i * CHECKPOINT_FIELDS;
+            c = saved[0]; ci = saved[1]; cj = saved[2];
+            f = saved[3]; fi = saved[4]; fj = saved[5];
+            if (i == 1) { p = 0; pi = 0; pj = start; }
+            else { p = saved[-6]; pi = saved[-5]; pj = saved[-4]; }
+            limit = start + 1;
+        }
 
 	for(j = limit; j <= nn; j++)
 	{
@@ -1006,6 +1060,26 @@ static Engine *select_engine(int handle) {
     return NULL;
 }
 
+int la_set_checkpoints(int handle, int enabled) {
+    if (!select_engine(handle) || active->failed || (enabled != 0 && enabled != 1)) return -1;
+    if (active->checkpoints_started) return -3;
+    active->checkpoints_enabled = enabled;
+    return 0;
+}
+
+double la_checkpoint_stat(int handle, int field) {
+    if (!select_engine(handle)) return -1;
+    switch (field) {
+        case 0: return active->checkpoints ? active->checkpoint_step : 0;
+        case 1: return active->checkpoints ?
+            (double)((size_t)active->checkpoint_count * (active->M + 1) * CHECKPOINT_FIELDS * sizeof(ajint)) : 0;
+        case 2: return (double)active->checkpoint_small_passes;
+        case 3: return (double)active->checkpoint_resumes;
+        case 4: return active->last_checkpoint_column;
+        default: return -1;
+    }
+}
+
 void la_destroy(int handle) {
     if (!select_engine(handle)) return;
     Engine *e = active;
@@ -1014,6 +1088,7 @@ void la_destroy(int handle) {
     *link = e->next;
     free(e->used_pairs);
     free(e->filter);
+    free(e->checkpoints);
     for (int i = 0; i < e->capacity; i++) free(LIST[i]);
     free(LIST); free(e->index);
     free(CC); free(DD); free(RR); free(SS); free(EE); free(FF);
@@ -1084,6 +1159,10 @@ int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
     if (!e) return -2;
     e->next = engines; engines = e; active = e;
     e->M = qlen; e->N = rlen;
+    e->checkpoints_enabled = 1;
+    e->checkpoint_step = la_checkpoint_step(qlen, rlen);
+    e->checkpoint_count = e->checkpoint_step ? rlen / e->checkpoint_step : 0;
+    e->min_starj = INT_MAX;
     q = gap_open - gap_extend; r = gap_extend; qr = gap_open;
     e->A = checked_calloc((size_t)qlen + 1, 1);
     e->B = checked_calloc((size_t)rlen + 1, 1);
@@ -1114,6 +1193,14 @@ int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
 
 int la_bigpass_step(int handle, int rows) {
     if (!select_engine(handle) || rows <= 0 || active->failed) return -1;
+    if (!active->checkpoints_started) {
+        active->checkpoints_started = 1;
+        if (active->checkpoints_enabled && active->checkpoint_count) {
+            active->checkpoints = checked_calloc(
+                (size_t)active->checkpoint_count * (active->M + 1) * CHECKPOINT_FIELDS, sizeof(ajint));
+            if (!active->checkpoints) return -2;
+        }
+    }
     if (active->progress == active->M) return active->progress;
     active->step_end = active->M - active->progress < rows ? active->M : active->progress + rows;
     matcher_BigPass(active->A, active->B, active->M, active->N, INT_MAX, 2, &active->numnode);
@@ -1134,6 +1221,7 @@ int la_next(int handle, int32_t *out5, uint8_t *ops, int ops_cap, int32_t *ops_l
     if (!active->numnode) { *ops_len = 0; return 0; }
     vertexptr cur = matcher_Findmax(&active->numnode);
     int score = cur->SCORE, stari = cur->STARI + 1, starj = cur->STARJ + 1;
+    if (starj < active->min_starj) active->min_starj = starj;
     int endi = cur->ENDI, endj = cur->ENDJ;
     m1 = cur->TOP; mm = cur->BOT; n1 = cur->LEFT; nn = cur->RIGHT;
     rl = endi - stari + 1; cl = endj - starj + 1;

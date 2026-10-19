@@ -50,6 +50,20 @@ negative error. Inputs follow `la_create`'s validation. It uses two record-lengt
 score rows, no origins or candidate nodes, and retains no context or input copies.
 It neither advances nor changes any enumeration handle.
 
+`la_set_checkpoints(handle, enabled)` selects the checkpoint policy (0 or 1,
+initially 1) before the first `la_bigpass_step` call. It returns 0, −1 for an
+invalid handle/value or failed context, or −3 after BigPass starts. Disabling
+checkpoints uses the unchanged SmallPass path; this is a differential-test
+control, not a user setting. The TypeScript binding exposes it through
+`instantiateLocalEngine(module, { checkpoints: false })`.
+
+BigPass saves H, its origin (ci/cj), and the horizontal gap state f and its
+origin (fi/fj) per query row at power-of-two column intervals, at least 256.
+The smallest fitting interval keeps checkpoint storage within 4 MiB per engine:
+`floor(rlen / step) × (qlen + 1) × 6 × 4` bytes. If even one useful checkpoint
+cannot fit, or the record is too short, no checkpoints are allocated. Storage
+is allocated lazily when BigPass starts and released by `la_destroy`.
+
 `la_bigpass_step(handle, rows)` computes at most that many query rows and
 returns the number completed. Call until it returns qlen before `la_next`.
 `la_next(handle, out5, ops, ops_cap, ops_len)` returns 1 for a hit, 0 for
@@ -69,6 +83,26 @@ can be interleaved. The binding must release iterators on early termination.
 `la_peak_memory()` returns the module's linear-memory high-water mark in bytes
 (including allocator overhead and stack), for performance reporting. Wasm
 memory grows but never shrinks. `malloc`/`free` are also exported.
+
+## Checkpoint diagnostics
+
+`la_checkpoint_step(qlen, rlen)` returns the planned interval or zero without
+allocating an engine. It permits budget-boundary tests without large inputs.
+`la_checkpoint_stat(handle, field)` returns −1 for an invalid handle/field;
+otherwise it returns the following per-engine diagnostic value as a double:
+
+| Field | Value |
+| --- | --- |
+| 0 | Allocated checkpoint step, or 0 when none is allocated |
+| 1 | Allocated checkpoint bytes |
+| 2 | Number of SmallPass calls |
+| 3 | Number of SmallPass calls resumed from a checkpoint |
+| 4 | Last resumed DP column, or 0 if never resumed |
+
+Counters are stored as uint64 and returned as binary64, exact through 2^53.
+They describe executed work, not alignment counts or biological metrics. The
+binding's optional `onCheckpointDiagnostics` observer receives these values
+before each iterator's context is destroyed, including on early return.
 
 ## Provenance and licence
 

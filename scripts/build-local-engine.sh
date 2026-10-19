@@ -30,6 +30,6 @@ docker run --rm --network none --user "$(id -u):$(id -g)" \
   -std=c11 -O2 --no-entry -fno-ident -ffile-prefix-map=/src=. \
   -s STANDALONE_WASM=1 -s FILESYSTEM=0 -s ALLOW_MEMORY_GROWTH=1 \
   -s MALLOC=emmalloc -s ABORTING_MALLOC=0 -s ASSERTIONS=0 \
-  -s EXPORTED_FUNCTIONS='["_la_max_score","_la_create","_la_bigpass_step","_la_next","_la_destroy","_la_peak_memory","_malloc","_free"]'
+  -s EXPORTED_FUNCTIONS='["_la_max_score","_la_set_checkpoints","_la_checkpoint_step","_la_checkpoint_stat","_la_create","_la_bigpass_step","_la_next","_la_destroy","_la_peak_memory","_malloc","_free"]'
 test "$(wc -c < "$output")" -lt 26214400
 sha256sum "$output"

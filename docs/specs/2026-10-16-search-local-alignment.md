@@ -248,6 +248,20 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
     changes the speed only: the profiled cost of the list walk was 7.6 billion steps in 40
     alignments.
 
+  - BigPass saves H, ci/cj and f, fi/fj per row at checkpoint columns. When Locate
+    decrements the SmallPass origin to m1 = n1 = 0, the affected pass equals BigPass restricted
+    to rows 1..mm and columns 1..nn under the current used-pair set. If n0 is the minimum
+    1-based record start emitted so far, columns below n0 have no used pairs; removed nodes
+    have origin columns at least n0 − 1 and own no positive cell in that prefix. Node aggregates
+    only grow, so replaying those prefix cells would be a no-op. SmallPass can resume exactly
+    at any saved c ≤ min(n0 − 1, nn), with row 1's diagonal predecessor (0, 0, c).
+    Every other SmallPass region uses the unchanged path. Locate, ties and traceback do not change.
+  - Checkpoint steps are powers of two, at least 256, chosen per engine so that
+    floor(record length / step) × (query length + 1) × 6 × 4 bytes stays within 4 MiB. If no
+    useful step fits, or the record is shorter than the step, no checkpoints are stored.
+    A pre-BigPass switch permits same-build on/off differential tests; diagnostics prove path
+    coverage and report memory use. Neither is a user setting or a result approximation.
+
   It is written in C and compiled once to WebAssembly with a pinned Emscripten. There is a single
   build, with no SIMD and no fallback variant.
 - **Source and licence:** porting `matcher.c` is allowed. It is GPL-2.0-or-later, usable under
