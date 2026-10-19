@@ -30,6 +30,7 @@ export const EXAMPLES = {
   arabidopsisChloroplast: 'nucleotide/arabidopsis-chloroplast-NC_000932.gb',
   humanMitochondrion: 'nucleotide/human-mitochondrion-NC_012920.gb',
   influenzaPr8: 'nucleotide/influenza-a-pr8-8segments.gb',
+  sarsCov2Variants: 'nucleotide/sars-cov-2-variants/variants.gb',
   orf1abPolyprotein: 'peptide/sars-cov-2-orf1ab-polyprotein-YP_009724389.gb',
   humanInsulin: 'peptide/human-insulin-NP_000198.gb',
 } as const;

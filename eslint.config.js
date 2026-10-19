@@ -30,8 +30,8 @@ export default tseslint.config(
       // Architectural size constraints.
       // `max-lines` errors at 600 (skipBlankLines + skipComments) — the hard
       // file ceiling for the layered structure. `max-lines-per-function` stays a
-      // warning: React component/render bodies and the `smithWaterman` kernel
-      // legitimately exceed a hard function-line cap, so the file-level ceiling
+      // warning: React component/render bodies legitimately exceed a hard
+      // function-line cap, so the file-level ceiling
       // is the active hard guard.
       // -----------------------------------------------------------------------
       'max-lines': [
@@ -102,6 +102,34 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: [
         { group: ['@/src/app/*', '@/src/app/**', '@/app/*', '@/app/**', '**/src/app/**', '**/app/**'],
           message: 'Layer rule: workers may import domain + core + workers (not app).' },
+      ] }],
+    },
+  },
+  // The greeter is a separate UI from the workbench; keep it out of the workbench's code.
+  {
+    files: ['src/app/greeter/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { regex: '^@/src/app/(?!greeter(/|$))',
+          message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
+        { regex: '^(\\.\\./)+(App|components|hooks|viewer|logic|lib|shell|testing|recordRemoval|showroom)(/|\\.|$)',
+          message: 'Greeter rule: the greeter imports only its own files, domain and core, never the workbench UI.' },
+      ] }],
+    },
+  },
+  // The showroom reuses the viewer, presentational components and pure modules, never the
+  // workbench's state owners: App and hooks/ own workers and app state, lib/ does the I/O.
+  {
+    files: ['src/app/showroom/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        // useHubState is the one hook allowed: pure UI state for the Hub, with no workers or I/O.
+        { regex: '^@/src/app/(App|hooks(?!/useHubState$)|lib|shell|greeter)(/|\\.|$)',
+          message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
+        { regex: '^(\\.\\./)+(App|hooks|lib|shell|greeter)(/|\\.|$)',
+          message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
       ] }],
     },
   },

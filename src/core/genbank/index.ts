@@ -42,3 +42,5 @@ export { toSeqRecord } from './toSeqRecord';
 export function parseGenBank(content: string): SeqRecord[] {
   return splitRecords(content).map(toSeqRecord);
 }
+
+export { exportToGenBank } from './serialize';

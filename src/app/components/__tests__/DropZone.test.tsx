@@ -32,7 +32,7 @@ function renderZone(props: Partial<React.ComponentProps<typeof DropZone>> = {}) 
       accept=".gb,.fasta" multiple tip="Open files" onChange={onChange} {...props} />,
   );
   const zone = view.container.querySelector('[data-drop]') as HTMLElement;
-  const input = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+  const input = view.container.querySelector('[data-drop-input]') as HTMLInputElement;
   return { ...view, zone, input, onChange };
 }
 

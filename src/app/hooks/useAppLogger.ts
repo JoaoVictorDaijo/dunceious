@@ -17,7 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * Manages the in-app activity log shown in the sidebar.
@@ -33,8 +33,8 @@ export function useAppLogger(): {
     `Dunceious Pro v${__APP_VERSION__} [Unified Workspace] initialized. Ready for research.`,
   ]);
 
-  const addLog = (msg: string) =>
-    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 49)]);
+  const addLog = useCallback((msg: string) =>
+    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 49)]), []);
 
   return { logs, addLog };
 }

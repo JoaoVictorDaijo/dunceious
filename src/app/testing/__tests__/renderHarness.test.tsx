@@ -18,8 +18,15 @@
  */
 
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { afterAll, beforeEach, describe, it, expect } from 'vitest';
 import { render, installCanvasRecorder, stubResizeObserver } from '../renderHarness';
+
+const originalGetContext = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
+const expectCanvasRestored = () => {
+  expect(Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext')).toEqual(originalGetContext);
+};
+beforeEach(expectCanvasRestored);
+afterAll(expectCanvasRestored);
 
 describe('renderHarness', () => {
   it('records canvas fillText via installCanvasRecorder', () => {

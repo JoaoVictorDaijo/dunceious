@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, installCanvasRecorder } from '@/src/app/testing/renderHarness';
+import { render, installCanvasRecorder, within } from '@/src/app/testing/renderHarness';
 import { fireEvent } from '@testing-library/react';
 import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
@@ -65,6 +65,7 @@ function rowData(record: SeqRecord, overrides: Partial<RowData> = {}): RowData {
     showTracks: false,
     basesOpenness: (overrides.zoomLevel ?? ZOOM) > 12 ? 1 : 0,
     focusedRegion: null,
+    comparison: null,
   };
   return { ...base, ...overrides };
 }
@@ -73,8 +74,13 @@ function renderRow(record: SeqRecord, overrides: Partial<RowData> = {}) {
   return render(<Row index={0} style={{}} data={rowData(record, overrides)} />);
 }
 
-const connectors = (c: HTMLElement) => c.querySelectorAll('line[stroke-dasharray="2,1"]');
-const glyphs = (c: HTMLElement) => c.querySelectorAll('path[data-annotation-part]');
+const connectors = (c: HTMLElement) => {
+  const lines = c.querySelectorAll('[data-annotation-connector]');
+  // Dashed connectors distinguish multipart biological joins from annotation bars.
+  for (const line of lines) expect(line.getAttribute('stroke-dasharray')).toBe('2,1');
+  return lines;
+};
+const glyphs = (c: HTMLElement) => c.querySelectorAll('[data-annotation-part]');
 
 // xScale interpolates in floating point, so a bp can land a hair off its exact
 // pixel and match neither a string nor a float comparison; round before comparing.
@@ -224,7 +230,7 @@ describe('annotation bases preserve segment geometry', () => {
 });
 
 describe('thin annotation bars', () => {
-  const d = (c: HTMLElement) => [...c.querySelectorAll('path[data-annotation-part]')].map(p => p.getAttribute('d') ?? '');
+  const d = (c: HTMLElement) => [...c.querySelectorAll('[data-annotation-part]')].map(p => p.getAttribute('d') ?? '');
 
   it('points a forward bar right, a reverse bar left, and leaves an unstranded bar square', () => {
     const { container } = renderRow(rec([
@@ -245,6 +251,26 @@ describe('thin annotation bars', () => {
     const [first, last] = d(container);
     expect(first).not.toMatch(/L/);
     expect(last).toMatch(/L480,/);
+  });
+
+  // join(81..100,1..20) on a 100 bp circular record: the 3′ end is at base 20, not at the sequence end.
+  it('points an origin-crossing forward join at its true 3′ end and names both pieces', () => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'origin', start: 80, end: 20, strand: 1, segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] },
+    ]), { viewportWidth: LEN * ZOOM });
+    const [tail, head] = d(container);
+    expect(tail).not.toMatch(/L/); // 81..100 continues at base 1, so it stays square
+    expect(head).toMatch(/L160,/); // the arrow tip sits at base 20 (20 bp × 8 px)
+    expect(container.querySelectorAll('[data-annotation-name]')).toHaveLength(2);
+  });
+
+  it('points an origin-crossing reverse join at its 3′ end on the high side', () => {
+    const { container } = renderRow(rec([
+      { type: 'CDS', name: 'rev', start: 80, end: 20, strand: -1, segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] },
+    ]), { viewportWidth: LEN * ZOOM });
+    const [high, low] = d(container);
+    expect(high).toMatch(/L640,/); // complement(join(81..100,1..20)) ends at base 81
+    expect(low).not.toMatch(/L/);
   });
 
   it('opens an opted-in bar only at a legible zoom, with its bases inside the bar', () => {
@@ -304,7 +330,7 @@ describe('aligned annotation bars', () => {
     const letters = [...container.querySelectorAll('[data-annotation-base]')];
     expect(letters.map(t => t.textContent).join('')).toBe('AC--GT');
     expect(letters.map(t => Number(t.getAttribute('data-annotation-base')))).toEqual([2, 3, 4, 5, 6, 7]);
-    fireEvent.mouseOver(glyphs(container)[0]);
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
     expect(setTooltip).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('Locus: 1..4') }));
   });
 
@@ -345,10 +371,11 @@ describe('translation rows and geometry', () => {
     expect(layout.height - collapsed.height).toBe(visible ? 2 * 18 : 0);
     expect(layout.seqBaseY - collapsed.seqBaseY).toBe(visible ? 18 : 0);
     expect(container.textContent).not.toMatch(/[FR][123]/);
-    const name = container.querySelector<HTMLElement>('[data-tip="r"]');
+    const name = within(container).getByText('r');
+    // Record labels and virtualized rows must move with their effective translation lane bounds.
     expect(name?.style.transform).toBe(`translateY(${layout.seqBaseY + 2}px)`);
-    expect(name?.classList.contains('translation-motion')).toBe(true);
-    expect((container.firstChild as HTMLElement).style.transform).toBe('translateY(150px)');
+    expect(name.getAttribute('data-state')).toBe('translation-enabled');
+    expect(container.querySelector<HTMLElement>('[data-viewer-record="r"]')!.style.transform).toBe('translateY(150px)');
   });
 
   it('reserves no translation rows for a record without coding features', () => {
@@ -369,7 +396,7 @@ it('keeps a record selection aligned with the full effective row height', () => 
     zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
   });
   const { container, rerender } = render(<Row index={0} style={{}} data={makeData(5)} />);
-  const selection = () => container.querySelector('rect[data-selection-band]');
+  const selection = () => container.querySelector('[data-selection-band]');
   const collapsed = String(makeData(5).recordLayouts[0].height);
   expect(selection()?.getAttribute('height')).toBe(collapsed);
   rerender(<Row index={0} style={{}} data={makeData(6)} />);
@@ -380,7 +407,7 @@ it('keeps a record selection aligned with the full effective row height', () => 
 
 describe('annotation bars stay in step with scroll', () => {
   const feature: BioFeature = { type: 'gene', name: 'tracked', start: 10, end: 60, strand: 1 };
-  const labelSvg = (c: HTMLElement) => c.querySelector('svg[aria-label]') as SVGSVGElement;
+  const labelSvg = (c: HTMLElement) => within(c).getByLabelText('tracked: Forward (+) 5′ → 3′');
 
   // 90 puts the feature wholly on screen, 200 partly off the left edge, 20 mid-feature.
   it.each([0, 20, 90, 200])('aligns the label with the bar at scrollX %i', (scrollX) => {
@@ -404,8 +431,9 @@ describe('annotation bar openness', () => {
 
   it.each([[0, 14], [0.5, 21], [1, 28]])('sizes the bar and its label clip for openness %s', (basesOpenness, height) => {
     const { container } = renderRow(rec([opted]), { zoomLevel: 30, basesOpenness });
-    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(height);
-    expect(glyphs(container)[0].getAttribute('d')).toMatch(new RegExp(`L120,${height / 2}L`)); // arrow tip at mid-height
+    expect(Number(within(container).getByLabelText('o: Forward (+) 5′ → 3′').getAttribute('height'))).toBe(height);
+    // The arrow tip stays centered as biological bases open the annotation bar.
+    expect(glyphs(container)[0].getAttribute('d')).toMatch(new RegExp(`L120,${height / 2}L`));
   });
 
   it('renders the bases only while the bar is at least partly open', () => {
@@ -422,7 +450,7 @@ describe('annotation bar openness', () => {
 
   it('leaves annotations that do not show bases at the thin height', () => {
     const { container } = renderRow(rec([{ ...opted, metadata: {} }]), { zoomLevel: 30, basesOpenness: 1 });
-    expect(Number(container.querySelector('svg[aria-label]')!.getAttribute('height'))).toBe(14);
+    expect(Number(within(container).getByLabelText('o: Forward (+) 5′ → 3′').getAttribute('height'))).toBe(14);
   });
 });
 
@@ -439,7 +467,7 @@ describe('annotation motion CSS', () => {
 describe('record selection and focus label', () => {
   const selected = { start: 10, end: 30, recordIds: ['r'] };
   const focused = { recordId: 'r', start: 10, end: 30, label: 'spike', length: 20 };
-  const edges = (c: HTMLElement) => [...c.querySelectorAll('line[data-selection-edge]')].map(spanOf);
+  const edges = (c: HTMLElement) => [...c.querySelectorAll('[data-selection-edge]')].map(spanOf);
 
   it('outlines a record selection with an edge at each end', () => {
     const { container } = renderRow(rec([]), { persistentSelection: selected });
@@ -448,11 +476,13 @@ describe('record selection and focus label', () => {
 
   it('labels the focused region with its name and biological length at the region start', () => {
     const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused });
+    // The focus label anchors to the region's genomic start.
     expect(getByText('spike · 20 bp').style.left).toBe('80px');
   });
 
   it('holds the label at the view edge while the region start is scrolled away', () => {
     const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 160 });
+    // Clamping keeps the region label visible when its biological start is off screen.
     expect(getByText('spike · 20 bp').style.left).toBe('0px');
   });
 
@@ -470,5 +500,93 @@ describe('record selection and focus label', () => {
       .queryByText('spike · 20 bp')).toBeNull();
     expect(renderRow(rec([]), { persistentSelection: selected, focusedRegion: { ...focused, recordId: 'x' } })
       .queryByText('spike · 20 bp')).toBeNull();
+  });
+});
+
+it.each([true, false])('outlines only the identified annotation on focus, and both on a manual selection (focused: %s)', focused => {
+  const record = rec([
+    { type: 'gene', name: 'same gene', start: 10, end: 30, strand: 1 },
+    { type: 'CDS', name: 'same CDS', start: 10, end: 30, strand: 1 },
+    { type: 'gene', name: 'earlier', start: 0, end: 5, strand: 1 },
+  ]);
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: focused ? { recordId: 'r', start: 10, end: 30, featureIndex: 1, label: 'same CDS', length: 20 } : null });
+  const outlined = [...container.querySelectorAll('[data-annotation-part][data-state="selected"]')];
+  expect(outlined).toHaveLength(focused ? 1 : 2);
+  if (focused) {
+    const coding = container.querySelector('[data-annotation-part][data-annotation-feature="same CDS"]')!;
+    expect(outlined[0]).toBe(coding);
+  }
+});
+it('retains coordinate outlines for a focused region without an annotation identity', () => {
+  const record = rec([{ type: 'gene', name: 'one', start: 10, end: 30, strand: 1 }, { type: 'CDS', name: 'two', start: 10, end: 30, strand: 1 }]);
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: { recordId: 'r', start: 10, end: 30, label: 'track', length: 20 } });
+  expect(container.querySelectorAll('[data-annotation-part][data-state="selected"]')).toHaveLength(2);
+});
+it('does not outline another record at the focused feature coordinates', () => {
+  const record = { ...rec([{ type: 'gene', name: 'other', start: 10, end: 30, strand: 1 }]), id: 'other' };
+  const { container } = renderRow(record, { persistentSelection: { start: 10, end: 30, recordIds: ['r'] }, focusedRegion: { recordId: 'r', start: 10, end: 30, featureIndex: 0, label: 'focused', length: 20 } });
+  expect(container.querySelectorAll('[data-annotation-part][data-state="selected"]')).toHaveLength(0);
+});
+
+
+describe('biological frameshifts in aligned annotations', () => {
+  it('does not invent a frameshift between abutting source segments', () => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAA', alignedSequence: 'ATG--AAA',
+      features: [{ type: 'CDS', name: 'abutting', start: 0, end: 6, strand: 1,
+        segments: [{ start: 0, end: 3 }, { start: 3, end: 6 }] }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { setTooltip });
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
+    expect(setTooltip.mock.calls.at(-1)?.[0].content).not.toContain('Ribosomal frameshift');
+  });
+
+  it.each([1, -1] as const)('preserves a real +1 shift and biological tooltip position on strand %s', strand => {
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGCAAA', alignedSequence: '--ATG--CAAA',
+      features: [{ type: 'CDS', name: 'skip', start: 0, end: 7, strand,
+        segments: [{ start: 0, end: 3 }, { start: 4, end: 7 }] }] };
+    const setTooltip = vi.fn();
+    const { container } = renderRow(processTransposition([record])[0], { setTooltip });
+    const mark = container.querySelector('[data-frameshift]');
+    expect(mark?.getAttribute('data-frameshift')).toBe('1');
+    expect(Number(mark?.getAttribute('data-x'))).toBeCloseTo(8 * ZOOM);
+    fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
+    expect(setTooltip.mock.calls.at(-1)?.[0].content).toContain('Ribosomal frameshift: +1 at 5');
+  });
+});
+
+describe('reference badge', () => {
+  const comparison = (referenceId: string) => ({
+    referenceId, referenceSeq: 'A'.repeat(LEN), highlight: 'disagreements' as const, matchDots: true, alphabet: 'nucleotide' as const,
+  });
+
+  it('marks the reference row', () => {
+    const { container } = renderRow(rec([]), { comparison: comparison('r') });
+    expect(container.querySelector('[data-reference-badge]')?.textContent).toBe('REF');
+  });
+
+  const aligned = (id: string): SeqRecord => ({ ...rec([]), id, name: id, alignedSequence: 'A'.repeat(LEN) });
+
+  it('draws the reference row in its own colours, never compared against itself', () => {
+    const recorder = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('r') });
+    expect(recorder.fillColors()).toContain('#22c55e');
+    expect(recorder.fillColors()).not.toContain('#e2e8f0');
+  });
+
+  it('mutes an aligned row identical to the reference, but never an unaligned one', () => {
+    const compared = installCanvasRecorder();
+    renderRow(aligned('r'), { comparison: comparison('other') });
+    expect(compared.fillColors()).toContain('#e2e8f0');
+    expect(compared.fillColors()).not.toContain('#22c55e');
+
+    const unaligned = installCanvasRecorder();
+    renderRow(rec([]), { comparison: comparison('other') });
+    expect(unaligned.fillColors()).not.toContain('#e2e8f0');
+  });
+
+  it('leaves other rows and the uncompared view unmarked', () => {
+    expect(renderRow(rec([]), { comparison: comparison('other') }).container.querySelector('[data-reference-badge]')).toBeNull();
+    expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
   });
 });

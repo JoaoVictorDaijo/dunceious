@@ -1,14 +1,14 @@
 {
   "name": "genedunceious",
   "private": true,
-  "version": "2.8.0",
+  "version": "3.6.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 62",
     "lint:headers": "node scripts/check-license-headers.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -18,7 +18,10 @@
     "perf": "node --expose-gc node_modules/.bin/vitest run --config perf/vitest.config.ts",
     "version:patch": "npm version patch --no-git-tag-version",
     "version:minor": "npm version minor --no-git-tag-version",
-    "version:major": "npm version major --no-git-tag-version"
+    "version:major": "npm version major --no-git-tag-version",
+    "test:e2e": "npm run build && npm run test:e2e:run",
+    "test:e2e:run": "playwright test",
+    "changelog:release": "node scripts/changelog-release.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -32,24 +35,25 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/d3": "^7.4.3",
     "@types/node": "^22.20.4",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.6.1",
-    "eslint": "^10.11.0",
+    "eslint": "^10.12.0",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.28",
+    "postcss": "^8.5.30",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.71.0",
-    "vite": "^6.4.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4",
     "vitest": "^4.1.11"
   }
 }

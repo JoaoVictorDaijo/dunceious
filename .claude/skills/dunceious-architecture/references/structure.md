@@ -1,7 +1,7 @@
 # Folder structure (quick reference)
 
 > Extract of `ARCHITECTURE.md` §2. **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md).
-> If this drifts, `ARCHITECTURE.md` wins. See §9 there for the restructure phase history.
+> If this drifts, `ARCHITECTURE.md` wins.
 
 All source lives under `src/`, in four layers. Imports point only **down** the stack:
 `domain ← core ← workers/handlers ← app`.
@@ -22,7 +22,7 @@ src/
 ├── core/                # Pure format/search logic (was root services/). Imports domain only.
 │   ├── genbank/         # read sub-parsers + serialize.ts (exportToGenBank)
 │   ├── formats/         # fasta.ts (parse + exportToFasta), annotations.ts (BED/GFF3/BedGraph + exportToGff)
-│   ├── search/          # query.ts (degenerate→regex), align.ts (smithWaterman), exact.ts, fuzzy.ts — NO protocol import
+│   ├── search/          # query.ts (IUPAC alternatives, degenerate→regex), exact.ts, fuzzy.ts (Myers approximate search) — NO protocol import
 │   └── alignment/       # EMBL-EBI contract model: engine catalog, preflight, parsers, result remap — pure, NO fetch
 │
 ├── workers/             # Thin shells + typed contracts + worker bodies.
@@ -30,11 +30,14 @@ src/
 │   ├── bio.worker.ts / search.worker.ts    # thin shells: postMessage(handler(e.data))
 │   └── handlers/
 │       ├── bio.ts       # handleBioMessage — orchestrates core + domain
-│       └── search.ts    # runSearch + collectSeededFuzzyHits
+│       └── search.ts    # runSearch → runExactSearch / runFuzzySearch
 │
 └── app/                 # The React application. May import everything below it.
     ├── main.tsx + index.css   # entry (moved from root; index.html updated)
-    ├── App.tsx          # composition root
+    ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
+    ├── greeter/         # phone landing page and tour; never imports the workbench UI (ESLint)
+    ├── showroom/        # phone test drive over a bundled aligned sample (Hub, Export, details), lazy-loaded by the greeter; no App/hooks/lib/shell imports except hooks/useHubState (ESLint)
+    ├── App.tsx          # composition root of the workbench
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/

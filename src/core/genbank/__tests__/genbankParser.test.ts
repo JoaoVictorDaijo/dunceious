@@ -222,3 +222,29 @@ ORIGIN
     expect(cds!.strand).toBe(1);
   });
 });
+
+
+it('carries version and legacy country qualifier into the record', () => {
+  const [record] = parseGenBank(`LOCUS       U49845 4 bp DNA
+ACCESSION   U49845
+VERSION     U49845.2
+FEATURES             Location/Qualifiers
+     source          1..4
+                     /country="Oman"
+ORIGIN
+        1 acgt
+//`);
+  expect(record).toMatchObject({ accession: 'U49845', version: 'U49845.2', locationQualifier: 'country' });
+});
+
+it('prefers geo_loc_name when both location qualifiers are imported', () => {
+  const [record] = parseGenBank(`LOCUS       X 4 bp DNA
+FEATURES             Location/Qualifiers
+     source          1..4
+                     /country="Oman"
+                     /geo_loc_name="Saudi Arabia"
+ORIGIN
+        1 acgt
+//`);
+  expect(record.locationQualifier).not.toBe('country');
+});

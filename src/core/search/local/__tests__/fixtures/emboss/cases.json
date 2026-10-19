@@ -1,0 +1,216 @@
+[
+  {
+    "name": "tu-identity",
+    "query": "ATAT",
+    "record": "AUAU",
+    "matrix": "EDNAFULL",
+    "matcherCount": 3
+  },
+  {
+    "name": "nucleotide-n",
+    "query": "ACNAC",
+    "record": "ACNAC",
+    "matrix": "EDNAFULL",
+    "matcherCount": 3
+  },
+  {
+    "name": "protein-n",
+    "query": "N",
+    "record": "N",
+    "matrix": "EBLOSUM62",
+    "waterQuarantine": {
+      "reportedScore": -3.4028234663852886e+38,
+      "pathScore": 6,
+      "optimum": 6
+    },
+    "matcherCount": 1
+  },
+  {
+    "name": "protein-bzx",
+    "query": "WBZXW",
+    "record": "WDQAW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 4
+  },
+  {
+    "name": "mixed-case",
+    "query": "acnAc",
+    "record": "ACNaC",
+    "matrix": "EDNAFULL",
+    "matcherCount": 3
+  },
+  {
+    "name": "mixed-tu-rna",
+    "query": "ACTUUGCA",
+    "record": "ACUTTGCA",
+    "matrix": "EDNAFULL",
+    "matcherCount": 9
+  },
+  {
+    "name": "protein-zero-substitution",
+    "query": "WAW",
+    "record": "WCW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 3
+  },
+  {
+    "name": "protein-unequal-positive",
+    "query": "WILW",
+    "record": "WVVW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 5
+  },
+  {
+    "name": "single-indel",
+    "query": "WWWWAWWWW",
+    "record": "WWWWWWWW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 15
+  },
+  {
+    "name": "extended-indel",
+    "query": "WWWWAAAWWWW",
+    "record": "WWWWWWWW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 17
+  },
+  {
+    "name": "query-flanks",
+    "query": "CCCCACGTACGTGGGG",
+    "record": "ACGTACGT",
+    "matrix": "EDNAFULL",
+    "matcherCount": 19
+  },
+  {
+    "name": "no-positive-protein",
+    "query": "PPPP",
+    "record": "WWWW",
+    "matrix": "EBLOSUM62",
+    "waterQuarantine": {
+      "reportedScore": -4,
+      "pathScore": -4,
+      "optimum": 0
+    },
+    "matcherCount": 0
+  },
+  {
+    "name": "long-query",
+    "query": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPWWPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    "record": "WW",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 3
+  },
+  {
+    "name": "overlapping-ties",
+    "query": "AA",
+    "record": "AAA",
+    "matrix": "EDNAFULL",
+    "matcherCount": 4
+  },
+  {
+    "name": "boundary-aa-ac",
+    "query": "AA",
+    "record": "AC",
+    "matrix": "EDNAFULL",
+    "waterQuarantine": {
+      "reportedScore": 1,
+      "pathScore": 5,
+      "optimum": 5
+    },
+    "matcherCount": 2
+  },
+  {
+    "name": "boundary-a-a",
+    "query": "A",
+    "record": "A",
+    "matrix": "EDNAFULL",
+    "waterQuarantine": {
+      "reportedScore": -3.4028234663852886e+38,
+      "pathScore": 5,
+      "optimum": 5
+    },
+    "matcherCount": 1
+  },
+  {
+    "name": "boundary-aa-cc",
+    "query": "AA",
+    "record": "CC",
+    "matrix": "EDNAFULL",
+    "waterQuarantine": {
+      "reportedScore": -4,
+      "pathScore": -4,
+      "optimum": 0
+    },
+    "matcherCount": 0
+  },
+  {
+    "name": "gap-one",
+    "query": "ACGTACGTACGT",
+    "record": "ACGTACGGTACGT",
+    "matrix": "EDNAFULL",
+    "matcherCount": 8
+  },
+  {
+    "name": "gap-two",
+    "query": "ACGTACGTACGT",
+    "record": "ACGTACGGGTACGT",
+    "matrix": "EDNAFULL",
+    "matcherCount": 11
+  },
+  {
+    "name": "pair-layout",
+    "query": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "record": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "matrix": "EDNAFULL",
+    "matcherCount": 139
+  },
+  {
+    "name": "synthetic-stretch",
+    "query": "CGTACGATTCGA",
+    "record": "TTGACCGTACGATTCGACCTAGGTCATGCTA",
+    "matrix": "EDNAFULL",
+    "matcherCount": 46
+  },
+  {
+    "name": "seeded-nucleotide-1",
+    "query": "AGACNCAUAUAN",
+    "record": "UUACANAUTNGNTANAA",
+    "matrix": "EDNAFULL",
+    "matcherCount": 25
+  },
+  {
+    "name": "seeded-nucleotide-2",
+    "query": "NGNTAUUCAGUNG",
+    "record": "NUCUTUACANGCANGUGT",
+    "matrix": "EDNAFULL",
+    "matcherCount": 29
+  },
+  {
+    "name": "seeded-nucleotide-3",
+    "query": "CUTCAGACNGGNCC",
+    "record": "TGTNCAUGTTUTAATNUCN",
+    "matrix": "EDNAFULL",
+    "matcherCount": 30
+  },
+  {
+    "name": "seeded-protein-1",
+    "query": "IATALPGPQBPH",
+    "record": "IVEMGIYTXDXZMLDII",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 24
+  },
+  {
+    "name": "seeded-protein-2",
+    "query": "QCSZRQCQTIVYD",
+    "record": "FQWFYEDDESLDZQCKWG",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 39
+  },
+  {
+    "name": "seeded-protein-3",
+    "query": "EBPHVSIAKZQWEK",
+    "record": "HVAYLXSWKBHGPIPARLR",
+    "matrix": "EBLOSUM62",
+    "matcherCount": 29
+  }
+]

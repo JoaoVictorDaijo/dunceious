@@ -17,22 +17,30 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
 import React, { memo, useMemo } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
-import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
+import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
-import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases } from './annotationPresentation';
+import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
+import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
+
+/** Touch compatibility mouse events can precede pointerdown, so hover uses pointer identity. */
+export function showsHoverTooltip(pointerType: string): boolean {
+  return pointerType !== 'touch';
+}
 
 export interface RowData {
   recordLayouts: RecordLayout[];
@@ -44,6 +52,7 @@ export interface RowData {
   showAnnotations: boolean;
   showTranslation: boolean;
   searchResultsByRecord: Record<string, SearchResult[]>;
+  completedSearch?: CompletedSearch | null;
   searchResults: SearchResult[];
   currentSearchIdx: number;
   onSelectionChange: (selection: SelectionArea | null) => void;
@@ -59,6 +68,8 @@ export interface RowData {
   basesOpenness: number;
   /** The focused annotation, while the selection is still exactly that region. */
   focusedRegion: FocusTarget | null;
+  /** Reference comparison for the sequence rows; null draws every residue in its own colour. */
+  comparison: ActiveComparison | null;
 }
 
 const SELECTION_FILL = '#38bdf8';
@@ -70,11 +81,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const { 
     recordLayouts, alignmentLength, scrollX, zoomLevel, viewportWidth, 
     persistentSelection, showAnnotations, showTranslation, 
-    searchResultsByRecord, searchResults, currentSearchIdx,
+    searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     onSelectionChange, onContextMenu, onViewDetails, setTooltip, customColors,
     showConservation, conservationScores,
     quantValueRanges,
-    showTracks, basesOpenness, focusedRegion
+    showTracks, basesOpenness, focusedRegion, comparison
   } = data;
 
   const l = recordLayouts[index];
@@ -85,18 +96,26 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const vEnd = Math.min(alignmentLength, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 30);
 
   const seq = l.record.alignedSequence || l.record.sequence;
+  const annotationAlphabet = useMemo(() => l.record.moleculeType === 'protein' ? 'protein'
+    : complementAlphabet(seq, l.record.moleculeType), [seq, l.record.moleculeType]);
+  const originalPositions = useMemo(() => l.record.alignedSequence ? alignedToOriginalPositions(seq) : null,
+    [seq, l.record.alignedSequence]);
   const lastBaseEnd = useMemo(() => {
     let end = seq.length;
     while (end > 0 && seq[end - 1] === '-') end--;
     return end;
   }, [seq]);
+  const isReference = comparison?.referenceId === l.id;
+  // Only aligned rows share the reference's columns; an unaligned row is never compared.
+  const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const tracks = l.record.tracks || [];
 
   const effectiveTranslation = l.translationVisible;
   const motionClass = showTranslation && l.record.moleculeType !== 'protein' ? 'translation-motion' : '';
   const lanes = l.translationLanes;
-  const bandTop = l.seqBaseY - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
+  const queryHeight = rowSearchResults.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+  const bandTop = l.seqBaseY - queryHeight - (effectiveTranslation ? AA_ROW_HEIGHT * lanes.forward : 0);
   const rowTop = typeof style.top === 'number' ? `${style.top}px` : (style.top ?? '0px');
 
   // The focus label rides the region's visible start, holding at the view edge while that start is scrolled away.
@@ -116,7 +135,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   );
 
   return (
-    <div 
+    <div data-viewer-record={l.id}
       style={{ ...style, top: 0, transform: `translateY(${rowTop})` }}
       className={`flex group hover:bg-sky-50/20 transition-colors relative border-b border-slate-100 ${motionClass}`}
       onContextMenu={(e) => onContextMenu(e, l.id)}
@@ -163,12 +182,16 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
         <div className={`absolute right-0 w-1 bg-emerald-400/30 ${motionClass}`}
           style={{ top: 0, height: 1, transformOrigin: 'top',
-            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT})` }} />
+            transform: `translateY(${bandTop}px) scaleY(${(effectiveTranslation ? AA_ROW_HEIGHT * (lanes.forward + lanes.reverse) : 0) + NT_ROW_HEIGHT + queryHeight})` }} />
         <div className="absolute right-2 flex items-center" style={{ top: bandTop - 12, height: 12 }}>
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+          {isReference && (
+            <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
+              className="mr-1 rounded px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
+          )}
           {l.id}
         </div>
       </div>
@@ -195,6 +218,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
           <SequenceTrack 
             seq={seq}
+            record={l.record}
+            completedSearch={completedSearch}
             moleculeType={l.record.moleculeType}
             xScale={xScale}
             viewportWidth={viewportWidth}
@@ -209,6 +234,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             searchResults={rowSearchResults}
             allSearchResults={searchResults}
             currentSearchIdx={currentSearchIdx}
+            comparison={rowComparison}
           />
           <svg width={viewportWidth} height={l.height} style={{ position: 'absolute', top: 0, left: 0, zIndex: 5 }}>
             {/* Background Grid */}
@@ -272,10 +298,21 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const place = (node: React.ReactNode) => (
                 <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
-              const isSelected = persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
+              const isSelected = focusedRegion?.featureIndex !== undefined && isFocusedSelection(focusedRegion, persistentSelection)
+                ? l.id === focusedRegion.recordId && l.record.features[focusedRegion.featureIndex] === f
+                : persistentSelection && f.start === persistentSelection.start && f.end === persistentSelection.end;
 
               // Look up broken-protein status from the pre-computed map (for CDS/ORF features)
               const isBroken = brokenFeatureMap.get(f) ?? false;
+
+              const biologicalFeature = originalPositions ? {
+                ...f,
+                segments: f.segments?.map(segment => ({
+                  ...segment,
+                  start: originalPositions[segment.start],
+                  end: originalPositions[segment.end],
+                })),
+              } : f;
 
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
@@ -283,7 +320,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
-                ...frameshiftSummary(f),
+                ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
@@ -309,6 +346,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   <React.Fragment key={`${i}-${keySuffix}`}>
                     <path
                       data-annotation-part=""
+                      data-annotation-feature={f.name}
+                      data-state={isSelected ? 'selected' : 'unselected'}
                       data-x={fX}
                       data-width={Math.max(1, fW)}
                       d={barPath}
@@ -318,8 +357,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
                       style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                      onMouseOver={(ev) => setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() })}
-                      onMouseOut={() => setTooltip(null)}
+                      onPointerOver={(ev) => {
+                        if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
+                      }}
+                      onPointerOut={() => setTooltip(null)}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onViewDetails?.(l.id, f);
@@ -334,7 +375,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                         onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
                       }}
                     />
-                    <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType}
+                    <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType} alphabet={annotationAlphabet}
                       start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
                       scrollX={scrollX} viewportWidth={viewportWidth} />
                   </React.Fragment>
@@ -363,6 +404,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (xEnd > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-wrap-1-${idx}`}
                           x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, xEnd)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
@@ -372,6 +414,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (x2 > 0 && xStart < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-wrap-2-${idx}`}
                           x1={Math.max(0, xStart)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
@@ -386,6 +429,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     if (gapEnd > gapStart && x2 > 0 && x1 < viewportWidth) {
                       connectingLines.push(
                         <line 
+                          data-annotation-connector=""
                           key={`line-${idx}`}
                           x1={Math.max(0, x1)} y1={lineY} x2={Math.min(viewportWidth, x2)} y2={lineY} 
                           stroke={f.color || getFeatureColor(f.type, customColors)} strokeWidth={1} opacity={0.4} strokeDasharray="2,1"
@@ -396,8 +440,16 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 }
                 
                 const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
-                const marks = segmentFrameshifts(f).map(({ position, shift }) => {
-                  const mx = xScale(position) - scrollX;
+                // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
+                const crossesOrigin = f.segments.some((s1, k) => k < f.segments!.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > f.segments![k + 1].start);
+                const terminalIdx = terminalSegmentIndex(f);
+                const displayStarts = new Map(f.segments.map(segment => [
+                  originalPositions ? originalPositions[segment.start] : segment.start,
+                  segment.start,
+                ]));
+                const marks = segmentFrameshifts(biologicalFeature).map(({ position, shift }) => {
+                  const displayPosition = displayStarts.get(position) ?? position;
+                  const mx = xScale(displayPosition) - scrollX;
                   if (mx < -30 || mx > viewportWidth + 30) return null;
                   // A tick on the shared (or skipped) base and a badge naming the shift.
                   return (
@@ -411,14 +463,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return place(
                   <>
                     {connectingLines}
-                    {f.segments.map((seg: FeatureSegment, idx: number) => {
-                      // Only the piece where the feature ends (its 3′ side) gets the arrow head.
-                      const segStrand = seg.strand ?? getFeatureStrand(f);
-                      const terminal = segStrand === -1
-                        ? seg.start === Math.min(...f.segments!.map(x => x.start))
-                        : seg.end === Math.max(...f.segments!.map(x => x.end));
-                      return renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, terminal, idx === labelIdx);
-                    })}
+                    {f.segments.map((seg: FeatureSegment, idx: number) =>
+                      renderPart(seg.start, seg.end, `seg-${idx}`, seg.strand, idx === terminalIdx, idx === labelIdx || crossesOrigin))}
                     {marks}
                   </>
                 );
@@ -428,7 +474,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 return place(
                   <>
                     {renderPart(f.start, seq.length, 'p1', undefined, getFeatureStrand(f) === -1)}
-                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1, !partVisible(f.start, seq.length))}
+                    {renderPart(0, f.end, 'p2', undefined, getFeatureStrand(f) !== -1)}
                   </>
                 );
               }
@@ -454,7 +500,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 key={track.id} 
                 className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5" 
                 style={{ height: track.height, top: trackTop }}
-                onMouseMove={(e) => {
+                onPointerMove={(e) => {
+                  if (!showsHoverTooltip(e.pointerType)) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
@@ -469,7 +516,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     setTooltip(null);
                   }
                 }}
-                onMouseLeave={() => setTooltip(null)}
+                onPointerLeave={() => setTooltip(null)}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();

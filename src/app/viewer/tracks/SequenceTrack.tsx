@@ -17,16 +17,22 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { CompletedSearch } from '@/src/app/logic/searchState';
+import { matchLineSymbol } from '@/src/core/search/hitColumns';
+import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
 import * as d3 from 'd3';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
-import type { BioFeature, SearchResult } from '@/src/domain/bio/types';
+import type { BioFeature, SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, type TranslationLanes } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
+  record?: SeqRecord;
+  completedSearch?: CompletedSearch | null;
   seq: string;
   moleculeType?: 'dna' | 'rna' | 'protein';
   xScale: d3.ScaleLinear<number, number>;
@@ -42,20 +48,46 @@ export interface SequenceTrackProps {
   searchResults: SearchResult[];
   allSearchResults: SearchResult[];
   currentSearchIdx: number;
+  /** Compare this row against the reference; null (and the reference row itself) draws every residue in its own colour. */
+  comparison?: ActiveComparison | null;
 }
 
+/** Residues the comparison does not highlight: present, but quiet. */
+const MUTED_FILL = '#e2e8f0';
+const MUTED_TEXT = '#94a3b8';
+const MATCH_DOT = '#64748b';
+/** A deletion against the reference: dark enough to stand out among the dots, as Nextclade marks deletions. */
+const INDEL_FILL = '#475569';
+
+const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined) =>
+  comparisonStyle(char, comparison?.referenceSeq[column], comparison);
+
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
-  seq, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
-  conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx
+  seq, record, completedSearch, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
+  conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx, comparison
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const queryRef = useRef<HTMLCanvasElement>(null);
   const forwardRef = useRef<HTMLCanvasElement>(null);
   const reverseRef = useRef<HTMLCanvasElement>(null);
   const translationVisible = showTranslation && zoomLevel > TRANSLATION_MIN_ZOOM && moleculeType !== 'protein';
   const forwardHeight = AA_ROW_HEIGHT * translationLanes.forward;
   const reverseHeight = AA_ROW_HEIGHT * translationLanes.reverse;
-  const bandTop = y - (translationVisible ? forwardHeight : 0);
+  const queryHeight = searchResults.length ? SEARCH_QUERY_LANE_HEIGHT : 0;
+  const bandTop = y - queryHeight - (translationVisible ? forwardHeight : 0);
 
+
+  const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
+  const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
+  const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
+  const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
+  const vEnd = Math.min(seq.length, Math.ceil((scrollX + viewportWidth) / zoomLevel));
+  const marks = useMemo(() => record && completedSearch
+    ? visibleMarks(searchResults, activeInRow, record, completedSearch, vStart, vEnd)
+    : { marks: [], insertions: [] }, [record, completedSearch, searchResults, activeInRow, vStart, vEnd]);
+  const activeMarks = useMemo(() => record && completedSearch && activeInRow
+    ? visibleMarks([activeInRow], activeInRow, record, completedSearch, vStart, vEnd)
+    : { marks: [], insertions: [] }, [record, completedSearch, activeInRow, vStart, vEnd]);
 
   // Frames and frameshifts are read in biological bases, so an alignment gap
   // between two codons is neither a frame change nor a skipped base.
@@ -99,7 +131,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       const isActive = r === activeResult;
       
       const applyHighlight = (start: number, end: number) => {
-        for (let k = start; k < end; k++) {
+        if (zoomLevel < 0.5) return;
+        for (let k = Math.max(start, vStart); k < Math.min(end, vEnd); k++) {
           if (k < vStart || k >= vEnd) continue;
           const existing = highlightMap.get(k);
           if (!existing || (!existing.isActive && isActive)) {
@@ -127,7 +160,9 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       { ctx: forwardCtx, highlightY: 0 },
       { ctx: reverseCtx, highlightY: -forwardHeight - NT_ROW_HEIGHT },
     ];
-    searchResults.forEach(r => {
+    const backgroundOrder = [...searchResults].reverse().filter(r => r !== activeResult);
+    if (activeResult && searchResults.includes(activeResult)) backgroundOrder.push(activeResult);
+    backgroundOrder.forEach(r => {
       const isActive = r === activeResult;
       
       const renderMatch = (start: number, end: number) => {
@@ -166,6 +201,9 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // For very large records at low zoom, rendering one rect per base causes
     // hundreds of thousands of draw calls per frame. Switch to pixel columns.
     if (zoomLevel < 0.5) {
+      const hitPixels = searchResults.flatMap(r => r.segments?.length ? r.segments : r.start <= r.end ? [r]
+        : [{ start: r.start, end: seq.length }, { start: 0, end: r.end }])
+        .map(span => ({ start: xScale(span.start) - scrollX, end: xScale(span.end) - scrollX }));
       const pxStart = Math.max(0, Math.floor(xScale(vStart) - scrollX));
       const pxEnd = Math.min(viewportWidth, Math.ceil(xScale(vEnd) - scrollX));
 
@@ -173,9 +211,12 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const bp = Math.max(0, Math.min(seq.length - 1, Math.floor((scrollX + px + 0.5) / zoomLevel)));
         const char = seq[bp] || '-';
         const isGap = char === '-';
+        const style = residueStyle(char, bp, comparison);
+        const quiet = style === 'muted' || style === 'dot';
 
-        ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
-        ctx.globalAlpha = isGap ? 0.35 : 0.8;
+        if (hitPixels.some(span => px < span.end && px + 1.2 > span.start)) continue;
+        ctx.fillStyle = style === 'indel' ? INDEL_FILL : isGap ? '#f1f5f9' : quiet ? MUTED_FILL : getResidueColor(char);
+        ctx.globalAlpha = style === 'indel' ? 0.8 : isGap ? 0.35 : quiet ? 0.5 : 0.8;
         ctx.fillRect(px, seqY, 1.2, NT_ROW_HEIGHT);
       }
     } else {
@@ -189,27 +230,90 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         if (cX + cW < 0) continue;
 
         const highlight = highlightMap.get(j);
-        if (!highlight) {
-          ctx.fillStyle = isGap ? '#f1f5f9' : getResidueColor(char);
-          ctx.globalAlpha = isGap ? 0.5 : 0.9;
+        const style = residueStyle(char, j, comparison);
+        const lettersVisible = zoomLevel > 12;
+        // With letters visible, an identical residue is just its dot on the bare track.
+        const dotOnly = style === 'dot' && lettersVisible;
+        if (!highlight && !dotOnly) {
+          ctx.fillStyle = style === 'indel' ? INDEL_FILL : isGap ? '#f1f5f9' : style === 'normal' ? getResidueColor(char) : MUTED_FILL;
+          ctx.globalAlpha = style === 'indel' ? 0.9 : isGap ? 0.5 : style === 'normal' ? 0.9 : 0.6;
           ctx.fillRect(cX, seqY, cW, NT_ROW_HEIGHT);
         }
 
-        if (zoomLevel > 12) {
-          if (!highlight) {
+        if (lettersVisible) {
+          if (!highlight && !dotOnly) {
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 0.5;
             ctx.strokeRect(cX, seqY, cW, NT_ROW_HEIGHT);
           }
 
           ctx.globalAlpha = 1.0;
-          ctx.fillStyle = (isGap && !highlight) ? '#94a3b8' : (highlight ? '#000' : '#fff');
+          ctx.fillStyle = highlight ? '#000'
+            : style === 'indel' ? '#fff'
+            : isGap ? '#94a3b8'
+            : style === 'dot' ? MATCH_DOT
+            : style === 'muted' ? MUTED_TEXT
+            : '#fff';
           ctx.font = `600 10px ${MONO_STACK}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
+          ctx.fillText(dotOnly && !highlight ? '·' : char, cX + cW/2, seqY + NT_ROW_HEIGHT/2);
         }
       }
+    }
+
+    const queryCtx = prepareCanvas(queryRef.current, SEARCH_QUERY_LANE_HEIGHT);
+    const lettersVisible = zoomLevel > 12;
+    ctx.globalAlpha = 1;
+    for (const mark of marks.marks) {
+      const x = xScale(mark.column) - scrollX;
+      const width = Math.max(1, zoomLevel);
+      if (mark.cls === 'mismatch' || mark.cls === 'deletion') {
+        ctx.fillStyle = mark.cls === 'mismatch' ? '#0f172a' : '#475569';
+        if (!lettersVisible && mark.cls === 'mismatch' && queryCtx) {
+          queryCtx.fillStyle = '#0f172a';
+          queryCtx.fillRect(x, SEARCH_QUERY_LANE_HEIGHT - 5, width, 4);
+        } else ctx.fillRect(x, seqY, width, NT_ROW_HEIGHT);
+        if (lettersVisible) {
+          ctx.fillStyle = '#fff';
+          ctx.fillText(mark.recordBase, x + zoomLevel / 2, NT_ROW_HEIGHT / 2);
+        }
+      } else if (lettersVisible && (mark.cls === 'ambiguity' || mark.cls === 'similar')) {
+        ctx.save();
+        ctx.strokeStyle = '#0f172a';
+        ctx.setLineDash(mark.cls === 'ambiguity' ? [1, 2] : [3, 2]);
+        if (mark.cls === 'similar') ctx.strokeRect(x + 1, 1, width - 2, NT_ROW_HEIGHT - 2);
+        else { ctx.beginPath(); ctx.moveTo(x + 2, NT_ROW_HEIGHT - 3); ctx.lineTo(x + width - 2, NT_ROW_HEIGHT - 3); ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+    if (queryCtx && activeInRow && lettersVisible) {
+      queryCtx.font = `600 10px ${MONO_STACK}`;
+      queryCtx.textAlign = 'left';
+      queryCtx.fillStyle = '#475569';
+      queryCtx.fillText(activeInRow.strand === -1 ? 'Query (reverse complement)' : 'Query', 4, 10);
+      queryCtx.textAlign = 'center';
+      for (const mark of activeMarks.marks) {
+        const x = xScale(mark.column) - scrollX + zoomLevel / 2;
+        queryCtx.fillStyle = mark.cls === 'mismatch' ? '#0f172a' : '#64748b';
+        queryCtx.fillText(mark.queryLetter ?? '−', x, 29);
+        queryCtx.fillText(matchLineSymbol(mark.cls), x, 43);
+      }
+    }
+    for (const insertion of marks.insertions) {
+      const x = xScale(insertion.afterColumn + 1) - scrollX;
+      ctx.fillStyle = ctx.strokeStyle = '#7c3aed';
+      ctx.beginPath(); ctx.moveTo(x - 4, 0); ctx.lineTo(x + 4, 0); ctx.lineTo(x, 5); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, NT_ROW_HEIGHT); ctx.stroke();
+    }
+    if (queryCtx && lettersVisible) for (const insertion of activeMarks.insertions) {
+      const x = xScale(insertion.afterColumn + 1) - scrollX;
+      queryCtx.font = `600 10px ${MONO_STACK}`;
+      queryCtx.textAlign = 'center';
+      queryCtx.fillStyle = '#7c3aed';
+      queryCtx.fillRect(x - insertion.bases.length * 3.5 - 2, 0, insertion.bases.length * 7 + 4, 13);
+      queryCtx.fillStyle = '#fff';
+      queryCtx.fillText(insertion.bases, x, 10);
     }
 
     // 2. Render Translation (CDS/ORF annotation features only)
@@ -242,36 +346,39 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
           if (startIdx === undefined || endIdx === undefined) continue;
 
-          const lo = Math.min(startIdx, endIdx);
-          const aX = xScale(lo) - scrollX;
-          const aW = xScale(Math.max(startIdx, endIdx) + 1) - xScale(lo);
+          const pieces = codonSpans(alignedIndices.slice(j, j + 3), originalPositions);
+          const labelPiece = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
           const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
           // Each codon sits in the row of its own frame, so a ribosomal frameshift
           // inside a join steps rows exactly where translation changes frame.
           const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
 
-          if (aX + aW < 0 || aX > viewportWidth) continue;
-
           // An early stop is a stop codon that is NOT the last codon in the sequence
           const isEarlyStop = isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
 
-          ctx.globalAlpha = 0.9;
-          ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
-          ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+          for (const piece of pieces) {
+            const aX = xScale(piece.start) - scrollX;
+            const aW = xScale(piece.end) - xScale(piece.start);
+            if (aX + aW < 0 || aX > viewportWidth) continue;
 
-          // The nucleotide cells' white hairline: it parts codons in a row and,
-          // where a frameshift stacks two frames, the rows themselves.
-          ctx.globalAlpha = 1.0;
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
+            ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
 
-          ctx.fillStyle = '#fff';
-          ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+            // The nucleotide cells' white hairline: it parts codons in a row and,
+            // where a frameshift stacks two frames, the rows themselves.
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
+
+            ctx.fillStyle = '#fff';
+            if (piece === labelPiece) ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+          }
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
@@ -279,13 +386,26 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const motionClass = showTranslation && moleculeType !== 'protein' ? 'translation-motion' : undefined;
 
   return <>
-    <canvas ref={canvasRef} className={motionClass} data-sequence-band=""
+    {searchResults.length > 0 && <canvas data-query-band="" ref={queryRef} aria-hidden="true"
+      style={{ ...canvasStyle, height: SEARCH_QUERY_LANE_HEIGHT, transform: `translateY(${y - SEARCH_QUERY_LANE_HEIGHT}px)` }} />}
+    {marks.marks.filter(mark => mark.recordAmbiguity).map(mark => <button key={`ambiguity-${mark.column}`} type="button"
+      aria-label="Ambiguity code in the record: the search doesn't count it as a match"
+      data-tip="Ambiguity code in the record: the search doesn't count it as a match"
+      style={{ position: 'absolute', left: xScale(mark.column) - scrollX, top: y,
+        width: Math.max(3, zoomLevel), height: NT_ROW_HEIGHT, background: 'transparent', zIndex: 1 }} />)}
+    {marks.insertions.map(insertion => <button key={insertion.afterColumn} type="button"
+      aria-label={insertionDescription(insertion, residueCount)}
+      data-tip={insertionDescription(insertion, residueCount)}
+      style={{ position: 'absolute', left: xScale(insertion.afterColumn + 1) - scrollX - 5, top: y - 5,
+        width: 10, height: NT_ROW_HEIGHT + 5, background: 'transparent', zIndex: 2 }} />)}
+    <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
+      data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
     {moleculeType !== 'protein' && <>
-      <canvas ref={forwardRef} className="translation-band" aria-hidden={!translationVisible}
+      <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${bandTop + (translationVisible ? 0 : 3)}px)` }} />
-      <canvas ref={reverseRef} className="translation-band" aria-hidden={!translationVisible}
+      <canvas ref={reverseRef} data-translation-band="reverse" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: reverseHeight, opacity: translationVisible ? 1 : 0,
           transform: `translateY(${y + NT_ROW_HEIGHT}px)` }} />
     </>}

@@ -19,9 +19,12 @@
 
 export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
 export { calculateConsensus } from './consensus';
+export { compareToReference } from './referenceComparison';
+export type { ResidueComparison, ComparisonAlphabet } from './referenceComparison';
 export { clipInterval, clipSegments, splitWrapAround, sliceRecordsBySelection } from './intervals';
 export {
   reverseComplement,
+  complementAlphabet,
   translateSequence,
   extractCodingSequence,
   detectEarlyStop,
@@ -39,6 +42,8 @@ export {
 
 export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {
+  DetailKey,
+  SequenceDetails,
   FeatureSegment,
   BioFeature,
   QuantitativeTrack,
@@ -51,3 +56,12 @@ export type {
 export { getFeatureStrand } from './strand';
 export { segmentFrameshifts } from './frameshift';
 export type { FrameShift, SegmentFrameshift } from './frameshift';
+
+export { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited, validateDetail } from './details';
+export { INSDC_COUNTRIES, INSDC_MISSING_TERMS } from './insdcVocabulary';
+export { isSourceFeature, annotationFeatures, isUnannotated, isPartial, isEdited, needsAttention, isolateOf } from './recordStatus';
+
+export { featureEnvelope } from './featureEnvelope';
+
+export { parseCigar, formatCigar, cigarSpans, expandCigar } from './cigar';
+export type { CigarOp } from './cigar';

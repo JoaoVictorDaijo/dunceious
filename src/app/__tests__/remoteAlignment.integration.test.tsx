@@ -66,7 +66,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(
 
 async function loadApp() {
   const view = render(<App />);
-  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', records } }));
+  await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records } }));
   return view;
 }
 async function beginAlignment() {
@@ -86,12 +86,13 @@ async function start() {
 
 describe('remote alignment application integration', () => {
   it('locks controls and every mutation handler while permitting monitor reopen', async () => {
-    const view = await start();
+    await start();
     const reader = vi.spyOn(FileReader.prototype, 'readAsText');
+    const ingestion = document.querySelector<HTMLElement>('[data-ingestion-section]')!;
     for (const accept of ['.gb,.genbank,.fasta,.fa', '.fasta,.fa', '.json']) {
-      const input = view.container.querySelector<HTMLInputElement>(`input[accept="${accept}"]`)!;
+      const input = ingestion.querySelector<HTMLInputElement>(`[data-drop-input][accept="${accept}"]`)!;
       expect(input.disabled).toBe(true);
-      expect(input.parentElement?.getAttribute('data-tip')).toBe('Locked while the EBI alignment runs');
+      expect(input.closest('[data-drop]')?.getAttribute('data-tip')).toBe('Locked while the EBI alignment runs');
     }
     const event = { target: { files: [new File(['>x\nAC'], 'x.fa')], value: 'x' } } as unknown as React.ChangeEvent<HTMLInputElement>;
     act(() => {
@@ -101,8 +102,12 @@ describe('remote alignment application integration', () => {
     act(() => captured.hub!.onClearAll());
     expect(reader).not.toHaveBeenCalled(); expect(window.prompt).not.toHaveBeenCalled();
     expect(captured.sidebar!.records).toHaveLength(2);
-    expect((screen.getByRole('button', { name: /Clear All/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByRole('button', { name: /^Remove / }).every(button => (button as HTMLButtonElement).disabled)).toBe(true);
+    fireEvent.click(within(screen.getByRole('region', { name: 'Annotations' })).getByRole('checkbox', { name: 'Select sequence seq1' }));
+    expect((screen.getByRole('button', { name: 'Remove…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
+    expect((screen.getByRole('button', { name: 'Clear workspace…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Project and options' }), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
     const alignmentSection = screen.getByRole('region', { name: 'Alignment' });
     expect(within(alignmentSection).getByRole('status').textContent).toBe('MAFFT · Checking job status');
     fireEvent.click(within(alignmentSection).getByRole('button', { name: 'Alignment running' }));
@@ -115,7 +120,7 @@ describe('remote alignment application integration', () => {
   it('applies exact IDs through the shared reducer and fades the successful pill', async () => {
     await start(); vi.useFakeTimers();
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 bp).'))).toBe(true);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
     expect(screen.getByRole('button', { name: /Aligned/ })).toBeTruthy();
@@ -141,7 +146,7 @@ describe('remote alignment application integration', () => {
     expect(captured.client!.submit).toHaveBeenCalledTimes(2);
     expect(captured.sidebar!.isAlignmentLocked).toBe(true);
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
-    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1 (1)', 'AGC']]);
+    expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
   });
 });
@@ -183,9 +188,9 @@ it('reopens consent after revocation without sending a request', async () => {
 it('places a dedicated Alignment section immediately above Sequence Search, outside Ingestion', async () => {
   await loadApp();
   const alignment = screen.getByRole('region', { name: 'Alignment' });
-  const search = screen.getByRole('heading', { name: 'Sequence Search' }).closest('section');
-  const ingestion = screen.getByRole('heading', { name: 'Ingestion' }).closest('section')!;
-  expect(search?.previousElementSibling).toBe(alignment);
+  const search = document.querySelector<HTMLElement>('[data-sequence-search-section]')!;
+  const ingestion = document.querySelector<HTMLElement>('[data-ingestion-section]')!;
+  expect(alignment.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(within(alignment).getByRole('heading', { name: 'Alignment' })).toBeTruthy();
   expect(within(alignment).getByRole('button', { name: 'Align sequences' })).toBeTruthy();
   expect(within(ingestion).queryByRole('button', { name: 'Align sequences' })).toBeNull();

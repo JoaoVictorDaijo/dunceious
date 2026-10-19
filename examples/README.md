@@ -25,6 +25,7 @@ examples/
 │   ├── human-mitochondrion-NC_012920.gb
 │   ├── influenza-a-pr8-8segments.gb
 │   ├── coronaviruses/      # aligned set
+│   ├── sars-cov-2-variants/ # aligned set, with its alignment
 │   ├── t4-phages/          # aligned set
 │   └── t7-phages/          # aligned set
 └── peptide/
@@ -73,6 +74,17 @@ limit, and the heaviest load among the examples.
 
 All three exercise the RNA molecule-type path. In each, the polymerase
 `mat_peptide` shares its slip base with the ORF1ab polyprotein.
+
+### `nucleotide/sars-cov-2-variants/` — variants of one species, pre-aligned
+
+| File | Accession | Size | Highlights |
+|------|-----------|------|------------|
+| `variants.gb` | [OL461693](https://www.ncbi.nlm.nih.gov/nuccore/OL461693.1), [OR279985](https://www.ncbi.nlm.nih.gov/nuccore/OR279985.1), [OR323867](https://www.ncbi.nlm.nih.gov/nuccore/OR323867.1) | 3 records, ~29.7 kb each | Alpha (B.1.1.7), Delta (B.1.617.2) and Omicron (BA.1.1, a BA.1 sublineage) in one file. |
+| `aligned.fasta` | — | 4 rows | A MAFFT alignment of the three against `coronaviruses/sars-cov-2-NC_045512.gb`. Load `variants.gb` and the reference as sequences, then `aligned.fasta` as an alignment. |
+
+Where the other sets differ between species, this one differs by point
+mutations and short deletions within one. It feeds the phone test drive; see
+its [README](nucleotide/sars-cov-2-variants/README.md) and `PROVENANCE.json`.
 
 ## Nucleotide single records
 

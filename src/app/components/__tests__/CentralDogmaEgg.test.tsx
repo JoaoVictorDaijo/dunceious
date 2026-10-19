@@ -19,12 +19,21 @@
 
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { act, fireEvent, render, screen, within, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { CLOSE_GUARD_MS, UNLOCK_TAPS } from '@/src/app/logic/easterEgg';
 import CentralDogmaEgg from '../CentralDogmaEgg';
 import StatusBar from '../StatusBar';
 
+let recorder: CanvasRecorder;
+beforeEach(() => { recorder = installCanvasRecorder(); });
+
 describe('CentralDogmaEgg', () => {
+
+  it('draws the transcribed mRNA on the replay canvas', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    act(() => { vi.advanceTimersByTime(32); });
+    expect(recorder.texts()).toContain("5′ mRNA");
+  });
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 
@@ -54,10 +63,27 @@ describe('CentralDogmaEgg', () => {
     expect(screen.getByLabelText('Translated protein').textContent).toMatch(/^D.*U.*N.*C.*E.*I.*O.*U.*S/);
   });
 
-  it('signs the finale with passion, not a heart icon', () => {
-    const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
-    expect(screen.getByText('Made with passion and built for science')).toBeTruthy();
-    expect(container.querySelector('.fa-heart')).toBeNull();
+  it('plays the whole story even when the system asks for reduced motion', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query }));
+    try {
+      render(<CentralDogmaEgg onClose={() => {}} />);
+      expect(screen.queryByText('DUNCEIOUS expressed')).toBeNull();
+      expect(screen.getByText('DNA')).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('plays a replay again on request', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Play animation/ }));
+    expect(screen.queryByText('DUNCEIOUS expressed')).toBeNull();
+  });
+
+  it('signs the finale with the science credit', () => {
+    render(<CentralDogmaEgg replay onClose={() => {}} />);
+    const finale = screen.getByText('Made with passion and built for science');
+    expect(finale.textContent?.replace(/\s+/g, ' ').trim()).toBe('Made with passion and built for science');
   });
 
   it('credits both authors on the finished frame without closing when a card is clicked', () => {
@@ -81,10 +107,14 @@ describe('CentralDogmaEgg', () => {
 
   it('falls back to a glyph when an avatar fails to load', () => {
     const { container } = render(<CentralDogmaEgg replay onClose={() => {}} />);
-    const img = container.querySelector('img');
+    const author = screen.getByRole('link', { name: /JoaoVictorDaijo/ });
+    const img = author.querySelector('[data-author-avatar]');
     expect(img).toBeTruthy();
     fireEvent.error(img!);
-    expect(container.querySelectorAll('img').length).toBe(1);
+    expect(author.querySelector('[data-author-avatar]')).toBeNull();
+    expect(author.querySelector('[data-author-avatar-fallback]')).toBeTruthy();
+    expect(within(screen.getByRole('link', { name: /MuriloACassiano/ })).getByText('MuriloACassiano')).toBeTruthy();
+    expect(container.querySelectorAll('[data-author-avatar]')).toHaveLength(1);
   });
 });
 

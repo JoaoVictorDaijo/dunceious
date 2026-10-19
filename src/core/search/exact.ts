@@ -17,8 +17,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { iupacPath } from './editPath';
 import { degenerateToRegex } from '@/src/core/search/query';
-import { reverseComplement, getNonGapSegments, detectMoleculeType } from '@/src/domain/bio';
+import { reverseComplement, getNonGapSegments, complementAlphabet } from '@/src/domain/bio';
 import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
 
 /**
@@ -54,6 +55,7 @@ export function runExactSearch(
         const start = match.index;
         const end = match.index + match[0].length;
         results.push({
+          cigar: iupacPath(searchQuery, match[0].replace(/-/g, '')),
           start,
           end,
           sequence: match[0],
@@ -67,7 +69,7 @@ export function runExactSearch(
 
     // Reverse search (nucleotide only — proteins have no reverse complement)
     if (!isProtein && (strand === 'both' || strand === 'rev')) {
-      const rcSeq = reverseComplement(seq, record.moleculeType ?? (moleculeType === 'rna' ? 'rna' : detectMoleculeType(seq)));
+      const rcSeq = reverseComplement(seq, complementAlphabet(seq, record.moleculeType ?? moleculeType));
       let match;
       regex.lastIndex = 0;
       while ((match = regex.exec(rcSeq)) !== null) {
@@ -76,6 +78,7 @@ export function runExactSearch(
         const start = L - rcEnd;
         const end = L - rcStart;
         results.push({
+          cigar: iupacPath(searchQuery, match[0].replace(/-/g, '')),
           start,
           end,
           sequence: match[0],

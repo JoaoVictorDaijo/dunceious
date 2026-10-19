@@ -13,11 +13,123 @@ All notable changes to Dunceious. Format loosely follows
 > **`2.0.0`** marks the layered-architecture rewrite. See `CLAUDE.md` →
 > *Versioning & releases* for the going-forward process.
 
+> **Renumbered 3.x line.** `3.0.0`–`3.1.0` were first published and tagged as
+> `2.8.0`, `2.8.1` and `2.9.0`. The Annotation Hub release (`3.0.0`) is a major
+> change, so it and the two releases after it moved to the `3.x` line on
+> 2026-10-15. Exports stamped `2.8.0`, `2.8.1` or `2.9.0` match `3.0.0`, `3.0.1`
+> and `3.1.0`. The discarded pre-reconstruction `3.4.0` is unrelated to this
+> line.
+
 ## [Unreleased]
 
-## [2.8.0] — 2026-10-09
+## [3.6.0] — 2026-10-19
 
 ### Added
+
+- Test-drive the Annotation Hub, Export dialog, details panel, Conservation and Compare on a phone, over an aligned SARS-CoV-2 reference with Alpha, Delta and Omicron genomes. On the desktop workbench too, the Annotation Hub no longer crashes when two jumps land in quick succession at short window heights.
+
+### Fixed
+
+- Prevent touch taps from opening viewer hover tooltips while preserving mouse and pen hover.
+
+## [3.5.1] — 2026-10-18
+
+### Changed
+
+- Each release on main is tagged vX.Y.Z automatically by the Release tag workflow instead of by hand.
+
+## [3.5.0] — 2026-10-18
+
+### Added
+
+- Add Local alignment search and a per-base hit view with alignment text and a query layer for annotations made from hits.
+
+### Changed
+
+- Keep the viewport layer toggles in the top bar on office screens: Project moves into the cog, and Compare and Clear selection move to the viewport toolbar.
+
+### Fixed
+
+- The version-tap easter egg plays its animation even when the system asks for reduced motion, instead of skipping to the last frame; replays offer a Play animation button.
+
+## [3.4.0] — 2026-10-16
+
+### Changed
+
+- Fuzzy search finds the whole query at the slider's minimum identity, applied during the search, and shows each hit's identity and edits. Long queries finish in milliseconds instead of timing out into a coarser local fallback.
+
+### Fixed
+
+- Reverse-strand search finds hits again in RNA genomes that GenBank writes with T, such as SARS-CoV-2, in both IUPAC and fuzzy modes.
+
+## [3.3.0] — 2026-10-16
+
+### Added
+
+- Compare aligned sequences against a chosen reference: highlight differences (identical residues as dots) or identity, with ambiguity codes never counted either way.
+- Phones can test-drive the workbench sideways with sample data, and the greeter says plainly where your files go. Phones no longer open the full workbench; nothing done in the test drive is saved or sent.
+- Pan and pinch-zoom the genome viewer by touch, and tap or drag its minimap to navigate.
+
+## [3.2.0] — 2026-10-15
+
+### Added
+
+- Phones open a landing page with a drag-to-zoom SARS-CoV-2 genome and a short tour, instead of the desktop workbench.
+
+### Changed
+
+- The Annotation Hub card stays neutral like the viewport canvas; the accent marks only the current section's edge and name, tabs, edit marks and the overview rail.
+- Save project, Open project and Clear workspace moved to a Project menu in the top bar, next to Options, in both modes.
+
+### Fixed
+
+- Release sidebar drag listeners when the sidebar unmounts during resizing.
+
+## [3.1.0] — 2026-10-14
+
+### Changed
+
+- The feature editor’s Display Name field is associated with its label for accessible editing.
+- CI verifies the production build in the browser, and release notes are assembled from per-PR fragments.
+- Offer Add sequences, Save project and Clear workspace beside the viewport’s Record Navigator title, matching the hub’s Sequence index.
+
+### Fixed
+
+- Keep both pieces of an origin-crossing annotation in one Hub genome-track lane, and include both pieces in the Hub’s visible-row track window.
+- Ignore stale genomic processing results after workspace edits, clearing, hiding all records, or replacement.
+- Clear sequence search state and discard pending search results when workspace records change.
+
+## [3.0.1] — 2026-10-14
+
+### Changed
+
+- The Import button in the Annotation Hub top bar drops its chevron.
+
+### Fixed
+
+- Keep the Hub sequence and feature index scroll position when hiding or showing sequences.
+- Joins that cross the origin of a circular sequence draw their arrow head at
+  the feature's true 3′ end instead of at the sequence end, and both pieces show
+  the feature's name.
+
+## [3.0.0] — 2026-10-14  —  Annotation Hub (major)
+
+### Added
+
+- Per-annotation edited/added marks, counts and an edited-only Hub filter;
+  project files preserve the marks and interchange exports omit them.
+- Per-tab three-state column sorting within Hub groups, preserving group order
+  and restoring file order when switched off.
+- Strand-packed Hub genome tracks with hover and keyboard details, a base/kilobase
+  ruler, and amber windows linking visible rows to the header and index.
+- Keyboard shortcuts sheet opened with `?` or the sidebar button.
+- Annotation Hub index with List/Grouped modes, sequence and feature tabs,
+  virtualized groups, genome strips, overview navigation, annotation
+  search stepping, filters, keyboard controls and persistent session state.
+- Sequence details editing with imported-value provenance and Revert, bulk
+  fill-empty edits, project-only display names, and annotation deletion Undo.
+- Subset export dialog with per-format options and a contents/omissions preview;
+  ordered sequence/annotation drops with collision-aware batch routing.
 - Align inside Dunceious through EMBL-EBI's Job Dispatcher (MAFFT by default,
   Kalign, Clustal Omega or MUSCLE) from a new **Alignment** sidebar section. It
   is opt-in behind an explicit data-sharing agreement, checks every input
@@ -41,6 +153,42 @@ All notable changes to Dunceious. Format loosely follows
   credits the authors on its final frame (#115, #129, #132).
 
 ### Changed
+
+- Hub Import and Export sit side by side; Add annotation moves to the filter bar, Save/Clear to the Sequence index, and search gains calmer focus and query-only match controls.
+
+- Hub groups share rounded cards; full headers scroll away into slim live-track
+  bars. Group navigation, search ticks and a draggable thumb share one scroll rail.
+- Row actions sit inline in the name cell; repeat clicking or Escape clears the
+  current row, whose track highlight stays pinned while other tooltips appear.
+  Viewport return rows carry an amber Last focused chip.
+- Hidden-sequence controls sit in the index title without shifting cards. Export
+  has purpose/destination format cards, counted quick picks, qualifier tables and
+  a filename field under the summary.
+- The workspace switcher stays centred; Hub search, Add, Export and More move into
+  the header. Viewport layers collapse into a popover when toolbar space is limited.
+- Hub index uses windowed track cards, attention counts and an amber current card.
+  Rows, tabs, filters and selection actions use the session styling; row actions
+  appear on hover or focus and stay visible on touch devices.
+- Workspace IDs use sanitized underscore suffixes. GenBank/GenPept exports use
+  molecule-specific qualifier syntax and allowlists, separate ACCESSION/VERSION,
+  and INSDC quote escaping. GFF3 uses encoded attributes, Sequence Ontology types,
+  multipart IDs, CDS phases and full-length source-detail regions.
+- Whole-record FASTA exports default to original residues; alignment gaps and
+  NCBI detail modifiers are explicit options. Viewport selection exports retain
+  selected aligned columns.
+- Project format 2 preserves detail originals, edit markers, display names and
+  modifiers; earlier project formats are rejected without migration.
+- The By feature index shows one compact row per feature instead of a card with
+  a presence strip, fitting about three times as many features on screen.
+- The slim pinned bar shows the full packed track between the sequence name and
+  its counts. Once a full header reaches the top it pins with its name in view,
+  shrinks with the scroll, covering the rest of the header, and cross-fades into
+  the slim bar.
+- The Log Terminal is one collapsible section in both workspaces, closed by
+  default, with the same title, icon and chevron; its open state carries across
+  workspace switches.
+- The Annotation Hub's Sequence index has a **+** button that adds GenBank or
+  FASTA files without switching to the viewport.
 - Translation rows open only at a zoom where amino acids are drawn, with a short
   animation (#122).
 - Amino-acid boxes get the same white hairline as nucleotide cells, separating
@@ -48,6 +196,32 @@ All notable changes to Dunceious. Format loosely follows
 - Brighten the dark chrome along its slate hue (#116).
 
 ### Fixed
+
+- Focus uses authoritative annotation segments, and saving segment edits synchronizes the envelope used for culling and packing while preserving circular joins.
+- Frameshift badges and tooltip summaries use biological junctions, so alignment gaps neither invent nor hide shifts.
+- Codons crossing splice junctions or the circular origin draw and pack only their biological pieces, while alignment gaps remain continuous.
+- Remote protein alignments restore terminal stops with gap padding, preserving stop annotations and aligned FASTA residues.
+- Removing a sequence discards its inline detail and display-name drafts before its ID can be reused.
+- Hub keyboard and search cursors follow surviving annotations through deletion and Undo, clearing deleted annotations and removed records.
+- Circular wrapping segments retain their biological length after coordinate edits.
+- Large quantitative tracks render in the Hub without overflowing the call stack.
+- GFF3 round trips preserve partial GenBank location endpoints on individual feature parts.
+- GFF3 source regions preserve non-detail qualifiers, flags and lists on export and annotation import.
+- GFF3 exports remap feature relationships and report references omitted by subset filters.
+- GFF3 exports retain canonical INSDC qualifier spelling for subsequent GenBank export.
+- GFF3 round trips preserve attribute lists separately from percent-encoded literal commas.
+- Selection exports discard stale CDS translations and recalculate reading frames after clipping.
+- Selection exports clip actual annotation parts, retaining circular parts and excluding intron-only features.
+- GFF3 CDS exports recalculate imported phases after reading-frame or geometry edits.
+- Project loading rejects unsafe workspace IDs without changing stored references.
+- GFF3 imports initialize CDS reading frames from the first transcription part phase.
+
+- Hub current-group highlights switch at the reading line while the preceding
+  card is still visible; jumps retain their target until scrolling, and trailing
+  slim bars use neutral styling.
+- The index Sort control appears only in By sequence, where it orders the
+  sequences, sits beside Needs attention, and names its options plainly
+  (Load order, Accession (A–Z), Fewest annotations first).
 - Annotations stay one continuous bar across alignment gaps instead of breaking
   at every gap (#119).
 - Pre-aligned FASTA files whose IDs contain spaces, such as the `seq1 (1)` IDs

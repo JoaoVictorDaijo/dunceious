@@ -72,11 +72,11 @@ describe('updateSelectionAfterRecordRemoval', () => {
 });
 
 function makeResult(recordId: string): SearchResult {
-  return { start: 0, end: 3, sequence: 'ATG', recordId, strand: 1 };
+  return { cigar: '3=', start: 0, end: 3, sequence: 'ATG', recordId, strand: 1 };
 }
 
 describe('sanitizeSearchStateAfterRecordRemoval', () => {
-  // filteredResults index → recordId: 0→r1, 1→r2, 2→r1
+  // searchResults index → recordId: 0→r1, 1→r2, 2→r1
   const results = [makeResult('r1'), makeResult('r2'), makeResult('r1')];
 
   it('drops selected indices pointing at the removed record, keeps the rest', () => {
@@ -123,7 +123,7 @@ describe('sanitizeSearchStateAfterRecordRemoval', () => {
   });
 
   it('keeps a stale out-of-range selected index (optional-chaining short-circuit)', () => {
-    // index 9 is out of range → filteredResults[9]?.recordId is undefined,
+    // index 9 is out of range → searchResults[9]?.recordId is undefined,
     // which is !== recordId, so the stale index is retained rather than throwing.
     const { selectedSearchIndices } = sanitizeSearchStateAfterRecordRemoval(
       results, 1, new Set([1, 9]), 'r1',

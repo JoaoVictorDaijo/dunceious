@@ -93,7 +93,7 @@ describe('readFileAsText', () => {
 // ---------------------------------------------------------------------------
 
 describe('postToWorker', () => {
-  const request = { type: 'PARSE_GENBANK', content: 'x' } as BioWorkerRequest;
+  const request = { type: 'PARSE_GENBANK', filename: 'fixture.fa', content: 'x' } as BioWorkerRequest;
 
   it('posts and returns true when a worker is present', () => {
     const worker = { postMessage: vi.fn() };
@@ -112,7 +112,7 @@ describe('postToWorker', () => {
 // ---------------------------------------------------------------------------
 
 describe('dispatchFile', () => {
-  const request = { type: 'PARSE_GENBANK', content: 'ATGC' } as BioWorkerRequest;
+  const request = { type: 'PARSE_GENBANK', filename: 'fixture.fa', content: 'ATGC' } as BioWorkerRequest;
 
   function makeDeps(over: Partial<WorkerUploadDeps> = {}): WorkerUploadDeps {
     return {

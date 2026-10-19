@@ -18,16 +18,25 @@
  */
 
 import { ALIGNMENT_LOCK_TIP, type RemoteAlignmentState } from '@/src/app/logic/remoteAlignment';
-import React, { useState, useRef, useCallback } from 'react';
+import type { CompletedSearch, SearchAnnotationHit } from '../logic/searchState';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SeqRecord, SelectionArea, SearchResult } from '@/src/domain/bio/types';
+import type { SearchOptions } from '@/src/workers/protocol';
 import { getOriginalPos } from '@/src/domain/bio';
-import SearchPanel, { GroupedSearchResults } from './SearchPanel';
+import HubIndex from './hub/HubIndex';
+import type { useHubState } from '@/src/app/hooks/useHubState';
+import SearchPanel, { GroupedSearchResults, type SearchPanelProps } from './SearchPanel';
 import SectionTitle from './SectionTitle';
+import WorkspaceTitleActions from './WorkspaceTitleActions';
 import AlignmentSection from './AlignmentSection';
 import DropZone from './DropZone';
 import { useFileDragActive } from '@/src/app/hooks/useFileDragActive';
 
 export interface SidebarProps {
+  localSearch?: Pick<SearchPanelProps, 'localReady' | 'localError' | 'localJob' | 'localCounts' | 'onCancelLocalSearch'>;
+  featureColors?: Record<string, string>;
+  hubState?: ReturnType<typeof useHubState>;
+  onToggleRecordVisibility?: (id: string) => void;
   open: boolean;
   activeTab: 'alignment' | 'features';
   records: SeqRecord[];
@@ -52,25 +61,25 @@ export interface SidebarProps {
   onSearchQueryChange: (q: string) => void;
   searchMode: 'exact' | 'fuzzy';
   onSearchModeChange: (mode: 'exact' | 'fuzzy') => void;
-  searchOptions: { minScore: number; strand: 'fwd' | 'rev' | 'both'; maxResults: number };
-  onSearchOptionsChange: (opts: SidebarProps['searchOptions']) => void;
+  searchOptions: SearchOptions;
+  onSearchOptionsChange: (opts: SearchOptions) => void;
   isSearching: boolean;
   onSearch: () => void;
   onClearSearch: () => void;
   onSelectSearchResult: (selection: SelectionArea) => void;
-  filteredResults: SearchResult[];
+  completedSearch?: CompletedSearch | null;
+  searchResults: SearchResult[];
   groupedSearchResults: GroupedSearchResults;
   currentSearchIdx: number;
   onSetCurrentIdx: (idx: number) => void;
   selectedSearchIndices: Set<number>;
   onSetSelectedIndices: (next: Set<number>) => void;
-  maxScoreFound: number;
   onSetActiveTab: (tab: 'alignment' | 'features') => void;
   onRemoveRecord: (recordId: string) => void;
   onToggleRecordSelection: (recordId: string, select: boolean) => void;
   onJoinAllInRecord: (recordId: string) => void;
   onJoinSelectedMatches: () => void;
-  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1) => void;
+  onAnnotateMatch: (recordId: string, start: number, end: number, name: string, segments?: { start: number; end: number }[], strand?: 1 | -1, hit?: SearchAnnotationHit) => void;
   getSequenceContext: (recordId: string, start: number, end: number) => { pre: string; match: string; post: string };
   isProteinSession: boolean;
 }
@@ -80,7 +89,11 @@ export interface SidebarProps {
  * ingestion controls, sequence search, and log terminal.
  */
 const Sidebar: React.FC<SidebarProps> = ({
+  localSearch,
   open,
+  hubState,
+  featureColors,
+  onToggleRecordVisibility,
   activeTab,
   records,
   transposedRecords,
@@ -109,13 +122,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSearch,
   onClearSearch,
   onSelectSearchResult,
-  filteredResults,
+  completedSearch,
+  searchResults,
   groupedSearchResults,
   currentSearchIdx,
   onSetCurrentIdx,
   selectedSearchIndices,
   onSetSelectedIndices,
-  maxScoreFound,
   onSetActiveTab,
   onRemoveRecord,
   onToggleRecordSelection,
@@ -129,9 +142,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [width, setWidth] = useState(320);
   const sidebarRef = useRef<HTMLElement>(null);
   const widthRef = useRef(320);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => { dragCleanup.current?.(); }, []);
+  const addSequencesInput = useRef<HTMLInputElement>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    dragCleanup.current?.();
     const startX = e.clientX;
     const startWidth = widthRef.current;
     if (sidebarRef.current) sidebarRef.current.style.transition = 'none';
@@ -145,13 +162,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     const onMouseUp = () => {
       if (sidebarRef.current) sidebarRef.current.style.transition = '';
       setWidth(widthRef.current);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current?.();
     };
 
+    dragCleanup.current = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      dragCleanup.current = null;
+    };
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }, []);
+
+  const logOutput = <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
+    {logs.map((log, i) => <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
+      <span className="text-emerald-500 font-bold">#</span><span className="flex-1">{log}</span>
+    </div>)}
+  </div>;
 
   return (
   <aside
@@ -167,8 +194,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
-    <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1">
+    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
+      <input ref={addSequencesInput} aria-label="Add sequences files" hidden disabled={isAlignmentLocked} type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
+      {activeTab === 'features' && hubState && <><HubIndex records={records} featureColors={featureColors} state={hubState} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
+      {activeTab === 'alignment' && <>
       {/* Selection Inspector */}
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
@@ -247,15 +277,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Record Navigator */}
       {activeTab === 'alignment' && records.length > 0 && (
-        <section className="animate-in slide-in-from-left-2 duration-300">
-          <SectionTitle icon="fa-list-ul">Record Navigator</SectionTitle>
+        <section className="animate-in slide-in-from-left-2 duration-300 [container-type:inline-size]">
+          <SectionTitle icon="fa-list-ul" trailing={<WorkspaceTitleActions onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} addLocked={isAlignmentLocked} />}>Record Navigator</SectionTitle>
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
             {records.map(r => (
               <div
                 key={r.id}
-                className="w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all group"
+                data-navigator-record={r.id}
+                data-state={r.visible === false ? 'hidden' : 'visible'}
+                className={`w-full px-2 py-2 rounded-xl bg-black/20 border border-slate-800/50 hover:border-env/50 transition-all motion-reduce:transition-none group ${r.visible === false ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-2">
+                  <button aria-label={`${r.visible === false ? 'Show' : 'Hide'} ${r.id} in viewport`} data-tip={r.visible === false ? 'Show in viewport' : 'Hide in viewport'} onClick={() => onToggleRecordVisibility?.(r.id)} className="h-7 w-7 shrink-0 rounded-lg text-slate-400 hover:bg-env/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env"><i aria-hidden="true" className={`fas ${r.visible === false ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
                   <button
                     onClick={() => onSetActiveSelection({ start: 0, end: 0, recordIds: [r.id] })}
                     data-tip={r.name && r.name !== r.id ? `${r.name}: select this record` : 'Select this record'}
@@ -333,7 +366,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* Ingestion */}
-      <section>
+      <section data-ingestion-section>
         <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
         <DropZone accent="sky" icon="fa-folder-tree" title="Drop input batch" hint="GB or FASTA" primary className="mb-4"
           accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} armed={fileDragActive} disabled={isAlignmentLocked}
@@ -355,7 +388,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <AlignmentSection count={records.length} state={remoteAlignmentState} onOpen={onAlignRemote} />
 
       {/* Search panel */}
-      <SearchPanel
+      <SearchPanel {...localSearch}
         searchQuery={searchQuery}
         onSearchQueryChange={onSearchQueryChange}
         searchMode={searchMode}
@@ -365,13 +398,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         isSearching={isSearching}
         onSearch={onSearch}
         onClearSearch={onClearSearch}
-        filteredResults={filteredResults}
+        completedSearch={completedSearch}
+        searchResults={searchResults}
         groupedSearchResults={groupedSearchResults}
         currentSearchIdx={currentSearchIdx}
         onSetCurrentIdx={onSetCurrentIdx}
         selectedSearchIndices={selectedSearchIndices}
         onSetSelectedIndices={onSetSelectedIndices}
-        maxScoreFound={maxScoreFound}
         records={records}
         onSetActiveSelection={onSelectSearchResult}
         onSetActiveTab={onSetActiveTab}
@@ -383,18 +416,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         isProteinSession={isProteinSession}
       />
 
-      {/* Log terminal */}
-      <section className="h-48 flex flex-col shrink-0">
-        <SectionTitle icon="fa-terminal">Log Terminal</SectionTitle>
-        <div className="select-text flex-1 bg-black/60 rounded-2xl p-5 font-mono text-[11px] text-slate-400 overflow-y-auto custom-scrollbar-pro border border-slate-800 shadow-inner">
-          {logs.map((log, i) => (
-            <div key={i} className="mb-2 pb-2 border-b border-slate-900/50 flex gap-3">
-              <span className="text-emerald-500 font-bold">#</span>
-              <span className="flex-1">{log}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      </>}
+      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
+      {/* One disclosure for both workspaces, so its open state carries across tab switches. */}
+      <details data-log-terminal className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
+        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
+        <div className="flex h-48 flex-col">{logOutput}</div>
+      </details>
 
     </div>
   </aside>

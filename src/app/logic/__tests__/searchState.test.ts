@@ -19,7 +19,6 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  filteredResults,
   groupedSearchResults,
   joinSegments,
   getSequenceContext,
@@ -27,31 +26,11 @@ import {
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
 
 const mk = (o: Partial<SearchResult>): SearchResult => ({
-  start: 0, end: 1, sequence: 'A', recordId: 'r1', strand: 1, ...o,
-});
-
-describe('filteredResults', () => {
-  const rs = [mk({ score: 100 }), mk({ score: 50 }), mk({ score: 19 })];
-  it('passes exact mode through unfiltered', () => {
-    expect(filteredResults(rs, 'exact', 100, 20)).toHaveLength(3);
-  });
-  it('passes fuzzy through unfiltered when maxScoreFound is 0', () => {
-    expect(filteredResults(rs, 'fuzzy', 0, 20)).toHaveLength(3);
-  });
-  it('keeps only fuzzy results at or above the minScore percentage', () => {
-    // 100/100=100% keep, 50/100=50% keep, 19/100=19% < 20% drop
-    expect(filteredResults(rs, 'fuzzy', 100, 20).map(r => r.score)).toEqual([100, 50]);
-  });
-  it('keeps a result exactly at the boundary (>=)', () => {
-    expect(filteredResults([mk({ score: 20 })], 'fuzzy', 100, 20)).toHaveLength(1);
-  });
-  it('treats a missing score as 0', () => {
-    expect(filteredResults([mk({})], 'fuzzy', 100, 20)).toHaveLength(0);
-  });
+  cigar: '1=', start: 0, end: 1, sequence: 'A', recordId: 'r1', strand: 1, ...o,
 });
 
 describe('groupedSearchResults', () => {
-  it('groups by recordId preserving original filtered indices', () => {
+  it('groups by recordId preserving each result list index', () => {
     const out = groupedSearchResults([mk({ recordId: 'r1' }), mk({ recordId: 'r2' }), mk({ recordId: 'r1' })]);
     expect(out.r1.results).toHaveLength(2);
     expect(out.r1.indices).toEqual([0, 2]);

@@ -40,9 +40,7 @@ import type {
 } from '../protocol';
 import { processTransposition, calculateConsensus } from '../../domain/bio/index';
 import { parseGenBank } from '@/src/core/genbank/index';
-import { degenerateToRegex } from '@/src/core/search/query';
-import { smithWaterman } from '@/src/core/search/align';
-import { reverseComplement, getNonGapSegments } from '@/src/domain/bio';
+import { runSearch } from '../handlers/search';
 import type { SeqRecord } from '../../domain/bio/types';
 
 // ---------------------------------------------------------------------------
@@ -67,7 +65,7 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
   if (req.type === 'PARSE_GENBANK') {
     try {
       const records = parseGenBank(req.content);
-      return { type: 'PARSE_SUCCESS', records };
+      return { type: 'PARSE_SUCCESS', filename: req.filename, records };
     } catch (err) {
       return { type: 'ERROR', error: (err as Error).message };
     }
@@ -90,100 +88,12 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
         }
       });
       if (currentId) results.push({ id: currentId, name: currentId, sequence: currentSeq, features: [] });
-      return { type: 'FASTA_SUCCESS', alignedData: results };
+      return { type: 'FASTA_SUCCESS', filename: req.filename, alignedData: results };
     } catch (err) {
       return { type: 'ERROR', error: (err as Error).message };
     }
   }
   return { type: 'ERROR', error: 'Unknown request type' };
-}
-
-/** Simulate what the search worker does for a SearchWorkerRequest. */
-function dispatchSearchRequest(req: SearchWorkerRequest): SearchWorkerResponse {
-  const { searchQuery, records, mode, options } = req;
-  const { strand = 'both', maxResults = 100, minScore = 5 } = options;
-
-  if (!searchQuery || searchQuery.length < 1) return { results: [] };
-
-  try {
-    type SR = { start: number; end: number; sequence: string; recordId: string; strand: 1 | -1; score?: number; segments?: { start: number; end: number }[] };
-    const typedResults: SR[] = [];
-
-    records.forEach(record => {
-      const seq = record.alignedSequence || record.sequence;
-      const L = seq.length;
-
-      if (mode === 'fuzzy') {
-        if (strand === 'both' || strand === 'fwd') {
-          const fwdFuzzy = smithWaterman(searchQuery.toUpperCase(), seq, 2, -1, -3, -1, minScore);
-          fwdFuzzy.forEach(m => {
-            typedResults.push({
-              start: m.start,
-              end: m.end,
-              sequence: m.sequence,
-              score: m.score,
-              recordId: record.id,
-              strand: 1,
-              segments: getNonGapSegments(seq, m.start, m.end),
-            });
-          });
-        }
-
-        if (strand === 'both' || strand === 'rev') {
-          const rcSeq = reverseComplement(seq);
-          const revFuzzy = smithWaterman(searchQuery.toUpperCase(), rcSeq, 2, -1, -3, -1, minScore);
-          revFuzzy.forEach(m => {
-            const start = L - m.end;
-            const end = L - m.start;
-            typedResults.push({
-              start,
-              end,
-              sequence: m.sequence,
-              score: m.score,
-              recordId: record.id,
-              strand: -1,
-              segments: getNonGapSegments(seq, start, end),
-            });
-          });
-        }
-      } else {
-        const regex = degenerateToRegex(searchQuery);
-        if (strand === 'both' || strand === 'fwd') {
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(seq)) !== null) {
-            const start = match.index;
-            const end = match.index + match[0].length;
-            typedResults.push({ start, end, sequence: match[0], recordId: record.id, strand: 1, segments: getNonGapSegments(seq, start, end) });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-        if (strand === 'both' || strand === 'rev') {
-          const rcSeq = reverseComplement(seq);
-          let match;
-          regex.lastIndex = 0;
-          while ((match = regex.exec(rcSeq)) !== null) {
-            const rcStart = match.index;
-            const rcEnd = match.index + match[0].length;
-            const start = L - rcEnd;
-            const end = L - rcStart;
-            typedResults.push({ start, end, sequence: match[0], recordId: record.id, strand: -1, segments: getNonGapSegments(seq, start, end) });
-            regex.lastIndex = match.index + 1;
-          }
-        }
-      }
-    });
-
-    if (mode === 'fuzzy') {
-      typedResults.sort((a, b) => (b.score || 0) - (a.score || 0) || a.start - b.start);
-    } else {
-      typedResults.sort((a, b) => a.start - b.start);
-    }
-    const limited = typedResults.length > maxResults ? typedResults.slice(0, maxResults) : typedResults;
-    return { results: limited };
-  } catch (err) {
-    return { error: String(err) };
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +135,7 @@ ORIGIN
         1 atgcatgcat
 //
 `;
-    const req: BioWorkerRequest = { type: 'PARSE_GENBANK', content: gb };
+    const req: BioWorkerRequest = { type: 'PARSE_GENBANK', filename: 'fixture.fa', content: gb };
     const resp = dispatchBioRequest(req);
     expect(resp.type).toBe('PARSE_SUCCESS');
     if (resp.type === 'PARSE_SUCCESS') {
@@ -246,7 +156,7 @@ ORIGIN
 
   it('PARSE_FASTA request parses multi-sequence FASTA', () => {
     const fasta = '>seq1\nACGT\n>seq2\nTGCA\n';
-    const req: BioWorkerRequest = { type: 'PARSE_FASTA', content: fasta };
+    const req: BioWorkerRequest = { type: 'PARSE_FASTA', filename: 'fixture.fa', content: fasta };
     const resp = dispatchBioRequest(req);
     expect(resp.type).toBe('FASTA_SUCCESS');
     if (resp.type === 'FASTA_SUCCESS') {
@@ -259,9 +169,9 @@ ORIGIN
   it('BioWorkerResponse discriminated union covers all expected variants', () => {
     // Type-level test: construct each variant and verify `.type` discriminant
     const success: BioWorkerResponse = { type: 'SUCCESS', records: [], consensus: '' };
-    const parseSuccess: BioWorkerResponse = { type: 'PARSE_SUCCESS', records: [] };
-    const fastaSuccess: BioWorkerResponse = { type: 'FASTA_SUCCESS', alignedData: [] };
-    const annotSuccess: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: {} };
+    const parseSuccess: BioWorkerResponse = { type: 'PARSE_SUCCESS', filename: 'fixture.fa', records: [] };
+    const fastaSuccess: BioWorkerResponse = { type: 'FASTA_SUCCESS', filename: 'fixture.fa', alignedData: [] };
+    const annotSuccess: BioWorkerResponse = { type: 'ANNOTATIONS_SUCCESS', annotations: {}, details: {} };
     const error: BioWorkerResponse = { type: 'ERROR', error: 'msg' };
 
     expect(success.type).toBe('SUCCESS');
@@ -287,9 +197,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'AATT',
       records,
       mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     expect('results' in resp).toBe(true);
     if ('results' in resp) {
       expect(resp.results.length).toBeGreaterThan(0);
@@ -307,9 +217,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'AATT',
       records,
       mode: 'exact',
-      options: { minScore: 0, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'rev', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     if ('results' in resp) {
       resp.results.forEach(r => expect(r.strand).toBe(-1));
     }
@@ -320,9 +230,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'A',
       records,
       mode: 'exact',
-      options: { minScore: 0, strand: 'both', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     expect('results' in resp).toBe(true);
     if ('results' in resp) {
       expect(resp.results.length).toBeGreaterThan(0);
@@ -334,9 +244,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: '',
       records,
       mode: 'exact',
-      options: { minScore: 0, strand: 'both', maxResults: 100 },
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     expect('results' in resp).toBe(true);
     if ('results' in resp) {
       expect(resp.results).toHaveLength(0);
@@ -348,9 +258,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'AA',
       records: [{ id: 'big', sequence: 'AAAAAAAAAAAAAAAAAAAAA' }],
       mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 3 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 3 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     if ('results' in resp) {
       expect(resp.results.length).toBeLessThanOrEqual(3);
     }
@@ -366,15 +276,15 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'AATC',
       records,
       mode: 'fuzzy',
-      options: { minScore: 3, strand: 'fwd', maxResults: 100 },
+      options: { minIdentity: 75, strand: 'fwd', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     expect('results' in resp).toBe(true);
     if ('results' in resp) {
       expect(resp.results.length).toBeGreaterThan(0);
       resp.results.forEach(r => {
         expect(r.strand).toBe(1);
-        expect(typeof r.score).toBe('number');
+        expect(r.identity).toBeGreaterThanOrEqual(75);
       });
     }
   });
@@ -384,9 +294,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'CCAA',
       records,
       mode: 'fuzzy',
-      options: { minScore: 3, strand: 'rev', maxResults: 100 },
+      options: { minIdentity: 75, strand: 'rev', maxResults: 100 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     expect('results' in resp).toBe(true);
     if ('results' in resp) {
       expect(resp.results.length).toBeGreaterThan(0);
@@ -399,9 +309,9 @@ describe('SearchWorkerRequest / SearchWorkerResponse protocol', () => {
       searchQuery: 'CCGG',
       records: [{ id: 'r1', sequence: 'AATTCCGGTT' }],
       mode: 'exact',
-      options: { minScore: 0, strand: 'fwd', maxResults: 10 },
+      options: { minIdentity: 80, strand: 'fwd', maxResults: 10 },
     };
-    const resp = dispatchSearchRequest(req);
+    const resp = runSearch(req);
     if ('results' in resp && resp.results.length > 0) {
       const hit = resp.results[0]!;
       expect(hit.recordId).toBe('r1');

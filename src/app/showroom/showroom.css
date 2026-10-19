@@ -1,0 +1,132 @@
+/*
+ * Dunceious
+ *
+ * This file is part of Dunceious.
+ *
+ * Dunceious is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Dunceious is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/* The root turns off text selection (useShowroomGuards); fields must stay editable,
+   which iOS refuses under an inherited `-webkit-user-select: none`. */
+[data-showroom-root] :is(input, textarea) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* The showroom's one motion: the phone turns once along the arrow, then rests sideways. */
+.showroom-turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: showroom-turn 1.2s cubic-bezier(0.65, 0, 0.35, 1) 0.35s 1 both;
+}
+@keyframes showroom-turn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .showroom-turn { animation: none; transform: rotate(90deg); }
+}
+
+/* The alignment dialog is sized for a desktop window; under the banner it scrolls inside its wrapper instead. */
+[data-showroom-align] [role="dialog"] { max-height: 100%; }
+
+/* Phone held sideways. The workbench lays the Hub, Export and the details panel out for a
+   desktop window; at 360-430 px of height their stacked chrome left no room for the content.
+   Every rule stays under the showroom root, so the workbench never sees it. */
+@media (max-width: 899.98px), (max-height: 480px) {
+  /* The Hub's toolbar takes the room the switcher leaves; its search field shrinks before
+     its match counter and arrows do, so they never spill onto Import. The switcher's
+     decorative icon tiles give way to make that room. */
+  [data-showroom-root] nav [role="group"][aria-label="Workspace"] button > span:first-child:has(> i[aria-hidden]) { display: none; }
+  [data-showroom-root] nav [role="group"][aria-label="Workspace"] button { padding-left: 0.5rem; }
+  [data-showroom-root] nav [data-hub-tools][data-showroom-hub] { flex: 1 1 0; }
+  [data-showroom-root] [data-hub-search] { min-width: 0; }
+  [data-showroom-root] [data-hub-search] input { min-width: 4rem; width: 0; }
+
+  /* Tabs and the filter bar become one row each, so the list keeps most of the height.
+     The filter row scrolls sideways instead of wrapping into a column of chips. */
+  [data-showroom-root] [data-showroom-hub] [role="tablist"][aria-label="Hub view"] { gap: 0.5rem; padding-inline: 0.5rem; }
+  [data-showroom-root] [data-showroom-hub] [role="tablist"][aria-label="Hub view"] > [role="tab"] { padding-block: 0.375rem; }
+  [data-showroom-root] [data-showroom-hub] [data-hub-summary] { min-width: 0; padding-right: 0.75rem; text-align: right; }
+  [data-showroom-root] [data-showroom-hub] div:has(> [data-filter-types]) {
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding: 0.375rem 0.5rem;
+  }
+  [data-showroom-root] [data-showroom-hub] div:has(> [data-filter-types])::-webkit-scrollbar { display: none; }
+  [data-showroom-root] [data-showroom-hub] [data-filter-types] { flex: none; flex-wrap: nowrap; }
+  [data-showroom-root] [data-showroom-hub] [data-filter-types] > * { flex: none; white-space: nowrap; }
+  [data-showroom-root] [data-showroom-hub] [data-filter-controls] { margin-left: 0; align-items: center; }
+
+  /* The row grid's desktop columns left the name cell no width beside the row actions,
+     which a touchscreen always shows. Narrower fixed columns give the name its room;
+     the column header shares the class, so it stays aligned. */
+  [data-showroom-root] [data-showroom-hub] .hub-row-grid {
+    grid-template-columns: 36px 96px 22px minmax(0, 1fr) minmax(120px, 24ch) 80px;
+    column-gap: 8px;
+    padding-right: 12px;
+  }
+
+  /* Export becomes a full-height sheet: the two steps stack and scroll together, while the
+     header and the footer with its final button stay in view. */
+  [data-showroom-root] div:has(> [aria-labelledby="hub-export-title"]) { padding: 0; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] {
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: none;
+    border-radius: 0;
+    border: 0;
+  }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > header { padding: 0.25rem 0.5rem 0.25rem 0.75rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > header span[aria-hidden="true"] { height: 2rem; width: 2rem; }
+  [data-showroom-root] #hub-export-title { font-size: 1rem; line-height: 1.25rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > div {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > div > section {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+    border-right: 0;
+    padding: 0.5rem 0.75rem;
+  }
+  /* The sequence tree scrolls on its own inside the sheet, short enough that the Format
+     step starts on the first screen. */
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > div > section:first-child { height: min(13.5rem, 60dvh); border-bottom: 1px solid rgb(226 232 240); }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > footer { padding: 0.375rem 0.75rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] > footer > p { min-width: 0; }
+
+  /* The details card fits the screen: header and footer stay put and the body scrolls. */
+  [data-showroom-root] div:has(> [data-record-details]) { padding: 8px; }
+  [data-showroom-root] [data-record-details] {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 16px);
+    border-radius: 1rem;
+  }
+  [data-showroom-root] [data-record-details] > :not([data-record-details-body]) { flex: none; padding: 0.5rem 1rem; }
+  [data-showroom-root] [data-record-details-body] {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 1rem;
+    overscroll-behavior: contain;
+  }
+}

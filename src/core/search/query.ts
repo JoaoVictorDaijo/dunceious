@@ -19,9 +19,9 @@
 
 const IUPAC_MAP: Record<string, string> = {
   'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 'U': 'U',
-  'R': '[AG]', 'Y': '[CTU]', 'S': '[GC]', 'W': '[ATU]',
-  'K': '[GTU]', 'M': '[AC]', 'B': '[CGTU]', 'D': '[AGTU]',
-  'H': '[ACTU]', 'V': '[ACG]', 'N': '[ACGTU]',
+  'R': 'AG', 'Y': 'CTU', 'S': 'GC', 'W': 'ATU',
+  'K': 'GTU', 'M': 'AC', 'B': 'CGTU', 'D': 'AGTU',
+  'H': 'ACTU', 'V': 'ACG', 'N': 'ACGTU',
 };
 
 const PROTEIN_IUPAC_MAP: Record<string, string> = {
@@ -31,35 +31,46 @@ const PROTEIN_IUPAC_MAP: Record<string, string> = {
   'M': 'M', 'N': 'N', 'P': 'P', 'Q': 'Q', 'R': 'R',
   'S': 'S', 'T': 'T', 'V': 'V', 'W': 'W', 'Y': 'Y',
   // IUPAC ambiguity codes
-  'B': '[DN]',   // Asp or Asn
-  'Z': '[EQ]',   // Glu or Gln
-  'J': '[IL]',   // Ile or Leu
-  'X': '[ACDEFGHIKLMNPQRSTVWY]',  // Any amino acid
+  'B': 'DN',   // Asp or Asn
+  'Z': 'EQ',   // Glu or Gln
+  'J': 'IL',   // Ile or Leu
+  'X': 'ACDEFGHIKLMNPQRSTVWY',  // Any amino acid
   'U': 'U',      // Selenocysteine
   'O': 'O',      // Pyrrolysine
 };
+
+export type ResidueAlphabet = 'nucleotide' | 'protein';
+
+/**
+ * The uppercase text residues one query residue accepts: an IUPAC code expands
+ * to its alternatives (`N` → `ACGTU`, protein `B` → `DN`); any other character
+ * accepts only its own uppercase form. Literal T and U stay distinct.
+ */
+export function residueAlternatives(residue: string, alphabet: ResidueAlphabet = 'nucleotide'): string {
+  const upper = residue.toUpperCase();
+  const map = alphabet === 'protein' ? PROTEIN_IUPAC_MAP : IUPAC_MAP;
+  return map[upper] ?? upper;
+}
 
 /**
  * Compiles a degenerate (IUPAC) query into a search regex.
  *
  * - An empty query returns a **never-match** regex (`/$.^/`).
- * - `moleculeType` selects the ambiguity map: nucleotide IUPAC codes
- *   (`N`→`[ACGTU]`, `R`→`[AG]`, …) or protein codes (`B`→`[DN]`, `X`→any AA, …).
- *   Literal T and U stay distinct; nucleotide ambiguity accepts DNA and RNA.
+ * - `moleculeType` selects the ambiguity map (see `residueAlternatives`).
  * - Residues are joined with `-*` so matches tolerate alignment gaps between
  *   them; the regex is **global + case-insensitive** (`gi`).
  */
 export function degenerateToRegex(
   query: string,
-  moleculeType: 'nucleotide' | 'protein' = 'nucleotide',
+  moleculeType: ResidueAlphabet = 'nucleotide',
 ): RegExp {
   if (!query) return /$.^/;
-  const map = moleculeType === 'protein' ? PROTEIN_IUPAC_MAP : IUPAC_MAP;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = escaped
-    .toUpperCase()
+  const pattern = query
     .split('')
-    .map(char => map[char] || char)
+    .map(char => {
+      const alternatives = residueAlternatives(char, moleculeType).replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+      return alternatives.length > 1 ? `[${alternatives}]` : alternatives;
+    })
     // Allow optional alignment gaps between residues
     .join('-*');
   return new RegExp(pattern, 'gi');

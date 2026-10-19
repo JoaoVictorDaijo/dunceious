@@ -39,15 +39,7 @@ export function getDisplaySeq(
   return sequence.substring(start) + sequence.substring(0, end);
 }
 
-/**
- * The displayed length (in bp) of a feature. Priority: (1) if it has segments,
- * the sum of each segment's |end-start|;
- * (2) a circular wrap-around (`start > end`) on a known-length sequence spans
- * `(seqLen - start) + end`; (3) otherwise the simple `|end - start|`. If the
- * feature wraps but the owning record's length is unknown (`seqLen` undefined),
- * fall back to `|end - start|` (the component's record-not-found path). Returns
- * a raw number; the `.toLocaleString()` formatting stays in the component.
- */
+/** Wrapping features and segments need the source length to count across the origin. */
 export function featureLength(
   seqLen: number | undefined,
   start: number,
@@ -55,22 +47,12 @@ export function featureLength(
   segments?: { start: number; end: number }[],
 ): number {
   if (segments && segments.length > 0) {
-    return segments.reduce((acc, seg) => acc + Math.abs(seg.end - seg.start), 0);
+    return segments.reduce((acc, seg) => acc + featureLength(seqLen, seg.start, seg.end), 0);
   }
   if (start > end) {
     return seqLen !== undefined ? (seqLen - start) + end : Math.abs(end - start);
   }
   return Math.abs(end - start);
-}
-
-/**
- * Fuzzy-match score as a whole-number percentage of the best score found.
- * Guards divide-by-zero: when
- * `maxScoreFound <= 0` returns 0. Otherwise `round((score / maxScoreFound) * 100)`.
- * The `%` suffix and the `match.score` truthiness guard stay in the component.
- */
-export function scorePercent(score: number, maxScoreFound: number): number {
-  return maxScoreFound > 0 ? Math.round((score / maxScoreFound) * 100) : 0;
 }
 
 /**

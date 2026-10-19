@@ -25,6 +25,9 @@ import {
   applyFastaResponse,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
+import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 
@@ -34,16 +37,16 @@ const rec = (o: Partial<SeqRecord> & { id: string }): SeqRecord => ({
 
 describe('resolveAccession', () => {
   it('prefers a trimmed non-empty incoming accession', () => {
-    expect(resolveAccession('  ACC1 ', 'id1', 'u1')).toBe('ACC1');
+    expect(resolveAccession('  ACC1 ')).toBe('ACC1');
   });
-  it('falls back to the incoming id when accession is blank', () => {
-    expect(resolveAccession('   ', 'id1', 'u1')).toBe('id1');
+  it('keeps blank accessions absent', () => {
+    expect(resolveAccession('   ')).toBeUndefined();
   });
-  it('skips the id when it is "Unknown", using the uniqueId', () => {
-    expect(resolveAccession(undefined, 'Unknown', 'u1')).toBe('u1');
+  it('keeps missing accessions absent', () => {
+    expect(resolveAccession(undefined)).toBeUndefined();
   });
-  it('uses the uniqueId when both accession and id are empty', () => {
-    expect(resolveAccession('', '', 'u1')).toBe('u1');
+  it('keeps empty accessions absent', () => {
+    expect(resolveAccession('')).toBeUndefined();
   });
 });
 
@@ -56,8 +59,8 @@ describe('applyParseSuccess', () => {
     ]);
     expect(count).toBe(2);
     expect(next.slice(1).map(r => ({ id: r.id, name: r.name, accession: r.accession, visible: r.visible }))).toEqual([
-      { id: 'g1 (1)', name: 'g1 (1)', accession: 'ACC9', visible: true },
-      { id: 'g2', name: 'g2', accession: 'g2', visible: true },
+      { id: 'g1_1', name: 'g1_1', accession: 'ACC9', visible: true },
+      { id: 'g2', name: 'g2', accession: undefined, visible: true },
     ]);
     // prev record is preserved unchanged
     expect(next[0]).toBe(prev[0]);
@@ -78,8 +81,8 @@ describe('applyParseSuccess', () => {
   it('dedups two colliding INCOMING records against each other, pushing the freshly-minted id back into existingIds', () => {
     const { next, count } = applyParseSuccess([], [rec({ id: 'b' }), rec({ id: 'b' })]);
     expect(count).toBe(2);
-    expect(next.map(r => r.id)).toEqual(['b', 'b (1)']);
-    expect(next.map(r => r.name)).toEqual(['b', 'b (1)']);
+    expect(next.map(r => r.id)).toEqual(['b', 'b_1']);
+    expect(next.map(r => r.name)).toEqual(['b', 'b_1']);
   });
 });
 
@@ -145,7 +148,7 @@ describe('applyFastaResponse', () => {
     expect(res.kind).toBe('batch');
     if (res.kind === 'batch') {
       expect(res.count).toBe(2);
-      expect(res.next.slice(1).map(r => r.id)).toEqual(['a (1)', 'b']);
+      expect(res.next.slice(1).map(r => r.id)).toEqual(['a_1', 'b']);
       expect(res.next.slice(1).every(r => r.visible === true)).toBe(true);
     }
   });
@@ -188,14 +191,14 @@ describe('applyFastaResponse', () => {
   describe('record IDs that contain spaces', () => {
     // Batch dedup names a second "seq1" as "seq1 (1)", so a session can hold IDs with spaces.
     const parsedAlignment = (content: string) => {
-      const res = handleBioMessage({ type: 'PARSE_FASTA', content, asAlignment: true });
+      const res = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content, asAlignment: true });
       if (res.type !== 'FASTA_SUCCESS') throw new Error(`unexpected ${res.type}`);
       return res.alignedData;
     };
     const session = [rec({ id: 'seq1', sequence: 'ACGT' }), rec({ id: 'seq1 (1)', sequence: 'ACGA' })];
 
     it('overlays a FASTA exported from the same session', () => {
-      const exported = exportToFasta(session.map((r, i) => ({ ...r, sequence: i ? 'AC-GA' : 'ACGT-' })));
+      const exported = exportToFasta(session.map((r, i) => ({ ...r, sequence: i ? 'AC-GA' : 'ACGT-' }))).text;
       const res = applyFastaResponse(session, parsedAlignment(exported), true);
       expect(res.kind).toBe('overlay');
       expect(res.next.map(r => r.alignedSequence)).toEqual(['ACGT-', 'AC-GA']);
@@ -219,4 +222,214 @@ describe('applyFastaResponse', () => {
     expect(res.kind).toBe('reject-empty');
     expect(res.next).toBe(prev);
   });
+});
+
+
+it('deduplicates incoming IDs against all workspace IDs without changing accessions', () => {
+  const prev = [rec({ id: 'seq1' }), rec({ id: 'seq1_1' })];
+  const incoming = [rec({ id: 'seq1', accession: 'seq1' }), rec({ id: 'seq1', accession: 'seq1' })];
+  const { next } = applyParseSuccess(prev, incoming);
+  expect(next.slice(2).map(r => r.id)).toEqual(['seq1_2', 'seq1_3']);
+  expect(next.slice(2).map(r => r.accession)).toEqual(['seq1', 'seq1']);
+  expect(next[0]).toBe(prev[0]);
+  expect(incoming.map(r => r.id)).toEqual(['seq1', 'seq1']);
+});
+
+
+it('matches alignment IDs while ignoring FASTA modifiers and keeping source details unchanged', () => {
+  const prev = [rec({ id: 'seq1_1', sequence: 'ACGT', definition: 'original' })];
+  const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1_1 [host=camel] external description\nA--CGT', asAlignment: true });
+  if (response.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA_SUCCESS');
+  expect(response.alignedData[0]).toMatchObject({ header: 'external description', details: { host: 'camel' } });
+  const result = applyFastaResponse(prev, response.alignedData, true);
+  expect(result.kind).toBe('overlay');
+  expect(result.next[0]).toMatchObject({ id: 'seq1_1', sequence: 'ACGT', alignedSequence: 'A--CGT', definition: 'original', features: [] });
+});
+
+
+describe('import provenance and annotation ownership', () => {
+  const feature: BioFeature = { type: 'gene', name: 'late gene', start: 799, end: 900, strand: 1 };
+  const region = (end: number) => ({ start: 0, end, details: { host: 'camel', organism: 'virus' },
+    feature: { type: 'region', name: 'region', start: 0, end, strand: 1 as const } });
+
+  it('captures the GenBank file values and filename without inventing an accession', () => {
+    const source: BioFeature = { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { host: 'camel', country: 'Oman' } };
+    const result = applyParseSuccess([], [rec({ id: 'local', sequence: 'ACGT', features: [source] })], 'camel.gb');
+    expect(result.next[0]).toMatchObject({ importedFrom: 'camel.gb', fileDetails: { host: 'camel', location: 'Oman' } });
+    expect(result.next[0].accession).toBeUndefined();
+    expect(result.idMap).toEqual({ local: 'local' });
+  });
+
+  it('writes FASTA modifiers into source details and snapshots them', () => {
+    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'camel.fa', content: '>local [host=camel] [strain=K1] sample\nACGT' });
+    expect(response).toMatchObject({ filename: 'camel.fa' });
+    if (response.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA');
+    const result = applyFastaResponse([], response.alignedData, false, response.filename);
+    expect(result.next[0]).toMatchObject({ importedFrom: 'camel.fa', fileDetails: { host: 'camel' }, fastaModifiers: { strain: 'K1' }, definition: 'sample', features: [{ type: 'source', start: 0, end: 4, metadata: { host: 'camel' } }] });
+    expect(result.next[0].accession).toBeUndefined();
+    if (result.kind === 'batch') expect(result.idMap).toEqual({ local: 'local' });
+  });
+
+  it('attaches batch annotations to the new record despite an older exact ID', () => {
+    const imported = applyParseSuccess([rec({ id: 'contig1', sequence: 'A'.repeat(100) })], [rec({ id: 'contig1', sequence: 'A'.repeat(1000) })], 'contig.fa');
+    const result = applyAnnotations(imported.next, { contig1: [feature] }, {}, imported.idMap);
+    expect(result.next[0].features).toEqual([]);
+    expect(result.next[1].features).toEqual([feature]);
+    expect(result.unmatched).toEqual([]);
+  });
+
+  it('refuses ambiguous accessions but gives exact workspace IDs precedence', () => {
+    const records = [rec({ id: 'a', accession: 'X' }), rec({ id: 'b', accession: 'X' })];
+    const refused = applyAnnotations(records, { X: [feature] }, {});
+    expect(refused.totalAdded).toBe(0);
+    expect(refused.unmatched).toEqual(['X']);
+    const exact = applyAnnotations([rec({ id: 'X' }), ...records], { X: [feature] }, {});
+    expect(exact.next.map(r => r.features.length)).toEqual([1, 0, 0]);
+  });
+
+  it('refuses duplicate incoming IDs instead of using an old exact match', () => {
+    const imported = applyParseSuccess([rec({ id: 'a' })], [rec({ id: 'a' }), rec({ id: 'a' })], 'two.gb');
+    expect(imported.idMap).toEqual({ a: null });
+    const result = applyAnnotations(imported.next, { a: [feature] }, {}, imported.idMap);
+    expect(result.totalAdded).toBe(0);
+    expect(result.unmatched).toEqual(['a']);
+  });
+
+  it('fills only empty unedited details and preserves existing imported values', () => {
+    const record = rec({ id: 'a', sequence: 'A'.repeat(1000), fileDetails: { host: 'original', location: 'Oman' }, features: [{ type: 'source', name: 'source', start: 0, end: 1000, strand: 1, metadata: { host: 'edited' } }] });
+    const result = applyAnnotations([record], {}, { a: { ...region(1000), details: { host: 'camel', organism: 'virus', location: 'Egypt' } } });
+    expect(result.next[0].features[0].metadata).toEqual({ host: 'edited', organism: 'virus' });
+    expect(result.next[0].fileDetails).toEqual({ host: 'original', location: 'Oman', organism: 'virus' });
+    expect(record.features[0].metadata).toEqual({ host: 'edited' });
+    expect(result.unmatched).toEqual([]);
+  });
+
+  it('keeps a short source candidate as an ordinary annotation and reports unmatched details', () => {
+    const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], {}, { a: region(100), missing: region(1000) });
+    expect(result.next[0].features).toEqual([region(100).feature]);
+    expect(result.totalAdded).toBe(1);
+    expect(result.unmatched).toEqual(['missing']);
+  });
+});
+
+
+it('echoes the GenBank filename from the real worker handler', () => {
+  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb' });
+});
+
+it('keeps imported provenance and file values intact during an alignment overlay', () => {
+  const record = rec({ id: 'a', sequence: 'ACGT', importedFrom: 'original.fa', fileDetails: { host: 'camel' } });
+  const result = applyFastaResponse([record], [{ id: 'a', name: 'a', sequence: 'A--CGT', features: [], details: { host: 'human' } }], true, 'overlay.fa');
+  expect(result.next[0]).toMatchObject({ importedFrom: 'original.fa', fileDetails: { host: 'camel' }, features: [], alignedSequence: 'A--CGT' });
+});
+
+
+it('preserves circular topology from a whole-length GFF source through interchange exports', () => {
+  const imported = applyFastaResponse([], [{ id: 'circle', name: 'circle', sequence: 'A'.repeat(1000), features: [] }], false, 'circle.fa');
+  const gff = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\ncircle\ts\tgene\t901\t1000\t.\t+\t.\tID=wrap\ncircle\ts\tgene\t1\t100\t.\t+\t.\tID=wrap');
+  const result = applyAnnotations(imported.next, gff.features, gff.details);
+  expect(result.next[0].isCircular).toBe(true);
+  expect(result.next[0].features.find(f => f.type === 'gene')?.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
+  expect(exportToGenBank(result.next).text).toMatch(/^LOCUS.*circular/m);
+  expect(exportToGff3(result.next).text).toContain('Is_circular=true');
+  const absent = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src');
+  expect(applyAnnotations(result.next, absent.features, absent.details).next[0].isCircular).toBe(true);
+  const explicitFalse = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=false');
+  expect(applyAnnotations(result.next, explicitFalse.features, explicitFalse.details).next[0].isCircular).toBe(true);
+});
+
+it('keeps a short circular Src candidate as an annotation without changing topology', () => {
+  const gff = parseGFF3('a\ts\tregion\t1\t100\t.\t+\t.\tgbkey=Src;Is_circular=true');
+  const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], gff.features, gff.details);
+  expect(result.next[0].isCircular).toBeUndefined();
+  expect(result.next[0].features[0].type).toBe('region');
+});
+
+it('treats GFF-filled historical details as file data and keeps them in every interchange export', () => {
+  const imported = applyFastaResponse([], [{ id: 'local', name: 'local', sequence: 'ACGT', features: [] }], false, 'local.fa');
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;geo_loc_name=USSR;collection_date=March%201914');
+  const record = applyAnnotations(imported.next, gff.features, gff.details).next[0];
+  expect(record.fileDetails).toEqual({ location: 'USSR', collectionDate: 'March 1914' });
+  expect(readDetails(record)).toEqual(record.fileDetails);
+  expect(isDetailEdited(record, 'location')).toBe(false);
+  expect(isDetailEdited(record, 'collectionDate')).toBe(false);
+  expect(imported.next[0].fileDetails).toEqual({});
+  expect(exportToGenBank([record]).text).toContain('/geo_loc_name="USSR"');
+  expect(exportToGff3([record]).text).toContain('geo_loc_name=USSR');
+  expect(exportToFasta([record], { residues: 'original', header: 'details' }).text).toContain('[geo-loc-name=USSR]');
+  const edited = writeDetails(record, { location: 'Atlantis' });
+  expect(isDetailEdited(edited, 'location')).toBe(true);
+  expect(exportToGenBank([edited]).text).not.toContain('Atlantis');
+  expect(readDetails(writeDetails(edited, { location: edited.fileDetails?.location })).location).toBe('USSR');
+});
+
+
+it('attaches standalone annotations using a final sanitized-ID match', () => {
+  const feature: BioFeature = { name: 'g', type: 'gene', start: 1, end: 3, strand: 1 };
+  const result = applyAnnotations([rec({ id: 'seq_1', name: 'display name', sequence: 'AAAA' })], { 'seq(1)': [feature] });
+  expect(result.unmatched).toEqual([]);
+  expect(result.next[0].features).toEqual([feature]);
+});
+
+it('imports non-detail source qualifiers and empty flags from a full-length GFF region', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT' });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;strain=S1;environmental_sample=;geo_loc_name=USSR;collection_date=March%201914');
+  const result = applyAnnotations([original], gff.features, gff.details);
+  expect(result.next[0].features).toHaveLength(1);
+  expect(result.next[0].features[0]).toMatchObject({ type: 'source', start: 0, end: 4,
+    metadata: { isolate: 'K1', strain: 'S1', environmental_sample: '', geo_loc_name: 'USSR', collection_date: 'March 1914' } });
+  expect(result.next[0].fileDetails).toEqual({ location: 'USSR', collectionDate: 'March 1914' });
+  expect(isDetailEdited(result.next[0], 'location')).toBe(false);
+  expect(result.totalAdded).toBe(0);
+  expect(original.features).toEqual([]);
+});
+
+it('preserves existing source qualifiers and edited details while adding missing GFF source qualifiers', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT', fileDetails: { host: 'camel', location: 'Oman', collectionDate: '2014' },
+    features: [{ type: 'source', name: 'original source', start: 0, end: 4, strand: 1,
+      metadata: { isolate: 'original', environmental_sample: '', country: 'Atlantis' } }] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;strain=S1;environmental_sample=true;nat-host=human;geo_loc_name=Egypt;collection-date=2015');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features).toHaveLength(1);
+  expect(result.features[0]).toMatchObject({ type: 'source', name: 'original source',
+    metadata: { isolate: 'original', strain: 'S1', environmental_sample: '', country: 'Atlantis' } });
+  expect(readDetails(result)).toEqual({ location: 'Atlantis' });
+  expect(result.features[0].metadata).not.toHaveProperty('nat-host');
+  expect(result.features[0].metadata).not.toHaveProperty('geo_loc_name');
+  expect(result.features[0].metadata).not.toHaveProperty('collection-date');
+  expect(result.fileDetails).toEqual({ host: 'camel', location: 'Oman', collectionDate: '2014' });
+  expect(original.features[0].metadata).toEqual({ isolate: 'original', environmental_sample: '', country: 'Atlantis' });
+});
+
+it('creates a source for GFF qualifiers when there are no editable details', () => {
+  const gene: BioFeature = { type: 'gene', name: 'g', start: 0, end: 3, strand: 1 };
+  const original = rec({ id: 'local', sequence: 'ACGT', features: [gene] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;isolate=K1;environmental_sample=');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features[0]).toEqual(gene);
+  expect(result.features[1]).toMatchObject({ type: 'source', start: 0, end: 4,
+    metadata: { isolate: 'K1', environmental_sample: '' } });
+  expect(result.fileDetails).toBeUndefined();
+  expect(original.features).toEqual([gene]);
+});
+
+it('merges list provenance for added source qualifiers while preserving existing source lists', () => {
+  const original = rec({ id: 'local', sequence: 'ACGT', features: [{ type: 'source', name: 'source', start: 0, end: 4, strand: 1,
+    metadata: { note: 'first,second', _gffLists: '{"note":["first","second"]}' } }] });
+  const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;note=overwrite,other;Dbxref=DB:1,DB:2');
+  const result = applyAnnotations([original], gff.features, gff.details).next[0];
+  expect(result.features[0].metadata).toMatchObject({ note: 'first,second', Dbxref: 'DB:1,DB:2' });
+  expect(JSON.parse(result.features[0].metadata!._gffLists)).toEqual({ note: ['first', 'second'], Dbxref: ['DB:1', 'DB:2'] });
+  const exported = exportToGff3([result]).text;
+  expect(exported).toContain('note=first,second');
+  expect(exported).toContain('Dbxref=DB%3A1,DB%3A2');
+  expect(original.features[0].metadata!._gffLists).toBe('{"note":["first","second"]}');
+});
+
+it('does not use sanitized IDs to override ambiguous name matches or refused batch IDs', () => {
+  const feature: BioFeature = { name: 'g', type: 'gene', start: 1, end: 3, strand: 1 };
+  const records = [rec({ id: 'seq_1', name: 'seq(1)' }), rec({ id: 'other', name: 'seq(1)' })];
+  expect(applyAnnotations(records, { 'seq(1)': [feature] }).unmatched).toEqual(['seq(1)']);
+  expect(applyAnnotations(records.slice(0, 1), { 'seq(1)': [feature] }, {}, { 'seq(1)': null }).unmatched).toEqual(['seq(1)']);
 });

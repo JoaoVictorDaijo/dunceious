@@ -18,9 +18,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildSubmission, remapAlignment } from '@/src/core/alignment';
+import { preflightAlignment, buildSubmission, remapAlignment } from '@/src/core/alignment';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { applyFastaResponse, applyFastaAndLog } from '../bioResponse';
+import { processTransposition } from '@/src/domain/bio/coordinate';
+import { exportToFasta } from '@/src/core/formats/fasta';
 import type { SeqRecord } from '@/src/domain/bio/types';
 
 const records: SeqRecord[] = [
@@ -40,15 +42,15 @@ describe('remote alignment through the existing worker pipe', () => {
     ]);
   });
   it('retains first-token matching for external FASTA descriptions', () => {
-    const message = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1 external description\nA-C\n>other description\nAGC', asAlignment: true });
+    const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1 external description\nA-C\n>other description\nAGC', asAlignment: true });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA response');
     const result = applyFastaResponse([records[0], { ...records[1], id: 'other' }], message.alignedData, true);
     expect(result.kind).toBe('overlay');
     expect(result.next.map(r => r.alignedSequence)).toEqual(['A-C', 'AGC']);
   });
   it('leaves normal batch parsing unchanged', () => {
-    const response = handleBioMessage({ type: 'PARSE_FASTA', content: '>seq1 external description\nAC' });
-    expect(response).toMatchObject({ type: 'FASTA_SUCCESS', alignedData: [{ id: 'seq1', name: 'seq1' }] });
+    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1 external description\nAC' });
+    expect(response).toMatchObject({ type: 'FASTA_SUCCESS', filename: 'fixture.fa', alignedData: [{ id: 'seq1', name: 'seq1' }] });
   });
 });
 
@@ -58,7 +60,7 @@ describe('shared FASTA outcome logs', () => {
     ['>seq1\nAC\n>seq1-other\nACG', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: [seq1-other]'],
     ['>a\nAC', false, 'Batch ingestion complete: 1 records added.'],
   ])('preserves logging for %s', (content, asAlignment, expected) => {
-    const message = handleBioMessage({ type: 'PARSE_FASTA', content });
+    const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA');
     const logs: string[] = []; applyFastaAndLog(records, message.alignedData, asAlignment, message => logs.push(message));
     expect(logs).toEqual([expected]);
@@ -73,4 +75,34 @@ describe('shared FASTA outcome logs', () => {
       expect(result.next).toBe(records); expect(logs).toEqual([expected]);
     }
   });
+});
+
+
+it('restores a terminal protein stop before overlay so its annotation and aligned FASTA survive', () => {
+  const protein: SeqRecord[] = [
+    { id: 'stop', name: 'stop', sequence: 'MK*', moleculeType: 'protein', features: [{ name: 'terminal', type: 'Region', start: 2, end: 3, strand: 1 }] },
+    { id: 'plain', name: 'plain', sequence: 'MK', moleculeType: 'protein', features: [] },
+  ];
+  const preflight = preflightAlignment(protein, 'mafft');
+  if (!preflight.ok) throw new Error('Expected valid protein preflight');
+  expect(preflight.submission.fasta).toBe('>s1\nMK\n>s2\nMK\n');
+  const response = remapAlignment('>s2\nMK\n>s1\nMK\n', preflight.submission);
+  if (!response.ok) throw new Error(response.reason);
+  const overlay = applyFastaResponse(protein, response.records, true);
+  expect(overlay.kind).toBe('overlay');
+  expect(overlay.next.map(record => [record.sequence, record.alignedSequence])).toEqual([['MK*', 'MK*'], ['MK', 'MK-']]);
+  expect(processTransposition(overlay.next)[0].features[0]).toMatchObject({ start: 2, end: 3, segments: [{ start: 2, end: 3 }] });
+  expect(exportToFasta(overlay.next, { residues: 'aligned', header: 'id' }).text).toBe('>stop\nMK*\n\n>plain\nMK-');
+});
+
+it.each([
+  { source: ['MK*', 'M*'], expected: ['M-K--*', '--M--*'] },
+  { source: ['MK', 'M*'], expected: ['M-K---', '--M--*'] },
+  { source: ['MK', 'M'], expected: ['M-K--', '--M--'] },
+])('preserves internal and terminal alignment gaps when restoring stops: $source', ({ source, expected }) => {
+  const preflight = preflightAlignment(source.map((sequence, i) => ({ id: `p${i}`, sequence, moleculeType: 'protein' })), 'mafft');
+  if (!preflight.ok) throw new Error('Expected valid protein preflight');
+  const result = remapAlignment('>s1\nM-K--\n>s2\n--M--\n', preflight.submission);
+  if (!result.ok) throw new Error(result.reason);
+  expect(result.records.map(record => record.sequence)).toEqual(expected);
 });

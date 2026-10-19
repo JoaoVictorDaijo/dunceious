@@ -18,25 +18,15 @@
  */
 
 import type { SearchResult, SeqRecord } from '@/src/domain/bio/types';
+import type { HitMode } from '@/src/core/search/hitColumns';
+import type { ResidueAlphabet } from '@/src/core/search/query';
+import type { SearchOptions, SearchWorkerRequest } from '@/src/workers/protocol';
 import type { GroupedSearchResults } from '../components/SearchPanel';
 
-/** Fuzzy results filtered by minScore percentage; passthrough for exact / no-max. */
-export function filteredResults(
-  searchResults: SearchResult[],
-  searchMode: 'exact' | 'fuzzy',
-  maxScoreFound: number,
-  minScore: number,
-): SearchResult[] {
-  if (searchMode !== 'fuzzy' || maxScoreFound === 0) return searchResults;
-  return searchResults.filter(
-    r => ((r.score ?? 0) / maxScoreFound) * 100 >= minScore,
-  );
-}
-
-/** Groups results by recordId, preserving each result's original filtered index. */
-export function groupedSearchResults(filtered: SearchResult[]): GroupedSearchResults {
+/** Groups results by recordId, preserving each result's index in the result list. */
+export function groupedSearchResults(results: SearchResult[]): GroupedSearchResults {
   const groups: GroupedSearchResults = {};
-  filtered.forEach((r, idx) => {
+  results.forEach((r, idx) => {
     if (!groups[r.recordId]) groups[r.recordId] = { results: [], indices: [] };
     groups[r.recordId].results.push(r);
     groups[r.recordId].indices.push(idx);
@@ -95,3 +85,27 @@ export function getSequenceContext(
     post: seq.substring(end, Math.min(seq.length, end + contextLen)),
   };
 }
+
+export interface CompletedSearch {
+  query: string;
+  mode: HitMode;
+  alphabet: ResidueAlphabet;
+  options: SearchOptions;
+  matrixScore?: (q: string, r: string) => number;
+}
+
+export function completedSearchFor(
+  request: SearchWorkerRequest,
+  local: boolean,
+  matrixScore?: (q: string, r: string) => number,
+): CompletedSearch {
+  return {
+    query: request.searchQuery,
+    mode: local ? 'local' : request.mode === 'exact' ? 'iupac' : 'whole',
+    alphabet: request.moleculeType === 'protein' ? 'protein' : 'nucleotide',
+    options: { ...request.options },
+    ...(matrixScore ? { matrixScore } : {}),
+  };
+}
+
+export interface SearchAnnotationHit { result: SearchResult; search: CompletedSearch }

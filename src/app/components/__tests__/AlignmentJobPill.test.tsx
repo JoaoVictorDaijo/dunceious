@@ -69,9 +69,9 @@ afterEach(() => {
 function mount() {
   const onOpen = vi.fn();
   const view = render(<AlignmentJobPill state={state} onOpen={onOpen} />);
-  const button = screen.getByRole('button') as HTMLButtonElement;
+  const button = screen.getByRole('button', { name: /open alignment job monitor/i }) as HTMLButtonElement;
   Object.assign(button, { setPointerCapture: capture, releasePointerCapture: release, hasPointerCapture: () => true });
-  return { ...view, button, pill: button.parentElement!, onOpen };
+  return { ...view, button, pill: view.container.querySelector<HTMLElement>('[data-alignment-job-pill]')!, onOpen };
 }
 
 function point(button: HTMLElement, phase: 'down' | 'move' | 'up', x: number, y: number, extra: PointerEventInit = {}) {
@@ -82,6 +82,7 @@ function point(button: HTMLElement, phase: 'down' | 'move' | 'up', x: number, y:
 }
 
 function expectPosition(pill: HTMLElement, x: number, y: number) {
+  // The pill must remain within the viewport after pointer, keyboard, and resize movement.
   expect(pill.style.left).toBe(`${x}px`);
   expect(pill.style.top).toBe(`${y}px`);
 }
@@ -103,7 +104,7 @@ it.each(['mouse', 'touch', 'pen'])('drags with %s, captures the pointer and supp
   expect(capture).toHaveBeenCalledWith(1);
   point(button, 'move', 600, 540, { pointerType });
   expectPosition(pill, 580, 520);
-  expect(button.className).toContain('cursor-grabbing');
+  expect(button.getAttribute('data-state')).toBe('dragging');
   point(button, 'up', 600, 540, { pointerType });
   expect(release).toHaveBeenCalledWith(1);
   fireEvent.click(button, { detail: 1 });
@@ -144,7 +145,7 @@ it.each(['pointerCancel', 'lostPointerCapture'] as const)('ends a drag on %s and
   fireEvent[event](button, { pointerId: 1 });
   point(button, 'move', 100, 100);
   expectPosition(pill, 580, 520);
-  expect(button.className).not.toContain('cursor-grabbing');
+  expect(button.getAttribute('data-state')).toBe('idle');
   fireEvent.keyDown(button, { key: 'Enter' });
   fireEvent.click(button, { detail: 0 });
   expect(onOpen).toHaveBeenCalledOnce();
@@ -197,8 +198,8 @@ it('keeps the pill visible on viewport resize and content growth', () => {
 it('describes movement and announces stage changes outside the drag handle', () => {
   const { button, rerender, onOpen } = mount();
   expect(button.getAttribute('aria-label')).toMatch(/open.*monitor/i);
-  const description = document.getElementById(button.getAttribute('aria-describedby')!);
-  expect(description?.textContent).toMatch(/drag.*arrow.*shift/i);
+  const description = screen.getByText(/drag.*arrow.*shift/i);
+  expect(button.getAttribute('aria-describedby')).toBe(description.id);
   const status = screen.getByRole('status');
   expect(status.contains(button)).toBe(false);
   expect(status.getAttribute('aria-live')).toBe('polite');

@@ -89,3 +89,34 @@
   .drop-zone[data-drop="armed"] { animation: none; }
   .drop-zone[data-drop="over"] .drop-zone-icon { transform: none; }
 }
+
+.hub-row-grid {
+  display: grid;
+  grid-template-columns: 44px 110px 22px minmax(0, 1fr) minmax(160px, 28ch) 96px;
+  align-items: center;
+  column-gap: 12px;
+  padding-left: 0;
+  padding-right: 20px;
+}
+@media (hover: none) {
+  .hub-row-actions { opacity: 1; }
+}
+
+.hub-select-column { display: flex; align-items: center; justify-content: center; height: 100%; border-right: 1px solid theme('colors.slate.100'); }
+.hub-group-card { position: absolute; left: 14px; right: 14px; border: 1px solid theme('colors.slate.300'); border-radius: 16px; background: white; box-shadow: 0 1px 2px theme('colors.slate.900 / 5%'), 0 6px 18px -14px theme('colors.slate.900 / 35%'); overflow: hidden; }
+.hub-group-current { border-color: theme('colors.slate.400'); }
+/* The card is a working surface, so the current section stays neutral; the accent marks it only
+   with an edge stripe (plus the accession text), matching how the viewport keeps its canvas clean. */
+.hub-surface-current { background-color: theme('colors.slate.50'); box-shadow: inset 4px 0 0 var(--env); }
+
+.hub-pinned[data-compact="false"] .hub-pinned-compact { pointer-events: none; }
+.hub-pinned-expanded, .hub-pinned-compact { transition: none; }
+.hub-scroll-region { scrollbar-width: none; }
+.hub-scroll-region::-webkit-scrollbar { display: none; }
+.hub-scroll-thumb { cursor: grab; touch-action: none; }
+.hub-scroll-thumb[data-dragging] { cursor: grabbing; background: theme('colors.slate.900 / 20%'); }
+
+.hub-index { container-type: inline-size; }
+@container (max-width: 380px) {
+  .hub-hidden-words { display: none; }
+}

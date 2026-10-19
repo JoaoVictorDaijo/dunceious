@@ -1,0 +1,114 @@
+########################################
+# Program: matcher
+# Rundate: Sat 17 Oct 2026 02:57:17
+# Commandline: matcher
+#    -auto
+#    -asequence src/core/search/local/__tests__/fixtures/emboss/protein-bzx/query.fa
+#    -bsequence src/core/search/local/__tests__/fixtures/emboss/protein-bzx/record.fa
+#    -sprotein1
+#    -sprotein2
+#    -datafile src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+#    -gapopen 20
+#    -gapextend 1
+#    -alternatives 4
+#    -aformat3 srspair
+#    -awidth3 60
+#    -outfile stdout
+# Align_format: srspair
+# Report_file: stdout
+########################################
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 5
+# Identity:       2/5 (40.0%)
+# Similarity:     4/5 (80.0%)
+# Gaps:           0/5 ( 0.0%)
+# Score: 58
+# 
+#
+#=======================================
+
+Query              1 WBZXW      5
+                     |:: |
+record             1 WDQAW      5
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 22
+# 
+#
+#=======================================
+
+Query              5 W      5
+                     |
+record             1 W      1
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       1/1 (100.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 22
+# 
+#
+#=======================================
+
+Query              1 W      1
+                     |
+record             5 W      5
+
+
+#=======================================
+#
+# Aligned_sequences: 2
+# 1: Query
+# 2: record
+# Matrix: src/core/search/local/__tests__/fixtures/emboss/EBLOSUM62.x2
+# Gap_penalty: 20
+# Extend_penalty: 1
+#
+# Length: 1
+# Identity:       0/1 ( 0.0%)
+# Similarity:     1/1 (100.0%)
+# Gaps:           0/1 ( 0.0%)
+# Score: 2
+# 
+#
+#=======================================
+
+Query              3 Z      3
+                     :
+record             2 D      2
+
+
+#---------------------------------------
+#---------------------------------------

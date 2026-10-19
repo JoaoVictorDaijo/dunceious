@@ -1,6 +1,6 @@
 # Layer import rules (quick reference)
 
-> Extract of `ARCHITECTURE.md` §2 (import rules) and the design spec §4.
+> Extract of `ARCHITECTURE.md` §2 (import rules).
 > **Canonical source:** [`../../../../ARCHITECTURE.md`](../../../../ARCHITECTURE.md). If this drifts, it wins.
 
 Imports only ever point **down** this stack — never sideways-up:

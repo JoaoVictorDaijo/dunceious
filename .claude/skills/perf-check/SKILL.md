@@ -20,7 +20,7 @@ GC-aware. Not wired into CI — run it locally.
 ## When to use
 
 After changes to core search/bio/genbank algorithms or the domain grid math —
-`reverseComplement`, `smithWaterman`, `degenerateToRegex`, `translateSequence`,
+`reverseComplement`, `findApproximateMatches`, `degenerateToRegex`, `translateSequence`,
 `parseGenBank`, or the `src/domain/bio` grid transforms — to confirm no regression.
 
 ## Run

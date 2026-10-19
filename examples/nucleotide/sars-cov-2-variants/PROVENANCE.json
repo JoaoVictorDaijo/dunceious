@@ -1,0 +1,60 @@
+{
+  "dataset": "SARS-CoV-2 reference plus three variant genomes, aligned with MAFFT",
+  "accessions": [
+    {
+      "lineage": "Alpha (B.1.1.7)",
+      "accession": "OL461693",
+      "version": "OL461693.1",
+      "why": "Complete 29,738 bp genome with 11 gene and 12 CDS features and no ambiguity codes anywhere, spike included. The record carries no lineage field and no lineage in its strain name; its only mention of B.1.1.7 is a reference title, which assigns nothing. The Alpha label rests instead on the record carrying every lineage-defining change of B.1.1.7: all 17 nucleotide changes in Table 1 of Rambaut et al. 2020, 'Preliminary genomic characterisation of an emergent SARS-CoV-2 lineage in the UK defined by a novel set of spike mutations' (https://virological.org/t/563), were checked against this record in the bundled alignment at their NC_045512.2 coordinates and all 17 are present: ORF1ab C3267T, C5388A, T6954C and the 11288-11296 deletion; spike 21765-21770 and 21991-21993 deletions, A23063T, C23271A, C23604A, C23709T, T24506G, G24914C; ORF8 C27972T, G28048T, A28111G; N 28280 GAT->CTA and C28977T. A subset covering both kinds of change - substitutions and the spike deletions - is asserted against aligned.fasta in src/app/showroom/__tests__/variantData.test.ts. No Pango assignment tool was run, and the amino-acid consequences were not re-derived from a translation. A human isolate submitted without any claim of rights."
+    },
+    {
+      "lineage": "Delta (B.1.617.2)",
+      "accession": "OR279985",
+      "version": "OR279985.1",
+      "why": "Complete 29,689 bp genome with 11 gene and 12 CDS features and no ambiguity codes anywhere, spike included. The lineage is explicit in the record as /note=\"genotype: B.1.617.2\", which is stronger evidence than a study title. A human isolate submitted without any claim of rights."
+    },
+    {
+      "lineage": "Omicron (BA.1.1, a BA.1 sublineage)",
+      "accession": "OR323867",
+      "version": "OR323867.1",
+      "why": "Complete 29,738 bp genome with 11 gene and 12 CDS features and no ambiguity codes anywhere, spike included; the lineage is explicit as /note=\"genotype: BA.1.1\". Chosen over a record designated plain BA.1 because every bare-BA.1 candidate carried at least one ambiguity code, while this BA.1 sublineage is ambiguity-free. Engineered constructs (for example reporter clones carrying nLuc) were excluded; this is a natural human isolate submitted without any claim of rights."
+    }
+  ],
+  "reference": {
+    "accession": "NC_045512",
+    "version": "NC_045512.2",
+    "path": "examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb",
+    "note": "The bundled RefSeq reference, unchanged by this script."
+  },
+  "ncbiRetrieved": "2026-10-17",
+  "ncbiPolicy": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+  "source": {
+    "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+    "parameters": {
+      "db": "nuccore",
+      "rettype": "gbwithparts",
+      "retmode": "text"
+    },
+    "note": "No GISAID data: GISAID's terms forbid redistribution."
+  },
+  "mafft": {
+    "version": "v7.520 (2023/Mar/22)",
+    "invocation": "docker",
+    "image": "quay.io/biocontainers/mafft",
+    "imageDigest": "sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373",
+    "command": "docker run --rm --network none --user $(id -u):$(id -g) -v <workdir>:/data:ro -w /data quay.io/biocontainers/mafft@sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373 mafft --auto --preservecase input.fasta",
+    "strategy": "FFT-NS-2 (Fast but rough)",
+    "script": "scripts/build-sars-cov-2-variants.sh",
+    "note": "MAFFT's stdout is written unedited; --preservecase keeps the uppercase residues extracted from the GenBank records, and --auto picks MAFFT's default strategy."
+  },
+  "sha256": {
+    "sars-cov-2-NC_045512.gb": "87744b176aa9ce71350c8becf0d062950dbc485a59766fcfe723ec859f6b6d5c",
+    "variants.gb": "e394174c04ba0265c997ec494a9a86d4602f1e04bfbd7e8a615c4bedc0f366d9",
+    "mafft-input.fasta": "361ea514cfaa503af38dcc2f7dd4bd9ee4d2d4c1555281d9e69847e6f7b33ede",
+    "aligned.fasta": "787ae2fa38f34d04bd8f6f9f1264ce4c30746040733ba32d4206ab7f0c39e82c"
+  },
+  "licence": {
+    "statement": "NCBI places no restrictions on the use or distribution of GenBank data, but notes that some submitters may claim patent, copyright or other rights. Each record above was checked for such a claim and none was found.",
+    "url": "https://www.ncbi.nlm.nih.gov/home/about/policies/"
+  }
+}

@@ -57,7 +57,9 @@ this up who assumes "Hub always means amber" will paint amber chrome on an empty
 
 **Resolved.** The theme switcher shipped on `feat/theme-switcher`: a seven-style shortlist
 with `clean` as the default, both palette retunes applied (see item 3), and the edge bleed
-removed. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. The investigation
+removed. The [original spec](../specs/2026-07-20-app-theme-switcher.md) preserves those
+decisions; its shortlist and palette have since been superseded (items 3 and 6 below).
+Current theme registry: `src/app/logic/theme.ts`. The investigation
 notes below are kept for the record.
 
 We do not have to pick one treatment and discard the rest. The nine styles are all driven by
@@ -68,7 +70,7 @@ is plausibly cheap — the switch is one attribute on the app root.
 
 - Viability: is it genuinely just `data-hfstyle` on a root element, or does per-style CSS bloat
   the bundle enough to matter? All nine styles currently ship as static CSS.
-- Where it lives: the existing global Options popover (PR #65) is the natural home.
+- Where it lives: the global Project and options cog panel is the natural home.
 - Persistence: localStorage vs. project file. Should a project carry its author's theme, or is
   it a per-user preference? Per-user is the safer default.
 - Reduced motion: several styles animate. The `prefers-reduced-motion` gate already exists and
@@ -81,7 +83,7 @@ is plausibly cheap — the switch is one attribute on the app root.
 ### 2. Keep `A · Clean` as a supported option
 
 **Resolved.** `clean` ships as one of the seven styles and is the default (see item 1 and
-`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
+`src/app/logic/theme.ts`).
 
 The flat baseline — accent edge strip plus tinted chrome accents, no wash — is a legitimate
 choice, not just a control. It is the calmest option and the cheapest to render. If the theme
@@ -92,7 +94,7 @@ the default).
 
 **Resolved.** Both retunes shipped on `feat/theme-switcher` — sky `--env3` → `#0d9488` (teal)
 and protein `--env` → `#a78bfa` — applied across the seven-style shortlist (see item 1 and
-`docs/superpowers/specs/2026-07-20-theme-switcher-design.md`).
+`src/app/logic/theme.ts`).
 
 Both are **live in the prototype** and marked in-file with revert instructions.
 
@@ -117,7 +119,7 @@ contrast rather than the hex values. `src/app/logic/theme.ts` holds the current 
 kept, but `ENV_LAYERS` and the colour helpers moved to the theme registry (`src/app/logic/theme.ts`)
 so tokens have one home; the Hub's amber backdrop stayed; and the workspace edge strips were
 **deleted** (not merely replaced) — the accent now renders only through the header/footer `.hf-env`
-layers. Spec: `docs/superpowers/specs/2026-07-20-theme-switcher-design.md`. Original notes kept for
+layers. Current theme registry: `src/app/logic/theme.ts`. Original notes kept for
 the record:
 
 The env-accent code on this branch predates the prototypes. It holds up better than expected —
@@ -178,3 +180,16 @@ itself) and `env-strong` (the same hue at OKLCH L 0.54, the fill that carries wh
 ≥4.8:1). The governing rule still holds, because these are frame controls. Sky stays wherever
 it encodes data: the selection on the canvas and its readouts, the IUPAC/fuzzy search-mode
 pair, and white modals.
+
+### 9. The Hub card stays quiet
+
+**Shipped** on `feat/hub-quiet`. The Hub table card is a working surface, so the governing rule
+now applies inside it too: the current sequence or feature section uses a neutral slate-50 fill
+(`.hub-surface-current`) with a 4px accent edge, the current card keeps a plain slate-400 border,
+selected and current rows go slate-50, and the genome strip's in-view window is drawn in slate.
+The accent stays on a few markers only: the current section's accession or feature identity (it
+returns to slate-900 when the section loses focus), the active tab underline and count, Edit
+details, the Edited in Dunceious filter and edit chips, filter toggles, the sort arrows and the
+overview rail's current block. Semantic amber (odd length, notices) is unchanged. The hue stays
+`DEFAULT_PALETTE.hub` (72°). The alternatives were studied in a prototype before this was chosen:
+sage 150°, chartreuse 120°, rose 5° and a session-inheriting Hub.
