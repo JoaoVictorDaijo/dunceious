@@ -61,6 +61,15 @@ function dna(length: number, seed: number) {
     return 'ACGT'[state >>> 30];
   }).join('');
 }
+function checkPhases(messages: ProbeWindow['localProbe']['messages']) {
+  const scoring = messages.filter(m => m.message.phase === 'score');
+  const alignment = messages.filter(m => m.message.phase === 'align');
+  expect(scoring).toHaveLength(100);
+  expect(scoring.every(m => m.message.outcome.alignmentsEnumerated === 0 && m.message.outcome.hits.length === 0)).toBe(true);
+  expect(new Set(alignment.map(m => `${m.message.outcome.recordIndex}:${m.message.outcome.strand}`)).size).toBe(alignment.length);
+  expect(new Set(scoring.map(m => `${m.message.outcome.recordIndex}:${m.message.outcome.strand}`)).size).toBe(100);
+  return { scoring, alignment };
+}
 const records = Array.from({ length: 50 }, (_, i) => ({ id: `synthetic-${i}`, sequence: dna(30000, i + 1) }));
 const fasta = records.map(r => `>${r.id}\n${r.sequence}\n`).join('');
 for (const queryLength of [300, 1000]) it(`measures ${queryLength} nt against 50 × 30 kb on both strands through the app`, async () => {
@@ -120,21 +129,18 @@ for (const queryLength of [300, 1000]) it(`measures ${queryLength} nt against 50
       const measured = await page.evaluate(start => ({ wallMs: performance.now() - start, ...((window as ProbeWindow).localProbe), hardwareConcurrency: navigator.hardwareConcurrency }), start);
       await browserExpect(page.locator('[data-search-hit]').first()).toContainText(`Score ${queryLength * 5}`);
       expect(measured.workers).toBe(pool === 'single' ? 1 : Math.max(1, Math.min(measured.hardwareConcurrency || 2, 8) - 1));
-      const bootstrap = measured.messages.filter(m => m.message.phase === 'bootstrap');
-      const refinement = measured.messages.filter(m => m.message.phase === 'refine');
-      expect(bootstrap).toHaveLength(100);
-      expect(new Set(bootstrap.map(m => `${m.message.outcome.recordIndex}:${m.message.outcome.strand}`)).size).toBe(100);
+      const { scoring, alignment } = checkPhases(measured.messages);
       const peakMemory = Array.from({ length: measured.workers }, (_, worker) => Math.max(0, ...measured.messages.filter(m => m.worker === worker).map(m => m.message.peakMemoryBytes)));
       expect(peakMemory.every(n => Number.isInteger(n) && n > 0)).toBe(true);
       const outcomes = new Map(measured.messages.map(m => [`${m.message.outcome.recordIndex}:${m.message.outcome.strand}`, m.message.outcome]));
       const merged = mergeLocalOutcomes([...outcomes.values()], 100, []);
       expect(merged.counts.streams).toBe(100);
       if (baseline) expect(merged).toEqual(baseline); else baseline = merged;
-      const bootstrapMs = Math.max(...bootstrap.map(m => m.at)) - start;
+      const scoringMs = Math.max(...scoring.map(m => m.at)) - start;
       const enumerations = measured.messages.map(m => ({ phase: m.message.phase, recordIndex: m.message.outcome.recordIndex, strand: m.message.outcome.strand, alignments: m.message.outcome.alignmentsEnumerated })).sort((a, b) => a.recordIndex - b.recordIndex || b.strand - a.strand || a.phase.localeCompare(b.phase));
       const result = { queryLength, pool, poolSize: measured.workers, wallMs: measured.wallMs,
-        bootstrapMs, refinementMs: measured.wallMs - bootstrapMs,
-        skippedStreams: bootstrap.filter(m => !m.message.outcome.exhausted).length - refinement.length,
+        scoringMs, alignmentMs: measured.wallMs - scoringMs,
+        skippedStreams: scoring.filter(m => !m.message.outcome.exhausted).length - alignment.length,
         alignmentsEnumerated: enumerations.reduce((sum, stream) => sum + stream.alignments, 0),
         peakMemoryBytesPerWorker: peakMemory, enumerations, counts: merged.counts };
       measurements.push(result);

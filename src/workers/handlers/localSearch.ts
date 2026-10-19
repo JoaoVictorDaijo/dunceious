@@ -19,7 +19,7 @@
 
 import { instantiateLocalEngine, type LocalEngine } from '../../core/search/local/engine';
 import { encodeResidues, loadScoring } from '../../core/search/local/scoring';
-import { iterateLocalStream, type LocalStreamOutcome } from '../../core/search/local/stream';
+import { iterateLocalStream, localScoreOutcome, scoreLocalStream, type LocalStreamOutcome } from '../../core/search/local/stream';
 import type { SearchResult } from '../../domain/bio/types';
 import type { LocalSearchRequest, LocalSearchResponse } from '../protocol';
 
@@ -63,15 +63,29 @@ export function createLocalSearchHandler(post: (message: LocalSearchResponse) =>
       const encoded = encodeResidues(request.query, scoring);
       if ('invalid' in encoded) throw new Error(`Unsupported query characters: ${encoded.invalid.join(', ')}`);
       for (const job of request.jobs) {
+        const input = { ...request, ...job, queryCodes: encoded.codes, scoring };
+        const onProgress = (fraction: number) => post({ type: 'progress', requestId,
+          recordIndex: job.recordIndex, strand: job.strand, fraction });
+        const finish = (outcome: LocalStreamOutcome) => post({ type: 'stream-done', phase: request.phase,
+          requestId, outcome, peakMemoryBytes: engine!.peakMemoryBytes() });
+        if (request.phase === 'score') {
+          finish(scoreLocalStream(engine, input, onProgress));
+          continue;
+        }
+        const upperBound = job.upperBoundScore2;
+        if (upperBound === undefined) throw new Error('Local alignment is missing its scoring pass bound');
+        const scored = localScoreOutcome(job, upperBound);
+        if (upperBound === 0 || (boundScore2 !== null && upperBound < boundScore2)) {
+          finish(scored);
+          continue;
+        }
         const iterator: Iterator<SearchResult | null, LocalStreamOutcome> = iterateLocalStream(engine,
-          { ...request, ...job, queryCodes: encoded.codes, scoring },
-          fraction => post({ type: 'progress', requestId, recordIndex: job.recordIndex, strand: job.strand, fraction }),
-          () => request.phase === 'bootstrap' ? null : boundScore2, request.phase === 'bootstrap');
+          input, onProgress, () => boundScore2, upperBound);
         try {
           while (true) {
             const next = iterator.next();
             if (next.done) {
-              post({ type: 'stream-done', phase: request.phase, requestId, outcome: next.value, peakMemoryBytes: engine.peakMemoryBytes() });
+              finish(next.value);
               break;
             }
             if (next.value) post({ type: 'hit', requestId, recordIndex: job.recordIndex, strand: job.strand, hit: next.value });

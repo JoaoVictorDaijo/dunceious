@@ -42,7 +42,7 @@ export interface LocalSearchJob {
   startedAt: number; endedAt?: number; progress: LocalSearchProgress; error?: string;
 }
 const idleLocalJob: LocalSearchJob = { phase: 'idle', startedAt: 0,
-  progress: { streamsDone: 0, streamsTotal: 0, currentFraction: 0 } };
+  progress: { phase: 'score', streamsDone: 0, streamsTotal: 0, currentFraction: 0 } };
 
 export type { SearchOptions };
 

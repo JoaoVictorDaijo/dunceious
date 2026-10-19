@@ -129,11 +129,15 @@ each **stream** (a record and one strand) is searched on its own.
   every alignment scoring at least s* is enumerated in every stream; equal scores at s* are always
   included, so T can choose among them.
 - **Schedule** (speed only; results are the same for any schedule that obeys the rule above):
-  1. every stream computes its first alignment, which seeds the global top N, then releases its
-     engine;
-  2. streams that aren't exhausted are rerun from the start in descending order of their first
-     score (ties by stream order), enumerating under the live b. A stream whose first score is
-     already below b is skipped: its first alignment is then its only one scoring at least s*.
+  1. every stream computes a score-only Gotoh local maximum, ub, using matcher's exact doubled
+     matrix scores and affine gap arithmetic (open qr, extend r), without candidate nodes or origins;
+  2. ub = 0 marks a stream with no positive alignment. Positive streams run once in descending ub
+     order (ties by record order, then forward before reverse), enumerating under the live b;
+  3. skip a stream only when ub < b. Since its enumeration cannot exceed ub and b ≤ s*, it has
+     no alignments in scope. Skipped streams still contribute to the stream count, but no in-scope
+     hidden or beyond-limit counts; only ub = 0 contributes to the no-positive count;
+  4. check the first enumerated score against ub before classifying or publishing it. A mismatch,
+     including unexpected exhaustion, ends the search with a visible error and no partial results.
 
   One engine is alive per worker at a time. The first N hits under T among the enumerated
   passing hits are shown, so results don't depend on timing, worker count or completion order.
@@ -210,6 +214,9 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
 
 ## Computation
 
+- **Score pass:** a scalar Gotoh local maximum uses two record-length rows (O(record length)
+  memory), no node list and no origins. It equals the first matcher's score2; it does not select
+  a path or alter ties. The full enumeration checks that equality before exposing its first hit.
 - **Engine:** Waterman–Eggert in Huang & Miller's linear-space form, the structure of EMBOSS
   `matcher` 6.6.0:
   - one full scoring pass over the stream keeps the best candidates (`matcher_BigPass`);
@@ -243,8 +250,9 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
   stage fails (module load, worker start, dispatch, a worker error, a pool member failing), the
   search ends with a visible error and shows no partial results. Cancelled and failed searches are
   labelled differently from "no hits".
-- **Progress and Cancel:** workers report streams finished out of the total, and the current
-  stream's progress through the record. Cancel terminates and replaces the workers at once.
+- **Progress and Cancel:** workers report the score or align phase, streams scored or finished out
+  of the total, and the current pass's fraction. The score pass reports its start and completion.
+  Cancel terminates and replaces the workers at once.
 - **Parallelism** (builder's call): streams may be spread over a pool of workers sized from
   `navigator.hardwareConcurrency`. Results and their order are identical for any pool size and any
   completion order.

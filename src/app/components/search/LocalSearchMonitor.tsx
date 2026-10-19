@@ -44,7 +44,8 @@ export default function LocalSearchMonitor({ job, onCancel }: { job: LocalSearch
   if (!visible || job.phase === 'idle') return null;
   const active = job.phase === 'running';
   const elapsed = Math.max(0, Math.floor(((job.endedAt ?? now) - job.startedAt) / 1000));
-  const status = active ? 'Local search' : job.phase === 'done' ? 'Search done' : job.phase === 'cancelled' ? 'Search cancelled' : 'Search failed';
+  const scoring = job.progress.phase === 'score';
+  const status = active ? (scoring ? 'Scoring streams' : 'Local search') : job.phase === 'done' ? 'Search done' : job.phase === 'cancelled' ? 'Search cancelled' : 'Search failed';
   const { streamsDone, streamsTotal } = job.progress;
   if (minimized) return <JobPill label={active ? `${status} · ${streamsDone}/${streamsTotal}` : status} elapsed={elapsed} active={active}
     done={job.phase === 'done'} failed={job.phase === 'failed'} monitorName="search" dataAttribute="data-local-search-pill" onOpen={() => setMinimized(false)} />;
@@ -60,9 +61,9 @@ export default function LocalSearchMonitor({ job, onCancel }: { job: LocalSearch
         }
       }} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
       <header className="border-b border-slate-700/60 px-6 py-5"><h2 className="text-lg font-semibold text-white">Local search</h2><p className="text-xs text-slate-400">Elapsed: {elapsed} s</p></header>
-      <div className="px-6 py-5"><JobMonitor status={active ? 'Searching' : status} stepsLabel="Search steps" now={now}
-        steps={[{ id: 'streams', label: `${streamsDone} of ${streamsTotal} record strands searched`, status: active ? 'active' : job.phase === 'failed' ? 'failed' : 'done', error: job.error }]}>
-        {active && <progress aria-label="Record strands searched" value={streamsDone} max={Math.max(1, streamsTotal)} className="w-full" />}
+      <div className="px-6 py-5"><JobMonitor status={active ? (scoring ? 'Scoring streams' : 'Searching') : status} stepsLabel="Search steps" now={now}
+        steps={[{ id: 'streams', label: `${streamsDone} of ${streamsTotal} record strands ${scoring ? 'scored' : 'searched'}`, status: active ? 'active' : job.phase === 'failed' ? 'failed' : 'done', error: job.error }]}>
+        {active && <progress aria-label={scoring ? 'Record strands scored' : 'Record strands searched'} value={streamsDone} max={Math.max(1, streamsTotal)} className="w-full" />}
       </JobMonitor></div>
       <footer className="flex justify-end gap-3 border-t border-slate-700/50 bg-slate-800/40 px-6 py-4">
         <button type="button" className="mr-auto rounded-lg px-4 py-2 text-sm text-slate-300 hover:bg-slate-800" onClick={() => setMinimized(true)}>Minimize</button>

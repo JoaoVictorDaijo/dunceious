@@ -131,9 +131,9 @@ it('dispatches one stream at a time from the shared queue and broadcasts only ri
   const messages = InProcessWorker.instances[0].sent;
   const searches = messages.filter(m => m.type === 'search');
   expect(searches.every(m => m.jobs.length === 1)).toBe(true);
-  expect(searches.filter(m => m.phase === 'bootstrap').map(m => m.jobs.map(j => [j.recordIndex, j.strand])))
+  expect(searches.filter(m => m.phase === 'score').map(m => m.jobs.map(j => [j.recordIndex, j.strand])))
     .toEqual([[[0, 1]], [[0, -1]], [[1, 1]], [[1, -1]]]);
-  expect(searches.filter(m => m.phase === 'refine').map(m => m.jobs.map(j => [j.recordIndex, j.strand])))
+  expect(searches.filter(m => m.phase === 'align').map(m => m.jobs.map(j => [j.recordIndex, j.strand])))
     .toEqual([[[0, 1]], [[1, 1]], [[1, -1]]]);
   const bounds = messages.filter(m => m.type === 'bound').map(m => m.boundScore2);
   expect(bounds.length).toBeGreaterThan(0);
@@ -183,10 +183,10 @@ it('raises the live score bound when a later stream improves the global best', a
       records: [{ id: 'short', sequence: 'AA' }, { id: 'long', sequence: 'AAAA' }, { id: 'tie', sequence: 'AAAA' }] }, () => {});
   });
   const messages = InProcessWorker.instances[0].sent;
-  expect(messages.filter(m => m.type === 'bound').map(m => m.boundScore2)).toEqual([20, 40]);
-  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'bootstrap').map(m => m.boundScore2)).toEqual([null, 20, 40]);
-  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'refine').map(m => [m.jobs[0].recordIndex, m.boundScore2]))
-    .toEqual([[1, 40], [2, 40]]);
+  expect(messages.filter(m => m.type === 'bound').map(m => m.boundScore2)).toEqual([40]);
+  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'score').map(m => m.boundScore2)).toEqual([null, null, null]);
+  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'align').map(m => [m.jobs[0].recordIndex, m.boundScore2]))
+    .toEqual([[1, null], [2, 40]]);
   expect(result.results.map(hit => [hit.recordId, hit.local!.score])).toEqual([['long', 20]]);
 });
 
@@ -205,7 +205,7 @@ it.each(['hit', 'progress', 'stream-done'] as const)('rejects an unassigned %s r
     ? { ...hit, recordIndex: 99 }
     : type === 'progress'
       ? { type, requestId: search.requestId, recordIndex: 99, strand: 1, fraction: 0 }
-      : { type, phase: 'bootstrap', requestId: search.requestId, peakMemoryBytes: 0, outcome: {
+      : { type, phase: 'score', requestId: search.requestId, peakMemoryBytes: 0, outcome: {
         recordIndex: 99, strand: 1, hits: [], exhausted: true, noPositive: true,
         firstScore2: null, alignmentsEnumerated: 0, hiddenByOverlapScores: [], hiddenByFilterScores: [],
       } };
@@ -214,7 +214,7 @@ it.each(['hit', 'progress', 'stream-done'] as const)('rejects an unassigned %s r
   expect(h.result.current.error).toContain('unassigned stream');
 });
 
-it('finishes every bootstrap before refining in descending first-score order with stable ties', async () => {
+it('finishes every scoring before aligning in descending first-score order with stable ties', async () => {
   vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(5);
   const h = renderHook(() => useLocalSearchPool(bytes));
   await waitFor(() => expect(h.result.current.ready).toBe(true));
@@ -224,14 +224,14 @@ it('finishes every bootstrap before refining in descending first-score order wit
       records: [{ id: 'short', sequence: 'AA' }, { id: 'best', sequence: 'AAAA' }, { id: 'tie', sequence: 'AAAA' }, { id: 'middle', sequence: 'AAA' }] }, () => {});
   });
   const events = InProcessWorker.events;
-  const firstRefine = events.findIndex(m => m.type === 'search' && m.phase === 'refine');
+  const firstRefine = events.findIndex(m => m.type === 'search' && m.phase === 'align');
   expect(firstRefine).toBeGreaterThan(0);
-  expect(events.slice(0, firstRefine).filter(m => m.type === 'stream-done' && m.phase === 'bootstrap')).toHaveLength(4);
-  expect(events.filter(m => m.type === 'search').filter(m => m.phase === 'refine').map(m => m.jobs[0].recordIndex)).toEqual([1, 2, 3, 0]);
+  expect(events.slice(0, firstRefine).filter(m => m.type === 'stream-done' && m.phase === 'score')).toHaveLength(4);
+  expect(events.filter(m => m.type === 'search').filter(m => m.phase === 'align').map(m => m.jobs[0].recordIndex)).toEqual([1, 2, 3, 0]);
   expect(result.counts.streams).toBe(4);
 });
 
-it('supersedes bootstrap outcomes and skips a stream below the improved live bound', async () => {
+it('supersedes scoring outcomes and skips a stream below the improved live bound', async () => {
   vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(2);
   const h = renderHook(() => useLocalSearchPool(bytes));
   await waitFor(() => expect(h.result.current.ready).toBe(true));
@@ -241,7 +241,7 @@ it('supersedes bootstrap outcomes and skips a stream below the improved live bou
       records: [{ id: 'two', sequence: 'AATTAA' }, { id: 'weak', sequence: 'AT' }] }, () => {});
   });
   const searches = InProcessWorker.instances[0].sent.filter(m => m.type === 'search');
-  expect(searches.filter(m => m.phase === 'refine').map(m => m.jobs[0].recordIndex)).toEqual([0]);
+  expect(searches.filter(m => m.phase === 'align').map(m => m.jobs[0].recordIndex)).toEqual([0]);
   expect(result.results.map(hit => [hit.recordId, hit.start, hit.end, hit.local!.score]))
     .toEqual([['two', 0, 2, 10], ['two', 4, 6, 10]]);
   expect(result.counts).toMatchObject({ streams: 2, beyondLimit: 0 });
@@ -256,12 +256,12 @@ it('exhausts every positive stream when fewer hits pass than the requested limit
     records: [{ id: 'yes', sequence: 'A' }, { id: 'none', sequence: 'T' }] }, () => {}); });
   const messages = InProcessWorker.instances[0].sent;
   expect(messages.some(m => m.type === 'bound')).toBe(false);
-  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'refine').map(m => m.jobs[0].recordIndex)).toEqual([0]);
+  expect(messages.filter(m => m.type === 'search').filter(m => m.phase === 'align').map(m => m.jobs[0].recordIndex)).toEqual([0]);
   expect(result.results.map(hit => hit.recordId)).toEqual(['yes']);
   expect(result.counts).toMatchObject({ streams: 2, noPositiveStreams: 1, beyondLimit: 0, cutoff: null });
 });
 
-it('does not let a replayed bootstrap hit fill the heap and prune a distinct lower-scoring hit', async () => {
+it('keeps a distinct lower-scoring hit without double counting the scoring pass', async () => {
   vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(2);
   const h = renderHook(() => useLocalSearchPool(bytes));
   await waitFor(() => expect(h.result.current.ready).toBe(true));
@@ -303,4 +303,37 @@ it('stops old progress and preserves a replacement run when cancellation happens
   expect(retired.sent).toHaveLength(oldDispatchesAtCancel);
   expect(retired.terminate).toHaveBeenCalledOnce();
   expect(result.results.map(hit => hit.recordId)).toEqual(['replacement']);
+});
+
+it.each([
+  { query: 'ACGT', scoring: 'EDNAFULL' as const, moleculeType: 'dna' as const,
+    records: [{ id: 'a', sequence: 'ACGTCCCCACGT' }, { id: 'b', sequence: 'ACGATACGT' }, { id: 'zero', sequence: 'NNN' }] },
+  { query: 'AAU', scoring: 'EDNAFULL' as const, moleculeType: 'rna' as const,
+    records: [{ id: 'a', sequence: '-AAUCCAUU-' }, { id: 'b', sequence: 'ATTAAT', moleculeType: 'rna' as const }] },
+  { query: 'WACN', scoring: 'EBLOSUM62' as const, moleculeType: 'protein' as const,
+    records: [{ id: 'a', sequence: 'WACNAAAWWACN' }, { id: 'b', sequence: 'WNCN' }, { id: 'zero', sequence: '*' }] },
+])('matches exhaustive filtered results with one and four workers for $moleculeType $query', async c => {
+  const { instantiateLocalEngine } = await import('@/src/core/search/local/engine');
+  const { runLocalStream } = await import('@/src/core/search/local/stream');
+  const { loadScoring, encodeResidues } = await import('@/src/core/search/local/scoring');
+  const { mergeLocalOutcomes } = await import('@/src/core/search/local/selection');
+  const scoring = loadScoring(c.scoring);
+  const q = encodeResidues(c.query, scoring);
+  if (!('codes' in q)) throw new Error('Invalid synthetic query');
+  const input = { ...request, ...c, limit: 3, filters: { minIdentity: 75, minQueryCoverage: 50 } };
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const exhaustive = mergeLocalOutcomes(c.records.flatMap((record, recordIndex) =>
+    (c.moleculeType === 'protein' ? [1 as const] : [1 as const, -1 as const]).map(strand =>
+      runLocalStream(engine, { ...input, record, recordIndex, strand, queryCodes: q.codes, scoring }))), input.limit, []);
+  expect(exhaustive.results.length).toBeGreaterThan(0);
+  for (const concurrency of [2, 5]) {
+    vi.spyOn(navigator, 'hardwareConcurrency', 'get').mockReturnValue(concurrency);
+    const h = renderHook(() => useLocalSearchPool(bytes));
+    try {
+      await waitFor(() => expect(h.result.current.ready).toBe(true));
+      let result!: LocalSearchResult;
+      await act(async () => { result = await h.result.current.run(input, () => {}); });
+      expect(result).toEqual(exhaustive);
+    } finally { h.unmount(); }
+  }
 });

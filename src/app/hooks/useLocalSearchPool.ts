@@ -33,7 +33,7 @@ interface Pending {
   dispatchNext: (worker: Worker) => void;
   id: number; total: number; outcomes: Map<string, LocalStreamOutcome>;
   assigned: Map<Worker, { job: StreamJob; phase: Phase }>; fractions: Map<string, number>;
-  phase: Phase; finished: Set<string>; seeds: Set<string>;
+  phase: Phase; finished: Set<string>;
   acceptOutcome: (worker: Worker, outcome: LocalStreamOutcome) => void;
   reportProgress: () => void;
   top: Array<{ hit: SearchResult; recordIndex: number }>;
@@ -43,10 +43,6 @@ interface Pending {
   resolve: (result: LocalSearchResult) => void; reject: (error: Error) => void;
 }
 const streamKey = (index: number, strand: number) => `${index}:${strand}`;
-const alignmentKey = (index: number, hit: SearchResult) => JSON.stringify([
-  index, hit.strand, hit.start, hit.end, hit.local!.queryStart, hit.local!.queryEnd,
-  hit.local!.score, hit.cigar,
-]);
 type PoolFailure = (message: string) => void;
 interface PoolState {
   members: { current: Worker[] };
@@ -82,10 +78,7 @@ function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () =
       if (m.hit.recordId !== assigned.job.record.id || m.hit.strand !== assigned.job.strand) {
         fail('Local worker returned a hit for an unassigned record or strand'); return;
       }
-      // A replayed bootstrap alignment cannot contribute a second heap entry.
-      const identity = alignmentKey(m.recordIndex, m.hit);
-      if (assigned.phase === 'bootstrap') p.seeds.add(identity);
-      else if (p.seeds.delete(identity)) return;
+      if (assigned.phase !== 'align') { fail('Local worker returned an alignment during scoring'); return; }
       p.top.push({ hit: m.hit, recordIndex: m.recordIndex });
       p.top.sort(compareLocalHits);
       p.top.length = Math.min(p.top.length, p.limit);
@@ -118,15 +111,15 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
   return new Promise((resolve, reject) => {
     let queue = jobs;
     let nextJob = 0;
-    let bootstrapDone = 0;
+    let scoresDone = 0;
     const p: Pending = { dispatch: null, dispatchNext: () => {}, acceptOutcome: () => {}, reportProgress: () => {},
-      id: ++nextId.current, total: jobs.length, phase: 'bootstrap', finished: new Set(), seeds: new Set(),
+      id: ++nextId.current, total: jobs.length, phase: 'score', finished: new Set(),
       outcomes: new Map(), assigned: new Map(), fractions: new Map(), top: [], boundScore2: null,
       skipped, limit: request.limit, progress: onProgress, resolve, reject };
     pending.current = p;
     p.reportProgress = () => {
       if (pending.current !== p) return;
-      p.progress({ streamsDone: p.finished.size, streamsTotal: p.total,
+      p.progress({ phase: p.phase, streamsDone: p.phase === 'score' ? scoresDone : p.finished.size, streamsTotal: p.total,
         currentFraction: p.fractions.size ? [...p.fractions.values()].reduce((a, b) => a + b, 0) / p.fractions.size : 0 });
     };
     const finishIfDone = () => {
@@ -143,7 +136,7 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
         const job = queue[nextJob++];
         const key = streamKey(job.recordIndex, job.strand);
         // Equality can still change which hits survive the canonical tie ordering.
-        if (p.phase === 'refine' && p.boundScore2 !== null
+        if (p.phase === 'align' && p.boundScore2 !== null
           && p.outcomes.get(key)!.firstScore2! < p.boundScore2) {
           p.finished.add(key); p.reportProgress();
           continue;
@@ -152,7 +145,8 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
         try {
           worker.postMessage({ type: 'search', phase: p.phase, requestId: p.id, query: request.query,
             scoring: request.scoring, moleculeType: request.moleculeType, limit: request.limit,
-            filters: request.filters, jobs: [job], boundScore2: p.boundScore2 } satisfies SearchRequest);
+            filters: request.filters, jobs: [{ ...job, ...(p.phase === 'align'
+              ? { upperBoundScore2: p.outcomes.get(key)!.firstScore2! } : {}) }], boundScore2: p.boundScore2 } satisfies SearchRequest);
         } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); }
         return;
       }
@@ -161,11 +155,11 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
     p.acceptOutcome = (worker, outcome) => {
       const key = streamKey(outcome.recordIndex, outcome.strand);
       p.outcomes.set(key, outcome); p.fractions.delete(key); p.assigned.delete(worker);
-      if (p.phase === 'bootstrap') {
-        bootstrapDone++;
+      if (p.phase === 'score') {
+        scoresDone++;
         if (outcome.exhausted) p.finished.add(key);
-        if (bootstrapDone === p.total) {
-          p.phase = 'refine'; nextJob = 0;
+        if (scoresDone === p.total) {
+          p.phase = 'align'; nextJob = 0;
           queue = jobs.map((job, order) => ({ job, order,
             outcome: p.outcomes.get(streamKey(job.recordIndex, job.strand))! }))
             .filter(entry => !entry.outcome.exhausted)
@@ -178,7 +172,7 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
       }
       p.reportProgress(); finishIfDone();
     };
-    onProgress({ streamsDone: 0, streamsTotal: jobs.length, currentFraction: 0 });
+    onProgress({ phase: 'score', streamsDone: 0, streamsTotal: jobs.length, currentFraction: 0 });
     const dispatch = () => { members.current.forEach(worker => p.dispatchNext(worker)); };
     // A restart can queue the next search before React publishes replacement readiness.
     if (initialized.current.size === members.current.length) dispatch();

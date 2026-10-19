@@ -80,7 +80,7 @@ it('connects progress, monitor, pill, cancellation and completed local hits to t
   vi.useFakeTimers();
   fireEvent.click(screen.getByRole('button', { name: 'Search' }));
   act(() => {
-    report({ streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 });
+    report({ phase: 'align' as const, streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 });
     vi.advanceTimersByTime(1000);
   });
   let monitor = screen.getByRole('dialog', { name: 'Local search job monitor' });

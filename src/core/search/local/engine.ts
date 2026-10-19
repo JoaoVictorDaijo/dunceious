@@ -29,6 +29,8 @@ export interface LocalAlignment {
   cigar: string;
 }
 export interface LocalEngine {
+  maxScore(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
+    onProgress?: (fraction: number) => void): number;
   enumerate(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
     onProgress?: (fraction: number) => void): Iterator<LocalAlignment>;
   peakMemoryBytes(): number;
@@ -39,6 +41,8 @@ interface EngineExports {
   malloc(bytes: number): number;
   free(pointer: number): void;
   la_create(query: number, qlen: number, record: number, rlen: number, matrix: number,
+    size: number, gapOpen: number, gapExtend: number): number;
+  la_max_score(query: number, qlen: number, record: number, rlen: number, matrix: number,
     size: number, gapOpen: number, gapExtend: number): number;
   la_bigpass_step(handle: number, rows: number): number;
   la_next(handle: number, output: number, ops: number, capacity: number, length: number): number;
@@ -80,6 +84,33 @@ function checkedAlignment(values: number[], ops: Uint8Array, query: Uint8Array,
   return { score2, queryStart, queryEnd, recordStart, recordEnd, cigar };
 }
 
+function maxScore(e: EngineExports, query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
+  onProgress?: (fraction: number) => void): number {
+  if (scoring.size !== scoring.symbols.length || scoring.matrix2.length !== scoring.size ** 2) {
+    throw new Error('Invalid local scoring matrix');
+  }
+  const allocated: number[] = [];
+  const allocate = (bytes: number) => {
+    const pointer = e.malloc(Math.max(bytes, 1));
+    if (!pointer) throw new Error('Local alignment allocation failed');
+    allocated.push(pointer);
+    return pointer;
+  };
+  try {
+    const q = allocate(query.length), r = allocate(record.length);
+    const matrix = allocate(scoring.matrix2.byteLength);
+    new Uint8Array(e.memory.buffer, q, query.length).set(query);
+    new Uint8Array(e.memory.buffer, r, record.length).set(record);
+    new Int32Array(e.memory.buffer, matrix, scoring.matrix2.length).set(scoring.matrix2);
+    onProgress?.(0);
+    const score2 = e.la_max_score(q, query.length, r, record.length, matrix, scoring.size,
+      scoring.gapOpen2, scoring.gapExtend2);
+    if (score2 < 0) throw new Error(`Local alignment scoring failed (${score2})`);
+    onProgress?.(1);
+    return score2;
+  } finally { for (const pointer of allocated) e.free(pointer); }
+}
+
 /** EMBOSS 6.6.0 matcher reactor; no I/O. Close a partially consumed iterator with return(). */
 export async function instantiateLocalEngine(module: WebAssembly.Module): Promise<LocalEngine> {
   const instance = await WebAssembly.instantiate(module, { env: { emscripten_notify_memory_growth() {} } });
@@ -87,6 +118,7 @@ export async function instantiateLocalEngine(module: WebAssembly.Module): Promis
   e._initialize();
   return {
     peakMemoryBytes: () => e.la_peak_memory() >>> 0,
+    maxScore: (query, record, scoring, onProgress) => maxScore(e, query, record, scoring, onProgress),
     *enumerate(inputQuery, inputRecord, inputScoring, onProgress) {
       // Snapshots keep suspended iterators independent of caller mutations.
       const query = inputQuery.slice(); const record = inputRecord.slice();

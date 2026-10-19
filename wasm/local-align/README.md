@@ -44,6 +44,12 @@ Codes index matrix rows; different symbols such as T/U have different codes.
 The returned positive handle owns those copies and all algorithm storage.
 `la_destroy(handle)` releases it, including after an allocation error.
 
+`la_max_score(query, qlen, record, rlen, matrix, size, gap_open, gap_extend)`
+returns the exact first-alignment score2, zero for no positive alignment, or a
+negative error. Inputs follow `la_create`'s validation. It uses two record-length
+score rows, no origins or candidate nodes, and retains no context or input copies.
+It neither advances nor changes any enumeration handle.
+
 `la_bigpass_step(handle, rows)` computes at most that many query rows and
 returns the number completed. Call until it returns qlen before `la_next`.
 `la_next(handle, out5, ops, ops_cap, ops_len)` returns 1 for a hit, 0 for

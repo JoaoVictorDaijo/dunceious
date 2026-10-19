@@ -1024,13 +1024,13 @@ void la_destroy(int handle) {
     active = NULL;
 }
 
-int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
+static int valid_input(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
               const int32_t *matrix, int size, int gap_open, int gap_extend) {
     if (!query || !record || !matrix || qlen < 0 || rlen < 0 ||
         size < 1 || size > 128 || gap_extend <= 0 || gap_open < gap_extend ||
-        (int64_t)qlen + rlen + 2 > INT_MAX / 4) return -1;
-    for (int i = 0; i < qlen; i++) if (query[i] >= size) return -1;
-    for (int i = 0; i < rlen; i++) if (record[i] >= size) return -1;
+        (int64_t)qlen + rlen + 2 > INT_MAX / 4) return 0;
+    for (int i = 0; i < qlen; i++) if (query[i] >= size) return 0;
+    for (int i = 0; i < rlen; i++) if (record[i] >= size) return 0;
     int64_t max_score = 0, min_score = 0;
     for (int i = 0; i < size * size; i++) {
         if (matrix[i] > max_score) max_score = matrix[i];
@@ -1038,7 +1038,48 @@ int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
     }
     /* Diff adds forward/reverse rows and subtracts terminal gap penalties. */
     if (max_score * (qlen < rlen ? qlen : rlen) + gap_open > INT_MAX ||
-        (int64_t)gap_open * 2 + (int64_t)gap_extend * (qlen + rlen) - min_score > INT_MAX) return -1;
+        (int64_t)gap_open * 2 + (int64_t)gap_extend * (qlen + rlen) - min_score > INT_MAX) return 0;
+    return 1;
+}
+
+/* Gotoh's local maximum uses matcher's BigPass arithmetic without origin ties.
+ * No exclusions exist before the first alignment, so this is its exact score.
+ */
+int la_max_score(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
+                 const int32_t *matrix, int size, int gap_open, int gap_extend) {
+    if (!valid_input(query, qlen, record, rlen, matrix, size, gap_open, gap_extend)) return -1;
+    ajint *scores = calloc((size_t)rlen + 1, sizeof(*scores));
+    ajint *deletions = calloc((size_t)rlen + 1, sizeof(*deletions));
+    if (!scores || !deletions) { free(scores); free(deletions); return -2; }
+    for (int j = 0; j <= rlen; j++) deletions[j] = -(gap_open - gap_extend);
+    ajint maximum = 0;
+    for (int i = 0; i < qlen; i++) {
+        ajint diagonal = 0, current = 0, insertion = -(gap_open - gap_extend);
+        const int32_t *row = matrix + query[i] * size;
+        for (int j = 1; j <= rlen; j++) {
+            ajint open = current - gap_open;
+            insertion -= gap_extend;
+            if (open > insertion) insertion = open;
+            open = scores[j] - gap_open;
+            ajint deletion = deletions[j] - gap_extend;
+            if (open > deletion) deletion = open;
+            current = diagonal + row[record[j - 1]];
+            if (current < 0) current = 0;
+            if (current < deletion) current = deletion;
+            if (current < insertion) current = insertion;
+            diagonal = scores[j];
+            scores[j] = current;
+            deletions[j] = deletion;
+            if (current > maximum) maximum = current;
+        }
+    }
+    free(scores); free(deletions);
+    return maximum;
+}
+
+int la_create(const uint8_t *query, int qlen, const uint8_t *record, int rlen,
+              const int32_t *matrix, int size, int gap_open, int gap_extend) {
+    if (!valid_input(query, qlen, record, rlen, matrix, size, gap_open, gap_extend)) return -1;
     Engine *e = calloc(1, sizeof(*e));
     if (!e) return -2;
     e->next = engines; engines = e; active = e;
