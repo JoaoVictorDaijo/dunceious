@@ -133,7 +133,7 @@ provenance = {
                    "C23271A, C23604A, C23709T, T24506G, G24914C; ORF8 C27972T, G28048T, "
                    "A28111G; N 28280 GAT->CTA and C28977T. A subset covering both kinds of "
                    "change - substitutions and the spike deletions - is asserted against "
-                   "aligned.fasta in src/app/showroom/__tests__/variantData.test.ts. No Pango "
+                   "aligned.fasta in src/app/__tests__/bundledAlignments.test.ts. No Pango "
                    "assignment tool "
                    "was run, and the amino-acid consequences were not re-derived from a "
                    "translation. A human isolate submitted without any claim of rights.",

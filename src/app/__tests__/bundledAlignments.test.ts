@@ -17,20 +17,45 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/**
+ * The bundled MAFFT alignments: the T7 phage set the showroom opens on, and the
+ * SARS-CoV-2 variant set. Each must still be the unedited output recorded in its
+ * PROVENANCE.json, and each row must be exactly the sequence the app parses from
+ * the matching GenBank record, or overlaying it would misplace every base.
+ */
+
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 
-const EXAMPLES = resolve(__dirname, '../../../../examples');
-const VARIANTS = resolve(EXAMPLES, 'nucleotide/sars-cov-2-variants');
+const EXAMPLES = resolve(__dirname, '../../../examples');
+
+interface AlignedSet {
+  directory: string;
+  /** The GenBank files whose records are the alignment's rows, in row order. */
+  genbank: readonly string[];
+  rows: number;
+}
+
+const T7_PHAGES: AlignedSet = {
+  directory: 'nucleotide/t7-phages',
+  genbank: ['phage-t7-NC_001604.gb', 'phage-13a-NC_011045.gb', 'phage-t3-NC_003298.gb'],
+  rows: 3,
+};
+const VARIANTS: AlignedSet = {
+  directory: 'nucleotide/sars-cov-2-variants',
+  genbank: ['../coronaviruses/sars-cov-2-NC_045512.gb', 'variants.gb'],
+  rows: 4,
+};
 
 const read = (path: string) => readFileSync(path, 'utf-8');
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
 /** Parses a GenBank file the way the workbench does, so the IDs are the ones the app sees. */
-function parseRecords(path: string, filename: string) {
+function parseRecords(path: string) {
+  const filename = path.split('/').at(-1)!;
   const response = handleBioMessage({ type: 'PARSE_GENBANK', filename, content: read(path) });
   if (response.type !== 'PARSE_SUCCESS') throw new Error(`parse failed for ${filename}: ${response.type}`);
   return response.records;
@@ -46,21 +71,18 @@ function readFastaRows(path: string): { id: string; row: string }[] {
   return rows;
 }
 
-const provenance = () => JSON.parse(read(resolve(VARIANTS, 'PROVENANCE.json')));
-const genBankSequences = () => new Map([
-  ...parseRecords(resolve(EXAMPLES, 'nucleotide/coronaviruses/sars-cov-2-NC_045512.gb'), 'sars-cov-2-NC_045512.gb'),
-  ...parseRecords(resolve(VARIANTS, 'variants.gb'), 'variants.gb'),
-].map(record => [record.id, record.sequence]));
+describe.each([
+  ['T7 phages', T7_PHAGES],
+  ['SARS-CoV-2 variants', VARIANTS],
+])('bundled %s alignment', (_name, set) => {
+  const path = (file: string) => resolve(EXAMPLES, set.directory, file);
+  const provenance = () => JSON.parse(read(path('PROVENANCE.json')));
+  const genBankSequences = () => new Map(set.genbank.flatMap(file => parseRecords(path(file))).map(record => [record.id, record.sequence]));
 
-describe('bundled SARS-CoV-2 variant data', () => {
-  it('aligned.fasta matches its recorded checksum', () => {
-    expect(sha256(resolve(VARIANTS, 'aligned.fasta'))).toBe(provenance().sha256['aligned.fasta']);
-  });
-
-  it('variants.gb and the reference match their recorded checksums', () => {
+  it('aligned.fasta and every GenBank file match their recorded checksums', () => {
     const { sha256: sums } = provenance();
-    expect(sha256(resolve(VARIANTS, 'variants.gb'))).toBe(sums['variants.gb']);
-    expect(sha256(resolve(EXAMPLES, 'nucleotide/coronaviruses/sars-cov-2-NC_045512.gb'))).toBe(sums['sars-cov-2-NC_045512.gb']);
+    expect(sha256(path('aligned.fasta'))).toBe(sums['aligned.fasta']);
+    for (const file of set.genbank) expect(sha256(path(file)), file).toBe(sums[file.split('/').at(-1)!]);
     // The MAFFT input is a build-time temporary, so this sum is the only one
     // with no committed file behind it: at least require that it is recorded.
     expect(sums['mafft-input.fasta']).toMatch(/^[0-9a-f]{64}$/);
@@ -68,8 +90,8 @@ describe('bundled SARS-CoV-2 variant data', () => {
 
   it('each ungapped row equals its GenBank sequence, case included', () => {
     const sequences = genBankSequences();
-    const rows = readFastaRows(resolve(VARIANTS, 'aligned.fasta'));
-    expect(rows).toHaveLength(4);
+    const rows = readFastaRows(path('aligned.fasta'));
+    expect(rows).toHaveLength(set.rows);
     for (const { id, row } of rows) {
       expect(sequences.has(id)).toBe(true);
       expect(row.replaceAll('-', '')).toBe(sequences.get(id));
@@ -77,17 +99,16 @@ describe('bundled SARS-CoV-2 variant data', () => {
   });
 
   it('rows share one length and IDs match the parsed records', () => {
-    const rows = readFastaRows(resolve(VARIANTS, 'aligned.fasta'));
-    expect(rows).toHaveLength(4);
+    const rows = readFastaRows(path('aligned.fasta'));
     expect(new Set(rows.map(r => r.row.length)).size).toBe(1);
     expect(rows.map(r => r.id)).toEqual([...genBankSequences().keys()]);
   });
 
   it('names every accession in the provenance with a reason', () => {
     const { accessions, ncbiRetrieved, mafft } = provenance();
-    expect(accessions).toHaveLength(3);
+    expect(accessions.length).toBeGreaterThanOrEqual(3);
     for (const entry of accessions) {
-      expect(entry.lineage).toBeTruthy();
+      expect(entry.lineage ?? entry.name).toBeTruthy();
       expect(entry.accession).toBeTruthy();
       expect(entry.version).toBeTruthy();
       expect(entry.why.length).toBeGreaterThan(20);
@@ -112,7 +133,7 @@ describe('bundled SARS-CoV-2 variant data', () => {
 // SARS-CoV-2 lineage in the UK defined by a novel set of spike mutations"
 // (https://virological.org/t/563), in NC_045512.2 coordinates, 1-based.
 describe('OL461693 carries the B.1.1.7-defining changes', () => {
-  const rows = () => new Map(readFastaRows(resolve(VARIANTS, 'aligned.fasta')).map(r => [r.id, r.row]));
+  const rows = () => new Map(readFastaRows(resolve(EXAMPLES, VARIANTS.directory, 'aligned.fasta')).map(r => [r.id, r.row]));
   /** The reference row is ungapped, so reference position p is alignment column p. */
   const columnOf = (position: number) => position - 1;
 

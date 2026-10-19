@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { D614G_POSITION, GENES, GENOME_LENGTH } from './greeterContent';
+import { FRAMESHIFT_POSITION, GENES, GENOME_LENGTH } from './greeterContent';
 import { BASE_SPAN, REGION_SPAN, clampPosition, geneLandmark } from './genomeZoom';
 
 export const INTRO_MS = 1600;
@@ -42,11 +42,11 @@ const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 
 
 /**
  * The lens position over the genome. It opens with one glide from the start of
- * the genome to the D614G site, which any input cancels.
+ * the genome to the gene 10 frameshift, which any input cancels.
  */
 export function useLens() {
   const [animate] = useState(prefersMotion);
-  const [center, setCenterState] = useState(animate ? 1 : D614G_POSITION);
+  const [center, setCenterState] = useState(animate ? 1 : FRAMESHIFT_POSITION);
   const frame = useRef<number | null>(null);
   const drag = useRef<Drag | null>(null);
   const [touched, setTouched] = useState(false);
@@ -66,7 +66,7 @@ export function useLens() {
     const t0 = performance.now();
     const tick = (now: number) => {
       const t = Math.min(1, (now - t0) / INTRO_MS);
-      setCenterState(clampPosition(1 + (D614G_POSITION - 1) * easeInOut(t)));
+      setCenterState(clampPosition(1 + (FRAMESHIFT_POSITION - 1) * easeInOut(t)));
       frame.current = t < 1 ? requestAnimationFrame(tick) : null;
     };
     frame.current = requestAnimationFrame(tick);

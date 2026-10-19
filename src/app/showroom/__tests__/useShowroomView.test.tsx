@@ -28,7 +28,7 @@ import { loadSampleRecords } from '../sampleWorkspace';
 import { useShowroomComparison } from '../useShowroomComparison';
 import { useShowroomView } from '../useShowroomView';
 
-const ALIGNED = resolve(__dirname, '../../../../examples/nucleotide/sars-cov-2-variants/aligned.fasta');
+const ALIGNED = resolve(__dirname, '../../../../examples/nucleotide/t7-phages/aligned.fasta');
 
 /** Reads the bundled FASTA without the app's parser, so the expected columns come from the file. */
 function alignedRows(): Map<string, string> {
@@ -62,25 +62,25 @@ function viewHook() {
 describe('useShowroomView', () => {
   it('focus past a gap lands on the independently computed column', () => {
     const { records, setActiveSelection, result } = viewHook();
-    // Alpha carries a nine-column deletion at column 11287 and a 62-column leading
-    // gap, so its S gene sits well past a gap in its own row.
-    const alpha = records.find(record => record.id === 'OL461693')!;
-    const spike = alpha.features.find(feature => feature.type === 'gene' && feature.name === 'S')!;
-    const row = alignedRows().get('OL461693')!;
+    // T3 has thousands of gap columns before its gene 10 (locus T3p39), so the
+    // gene sits well past a gap in its own row.
+    const alpha = records.find(record => record.id === 'NC_003298')!;
+    const spike = alpha.features.find(feature => feature.type === 'gene' && feature.name === 'T3p39')!;
+    const row = alignedRows().get('NC_003298')!;
 
     const expectedStart = columnOfResidue(row, spike.start);
     const expectedEnd = columnOfResidue(row, spike.end - 1) + 1;
     expect(expectedStart).toBeGreaterThan(spike.start);
 
     const target = featureFocusTarget(alpha, spike);
-    expect(target).toMatchObject({ recordId: 'OL461693', start: expectedStart, end: expectedEnd });
+    expect(target).toMatchObject({ recordId: 'NC_003298', start: expectedStart, end: expectedEnd });
 
     act(() => result.current.focusOn(target));
     expect(result.current.focusRequest).toMatchObject({ start: expectedStart, end: expectedEnd });
     expect(result.current.focusedRegion).toMatchObject({ start: expectedStart, end: expectedEnd });
     expect(result.current.tab).toBe('alignment');
     expect(setActiveSelection).toHaveBeenCalledWith<[SelectionArea]>({
-      start: expectedStart, end: expectedEnd, recordIds: ['OL461693'],
+      start: expectedStart, end: expectedEnd, recordIds: ['NC_003298'],
     });
 
     act(() => result.current.completeFocus());
@@ -90,9 +90,9 @@ describe('useShowroomView', () => {
 
   it('focusFromHub switches to the viewport and shows the return pill; returnToHub switches back', () => {
     const { records, result } = viewHook();
-    const alpha = records.find(record => record.id === 'OL461693')!;
+    const alpha = records.find(record => record.id === 'NC_003298')!;
     const target = featureFocusTarget(alpha, alpha.features[0]);
-    const origin = { key: 'OL461693:0', label: 'source' };
+    const origin = { key: 'NC_003298:0', label: 'source' };
 
     act(() => result.current.setTab('features'));
     expect(result.current.tab).toBe('features');
@@ -112,23 +112,23 @@ describe('useShowroomView', () => {
 
   it('dismissing the return pill leaves the viewport and the hub mark alone', () => {
     const { records, result } = viewHook();
-    const alpha = records.find(record => record.id === 'OL461693')!;
+    const alpha = records.find(record => record.id === 'NC_003298')!;
     const target = featureFocusTarget(alpha, alpha.features[0]);
-    act(() => result.current.focusFromHub(target, { key: 'OL461693:0', label: 'source' }));
+    act(() => result.current.focusFromHub(target, { key: 'NC_003298:0', label: 'source' }));
     act(() => result.current.dismissHubReturn());
     expect(result.current.showHubReturn).toBe(false);
     expect(result.current.tab).toBe('alignment');
-    expect(result.current.hubFocus).toMatchObject({ key: 'OL461693:0' });
+    expect(result.current.hubFocus).toMatchObject({ key: 'NC_003298:0' });
   });
 
   it('opens and closes the details target for a record and one of its annotations', () => {
     const { records, result } = viewHook();
-    const alpha = records.find(record => record.id === 'OL461693')!;
+    const alpha = records.find(record => record.id === 'NC_003298')!;
 
-    act(() => result.current.openDetails('OL461693'));
+    act(() => result.current.openDetails('NC_003298'));
     expect(result.current.details).toEqual({ record: alpha, feature: null });
 
-    act(() => result.current.openDetails('OL461693', alpha.features[3]));
+    act(() => result.current.openDetails('NC_003298', alpha.features[3]));
     expect(result.current.details).toEqual({ record: alpha, feature: alpha.features[3] });
 
     act(() => result.current.closeDetails());
@@ -137,23 +137,23 @@ describe('useShowroomView', () => {
 });
 
 describe('useShowroomComparison', () => {
-  it('comparison menu appears with NC_045512 as the default reference', () => {
+  it('comparison menu appears with NC_001604 as the default reference', () => {
     const records = loadSampleRecords();
     const { result } = renderHook(() => useShowroomComparison(records, false));
 
     expect(result.current.menu).not.toBeNull();
-    expect(result.current.menu!.reference?.id).toBe('NC_045512');
+    expect(result.current.menu!.reference?.id).toBe('NC_001604');
     expect(result.current.menu!.candidates.map(record => record.id))
-      .toEqual(['NC_045512', 'OL461693', 'OR279985', 'OR323867']);
+      .toEqual(['NC_001604', 'NC_011045', 'NC_003298']);
     // Nothing is compared until the visitor asks for it.
     expect(result.current.menu!.settings).toMatchObject({ referenceId: null, highlight: 'none' });
     expect(result.current.comparison).toBeNull();
 
-    act(() => result.current.setReference!('OR323867'));
-    expect(result.current.menu!.reference?.id).toBe('OR323867');
+    act(() => result.current.setReference!('NC_011045'));
+    expect(result.current.menu!.reference?.id).toBe('NC_011045');
     expect(result.current.comparison).toMatchObject({
-      referenceId: 'OR323867',
-      referenceSeq: records.find(record => record.id === 'OR323867')!.alignedSequence,
+      referenceId: 'NC_011045',
+      referenceSeq: records.find(record => record.id === 'NC_011045')!.alignedSequence,
       highlight: 'disagreements',
       alphabet: 'nucleotide',
     });

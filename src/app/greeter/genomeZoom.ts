@@ -19,7 +19,7 @@
 
 import { translateSequence } from '@/src/domain/bio/sequence';
 import { GENES, GENOME_LENGTH, type Gene } from './greeterContent';
-import { SARS_COV_2 } from './sarsCov2Sequence';
+import { T7_GENOME } from './t7Sequence';
 
 /** Bases shown in the middle strip, one per SVG unit across the 342-unit width. */
 export const REGION_SPAN = 342;
@@ -29,7 +29,7 @@ export const BASE_SPAN = 21;
 export const clampPosition = (pos: number) => Math.min(GENOME_LENGTH, Math.max(1, Math.round(pos)));
 
 /** 1-based base at a 1-based position. */
-export const baseAt = (pos: number) => SARS_COV_2[pos - 1] ?? '';
+export const baseAt = (pos: number) => T7_GENOME[pos - 1] ?? '';
 
 /** First and last position of a window of `span` bases centred on `center`, kept inside the genome. */
 export function windowAround(center: number, span: number): [number, number] {
@@ -64,9 +64,9 @@ function positionOfOffset(gene: Gene, offset: number): number | undefined {
 }
 
 /**
- * The codon that reads `pos`. ORF1ab's −1 ribosomal frameshift reads base
- * 13,468 twice; this returns the first reading, so codons after it follow the
- * shifted frame exactly as the polyprotein does.
+ * The codon that reads `pos`. Gene 10B's −1 ribosomal frameshift reads base
+ * 23,989 twice; this returns the first reading, so codons after it follow the
+ * shifted frame exactly as gp10B does. A base a +1 frameshift skips has none.
  */
 export function codonAt(pos: number): Codon | undefined {
   const gene = geneAt(pos);
@@ -93,10 +93,12 @@ export function codonAt(pos: number): Codon | undefined {
   };
 }
 
-/** Where the lens is when it is outside every gene. */
+/** Where the lens is when no gene reads it. */
 export function regionName(pos: number): string {
-  if (pos < GENES[0].start) return '5′ untranslated region';
-  if (pos > GENES[GENES.length - 1].end) return '3′ untranslated region';
+  if (pos < GENES[0].start) return 'Left end of the genome';
+  if (pos > GENES[GENES.length - 1].end) return 'Right end of the genome';
+  const skipping = GENES.find((g) => pos > g.start && pos < g.end);
+  if (skipping) return `Skipped by the +1 frameshift in gene ${skipping.name}`;
   return 'Between genes';
 }
 

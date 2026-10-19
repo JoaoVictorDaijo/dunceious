@@ -74,9 +74,9 @@ function agreeAndAlign() {
 describe('Showroom search', () => {
   it('searches the samples and highlights the hits in the viewer', () => {
     startSession();
-    searchFor('ACGAAC');
+    searchFor('TAATACGACTCACTATAG');
     const expected = runInlineSearch({
-      searchQuery: 'ACGAAC', mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
+      searchQuery: 'TAATACGACTCACTATAG', mode: 'exact', options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
       records: loadSampleRecords().map(({ id, sequence, alignedSequence, moleculeType }) => ({ id, sequence, alignedSequence, moleculeType })),
     });
     expect(screen.getByLabelText('Viewer hits').textContent).toBe(String(expected.length));
@@ -86,7 +86,7 @@ describe('Showroom search', () => {
 
   it('explains annotating and joining matches', () => {
     startSession();
-    searchFor('ACGAAC');
+    searchFor('TAATACGACTCACTATAG');
     fireEvent.click(within(sidebar()).getAllByRole('button', { name: /^Annotate match/ })[0]);
     expect(explanation('Annotate match')).toBeTruthy();
     gotIt();
@@ -110,7 +110,7 @@ describe('Showroom alignment', () => {
     startSession();
     const consent = openAlignment();
     expect(screen.getByText('Test drive: nothing will be sent')).toBeTruthy();
-    expect(within(consent).getByText(/4 sequences/)).toBeTruthy();
+    expect(within(consent).getByText(/3 sequences/)).toBeTruthy();
     agreeAndAlign();
     expect(explanation('Align')).toBeTruthy();
     gotIt();
@@ -141,8 +141,8 @@ describe('Showroom alignment', () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     startSession();
-    fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide OR279985 in viewport' }));
-    searchFor('ACGAAC');
+    fireEvent.click(within(sidebar()).getByRole('button', { name: 'Hide NC_003298 in viewport' }));
+    searchFor('TAATACGACTCACTATAG');
     fireEvent.click(within(sidebar()).getAllByRole('button', { name: /^Annotate match/ })[0]);
     gotIt();
     agreeAndAlign();
