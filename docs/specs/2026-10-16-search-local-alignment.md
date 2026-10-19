@@ -130,7 +130,10 @@ each **stream** (a record and one strand) is searched on its own.
   lower bound on the final cut-off s*. Before alignment dispatch, placeholders alone seed the
   bound. Each arriving first hit must equal its placeholder (checked in score2 before replacement),
   which is removed so it is never counted twice. A stream finishing as skipped also loses its
-  placeholder; ub < b makes it irrelevant to the bound. Later passing hits can displace lower
+  placeholder. This keeps every bound valid: let b_max be the largest bound reached, computed from
+  N entries scoring at least b_max. A placeholder among them belongs to a stream with ub ≥ b_max,
+  so no later bound (all ≤ b_max) can skip it. Each such stream runs and delivers its first hit
+  at exactly ub, so at least N passing hits score at least b_max, and b ≤ b_max ≤ s* throughout. Later passing hits can displace lower
   placeholders and raise b before N actual hits exist. Always take max(previous b, computed bound)
   and broadcast increases. With either display filter set, use actual passing hits only: a filter
   could reject the first hit, so ub would not guarantee a passing hit. Bounds use doubled scores

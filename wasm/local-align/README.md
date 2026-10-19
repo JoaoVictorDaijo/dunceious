@@ -111,7 +111,8 @@ compares enabled/disabled paths without printing sequence or alignment content.
 
 The C file preserves matcher’s GPL-2.0-or-later notice, Ian Longden’s
 copyright, and attribution to W. R. Pearson’s LALIGN 2.0u4 and Huang & Miller
-(1991), doi:10.1016/0196-8858(91)90017-D. Debian distributes it in the
+(1991), doi:10.1016/0196-8858(91)90017-D. The inherited header cites
+*Adv. Appl. Math.* 12:373–381; the paper is 12:337–357. Debian distributes it in the
 DFSG-reviewed EMBOSS source in main; the first `Files: *` copyright stanza
 states that EMBOSS applications are released under the GPL, without a matcher
 exception. The port is used under GPL-3.0-or-later in combination with the
