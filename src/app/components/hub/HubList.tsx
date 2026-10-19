@@ -231,7 +231,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     observer.observe(container.current); return () => observer.disconnect();
   }, [providedHeight]);
   useLayoutEffect(() => { list.current?.resetAfterIndex(0); }, [entries]);
-  useLayoutEffect(() => { list.current?.scrollTo(offset); }, [offset]);
+  // The list reports its scroll before this parent effect runs, so the render-time offset can already be stale here.
+  useLayoutEffect(() => { list.current?.scrollTo(scrollOffset.current); }, [offset]);
   useEffect(() => { state.setCurrentSectionKey(currentSection, false); }, [currentSection, state.setCurrentSectionKey]);
   const open = useCallback((key: string) => {
     state.setCollapsed(prev => { const next = new Set(prev[kind]); next.delete(key); return { ...prev, [kind]: next }; });
@@ -242,6 +243,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     onScroll({ scrollOffset: value });
     state.setCurrentSectionKey(key);
     list.current?.scrollTo(value);
+    // Until the list commits, a scroll event still reads the position the jump leaves and would win over the jump.
+    if (scrollElement.current) scrollElement.current.scrollTop = value;
   };
   const pending = state.jumpTarget?.key;
   useEffect(() => {

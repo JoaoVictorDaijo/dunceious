@@ -173,3 +173,37 @@ test.describe('the Hub, Export and the variant workspace on a phone held sideway
     expect(requests.filter(url => new URL(url).origin !== origin && !url.startsWith('data:'))).toEqual([]);
   });
 });
+
+test.describe('the Hub search on a phone held sideways', () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+
+  test('two quick searches land on the second match and the list stays put', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+
+    await page.goto('/?shell=greeter');
+    await page.getByRole('button', { name: 'Test-drive the workbench', exact: true }).click();
+    await expect(page.locator('[data-viewer-record="NC_045512"]')).toBeVisible();
+    await page.getByRole('button', { name: 'Dismiss', exact: true }).tap();
+
+    await page.getByRole('button', { name: 'Annotation Hub', exact: true }).tap();
+    const hub = page.getByRole('region', { name: 'Annotation Hub' });
+    await hub.getByRole('button', { name: /^CDS \d+$/ }).tap();
+    const search = page.getByRole('searchbox', { name: 'Search annotations' });
+    await search.fill('surface glycoprotein');
+    await expect(hub.locator('[data-hub-summary]')).toHaveText('4 of 218 annotations in 4 of 4 sequences');
+    // The second jump starts before the first one's scroll event arrives, as a quick visitor does it.
+    await search.press('Enter');
+    await search.press('Enter');
+    await expect(page.locator('[data-search-counter]')).toHaveText('2 / 4');
+    const current = hub.locator('[data-row-key][data-state="current"]');
+    await expect(current).toHaveAttribute('data-row-key', /^OL461693:/);
+    await expect(current).toBeInViewport();
+    const region = hub.getByRole('region', { name: 'Annotations' });
+    const landed = await region.evaluate(element => element.scrollTop);
+    await page.waitForTimeout(500);
+    expect(await region.evaluate(element => element.scrollTop)).toBe(landed);
+    await expect(page.getByText(/Something went wrong/)).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
