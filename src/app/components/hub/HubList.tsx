@@ -17,6 +17,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { useUiEffects } from '@/src/app/components/uiEffects';
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { VariableSizeList } from 'react-window';
 import { buildSequenceSections, matchesSequenceFilters, type SequenceSection } from '@/src/app/logic/hubModel';
@@ -81,6 +82,7 @@ const ScrollRegion = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElem
 });
 
 function HubList({ items, kind, state, filtersPending, records = [], onNotice, height: providedHeight, featureColors, lastFocusedKey, currentRowKey, isAlignmentLocked, onFocusItem, onViewFeatureDetails, onEditFeature, onRemoveFeature, onImportAnnotations, onCurrentRow, addLog, onSetRecordDetails, onSetRecordLabel }: HubListProps) {
+  const { confirm } = useUiEffects();
   const [wideDetails, setWideDetails] = useState(() => window.matchMedia?.('(min-width: 1280px)').matches ?? false);
   useEffect(() => {
     const media = window.matchMedia?.('(min-width: 1280px)');
@@ -229,7 +231,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     observer.observe(container.current); return () => observer.disconnect();
   }, [providedHeight]);
   useLayoutEffect(() => { list.current?.resetAfterIndex(0); }, [entries]);
-  useLayoutEffect(() => { list.current?.scrollTo(offset); }, [offset]);
+  // The list reports its scroll before this parent effect runs, so the render-time offset can already be stale here.
+  useLayoutEffect(() => { list.current?.scrollTo(scrollOffset.current); }, [offset]);
   useEffect(() => { state.setCurrentSectionKey(currentSection, false); }, [currentSection, state.setCurrentSectionKey]);
   const open = useCallback((key: string) => {
     state.setCollapsed(prev => { const next = new Set(prev[kind]); next.delete(key); return { ...prev, [kind]: next }; });
@@ -240,6 +243,8 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     onScroll({ scrollOffset: value });
     state.setCurrentSectionKey(key);
     list.current?.scrollTo(value);
+    // Until the list commits, a scroll event still reads the position the jump leaves and would win over the jump.
+    if (scrollElement.current) scrollElement.current.scrollTop = value;
   };
   const pending = state.jumpTarget?.key;
   useEffect(() => {
@@ -284,9 +289,9 @@ function HubList({ items, kind, state, filtersPending, records = [], onNotice, h
     const currentDetails = record ? readDetails(record) : {};
     const dirty = draft && (Object.entries(draft.details ?? {}).some(([key, value]) => value !== (currentDetails[key as keyof SequenceDetails] ?? ''))
       || draft.label !== undefined && draft.label !== (record?.label ?? ''));
-    if (dirty && !window.confirm('Discard unsaved changes to open another editor?')) return;
+    if (dirty && !confirm('Discard unsaved changes to open another editor?')) return;
     setDraft({ id }); open(id); state.setEditingDetails(kind === 'details' ? id : null); setEditingName(kind === 'name' ? id : null); jump(id);
-  }, [editor, draft, records, setDraft, setEditingName, open, state.setEditingDetails, jump]);
+  }, [confirm, editor, draft, records, setDraft, setEditingName, open, state.setEditingDetails, jump]);
   const headerActions = useMemo(() => new Map(items.map(item => [item.key, {
     onFold: () => fold(item.key),
     onSelect: () => state.setSelectedRecords(prev => { const next = new Set(prev); if (next.has(item.key)) next.delete(item.key); else next.add(item.key); return next; }),

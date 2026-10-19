@@ -37,6 +37,7 @@ export interface GroupedSearchResults {
 
 export interface SearchPanelProps {
   localReady?: boolean;
+  localOverride?: { status: string; onSelect: () => void };
   localError?: string | null;
   localJob?: LocalSearchJob;
   localCounts?: LocalSearchCounts | null;
@@ -73,7 +74,7 @@ export interface SearchPanelProps {
  * Supports IUPAC exact search and fuzzy search with a minimum identity.
  */
 const SearchPanel: React.FC<SearchPanelProps> = ({
-  localReady = false, localError, localJob, localCounts, onCancelLocalSearch,
+  localReady = false, localOverride, localError, localJob, localCounts, onCancelLocalSearch,
   completedSearch,
   records,
   searchQuery,
@@ -130,11 +131,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {searchMode === 'fuzzy' && <div className="space-y-2">
           <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
             {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
-              disabled={method === 'local' && !localReady} title={method === 'local' && !localReady ? localError ?? 'Loading Local search module' : undefined}
-              onClick={() => onSearchOptionsChange({ ...searchOptions, fuzzyMethod: method })}
+              disabled={method === 'local' && !localReady && !localOverride} title={method === 'local' && !localReady && !localOverride ? localError ?? 'Loading Local search module' : undefined}
+              onClick={() => {
+                if (method === 'local' && localOverride) localOverride.onSelect();
+                else onSearchOptionsChange({ ...searchOptions, fuzzyMethod: method });
+              }}
               className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40 ${fuzzyMethod === method ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>{method === 'whole' ? 'Whole query' : 'Local'}</button>)}
           </div>
-          <p role="status" className="text-[11px] text-slate-400">{localError ?? (localReady ? 'Local search ready' : 'Loading Local search module…')}</p>
+          <p role="status" className="text-[11px] text-slate-400">{localOverride ? localOverride.status : localError ?? (localReady ? 'Local search ready' : 'Loading Local search module…')}</p>
         </div>}
         {localJob && onCancelLocalSearch && <LocalSearchMonitor job={localJob} onCancel={onCancelLocalSearch} />}
         {local && <LocalOptions filters={localFilters} isProtein={isProteinSession} onChange={filters => onSearchOptionsChange({ ...searchOptions, localFilters: filters })} />}

@@ -23,6 +23,7 @@ import { act, renderHook } from '@/src/app/testing/renderHarness';
 import { runInlineSearch } from '@/src/app/logic/runInlineSearch';
 import { runSearch } from '@/src/workers/handlers/search';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { completedSearchFor } from '@/src/app/logic/searchState';
 import { loadSampleRecords } from '../sampleWorkspace';
 import { useShowroomWorkspace } from '../useShowroomWorkspace';
 
@@ -36,15 +37,18 @@ function searchFor(result: { current: ReturnType<typeof useShowroomWorkspace> },
 }
 
 describe('useShowroomWorkspace', () => {
-  it('starts with the ten sample records, all visible, in Pan mode with the default layers', () => {
+  it('starts with the four sample records, all visible, in Pan mode with the default layers', () => {
     const { result } = renderHook(() => useShowroomWorkspace());
-    expect(result.current.records).toHaveLength(10);
-    expect(result.current.transposedRecords).toHaveLength(10);
+    expect(result.current.records).toHaveLength(4);
+    expect(result.current.transposedRecords).toHaveLength(4);
     const processed = handleBioMessage({ type: 'PROCESS_RECORDS', records: loadSampleRecords() });
     if (processed.type !== 'SUCCESS') throw new Error('processing failed');
     expect(result.current.transposedRecords).toEqual(processed.records);
     expect(result.current.consensus).toBe(processed.consensus);
-    expect(result.current).toMatchObject({ showAnnotations: true, showTranslation: true, showTracks: true, dragMode: 'pan', explain: null });
+    expect(result.current).toMatchObject({
+      showAnnotations: true, showTranslation: true, showTracks: true, showConservation: false,
+      dragMode: 'pan', explain: null,
+    });
   });
 
   it('runs the exact search the workbench runs, over every loaded record', () => {
@@ -82,11 +86,11 @@ describe('useShowroomWorkspace', () => {
     act(() => result.current.toggle('translation'));
     act(() => result.current.toggle('tracks'));
     expect(result.current).toMatchObject({ showAnnotations: false, showTranslation: false, showTracks: false });
-    act(() => result.current.setRecordVisible('NC_012920', false));
-    expect(result.current.records.find(r => r.id === 'NC_012920')?.visible).toBe(false);
-    expect(result.current.transposedRecords.map(r => r.id)).not.toContain('NC_012920');
-    act(() => result.current.setRecordVisible('NC_012920', true));
-    expect(result.current.transposedRecords).toHaveLength(10);
+    act(() => result.current.setRecordVisible('OR279985', false));
+    expect(result.current.records.find(r => r.id === 'OR279985')?.visible).toBe(false);
+    expect(result.current.transposedRecords.map(r => r.id)).not.toContain('OR279985');
+    act(() => result.current.setRecordVisible('OR279985', true));
+    expect(result.current.transposedRecords).toHaveLength(4);
   });
 
   it('opens and closes one explanation at a time', () => {
@@ -109,7 +113,44 @@ describe('useShowroomWorkspace', () => {
     act(() => result.current.setRecordVisible('NC_045512', false));
     act(() => result.current.toggle('annotations'));
     act(() => result.current.setDragMode('select'));
-    act(() => result.current.openExplain('hub'));
+    act(() => result.current.openExplain('project'));
     expect(setItem).not.toHaveBeenCalled();
+  });
+});
+
+// What the bundled alignment unlocks, in its own block so neither grows past the
+// repository's function-length warning.
+describe('the showroom workspace over the aligned sample', () => {
+  it('Conservation toggles', () => {
+    const { result } = renderHook(() => useShowroomWorkspace());
+    expect(result.current.showConservation).toBe(false);
+    act(() => result.current.toggle('conservation'));
+    expect(result.current.showConservation).toBe(true);
+    expect(result.current).toMatchObject({ showAnnotations: true, showTranslation: true, showTracks: true });
+    act(() => result.current.toggle('conservation'));
+    expect(result.current.showConservation).toBe(false);
+  });
+
+  it('completedSearch is set after a run and cleared on clear', () => {
+    const { result } = renderHook(() => useShowroomWorkspace());
+    expect(result.current.search.completedSearch).toBeNull();
+    searchFor(result, 'ACG AAC');
+    expect(result.current.search.completedSearch).toEqual(completedSearchFor({
+      searchQuery: 'ACGAAC', mode: 'exact', records: searchable(),
+      options: { minIdentity: 80, strand: 'both', maxResults: 100 }, moleculeType: 'dna',
+    }, false));
+    act(() => result.current.search.clear());
+    expect(result.current.search.completedSearch).toBeNull();
+  });
+});
+
+describe('the showroom explanation state', () => {
+  it('carries the export choices with the explanation that repeats them', () => {
+    const { result } = renderHook(() => useShowroomWorkspace());
+    const vars = { fileName: 'demo.gb', format: 'GenBank', count: 4 };
+    act(() => result.current.openExplain('export-save', undefined, vars));
+    expect(result.current).toMatchObject({ explain: 'export-save', explainAnchor: null, explainVars: vars });
+    act(() => result.current.openExplain('copy'));
+    expect(result.current.explainVars).toBeUndefined();
   });
 });

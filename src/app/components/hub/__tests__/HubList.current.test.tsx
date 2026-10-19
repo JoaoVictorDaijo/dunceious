@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { useLayoutEffect } from 'react';
-import { render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
+import { act, render, screen, fireEvent, within } from '@/src/app/testing/renderHarness';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { buildSequenceSections } from '@/src/app/logic/hubModel';
 import { buildFeatureGroups } from '@/src/app/logic/featureComparison';
@@ -109,6 +109,33 @@ describe('current group wiring', () => {
     scroll(element, element.scrollTop + 2);
     expectCurrent('NC_045512');
     scroll(element, element.scrollTop + 1);
+    expectCurrent('NC_019843');
+  });
+
+  it('settles when the list reports a scroll after a jump renders but before it commits', () => {
+    render(<Subject kind="sequences" height={300} />);
+    const element = viewport(300);
+    // The list then holds one offset while the render that commits holds another.
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Jump to NC_019843' }));
+      scroll(element, 0);
+    });
+    const settled = element.scrollTop;
+    const current = screen.getByLabelText('Current section').textContent;
+    act(() => {});
+    expect(element.scrollTop).toBe(settled);
+    expect(screen.getByLabelText('Current section').textContent).toBe(current);
+  });
+
+  it('lands a jump when a scroll event from the previous position arrives before the jump commits', () => {
+    render(<Subject kind="sequences" height={300} />);
+    const element = viewport(300);
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Jump to NC_019843' }));
+      fireEvent.scroll(element);
+    });
+    expect(element.scrollTop).toBeGreaterThan(0);
+    expect(element.scrollTop).toBe(Number.parseFloat(card('NC_019843').style.top) - 12);
     expectCurrent('NC_019843');
   });
 

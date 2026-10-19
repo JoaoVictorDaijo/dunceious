@@ -4,7 +4,14 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
-**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive with sample data (SARS-CoV-2, the human mitochondrion and influenza A): hold the phone sideways to browse the real viewer, change layers, show or hide records and search sequences. Anything that would load, save, export, edit or send data explains what it does in the workbench instead. Nothing you do there is saved, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive of the real workbench: hold the phone sideways. It opens on one aligned sample, the SARS-CoV-2 reference NC_045512 with one published genome each for Alpha (OL461693), Delta (OR279985) and Omicron BA.1.1 (OR323867), aligned with MAFFT (the same files are in `examples/sars-cov-2-variants/`, with their provenance). What works as on a computer:
+
+- **Visual Viewport**: zoom and pan, the layers (Conservation included, off by default), showing or hiding records, sequence search with its hit marks, and **Compare** in the viewer toolbar, with NC_045512 as the reference and the Differences and Identity highlights.
+- **Annotation Hub**: the switcher in the top bar opens it. Browse by sequence or by feature, search annotations and step through the matches, filter by type, strand or Needs attention, group, sort, change density and select rows. The sequence index is in the sidebar drawer. The crosshair button on a row (Open in the Visual Viewport) jumps to the annotation, and **Back to Annotation Hub** returns.
+- **Details**: tapping an annotation in the viewer, or its details button in the Hub, opens the real details panel. Reading it and **Focus** work.
+- **Export**: the Hub's **Export** opens the real dialog. Choosing sequences, the format and its options, the file name and the "What this file will contain" preview all work.
+
+Anything that would change data, save a file, open a file picker, copy to the clipboard or contact a server explains what it does in the workbench instead: the final **Export** button (it names the file, format and sequence count you chose, and the dialog stays open with your choices), every **Import** item, adding, editing or deleting annotations and records, Copy and the display switches in the details panel, Local search, submitting an alignment, and Ctrl/⌘+S or Ctrl/⌘+O on a hardware keyboard. Nothing you do there is saved or sent, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
 
 ### 1.1 Ingesting Data
 

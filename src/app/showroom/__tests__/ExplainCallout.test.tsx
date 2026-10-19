@@ -63,4 +63,25 @@ describe('ExplainCallout', () => {
     rerender(<><button>Project</button></>);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Project' }));
   });
+
+  it('keeps Tab on Got it while open and gives focus back to the opener on close', () => {
+    const { rerender } = render(<><button>Export 4 sequences</button><button>Next</button></>);
+    const opener = screen.getByRole('button', { name: 'Export 4 sequences' });
+    opener.focus();
+    rerender(<><button>Export 4 sequences</button><button>Next</button><ExplainCallout id="copy" anchor={null} onClose={() => {}} /></>);
+    const gotIt = screen.getByRole('button', { name: 'Got it' });
+    expect(document.activeElement).toBe(gotIt);
+    expect(fireEvent.keyDown(gotIt, { key: 'Tab' })).toBe(false);
+    expect(fireEvent.keyDown(gotIt, { key: 'Tab', shiftKey: true })).toBe(false);
+    screen.getByRole('button', { name: 'Next' }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+    expect(document.activeElement).toBe(gotIt);
+    rerender(<><button>Export 4 sequences</button><button>Next</button></>);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('fills a parameterised explanation from its values', () => {
+    render(<ExplainCallout id="export-save" anchor={null} vars={{ fileName: 'demo.gb', format: 'GenBank', count: 4 }} onClose={() => {}} />);
+    expect(screen.getByRole('dialog', { name: 'Export file' }).textContent).toContain('demo.gb, a GenBank file of these 4 sequences');
+  });
 });

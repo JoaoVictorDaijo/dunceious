@@ -4,11 +4,20 @@ Sample GenBank files for exploring Dunceious. Load any of them through the
 file picker in the sidebar (**Upload**), which accepts `.gb`, `.genbank`,
 `.fasta`, and `.fa`.
 
-Each file is an [NCBI RefSeq](https://www.ncbi.nlm.nih.gov/refseq/) record.
+Most files here are [NCBI RefSeq](https://www.ncbi.nlm.nih.gov/refseq/) records.
 RefSeq entries are produced by the U.S. National Center for Biotechnology
 Information and are **not subject to copyright** ([NCBI usage
 policy](https://www.ncbi.nlm.nih.gov/home/about/policies/)), so they can be
 redistributed freely.
+
+The one exception is `sars-cov-2-variants/`, which holds submitted GenBank
+records rather than RefSeq ones (`OL461693.1`, `OR279985.1`, `OR323867.1`).
+NCBI places no restrictions on the use or distribution of GenBank data, but
+notes that some submitters may claim patent, copyright or other rights (same
+[usage policy](https://www.ncbi.nlm.nih.gov/home/about/policies/)); each of
+those three records was checked and none carries such a claim. **No GISAID
+data** is bundled or redistributed anywhere in this repository — GISAID's terms
+forbid redistribution.
 
 > **Session type:** a workspace holds **one** molecule type at a time — either
 > **nucleotide** (DNA/RNA) or **peptide** (protein). Dunceious infers the type
@@ -24,6 +33,7 @@ redistributed freely.
 | `sars-cov-2-NC_045512.gb` | [NC_045512](https://www.ncbi.nlm.nih.gov/nuccore/NC_045512.2) | 29,903 bp, ss-RNA | CDS, 26 mat_peptides, 5 stem_loops; the ORF1ab `-1` ribosomal-frameshift `join`. Exercises the RNA molecule-type path. |
 | `influenza-a-pr8-8segments.gb` | [NC_002016–NC_002023](https://www.ncbi.nlm.nih.gov/nuccore/NC_002023.1) | 8 records, ~14 kb | Eight segments in one file — demonstrates the Database Hub's multi-sequence list. Includes spliced (`join`) CDS for M2/NS2. |
 | `human-mitochondrion-NC_012920.gb` | [NC_012920](https://www.ncbi.nlm.nih.gov/nuccore/NC_012920.1) | 16,569 bp, circular | The Cambridge Reference Sequence — 37 densely packed genes (13 CDS, 22 tRNA, 2 rRNA) plus the D-loop. |
+| [`sars-cov-2-variants/`](sars-cov-2-variants/README.md) | [OL461693](https://www.ncbi.nlm.nih.gov/nuccore/OL461693.1), [OR279985](https://www.ncbi.nlm.nih.gov/nuccore/OR279985.1), [OR323867](https://www.ncbi.nlm.nih.gov/nuccore/OR323867.1) | 3 records, ~29.7 kb each | Alpha (B.1.1.7), Delta (B.1.617.2) and Omicron (BA.1.1, a BA.1 sublineage), plus `aligned.fasta` — a MAFFT alignment of all three against `sars-cov-2-NC_045512.gb`. Load `variants.gb` and the reference as sequences, then `aligned.fasta` as an alignment. See its [README](sars-cov-2-variants/README.md) and `PROVENANCE.json`. |
 
 > **Genetic codes:** Dunceious honours each CDS's `/transl_table`, so the
 > vertebrate-mitochondrial file

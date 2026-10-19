@@ -1,9 +1,9 @@
 ---
 title: "Showroom round two: the Annotation Hub, Export and an aligned variant workspace"
-status: proposed
+status: implemented
 date: 2026-10-17
 areas: ["showroom", "viewer", "app"]
-prs: []
+prs: [188, 196]
 issues: []
 superseded_by: null
 summary: "The phone test drive opens on one aligned SARS-CoV-2 variant workspace that the Visual Viewport, the real Annotation Hub and the real Export dialog all share, so Conservation and Compare work. Anything that would change data or save a file explains instead, and a touch tap no longer opens the viewer's hover tooltip."

@@ -18,24 +18,29 @@
  */
 
 import sarsCov2 from '@/examples/sars-cov-2-NC_045512.gb?raw';
-import mitochondrion from '@/examples/human-mitochondrion-NC_012920.gb?raw';
-import influenza from '@/examples/influenza-a-pr8-8segments.gb?raw';
+import variants from '@/examples/sars-cov-2-variants/variants.gb?raw';
+import alignedFasta from '@/examples/sars-cov-2-variants/aligned.fasta?raw';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
-import { applyParseSuccess } from '@/src/app/logic/bioResponse';
+import { applyFastaResponse, applyParseSuccess } from '@/src/app/logic/bioResponse';
 
 const SAMPLE_FILES: ReadonlyArray<readonly [filename: string, content: string]> = [
   ['sars-cov-2-NC_045512.gb', sarsCov2],
-  ['human-mitochondrion-NC_012920.gb', mitochondrion],
-  ['influenza-a-pr8-8segments.gb', influenza],
+  ['variants.gb', variants],
 ];
+
+const ALIGNMENT_FILE = 'aligned.fasta';
 
 let cached: SeqRecord[] | null = null;
 
 /**
- * The sample session as the workbench builds it when the three files are dropped
- * together: each GenBank file goes through the bio worker's handler in drop order,
- * and its records are acknowledged with `applyParseSuccess` before the next file.
+ * The sample session as the workbench builds it when the reference and the three
+ * variant genomes are dropped together and the bundled MAFFT alignment is laid over
+ * them: each GenBank file goes through the bio worker's handler in drop order and is
+ * acknowledged with `applyParseSuccess`, then `aligned.fasta` is parsed as an external
+ * alignment and overlaid exactly as an upload would be. Anything other than a clean
+ * overlay means the bundled data no longer matches, which must fail loudly rather than
+ * leave the showroom silently unaligned.
  * Parsed once per page load; callers must not mutate the result.
  */
 export function loadSampleRecords(): SeqRecord[] {
@@ -48,6 +53,16 @@ export function loadSampleRecords(): SeqRecord[] {
     }
     records = applyParseSuccess(records, response.records, filename).next;
   }
-  cached = records;
-  return records;
+
+  const parsed = handleBioMessage({ type: 'PARSE_FASTA', filename: ALIGNMENT_FILE, content: alignedFasta, asAlignment: true });
+  if (parsed.type !== 'FASTA_SUCCESS') {
+    throw new Error(`Sample alignment ${ALIGNMENT_FILE} did not parse: ${parsed.type === 'ERROR' ? parsed.error : parsed.type}`);
+  }
+  const overlay = applyFastaResponse(records, parsed.alignedData, true, ALIGNMENT_FILE);
+  if (overlay.kind !== 'overlay') {
+    throw new Error(`Sample alignment ${ALIGNMENT_FILE} was rejected: ${overlay.kind}`);
+  }
+
+  cached = overlay.next;
+  return cached;
 }
