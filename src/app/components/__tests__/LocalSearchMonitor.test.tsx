@@ -23,7 +23,7 @@ import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness'
 import JobPill from '../JobPill';
 import LocalSearchMonitor from '../search/LocalSearchMonitor';
 import type { LocalSearchJob } from '../../hooks/useSearchWorker';
-const job: LocalSearchJob = { phase: 'running', startedAt: 1000, progress: { streamsDone: 12, streamsTotal: 50, currentFraction: 0.5 } };
+const job: LocalSearchJob = { phase: 'running', startedAt: 1000, progress: { phase: 'align' as const, streamsDone: 12, streamsTotal: 50, currentFraction: 0.5 } };
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1000); vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 it('waits one second, minimizes to a draggable pill, reopens and cancels', () => {
@@ -71,4 +71,17 @@ it('stacks search and alignment pills without overlap and keeps positions separa
   const local = h.container.querySelector('[data-local-search-pill]')!.getBoundingClientRect();
   expect(local.bottom + 8 <= alignment.top || alignment.bottom + 8 <= local.top).toBe(true);
   vi.restoreAllMocks();
+});
+
+it('names the scoring pass in the monitor and minimized pill', () => {
+  const scoringJob: LocalSearchJob = { ...job, progress: { ...job.progress, phase: 'score' } };
+  const h = render(<LocalSearchMonitor job={scoringJob} onCancel={vi.fn()} />);
+  act(() => vi.advanceTimersByTime(1000));
+  expect(screen.getByRole('status').textContent).toBe('Scoring streams');
+  expect(screen.getByText('12 of 50 record strands scored')).toBeTruthy();
+  expect(screen.getByRole('progressbar', { name: 'Record strands scored' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Minimize' }));
+  expect(screen.getByRole('button', { name: /Scoring streams · 12\/50/ })).toBeTruthy();
+  h.rerender(<LocalSearchMonitor job={job} onCancel={vi.fn()} />);
+  expect(screen.getByRole('button', { name: /Local search · 12\/50/ })).toBeTruthy();
 });

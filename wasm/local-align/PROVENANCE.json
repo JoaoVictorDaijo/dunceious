@@ -31,7 +31,7 @@
     "-sMALLOC=emmalloc",
     "-sABORTING_MALLOC=0",
     "-sASSERTIONS=0",
-    "-sEXPORTED_FUNCTIONS=[\"_la_create\",\"_la_bigpass_step\",\"_la_next\",\"_la_destroy\",\"_la_peak_memory\",\"_malloc\",\"_free\"]"
+    "-sEXPORTED_FUNCTIONS=[\"_la_max_score\",\"_la_set_checkpoints\",\"_la_checkpoint_step\",\"_la_checkpoint_stat\",\"_la_create\",\"_la_bigpass_step\",\"_la_next\",\"_la_destroy\",\"_la_peak_memory\",\"_malloc\",\"_free\"]"
   ],
   "environment": {
     "SOURCE_DATE_EPOCH": "0",
@@ -40,8 +40,8 @@
   },
   "artifact": {
     "path": "public/wasm/local-align.wasm",
-    "sha256": "b044bf004d192c6d34a8f5ae52f88a42984d865626df4938c2a05b104cd734a3",
-    "bytes": 17770
+    "sha256": "3a9a9155792e4fd4f62438477fd112dedcd9ffc9311b160107441d9894a63c58",
+    "bytes": 19593
   },
   "licence": {
     "spdx": "GPL-2.0-or-later",
@@ -59,6 +59,6 @@
   },
   "engine": {
     "path": "wasm/local-align/matcher_engine.c",
-    "sha256": "31ab3593b28ccc46665ce59830e57689156082a18723def88cb4b18b75bf6a80"
+    "sha256": "b21227b9d5effa98cc03514717c6d66921b518c29d558a54a78307e28d310c7d"
   }
 }

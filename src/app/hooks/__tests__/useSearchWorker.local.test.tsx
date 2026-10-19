@@ -120,7 +120,7 @@ it('applies local hits, progress, counts, scoring and navigation from the submit
   expect(h.result.current.localReady).toBe(true);
   expect(pool.run).toHaveBeenCalledWith({ query: 'AA', records: [{ id: 'r', sequence: 'AAA', alignedSequence: undefined, moleculeType: undefined }],
     moleculeType: 'dna', scoring: 'EDNAFULL', limit: 100, filters: { minIdentity: null, minQueryCoverage: null }, strand: 'both' }, expect.any(Function));
-  const update = { streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 };
+  const update = { phase: 'align' as const, streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 };
   act(() => progress(update));
   expect(h.result.current.localJob).toMatchObject({ phase: 'running', progress: update });
   act(() => h.result.current.setSearchQuery('TT'));
@@ -170,7 +170,7 @@ it.each(['cancel', 'options', 'unmount'] as const)('ignores progress and rejecti
   });
   expect(pool.cancel).toHaveBeenCalledTimes(1);
   await act(async () => {
-    progress({ streamsDone: 2, streamsTotal: 2, currentFraction: 1 });
+    progress({ phase: 'align' as const, streamsDone: 2, streamsTotal: 2, currentFraction: 1 });
     reject(new Error('Late failure'));
   });
   expect(h.addLog).not.toHaveBeenCalledWith('Error: Late failure');

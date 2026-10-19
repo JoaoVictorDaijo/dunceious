@@ -28,7 +28,21 @@ export interface LocalAlignment {
   recordEnd: number;
   cigar: string;
 }
+export interface CheckpointDiagnostics {
+  step: number;
+  bytes: number;
+  smallPasses: number;
+  resumes: number;
+  lastColumn: number;
+}
+/** Differential-test controls; production callers use the default checkpoint policy. */
+export interface LocalEngineTestOptions {
+  checkpoints?: boolean;
+  onCheckpointDiagnostics?: (diagnostics: CheckpointDiagnostics) => void;
+}
 export interface LocalEngine {
+  maxScore(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
+    onProgress?: (fraction: number) => void): number;
   enumerate(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
     onProgress?: (fraction: number) => void): Iterator<LocalAlignment>;
   peakMemoryBytes(): number;
@@ -40,6 +54,10 @@ interface EngineExports {
   free(pointer: number): void;
   la_create(query: number, qlen: number, record: number, rlen: number, matrix: number,
     size: number, gapOpen: number, gapExtend: number): number;
+  la_max_score(query: number, qlen: number, record: number, rlen: number, matrix: number,
+    size: number, gapOpen: number, gapExtend: number): number;
+  la_set_checkpoints(handle: number, enabled: number): number;
+  la_checkpoint_stat(handle: number, field: number): number;
   la_bigpass_step(handle: number, rows: number): number;
   la_next(handle: number, output: number, ops: number, capacity: number, length: number): number;
   la_destroy(handle: number): void;
@@ -80,13 +98,50 @@ function checkedAlignment(values: number[], ops: Uint8Array, query: Uint8Array,
   return { score2, queryStart, queryEnd, recordStart, recordEnd, cigar };
 }
 
+function maxScore(e: EngineExports, query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
+  onProgress?: (fraction: number) => void): number {
+  if (scoring.size !== scoring.symbols.length || scoring.matrix2.length !== scoring.size ** 2) {
+    throw new Error('Invalid local scoring matrix');
+  }
+  const allocated: number[] = [];
+  const allocate = (bytes: number) => {
+    const pointer = e.malloc(Math.max(bytes, 1));
+    if (!pointer) throw new Error('Local alignment allocation failed');
+    allocated.push(pointer);
+    return pointer;
+  };
+  try {
+    const q = allocate(query.length), r = allocate(record.length);
+    const matrix = allocate(scoring.matrix2.byteLength);
+    new Uint8Array(e.memory.buffer, q, query.length).set(query);
+    new Uint8Array(e.memory.buffer, r, record.length).set(record);
+    new Int32Array(e.memory.buffer, matrix, scoring.matrix2.length).set(scoring.matrix2);
+    onProgress?.(0);
+    const score2 = e.la_max_score(q, query.length, r, record.length, matrix, scoring.size,
+      scoring.gapOpen2, scoring.gapExtend2);
+    if (score2 < 0) throw new Error(`Local alignment scoring failed (${score2})`);
+    onProgress?.(1);
+    return score2;
+  } finally { for (const pointer of allocated) e.free(pointer); }
+}
+
+function destroyContext(e: EngineExports, handle: number, onDiagnostics?: LocalEngineTestOptions['onCheckpointDiagnostics']) {
+  if (handle <= 0) return;
+  try {
+    if (onDiagnostics) onDiagnostics({ step: e.la_checkpoint_stat(handle, 0), bytes: e.la_checkpoint_stat(handle, 1),
+      smallPasses: e.la_checkpoint_stat(handle, 2), resumes: e.la_checkpoint_stat(handle, 3),
+      lastColumn: e.la_checkpoint_stat(handle, 4) });
+  } finally { e.la_destroy(handle); }
+}
+
 /** EMBOSS 6.6.0 matcher reactor; no I/O. Close a partially consumed iterator with return(). */
-export async function instantiateLocalEngine(module: WebAssembly.Module): Promise<LocalEngine> {
+export async function instantiateLocalEngine(module: WebAssembly.Module, options: LocalEngineTestOptions = {}): Promise<LocalEngine> {
   const instance = await WebAssembly.instantiate(module, { env: { emscripten_notify_memory_growth() {} } });
   const e = instance.exports as unknown as EngineExports;
   e._initialize();
   return {
     peakMemoryBytes: () => e.la_peak_memory() >>> 0,
+    maxScore: (query, record, scoring, onProgress) => maxScore(e, query, record, scoring, onProgress),
     *enumerate(inputQuery, inputRecord, inputScoring, onProgress) {
       // Snapshots keep suspended iterators independent of caller mutations.
       const query = inputQuery.slice(); const record = inputRecord.slice();
@@ -114,6 +169,10 @@ export async function instantiateLocalEngine(module: WebAssembly.Module): Promis
         new Int32Array(e.memory.buffer, matrix, scoring.matrix2.length).set(scoring.matrix2);
         handle = e.la_create(q, query.length, r, record.length, matrix, scoring.size, scoring.gapOpen2, scoring.gapExtend2);
         if (handle <= 0) throw new Error(`Local alignment creation failed (${handle})`);
+        if (options.checkpoints !== undefined) {
+          const status = e.la_set_checkpoints(handle, Number(options.checkpoints));
+          if (status !== 0) throw new Error(`Local alignment checkpoint setup failed (${status})`);
+        }
         onProgress?.(0);
         let done = 0;
         while (done < query.length) {
@@ -137,8 +196,8 @@ export async function instantiateLocalEngine(module: WebAssembly.Module): Promis
           yield alignment;
         }
       } finally {
-        if (handle > 0) e.la_destroy(handle);
-        for (const pointer of allocated) e.free(pointer);
+        try { destroyContext(e, handle, options.onCheckpointDiagnostics); }
+        finally { for (const pointer of allocated) e.free(pointer); }
       }
     },
   };
