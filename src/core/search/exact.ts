@@ -22,15 +22,96 @@ import { degenerateToRegex } from '@/src/core/search/query';
 import { reverseComplement, getNonGapSegments, complementAlphabet } from '@/src/domain/bio';
 import type { SearchResult, SearchableRecord } from '@/src/domain/bio/types';
 
+interface ExactCandidate {
+  start: number;
+  end: number;
+  sequence: string;
+  recordId: string;
+  strand: 1 | -1;
+  source: string;
+  order: number;
+}
+
+function compareCandidates(a: ExactCandidate, b: ExactCandidate): number {
+  return a.start - b.start || a.recordId.localeCompare(b.recordId) || a.order - b.order;
+}
+
+function siftDown(heap: ExactCandidate[]): void {
+  let index = 0;
+  while (index * 2 + 1 < heap.length) {
+    let child = index * 2 + 1;
+    if (child + 1 < heap.length && compareCandidates(heap[child + 1], heap[child]) > 0) child++;
+    if (compareCandidates(heap[index], heap[child]) >= 0) break;
+    [heap[index], heap[child]] = [heap[child], heap[index]];
+    index = child;
+  }
+}
+
+function createCollector(searchQuery: string, maxResults?: number) {
+  const results: SearchResult[] = [];
+  const capacity = maxResults !== undefined && Number.isFinite(maxResults) && maxResults >= 0
+    ? Math.floor(maxResults)
+    : null;
+  const heap: ExactCandidate[] = [];
+  let order = 0;
+
+  const retain = (start: number, end: number, sequence: string, recordId: string, strand: 1 | -1, source: string) => {
+    if (capacity === null) {
+      results.push({
+        cigar: iupacPath(searchQuery, sequence.replace(/-/g, '')),
+        start, end, sequence, recordId, strand, segments: getNonGapSegments(source, start, end),
+      });
+      return;
+    }
+    const encounter = order++;
+    if (heap.length === capacity) {
+      const worst = heap[0];
+      const comparison = start - worst.start || recordId.localeCompare(worst.recordId) || encounter - worst.order;
+      if (comparison >= 0) return;
+      worst.start = start;
+      worst.end = end;
+      worst.sequence = sequence;
+      worst.recordId = recordId;
+      worst.strand = strand;
+      worst.source = source;
+      worst.order = encounter;
+      siftDown(heap);
+      return;
+    }
+    heap.push({ start, end, sequence, recordId, strand, source, order: encounter });
+    let index = heap.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (compareCandidates(heap[parent], heap[index]) >= 0) break;
+      [heap[parent], heap[index]] = [heap[index], heap[parent]];
+      index = parent;
+    }
+  };
+
+  const finish = (): SearchResult[] => {
+    if (capacity !== null) {
+      return heap.sort(compareCandidates).map(hit => ({
+        cigar: iupacPath(searchQuery, hit.sequence.replace(/-/g, '')),
+        start: hit.start,
+        end: hit.end,
+        sequence: hit.sequence,
+        recordId: hit.recordId,
+        strand: hit.strand,
+        segments: getNonGapSegments(hit.source, hit.start, hit.end),
+      }));
+    }
+    if (maxResults === undefined) return results;
+    results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
+    return results.length > maxResults ? results.slice(0, maxResults) : results;
+  };
+  return { retain, finish };
+}
+
 /**
- * Exact / IUPAC-degenerate regex search over the given records.
- *
- * Shared by the search worker (`runSearch`) and the inline fallback
- * (`runInlineSearch`); they differ only in how `seq` is derived before it is
- * passed in. Forward matches use the raw index; reverse matches are remapped
- * onto forward coordinates as `start = L - rcEnd`, `end = L - rcStart`.
- * Proteins skip the reverse strand. Overlapping matches are found via
- * `lastIndex = index + 1`. Results are returned unsorted; the caller sorts/slices.
+ * Omitting maxResults preserves scan order and all matches. Supplying it returns
+ * the stable start/record-ID sort followed by the callers' conditional slice.
+ * Finite nonnegative caps retain only the best candidates; segment arrays are
+ * deferred until selection so dense matches do not allocate discarded results.
  */
 export function runExactSearch(
   searchQuery: string,
@@ -38,9 +119,11 @@ export function runExactSearch(
   isProtein: boolean,
   strand: 'fwd' | 'rev' | 'both',
   moleculeType?: SearchableRecord['moleculeType'],
+  maxResults?: number,
 ): SearchResult[] {
-  const results: SearchResult[] = [];
   const regex = degenerateToRegex(searchQuery, isProtein ? 'protein' : 'nucleotide');
+  if (maxResults !== undefined && maxResults >= 0 && maxResults < 1) return [];
+  const { retain, finish } = createCollector(searchQuery, maxResults);
 
   for (const record of records) {
     const seq = record.alignedSequence || record.sequence;
@@ -54,15 +137,7 @@ export function runExactSearch(
       while ((match = regex.exec(seq)) !== null) {
         const start = match.index;
         const end = match.index + match[0].length;
-        results.push({
-          cigar: iupacPath(searchQuery, match[0].replace(/-/g, '')),
-          start,
-          end,
-          sequence: match[0],
-          recordId: record.id,
-          strand: 1,
-          segments: getNonGapSegments(seq, start, end),
-        });
+        retain(start, end, match[0], record.id, 1, seq);
         regex.lastIndex = match.index + 1;
       }
     }
@@ -77,19 +152,11 @@ export function runExactSearch(
         const rcEnd = match.index + match[0].length;
         const start = L - rcEnd;
         const end = L - rcStart;
-        results.push({
-          cigar: iupacPath(searchQuery, match[0].replace(/-/g, '')),
-          start,
-          end,
-          sequence: match[0],
-          recordId: record.id,
-          strand: -1,
-          segments: getNonGapSegments(seq, start, end),
-        });
+        retain(start, end, match[0], record.id, -1, seq);
         regex.lastIndex = match.index + 1;
       }
     }
   }
 
-  return results;
+  return finish();
 }

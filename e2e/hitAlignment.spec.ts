@@ -20,7 +20,7 @@
 import { readFileSync, mkdirSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
-const genbank = readFileSync('examples/sars-cov-2-NC_045512.gb', 'utf8');
+const genbank = readFileSync('examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'utf8');
 const genome = genbank.slice(genbank.indexOf('\nORIGIN') + 7).replace(/[^acgt]/gi, '').toUpperCase();
 const original = genome.slice(10_000, 10_080);
 const query = original.slice(0, 10) + 'G' + original.slice(11, 20) + 'G' + original.slice(20, 50) + original.slice(51);

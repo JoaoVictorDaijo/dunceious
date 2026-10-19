@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { transposeCoordinates, buildAlignedSegments, processTransposition } from '../coordinate';
+import { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from '../coordinate';
 import type { SeqRecord } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -280,5 +280,42 @@ describe('continuous aligned parts', () => {
     expect(processTransposition([record])[0].features[0]).toMatchObject({
       start: 8, end: 5, segments: [{ start: 8, end: 11 }, { start: 2, end: 5 }],
     });
+  });
+});
+
+describe('transposeInterval', () => {
+  it.each([
+    [0, 4, 2, 8], [0, 2, 2, 4], [2, 4, 6, 8], [3, 1, 7, 3],
+    [0, 0, 0, 0], [2, 2, 4, 4], [4, 4, 8, 8], [4, 1, 8, 3],
+    [-1, 2, 10, 4], [1, 5, 3, 10], [0.5, 2, 10, 4],
+    [1, NaN, 3, 10], [NaN, 1, 10, 3], [Infinity, 1, 10, 3],
+    [1, -Infinity, 3, 10], [1, 1.5, 3, 10],
+  ])('maps [%s, %s) across flanking and internal gaps', (start, end, alignedStart, alignedEnd) => {
+    expect(transposeInterval(start, end, '--AC--GT--'))
+      .toEqual({ start: alignedStart, end: alignedEnd });
+  });
+
+  it.each([
+    ['', 0, 1, 0, 0], ['', 0, 0, 0, 0],
+    ['----', 0, 0, 0, 0], ['----', 0, 1, 0, 4], ['----', 1, 0, 4, 0],
+    ['----', NaN, NaN, 4, 4],
+  ])('maps an empty or all-gap alignment %s [%s, %s)', (aligned, start, end, alignedStart, alignedEnd) => {
+    expect(transposeInterval(start, end, aligned)).toEqual({ start: alignedStart, end: alignedEnd });
+  });
+
+  it('matches the batch mapper for short alignments and exceptional endpoints', () => {
+    const endpoints = [-Infinity, -1, -0.5, 0, 0.5, 1, 2, 3, 4, 5, Infinity, NaN];
+    for (let mask = 0; mask < 32; mask++) {
+      const aligned = Array.from({ length: 5 }, (_, i) => mask & (1 << i) ? 'A' : '-').join('');
+      const record = makeRecord('parity', aligned.replaceAll('-', ''), aligned);
+      record.features = endpoints.flatMap(start => endpoints.map(end => ({
+        type: 'gene', name: 'interval', start, end, strand: 1 as const,
+      })));
+      const batch = processTransposition([record])[0].features;
+      record.features.forEach((feature, index) => {
+        expect(transposeInterval(feature.start, feature.end, aligned), `${aligned}: ${feature.start}, ${feature.end}`)
+          .toEqual({ start: batch[index].start, end: batch[index].end });
+      });
+    }
   });
 });

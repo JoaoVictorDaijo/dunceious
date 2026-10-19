@@ -34,28 +34,11 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
 import { parseGenBank } from '@/src/core/genbank/index';
 import { detectMoleculeType, isProteinSession } from '@/src/domain/bio';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { EXAMPLES, loadExample, typeHistogram } from './fixtures/examples';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function loadExample(file: string): string {
-  try {
-    return readFileSync(resolve(__dirname, '../../../examples/', file), 'utf-8');
-  } catch {
-    return '';
-  }
-}
-
-function typeHistogram(records: SeqRecord[]): Record<string, number> {
-  const h: Record<string, number> = {};
-  for (const r of records) for (const f of r.features) h[f.type] = (h[f.type] || 0) + 1;
-  return h;
-}
 
 // ---------------------------------------------------------------------------
 // SARS-CoV-2 ORF1ab polyprotein — YP_009724389.1
@@ -64,13 +47,8 @@ function typeHistogram(records: SeqRecord[]): Record<string, number> {
 // use order(...) discontiguous locations.
 // ---------------------------------------------------------------------------
 
-describe('examples/sars-cov-2-orf1ab-polyprotein-YP_009724389.gb', () => {
-  const content = loadExample('sars-cov-2-orf1ab-polyprotein-YP_009724389.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+describe(`examples/${EXAMPLES.orf1abPolyprotein}`, () => {
+  const content = loadExample(EXAMPLES.orf1abPolyprotein);
   let records: SeqRecord[];
   let record: SeqRecord;
   beforeAll(() => {
@@ -131,49 +109,17 @@ describe('examples/sars-cov-2-orf1ab-polyprotein-YP_009724389.gb', () => {
       expect(f.end).toBeGreaterThanOrEqual(Math.max(...segs.map(s => s.end)));
     }
   });
-});
-
-// ---------------------------------------------------------------------------
-// SARS-CoV-2 spike glycoprotein — YP_009724390.1
-// A signal-peptide-bearing surface protein; Region subunits + order(...) Sites.
-// ---------------------------------------------------------------------------
-
-describe('examples/sars-cov-2-spike-YP_009724390.gb', () => {
-  const content = loadExample('sars-cov-2-spike-YP_009724390.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
-  let record: SeqRecord;
-  beforeAll(() => {
-    record = parseGenBank(content)[0];
-  });
-
-  it('classifies the record as a protein session with the spike sequence', () => {
-    expect(record.moleculeType).toBe('protein');
-    expect(record.sequence).toHaveLength(1273);
-    // Spike opens with its cleaved signal peptide (MFVFLVLLPL…).
-    expect(record.sequence.startsWith('MFVFLVLLPL')).toBe(true);
-    expect(isProteinSession([record])).toBe(true);
-  });
-
-  it('parses the peptide feature set with the expected type histogram', () => {
-    expect(record.features).toHaveLength(17);
-    expect(typeHistogram([record])).toEqual({
-      source: 1,
-      Protein: 1,
-      Region: 5,
-      Site: 9,
-      CDS: 1,
-    });
-  });
 
   it('parses multi-line order(...) Site locations spanning continuation lines', () => {
-    const multiSite = record.features.filter(
-      f => f.type === 'Site' && (f.segments?.length ?? 0) > 1,
+    // 18 Sites wrap their location across continuation lines; the longest spans
+    // four lines. Dropping a continuation would lose its trailing residues.
+    const site = record.features.find(
+      f => f.type === 'Site' && f.locationString?.startsWith('order(4661..4665,'),
     );
-    expect(multiSite).toHaveLength(6);
+    expect(site).toBeDefined();
+    expect(site!.segments).toHaveLength(22);
+    expect(site!.locationString!.endsWith(',5058)')).toBe(true);
+    expect(site!.end).toBe(5058);
   });
 });
 
@@ -183,13 +129,8 @@ describe('examples/sars-cov-2-spike-YP_009724390.gb', () => {
 // chains, exercising the full peptide feature vocabulary in one tiny record.
 // ---------------------------------------------------------------------------
 
-describe('examples/human-insulin-NP_000198.gb', () => {
-  const content = loadExample('human-insulin-NP_000198.gb');
-  if (!content) {
-    it.skip('fixture file not found', () => {});
-    return;
-  }
-
+describe(`examples/${EXAMPLES.humanInsulin}`, () => {
+  const content = loadExample(EXAMPLES.humanInsulin);
   let record: SeqRecord;
   beforeAll(() => {
     record = parseGenBank(content)[0];

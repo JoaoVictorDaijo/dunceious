@@ -34,6 +34,7 @@ import { useRemoteAlignment } from './hooks/useRemoteAlignment';
 import { useHubState } from './hooks/useHubState';
 import RecordDetailsModal from './components/RecordDetailsModal';
 import type { FocusTarget } from '@/src/app/logic/focusTarget';
+import { featureIndexOf as resolveFeatureIndex } from '@/src/app/logic/featureIndex';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { DEFAULT_ALIGNMENT_COMPARISON, activeComparison, canCompare, comparisonCandidates, resolveReference, withReference, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { resolveEnvAccent } from './logic/environment';
@@ -254,12 +255,8 @@ const App: React.FC = () => {
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
   // aligned copy, same order as the record's features), so resolve by position.
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
-  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number => {
-    const hubIndex = (feature as BioFeature & { index?: number }).index;
-    if (typeof hubIndex === 'number') return hubIndex;
-    const own = records.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-    return own >= 0 ? own : transposedRecords.find(r => r.id === recordId)?.features.indexOf(feature) ?? -1;
-  }, [records, transposedRecords]);
+  const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number =>
+    resolveFeatureIndex(records, transposedRecords, recordId, feature), [records, transposedRecords]);
 
   const handleViewDetails = useCallback((recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);

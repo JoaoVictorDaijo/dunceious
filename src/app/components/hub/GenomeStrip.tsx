@@ -80,8 +80,9 @@ function stripPaths(geometry: StripGeometry, highlight?: (feature: BioFeature) =
   geometry.views = { mask, paths };
   return paths;
 }
-export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact'): number {
-  return stripGeometry(record, large, featureColors, density).metrics.height + (large ? 16 : 0);
+export function genomeStripHeight(record: SeqRecord, large = false, featureColors?: Record<string, string>, density: 'compact' | 'comfortable' = 'compact', slim = false): number {
+  // Only the full large strip draws a ruler below its lanes; the slim one has none to measure.
+  return stripGeometry(record, large, featureColors, density, slim).metrics.height + (large && !slim ? 16 : 0);
 }
 function GenomeStrip({ record, highlight, pinned, large = false, slim = false, bare = false, onPick, featureColors, density = 'compact', trackWindow }: { record: SeqRecord; highlight?: (feature: BioFeature) => boolean; pinned?: BioFeature | null; large?: boolean; slim?: boolean; bare?: boolean; featureColors?: Record<string, string>; onPick?: (feature: BioFeature) => void; density?: 'compact' | 'comfortable'; trackWindow?: TrackWindow }) {
   const geometry = stripGeometry(record, large, featureColors, density, slim);

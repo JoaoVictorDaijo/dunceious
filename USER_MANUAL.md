@@ -4,7 +4,14 @@ Welcome to **Dunceious**, a high-performance bioinformatics platform for Multi-S
 
 ## 1. Getting Started
 
-**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: a SARS-CoV-2 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive with sample data (SARS-CoV-2, the human mitochondrion and influenza A): hold the phone sideways to browse the real viewer, change layers, show or hide records and search sequences. Anything that would load, save, export, edit or send data explains what it does in the workbench instead. Nothing you do there is saved, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
+**On a phone**, Dunceious opens a short introduction instead of the workbench, which needs a bigger screen: the phage T7 genome you can drag to zoom from the whole genome down to codons, a tour, where your files go, and the address to open on a computer. **Test-drive the workbench** opens a test drive of the real workbench: hold the phone sideways. It opens on one aligned sample, three T7-like phage genomes: T7 (NC_001604), its close relative 13a (NC_011045) and the more distant T3 (NC_003298), aligned with MAFFT (the same files are in `examples/nucleotide/t7-phages/`, with their provenance). What works as on a computer:
+
+- **Visual Viewport**: zoom and pan, the layers (Conservation included, off by default), showing or hiding records, sequence search with its hit marks, and **Compare** in the viewer toolbar, with NC_045512 as the reference and the Differences and Identity highlights.
+- **Annotation Hub**: the switcher in the top bar opens it. Browse by sequence or by feature, search annotations and step through the matches, filter by type, strand or Needs attention, group, sort, change density and select rows. The sequence index is in the sidebar drawer. The crosshair button on a row (Open in the Visual Viewport) jumps to the annotation, and **Back to Annotation Hub** returns.
+- **Details**: tapping an annotation in the viewer, or its details button in the Hub, opens the real details panel. Reading it and **Focus** work.
+- **Export**: the Hub's **Export** opens the real dialog. Choosing sequences, the format and its options, the file name and the "What this file will contain" preview all work.
+
+Anything that would change data, save a file, open a file picker, copy to the clipboard or contact a server explains what it does in the workbench instead: the final **Export** button (it names the file, format and sequence count you chose, and the dialog stays open with your choices), every **Import** item, adding, editing or deleting annotations and records, Copy and the display switches in the details panel, Local search, submitting an alignment, and Ctrl/⌘+S or Ctrl/⌘+O on a hardware keyboard. Nothing you do there is saved or sent, and **Exit** returns to the introduction. Tablets and computers open the workbench directly.
 
 ### 1.1 Ingesting Data
 
@@ -89,7 +96,7 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 - **Medium Zoom**: Individual nucleotide bases (A, T, C, G) become visible.
 - **High Zoom**: With **Translation** on, the amino-acid translation of each CDS opens in rows above (forward strand) and below (reverse strand) the bases. Only the rows a record needs are shown: overlapping CDSs in the same reading frame share a row, and a record without a CDS gets none. Not shown in peptide sessions.
 
-At a **programmed ribosomal frameshift** (for example SARS-CoV-2 ORF1ab), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
+At a **programmed ribosomal frameshift** (for example the T7 capsid gene 10 in `examples/nucleotide/t7-phages/`), the codons after the slip move to the row of their new reading frame. The annotation bar marks the slip with a tick and a `−1` (or `+1`) badge, and its tooltip names the position.
 
 ### 2.3 Annotations in the Viewer
 

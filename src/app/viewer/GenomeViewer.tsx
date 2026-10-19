@@ -40,6 +40,7 @@ import { SelectionOverlay } from './SelectionOverlay';
 import { TouchArbiter } from './touchGesture';
 import { useTouchPanZoom } from './useTouchPanZoom';
 import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
+import { useUiEffects } from '@/src/app/components/uiEffects';
 
 /**
  * GenomeViewer — virtualized, canvas-backed alignment/genome browser.
@@ -134,6 +135,11 @@ const GenomeViewer: React.FC<Props> = ({
   comparison = null,
   onSetComparisonReference,
 }) => {
+  // The record menu vetted a removal and wrote to the clipboard on its own. Both now go through
+  // the host's effects — `allowAction` first, as `SelectionBar` does — so a host that must touch
+  // neither (the showroom) answers here instead of relying on its event guards to keep the menu
+  // shut. The defaults allow the action and use the browser's own dialog and clipboard.
+  const { allowAction, confirm, copyText } = useUiEffects();
   const [tooltip, setTooltip] = useState<{ x: number, y: number, content: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, recordId: string, feature?: BioFeature } | null>(null);
   const quantValueRanges = useMemo(() => {
@@ -394,7 +400,7 @@ const GenomeViewer: React.FC<Props> = ({
                 onClick={() => {
                   if (isAlignmentLocked) return;
                   const label = records.find(r => r.id === contextMenu.recordId)?.name || contextMenu.recordId;
-                  if (window.confirm(`Remove sequence "${label}" from project?`)) {
+                  if (allowAction('remove-records') && confirm(`Remove sequence "${label}" from project?`)) {
                     if (!isAlignmentLocked) onRemoveRecord(contextMenu.recordId);
                   }
                   setContextMenu(null);
@@ -411,7 +417,7 @@ const GenomeViewer: React.FC<Props> = ({
                   if (record) {
                     const seq = record.alignedSequence || record.sequence;
                     const copiedSeq = seq.substring(contextMenu.feature.start, contextMenu.feature.end);
-                    navigator.clipboard.writeText(copiedSeq);
+                    void copyText(copiedSeq);
                     setContextMenu(null);
                   }
                 } else if (persistentSelection) {
@@ -421,7 +427,7 @@ const GenomeViewer: React.FC<Props> = ({
                     const start = Math.min(persistentSelection.start, persistentSelection.end);
                     const end = Math.max(persistentSelection.start, persistentSelection.end);
                     const copiedSeq = seq.substring(start, end);
-                    navigator.clipboard.writeText(copiedSeq);
+                    void copyText(copiedSeq);
                     setContextMenu(null);
                   }
                 }
@@ -437,6 +443,7 @@ const GenomeViewer: React.FC<Props> = ({
         {/* VIRTUALIZED LIST */}
         <div 
           ref={listContainerRef}
+          onPointerDown={(event) => { if (event.pointerType === 'touch') setTooltip(null); }}
           style={{ touchAction: 'none' }}
           className={`flex-1 min-h-0 relative ${dragMode === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`} 
           onMouseDown={handleMouseDown}

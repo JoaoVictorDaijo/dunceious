@@ -19,6 +19,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useUiEffects } from './uiEffects';
 import { clampPosition } from '@/src/app/logic/floatingPosition';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { residueStyle, type AlignmentComparisonSettings, type ComparisonHighlight, type ResidueStyle } from '@/src/app/logic/alignmentComparison';
@@ -167,6 +168,7 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
 
 /** Toolbar control for comparing every aligned row against one reference sequence. */
 const ComparisonMenu: React.FC<ComparisonMenuProps> = ({ settings, onChange, reference, candidates, compact = false, arrive = false }) => {
+  const { portalTarget } = useUiEffects();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -209,7 +211,7 @@ const ComparisonMenu: React.FC<ComparisonMenuProps> = ({ settings, onChange, ref
       {open && trigger.current && createPortal(
         <ComparisonPanel anchor={trigger.current} panelRef={panel} settings={settings} update={update} reference={reference} candidates={candidates}
           onClose={() => { setOpen(false); root.current?.querySelector('button')?.focus(); }} />
-      , document.body)}
+      , portalTarget ?? document.body)}
     </div>
   );
 };

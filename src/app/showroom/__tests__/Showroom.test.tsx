@@ -21,21 +21,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, installCanvasRecorder, render, screen, stubResizeObserver, within } from '@/src/app/testing/renderHarness';
 import Showroom from '../Showroom';
-
-type Listener = (event: { matches: boolean }) => void;
-
-/** A controllable `(orientation: landscape)` query; every other query is false. */
-function stubOrientation(landscape: boolean) {
-  const listeners = new Set<Listener>();
-  let current = landscape;
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    media: query,
-    get matches() { return query === '(orientation: landscape)' ? current : false; },
-    addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
-    removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
-  }));
-  return (next: boolean) => { current = next; act(() => listeners.forEach(listener => listener({ matches: next }))); };
-}
+import { stubOrientation } from './showroomTestKit';
 
 beforeEach(() => {
   installCanvasRecorder();
@@ -68,7 +54,7 @@ describe('Showroom orientation', () => {
     expect(screen.queryByText('Turn your phone sideways')).toBeNull();
     expect(screen.getByText('Test drive')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Visual Viewport' }).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-viewer-record="NC_045512"]')).not.toBeNull();
+    expect(container.querySelector('[data-viewer-record="NC_001604"]')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Exit' }));
     expect(onExit).toHaveBeenCalledTimes(1);
   });
@@ -78,20 +64,20 @@ describe('Showroom orientation', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     const viewerField = goToField(container);
     openSidebar();
-    fireEvent.click(screen.getByRole('button', { name: 'Hide NC_012920 in viewport' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide NC_003298 in viewport' }));
     fireEvent.click(screen.getByRole('button', { name: 'Select mode' }));
-    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'TAATACGACTCACTATAG' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     const hits = screen.getAllByRole('button', { name: /^Annotate match/ }).length;
     rotate(false);
     expect(screen.getByText('Turn your phone sideways')).toBeTruthy();
     rotate(true);
     expect(screen.queryByText('Turn your phone sideways')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show NC_012920 in viewport' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show NC_003298 in viewport' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Select mode' }).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-viewer-record="NC_012920"]')).toBeNull();
+    expect(container.querySelector('[data-viewer-record="NC_003298"]')).toBeNull();
     expect(goToField(container)).toBe(viewerField);
-    expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('ACGAAC');
+    expect((screen.getByPlaceholderText('Enter IUPAC sequence...') as HTMLInputElement).value).toBe('TAATACGACTCACTATAG');
     expect(screen.getAllByRole('button', { name: /^Annotate match/ })).toHaveLength(hits);
   });
 });
@@ -106,29 +92,28 @@ describe('Showroom chrome', () => {
     expect(screen.queryByText(/This is a test drive/)).toBeNull();
   });
 
-  it.each([
-    ['Annotation Hub', 'Annotation Hub'],
-    ['Project and options', 'Project and options'],
-  ])('%s explains', (control, title) => {
+  it('Project and options explains', () => {
     render(<Showroom onExit={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: control }));
-    expect(explanation(title)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
+    expect(explanation('Project and options')).toBeTruthy();
     gotIt();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('keeps the workbench layer order and disables Conservation with its reason', () => {
+  it('keeps the workbench layer order and lets Conservation toggle over the aligned sample', () => {
     render(<Showroom onExit={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Layers 3/4' }));
     const menu = screen.getByRole('group', { name: 'Layer options' });
     expect(within(menu).getAllByRole('button').map(button => button.textContent)).toEqual(['Annotations', 'Tracks', 'Translation', 'Conservation']);
+    // The sample opens already aligned, so the layer that needs an alignment is live.
     const conservation = within(menu).getByRole('button', { name: 'Conservation' });
-    expect(conservation.getAttribute('aria-disabled')).toBe('true');
-    expect(within(menu).getByText('Conservation needs an alignment: upload a pre-aligned FASTA first')).toBeTruthy();
+    expect(conservation.getAttribute('aria-disabled')).toBe('false');
+    expect(within(menu).queryByText('Conservation needs an alignment: upload a pre-aligned FASTA first')).toBeNull();
     fireEvent.click(conservation);
-    expect(explanation('Conservation')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Layers 4/4' })).toBeTruthy();
     fireEvent.click(within(menu).getByRole('button', { name: 'Annotations' }));
-    expect(screen.getByRole('button', { name: 'Layers 2/4' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Layers 3/4' })).toBeTruthy();
   });
 
   it('explains what would load or remove', () => {
@@ -140,7 +125,7 @@ describe('Showroom chrome', () => {
       expect(explanation(card)).toBeTruthy();
       gotIt();
     }
-    fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove NC_045512' }));
+    fireEvent.click(within(sidebar).getByRole('button', { name: 'Remove NC_001604' }));
     expect(explanation('Remove sequence')).toBeTruthy();
     gotIt();
     fireEvent.click(within(sidebar).getByRole('button', { name: 'Add sequences…' }));
@@ -152,27 +137,28 @@ describe('Showroom viewer guards', () => {
   beforeEach(() => { stubOrientation(true); });
 
   const feature = (container: HTMLElement) => {
-    const part = container.querySelector('[data-viewer-record="NC_045512"] [data-annotation-part]');
+    const part = container.querySelector('[data-viewer-record="NC_001604"] [data-annotation-part]');
     if (!part) throw new Error('no annotation rendered');
     return part;
   };
 
-  it('clears a selection locally and has no comparison control', () => {
+  it('clears a selection locally and offers Compare over the aligned sample', () => {
     render(<Showroom onExit={() => {}} />);
     openSidebar();
-    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'ACGAAC' } });
+    fireEvent.change(screen.getByPlaceholderText('Enter IUPAC sequence...'), { target: { value: 'TAATACGACTCACTATAG' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Compare to reference' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Compare to reference' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('explains a tapped feature instead of opening its details', () => {
+  it('opens the details of a tapped feature', () => {
     const { container } = render(<Showroom onExit={() => {}} />);
     fireEvent.click(feature(container));
-    expect(explanation('Details')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Annotation Details' })).toBeTruthy();
+    expect(container.ownerDocument.querySelector('[data-showroom-explain]')).toBeNull();
   });
 
   it('explains a right-click and never renders the viewer menu', () => {
@@ -227,11 +213,12 @@ describe('Showroom review fixes', () => {
   it('moves focus to the new Got it when a second explanation replaces the first', () => {
     stubOrientation(true);
     render(<Showroom onExit={() => {}} />);
+    openSidebar();
     fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
-    const options = screen.getByRole('button', { name: 'Annotation Hub' });
-    options.focus();
-    fireEvent.click(options);
-    const dialog = explanation('Annotation Hub');
+    const remove = screen.getByRole('button', { name: 'Remove NC_001604' });
+    remove.focus();
+    fireEvent.click(remove);
+    const dialog = explanation('Remove sequence');
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Got it' }));
   });

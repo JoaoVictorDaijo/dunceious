@@ -1,0 +1,55 @@
+{
+  "dataset": "Three T7-like Escherichia phage genomes, aligned with MAFFT",
+  "accessions": [
+    {
+      "name": "Escherichia phage T7",
+      "accession": "NC_001604",
+      "version": "NC_001604.1",
+      "why": "The reference T7 genome (39,937 bp) and the first row of the alignment. Its RefSeq annotation carries a +1 frameshift (gene 0.6B) and two -1 frameshifts (genes 5.5-5.7 and 10B), and 26 annotated promoters and terminators."
+    },
+    {
+      "name": "Escherichia phage 13a",
+      "accession": "NC_011045",
+      "version": "NC_011045.1",
+      "why": "A T7-like phage (38,841 bp) and T7's closest relative of the three: it shares 47.8% of T7's distinct 16-mers, against 15.1% for T3, so the alignment shows long conserved blocks between T7 and 13a."
+    },
+    {
+      "name": "Enterobacteria phage T3",
+      "accession": "NC_003298",
+      "version": "NC_003298.1",
+      "why": "The classic T7 relative (38,208 bp), more divergent than 13a, so the alignment shows graded divergence. Its gene 10 carries the same -1 capsid frameshift as T7's."
+    }
+  ],
+  "ncbiRetrieved": "2026-10-19",
+  "ncbiPolicy": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+  "source": {
+    "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+    "parameters": {
+      "db": "nuccore",
+      "rettype": "gbwithparts",
+      "retmode": "text"
+    },
+    "note": "The GenBank files were retrieved once and are vendored; this script aligns them without refetching."
+  },
+  "mafft": {
+    "version": "v7.520 (2023/Mar/22)",
+    "invocation": "docker",
+    "image": "quay.io/biocontainers/mafft",
+    "imageDigest": "sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373",
+    "command": "docker run --rm --network none --user $(id -u):$(id -g) -v <workdir>:/data:ro -w /data quay.io/biocontainers/mafft@sha256:dd538a87e8afd1a92ee0a2079438287ff0fc333f8634ba11c7414f1c208ab373 mafft --auto --preservecase input.fasta",
+    "strategy": "FFT-NS-2 (Fast but rough)",
+    "script": "scripts/build-t7-phages-alignment.sh",
+    "note": "MAFFT's stdout is written unedited; --preservecase keeps the uppercase residues extracted from the GenBank records, and --auto picks MAFFT's default strategy."
+  },
+  "sha256": {
+    "phage-t7-NC_001604.gb": "96d4200c2410f4ac0195dfd43f7daf78456ed61e72600b223cace24123f37273",
+    "phage-13a-NC_011045.gb": "c3f49aeca1493509a9873ccb83d66d49e1062de39d66a4c44682bc59318d2655",
+    "phage-t3-NC_003298.gb": "63b4d371b32384b7166493a1caaa144967b5dfe466c527314d87df6a7e22aec9",
+    "mafft-input.fasta": "1ff07c5fc2f6f98d1b7ce49062e62d887224b0e83dfd3e7fcc219a4d1e2925fa",
+    "aligned.fasta": "9fd998600739b5452f32401cdf60ea48621270903498d8cf8cef115acde922ae"
+  },
+  "licence": {
+    "statement": "NCBI places no restrictions on the use or distribution of GenBank data, but notes that some submitters may claim patent, copyright or other rights. Each record above was checked for such a claim and none was found.",
+    "url": "https://www.ncbi.nlm.nih.gov/home/about/policies/"
+  }
+}

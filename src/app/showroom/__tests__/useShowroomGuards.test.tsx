@@ -22,7 +22,7 @@ import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import { TOUCH_SLOP_PX } from '@/src/app/viewer/touchGesture';
-import { useSelectDragNotice, useShowroomGuards } from '../useShowroomGuards';
+import { useProjectKeys, useSelectDragNotice, useShowroomGuards } from '../useShowroomGuards';
 import type { ExplainId } from '../explanations';
 
 const onExplain = vi.fn<(id: ExplainId, anchor?: DOMRect) => void>();
@@ -31,6 +31,7 @@ const onFeatureMenu = vi.fn();
 const onFeatureMove = vi.fn();
 
 const onChromeClick = vi.fn();
+const onQuietClick = vi.fn();
 
 function Guarded() {
   const root = useRef<HTMLDivElement>(null);
@@ -44,14 +45,16 @@ function Guarded() {
       <input aria-label="Go to" />
       <a href="https://www.ebi.ac.uk/about/terms-of-use/">Terms of use</a>
       <a href="/docs">Local page</a>
+      <div data-showroom-hub=""><button onClick={onQuietClick}>Hub row</button></div>
     </div>
+    <div data-showroom-portals=""><button onClick={onQuietClick}>Dialog button</button><input aria-label="Dialog field" /></div>
   </div>;
 }
 
 const touch = { pointerType: 'touch', pointerId: 7, clientX: 100, clientY: 50 };
 const explained = () => onExplain.mock.calls.map(([id]) => id);
 
-beforeEach(() => { vi.useFakeTimers(); onExplain.mockReset(); onFeatureClick.mockReset(); onFeatureMenu.mockReset(); onFeatureMove.mockReset(); onChromeClick.mockReset(); });
+beforeEach(() => { vi.useFakeTimers(); onExplain.mockReset(); onFeatureClick.mockReset(); onFeatureMenu.mockReset(); onFeatureMove.mockReset(); onChromeClick.mockReset(); onQuietClick.mockReset(); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('useShowroomGuards: context menus', () => {
@@ -158,6 +161,30 @@ describe('useShowroomGuards: scope', () => {
   });
 });
 
+describe('useShowroomGuards: the Hub and dialogs', () => {
+  it.each(['Hub row', 'Dialog button'])('suppresses the menu on the %s without explaining or consuming the click', name => {
+    render(<Guarded />);
+    const target = screen.getByText(name);
+    expect(fireEvent.contextMenu(target, { clientX: 30, clientY: 40 })).toBe(false);
+    fireEvent.pointerDown(target, touch);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(fireEvent.contextMenu(target, { clientX: 100, clientY: 50 })).toBe(false);
+    fireEvent.pointerUp(target, touch);
+    fireEvent.click(target, { clientX: 100, clientY: 50 });
+    expect(onExplain).not.toHaveBeenCalled();
+    expect(onQuietClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a field in a dialog to the browser', () => {
+    render(<Guarded />);
+    const field = screen.getByLabelText('Dialog field');
+    fireEvent.pointerDown(field, touch);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(fireEvent.contextMenu(field)).toBe(true);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
 describe('useShowroomGuards: links', () => {
   it.each(['click', 'auxclick', 'contextmenu', 'dragstart'])('stops %s on a link to another origin', type => {
     render(<Guarded />);
@@ -183,6 +210,67 @@ describe('useShowroomGuards: links', () => {
   });
 });
 
+describe('useShowroomGuards: file inputs', () => {
+  const withFileInput = (body: (input: HTMLInputElement) => void) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    document.body.append(input);
+    try { body(input); } finally { input.remove(); }
+  };
+
+  it('cancels a programmatic .click() on a file input, so no picker opens', () => {
+    render(<Guarded />);
+    withFileInput(input => {
+      // The guard stops propagation, so the only seat left for an observer is
+      // the document's capture phase, alongside the guard itself.
+      const seen: Event[] = [];
+      const observe = (event: Event) => seen.push(event);
+      document.addEventListener('click', observe, { capture: true });
+      input.click();
+      document.removeEventListener('click', observe, { capture: true });
+      expect(seen).toHaveLength(1);
+      expect(seen[0].defaultPrevented).toBe(true);
+    });
+    expect(explained()).toEqual(['ingest-sequences']);
+  });
+
+  it('cancels the input click a <label for> forwards', () => {
+    render(<Guarded />);
+    withFileInput(input => {
+      input.id = 'guarded-file-input';
+      const label = document.createElement('label');
+      label.htmlFor = input.id;
+      label.textContent = 'Choose files';
+      document.body.append(label);
+      fireEvent.click(label);
+      label.remove();
+    });
+    expect(explained()).toEqual(['ingest-sequences']);
+  });
+
+  it.each([
+    ['Import annotations files', 'ingest-annotations'],
+    ['Import pre-aligned FASTA file', 'ingest-alignment'],
+    ['Load project file', 'ingest-project'],
+    ['Import sequences files', 'ingest-sequences'],
+  ])('explains %s as %s', (ariaLabel, id) => {
+    render(<Guarded />);
+    withFileInput(input => {
+      input.setAttribute('aria-label', ariaLabel);
+      expect(fireEvent.click(input)).toBe(false);
+    });
+    expect(explained()).toEqual([id]);
+  });
+
+  it('leaves other inputs alone and stops guarding once unmounted', () => {
+    const { unmount } = render(<Guarded />);
+    expect(fireEvent.click(screen.getByLabelText('Search field'))).toBe(true);
+    unmount();
+    withFileInput(input => { expect(fireEvent.click(input)).toBe(true); });
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
 describe('useShowroomGuards: lifecycle', () => {
   it('stops text selection on the root and removes everything on unmount', () => {
     const { unmount } = render(<Guarded />);
@@ -195,6 +283,66 @@ describe('useShowroomGuards: lifecycle', () => {
     expect(fireEvent.contextMenu(document.body)).toBe(true);
     link.remove();
     expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
+function ProjectKeys({ canExplain }: { canExplain: boolean }) {
+  useProjectKeys(canExplain, onExplain);
+  return null;
+}
+
+describe('useProjectKeys', () => {
+  it('prevents Ctrl/⌘+S and Ctrl/⌘+O and explains Project once per press', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true, repeat: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'O', metaKey: true })).toBe(false);
+    expect(explained()).toEqual(['project', 'project']);
+  });
+
+  it('catches the physical S and O keys on a non-Latin layout', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'ы', code: 'KeyS', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'щ', code: 'KeyO', metaKey: true })).toBe(false);
+    expect(explained()).toEqual(['project', 'project']);
+  });
+
+  it('still prevents the keys, without explaining, where no explanation can show', () => {
+    render(<ProjectKeys canExplain={false} />);
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: 'o', metaKey: true })).toBe(false);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+
+  it('leaves other chords alone, and every key once unmounted', () => {
+    const { unmount } = render(<ProjectKeys canExplain />);
+    for (const init of [{ key: 's' }, { key: 's', ctrlKey: true, shiftKey: true }, { key: 'o', metaKey: true, altKey: true }, { key: 'p', code: 'KeyP', ctrlKey: true }]) {
+      expect(fireEvent.keyDown(document.body, init)).toBe(true);
+    }
+    unmount();
+    expect(fireEvent.keyDown(document.body, { key: 's', ctrlKey: true })).toBe(true);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+});
+
+describe('useProjectKeys: keyboard layouts', () => {
+  it('leaves Ctrl+R alone on Dvorak, where the physical O key types r', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'r', code: 'KeyO', ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(document.body, { key: 'y', code: 'KeyO', ctrlKey: true })).toBe(true);
+    expect(onExplain).not.toHaveBeenCalled();
+  });
+
+  it('still catches the physical S key when the layout types a non-Latin letter', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 'ы', code: 'KeyS', ctrlKey: true })).toBe(false);
+    expect(explained()).toEqual(['project']);
+  });
+
+  it('catches Dvorak Ctrl+S by the letter it types, whatever key carries it', () => {
+    render(<ProjectKeys canExplain />);
+    expect(fireEvent.keyDown(document.body, { key: 's', code: 'Semicolon', ctrlKey: true })).toBe(false);
+    expect(explained()).toEqual(['project']);
   });
 });
 

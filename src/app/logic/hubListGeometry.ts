@@ -23,6 +23,8 @@ import type { FeatureGroup } from './featureComparison';
 import { packTrack, trackMetrics } from './trackLayout';
 
 export const HEADER_GAP = 14;
+/** The gutter above a card when the Hub is drawn for a phone (`compactHubCards`). */
+export const COMPACT_HEADER_GAP = 4;
 export const SLIM_BAR_HEIGHT = 44;
 const COLLAPSE_FADE = 40;
 export type GeometryEntry = { type: string; key: string; sectionKey: string; size: number };
@@ -56,12 +58,12 @@ export function cardBounds(entries: readonly GeometryEntry[], starts: readonly n
 }
 
 // Matching the remaining header surface avoids showing its content twice during collapse.
-export function pinnedGeometry(entries: readonly GeometryEntry[], starts: readonly number[], cards: readonly { first: number; start: number; size: number }[], index: number, offset: number, barHeight: number, folded: boolean) {
+export function pinnedGeometry(entries: readonly GeometryEntry[], starts: readonly number[], cards: readonly { first: number; start: number; size: number }[], index: number, offset: number, barHeight: number, folded: boolean, gap = HEADER_GAP) {
   const overlayHeight = Math.max(barHeight, starts[index] + (entries[index]?.size ?? 0) - offset);
   const compactProgress = Math.min(1, Math.max(0, (barHeight + COLLAPSE_FADE - overlayHeight) / COLLAPSE_FADE));
   const card = cards.find(card => card.first === index);
   const top = card ? Math.min(0, card.start + card.size - offset - overlayHeight) : 0;
-  const visible = Boolean(entries[index]?.type === 'header' && !folded && offset > starts[index] + HEADER_GAP);
+  const visible = Boolean(entries[index]?.type === 'header' && !folded && offset > starts[index] + gap);
   return { overlayHeight, compactProgress, top, visible };
 }
 

@@ -30,6 +30,12 @@ export type HubExportFormat = 'fasta' | 'genbank' | 'gff3' | 'project';
 export type ExportOptions = Partial<Pick<FastaExportOptions, 'residues' | 'header'>> & {
   types?: Set<string>;
   matchingKeys?: Set<string>;
+  /**
+   * How many selected annotation rows this export was built from, set only by the Hub's
+   * "Export GFF3" over a row selection. Wording only — the rows themselves are chosen by
+   * `matchingKeys`, and `serializeExport` ignores this.
+   */
+  annotationRows?: number;
   fileName?: string;
   projectState?: Omit<ProjectState, 'records'>;
 };

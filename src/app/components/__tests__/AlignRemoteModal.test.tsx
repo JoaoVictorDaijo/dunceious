@@ -20,11 +20,12 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
+import { act, render, screen, fireEvent } from '@/src/app/testing/renderHarness';
 import { ALIGNMENT_ENGINES, preflightAlignment } from '@/src/core/alignment';
 import { createAlignmentProgress } from '@/src/app/logic/remoteAlignment';
 import { clearAlignConsent, readAlignConsent, writeAlignConsent } from '@/src/app/logic/alignConsentPref';
 import AlignRemoteModal, { type AlignRemoteModalProps } from '../AlignRemoteModal';
+import { DEFAULT_UI_EFFECTS, UiEffectsContext } from '../uiEffects';
 
 beforeEach(() => { clearAlignConsent(); writeAlignConsent(new Date('2026-10-09T12:00:00.000Z')); });
 
@@ -196,5 +197,45 @@ describe('data-sharing consent', () => {
     expect(p.onCancel).toHaveBeenCalledOnce();
     expect(p.onMinimize).not.toHaveBeenCalled();
     expect(readAlignConsent()).toBeNull();
+  });
+});
+
+describe("the job monitor's Copy job ID", () => {
+  const submitted = () => props({ state: { ...createAlignmentProgress('mafft', 3, 90000, 0), phase: 'queued', jobId: 'mafft-I2026', since: Date.now() } });
+  const copyButton = () => screen.getByRole('button', { name: 'Copy job ID' });
+
+  it('writes through the default clipboard and says Copied', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(<AlignRemoteModal {...submitted()} />);
+    await act(async () => { fireEvent.click(copyButton()); });
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('mafft-I2026');
+    expect(screen.getByText('Copied')).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  it('advises selecting the ID when the write is refused', async () => {
+    const writeText = vi.fn().mockRejectedValue(new DOMException('Denied.', 'NotAllowedError'));
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    render(<AlignRemoteModal {...submitted()} />);
+    await act(async () => { fireEvent.click(copyButton()); });
+    expect(screen.getByText('Select the job ID to copy it.')).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  // A host that declines explains for itself; the monitor must not write, nor claim success.
+  it('asks the host and stays quiet when it declines', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    const copyText = vi.fn().mockResolvedValue(false);
+    render(<UiEffectsContext.Provider value={{ ...DEFAULT_UI_EFFECTS, copyText }}>
+      <AlignRemoteModal {...submitted()} />
+    </UiEffectsContext.Provider>);
+    await act(async () => { fireEvent.click(copyButton()); });
+    expect(copyText).toHaveBeenCalledExactlyOnceWith('mafft-I2026');
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.queryByText('Copied')).toBeNull();
+    expect(screen.queryByText('Select the job ID to copy it.')).toBeNull();
+    vi.unstubAllGlobals();
   });
 });

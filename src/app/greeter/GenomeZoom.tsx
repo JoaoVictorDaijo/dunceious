@@ -56,6 +56,9 @@ function Funnel({ from, to, y0, y1 }: { from: [number, number]; to: [number, num
   );
 }
 
+/** The narrowest whole-genome gene arrow, in SVG units, that fits a two-character gene number. */
+const LABEL_MIN_WIDTH = 14;
+
 function GenomeTrack({ region, current }: { region: [number, number]; current?: string }) {
   const sx = W / GENOME_LENGTH;
   const lensX = (region[0] - 1) * sx;
@@ -68,7 +71,9 @@ function GenomeTrack({ region, current }: { region: [number, number]; current?: 
       {GENES.map((g) => (
         <path key={g.name} d={arrow((g.start - 1) * sx, 18, (g.end - g.start + 1) * sx, 10)} fill={g.name === current ? CURRENT_GENE_FILL : GENE_FILL} />
       ))}
-      <text x={(GENES[0].start + GENES[0].end) / 2 * sx} y={25.5} textAnchor="middle" className="pointer-events-none fill-slate-950 text-[7px] font-bold">ORF1ab</text>
+      {GENES.filter((g) => (g.end - g.start + 1) * sx >= LABEL_MIN_WIDTH).map((g) => (
+        <text key={g.name} x={(g.start + g.end) / 2 * sx} y={25.5} textAnchor="middle" className="pointer-events-none fill-slate-950 text-[7px] font-bold">{g.name}</text>
+      ))}
       <rect x={Math.min(lensX, W - lensW)} y={GENOME.top} width={lensW} height={GENOME.bottom - GENOME.top} rx={1.5} fill={LENS} fillOpacity={0.2} stroke={LENS} strokeWidth={1.5} />
     </g>
   );
@@ -143,10 +148,10 @@ function describe(pos: number): { title: string; product?: string; codonLine?: s
   const codon = codonAt(pos);
   if (codon) {
     const name = AMINO_ACID_NAMES[codon.residue] ?? 'unknown residue';
-    return { title: codon.gene.name, product: codon.gene.product, codonLine: `Codon ${fmt(codon.number)}, ${name} (${codon.residue})` };
+    return { title: `Gene ${codon.gene.name}`, product: codon.gene.product, codonLine: `Codon ${fmt(codon.number)}, ${name} (${codon.residue})` };
   }
   const gene = geneAt(pos);
-  return gene ? { title: gene.name, product: gene.product } : { title: regionName(pos) };
+  return gene ? { title: `Gene ${gene.name}`, product: gene.product } : { title: regionName(pos) };
 }
 
 export default function GenomeZoom() {
@@ -163,7 +168,7 @@ export default function GenomeZoom() {
         className="w-full cursor-grab touch-pan-y select-none rounded outline-none focus-visible:ring-2 focus-visible:ring-sky-400 active:cursor-grabbing"
         role="slider"
         tabIndex={0}
-        aria-label="Position in the SARS-CoV-2 genome"
+        aria-label="Position in the phage T7 genome"
         aria-valuemin={1}
         aria-valuemax={GENOME_LENGTH}
         aria-valuenow={lens.center}

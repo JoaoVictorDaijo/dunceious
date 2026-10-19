@@ -1,0 +1,238 @@
+LOCUS       NP_032921                235 aa            linear   ROD 08-SEP-2026
+DEFINITION  pro-opiomelanocortin preproprotein [Mus musculus].
+ACCESSION   NP_032921
+VERSION     NP_032921.1
+DBSOURCE    REFSEQ: accession NM_008895.4
+KEYWORDS    RefSeq.
+SOURCE      Mus musculus (house mouse)
+  ORGANISM  Mus musculus
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Euarchontoglires; Glires; Rodentia; Myomorpha;
+            Muroidea; Muridae; Murinae; Mus; Mus.
+REFERENCE   1  (residues 1 to 235)
+  AUTHORS   Sochodolsky,K., Khetchoumian,K., Balsalobre,A., Feeley,R.M.,
+            Rice,M.E., Chakravarty,P., Lovell-Badge,R., Rizzoti,K. and
+            Drouin,J.
+  TITLE     BDNF regulates pituitary stem cell engagement toward precursor
+            state
+  JOURNAL   Stem Cell Reports 21 (7), 102997 (2026)
+   PUBMED   42392084
+REFERENCE   2  (residues 1 to 235)
+  AUTHORS   Gonzalez-Costa,T., Galicia-Martin,A., Calle,D., Cusso,L.,
+            Soto-Navarrete,M.T., Luo,X., Mendez-Peralta,L., Grego-Bessa,J. and
+            de la Pompa,J.L.
+  TITLE     Systemic and cardiac pathology induced by a clinically relevant
+            USP8 activating mutation
+  JOURNAL   Dis Model Mech 19 (7) (2026)
+   PUBMED   42484147
+REFERENCE   3  (residues 1 to 235)
+  AUTHORS   Das,P., Abubakar,R.A., Mojahed,N., Abou-Jabal,D., Kittu,P.,
+            Brinkmeier,M.L., Olsen,J., Sunny,D.A., Camper,S.A.,
+            Lovell-Badge,R., Rizzoti,K. and Ellsworth,B.S.
+  TITLE     NR3C1 is required for normal somatotrope differentiation and Foxo1
+            expression in pituitary
+  JOURNAL   Endocrinology 167 (7) (2026)
+   PUBMED   42141901
+REFERENCE   4  (residues 1 to 235)
+  AUTHORS   Yaswen,L., Diehl,N., Brennan,M.B. and Hochgeschwender,U.
+  TITLE     Obesity in the mouse model of pro-opiomelanocortin deficiency
+            responds to peripheral melanocortin
+  JOURNAL   Nat Med 5 (9), 1066-1070 (1999)
+   PUBMED   10470087
+REFERENCE   5  (residues 1 to 235)
+  AUTHORS   Wilson,D.B. and Wyatt,D.P.
+  TITLE     Adrenocorticotropic cell distribution in adult and embryonic
+            pituitaries of the little (lit) mutant mouse
+  JOURNAL   Anat Embryol (Berl) 186 (4), 347-353 (1992)
+   PUBMED   1329576
+REFERENCE   6  (residues 1 to 235)
+  AUTHORS   Karelus,K. and Nelson,J.F.
+  TITLE     Aging impairs estrogenic suppression of hypothalamic
+            proopiomelanocortin messenger ribonucleic acid in the mouse
+  JOURNAL   Neuroendocrinology 55 (6), 627-633 (1992)
+   PUBMED   1378571
+REFERENCE   7  (residues 1 to 235)
+  AUTHORS   Uhler,M., Herbert,E., D'Eustachio,P. and Ruddle,F.D.
+  TITLE     The mouse genome contains two nonallelic pro-opiomelanocortin genes
+  JOURNAL   J Biol Chem 258 (15), 9444-9453 (1983)
+   PUBMED   6308009
+REFERENCE   8  (residues 1 to 235)
+  AUTHORS   Notake,M., Tobimatsu,T., Watanabe,Y., Takahashi,H., Mishina,M. and
+            Numa,S.
+  TITLE     Isolation and characterization of the mouse
+            corticotropin-beta-lipotropin precursor gene and a related
+            pseudogene
+  JOURNAL   FEBS Lett 156 (1), 67-71 (1983)
+   PUBMED   6303853
+REFERENCE   9  (residues 1 to 235)
+  AUTHORS   Uhler,M. and Herbert,E.
+  TITLE     Complete amino acid sequence of mouse pro-opiomelanocortin derived
+            from the nucleotide sequence of pro-opiomelanocortin cDNA
+  JOURNAL   J Biol Chem 258 (1), 257-261 (1983)
+   PUBMED   6129251
+REFERENCE   10 (residues 1 to 235)
+  AUTHORS   Roberts,J.L., Seeburg,P.H., Shine,J., Herbert,E., Baxter,J.D. and
+            Goodman,H.M.
+  TITLE     Corticotropin and beta-endorphin: construction and analysis of
+            recombinant DNA complementary to mRNA for the common precursor
+  JOURNAL   Proc Natl Acad Sci U S A 76 (5), 2153-2157 (1979)
+   PUBMED   221916
+COMMENT     REVIEWED REFSEQ: This record has been curated by NCBI staff. The
+            reference sequence was derived from AC111092.10, AK017492.1,
+            AK133646.1 and BB025409.1.
+            
+            Summary: This gene encodes a polypeptide hormone precursor that
+            undergoes extensive, tissue-specific, post-translational
+            processing. Processing yields several biologically active peptides,
+            which are involved in diverse cellular functions, such as energy
+            homeostasis, steroidogenesis, and increased melanin production in
+            melanocytes. In mouse deficiency of this gene is associated with
+            obesity, defects in adrenal development, and altered pigmentation.
+            A pseudogene of this gene is located on chromosome 19. Alternative
+            splicing results in multiple transcript variants. [provided by
+            RefSeq, Jun 2013].
+            
+            Transcript Variant: This variant (4) differs in the 5' UTR compared
+            to variant 1. Variants 1, 2, 3, 4, and 5 encode the same protein.
+            
+            Publication Note:  This RefSeq record includes a subset of the
+            publications that are available for this gene. Please see the Gene
+            record to access additional publications.
+            
+            ##Evidence-Data-START##
+            Transcript exon combination :: AK133740.1, AK133646.1 [ECO:0000332]
+            RNAseq introns              :: single sample supports all introns
+                                           SAMN00849383, SAMN01164138
+                                           [ECO:0000348]
+            ##Evidence-Data-END##
+FEATURES             Location/Qualifiers
+     source          1..235
+                     /organism="Mus musculus"
+                     /strain="C57BL/6"
+                     /db_xref="taxon:10090"
+                     /chromosome="12"
+                     /map="12 1.99 cM"
+     Protein         1..235
+                     /product="pro-opiomelanocortin preproprotein"
+                     /note="corticotropin-lipotropin; beta-endorphin; adrenal
+                     corticotropic hormone; alpha-melanocyte stimulating
+                     hormone; adrenocorticotropic hormone; corticotropin-like
+                     intermediary peptide; met-enkephalin; melanotropin gamma"
+                     /calculated_mol_wt=23784
+     sig_peptide     1..26
+                     /inference="COORDINATES: ab initio prediction:SignalP:6.0"
+                     /calculated_mol_wt=2942
+     mat_peptide     27..100
+                     /product="NPP. /id=PRO_0000024996"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=8232
+     Region          28..70
+                     /region_name="NPP"
+                     /note="Pro-opiomelanocortin, N-terminal region; pfam08384"
+                     /db_xref="CDD:429962"
+     Region          74..91
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     77..87
+                     /product="Melanotropin gamma. /id=PRO_0000024997"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=1514
+     Site            87
+                     /site_type="amidation"
+                     /note="Phenylalanine amide. /evidence=ECO:0000250;
+                     propagated from UniProtKB/Swiss-Prot (P01193.1)"
+     Region          88..126
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+     Site            91
+                     /site_type="glycosylation"
+                     /note="N-linked (GlcNAc...) asparagine.
+                     /evidence=ECO:0000255; propagated from
+                     UniProtKB/Swiss-Prot (P01193.1)"
+     Region          122..140
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     124..162
+                     /product="Corticotropin. /id=PRO_0000024999"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=4582
+     mat_peptide     124..136
+                     /product="Melanocyte-stimulating hormone alpha.
+                     /id=PRO_0000025000"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=1624
+     Site            124
+                     /site_type="acetylation"
+                     /note="N-acetylserine, in Corticotropin.
+                     /evidence=ECO:0000250|UniProtKB:P01191; propagated from
+                     UniProtKB/Swiss-Prot (P01193.1)"
+     Site            136
+                     /site_type="amidation"
+                     /note="Valine amide. /evidence=ECO:0000250; propagated
+                     from UniProtKB/Swiss-Prot (P01193.1)"
+     mat_peptide     142..162
+                     /product="Corticotropin-like intermediary peptide.
+                     /id=PRO_0000025001"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=2351
+     Site            152
+                     /site_type="glycosylation"
+                     /note="N-linked (GlcNAc...) asparagine.
+                     /evidence=ECO:0000255; propagated from
+                     UniProtKB/Swiss-Prot (P01193.1)"
+     Site            154
+                     /site_type="phosphorylation"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0000250|UniProtKB:P01189; propagated from
+                     UniProtKB/Swiss-Prot (P01193.1)"
+     mat_peptide     165..235
+                     /product="Lipotropin beta. /id=PRO_0000025002"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=8143
+     mat_peptide     165..202
+                     /product="Lipotropin gamma. /id=PRO_0000025003"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=4439
+     Region          179..210
+                     /region_name="Disordered.
+                     /evidence=ECO:0000256|SAM:MobiDB-lite"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+     mat_peptide     185..202
+                     /product="Melanocyte-stimulating hormone beta.
+                     /id=PRO_0000025004"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=2215
+     Region          186..204
+                     /region_name="ACTH_domain"
+                     /note="Corticotropin ACTH domain; pfam00976"
+                     /db_xref="CDD:460014"
+     mat_peptide     205..235
+                     /product="Beta-endorphin. /id=PRO_0000025005"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=3438
+     Region          205..232
+                     /region_name="Op_neuropeptide"
+                     /note="Opioids neuropeptide; pfam08035"
+                     /db_xref="CDD:462343"
+     mat_peptide     205..209
+                     /product="Met-enkephalin. /id=PRO_0000025006"
+                     /note="propagated from UniProtKB/Swiss-Prot (P01193.1)"
+                     /calculated_mol_wt=574
+     CDS             1..235
+                     /gene="Pomc"
+                     /gene_synonym="ACTH; alpha-MSH; alphaMSH; BE; Beta-LPH;
+                     beta-MSH; Clip; Gamma-LPH; gamma-MSH; Npp; Pomc-1; Pomc1"
+                     /coded_by="NM_008895.4:156..863"
+                     /db_xref="CCDS:CCDS25785.1"
+                     /db_xref="GeneID:18976"
+                     /db_xref="MGI:MGI:97742"
+ORIGIN      
+        1 mprfcysrsg alllalllqt sidvwswcle ssqcqdltte snllacirac kldlsletpv
+       61 fpgngdeqpl tenprkyvmg hfrwdrfgpr nsssagsaaq rraeeeavwg dgspepspre
+      121 gkrsysmehf rwgkpvgkkr rpvkvypnva enesaeafpl efkreleger plgleqvles
+      181 daekddgpyr vehfrwsnpp kdkryggfmt seksqtplvt lfknaiikna hkkgq
+//
+
