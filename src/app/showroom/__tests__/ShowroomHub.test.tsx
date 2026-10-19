@@ -22,9 +22,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@/src/app/testing/renderHarness';
 import { explanation, expectExplains, gotIt, mountShowroom, noExplanation, openHub } from './showroomTestKit';
 
-// These tests mount the whole showroom; under parallel CI coverage the heaviest pass Vitest's 5 s default.
-vi.setConfig({ testTimeout: 20_000 });
-
 // Every bundled record names its organism, so Export's "Edit details" link never
 // shows over the real sample; one test strips the organism from a record to reach it.
 const sample = vi.hoisted(() => ({ withoutOrganism: false }));
