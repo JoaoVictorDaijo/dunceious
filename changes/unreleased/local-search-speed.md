@@ -1,4 +1,4 @@
 ---
 type: Changed
 ---
-Speed up Local search with cheaper matcher cell updates and an exact score-only pass that ranks streams before alignment and budgeted column checkpoints that skip unchanged SmallPass prefixes, preserving results, ties and counts.
+Local search runs about twice as fast: a 300 nt query against 50 records of 30 kb on both strands now takes about 5.5 s instead of 12.8 s on the default worker pool. Results, their order and every count stay exactly the same.
