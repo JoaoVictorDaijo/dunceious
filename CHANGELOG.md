@@ -22,6 +22,26 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.5.1] — 2026-10-18
+
+### Changed
+
+- Each release on main is tagged vX.Y.Z automatically by the Release tag workflow instead of by hand.
+
+## [3.5.0] — 2026-10-18
+
+### Added
+
+- Add Local alignment search and a per-base hit view with alignment text and a query layer for annotations made from hits.
+
+### Changed
+
+- Keep the viewport layer toggles in the top bar on office screens: Project moves into the cog, and Compare and Clear selection move to the viewport toolbar.
+
+### Fixed
+
+- The version-tap easter egg plays its animation even when the system asks for reduced motion, instead of skipping to the last frame; replays offer a Play animation button.
+
 ## [3.4.0] — 2026-10-16
 
 ### Changed
