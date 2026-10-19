@@ -45,9 +45,13 @@ declare global {
   }
 }
 
+/** Every `.gb` file under `directory`, sub-folders included, in a stable order. */
 function genbankFiles(directory: string): string[] {
-  return readdirSync(directory).filter(name => name.endsWith('.gb')).sort()
-    .map(name => path.resolve(directory, name));
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const file = path.resolve(directory, entry.name);
+    if (entry.isDirectory()) return genbankFiles(file);
+    return entry.name.endsWith('.gb') ? [file] : [];
+  }).sort();
 }
 
 function recordsIn(file: string): SequenceRecord[] {
@@ -65,7 +69,7 @@ const examples = genbankFiles('examples');
 const external = process.env.PLAYWRIGHT_SEQUENCE_DIR;
 const extraFiles = external ? genbankFiles(external) : [];
 const scenarios = [
-  ...examples.map(file => ({ name: `examples/${path.basename(file)}`, files: [file] })),
+  ...examples.map(file => ({ name: `examples/${path.relative('examples', file)}`, files: [file] })),
   ...extraFiles.map(file => ({ name: `external/${path.basename(file)}`, files: [file] })),
   ...(extraFiles.length ? [{ name: 'external/combined', files: extraFiles }] : []),
 ];
@@ -130,7 +134,8 @@ for (const scenario of scenarios) {
       const length = Math.min(300, Math.floor(first.sequence.length / 2));
       const start = Math.floor(first.sequence.length / 3);
       const query = first.sequence.slice(start, start + length);
-      const clearedLimit = scenario.name === 'examples/arabidopsis-chloroplast-NC_000932.gb';
+      // Matched by file name so the check survives examples/ being reorganized into sub-folders.
+      const clearedLimit = scenario.name.startsWith('examples/') && path.basename(scenario.files[0]) === 'arabidopsis-chloroplast-NC_000932.gb';
       const resultLimit = page.locator('[data-sequence-search-section] input[type=number]');
       if (clearedLimit) await resultLimit.fill('');
       await search('exact', query, [start, start + length]);
