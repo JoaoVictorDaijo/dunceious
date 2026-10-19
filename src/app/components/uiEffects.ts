@@ -30,6 +30,14 @@ export interface UiEffects {
   allowAction(action: HostAction): boolean;
   persistOpenState: boolean;
   hoverTips: boolean;
+  /**
+   * The Hub's sequence cards sized for a phone held sideways: the slim genome strip (the
+   * one the pinned section bar uses) instead of the full one with its ruler, and a thin
+   * gutter above each card. At 360 px of height the full card filled the list on its own;
+   * this leaves room for annotation rows on the first screen. The workbench keeps the full
+   * strip and the full gutter.
+   */
+  compactHubCards: boolean;
   portalTarget: HTMLElement | null;
   overlayActive: boolean;
   closeExportOnSave: boolean;
@@ -45,6 +53,7 @@ export const DEFAULT_UI_EFFECTS: UiEffects = {
   allowAction: () => true,
   persistOpenState: true,
   hoverTips: true,
+  compactHubCards: false,
   portalTarget: null,
   overlayActive: false,
   closeExportOnSave: true,

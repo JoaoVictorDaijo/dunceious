@@ -71,6 +71,28 @@ function readFastaRows(path: string): { id: string; row: string }[] {
   return rows;
 }
 
+/**
+ * Both build scripts feed MAFFT one FASTA built straight from the GenBank bytes, replicated
+ * here: each record's residues are everything after its `ORIGIN` line with non-letters stripped
+ * and uppercased (`--preservecase` then keeps that case), wrapped at 60 columns under the LOCUS
+ * name, in the scripts' file order. Re-deriving it closes the provenance chain, since the MAFFT
+ * input is a build-time temporary with no committed file behind its recorded checksum.
+ */
+function buildMafftInput(paths: string[]): string {
+  let fasta = '';
+  for (const path of paths) {
+    for (const chunk of read(path).split('\n//')) {
+      const locus = /^LOCUS\s+(\S+)/m.exec(chunk);
+      const origin = chunk.indexOf('\nORIGIN');
+      if (!locus || origin < 0) continue;
+      const residues = chunk.slice(origin + '\nORIGIN'.length).replace(/[^A-Za-z]/g, '').toUpperCase();
+      fasta += `>${locus[1]}\n`;
+      for (let at = 0; at < residues.length; at += 60) fasta += `${residues.slice(at, at + 60)}\n`;
+    }
+  }
+  return fasta;
+}
+
 describe.each([
   ['T7 phages', T7_PHAGES],
   ['SARS-CoV-2 variants', VARIANTS],
@@ -83,9 +105,11 @@ describe.each([
     const { sha256: sums } = provenance();
     expect(sha256(path('aligned.fasta'))).toBe(sums['aligned.fasta']);
     for (const file of set.genbank) expect(sha256(path(file)), file).toBe(sums[file.split('/').at(-1)!]);
-    // The MAFFT input is a build-time temporary, so this sum is the only one
-    // with no committed file behind it: at least require that it is recorded.
-    expect(sums['mafft-input.fasta']).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('the recorded MAFFT input re-derives from the committed GenBank files', () => {
+    const input = buildMafftInput(set.genbank.map(path));
+    expect(createHash('sha256').update(input).digest('hex')).toBe(provenance().sha256['mafft-input.fasta']);
   });
 
   it('each ungapped row equals its GenBank sequence, case included', () => {
