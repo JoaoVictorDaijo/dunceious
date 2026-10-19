@@ -104,6 +104,9 @@ They describe executed work, not alignment counts or biological metrics. The
 binding's optional `onCheckpointDiagnostics` observer receives these values
 before each iterator's context is destroyed, including on early return.
 
+The [record-file differential harness](../../perf/checkpointDifferential.md)
+compares enabled/disabled paths without printing sequence or alignment content.
+
 ## Provenance and licence
 
 The C file preserves matcher’s GPL-2.0-or-later notice, Ian Longden’s
