@@ -27,6 +27,9 @@ import { ShowroomDetails } from '../ShowroomDetails';
 import type { ShowroomView } from '../useShowroomView';
 import { explanation, expectExplains, gotIt, mountShowroom, noExplanation, openHub } from './showroomTestKit';
 
+// These tests mount the whole showroom; under parallel CI coverage the heaviest pass Vitest's 5 s default.
+vi.setConfig({ testTimeout: 20_000 });
+
 // The bundled sample has no annotation made from a search match, the only kind
 // whose details offer "Remove search details"; one is added to the reference here.
 const { HIT_NAME } = vi.hoisted(() => ({ HIT_NAME: 'showroom_hit' }));
