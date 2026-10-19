@@ -137,6 +137,9 @@ export default defineConfig(() => {
     },
     test: {
       environment: "node",
+      // Whole-app and whole-showroom UI tests take 3–6 s when CI workers share the
+      // CPU, past Vitest's 5 s default; 15 s still fails a hung test quickly.
+      testTimeout: 15_000,
       exclude: [
         "perf/**",
         "e2e/**",

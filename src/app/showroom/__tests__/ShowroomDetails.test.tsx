@@ -33,7 +33,7 @@ const { HIT_NAME } = vi.hoisted(() => ({ HIT_NAME: 'showroom_hit' }));
 vi.mock('../sampleWorkspace', async importOriginal => {
   const actual = await importOriginal<typeof import('../sampleWorkspace')>();
   const hit: BioFeature = withSearchHit({ type: 'misc_feature', name: HIT_NAME, start: 100, end: 106, strand: 1 }, {
-    v: 1, query: 'ACGAAC', cigar: '6=', mode: 'iupac', alphabet: 'nucleotide', strand: 1, params: {},
+    v: 1, query: 'GTTGGG', cigar: '6=', mode: 'iupac', alphabet: 'nucleotide', strand: 1, params: {},
     span: { start: 100, end: 106, strand: 1 }, appVersion: 'test', createdAt: '2026-10-17T00:00:00Z', exportNote: false,
   });
   return {
@@ -56,16 +56,16 @@ function search(query: string) {
 function inspect(name: string) {
   openHub();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search annotations' }), { target: { value: name } });
-  fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Inspect ${name} on NC_045512$`) })[0]);
+  fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^Inspect ${name} on NC_001604$`) })[0]);
   expect(detailsHeading()).toBeTruthy();
 }
 
 describe('the showroom details panel', () => {
   it('tap opens details while a search selection stands', () => {
     const view = mountShowroom();
-    search('ACGAAC');
+    search('TAATACGACTCACTATAG');
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
-    const part = view.container.querySelector('[data-viewer-record="NC_045512"] [data-annotation-part]');
+    const part = view.container.querySelector('[data-viewer-record="NC_001604"] [data-annotation-part]');
     fireEvent.click(part!);
     expect(detailsHeading()).toBeTruthy();
     noExplanation();
@@ -85,7 +85,7 @@ describe('the showroom details panel', () => {
     expect(screen.getByRole('button', { name: 'Remove search details' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    inspect('ORF10 protein');
+    inspect('DNA ligase');
     const show = screen.getByRole('switch', { name: 'Show sequence in viewer' });
     expectExplains(show, 'Show bases');
     expect(show.getAttribute('aria-checked')).toBe('false');
@@ -121,8 +121,8 @@ describe('the showroom viewport and search', () => {
 
   it('search shows hit marks and the alignment summary, whose Copy explains', () => {
     const view = mountShowroom();
-    search('ATTAAAGGTTTATACC');
-    const marks = view.container.querySelector('[data-viewer-record="NC_045512"] [data-hit-marks]');
+    search('TCTCACAGTGTACGGA');
+    const marks = view.container.querySelector('[data-viewer-record="NC_001604"] [data-hit-marks]');
     expect(marks?.getAttribute('data-hit-marks')).toMatch(/^\|+$/);
     const summary = sidebar().querySelector<HTMLElement>('[data-hit-alignment]')!;
     expectExplains(within(summary).getByRole('button', { name: 'Copy' }), 'Copy');

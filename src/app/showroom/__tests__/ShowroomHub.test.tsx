@@ -68,7 +68,7 @@ describe('the showroom Annotation Hub', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Visual Viewport' }));
     expect(screen.queryByRole('region', { name: 'Annotation Hub' })).toBeNull();
     expect(within(nav()).getByRole('button', { name: 'Pan mode' })).toBeTruthy();
-    expect(view.container.querySelector('[data-viewer-record="NC_045512"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-viewer-record="NC_001604"]')).not.toBeNull();
     view.expectNoSideEffects();
   });
 
@@ -78,7 +78,7 @@ describe('the showroom Annotation Hub', () => {
     const summary = () => hub.querySelector('[data-hub-summary]')!.textContent;
     const before = summary();
 
-    fireEvent.change(within(nav()).getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'ORF1ab' } });
+    fireEvent.change(within(nav()).getByRole('searchbox', { name: 'Search annotations' }), { target: { value: 'major head protein' } });
     const counter = () => nav().querySelector('[data-search-counter]')!.textContent;
     expect(counter()).toMatch(/^0 \/ [1-9]\d*$/);
     fireEvent.click(within(nav()).getByRole('button', { name: 'Next match' }));
@@ -94,9 +94,9 @@ describe('the showroom Annotation Hub', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show sidebar' }));
     const index = screen.getByRole('region', { name: 'Hub index' });
-    fireEvent.change(within(index).getByLabelText('Find sequence'), { target: { value: 'OR279985' } });
-    expect(within(index).getByRole('button', { name: 'Jump to sequence OR279985' })).toBeTruthy();
-    expect(within(index).queryByRole('button', { name: 'Jump to sequence NC_045512' })).toBeNull();
+    fireEvent.change(within(index).getByLabelText('Find sequence'), { target: { value: 'NC_003298' } });
+    expect(within(index).getByRole('button', { name: 'Jump to sequence NC_003298' })).toBeTruthy();
+    expect(within(index).queryByRole('button', { name: 'Jump to sequence NC_001604' })).toBeNull();
     fireEvent.change(within(index).getByLabelText('Find sequence'), { target: { value: '' } });
     fireEvent.click(within(index).getByRole('button', { name: 'Grouped' }));
     expect(within(index).getByRole('button', { name: 'Grouped' }).getAttribute('aria-pressed')).toBe('true');
@@ -109,9 +109,9 @@ describe('the showroom Annotation Hub', () => {
   it('Focus from the Hub moves to the viewport and the pill returns', () => {
     const view = mountShowroom();
     openHub();
-    fireEvent.click(firstButton(/^Open .* on NC_045512 in viewport$/));
+    fireEvent.click(firstButton(/^Open .* on NC_001604 in viewport$/));
     expect(screen.getByRole('button', { name: 'Visual Viewport' }).getAttribute('aria-pressed')).toBe('true');
-    expect(view.container.querySelector('[data-viewer-record="NC_045512"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-viewer-record="NC_001604"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Back to Annotation Hub/ }));
@@ -128,14 +128,14 @@ describe('the showroom Hub explains every commit', () => {
     const view = mountShowroom();
     const hub = openHub();
     expectExplains(within(hub).getByRole('button', { name: 'Add annotation' }), 'Add annotation');
-    expectExplains(firstButton(/^Edit .* on NC_045512$/), 'Edit annotation');
-    expectExplains(firstButton(/^Delete .* on NC_045512$/), 'Delete annotations');
+    expectExplains(firstButton(/^Edit .* on NC_001604$/), 'Edit annotation');
+    expectExplains(firstButton(/^Delete .* on NC_001604$/), 'Delete annotations');
 
-    fireEvent.click(screen.getAllByRole('checkbox', { name: /^Select annotation .* on NC_045512$/ })[0]);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /^Select annotation .* on NC_001604$/ })[0]);
     expectExplains(screen.getByRole('button', { name: 'Delete with undo' }), 'Delete annotations');
     expect(screen.queryByRole('button', { name: /Undo/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence NC_045512' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select sequence NC_001604' }));
     expectExplains(screen.getByRole('button', { name: 'Remove…' }), 'Remove sequence');
     fireEvent.change(screen.getByLabelText('Detail value'), { target: { value: 'camel' } });
     expectExplains(screen.getByRole('button', { name: 'Apply' }), 'Edit sequence details');
@@ -146,11 +146,11 @@ describe('the showroom Hub explains every commit', () => {
   it('every commit action explains: label, details, a file drop and Import', () => {
     const view = mountShowroom();
     const hub = openHub();
-    fireEvent.click(screen.getByRole('button', { name: 'Rename NC_045512' }));
-    fireEvent.change(screen.getByRole('textbox', { name: /display name/i }), { target: { value: 'Wuhan-Hu-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename NC_001604' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /display name/i }), { target: { value: 'T7 reference' } });
     expectExplains(screen.getByRole('button', { name: 'Save name' }), 'Edit sequence details');
     fireEvent.click(firstButton(/^Edit details$/));
-    const details = screen.getByRole('form', { name: 'Details for NC_045512' });
+    const details = screen.getByRole('form', { name: 'Details for NC_001604' });
     fireEvent.change(within(details).getByLabelText('Host'), { target: { value: 'camel' } });
     fireEvent.submit(details);
     expect(explanation('Edit sequence details')).toBeTruthy();
@@ -224,11 +224,11 @@ describe('the showroom Export', () => {
     const dialog = openExport();
     fireEvent.click(within(dialog).getByRole('radio', { name: 'GenBank' }));
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'File name' }), { target: { value: 'demo' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Export 4 sequences' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Export 3 sequences' }));
     const callout = explanation('Export file');
     expect(callout.textContent).toContain('demo.gb');
     expect(callout.textContent).toContain('GenBank');
-    expect(callout.textContent).toContain('4');
+    expect(callout.textContent).toContain('3');
     expect(exportDialog()).toBe(dialog);
     expect(within(dialog).getByRole('radio', { name: 'GenBank' }).getAttribute('aria-checked')).toBe('true');
     view.expectNoSideEffects();

@@ -17,16 +17,18 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import sarsCov2 from '@/examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb?raw';
-import variants from '@/examples/nucleotide/sars-cov-2-variants/variants.gb?raw';
-import alignedFasta from '@/examples/nucleotide/sars-cov-2-variants/aligned.fasta?raw';
+import phageT7 from '@/examples/nucleotide/t7-phages/phage-t7-NC_001604.gb?raw';
+import phage13a from '@/examples/nucleotide/t7-phages/phage-13a-NC_011045.gb?raw';
+import phageT3 from '@/examples/nucleotide/t7-phages/phage-t3-NC_003298.gb?raw';
+import alignedFasta from '@/examples/nucleotide/t7-phages/aligned.fasta?raw';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { applyFastaResponse, applyParseSuccess } from '@/src/app/logic/bioResponse';
 
 const SAMPLE_FILES: ReadonlyArray<readonly [filename: string, content: string]> = [
-  ['sars-cov-2-NC_045512.gb', sarsCov2],
-  ['variants.gb', variants],
+  ['phage-t7-NC_001604.gb', phageT7],
+  ['phage-13a-NC_011045.gb', phage13a],
+  ['phage-t3-NC_003298.gb', phageT3],
 ];
 
 const ALIGNMENT_FILE = 'aligned.fasta';
@@ -34,9 +36,8 @@ const ALIGNMENT_FILE = 'aligned.fasta';
 let cached: SeqRecord[] | null = null;
 
 /**
- * The sample session as the workbench builds it when the reference and the three
- * variant genomes are dropped together and the bundled MAFFT alignment is laid over
- * them: each GenBank file goes through the bio worker's handler in drop order and is
+ * The sample session as the workbench builds it when the three T7-like phage
+ * genomes are dropped together and the bundled MAFFT alignment is laid over them: each GenBank file goes through the bio worker's handler in drop order and is
  * acknowledged with `applyParseSuccess`, then `aligned.fasta` is parsed as an external
  * alignment and overlaid exactly as an upload would be. Anything other than a clean
  * overlay means the bundled data no longer matches, which must fail loudly rather than

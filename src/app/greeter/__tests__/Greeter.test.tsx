@@ -35,34 +35,34 @@ beforeEach(() => {
 });
 
 describe('Greeter hero', () => {
-  it('opens the genome on the D614G site', () => {
+  it('opens the genome on the gene 10 frameshift', () => {
     render(<Greeter />);
-    const lens = screen.getByRole('slider', { name: 'Position in the SARS-CoV-2 genome' });
-    expect(lens.getAttribute('aria-valuenow')).toBe('23403');
-    expect(lens.getAttribute('aria-valuetext')).toBe('Base 23,403, S, surface glycoprotein, Codon 614, aspartate (D)');
+    const lens = screen.getByRole('slider', { name: 'Position in the phage T7 genome' });
+    expect(lens.getAttribute('aria-valuenow')).toBe('23989');
+    expect(lens.getAttribute('aria-valuetext')).toBe('Base 23,989, Gene 10B, major head protein, Codon 341, valine (V)');
   });
 
   it('moves the lens from the keyboard', () => {
     render(<Greeter />);
     const lens = screen.getByRole('slider');
     fireEvent.keyDown(lens, { key: 'ArrowRight' });
-    expect(lens.getAttribute('aria-valuenow')).toBe('23404');
+    expect(lens.getAttribute('aria-valuenow')).toBe('23990');
     fireEvent.keyDown(lens, { key: 'Home' });
-    expect(lens.getAttribute('aria-valuetext')).toBe('Base 1, 5′ untranslated region');
+    expect(lens.getAttribute('aria-valuetext')).toBe('Base 1, Left end of the genome');
     fireEvent.keyDown(lens, { key: 'End' });
-    expect(lens.getAttribute('aria-valuenow')).toBe('29903');
+    expect(lens.getAttribute('aria-valuenow')).toBe('39937');
   });
 
   it('jumps between genes, wrapping at both ends', () => {
     render(<Greeter />);
     const lens = screen.getByRole('slider');
     fireEvent.click(screen.getByRole('button', { name: 'Next gene' }));
-    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 25,394, ORF3a, ORF3a protein, Codon 1, methionine \(M\)$/);
+    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 24,229, Gene 11, tail protein, Codon 1, methionine \(M\)$/);
+    fireEvent.keyDown(lens, { key: 'Home' });
+    fireEvent.click(screen.getByRole('button', { name: 'Next gene' }));
+    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 926, Gene 0\.3,/);
     fireEvent.click(screen.getByRole('button', { name: 'Previous gene' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Previous gene' }));
-    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 267, ORF1ab/);
-    fireEvent.click(screen.getByRole('button', { name: 'Previous gene' }));
-    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 29,559, ORF10/);
+    expect(lens.getAttribute('aria-valuetext')).toMatch(/^Base 39,390, Gene 19\.5,/);
   });
 
   it('moves the lens to where the genome strip is tapped', () => {
@@ -71,10 +71,10 @@ describe('Greeter hero', () => {
     lens.getBoundingClientRect = () => ({ left: 0, top: 0, width: 342, height: 142 } as DOMRect);
     Object.defineProperty(lens, 'viewBox', { value: { baseVal: { width: 342, height: 142 } } });
     fireEvent.pointerDown(lens, { clientX: 171, clientY: 20, pointerId: 1 });
-    expect(lens.getAttribute('aria-valuenow')).toBe(String(Math.round(29_903 / 2)));
+    expect(lens.getAttribute('aria-valuenow')).toBe(String(Math.round(39_937 / 2)));
     fireEvent.pointerDown(lens, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerMove(lens, { clientX: 100 - 342, clientY: 100, pointerId: 1 });
-    expect(lens.getAttribute('aria-valuenow')).toBe(String(Math.round(29_903 / 2) + 21));
+    expect(lens.getAttribute('aria-valuenow')).toBe(String(Math.round(39_937 / 2) + 21));
   });
 });
 

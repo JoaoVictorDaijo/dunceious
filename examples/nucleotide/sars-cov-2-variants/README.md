@@ -11,7 +11,7 @@ against the bundled reference, `../coronaviruses/sars-cov-2-NC_045512.gb`.
 
 Rebuild everything with [`../../../scripts/build-sars-cov-2-variants.sh`](../../../scripts/build-sars-cov-2-variants.sh).
 Do not hand-edit `aligned.fasta`: it is the oracle the data tests check against
-(`src/app/showroom/__tests__/variantData.test.ts`).
+(`src/app/__tests__/bundledAlignments.test.ts`).
 
 ## The records and why each was chosen
 
@@ -45,7 +45,7 @@ ungapped, so a reference position is that alignment column):
 
 A subset covering both kinds of change — substitutions and the spike deletions —
 is asserted against `aligned.fasta` in
-`src/app/showroom/__tests__/variantData.test.ts`. **What was not verified:** no
+`src/app/__tests__/bundledAlignments.test.ts`. **What was not verified:** no
 Pango assignment tool (pangolin, UShER) was run on the record, and the
 amino-acid consequences the table names (N501Y, P681H, ORF8 Q27stop and the
 rest) were not re-derived here from a translation — only the nucleotide states

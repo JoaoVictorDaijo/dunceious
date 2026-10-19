@@ -57,3 +57,8 @@ coverage/
 # Browser regression output
 test-results/
 playwright-report/
+
+# JOSS paper build outputs (rendered locally with the openjournals/inara container)
+paper/paper.pdf
+paper/paper.crossref
+paper/paper.jats
