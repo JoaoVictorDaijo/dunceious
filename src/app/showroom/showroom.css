@@ -124,11 +124,13 @@
     max-height: 70dvh;
   }
   /* What stands between the step heading and the tree is sized for a desktop column; trimming
-     the quick picks' gutter and the find field's padding puts three rows on the first screen. */
-  [data-showroom-root] [aria-labelledby="hub-export-title"] section:first-child > div:has(> button[aria-label="None"]) { margin-bottom: 0.25rem; }
-  [data-showroom-root] [aria-labelledby="hub-export-title"] [aria-label="Find sequences to export"] { padding-block: 0.25rem; }
+     the quick picks' gutter and the find field's padding puts three rows on the first screen.
+     These key on `data-` hooks rather than on aria-label text: renaming a visible label would
+     otherwise put Export back to one row, and no test can see CSS. */
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [data-export-quick-picks] { margin-bottom: 0.25rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [data-export-find] { padding-block: 0.25rem; }
   /* …and the tree's own rows, so three of them and the group header share the first screen. */
-  [data-showroom-root] [aria-labelledby="hub-export-title"] div:has(> input[aria-label^="Export group"]) { padding-block: 0.125rem; }
+  [data-showroom-root] [aria-labelledby="hub-export-title"] [data-export-group] { padding-block: 0.125rem; }
   [data-showroom-root] [aria-labelledby="hub-export-title"] [data-export-row] { padding-block: 0.25rem; }
   [data-showroom-root] [aria-labelledby="hub-export-title"] > footer { padding: 0.375rem 0.75rem; }
   [data-showroom-root] [aria-labelledby="hub-export-title"] > footer > p { min-width: 0; }

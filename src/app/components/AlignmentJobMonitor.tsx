@@ -22,6 +22,7 @@ import { ALIGNMENT_ENGINES } from '@/src/core/alignment';
 import { ALIGNMENT_STEPS, isAlignmentActive, type RemoteAlignmentState, type StepId } from '@/src/app/logic/remoteAlignment';
 
 import JobMonitor from './JobMonitor';
+import { useUiEffects } from './uiEffects';
 export { useJobClock } from './JobMonitor';
 
 export const STEP_LABELS: Record<StepId, string> = { validated: 'Validated', submitted: 'Submitted', queued: 'Queued at EBI', running: 'Aligning', fetching: 'Fetching result', applied: 'Applied' };
@@ -45,11 +46,17 @@ export function elapsedSeconds(state: RemoteAlignmentState, now: number): number
 }
 
 export default function AlignmentJobMonitor({ state, now }: { state: RemoteAlignmentState; now: number }) {
+  // The job ID goes to the clipboard through the host, not straight to the browser: today a
+  // showroom visitor never reaches this monitor because `ShowroomAlign` never leaves
+  // `configuring`, but that is a state invariant, not a promise. `copyMessage` below is the
+  // channel for both answers — '' when the host declines, the fallback advice when a real
+  // write fails.
+  const { copyText } = useUiEffects();
   const [copyMessage, setCopyMessage] = useState('');
   if (!('steps' in state)) return null;
   const engine = ALIGNMENT_ENGINES.find(engine => engine.id === state.engineId)!;
   const copyJob = async () => {
-    try { await navigator.clipboard.writeText(state.jobId ?? ''); setCopyMessage('Copied'); }
+    try { setCopyMessage(await copyText(state.jobId ?? '') ? 'Copied' : ''); }
     catch { setCopyMessage('Select the job ID to copy it.'); }
   };
   const steps = ALIGNMENT_STEPS.map(id => {

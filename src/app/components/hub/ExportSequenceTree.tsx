@@ -42,7 +42,7 @@ export default function ExportSequenceTree({ records, state, ids, onChange }: {
     onChange(next);
   };
   return <>
-    <label className="block text-xs font-medium">Find sequences<input type="search" aria-label="Find sequences to export" value={find} onChange={e => setFind(e.target.value)} className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal" /></label>
+    <label className="block text-xs font-medium">Find sequences<input type="search" data-export-find aria-label="Find sequences to export" value={find} onChange={e => setFind(e.target.value)} className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 font-normal" /></label>
     <div role="region" aria-label="Sequences to export" className="mt-3 min-h-0 flex-1 overflow-y-auto rounded border border-slate-200">
       {[...groups].map(([group, members]) => {
         const visible = members.filter(record => matchesSequence(record, find));
@@ -51,7 +51,7 @@ export default function ExportSequenceTree({ records, state, ids, onChange }: {
         const partial = !checked && members.some(record => ids.has(record.id));
         const folded = folds.has(group) && !find.trim();
         return <div key={group}>
-          <div className="sticky top-0 flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold">
+          <div data-export-group className="sticky top-0 flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold">
             <input type="checkbox" aria-label={`Export group ${group}`} checked={checked} ref={input => { if (input) input.indeterminate = partial; }} onChange={e => toggle(members.map(record => record.id), e.target.checked)} />
             <button aria-expanded={!folded} onClick={() => setFolds(prev => { const next = new Set(prev); if (next.has(group)) next.delete(group); else next.add(group); return next; })} className="flex flex-1 items-center gap-2 text-left"><span aria-hidden="true">{folded ? '▸' : '▾'}</span>{group}<span className="ml-auto rounded-full bg-white px-2 font-mono text-slate-500">{members.length}</span></button>
           </div>
