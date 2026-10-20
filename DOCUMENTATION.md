@@ -46,7 +46,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
   - **Selection JSON**: Selected region as a JSON project snapshot (0-based half-open intervals).
   - **Project JSON**: Format-2 workspace persistence (records, features, colours, toggles, details/originals/edit state, names and modifiers); earlier formats are rejected without migration. The export dialog writes a chosen subset; Save project writes the full workspace.
   - **Export dialog**: Context-based sequence selection, quick picks, format options, filename and a serializer-backed contents/omissions preview. See [export contracts and preservation](./ARCHITECTURE.md#export-format-contracts).
-- **Options**: four chrome themes (Clean, Halo, Aurora, Mesh), remembered in this browser, and per-type feature colours, saved with the project.
+- **Options**: per-type feature colours, saved with the project.
 
 ### 2.2 Non-Functional Requirements
 

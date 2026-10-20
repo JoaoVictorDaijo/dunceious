@@ -59,8 +59,9 @@ this up who assumes "Hub always means amber" will paint amber chrome on an empty
 with `clean` as the default, both palette retunes applied (see item 3), and the edge bleed
 removed. The [original spec](../specs/2026-07-20-app-theme-switcher.md) preserves those
 decisions; its shortlist and palette have since been superseded (items 3 and 6 below).
-Current theme registry: `src/app/logic/theme.ts`. The investigation
-notes below are kept for the record.
+**Since removed:** the switcher and the Halo, Aurora and Mesh styles are gone; the app keeps the
+Clean look. The accent palette now lives in `src/app/logic/environment.ts` (`ENV_PALETTE`). The
+investigation notes below, and the `theme.ts` references in items 3 to 7, are kept for the record.
 
 We do not have to pick one treatment and discard the rest. The nine styles are all driven by
 the same two `.hf-env` layers and the same `--env` tokens, so exposing them as a user setting

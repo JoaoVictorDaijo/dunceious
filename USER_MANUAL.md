@@ -24,7 +24,7 @@ In the Visual Viewport, the **Ingestion** section of the sidebar has one card pe
   - A BED file with many data points automatically packs overlapping intervals into multiple rows.
 - **Load project JSON**: Restore a whole workspace saved with **Save project**, after confirmation. **Project and options → Open project…** in the top bar does the same. Projects from earlier formats cannot be opened; an error explains this without loading a partial workspace.
 
-The **Project and options** cog sits at the right of the top bar in both modes. Its **Project** section saves the whole workspace (**Save project**), opens a saved one (**Open project…**) and empties it (**Clear workspace…**, which asks you to type CLEAR first). `Ctrl S` and `Ctrl O` (`⌘ S` and `⌘ O` on Mac) save and open from anywhere. After a save, a short notice under the cog shows the file name. Feature colours and theme controls sit below the Project actions in the same panel.
+The **Project and options** cog sits at the right of the top bar in both modes. Its **Project** section saves the whole workspace (**Save project**), opens a saved one (**Open project…**) and empties it (**Clear workspace…**, which asks you to type CLEAR first). `Ctrl S` and `Ctrl O` (`⌘ S` and `⌘ O` on Mac) save and open from anywhere. After a save, a short notice under the cog shows the file name. Feature colours sit below the Project actions in the same panel.
 
 If you leave the page with unsaved work, the browser asks you to confirm first.
 
@@ -376,7 +376,6 @@ Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the filen
 
 The **Project and options** cog in the top bar holds the Project actions (Save, Open and Clear workspace), followed by these options:
 
-- **Chrome theme**: Clean, Halo, Aurora or Mesh. Remembered in this browser.
 - **Feature Colors**: a colour per feature type; **Reset to Defaults** restores them. Colours are saved with the project.
 
 Hovering (or keyboard-focusing) any control shows a tooltip explaining it, with its shortcut where it has one and the reason when it is disabled. Animations are switched off when your system asks for reduced motion.

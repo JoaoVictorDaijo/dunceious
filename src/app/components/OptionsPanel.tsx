@@ -21,7 +21,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useProjectActions } from '@/src/app/hooks/useProjectActions';
 import ProjectActionsSection from './ProjectActionsSection';
 import { getFeatureColor } from '@/src/app/viewer/colors';
-import { THEMES, type ThemeKey } from '@/src/app/logic/theme';
 
 const FEATURE_TYPES = [
   'gene', 'CDS', 'mRNA', 'tRNA', 'rRNA', 'exon',
@@ -36,8 +35,6 @@ export interface OptionsPanelProps {
   locked: boolean;
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
-  themeKey: ThemeKey;
-  onSetThemeKey: (key: ThemeKey) => void;
 }
 
 // Thin classic cog, stroke-based on purpose: a refined settings glyph rather than a filled control.
@@ -60,37 +57,11 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
   onSaveProject, onOpenProject, onClearWorkspace, sequenceCount, locked,
   featureColors,
   onSetFeatureColors,
-  themeKey,
-  onSetThemeKey,
 }) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const themeRadioRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  // WAI-ARIA radiogroup keyboard model: arrows/Home/End move focus AND selection,
-  // wrapping at the ends. Paired with roving tabindex (only the checked radio is
-  // tabbable) so the group is a single tab stop, as role="radiogroup" advertises.
-  const handleThemeKeyNav = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const last = THEMES.length - 1;
-    let next: number;
-    switch (e.key) {
-      case 'ArrowRight': case 'ArrowDown': next = index === last ? 0 : index + 1; break;
-      case 'ArrowLeft': case 'ArrowUp': next = index === 0 ? last : index - 1; break;
-      case 'Home': next = 0; break;
-      case 'End': next = last; break;
-      default: return;
-    }
-    // Stop as well as prevent: the viewer's global window keydown handler
-    // (useViewport) claims these same Arrow/Home/End keys to pan the genome, and
-    // it doesn't check defaultPrevented — so without stopPropagation a theme
-    // keystroke would also scroll the viewport behind the popover.
-    e.preventDefault();
-    e.stopPropagation();
-    onSetThemeKey(THEMES[next].key);
-    themeRadioRefs.current[next]?.focus();
-  };
 
   // Restore focus to the gear when closing via keyboard/close-button so the tab
   // order continues from the trigger; click-away closes without stealing focus.
@@ -175,7 +146,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           <div className="overflow-y-auto min-h-0">
           <ProjectActionsSection sequenceCount={sequenceCount} locked={locked} onSave={save} onOpen={openPicker} onClearWorkspace={onClearWorkspace} onAction={closeAndRestoreFocus} />
           {/* Feature colours — global: these paint the viewport tracks and the hub rows alike */}
-          <div className="px-5 py-4 border-b border-slate-800">
+          <div className="px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-bold uppercase tracking-widest text-env">Feature Colors</span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-env/80 bg-env/10 border border-env/20 rounded-full px-2 py-0.5">
@@ -207,44 +178,6 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             >
               Reset to Defaults
             </button>
-          </div>
-
-          {/* Theme — the chrome accent style (per browser) */}
-          <div className="px-5 py-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-3">
-              Theme <span className="normal-case tracking-normal text-[11px] font-medium text-slate-500">· accent follows the workspace</span>
-            </span>
-            <div role="radiogroup" aria-label="Chrome theme" className="grid grid-cols-2 gap-2">
-              {THEMES.map((t, i) => (
-                <button
-                  key={t.key}
-                  ref={el => { themeRadioRefs.current[i] = el; }}
-                  role="radio"
-                  aria-checked={themeKey === t.key}
-                  tabIndex={themeKey === t.key ? 0 : -1}
-                  onClick={() => onSetThemeKey(t.key)}
-                  onKeyDown={e => handleThemeKeyNav(e, i)}
-                  data-tip={t.description}
-                  className={`group text-left p-1.5 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
-                    themeKey === t.key
-                      ? 'bg-env/10 border-env/40'
-                      : 'bg-black/20 border-slate-800/50 hover:border-slate-600 hover:bg-slate-800/40'
-                  }`}
-                >
-                  {/* A live miniature of the header: the real theme CSS paints it. */}
-                  <span data-theme={t.key} className="app-nav theme-preview relative block h-9 rounded-lg bg-slate-900 overflow-hidden" aria-hidden="true">
-                    <span className="hf-env" />
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded bg-slate-950 border border-env/40 flex items-center justify-center">
-                      <i className="fas fa-dna text-[7px] text-env"></i>
-                    </span>
-                  </span>
-                  <span className={`flex items-center justify-between px-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide ${themeKey === t.key ? 'text-env' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                    {t.label}
-                    {themeKey === t.key && <i className="fas fa-check text-[10px]" aria-hidden="true"></i>}
-                  </span>
-                </button>
-              ))}
-            </div>
           </div>
           </div>
         </div>

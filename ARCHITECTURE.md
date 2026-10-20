@@ -337,7 +337,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `FeatureEditorModal` – *Create Feature* / *Metadata Inspector*: location, strand, segments (including circular wrap) and freely editable qualifiers
 - `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
-- `OptionsPanel` – Project actions (Save/Open/Clear workspace, with global shortcuts), chrome theme and feature colours
+- `OptionsPanel` – Project actions (Save/Open/Clear workspace, with global shortcuts) and feature colours
 - `ComparisonMenu` – the viewport toolbar's Compare control: highlight mode, reference, match dots and a live two-row preview
 - `TooltipLayer` – the single tooltip renderer for every `data-tip`
 - `MoleculeTypeMismatchModal` – explains a blocked nucleotide/peptide upload

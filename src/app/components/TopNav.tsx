@@ -20,7 +20,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, type ChangeEvent } from 'react';
 import OptionsPanel from './OptionsPanel';
 import { chooseTopBarStep, type TopBarMeasurements, type LayerForm, type ModeLabels, type HubForm } from '@/src/app/logic/topBarFit';
-import type { ThemeKey } from '@/src/app/logic/theme';
 
 const DRAG_MODES = [
   { mode: 'pan', icon: 'fa-hand', label: 'Pan mode', tip: 'Pan: drag to scroll along the sequence' },
@@ -35,8 +34,6 @@ export interface TopNavProps {
   onTabChange: (tab: 'alignment' | 'features') => void;
   featureColors: Record<string, string>;
   onSetFeatureColors: (colors: Record<string, string>) => void;
-  themeKey: ThemeKey;
-  onSetThemeKey: (key: ThemeKey) => void;
   /** Show the alignment-specific toolbar buttons (true when records are loaded in alignment view) */
   showAlignmentControls: boolean;
   dragMode: 'pan' | 'select';
@@ -70,8 +67,6 @@ const TopNav: React.FC<TopNavProps> = ({
   onTabChange,
   featureColors,
   onSetFeatureColors,
-  themeKey,
-  onSetThemeKey,
   showAlignmentControls,
   dragMode,
   onDragModeChange,
@@ -277,8 +272,7 @@ const TopNav: React.FC<TopNavProps> = ({
           </div>
   );
   return <>
-    <nav ref={nav} data-theme={themeKey} data-fit-step={step?.id} data-fit={fit?.fits} className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900 shrink-0 z-50">
-      <div className="hf-env" aria-hidden="true" />
+    <nav ref={nav} data-fit-step={step?.id} data-fit={fit?.fits} className="app-nav relative h-16 border-b border-slate-800/80 bg-slate-900 shrink-0 z-50">
       <div className="relative z-[1] h-full flex items-center px-6">
         {renderBrand(slogan, step?.id !== 'no-wordmark')}
         <div data-workspace-switcher style={{ position: 'absolute', left: fit ? fit.switcherLeft : '50%', transform: fit ? undefined : 'translateX(-50%)', width: 'max-content' }}>{renderSwitcher(modeLabels)}</div>
@@ -287,7 +281,7 @@ const TopNav: React.FC<TopNavProps> = ({
             {showAlignmentControls && <>{renderDrag()}{inlineLayers ? renderTray(layerForm) : renderMenu()}</>}
           </div>
           {(showAlignmentControls || activeTab === 'features') && <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-slate-700" />}
-          <OptionsPanel featureColors={featureColors} onSetFeatureColors={onSetFeatureColors} themeKey={themeKey} onSetThemeKey={onSetThemeKey}
+          <OptionsPanel featureColors={featureColors} onSetFeatureColors={onSetFeatureColors}
             onSaveProject={onSaveProject} onOpenProject={onOpenProject} onClearWorkspace={onClearWorkspace} sequenceCount={sequenceCount} locked={workspaceLocked} />
         </div>
       </div>
