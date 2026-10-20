@@ -27,7 +27,7 @@ import type { LocalSearchProgress, LocalSearchResult } from '@/src/workers/proto
 import type { SeqRecord } from '@/src/domain/bio/types';
 const pool = vi.hoisted(() => ({ ready: true, error: null as string | null, run: vi.fn(), cancel: vi.fn() }));
 vi.mock('../useLocalSearchPool', () => ({ useLocalSearchPool: () => pool }));
-const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null as string | null }));
+const moduleState = vi.hoisted(() => ({ bytes: { engine: new ArrayBuffer(8), score: null }, error: null as string | null }));
 vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState }));
 afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => { moduleState.error = null; pool.ready = true; pool.error = null; pool.run.mockReset(); pool.cancel.mockReset(); });

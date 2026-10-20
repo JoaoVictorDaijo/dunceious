@@ -40,13 +40,29 @@ export interface LocalEngineTestOptions {
   checkpoints?: boolean;
   onCheckpointDiagnostics?: (diagnostics: CheckpointDiagnostics) => void;
 }
+export interface LocalEngineOptions extends LocalEngineTestOptions {
+  /** `local-align-ssw.wasm`, compiled only where wasm SIMD validates; omitted, `maxScore` stays scalar. */
+  scoreModule?: WebAssembly.Module;
+}
 export interface LocalEngine {
   maxScore(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
     onProgress?: (fraction: number) => void): number;
   enumerate(query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
     onProgress?: (fraction: number) => void): Iterator<LocalAlignment>;
+  /** Engine heap high-water mark plus the score module's linear memory, which never shrinks. */
   peakMemoryBytes(): number;
+  /** Which kernel `maxScore` tries first; both return the same score. */
+  readonly scoreKernel: 'ssw-simd' | 'scalar';
 }
+interface ScoreHost { memory: WebAssembly.Memory; malloc(bytes: number): number; free(pointer: number): void }
+type ScoreFunction = (query: number, qlen: number, record: number, rlen: number, matrix: number,
+  size: number, gapOpen: number, gapExtend: number) => number;
+interface ScoreExports extends ScoreHost {
+  _initialize(): void;
+  la_max_score_ssw: ScoreFunction;
+}
+/** `la_max_score_ssw` status: its 16-bit lanes could saturate or an input is empty, so use `la_max_score`. */
+const SSW_USE_SCALAR = -3;
 interface EngineExports {
   memory: WebAssembly.Memory;
   _initialize(): void;
@@ -98,14 +114,11 @@ function checkedAlignment(values: number[], ops: Uint8Array, query: Uint8Array,
   return { score2, queryStart, queryEnd, recordStart, recordEnd, cigar };
 }
 
-function maxScore(e: EngineExports, query: Uint8Array, record: Uint8Array, scoring: LocalScoring,
-  onProgress?: (fraction: number) => void): number {
-  if (scoring.size !== scoring.symbols.length || scoring.matrix2.length !== scoring.size ** 2) {
-    throw new Error('Invalid local scoring matrix');
-  }
+function runScore(host: ScoreHost, score: ScoreFunction, query: Uint8Array, record: Uint8Array,
+  scoring: LocalScoring): number {
   const allocated: number[] = [];
   const allocate = (bytes: number) => {
-    const pointer = e.malloc(Math.max(bytes, 1));
+    const pointer = host.malloc(Math.max(bytes, 1));
     if (!pointer) throw new Error('Local alignment allocation failed');
     allocated.push(pointer);
     return pointer;
@@ -113,16 +126,25 @@ function maxScore(e: EngineExports, query: Uint8Array, record: Uint8Array, scori
   try {
     const q = allocate(query.length), r = allocate(record.length);
     const matrix = allocate(scoring.matrix2.byteLength);
-    new Uint8Array(e.memory.buffer, q, query.length).set(query);
-    new Uint8Array(e.memory.buffer, r, record.length).set(record);
-    new Int32Array(e.memory.buffer, matrix, scoring.matrix2.length).set(scoring.matrix2);
-    onProgress?.(0);
-    const score2 = e.la_max_score(q, query.length, r, record.length, matrix, scoring.size,
-      scoring.gapOpen2, scoring.gapExtend2);
-    if (score2 < 0) throw new Error(`Local alignment scoring failed (${score2})`);
-    onProgress?.(1);
-    return score2;
-  } finally { for (const pointer of allocated) e.free(pointer); }
+    new Uint8Array(host.memory.buffer, q, query.length).set(query);
+    new Uint8Array(host.memory.buffer, r, record.length).set(record);
+    new Int32Array(host.memory.buffer, matrix, scoring.matrix2.length).set(scoring.matrix2);
+    return score(q, query.length, r, record.length, matrix, scoring.size, scoring.gapOpen2, scoring.gapExtend2);
+  } finally { for (const pointer of allocated) host.free(pointer); }
+}
+
+/** SSW's striped word pass (Zhao et al. 2013; Farrar 2007) when available, else the scalar Gotoh pass. */
+function maxScore(e: EngineExports, ssw: ScoreExports | null, query: Uint8Array, record: Uint8Array,
+  scoring: LocalScoring, onProgress?: (fraction: number) => void): number {
+  if (scoring.size !== scoring.symbols.length || scoring.matrix2.length !== scoring.size ** 2) {
+    throw new Error('Invalid local scoring matrix');
+  }
+  onProgress?.(0);
+  let score2 = ssw ? runScore(ssw, ssw.la_max_score_ssw, query, record, scoring) : SSW_USE_SCALAR;
+  if (score2 === SSW_USE_SCALAR) score2 = runScore(e, e.la_max_score, query, record, scoring);
+  if (score2 < 0) throw new Error(`Local alignment scoring failed (${score2})`);
+  onProgress?.(1);
+  return score2;
 }
 
 function destroyContext(e: EngineExports, handle: number, onDiagnostics?: LocalEngineTestOptions['onCheckpointDiagnostics']) {
@@ -135,13 +157,20 @@ function destroyContext(e: EngineExports, handle: number, onDiagnostics?: LocalE
 }
 
 /** EMBOSS 6.6.0 matcher reactor; no I/O. Close a partially consumed iterator with return(). */
-export async function instantiateLocalEngine(module: WebAssembly.Module, options: LocalEngineTestOptions = {}): Promise<LocalEngine> {
-  const instance = await WebAssembly.instantiate(module, { env: { emscripten_notify_memory_growth() {} } });
+export async function instantiateLocalEngine(module: WebAssembly.Module, options: LocalEngineOptions = {}): Promise<LocalEngine> {
+  const imports = { env: { emscripten_notify_memory_growth() {} } };
+  const instance = await WebAssembly.instantiate(module, imports);
   const e = instance.exports as unknown as EngineExports;
   e._initialize();
+  let ssw: ScoreExports | null = null;
+  if (options.scoreModule) {
+    ssw = (await WebAssembly.instantiate(options.scoreModule, imports)).exports as unknown as ScoreExports;
+    ssw._initialize();
+  }
   return {
-    peakMemoryBytes: () => e.la_peak_memory() >>> 0,
-    maxScore: (query, record, scoring, onProgress) => maxScore(e, query, record, scoring, onProgress),
+    scoreKernel: ssw ? 'ssw-simd' : 'scalar',
+    peakMemoryBytes: () => (e.la_peak_memory() >>> 0) + (ssw?.memory.buffer.byteLength ?? 0),
+    maxScore: (query, record, scoring, onProgress) => maxScore(e, ssw, query, record, scoring, onProgress),
     *enumerate(inputQuery, inputRecord, inputScoring, onProgress) {
       // Snapshots keep suspended iterators independent of caller mutations.
       const query = inputQuery.slice(); const record = inputRecord.slice();

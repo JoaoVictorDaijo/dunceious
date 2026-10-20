@@ -23,6 +23,7 @@ import { encodeResidues, loadScoring } from '@/src/core/search/local/scoring';
 import { mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
 import type { LocalStreamOutcome } from '@/src/core/search/local/stream';
 import { LocalScoreBound } from '@/src/core/search/local/bound';
+import type { LocalEngineBytes } from '../lib/localEngineModule';
 import type { LocalSearchRequest, LocalSearchResponse, LocalSearchRun, LocalSearchProgress, LocalSearchResult } from '@/src/workers/protocol';
 
 type SearchRequest = Extract<LocalSearchRequest, { type: 'search' }>;
@@ -189,7 +190,7 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
   });
 }
 
-export function useLocalSearchPool(bytes: ArrayBuffer | null) {
+export function useLocalSearchPool(bytes: LocalEngineBytes | null) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const members = useRef<Worker[]>([]);
@@ -219,7 +220,8 @@ export function useLocalSearchPool(bytes: ArrayBuffer | null) {
           worker.onmessageerror = () => fail('Local worker response could not be decoded');
           worker.onmessage = createWorkerResponseHandler(worker, size, () => alive,
             { members, initialized, pending }, setReady, fail);
-          try { worker.postMessage({ type: 'init', wasm: bytes } satisfies LocalSearchRequest); }
+          try { worker.postMessage({ type: 'init', wasm: bytes.engine,
+            ...(bytes.score ? { scoreWasm: bytes.score } : {}) } satisfies LocalSearchRequest); }
           catch (e) { fail(`Local worker initialization dispatch failed: ${String(e)}`); return; }
         }
       } catch (e) { fail(`Local worker start failed: ${String(e)}`); }

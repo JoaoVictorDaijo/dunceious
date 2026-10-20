@@ -57,7 +57,7 @@ it('makes initialization and computation failures distinct', async () => {
 });
 it('reports an engine failure without publishing a stream result', async () => {
   const messages: LocalSearchResponse[] = [];
-  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({ maxScore: () => 20, enumerate() { throw new Error('forced engine error'); }, peakMemoryBytes: () => 0 }));
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({ maxScore: () => 20, enumerate() { throw new Error('forced engine error'); }, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0 }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle(request);
   expect(messages.at(-1)).toEqual({ type: 'error', requestId: 1, error: 'forced engine error' });
@@ -70,7 +70,7 @@ it('forwards each stream engine heap high-water mark in bytes', async () => {
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
     maxScore: () => 0,
     enumerate: () => [][Symbol.iterator](),
-    peakMemoryBytes: () => (peak += 65536),
+    scoreKernel: 'scalar' as const, peakMemoryBytes: () => (peak += 65536),
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle({ ...request, jobs: request.jobs.map(job => ({ ...job, upperBoundScore2: 0 })) });
@@ -96,7 +96,7 @@ it('accepts a rising bound between passing and overlap-hidden alignments and clo
         }
       } finally { closed(); }
     },
-    peakMemoryBytes: () => 65536,
+    scoreKernel: 'scalar' as const, peakMemoryBytes: () => 65536,
   };
   let ticks = 0;
   const handle = createLocalSearchHandler(m => messages.push(m), async () => engine, async () => {
@@ -119,7 +119,7 @@ it('yields to bound messages after filter-hidden alignments and never lowers the
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
     maxScore: () => 20,
     *enumerate() { yield alignment(20, 0, 1); yield alignment(10, 1, 1); },
-    peakMemoryBytes: () => 0,
+    scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
   }), async () => {
     ticks++;
     await handle({ type: 'bound', requestId: 1, boundScore2: 20 });
@@ -139,7 +139,7 @@ it('ignores stale bound messages across queries and resets the bound for a new r
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
     maxScore: () => 20,
     *enumerate() { yield alignment(20, 0); yield alignment(10, 2, 1); },
-    peakMemoryBytes: () => 0,
+    scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
   }), async () => { await handle({ type: 'bound', requestId: 1, boundScore2: 100 }); });
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle({ ...request, jobs: request.jobs.slice(0, 1) });
@@ -153,7 +153,7 @@ it('scores an empty stream without creating a matcher context', async () => {
   const messages: LocalSearchResponse[] = [];
   const enumerate = vi.fn(() => { throw new Error('must not enumerate'); });
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
-    maxScore: () => 0, enumerate, peakMemoryBytes: () => 0,
+    maxScore: () => 0, enumerate, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle({ ...request, phase: 'score', jobs: request.jobs.slice(0, 1) });
@@ -168,7 +168,7 @@ it('scores without starting enumeration even when the live bound is higher', asy
   const messages: LocalSearchResponse[] = [];
   const enumerate = vi.fn(() => { throw new Error('must not enumerate'); });
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
-    maxScore: () => 20, enumerate, peakMemoryBytes: () => 0,
+    maxScore: () => 20, enumerate, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle({ ...request, phase: 'score', boundScore2: 100, jobs: request.jobs.slice(0, 1) });
@@ -183,7 +183,7 @@ it('skips a stream strictly below the bound without instantiating its matcher co
   const messages: LocalSearchResponse[] = [];
   const enumerate = vi.fn(() => { throw new Error('must not instantiate'); });
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
-    maxScore: () => 20, enumerate, peakMemoryBytes: () => 0,
+    maxScore: () => 20, enumerate, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle({ ...request, phase: 'align', boundScore2: 21,
@@ -197,7 +197,7 @@ it.each([10, 30, 0])('fails visibly when the first alignment disagrees with prep
   const messages: LocalSearchResponse[] = [];
   const closed = vi.fn();
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
-    maxScore: () => score, peakMemoryBytes: () => 0,
+    maxScore: () => score, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
     *enumerate() { try { if (score) yield alignment(20, 0); } finally { closed(); } },
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
@@ -205,4 +205,29 @@ it.each([10, 30, 0])('fails visibly when the first alignment disagrees with prep
   expect(messages.at(-1)).toMatchObject({ type: 'error', error: 'Local alignment first score differs from scoring pass' });
   expect(messages.some(m => m.type === 'hit' || m.type === 'stream-done')).toBe(false);
   expect(closed).toHaveBeenCalledOnce();
+});
+it('compiles a supplied score module, uses it for scoring and fails init on corrupt score bytes', async () => {
+  const score = readFileSync('public/wasm/local-align-ssw.wasm');
+  const copy = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+  const kernels: string[] = [];
+  const outcomes: unknown[] = [];
+  for (const scoreWasm of [undefined, copy(score)]) {
+    const messages: LocalSearchResponse[] = [];
+    const handle = createLocalSearchHandler(m => messages.push(m), async (module, options) => {
+      const { instantiateLocalEngine } = await import('../../../core/search/local/engine');
+      const engine = await instantiateLocalEngine(module, options);
+      kernels.push(engine.scoreKernel);
+      return engine;
+    });
+    await handle({ type: 'init', wasm: copy(wasm), ...(scoreWasm ? { scoreWasm } : {}) });
+    await handle({ ...request, phase: 'score', query: 'ACGTTGCA',
+      jobs: [{ recordIndex: 0, record: { id: 'r', sequence: 'TTACGTAGCATT' }, strand: 1 }] });
+    outcomes.push(messages.filter(m => m.type === 'stream-done').map(m => m.type === 'stream-done' && m.outcome));
+  }
+  expect(kernels).toEqual(['scalar', 'ssw-simd']);
+  expect(outcomes[1]).toEqual(outcomes[0]);
+  const messages: LocalSearchResponse[] = [];
+  const handle = createLocalSearchHandler(m => messages.push(m));
+  await handle({ type: 'init', wasm: copy(wasm), scoreWasm: new ArrayBuffer(2) });
+  expect(messages).toMatchObject([{ type: 'init-error' }]);
 });
