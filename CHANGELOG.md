@@ -22,6 +22,20 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.6.2] — 2026-10-20
+
+### Changed
+
+- Local search scores each record with SSW's SIMD score pass where the browser supports wasm SIMD, about 10–17× faster for that pass; results are unchanged.
+
+### Fixed
+
+- The GenBank export benchmarks read the exported text again and check its LOCUS length and features.
+
+### Removed
+
+- Remove the chrome theme picker (Clean, Halo, Aurora, Mesh) from the options cog. The header and footer keep the Clean look; feature colours are unchanged.
+
 ## [3.6.1] — 2026-10-19
 
 ### Changed
