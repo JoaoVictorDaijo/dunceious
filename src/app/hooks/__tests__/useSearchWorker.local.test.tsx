@@ -91,6 +91,69 @@ function startLocal(recordsToSearch = records) {
   return { ...h, addLog, navigate };
 }
 
+it.each(['onerror', 'onmessageerror'] as const)('keeps a Local run active after an idle search worker %s', async event => {
+  const DeferredWorker = createDeferredWorker(runSearch);
+  class SearchWorker extends DeferredWorker {
+    onmessageerror: ((event: MessageEvent) => void) | null = null;
+  }
+  vi.stubGlobal('Worker', SearchWorker);
+  let complete!: (value: LocalSearchResult) => void;
+  let progress!: (value: LocalSearchProgress) => void;
+  pool.run.mockImplementation((_request, report) => {
+    progress = report;
+    return new Promise<LocalSearchResult>(resolve => { complete = resolve; });
+  });
+  const h = startLocal();
+  const worker = DeferredWorker.instances[0] as SearchWorker;
+  act(() => progress({ phase: 'align', streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 }));
+  const job = h.result.current.localJob;
+  const resultsBefore = h.result.current.searchResults;
+  const countsBefore = h.result.current.localCounts;
+  const logCount = h.addLog.mock.calls.length;
+  act(() => {
+    if (event === 'onerror') worker.onerror!(new ErrorEvent('error', { message: 'delayed startup error' }));
+    else worker.onmessageerror!(new MessageEvent('messageerror'));
+  });
+  expect(h.result.current.localJob.phase).toBe('running');
+  expect(h.result.current.localJob).toBe(job);
+  expect(h.result.current.isSearching).toBe(true);
+  expect(pool.cancel).not.toHaveBeenCalled();
+  expect(h.result.current.searchResults).toBe(resultsBefore);
+  expect(h.result.current.localCounts).toBe(countsBefore);
+  expect(worker.terminationCount).toBe(1);
+  expect(h.addLog).toHaveBeenCalledTimes(logCount + 1);
+  expect(h.addLog).toHaveBeenLastCalledWith('Search worker stopped unexpectedly; it will restart on the next search.');
+  const results = [{ recordId: 'r', start: 0, end: 2, strand: 1 as const, sequence: 'AA', cigar: '2=' }];
+  await act(async () => complete({ results, counts }));
+  expect(h.result.current.localJob.phase).toBe('done');
+  expect(h.result.current.searchResults).toEqual(results);
+  expect(h.result.current.localCounts).toEqual(counts);
+});
+
+it.each(['onerror', 'onmessageerror'] as const)('preserves completed Local results and counts after an idle search worker %s', async event => {
+  const DeferredWorker = createDeferredWorker(runSearch);
+  class SearchWorker extends DeferredWorker {
+    onmessageerror: ((event: MessageEvent) => void) | null = null;
+  }
+  vi.stubGlobal('Worker', SearchWorker);
+  const results = [{ recordId: 'r', start: 0, end: 2, strand: 1 as const, sequence: 'AA', cigar: '2=' }];
+  pool.run.mockResolvedValue({ results, counts });
+  const h = startLocal();
+  await waitFor(() => expect(h.result.current.localJob.phase).toBe('done'));
+  const job = h.result.current.localJob;
+  const completed = h.result.current.completedSearch;
+  const worker = DeferredWorker.instances[0] as SearchWorker;
+  act(() => {
+    if (event === 'onerror') worker.onerror!(new ErrorEvent('error', { message: 'idle failure' }));
+    else worker.onmessageerror!(new MessageEvent('messageerror'));
+  });
+  expect(h.result.current.localJob).toBe(job);
+  expect(h.result.current.searchResults).toEqual(results);
+  expect(h.result.current.localCounts).toEqual(counts);
+  expect(h.result.current.completedSearch).toBe(completed);
+  expect(h.result.current.currentSearchIdx).toBe(0);
+});
+
 it.each([
   [null, null, 'Local search is not ready'],
   [null, 'Worker initialization failed', 'Worker initialization failed'],

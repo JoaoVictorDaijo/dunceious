@@ -272,16 +272,23 @@ export function useSearchWorker(
       lastRequestRef.current = null;
       applySearchResults(msg.results, request);
     };
-    worker.onerror = (event: ErrorEvent) => {
+    const handleWorkerFailure = (reason: string) => {
       if (!isCurrentWorker()) return;
-      failSearch(`Search Worker Error: ${event.message}. Try searching again.`);
+      if (pendingRequestIdRef.current === null) {
+        retireWorker();
+        addLogRef.current('Search worker stopped unexpectedly; it will restart on the next search.');
+        return;
+      }
+      failSearch(reason);
+    };
+    worker.onerror = (event: ErrorEvent) => {
+      handleWorkerFailure(`Search Worker Error: ${event.message}. Try searching again.`);
     };
     worker.onmessageerror = () => {
-      if (!isCurrentWorker()) return;
-      failSearch('Search Worker response could not be read. Try searching again.');
+      handleWorkerFailure('Search Worker response could not be read. Try searching again.');
     };
     return worker;
-  }, [applySearchResults, clearSearchTimeout, failSearch]);
+  }, [applySearchResults, clearSearchTimeout, failSearch, retireWorker]);
 
   useEffect(() => {
     isMountedRef.current = true;
