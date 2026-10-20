@@ -210,12 +210,12 @@ describe('exportToGenBank – scaling with sequence length', () => {
     it(`exports a ${len.toLocaleString()} bp record to GenBank format correctly and within time budget`, () => {
       const records = inputs.get(len)!;
 
-      // Correctness: output must contain the LOCUS and ORIGIN keywords.
-      const output = exportToGenBank(records);
-      expect(typeof output).toBe('string');
-      expect(output).toContain('LOCUS');
-      expect(output).toContain('ORIGIN');
-      expect(output).toContain('//');
+      // Correctness: one complete entry with the record's length and every feature.
+      const { text: output } = exportToGenBank(records);
+      expect(output).toMatch(new RegExp(`^LOCUS {7}REC${len} +${len} bp `));
+      expect(output.match(/^ {5}CDS {13}/gm)).toHaveLength(records[0]!.features.length);
+      expect(output).toContain('\nORIGIN');
+      expect(output.trimEnd().endsWith('//')).toBe(true);
 
       // Benchmark.
       const result = bench(() => exportToGenBank(records), { warmup: 50, iterations: 100 });
