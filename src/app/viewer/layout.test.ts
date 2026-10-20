@@ -22,7 +22,7 @@ import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP } from './constant
 
 const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
 import { computeRecordLayouts } from './layout';
-import type { SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
 const ALL = { showAnnotations: true, translationVisible: true, showTracks: true };
 function rec(o: Partial<SeqRecord> & Pick<SeqRecord, 'id' | 'sequence'>): SeqRecord {
@@ -164,5 +164,101 @@ describe('translation row visibility', () => {
   it('rejects translation visibility for a protein record', () => {
     const [layout] = computeRecordLayouts([rec({ id: 'protein', sequence: 'MPE', moleculeType: 'protein' })], ALL);
     expect(layout).toMatchObject({ translationVisible: false, seqBaseY: 0, height: 42 });
+  });
+});
+
+
+const opts = { showAnnotations: true, translationVisible: false, showTracks: false };
+const feature = (start: number, end: number, name = `${start}:${end}`): BioFeature =>
+  ({ type: 'gene', name, start, end, strand: 1 });
+
+function referenceRows(record: SeqRecord): number[] {
+  const lanes: { start: number; end: number }[][] = [];
+  return [...record.features].sort((a, b) => a.start - b.start).map(item => {
+    const pieces = item.start > item.end
+      ? [{ start: item.start, end: (record.alignedSequence || record.sequence).length }, { start: 0, end: item.end }]
+      : [item];
+    let row = lanes.findIndex(occupied => occupied.every(other => pieces.every(piece =>
+      piece.start >= other.end + 10 || other.start >= piece.end + 10)));
+    if (row < 0) { row = lanes.length; lanes.push([]); }
+    lanes[row].push(...pieces);
+    return row;
+  });
+}
+
+describe('annotation packing compatibility', () => {
+  it.each([9, 10, 11])('preserves the exact %i-base boundary and first-fit lanes', gap => {
+    const record = rec({ id: 'spacing', sequence: 'A'.repeat(100), features: [feature(0, 10), feature(10 + gap, 30 + gap)] });
+    expect(computeRecordLayouts([record], opts)[0].placements.map(p => p.row)).toEqual([0, gap < 10 ? 1 : 0]);
+  });
+
+  it('keeps the free middle of a circular feature and checks both occupied ends', () => {
+    const record = rec({ id: 'wraps', sequence: 'A'.repeat(100), features: [
+      feature(30, 40, 'middle'), feature(90, 10, 'wrap'), feature(95, 20, 'second-wrap'),
+    ] });
+    expect(computeRecordLayouts([record], opts)[0].placements.map(p => p.row)).toEqual([0, 0, 1]);
+  });
+
+  it.each([[15, 40], [30, 85]])('checks a wrap against the middle interval %i..%i', (start, end) => {
+    const record = rec({ id: 'wrap-overlap', sequence: 'A'.repeat(100), features: [feature(start, end), feature(90, 10)] });
+    expect(computeRecordLayouts([record], opts)[0].placements.map(p => p.row)).toEqual([0, 1]);
+  });
+
+  it('preserves nested, equal-start and zero-length first-fit ordering', () => {
+    const record = rec({ id: 'nested', sequence: 'A'.repeat(100), features: [
+      feature(0, 70), feature(10, 20), feature(10, 10), feature(30, 30), feature(80, 80),
+    ] });
+    expect(computeRecordLayouts([record], opts)[0].placements.map(p => p.row)).toEqual([0, 1, 2, 1, 0]);
+  });
+
+  it('matches interval-by-interval first-fit packing on deterministic circular fixtures', () => {
+    let seed = 0x1a2b3c4d;
+    const next = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed; };
+    for (let sample = 0; sample < 200; sample++) {
+      const features = Array.from({ length: 80 }, (_, index) => {
+        const start = next() % 101;
+        const end = index % 7 === 0 ? start : next() % 101;
+        return feature(start, end, String(index));
+      });
+      const record = rec({ id: `generated-${sample}`, sequence: 'A'.repeat(100), features });
+      const result = computeRecordLayouts([record], opts)[0];
+      expect(result.placements.map(p => p.row), `sample ${sample}`).toEqual(referenceRows(record));
+      expect(result.placements.map(p => p.feature)).toEqual([...features].sort((a, b) => a.start - b.start));
+    }
+  });
+
+  it('preserves finite imported coordinates outside the sequence bounds', () => {
+    const fixtures = [
+      [[-30, -20], [-10, 5], [90, -25], [110, 120], [125, 15]],
+      [[20.5, 30.25], [40.25, 50], [95.5, 10.5], [100, 100]],
+      [[110, 105], [-30, -40], [120, 130], [140, -50]],
+    ];
+    for (const coordinates of fixtures) {
+      const record = rec({ id: 'imported', sequence: 'A'.repeat(100), features: coordinates.map(([start, end]) => feature(start, end)) });
+      expect(computeRecordLayouts([record], opts)[0].placements.map(p => p.row)).toEqual(referenceRows(record));
+    }
+  });
+
+  it('reuses immutable placements while recomputing zoom and display heights', () => {
+    const record = rec({ id: 'cached', sequence: 'A'.repeat(100), features: [
+      { ...feature(0, 10), metadata: { _showBases: '1' } },
+    ], tracks: [{ id: 'track', name: 'track', kind: 'line', data: [] }] });
+    const normal = computeRecordLayouts([record], opts)[0];
+    const expanded = computeRecordLayouts([record], { ...opts, basesVisible: true, showTracks: true })[0];
+    const hidden = computeRecordLayouts([record], { ...opts, showAnnotations: false })[0];
+    expect(expanded.placements).toBe(normal.placements);
+    expect(hidden.placements).toBe(normal.placements);
+    expect(normal.annotHeight).toBe(LANE);
+    expect(expanded.annotHeight).toBe(LANE + ANNOT_BASES_HEIGHT);
+    expect(expanded.height - normal.height).toBe(ANNOT_BASES_HEIGHT + 92);
+    expect(hidden.annotHeight).toBe(0);
+    expect(hidden.height).toBe(42);
+    const edited = { ...record, features: [...record.features, feature(5, 20)] };
+    const fresh = computeRecordLayouts([edited], opts)[0];
+    expect(fresh.placements).not.toBe(normal.placements);
+    expect(fresh.placements.map(p => p.row)).toEqual([0, 1]);
+    expect(fresh.annotHeight).toBe(2 * LANE);
+    const metadataEdit = { ...record, features: [feature(0, 10)] };
+    expect(computeRecordLayouts([metadataEdit], { ...opts, basesVisible: true })[0].laneHeights).toEqual([ANNOT_BAR_HEIGHT]);
   });
 });

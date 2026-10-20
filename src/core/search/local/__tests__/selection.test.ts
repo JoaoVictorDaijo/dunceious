@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, expect, it } from 'vitest';
 import { instantiateLocalEngine, type LocalAlignment, type LocalEngine } from '../engine';
 import { encodeResidues, loadScoring } from '../scoring';
-import { iterateLocalStream, type LocalFilters, type LocalStreamInput, runLocalStream } from '../stream';
+import { iterateLocalStream, scoreLocalStream, type LocalFilters, type LocalStreamInput, runLocalStream } from '../stream';
 import { compareLocalHits, mergeLocalOutcomes } from '../selection';
 import type { SearchResult } from '@/src/domain/bio/types';
 
@@ -100,6 +100,7 @@ function observedEngine(alignments: LocalAlignment[], onNext?: (enumerated: numb
   let enumerated = 0;
   let closed = 0;
   const localEngine: LocalEngine = {
+    maxScore: () => alignments[0]?.score2 ?? 0,
     peakMemoryBytes: () => 0,
     enumerate: () => {
       let index = 0;
@@ -165,24 +166,22 @@ it('records a positive first alignment below the bound without classifying or yi
   expect(observed.closed()).toBe(1);
 });
 
-it('bootstraps only the first alignment and ignores the live bound without reading ahead', () => {
+it('scores without reading ahead or creating an enumeration', () => {
   const observed = observedEngine([alignment(0, 3), alignment(3, 2)]);
-  const result = consume(iterateLocalStream(observed.engine, inputFor('AAA', 'AAAAA', 1), undefined, () => 40, true));
-  expect(result.yielded.map(hit => hit?.start)).toEqual([0]);
-  expect(result.outcome).toMatchObject({ exhausted: false, alignmentsEnumerated: 1, firstScore2: 30 });
-  expect(observed.enumerated()).toBe(1);
-  expect(observed.closed()).toBe(1);
+  const outcome = scoreLocalStream(observed.engine, inputFor('AAA', 'AAAAA', 1));
+  expect(outcome).toMatchObject({ exhausted: false, firstScore2: 30, alignmentsEnumerated: 0, hits: [] });
+  expect(observed.enumerated()).toBe(0);
+  expect(observed.closed()).toBe(0);
 });
 
-it('retains a filtered bootstrap first score and distinguishes an empty bootstrap stream', () => {
+it('retains a filtered stream upper bound and distinguishes a zero-score stream', () => {
   const observed = observedEngine([alignment(0, 2), alignment(2, 1)]);
-  const result = consume(iterateLocalStream(observed.engine, inputFor('AAA', 'AAA', 1, 0, 1,
-    { minIdentity: null, minQueryCoverage: 100 }), undefined, undefined, true));
-  expect(result.yielded).toEqual([null]);
-  expect(result.outcome).toMatchObject({ exhausted: false, firstScore2: 20, hiddenByFilterScores: [20], alignmentsEnumerated: 1 });
-  expect(observed.enumerated()).toBe(1);
-  expect(consume(iterateLocalStream(observedEngine([]).engine, inputFor('AAA', 'CCC', 1), undefined,
-    undefined, true)).outcome).toMatchObject({ exhausted: true, noPositive: true, firstScore2: null, alignmentsEnumerated: 0 });
+  const input = inputFor('AAA', 'AAA', 1, 0, 1, { minIdentity: null, minQueryCoverage: 100 });
+  expect(scoreLocalStream(observed.engine, input)).toMatchObject({ exhausted: false, firstScore2: 20,
+    hiddenByFilterScores: [], alignmentsEnumerated: 0 });
+  expect(observed.enumerated()).toBe(0);
+  expect(scoreLocalStream(observedEngine([]).engine, inputFor('AAA', 'CCC', 1)))
+    .toMatchObject({ exhausted: true, noPositive: true, firstScore2: null, alignmentsEnumerated: 0 });
 });
 
 it('closes the underlying iterator on consumer return and on an engine failure', () => {
@@ -194,7 +193,7 @@ it('closes the underlying iterator on consumer return and on an engine failure',
   expect(observed.closed()).toBe(1);
   expect(observed.enumerated()).toBe(1);
   let closed = 0;
-  const failing: LocalEngine = { peakMemoryBytes: () => 0, enumerate: () => ({
+  const failing: LocalEngine = { maxScore: () => 0, peakMemoryBytes: () => 0, enumerate: () => ({
     next() { throw new Error('Enumeration failed'); },
     return() { closed++; return { done: true, value: undefined }; },
   }) };
@@ -231,7 +230,7 @@ it('exports the canonical comparator for every global tie-breaking key', () => {
   expect([...expected].reverse().sort(compareLocalHits)).toEqual(expected);
 });
 
-function liveSelection(inputs: LocalStreamInput[], order: number[], interleaved: boolean, bootstrap: boolean, publishEvery = 1) {
+function liveSelection(inputs: LocalStreamInput[], order: number[], interleaved: boolean, prepass: boolean, publishEvery = 1) {
   let bound: number | null = null;
   let processed = 0;
   const passing = new Map<string, SearchResult>();
@@ -249,15 +248,11 @@ function liveSelection(inputs: LocalStreamInput[], order: number[], interleaved:
     accept(next.value, index);
     return false;
   };
-  if (bootstrap) {
-    for (const index of order) {
-      const iterator = iterateLocalStream(engine, inputs[index], undefined, () => bound, true);
-      let done = drive(index, iterator);
-      while (!done) done = drive(index, iterator);
-    }
+  if (prepass) {
+    for (const index of order) outcomes[index] = scoreLocalStream(engine, inputs[index]);
     order = [...order].sort((a, b) => (outcomes[b].firstScore2 ?? 0) - (outcomes[a].firstScore2 ?? 0));
   }
-  const active = order.filter(index => !bootstrap || (outcomes[index].firstScore2 !== null
+  const active = order.filter(index => !prepass || (outcomes[index].firstScore2 !== null
     && (bound === null || outcomes[index].firstScore2! >= bound)))
     .map(index => ({ index, iterator: iterateLocalStream(engine, inputs[index], undefined, () => bound) }));
   try {
@@ -270,7 +265,7 @@ function liveSelection(inputs: LocalStreamInput[], order: number[], interleaved:
       }
     } else {
       for (const { index, iterator } of active) {
-        if (bootstrap && bound !== null && outcomes[index].firstScore2! < bound) continue;
+        if (prepass && bound !== null && outcomes[index].firstScore2! < bound) continue;
         let done = drive(index, iterator);
         while (!done) done = drive(index, iterator);
       }
@@ -325,10 +320,10 @@ function exhaustiveOracle(inputs: LocalStreamInput[]) {
 function expectOracle(inputs: LocalStreamInput[]) {
   const oracle = exhaustiveOracle(inputs);
   const order = inputs.map((_, index) => index);
-  for (const bootstrap of [false, true]) {
+  for (const prepass of [false, true]) {
     for (const interleaved of [false, true]) {
       for (const publishEvery of [1, 4]) {
-        const actual = liveSelection(inputs, [...order].reverse(), interleaved, bootstrap, publishEvery);
+        const actual = liveSelection(inputs, [...order].reverse(), interleaved, prepass, publishEvery);
         expect(actual.results.map(hit => [Number(hit.recordId.split('-')[1]), hit.strand, hit.start, hit.end,
           hit.local!.score, hit.local!.queryStart])).toEqual(oracle.results);
         expect(actual.counts).toEqual(oracle.counts);
@@ -343,7 +338,7 @@ it.each([
   { query: 'A', sequences: ['AAAA', 'TTTT', 'CCCC'], limit: 3 },
   { query: 'A', sequences: ['A', 'A', 'A'], limit: 2 },
   { query: 'AC', sequences: ['AC', 'CC'], limit: 10 },
-])('matches the exhaustive oracle for $query and N=$limit across bootstrap and live schedules', ({ query, sequences, limit }) => {
+])('matches the exhaustive oracle for $query and N=$limit across score-first and live schedules', ({ query, sequences, limit }) => {
   expectOracle(sequences.flatMap((sequence, index) => [inputFor(query, sequence, limit, index), inputFor(query, sequence, limit, index, -1)]));
 });
 

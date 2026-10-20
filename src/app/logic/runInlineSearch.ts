@@ -23,9 +23,9 @@ import { runExactSearch } from '@/src/core/search/exact';
 import { runFuzzySearch } from '@/src/core/search/fuzzy';
 
 /**
- * Synchronous search used for exact mode and whenever the Web Worker is
- * unavailable. Runs the same `runExactSearch` / `runFuzzySearch` cores as the
- * worker, so both paths return identical results.
+ * The bundled showroom and direct tests can run synchronously over controlled
+ * inputs. Main-app searches require a worker to keep the page responsive.
+ * Result limits follow the core helpers without worker-specific normalization.
  */
 export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
   const { searchQuery, records, mode, options, moleculeType } = request;
@@ -38,7 +38,5 @@ export function runInlineSearch(request: SearchWorkerRequest): SearchResult[] {
     return runFuzzySearch(searchQuery, records, isProtein, strand, moleculeType, minIdentity, maxResults);
   }
 
-  const results = runExactSearch(searchQuery, records, isProtein, strand, moleculeType);
-  results.sort((a, b) => a.start - b.start || a.recordId.localeCompare(b.recordId));
-  return results.length > maxResults ? results.slice(0, maxResults) : results;
+  return runExactSearch(searchQuery, records, isProtein, strand, moleculeType, maxResults);
 }

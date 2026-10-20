@@ -23,15 +23,15 @@ import type { LocalAlignment, LocalEngine } from '../../../core/search/local/eng
 import { createLocalSearchHandler } from '../localSearch';
 import type { LocalSearchResponse, LocalSearchRequest } from '../../protocol';
 const wasm = readFileSync('public/wasm/local-align.wasm');
-export const request: Extract<LocalSearchRequest, { type: 'search' }> = { type: 'search', phase: 'refine', requestId: 1, boundScore2: null, query: 'AA', scoring: 'EDNAFULL', moleculeType: 'dna', limit: 10,
-  filters: { minIdentity: null, minQueryCoverage: null }, jobs: [0, 1].map(recordIndex => ({ recordIndex, record: { id: String(recordIndex), sequence: 'AAA' }, strand: 1 })) };
+export const request: Extract<LocalSearchRequest, { type: 'search' }> = { type: 'search', phase: 'align', requestId: 1, boundScore2: null, query: 'AA', scoring: 'EDNAFULL', moleculeType: 'dna', limit: 10,
+  filters: { minIdentity: null, minQueryCoverage: null }, jobs: [0, 1].map(recordIndex => ({ recordIndex, record: { id: String(recordIndex), sequence: 'AAA' }, strand: 1, upperBoundScore2: 20 })) };
 it.each([
   ['query', '\uFB05'], ['query', '\uFB06'], ['record', '\uFB05'], ['record', '\uFB06'],
 ] as const)('reports unsupported %s symbol %s without publishing a result', async (side, symbol) => {
   const messages: LocalSearchResponse[] = [];
   const handle = createLocalSearchHandler(m => messages.push(m));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
-  await handle({ ...request, scoring: 'EBLOSUM62', moleculeType: 'protein',
+  await handle({ ...request, phase: 'score', scoring: 'EBLOSUM62', moleculeType: 'protein',
     query: side === 'query' ? `D${symbol}D` : 'DDD',
     jobs: [{ recordIndex: 0, record: { id: 'protein', sequence: side === 'record' ? `D${symbol}D` : 'DDD', moleculeType: 'protein' }, strand: 1 }] });
   expect(messages).toEqual([{ type: 'ready' },
@@ -57,7 +57,7 @@ it('makes initialization and computation failures distinct', async () => {
 });
 it('reports an engine failure without publishing a stream result', async () => {
   const messages: LocalSearchResponse[] = [];
-  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({ enumerate() { throw new Error('forced engine error'); }, peakMemoryBytes: () => 0 }));
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({ maxScore: () => 20, enumerate() { throw new Error('forced engine error'); }, peakMemoryBytes: () => 0 }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
   await handle(request);
   expect(messages.at(-1)).toEqual({ type: 'error', requestId: 1, error: 'forced engine error' });
@@ -68,11 +68,12 @@ it('forwards each stream engine heap high-water mark in bytes', async () => {
   const messages: LocalSearchResponse[] = [];
   let peak = 0;
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 0,
     enumerate: () => [][Symbol.iterator](),
     peakMemoryBytes: () => (peak += 65536),
   }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
-  await handle(request);
+  await handle({ ...request, jobs: request.jobs.map(job => ({ ...job, upperBoundScore2: 0 })) });
   expect(messages.filter(m => m.type === 'stream-done').map(m => m.peakMemoryBytes)).toEqual([65536, 131072]);
 });
 
@@ -86,6 +87,7 @@ it('accepts a rising bound between passing and overlap-hidden alignments and clo
   const closed = vi.fn();
   const pulled: number[] = [];
   const engine: LocalEngine = {
+    maxScore: () => 20,
     *enumerate() {
       try {
         for (const a of [alignment(20, 0), alignment(20, 1), alignment(10, 3, 1)]) {
@@ -101,7 +103,7 @@ it('accepts a rising bound between passing and overlap-hidden alignments and clo
     if (++ticks === 2) await handle({ type: 'bound', requestId: 1, boundScore2: 20 });
   });
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
-  await handle({ ...request, jobs: [{ recordIndex: 0, record: { id: 'a', sequence: 'AAAA' }, strand: 1 }] });
+  await handle({ ...request, jobs: [{ recordIndex: 0, record: { id: 'a', sequence: 'AAAA' }, strand: 1, upperBoundScore2: 20 }] });
   expect(ticks).toBe(2);
   expect(pulled).toEqual([20, 20, 10]);
   expect(messages.filter(m => m.type === 'hit').map(m => m.hit.start)).toEqual([0]);
@@ -115,6 +117,7 @@ it('yields to bound messages after filter-hidden alignments and never lowers the
   const messages: LocalSearchResponse[] = [];
   let ticks = 0;
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 20,
     *enumerate() { yield alignment(20, 0, 1); yield alignment(10, 1, 1); },
     peakMemoryBytes: () => 0,
   }), async () => {
@@ -134,6 +137,7 @@ it('yields to bound messages after filter-hidden alignments and never lowers the
 it('ignores stale bound messages across queries and resets the bound for a new request', async () => {
   const messages: LocalSearchResponse[] = [];
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 20,
     *enumerate() { yield alignment(20, 0); yield alignment(10, 2, 1); },
     peakMemoryBytes: () => 0,
   }), async () => { await handle({ type: 'bound', requestId: 1, boundScore2: 100 }); });
@@ -145,23 +149,60 @@ it('ignores stale bound messages across queries and resets the bound for a new r
   expect(messages.filter(m => m.type === 'stream-done').map(m => m.outcome.exhausted)).toEqual([false, true]);
 });
 
-it('bootstraps only the first alignment despite an established bound and destroys its context', async () => {
+it('scores an empty stream without creating a matcher context', async () => {
   const messages: LocalSearchResponse[] = [];
-  const pulled: number[] = [];
+  const enumerate = vi.fn(() => { throw new Error('must not enumerate'); });
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 0, enumerate, peakMemoryBytes: () => 0,
+  }));
+  await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
+  await handle({ ...request, phase: 'score', jobs: request.jobs.slice(0, 1) });
+  expect(enumerate).not.toHaveBeenCalled();
+  expect(messages.some(m => m.type === 'hit')).toBe(false);
+  expect(messages.at(-1)).toMatchObject({ type: 'stream-done', phase: 'score', outcome: {
+    exhausted: true, noPositive: true, firstScore2: null, alignmentsEnumerated: 0,
+  } });
+});
+
+it('scores without starting enumeration even when the live bound is higher', async () => {
+  const messages: LocalSearchResponse[] = [];
+  const enumerate = vi.fn(() => { throw new Error('must not enumerate'); });
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 20, enumerate, peakMemoryBytes: () => 0,
+  }));
+  await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
+  await handle({ ...request, phase: 'score', boundScore2: 100, jobs: request.jobs.slice(0, 1) });
+  expect(enumerate).not.toHaveBeenCalled();
+  expect(messages.filter(m => m.type === 'hit')).toEqual([]);
+  expect(messages.at(-1)).toMatchObject({ type: 'stream-done', phase: 'score', outcome: {
+    firstScore2: 20, noPositive: false, exhausted: false, alignmentsEnumerated: 0,
+    hits: [], hiddenByFilterScores: [], hiddenByOverlapScores: [],
+  } });
+});
+it('skips a stream strictly below the bound without instantiating its matcher context', async () => {
+  const messages: LocalSearchResponse[] = [];
+  const enumerate = vi.fn(() => { throw new Error('must not instantiate'); });
+  const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
+    maxScore: () => 20, enumerate, peakMemoryBytes: () => 0,
+  }));
+  await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
+  await handle({ ...request, phase: 'align', boundScore2: 21,
+    jobs: [{ ...request.jobs[0], upperBoundScore2: 20 }] });
+  expect(enumerate).not.toHaveBeenCalled();
+  expect(messages.at(-1)).toMatchObject({ type: 'stream-done', phase: 'align', outcome: {
+    noPositive: false, firstScore2: 20, alignmentsEnumerated: 0, hits: [],
+  } });
+});
+it.each([10, 30, 0])('fails visibly when the first alignment disagrees with prepass score %i', async score => {
+  const messages: LocalSearchResponse[] = [];
   const closed = vi.fn();
   const handle = createLocalSearchHandler(m => messages.push(m), async () => ({
-    *enumerate() {
-      try {
-        for (const a of [alignment(20, 0), alignment(10, 2, 1)]) { pulled.push(a.score2); yield a; }
-      } finally { closed(); }
-    }, peakMemoryBytes: () => 0,
-  }), async () => {});
+    maxScore: () => score, peakMemoryBytes: () => 0,
+    *enumerate() { try { if (score) yield alignment(20, 0); } finally { closed(); } },
+  }));
   await handle({ type: 'init', wasm: wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) });
-  await handle({ ...request, phase: 'bootstrap', boundScore2: 100, jobs: request.jobs.slice(0, 1) });
-  expect(pulled).toEqual([20]);
+  await handle({ ...request, phase: 'align', jobs: [{ ...request.jobs[0], upperBoundScore2: score || 20 }] });
+  expect(messages.at(-1)).toMatchObject({ type: 'error', error: 'Local alignment first score differs from scoring pass' });
+  expect(messages.some(m => m.type === 'hit' || m.type === 'stream-done')).toBe(false);
   expect(closed).toHaveBeenCalledOnce();
-  expect(messages.filter(m => m.type === 'hit')).toHaveLength(1);
-  expect(messages.find(m => m.type === 'stream-done')).toMatchObject({ phase: 'bootstrap', outcome: {
-    exhausted: false, firstScore2: 20, alignmentsEnumerated: 1,
-  } });
 });

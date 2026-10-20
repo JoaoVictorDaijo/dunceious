@@ -42,26 +42,44 @@ export interface LocalStreamInput {
   limit: number; filters: LocalFilters;
 }
 
-/** EMBOSS 6.6.0 matcher exclusion precedes display filters; hidden spans stay occupied.
- * Each classified alignment yields so workers can receive bounds between engine steps.
- * Bootstrap ranking must compare streams without retaining their engine contexts.
- */
-export function* iterateLocalStream(engine: LocalEngine, input: LocalStreamInput,
-  onProgress?: (fraction: number) => void, getBoundScore2?: () => number | null,
-  firstOnly = false): Generator<SearchResult | null, LocalStreamOutcome> {
-  const { query, queryCodes, record, recordIndex, strand, scoring, moleculeType, limit, filters } = input;
-  if (!Number.isInteger(limit) || limit < 1) throw new Error('Local result limit must be positive');
+function prepareRecord(input: LocalStreamInput) {
+  const { record, strand, scoring, moleculeType } = input;
+  if (!Number.isInteger(input.limit) || input.limit < 1) throw new Error('Local result limit must be positive');
   if (moleculeType === 'protein' && strand === -1) throw new Error('Protein search has no reverse stream');
   const seq = record.alignedSequence || record.sequence;
   const oriented = strand === 1 ? seq : reverseComplement(seq, complementAlphabet(seq, record.moleculeType ?? moleculeType));
   const { ungapped, map } = removeGapsWithMap(oriented);
   const encoded = encodeResidues(ungapped, scoring);
   if ('invalid' in encoded) throw new Error(`Unsupported record characters: ${encoded.invalid.join(', ')}`);
-  const outcome: LocalStreamOutcome = { recordIndex, strand, hits: [], exhausted: false,
-    hiddenByOverlapScores: [], hiddenByFilterScores: [], noPositive: true, alignmentsEnumerated: 0,
-    firstScore2: null };
+  return { seq, ungapped, map, codes: encoded.codes };
+}
+
+/** Below-bound streams have no in-scope classifications; zero alone means no positive hit. */
+export function localScoreOutcome(input: Pick<LocalStreamInput, 'recordIndex' | 'strand'>, score2: number): LocalStreamOutcome {
+  if (!Number.isInteger(score2) || score2 < 0) throw new Error('Invalid local stream upper bound');
+  return { recordIndex: input.recordIndex, strand: input.strand, hits: [], exhausted: score2 === 0,
+    hiddenByOverlapScores: [], hiddenByFilterScores: [], noPositive: score2 === 0, alignmentsEnumerated: 0,
+    firstScore2: score2 === 0 ? null : score2 };
+}
+
+export function scoreLocalStream(engine: LocalEngine, input: LocalStreamInput,
+  onProgress?: (fraction: number) => void): LocalStreamOutcome {
+  const record = prepareRecord(input);
+  return localScoreOutcome(input, engine.maxScore(input.queryCodes, record.codes, input.scoring, onProgress));
+}
+
+/** EMBOSS 6.6.0 matcher exclusion precedes display filters; hidden spans stay occupied.
+ * Each classified alignment yields so workers can receive bounds between engine steps.
+ */
+export function* iterateLocalStream(engine: LocalEngine, input: LocalStreamInput,
+  onProgress?: (fraction: number) => void, getBoundScore2?: () => number | null,
+  expectedScore2?: number): Generator<SearchResult | null, LocalStreamOutcome> {
+  const { query, queryCodes, record, strand, scoring, moleculeType, filters } = input;
+  const { seq, ungapped, map, codes } = prepareRecord(input);
+  const outcome = localScoreOutcome(input, 0);
+  outcome.exhausted = false;
   const occupied: Array<{ start: number; end: number }> = [];
-  const iterator = engine.enumerate(queryCodes, encoded.codes, scoring, onProgress);
+  const iterator = engine.enumerate(queryCodes, codes, scoring, onProgress);
   const classify = (a: LocalAlignment): SearchResult | null => {
     if (occupied.some(b => a.recordStart < b.end && b.start < a.recordEnd)) {
       outcome.hiddenByOverlapScores.push(a.score2);
@@ -87,17 +105,24 @@ export function* iterateLocalStream(engine: LocalEngine, input: LocalStreamInput
   try {
     while (true) {
       const next = iterator.next();
-      if (next.done) { outcome.exhausted = true; break; }
+      if (next.done) {
+        if (expectedScore2 !== undefined && outcome.firstScore2 === null && expectedScore2 !== 0) {
+          throw new Error('Local alignment first score differs from scoring pass');
+        }
+        outcome.exhausted = true; break;
+      }
       const a = next.value;
+      if (outcome.firstScore2 === null && expectedScore2 !== undefined && a.score2 !== expectedScore2) {
+        throw new Error('Local alignment first score differs from scoring pass');
+      }
       outcome.noPositive = false;
       outcome.alignmentsEnumerated++;
       outcome.firstScore2 ??= a.score2;
-      const bound = firstOnly ? null : getBoundScore2?.();
+      const bound = getBoundScore2?.();
       if (bound != null && a.score2 < bound) break;
       const hit = classify(a);
       if (hit) outcome.hits.push(hit);
       yield hit;
-      if (firstOnly) break;
     }
   } finally { iterator.return?.(); }
   return outcome;

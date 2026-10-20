@@ -37,6 +37,17 @@ describe('runSearch — guards & echo', () => {
 });
 
 describe('runSearch — exact mode', () => {
+  it.each([
+    [NaN, []], [-Infinity, []], [-1, [0, 1, 2]], [0.8, []], [2.8, [0, 1]], [Infinity, [0, 1, 2, 3]],
+  ])('preserves exact slice semantics for a limit of %s', (maxResults, starts) => {
+    const res = runSearch(req({
+      searchQuery: 'A', records: [{ id: 'r1', sequence: 'AAAA' }], mode: 'exact',
+      options: { minIdentity: 80, strand: 'fwd', maxResults },
+    }));
+    if ('error' in res) throw new Error(res.error);
+    expect(res.results.map(hit => hit.start)).toEqual(starts);
+  });
+
   it('finds a forward match with rebased coordinates', () => {
     const res = runSearch(req({
       searchQuery: 'ACG', records: [{ id: 'r1', sequence: 'TTACGTT' }],

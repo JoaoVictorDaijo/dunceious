@@ -18,8 +18,10 @@
  */
 
 // @vitest-environment jsdom
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@/src/app/testing/renderHarness';
+import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
+import { runSearch } from '@/src/workers/handlers/search';
 import { useSearchWorker } from '../useSearchWorker';
 import type { LocalSearchProgress, LocalSearchResult } from '@/src/workers/protocol';
 import type { SeqRecord } from '@/src/domain/bio/types';
@@ -27,6 +29,7 @@ const pool = vi.hoisted(() => ({ ready: true, error: null as string | null, run:
 vi.mock('../useLocalSearchPool', () => ({ useLocalSearchPool: () => pool }));
 const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null as string | null }));
 vi.mock('../../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState }));
+afterEach(() => { vi.unstubAllGlobals(); });
 beforeEach(() => { moduleState.error = null; pool.ready = true; pool.error = null; pool.run.mockReset(); pool.cancel.mockReset(); });
 const records: SeqRecord[] = [{ id: 'r', name: 'r', sequence: 'AAA', features: [] }];
 const counts = { cutoff: null, streams: 1, noPositiveStreams: 0, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 };
@@ -57,9 +60,13 @@ it('makes Cancel distinct from no hits and reports unsupported query symbols', a
 });
 
 it.each(['exact', 'fuzzy'] as const)('preserves completed %s results when Local module loading fails later', async mode => {
+  // Exact and Whole-query searches run only in the search worker; this one answers with the real handler.
+  const SearchWorker = createDeferredWorker(runSearch);
+  vi.stubGlobal('Worker', SearchWorker);
   const h = renderHook(() => useSearchWorker(records, vi.fn(), vi.fn(), vi.fn()));
   act(() => { h.result.current.setSearchMode(mode); h.result.current.setSearchQuery('AA'); });
   act(() => h.result.current.handleSearch());
+  act(() => SearchWorker.instances.at(-1)!.release(0));
   await waitFor(() => expect(h.result.current.searchResults.length).toBeGreaterThan(0));
   const results = h.result.current.searchResults;
   const completed = h.result.current.completedSearch;
@@ -83,6 +90,69 @@ function startLocal(recordsToSearch = records) {
   act(() => h.result.current.handleSearch());
   return { ...h, addLog, navigate };
 }
+
+it.each(['onerror', 'onmessageerror'] as const)('keeps a Local run active after an idle search worker %s', async event => {
+  const DeferredWorker = createDeferredWorker(runSearch);
+  class SearchWorker extends DeferredWorker {
+    onmessageerror: ((event: MessageEvent) => void) | null = null;
+  }
+  vi.stubGlobal('Worker', SearchWorker);
+  let complete!: (value: LocalSearchResult) => void;
+  let progress!: (value: LocalSearchProgress) => void;
+  pool.run.mockImplementation((_request, report) => {
+    progress = report;
+    return new Promise<LocalSearchResult>(resolve => { complete = resolve; });
+  });
+  const h = startLocal();
+  const worker = DeferredWorker.instances[0] as SearchWorker;
+  act(() => progress({ phase: 'align', streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 }));
+  const job = h.result.current.localJob;
+  const resultsBefore = h.result.current.searchResults;
+  const countsBefore = h.result.current.localCounts;
+  const logCount = h.addLog.mock.calls.length;
+  act(() => {
+    if (event === 'onerror') worker.onerror!(new ErrorEvent('error', { message: 'delayed startup error' }));
+    else worker.onmessageerror!(new MessageEvent('messageerror'));
+  });
+  expect(h.result.current.localJob.phase).toBe('running');
+  expect(h.result.current.localJob).toBe(job);
+  expect(h.result.current.isSearching).toBe(true);
+  expect(pool.cancel).not.toHaveBeenCalled();
+  expect(h.result.current.searchResults).toBe(resultsBefore);
+  expect(h.result.current.localCounts).toBe(countsBefore);
+  expect(worker.terminationCount).toBe(1);
+  expect(h.addLog).toHaveBeenCalledTimes(logCount + 1);
+  expect(h.addLog).toHaveBeenLastCalledWith('Search worker stopped unexpectedly; it will restart on the next search.');
+  const results = [{ recordId: 'r', start: 0, end: 2, strand: 1 as const, sequence: 'AA', cigar: '2=' }];
+  await act(async () => complete({ results, counts }));
+  expect(h.result.current.localJob.phase).toBe('done');
+  expect(h.result.current.searchResults).toEqual(results);
+  expect(h.result.current.localCounts).toEqual(counts);
+});
+
+it.each(['onerror', 'onmessageerror'] as const)('preserves completed Local results and counts after an idle search worker %s', async event => {
+  const DeferredWorker = createDeferredWorker(runSearch);
+  class SearchWorker extends DeferredWorker {
+    onmessageerror: ((event: MessageEvent) => void) | null = null;
+  }
+  vi.stubGlobal('Worker', SearchWorker);
+  const results = [{ recordId: 'r', start: 0, end: 2, strand: 1 as const, sequence: 'AA', cigar: '2=' }];
+  pool.run.mockResolvedValue({ results, counts });
+  const h = startLocal();
+  await waitFor(() => expect(h.result.current.localJob.phase).toBe('done'));
+  const job = h.result.current.localJob;
+  const completed = h.result.current.completedSearch;
+  const worker = DeferredWorker.instances[0] as SearchWorker;
+  act(() => {
+    if (event === 'onerror') worker.onerror!(new ErrorEvent('error', { message: 'idle failure' }));
+    else worker.onmessageerror!(new MessageEvent('messageerror'));
+  });
+  expect(h.result.current.localJob).toBe(job);
+  expect(h.result.current.searchResults).toEqual(results);
+  expect(h.result.current.localCounts).toEqual(counts);
+  expect(h.result.current.completedSearch).toBe(completed);
+  expect(h.result.current.currentSearchIdx).toBe(0);
+});
 
 it.each([
   [null, null, 'Local search is not ready'],
@@ -113,7 +183,7 @@ it('applies local hits, progress, counts, scoring and navigation from the submit
   expect(h.result.current.localReady).toBe(true);
   expect(pool.run).toHaveBeenCalledWith({ query: 'AA', records: [{ id: 'r', sequence: 'AAA', alignedSequence: undefined, moleculeType: undefined }],
     moleculeType: 'dna', scoring: 'EDNAFULL', limit: 100, filters: { minIdentity: null, minQueryCoverage: null }, strand: 'both' }, expect.any(Function));
-  const update = { streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 };
+  const update = { phase: 'align' as const, streamsDone: 1, streamsTotal: 2, currentFraction: 0.5 };
   act(() => progress(update));
   expect(h.result.current.localJob).toMatchObject({ phase: 'running', progress: update });
   act(() => h.result.current.setSearchQuery('TT'));
@@ -163,7 +233,7 @@ it.each(['cancel', 'options', 'unmount'] as const)('ignores progress and rejecti
   });
   expect(pool.cancel).toHaveBeenCalledTimes(1);
   await act(async () => {
-    progress({ streamsDone: 2, streamsTotal: 2, currentFraction: 1 });
+    progress({ phase: 'align' as const, streamsDone: 2, streamsTotal: 2, currentFraction: 1 });
     reject(new Error('Late failure'));
   });
   expect(h.addLog).not.toHaveBeenCalledWith('Error: Late failure');

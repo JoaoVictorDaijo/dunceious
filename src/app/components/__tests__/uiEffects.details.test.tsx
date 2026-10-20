@@ -125,3 +125,43 @@ describe('details UI effects', () => {
     expect(document.body.contains(panel)).toBe(false);
   });
 });
+
+describe('a copy that fails', () => {
+  it('reports the failure through onCopyLog for the sequence and the translation', async () => {
+    const copyText = vi.fn().mockRejectedValue(new DOMException('Write permission denied.', 'NotAllowedError'));
+    const modalProps = props();
+    render(<UiEffectsContext.Provider value={{ ...DEFAULT_UI_EFFECTS, copyText }}>
+      <RecordDetailsModal {...modalProps} />
+    </UiEffectsContext.Provider>);
+    for (const button of screen.getAllByRole('button', { name: /^Copy/ })) {
+      await act(async () => { fireEvent.click(button); });
+    }
+    expect(modalProps.onCopyLog.mock.calls).toEqual([
+      ['Copy failed for capsid in record-1.'],
+      ['Copy failed for the translation of capsid.'],
+      ['Copy failed for capsid in record-1.'],
+    ]);
+  });
+
+  it('stays silent when the default clipboard itself rejects, apart from the log', async () => {
+    writeText.mockRejectedValueOnce(new DOMException('Document is not focused.', 'NotAllowedError'));
+    const modalProps = props();
+    render(<RecordDetailsModal {...modalProps} />);
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: /^Copy/ })[0]); });
+    expect(modalProps.onCopyLog).toHaveBeenCalledExactlyOnceWith('Copy failed for capsid in record-1.');
+  });
+
+  // A host that answers `false` declined on purpose; that is not a failure to report.
+  it('logs nothing when the host declines', async () => {
+    const copyText = vi.fn().mockResolvedValue(false);
+    const modalProps = props();
+    render(<UiEffectsContext.Provider value={{ ...DEFAULT_UI_EFFECTS, copyText }}>
+      <RecordDetailsModal {...modalProps} />
+    </UiEffectsContext.Provider>);
+    for (const button of screen.getAllByRole('button', { name: /^Copy/ })) {
+      await act(async () => { fireEvent.click(button); });
+    }
+    expect(modalProps.onCopyLog).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+  });
+});

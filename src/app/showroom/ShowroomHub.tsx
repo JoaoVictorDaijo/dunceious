@@ -70,6 +70,7 @@ export function ShowroomHub({ records, view, toolsSlot, explain }: ShowroomHubPr
         fileName: options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`,
         format: FORMAT_LABEL[format],
         count: ids.length,
+        rows: options.annotationRows,
       })}
       onClearAll={because('project')}
       addLog={noop}

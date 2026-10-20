@@ -123,17 +123,49 @@ each **stream** (a record and one strand) is searched on its own.
   6. query start.
 - **Stopping each stream exactly:** each stream's enumeration never increases in score (rescoring
   only lowers candidates; the engine checks it). The search keeps the global top N passing hits
-  under T and their N-th score b, which only rises as hits arrive. A stream stops when it is
+  under T. With both display filters off, every positive stream guarantees a passing first hit
+  of score ub: it cannot overlap an occupied span and no display filter can reject it. The live
+  score multiset contains actual passing hits plus one placeholder at ub for each positive stream
+  whose first hit has not arrived. Its N-th largest score, if there are at least N entries, is a
+  lower bound on the final cut-off s*. Before alignment dispatch, placeholders alone seed the
+  bound. Each arriving first hit must equal its placeholder (checked in score2 before replacement),
+  which is removed so it is never counted twice. A stream finishing as skipped also loses its
+  placeholder. This keeps every bound valid: let b_max be the largest bound reached, computed from
+  N entries scoring at least b_max. A placeholder among them belongs to a stream with ub ≥ b_max,
+  so no later bound (all ≤ b_max) can skip it. Each such stream runs and delivers its first hit
+  at exactly ub, so at least N passing hits score at least b_max, and b ≤ b_max ≤ s* throughout. Later passing hits can displace lower
+  placeholders and raise b before N actual hits exist. Always take max(previous b, computed bound)
+  and broadcast increases. With either display filter set, use actual passing hits only: a filter
+  could reject the first hit, so ub would not guarantee a passing hit. Bounds use doubled scores
+  (score2), and equality remains eligible.
+  A stream stops when it is
   **exhausted** (no positive-scoring alignment remains) or when its last alignment scores strictly
   below the current b. Since b never exceeds the final cut-off s* (the N-th best passing score),
   every alignment scoring at least s* is enumerated in every stream; equal scores at s* are always
   included, so T can choose among them.
 - **Schedule** (speed only; results are the same for any schedule that obeys the rule above):
-  1. every stream computes its first alignment, which seeds the global top N, then releases its
-     engine;
-  2. streams that aren't exhausted are rerun from the start in descending order of their first
-     score (ties by stream order), enumerating under the live b. A stream whose first score is
-     already below b is skipped: its first alignment is then its only one scoring at least s*.
+  1. every stream computes a score-only Gotoh local maximum, ub, using matcher's exact doubled
+     matrix scores and affine gap arithmetic (open qr, extend r), without candidate nodes or origins;
+  2. ub = 0 marks a stream with no positive alignment. With both display filters off, retain a
+     first-score placeholder for every ub > 0 stream. Broadcast the multiset's N-th score, if it
+     exists, to every worker before dispatching any align job; replace placeholders with verified
+     first hits and broadcast subsequent increases as passing hits arrive. Positive streams run
+     once in descending ub order (ties by record order, then forward before reverse), enumerating
+     under the live b;
+  3. skip a stream only when ub < b. Since its enumeration cannot exceed ub and b ≤ s*, it has
+     no alignments in scope. Skipped streams still contribute to the stream count, but no in-scope
+     hidden or beyond-limit counts; only ub = 0 contributes to the no-positive count;
+  4. check the first enumerated score against ub before classifying or publishing it. A mismatch,
+     including unexpected exhaustion, ends the search with a visible error and no partial results.
+
+  *Sources.* Scoring first and then running Huang–Miller follows FASTA's `lalign36`: its SIMD build
+  links `smith_waterman_sse2.o` (Farrar's striped score pass) with `lsim4.o` (the SIM code)
+  (fasta36, `make/Makefile`, `DROPLAL_SSE_O`). Here the score pass is scalar, so it uses
+  `matcher`'s exact arithmetic. The bound rests on the property that recomputed values never
+  exceed the originals, "H2(i,j) ≤ H1(i,j)" (Huang, Miller, Schwartz & Hardison 1992, p. 156,
+  after Waterman & Eggert 1987). The first alignment, the matrix maximum, therefore bounds every
+  later alignment in its stream. The same paper parallelizes one stream exactly by column bands.
+  This engine parallelizes across streams instead.
 
   One engine is alive per worker at a time. The first N hits under T among the enumerated
   passing hits are shown, so results don't depend on timing, worker count or completion order.
@@ -210,6 +242,9 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
 
 ## Computation
 
+- **Score pass:** a scalar Gotoh local maximum uses two record-length rows (O(record length)
+  memory), no node list and no origins. It equals the first matcher's score2; it does not select
+  a path or alter ties. The full enumeration checks that equality before exposing its first hit.
 - **Engine:** Waterman–Eggert in Huang & Miller's linear-space form, the structure of EMBOSS
   `matcher` 6.6.0:
   - one full scoring pass over the stream keeps the best candidates (`matcher_BigPass`);
@@ -224,6 +259,26 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
   - used residue pairs are looked up in a hash set rather than `matcher`'s per-row lists. This
     changes the speed only: the profiled cost of the list walk was 7.6 billion steps in 40
     alignments.
+
+  - BigPass saves H, ci/cj and f, fi/fj per row at checkpoint columns. When Locate
+    decrements the SmallPass origin to m1 = n1 = 0, the affected pass equals BigPass restricted
+    to rows 1..mm and columns 1..nn under the current used-pair set. If n0 is the minimum
+    1-based record start emitted so far, columns below n0 have no used pairs; removed nodes
+    have origin columns at least n0 − 1 and own no positive cell in that prefix. Node aggregates
+    only grow, so replaying those prefix cells would be a no-op. SmallPass can resume exactly
+    at any saved c ≤ min(n0 − 1, nn), with row 1's diagonal predecessor (0, 0, c).
+    Every other SmallPass region uses the unchanged path. Locate, ties and traceback do not change.
+  - Saving full-state DP columns and recomputing forward from them is the checkpointing technique
+    of Grice, Hughey & Speck (1997), analysed by Wheeler & Hughey (2000). It is also the grid-line
+    cache of FastLSA (Driga et al. 2006), here restricted to one level of uniformly spaced columns.
+    Those methods recover a single traceback. This project's addition is narrow: reusing the saved
+    columns for recomputation after Waterman–Eggert exclusions, together with the exactness
+    argument above. Same-build on/off tests on synthetic and real records check that argument.
+  - Checkpoint steps are powers of two, at least 256, chosen per engine so that
+    floor(record length / step) × (query length + 1) × 6 × 4 bytes stays within 4 MiB. If no
+    useful step fits, or the record is shorter than the step, no checkpoints are stored.
+    A pre-BigPass switch permits same-build on/off differential tests; diagnostics prove path
+    coverage and report memory use. Neither is a user setting or a result approximation.
 
   It is written in C and compiled once to WebAssembly with a pinned Emscripten. There is a single
   build, with no SIMD and no fallback variant.
@@ -243,8 +298,9 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
   stage fails (module load, worker start, dispatch, a worker error, a pool member failing), the
   search ends with a visible error and shows no partial results. Cancelled and failed searches are
   labelled differently from "no hits".
-- **Progress and Cancel:** workers report streams finished out of the total, and the current
-  stream's progress through the record. Cancel terminates and replaces the workers at once.
+- **Progress and Cancel:** workers report the score or align phase, streams scored or finished out
+  of the total, and the current pass's fraction. The score pass reports its start and completion.
+  Cancel terminates and replaces the workers at once.
 - **Parallelism** (builder's call): streams may be spread over a pool of workers sized from
   `navigator.hardwareConcurrency`. Results and their order are identical for any pool size and any
   completion order.
@@ -410,6 +466,16 @@ only in the search context and minimizes, with Local's extra options collapsed b
 - Waterman & Eggert (1987), *J Mol Biol* 197:723–728, doi:10.1016/0022-2836(87)90478-5.
 - Huang & Miller (1991), *Adv Appl Math* 12:337–357, doi:10.1016/0196-8858(91)90017-D. The
   `matcher.c` header gives pages 373–381; Crossref gives 337–357.
+- Huang, Miller, Schwartz & Hardison (1992), *CABIOS* 8(2):155–165,
+  doi:10.1093/bioinformatics/8.2.155 (exact parallel form; the H2 ≤ H1 property, p. 156).
+- Grice, Hughey & Speck (1997), *CABIOS* 13(1):45–53, doi:10.1093/bioinformatics/13.1.45.
+- Wheeler & Hughey (2000), *Bioinformatics* 16(12):1082–1090, doi:10.1093/bioinformatics/16.12.1082.
+- Driga, Lu, Schaeffer, Szafron, Charter & Parsons (2006), FastLSA, *Algorithmica* 45(3):337–375,
+  doi:10.1007/s00453-006-1217-y.
+- Farrar (2007), *Bioinformatics* 23(2):156–161, doi:10.1093/bioinformatics/btl582.
+- FASTA package `fasta36` (W. R. Pearson; Apache-2.0), github.com/wrpearson/fasta36 at commit
+  5146347545: `lalign36` build rules in `make/Makefile` and `make/Makefile.pcom`, with
+  `src/dropgsw2.c` and `src/lsim4.c`.
 - Karlin & Altschul (1990), *PNAS* 87:2264–2268, doi:10.1073/pnas.87.6.2264.
 - EMBOSS 6.6.0:
   - `emboss/matcher.c` and `acd/matcher.acd` (GPL-2.0-or-later);

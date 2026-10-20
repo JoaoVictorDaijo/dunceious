@@ -22,6 +22,24 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.6.1] — 2026-10-19
+
+### Changed
+
+- Run CI checks as parallel jobs without the single-worker test cap, and stop re-running CI on pushes to develop.
+- Reorganize the example files into nucleotide and peptide folders, with aligned sets of T7 phages, T4 phages, coronaviruses and POMC orthologs.
+- Give every unit test a 15 s timeout so heavy UI tests stay reliable on parallel CI workers.
+- Ignore the locally rendered JOSS paper outputs (PDF, Crossref and JATS).
+- The Local search design now cites the published sources behind each speed-up: FASTA's lalign36 and Huang et al. (1992) for scoring first, and the checkpointing work of Grice et al., Wheeler & Hughey and FastLSA.
+- Local search runs about twice as fast: a 300 nt query against 50 records of 30 kb on both strands now takes about 5.5 s instead of 12.8 s on the default worker pool. Results, their order and every count stay exactly the same.
+- Run exact and whole-query searches only in the search worker, so a long scan no longer freezes the page, and restore a blank result limit to 100 before searching.
+- Open the phone greeter on the phage T7 genome and the test drive on three aligned T7-like phages, replacing the SARS-CoV-2 samples.
+
+### Fixed
+
+- A failure of the idle search worker no longer cancels a running Local search.
+- Report a failed clipboard write in the record details panel instead of losing it silently, and fix the phone test drive's Export list, Hub first screen, draft handling and export wording.
+
 ## [3.6.0] — 2026-10-19
 
 ### Added

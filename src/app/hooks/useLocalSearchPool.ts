@@ -20,9 +20,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import LocalSearchWorker from '@/src/workers/localSearch.worker.ts?worker&inline';
 import { encodeResidues, loadScoring } from '@/src/core/search/local/scoring';
-import { compareLocalHits, mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
+import { mergeLocalOutcomes, type LocalSearchCounts } from '@/src/core/search/local/selection';
 import type { LocalStreamOutcome } from '@/src/core/search/local/stream';
-import type { SearchResult } from '@/src/domain/bio/types';
+import { LocalScoreBound } from '@/src/core/search/local/bound';
 import type { LocalSearchRequest, LocalSearchResponse, LocalSearchRun, LocalSearchProgress, LocalSearchResult } from '@/src/workers/protocol';
 
 type SearchRequest = Extract<LocalSearchRequest, { type: 'search' }>;
@@ -33,25 +33,32 @@ interface Pending {
   dispatchNext: (worker: Worker) => void;
   id: number; total: number; outcomes: Map<string, LocalStreamOutcome>;
   assigned: Map<Worker, { job: StreamJob; phase: Phase }>; fractions: Map<string, number>;
-  phase: Phase; finished: Set<string>; seeds: Set<string>;
+  phase: Phase; finished: Set<string>;
   acceptOutcome: (worker: Worker, outcome: LocalStreamOutcome) => void;
   reportProgress: () => void;
-  top: Array<{ hit: SearchResult; recordIndex: number }>;
+  ranking: LocalScoreBound;
   boundScore2: number | null;
   skipped: LocalSearchCounts['skippedRecords']; limit: number;
   progress: (p: LocalSearchProgress) => void;
   resolve: (result: LocalSearchResult) => void; reject: (error: Error) => void;
 }
 const streamKey = (index: number, strand: number) => `${index}:${strand}`;
-const alignmentKey = (index: number, hit: SearchResult) => JSON.stringify([
-  index, hit.strand, hit.start, hit.end, hit.local!.queryStart, hit.local!.queryEnd,
-  hit.local!.score, hit.cigar,
-]);
 type PoolFailure = (message: string) => void;
 interface PoolState {
   members: { current: Worker[] };
   initialized: { current: Set<Worker> };
   pending: { current: Pending | null };
+}
+
+function raiseBound(p: Pending, boundScore2: number | null, members: Worker[], fail: PoolFailure): boolean {
+  if (boundScore2 === null || (p.boundScore2 !== null && boundScore2 <= p.boundScore2)) return true;
+  p.boundScore2 = boundScore2;
+  try {
+    for (const member of members) {
+      member.postMessage({ type: 'bound', requestId: p.id, boundScore2 } satisfies LocalSearchRequest);
+    }
+    return true;
+  } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); return false; }
 }
 
 function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () => boolean,
@@ -82,24 +89,10 @@ function createWorkerResponseHandler(worker: Worker, size: number, isAlive: () =
       if (m.hit.recordId !== assigned.job.record.id || m.hit.strand !== assigned.job.strand) {
         fail('Local worker returned a hit for an unassigned record or strand'); return;
       }
-      // A replayed bootstrap alignment cannot contribute a second heap entry.
-      const identity = alignmentKey(m.recordIndex, m.hit);
-      if (assigned.phase === 'bootstrap') p.seeds.add(identity);
-      else if (p.seeds.delete(identity)) return;
-      p.top.push({ hit: m.hit, recordIndex: m.recordIndex });
-      p.top.sort(compareLocalHits);
-      p.top.length = Math.min(p.top.length, p.limit);
-      if (p.top.length === p.limit) {
-        const boundScore2 = p.top[p.limit - 1].hit.local!.score * 2;
-        if (p.boundScore2 === null || boundScore2 > p.boundScore2) {
-          p.boundScore2 = boundScore2;
-          try {
-            for (const member of members.current) {
-              member.postMessage({ type: 'bound', requestId: p.id, boundScore2 } satisfies LocalSearchRequest);
-            }
-          } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); }
-        }
-      }
+      if (assigned.phase !== 'align') { fail('Local worker returned an alignment during scoring'); return; }
+      try {
+        raiseBound(p, p.ranking.acceptHit(key, m.hit.local!.score * 2), members.current, fail);
+      } catch (e) { fail(`Local search failed: ${e instanceof Error ? e.message : String(e)}`); }
       return;
     }
     if (m.type === 'progress') {
@@ -118,15 +111,15 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
   return new Promise((resolve, reject) => {
     let queue = jobs;
     let nextJob = 0;
-    let bootstrapDone = 0;
+    let scoresDone = 0;
     const p: Pending = { dispatch: null, dispatchNext: () => {}, acceptOutcome: () => {}, reportProgress: () => {},
-      id: ++nextId.current, total: jobs.length, phase: 'bootstrap', finished: new Set(), seeds: new Set(),
-      outcomes: new Map(), assigned: new Map(), fractions: new Map(), top: [], boundScore2: null,
+      id: ++nextId.current, total: jobs.length, phase: 'score', finished: new Set(),
+      outcomes: new Map(), assigned: new Map(), fractions: new Map(), ranking: new LocalScoreBound(request.limit), boundScore2: null,
       skipped, limit: request.limit, progress: onProgress, resolve, reject };
     pending.current = p;
     p.reportProgress = () => {
       if (pending.current !== p) return;
-      p.progress({ streamsDone: p.finished.size, streamsTotal: p.total,
+      p.progress({ phase: p.phase, streamsDone: p.phase === 'score' ? scoresDone : p.finished.size, streamsTotal: p.total,
         currentFraction: p.fractions.size ? [...p.fractions.values()].reduce((a, b) => a + b, 0) / p.fractions.size : 0 });
     };
     const finishIfDone = () => {
@@ -143,8 +136,9 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
         const job = queue[nextJob++];
         const key = streamKey(job.recordIndex, job.strand);
         // Equality can still change which hits survive the canonical tie ordering.
-        if (p.phase === 'refine' && p.boundScore2 !== null
+        if (p.phase === 'align' && p.boundScore2 !== null
           && p.outcomes.get(key)!.firstScore2! < p.boundScore2) {
+          p.ranking.finishStream(key);
           p.finished.add(key); p.reportProgress();
           continue;
         }
@@ -152,7 +146,8 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
         try {
           worker.postMessage({ type: 'search', phase: p.phase, requestId: p.id, query: request.query,
             scoring: request.scoring, moleculeType: request.moleculeType, limit: request.limit,
-            filters: request.filters, jobs: [job], boundScore2: p.boundScore2 } satisfies SearchRequest);
+            filters: request.filters, jobs: [{ ...job, ...(p.phase === 'align'
+              ? { upperBoundScore2: p.outcomes.get(key)!.firstScore2! } : {}) }], boundScore2: p.boundScore2 } satisfies SearchRequest);
         } catch (e) { fail(`Local worker dispatch failed: ${String(e)}`); }
         return;
       }
@@ -161,24 +156,32 @@ function startPendingRun(request: LocalSearchRun, onProgress: Pending['progress'
     p.acceptOutcome = (worker, outcome) => {
       const key = streamKey(outcome.recordIndex, outcome.strand);
       p.outcomes.set(key, outcome); p.fractions.delete(key); p.assigned.delete(worker);
-      if (p.phase === 'bootstrap') {
-        bootstrapDone++;
+      if (p.phase === 'score') {
+        scoresDone++;
         if (outcome.exhausted) p.finished.add(key);
-        if (bootstrapDone === p.total) {
-          p.phase = 'refine'; nextJob = 0;
+        if (scoresDone === p.total) {
+          p.phase = 'align'; nextJob = 0;
           queue = jobs.map((job, order) => ({ job, order,
             outcome: p.outcomes.get(streamKey(job.recordIndex, job.strand))! }))
             .filter(entry => !entry.outcome.exhausted)
             .sort((a, b) => b.outcome.firstScore2! - a.outcome.firstScore2! || a.order - b.order)
             .map(entry => entry.job);
+          // Filters can reject a stream's first hit, so only unfiltered streams guarantee
+          // passing scores before those hits arrive.
+          const firstScores = request.filters.minIdentity === null && request.filters.minQueryCoverage === null
+            ? queue.map(job => [streamKey(job.recordIndex, job.strand),
+              p.outcomes.get(streamKey(job.recordIndex, job.strand))!.firstScore2!] as const) : [];
+          p.ranking = new LocalScoreBound(p.limit, firstScores);
+          if (!raiseBound(p, p.ranking.score2, members.current, fail)) return;
           for (const member of members.current) p.dispatchNext(member);
         } else p.dispatchNext(worker);
       } else {
+        p.ranking.finishStream(key);
         p.finished.add(key); p.dispatchNext(worker);
       }
       p.reportProgress(); finishIfDone();
     };
-    onProgress({ streamsDone: 0, streamsTotal: jobs.length, currentFraction: 0 });
+    onProgress({ phase: 'score', streamsDone: 0, streamsTotal: jobs.length, currentFraction: 0 });
     const dispatch = () => { members.current.forEach(worker => p.dispatchNext(worker)); };
     // A restart can queue the next search before React publishes replacement readiness.
     if (initialized.current.size === members.current.length) dispatch();
