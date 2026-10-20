@@ -189,20 +189,20 @@ async function expectNoTopBarOverlap(page: Page) {
   })).toBe(true);
 }
 
-async function expectCogThemeReachable(page: Page) {
+async function expectCogResetReachable(page: Page) {
   const nav = page.locator('nav.app-nav');
   for (const [width, height] of [[1366, 768], [1024, 600]]) {
     await page.setViewportSize({ width, height });
     await nav.getByRole('button', { name: 'Project and options' }).click();
     const dialog = page.getByRole('dialog', { name: 'Project and options' });
-    const theme = dialog.getByRole('radio').last();
-    await dialog.getByRole('radio').first().focus();
-    await page.keyboard.press('End');
-    await expect(theme).toBeFocused();
-    const box = (await theme.boundingBox())!;
+    const reset = dialog.getByRole('button', { name: 'Reset to Defaults' });
+    await reset.scrollIntoViewIfNeeded();
+    await reset.focus();
+    await expect(reset).toBeFocused();
+    await reset.click({ trial: true });
+    const box = (await reset.boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(64);
     expect(box.y + box.height).toBeLessThanOrEqual(height);
-    await theme.click();
     await dialog.press('Escape');
   }
 }
@@ -282,5 +282,5 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   }
   await toolbar.getByRole('button', { name: 'Clear selection' }).click();
   await expect(nav).toHaveAttribute('data-fit-step', stepBefore!);
-  await expectCogThemeReachable(page);
+  await expectCogResetReachable(page);
 });

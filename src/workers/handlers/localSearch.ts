@@ -34,7 +34,8 @@ export function createLocalSearchHandler(post: (message: LocalSearchResponse) =>
   return async (request: LocalSearchRequest): Promise<void> => {
     if (request.type === 'init') {
       try {
-        engine = await instantiate(await WebAssembly.compile(request.wasm));
+        engine = await instantiate(await WebAssembly.compile(request.wasm),
+          request.scoreWasm ? { scoreModule: await WebAssembly.compile(request.scoreWasm) } : {});
         post({ type: 'ready' });
       } catch (e) { post({ type: 'init-error', error: e instanceof Error ? e.message : String(e) }); }
       return;

@@ -46,7 +46,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
   - **Selection JSON**: Selected region as a JSON project snapshot (0-based half-open intervals).
   - **Project JSON**: Format-2 workspace persistence (records, features, colours, toggles, details/originals/edit state, names and modifiers); earlier formats are rejected without migration. The export dialog writes a chosen subset; Save project writes the full workspace.
   - **Export dialog**: Context-based sequence selection, quick picks, format options, filename and a serializer-backed contents/omissions preview. See [export contracts and preservation](./ARCHITECTURE.md#export-format-contracts).
-- **Options**: four chrome themes (Clean, Halo, Aurora, Mesh), remembered in this browser, and per-type feature colours, saved with the project.
+- **Options**: per-type feature colours, saved with the project.
 
 ### 2.2 Non-Functional Requirements
 
@@ -115,9 +115,10 @@ best passing score for result limit N) stops streams only below that score, pres
 counts cover the final cut-off or all positive alignments when no cut-off applies. See
 [the architecture search section](./ARCHITECTURE.md#search-srcworkershandlerssearchts) for scheduling.
 
-Rebuild the committed `public/wasm/local-align.wasm` with `bash scripts/build-local-engine.sh`
-using Docker. The script pins `emscripten/emsdk:3.1.74` by digest; builds use no SIMD or alternate
-engine. [`PROVENANCE.json`](./wasm/local-align/PROVENANCE.json) records the image digest, source
+Rebuild the committed `public/wasm/local-align.wasm` and `public/wasm/local-align-ssw.wasm` with
+`bash scripts/build-local-engine.sh` using Docker. The script pins `emscripten/emsdk:3.1.74` by
+digest. The engine has no SIMD. The second module is SSW's SIMD score pass, loaded only where wasm
+SIMD validates; elsewhere the engine's scalar score pass gives the same scores. [`PROVENANCE.json`](./wasm/local-align/PROVENANCE.json) records the image digest, source
 and matrix hashes, flags, environment and artifact hash. CI rebuilds separately and requires
 byte-identical output. Normal app builds use the committed artifact and need no Emscripten.
 

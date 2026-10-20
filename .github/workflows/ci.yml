@@ -122,13 +122,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild local alignment engine
-        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm
+      - name: Rebuild local alignment engine and SSW score module
+        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm public/wasm/local-align-ssw.rebuilt.wasm
 
-      - name: Require reproducible artifact below 25 MiB
+      - name: Require reproducible artifacts below 25 MiB
         run: |
-          cmp public/wasm/local-align.wasm public/wasm/local-align.rebuilt.wasm
-          test "$(wc -c < public/wasm/local-align.wasm)" -lt 26214400
+          for name in local-align local-align-ssw; do
+            cmp "public/wasm/$name.wasm" "public/wasm/$name.rebuilt.wasm"
+            test "$(wc -c < "public/wasm/$name.wasm")" -lt 26214400
+          done
 
   # Branch protection requires a check named "ci"; this job carries that name
   # so the parallel jobs above can be renamed or split without touching it.

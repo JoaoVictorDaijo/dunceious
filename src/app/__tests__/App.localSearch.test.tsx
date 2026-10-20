@@ -29,7 +29,7 @@ import type { SeqRecord } from '@/src/domain/bio/types';
 import App from '../App';
 
 const pool = vi.hoisted(() => ({ ready: true, error: null as string | null, run: vi.fn(), cancel: vi.fn() }));
-const moduleState = vi.hoisted(() => ({ bytes: new ArrayBuffer(8), error: null as string | null }));
+const moduleState = vi.hoisted(() => ({ bytes: { engine: new ArrayBuffer(8), score: null }, error: null as string | null }));
 vi.mock('../hooks/useLocalSearchPool', () => ({ useLocalSearchPool: () => pool }));
 vi.mock('../lib/localEngineModule', () => ({ useLocalEngineBytes: () => moduleState, loadLocalEngineBytes: () => Promise.resolve(moduleState.bytes) }));
 vi.mock('@/src/app/viewer/GenomeViewer', () => ({ default: ({ records, completedSearch, searchResults, activeSelection, onViewDetails }: ComponentProps<typeof GenomeViewer>) => <>

@@ -60,5 +60,57 @@
   "engine": {
     "path": "wasm/local-align/matcher_engine.c",
     "sha256": "b21227b9d5effa98cc03514717c6d66921b518c29d558a54a78307e28d310c7d"
+  },
+  "scoreModule": {
+    "purpose": "Score-only pass (maxScore); loaded only where wasm SIMD validates, otherwise la_max_score runs",
+    "source": {
+      "library": "SSW (Complete Striped Smith-Waterman Library) 1.2.6",
+      "repository": "https://github.com/mengyao/Complete-Striped-Smith-Waterman-Library",
+      "commit": "a66636b79ef36ac178122437053be0d8ef345271",
+      "files": {
+        "wasm/local-align/vendor/ssw/ssw.c": "17ab788a1c4c011c98c26e10ba51fa8e6cde0e7c41a98c3d1ef6aefdf8dc9779",
+        "wasm/local-align/vendor/ssw/ssw.h": "a917a85630e44389ea9e9d0fc4ede90b19a7eb6015653965a5a1b395f894609a",
+        "wasm/local-align/vendor/ssw/LICENSE.txt": "82f02c742ca91b39a03b23c1f9f55da4c8fbc3e0d906774d5ce71eb1e8ad5a4b"
+      },
+      "modified": false
+    },
+    "wrapper": {
+      "path": "wasm/local-align/ssw_score.c",
+      "sha256": "5b210a861689aaf4dfddb26267a92d73c6457dec60cf3250923d8e4b22bfc129"
+    },
+    "flags": [
+      "-std=gnu11",
+      "-msimd128",
+      "-msse2",
+      "-O2",
+      "--no-entry",
+      "-fno-ident",
+      "-ffile-prefix-map=/src=.",
+      "-sSTANDALONE_WASM=1",
+      "-sFILESYSTEM=0",
+      "-sALLOW_MEMORY_GROWTH=1",
+      "-sMALLOC=emmalloc",
+      "-sABORTING_MALLOC=0",
+      "-sASSERTIONS=0",
+      "-sEXPORTED_FUNCTIONS=[\"_la_max_score_ssw\",\"_malloc\",\"_free\"]"
+    ],
+    "artifact": {
+      "path": "public/wasm/local-align-ssw.wasm",
+      "sha256": "2baea3f72cf1594fca021dddfbddac932c54c4029c231bbe42a5927a53cf2dc6",
+      "bytes": 5573
+    },
+    "notice": "public/wasm/local-align-ssw.NOTICE.txt",
+    "licence": {
+      "spdx": "MIT AND BSD-2-Clause",
+      "attribution": [
+        "Mengyao Zhao and other SSW developers (Boston College), MIT",
+        "Michael Farrar 2006, BSD-2-Clause (striped core loop)",
+        "SWPS3, ETH Zürich, MIT (lazy-F loop, per ssw.c)"
+      ],
+      "citations": [
+        "Zhao M, Lee W-P, Garrison EP, Marth GT (2013) PLoS ONE 8(12):e82138, doi:10.1371/journal.pone.0082138",
+        "Farrar M (2007) Bioinformatics 23(2):156-161, doi:10.1093/bioinformatics/btl582"
+      ]
+    }
   }
 }

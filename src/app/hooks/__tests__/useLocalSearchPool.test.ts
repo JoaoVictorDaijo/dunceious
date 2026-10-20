@@ -53,8 +53,9 @@ class InProcessWorker {
     void this.handle(m);
   }
 }
-const b = readFileSync('public/wasm/local-align.wasm');
-const bytes = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+const load = (path: string) => { const b = readFileSync(path); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); };
+const bytes = { engine: load('public/wasm/local-align.wasm'), score: null };
+const sswBytes = { engine: bytes.engine, score: load('public/wasm/local-align-ssw.wasm') };
 const request = { query: 'AA', scoring: 'EDNAFULL' as const, moleculeType: 'dna' as const, limit: 2, filters: { minIdentity: null, minQueryCoverage: null },
   records: [{ id: 'a', sequence: 'AAAT' }, { id: 'b', sequence: 'TTAA' }], strand: 'both' as const };
 beforeEach(() => { InProcessWorker.instances = []; InProcessWorker.failSearchAt = null; InProcessWorker.pause = false; InProcessWorker.events = []; vi.stubGlobal('Worker', InProcessWorker); });
@@ -72,6 +73,21 @@ it('returns identical results with one and four members despite completion order
     h.unmount();
   }
   expect(outcomes[0]).toEqual(outcomes[1]);
+});
+it('returns identical results with the SSW and scalar score passes', async () => {
+  const outcomes: LocalSearchResult[] = [];
+  for (const moduleBytes of [bytes, sswBytes]) {
+    const h = renderHook(() => useLocalSearchPool(moduleBytes));
+    await waitFor(() => expect(h.result.current.ready).toBe(true));
+    let result!: LocalSearchResult;
+    await act(async () => { result = await h.result.current.run(request, () => {}); });
+    outcomes.push(result);
+    h.unmount();
+  }
+  expect(outcomes[1]).toEqual(outcomes[0]);
+  const inits = InProcessWorker.instances.flatMap(w => w.sent.filter(m => m.type === 'init'));
+  expect(inits.some(m => m.type === 'init' && m.scoreWasm === undefined)).toBe(true);
+  expect(inits.some(m => m.type === 'init' && m.scoreWasm?.byteLength === sswBytes.score.byteLength)).toBe(true);
 });
 it('cancels, retires every member and initializes replacements from bytes', async () => {
   const h = renderHook(() => useLocalSearchPool(bytes));
@@ -321,7 +337,7 @@ it.each([
   const q = encodeResidues(c.query, scoring);
   if (!('codes' in q)) throw new Error('Invalid synthetic query');
   const input = { ...request, ...c, limit: 3, filters: { minIdentity: 75, minQueryCoverage: 50 } };
-  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes.engine));
   const exhaustive = mergeLocalOutcomes(c.records.flatMap((record, recordIndex) =>
     (c.moleculeType === 'protein' ? [1 as const] : [1 as const, -1 as const]).map(strand =>
       runLocalStream(engine, { ...input, record, recordIndex, strand, queryCodes: q.codes, scoring }))), input.limit, []);
@@ -349,7 +365,7 @@ it('seeds the bound before aligning and stops an overlap-heavy stream below the 
       { id: 'another-tie', sequence: 'AAAAAAAA' }, { id: 'zero', sequence: 'CCCCCCCC' }] };
   const encoded = encodeResidues(input.query, scoring);
   if (!('codes' in encoded)) throw new Error('Invalid synthetic query');
-  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes.engine));
   const exhaustive = input.records.map((record, recordIndex) => runLocalStream(engine,
     { ...input, record, recordIndex, strand: 1, queryCodes: encoded.codes, scoring }));
   const reference = mergeLocalOutcomes(exhaustive, input.limit, []);
@@ -414,7 +430,7 @@ it('raises the bound from a hit that displaces an unaligned stream placeholder',
     if (!('codes' in encoded)) throw new Error('Invalid synthetic query');
     return encoded.codes;
   };
-  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes));
+  const engine = await instantiateLocalEngine(await WebAssembly.compile(bytes.engine));
   const exhaustive = input.records.map((record, recordIndex) => runLocalStream(engine,
     { ...input, record, recordIndex, strand: 1, queryCodes: codes(input.query), scoring }));
   const reference = mergeLocalOutcomes(exhaustive, input.limit, []);

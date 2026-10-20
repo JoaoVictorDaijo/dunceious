@@ -37,8 +37,7 @@ import type { FocusTarget } from '@/src/app/logic/focusTarget';
 import { featureIndexOf as resolveFeatureIndex } from '@/src/app/logic/featureIndex';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { DEFAULT_ALIGNMENT_COMPARISON, activeComparison, canCompare, comparisonCandidates, resolveReference, withReference, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
-import { resolveEnvAccent } from './logic/environment';
-import { getTheme, readThemePref, writeThemePref, resolveThemeVars, type ThemeKey } from './logic/theme';
+import { envAccentVars, resolveEnvAccent } from './logic/environment';
 import {
   removeRecordFromProject,
   sanitizeSearchStateAfterRecordRemoval,
@@ -118,7 +117,6 @@ const App: React.FC = () => {
     setFocusedRegion(target);
     setPendingFocus(target);
   }, []);
-  const [themeKey, setThemeKey] = useState<ThemeKey>(readThemePref);
 
   // ── Domain hooks ──────────────────────────────────────────────────────────
   const {
@@ -342,7 +340,7 @@ const App: React.FC = () => {
   );
 
   const envAccent = resolveEnvAccent(activeTab, sessionMoleculeType);
-  const themeStyle = resolveThemeVars(getTheme(themeKey), envAccent) as React.CSSProperties;
+  const themeStyle = envAccentVars(envAccent) as React.CSSProperties;
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -353,11 +351,6 @@ const App: React.FC = () => {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [records.length]);
-
-  const handleSetThemeKey = (key: ThemeKey) => {
-    writeThemePref(key);
-    setThemeKey(key);
-  };
 
   const handleClearAll = () => {
     if (remoteAlignment.isLocked()) return;
@@ -450,8 +443,6 @@ const App: React.FC = () => {
         onTabChange={changeTab}
         featureColors={featureColors}
         onSetFeatureColors={setFeatureColors}
-        themeKey={themeKey}
-        onSetThemeKey={handleSetThemeKey}
         showAlignmentControls={activeTab === 'alignment' && records.length > 0}
         dragMode={dragMode}
         onDragModeChange={setDragMode}
@@ -611,7 +602,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <StatusBar sessionMoleculeType={sessionMoleculeType} themeKey={themeKey} />
+      <StatusBar sessionMoleculeType={sessionMoleculeType} />
 
       <TooltipLayer />
 

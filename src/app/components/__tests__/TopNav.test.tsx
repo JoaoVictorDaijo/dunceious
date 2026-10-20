@@ -27,7 +27,7 @@ import ImportMenu from '../hub/ImportMenu';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { createPortal } from 'react-dom';
 const noop = () => {};
-const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, themeKey: 'clean', onSetThemeKey: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
+const defaults: TopNavProps = { sidebarOpen: true, onToggleSidebar: noop, activeTab: 'alignment', onTabChange: noop, featureColors: {}, onSetFeatureColors: noop, showAlignmentControls: true, dragMode: 'select', onDragModeChange: noop, showAnnotations: true, onToggleAnnotations: noop, showTracks: true, onToggleTracks: noop, showTranslation: true, onToggleTranslation: noop, showConservation: false, onToggleConservation: noop, isAlignmentLoaded: false, sessionMoleculeType: 'nucleotide', onSaveProject: () => null, onOpenProject: noop, onClearWorkspace: noop, sequenceCount: 0 };
 function Subject() {
   const [mode, setMode] = useState<'alignment' | 'features'>('alignment');
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);

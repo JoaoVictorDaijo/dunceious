@@ -50,6 +50,30 @@ negative error. Inputs follow `la_create`'s validation. It uses two record-lengt
 score rows, no origins or candidate nodes, and retains no context or input copies.
 It neither advances nor changes any enumeration handle.
 
+## SSW score module
+
+`ssw_score.c` builds `public/wasm/local-align-ssw.wasm`, a separate module, because SIMD
+instructions make a whole module invalid on browsers without wasm SIMD. It `#include`s SSW
+(Zhao et al. 2013, doi:10.1371/journal.pone.0082138) unmodified from `vendor/ssw/`. The pinned
+commit is a66636b79ef36ac178122437053be0d8ef345271. The module calls only SSW's 16-bit striped
+pass (`qP_word`, `sw_sse2_word`): Farrar's (2007) kernel, doi:10.1093/bioinformatics/btl582,
+with SWPS3's lazy-F loop. It skips `ssw_align`, which writes to stderr, runs an 8-bit attempt
+and a start-position pass, and would import WASI.
+
+`la_max_score_ssw(query, qlen, record, rlen, matrix, size, gap_open, gap_extend)` takes
+`la_max_score`'s arguments and returns the same score2. It returns −1 for invalid codes, sizes
+or gaps, −2 on allocation failure, and −3 when the caller must use `la_max_score` instead: an
+empty input, a matrix entry outside int8, or `max entry × min(qlen, rlen) ≥ 32767`, where the
+saturating 16-bit adds could clip. SSW's lazy-F loop can't reach a deletion directly followed
+by an insertion. Swapping those gaps keeps the end cells and the cost, so the maximum is the
+same. The TypeScript binding takes the module as
+`instantiateLocalEngine(module, { scoreModule })` and reports `scoreKernel`. The page passes it
+only when its SIMD probe validates.
+
+The module needs `-msimd128 -msse2` and `-std=gnu11`, imports only
+`env.emscripten_notify_memory_growth`, and keeps per-call allocations: 6 bytes per record
+residue plus the query profile.
+
 `la_set_checkpoints(handle, enabled)` selects the checkpoint policy (0 or 1,
 initially 1) before the first `la_bigpass_step` call. It returns 0, −1 for an
 invalid handle/value or failed context, or −3 after BigPass starts. Disabling
@@ -119,3 +143,8 @@ exception. The port is used under GPL-3.0-or-later in combination with the
 application’s AGPL-3.0-or-later. The matrices preserve their own headers,
 including Todd Lowe’s EDNAFULL attribution. Exact evidence is recorded in
 `PROVENANCE.json`; the third-party notice integration belongs to Task 18.
+
+`vendor/ssw/` keeps SSW's MIT `LICENSE.txt` and the MIT (Boston College) and BSD-2-Clause (Michael
+Farrar, 2006) notices inside `ssw.c`. `public/wasm/local-align-ssw.NOTICE.txt` reproduces them
+next to the shipped module. `PROVENANCE.json` (`scoreModule`) records their hashes, the wrapper
+hash, flags and the artifact hash.

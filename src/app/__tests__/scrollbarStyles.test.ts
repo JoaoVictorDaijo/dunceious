@@ -36,7 +36,7 @@ const SUPPORTS_GUARD = '@supports not selector(::-webkit-scrollbar)';
 /** Byte range of the `@supports` guard's body, found by brace matching. */
 const supportsRange = (css: string): [number, number] => {
   const start = css.indexOf(SUPPORTS_GUARD);
-  expect(start, `${SUPPORTS_GUARD} must exist in themes.css`).toBeGreaterThan(-1);
+  expect(start, `${SUPPORTS_GUARD} must exist in chrome.css`).toBeGreaterThan(-1);
   let depth = 0;
   for (let i = css.indexOf('{', start); i < css.length; i++) {
     if (css[i] === '{') depth++;
@@ -47,7 +47,7 @@ const supportsRange = (css: string): [number, number] => {
 
 describe('scrollbar styles', () => {
   it('keeps every standard scrollbar property inside the @supports guard', () => {
-    const css = read('src/app/themes.css');
+    const css = read('src/app/chrome.css');
     const [start, end] = supportsRange(css);
 
     for (const match of css.matchAll(/scrollbar-(?:width|color)\s*:/g)) {
@@ -68,10 +68,10 @@ describe('scrollbar styles', () => {
     }
   });
 
-  it('owns both halves of every styled scrollbar in themes.css', () => {
-    const css = read('src/app/themes.css');
+  it('owns both halves of every styled scrollbar in chrome.css', () => {
+    const css = read('src/app/chrome.css');
     for (const selector of ['.custom-scrollbar-pro', '.scrollbar-on-light', '.seq-scroll']) {
-      expect(css, `${selector} must be defined in themes.css`).toContain(selector);
+      expect(css, `${selector} must be defined in chrome.css`).toContain(selector);
     }
     // .seq-scroll's webkit half lived in App.tsx while its standard half lived
     // here — the split that let the conflict above go unnoticed.

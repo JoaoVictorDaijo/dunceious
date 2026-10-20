@@ -122,6 +122,8 @@ test('Local search sends only enumerated static requests through search, Cancel 
   await start(page, genome.slice(20000, 20030)); await done(page);
   expect(requests).toEqual(requestsBeforeCancel);
   expect(forbidden).toEqual([]); expect(errors).toEqual([]);
+  // Chromium validates wasm SIMD, so the SSW score module loads once and replacements reuse it.
+  expect(requests.filter(r => new URL(r.split(' ')[1]).pathname === '/wasm/local-align-ssw.wasm')).toHaveLength(1);
 });
 test('corrupt module fails visibly without any non-static request', async ({ page, context }) => {
   const { forbidden } = await restrict(context, true);
