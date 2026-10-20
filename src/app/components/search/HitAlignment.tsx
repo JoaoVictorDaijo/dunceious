@@ -60,8 +60,8 @@ function ResultMetrics({ match }: { match: SearchResult }) {
   </>;
 }
 
-// 28 label/coordinate characters plus this many columns fit the default 1080p sidebar at 10px mono.
-const SIDEBAR_ALIGNMENT_COLUMNS = 40;
+// 28 label/coordinate characters plus this many columns fit the default 1080p (400 px) sidebar at 10px mono.
+const SIDEBAR_ALIGNMENT_COLUMNS = 20;
 
 export function HitAlignmentSummary({ result, record, search }: { result: SearchResult; record: SeqRecord; search: CompletedSearch }) {
   const columns = hitColumns({ ...search, cigar: result.cigar, query: pathQuery(search.query, search.mode), span: ungappedSpan(result, record) });

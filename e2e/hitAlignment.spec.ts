@@ -49,7 +49,7 @@ test('whole-query hit marks, alignment text and an annotation query layer', asyn
   await alignment.locator('summary').click();
   await expect(alignment.locator('pre')).toContainText('Query');
   await expect(alignment.locator('pre')).toContainText('10001');
-  await expect(alignment.locator('pre')).toContainText('TCTGATGTTCTTTACCAACC-ACCACAAACCTCTATCACC');
+  await expect(alignment.locator('pre')).toContainText('TCTGATGTTCTTTACCAACC');
   await page.screenshot({ path: `${shots}/result-cards.png` });
   await page.getByRole('button', { name: 'Zoom Sel', exact: true }).click();
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
