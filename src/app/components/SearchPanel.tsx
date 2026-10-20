@@ -112,7 +112,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('exact')}
             aria-pressed={searchMode === 'exact'}
             data-tip="Exact search with IUPAC ambiguity codes (N, R, Y…)"
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'exact' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             IUPAC
           </button>
@@ -120,14 +120,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={() => onSearchModeChange('fuzzy')}
             aria-pressed={searchMode === 'fuzzy'}
             data-tip="Approximate search: tolerates substitutions and indels, ranked by identity"
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${searchMode === 'fuzzy' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
           >
             Fuzzy
           </button>
         </div>
       }>Sequence Search</SectionTitle>
 
-      <div className="space-y-6 bg-slate-900/40 p-6 rounded-[2.5rem] border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
+      <div className="space-y-6 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
         {searchMode === 'fuzzy' && <div className="space-y-2">
           <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
             {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
