@@ -22,6 +22,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.7.0] — 2026-10-20
+
+### Changed
+
+- Size the sidebar to the screen (320 to 520 px) and fit the search options and alignment view inside it; Copy still gives the 60-column EMBOSS alignment.
+
 ## [3.6.2] — 2026-10-20
 
 ### Changed

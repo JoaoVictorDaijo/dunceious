@@ -29,7 +29,7 @@ import { useSessionOpenState } from '../../hooks/useSessionOpenState';
 import SectionTitle from '../SectionTitle';
 import { useUiEffects } from '../uiEffects';
 
-export function HitAlignment({ text, storageKey, metrics }: { text: string; storageKey: string; metrics?: ReactNode }) {
+export function HitAlignment({ text, shownText = text, storageKey, metrics }: { text: string; shownText?: string; storageKey: string; metrics?: ReactNode }) {
   const { copyText } = useUiEffects();
   const [open, setOpen] = useSessionOpenState(`alignment:${storageKey}`);
   const [copyStatus, setCopyStatus] = useState('');
@@ -43,7 +43,7 @@ export function HitAlignment({ text, storageKey, metrics }: { text: string; stor
       try { setCopyStatus(await copyText(text) ? 'Copied' : ''); }
       catch { setCopyStatus('Copy failed'); }
     }}>Copy</button><span role="status" className="text-xs">{copyStatus}</span>
-    <pre className="overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded">{text}</pre>
+    <pre className="custom-scrollbar-pro overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded">{shownText}</pre>
   </details>;
 }
 
@@ -60,15 +60,19 @@ function ResultMetrics({ match }: { match: SearchResult }) {
   </>;
 }
 
+// 28 label/coordinate characters plus this many columns fit the default 1080p sidebar at 10px mono.
+const SIDEBAR_ALIGNMENT_COLUMNS = 40;
+
 export function HitAlignmentSummary({ result, record, search }: { result: SearchResult; record: SeqRecord; search: CompletedSearch }) {
   const columns = hitColumns({ ...search, cigar: result.cigar, query: pathQuery(search.query, search.mode), span: ungappedSpan(result, record) });
   const seq = record.alignedSequence || record.sequence;
   const recordStart = result.strand === 1 ? seq.slice(0, result.start).replace(/-/g, '').length + 1
     : seq.slice(0, result.end).replace(/-/g, '').length;
+  const pair = { columns, queryName: 'Query', recordName: result.recordId, queryStart: (result.local?.queryStart ?? 0) + 1, recordStart, strand: result.strand };
   return <>
     <HitBarcode columns={columns} strand={result.strand} alphabet={search.alphabet} mode={search.mode} />
     <p className="text-[11px] text-slate-400 mt-1">{hitCountsText(hitCounts(columns), search.mode)}</p>
     <HitAlignment metrics={result.local ? <ResultMetrics match={result} /> : undefined} storageKey={`${result.recordId}:${result.start}:${result.end}:${result.strand}`}
-      text={formatPairAlignment({ columns, queryName: 'Query', recordName: result.recordId, queryStart: (result.local?.queryStart ?? 0) + 1, recordStart, strand: result.strand })} />
+      text={formatPairAlignment(pair)} shownText={formatPairAlignment({ ...pair, width: SIDEBAR_ALIGNMENT_COLUMNS })} />
   </>;
 }

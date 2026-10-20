@@ -88,6 +88,13 @@ export interface SidebarProps {
  * Left sidebar containing selection inspector, record navigator, navigation,
  * ingestion controls, sequence search, and log terminal.
  */
+// Scaled to the common 16:9 widths (1280, 1366, 1600, 1920) so the search options fit without scrolling;
+// 1920 and up is also wide enough for a full alignment block (see SIDEBAR_ALIGNMENT_COLUMNS).
+const defaultSidebarWidth = () => {
+  const w = window.innerWidth;
+  return w >= 1920 ? 520 : w >= 1600 ? 440 : w >= 1366 ? 380 : 320;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   localSearch,
   open,
@@ -139,9 +146,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   isProteinSession,
 }) => {
   const fileDragActive = useFileDragActive();
-  const [width, setWidth] = useState(320);
+  const [width, setWidth] = useState(defaultSidebarWidth);
   const sidebarRef = useRef<HTMLElement>(null);
-  const widthRef = useRef(320);
+  const widthRef = useRef(width);
   const dragCleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => { dragCleanup.current?.(); }, []);
   const addSequencesInput = useRef<HTMLInputElement>(null);
