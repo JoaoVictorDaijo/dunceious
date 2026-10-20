@@ -197,6 +197,9 @@ async function expectCogResetReachable(page: Page) {
     const dialog = page.getByRole('dialog', { name: 'Project and options' });
     const reset = dialog.getByRole('button', { name: 'Reset to Defaults' });
     await reset.scrollIntoViewIfNeeded();
+    await reset.focus();
+    await expect(reset).toBeFocused();
+    await reset.click({ trial: true });
     const box = (await reset.boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(64);
     expect(box.y + box.height).toBeLessThanOrEqual(height);
