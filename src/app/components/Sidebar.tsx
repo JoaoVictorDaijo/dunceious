@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
-    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar-pro space-y-8 pr-1'}>
+    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
 
       <input ref={addSequencesInput} aria-label="Add sequences files" hidden disabled={isAlignmentLocked} type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
       {activeTab === 'features' && hubState && <><HubIndex records={records} featureColors={featureColors} state={hubState} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
