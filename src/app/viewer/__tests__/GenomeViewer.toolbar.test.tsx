@@ -89,7 +89,7 @@ it('dismissing the cog with Escape preserves selection and restores focus before
     const [activeSelection, setSelection] = useState<SelectionArea | null>(selection);
     return <>
       <TopNav sidebarOpen onToggleSidebar={noop} activeTab="alignment" onTabChange={noop}
-        featureColors={{}} onSetFeatureColors={noop} themeKey="clean" onSetThemeKey={noop}
+        featureColors={{}} onSetFeatureColors={noop}
         showAlignmentControls dragMode="select" onDragModeChange={noop}
         showAnnotations onToggleAnnotations={noop} showTracks onToggleTracks={noop}
         showTranslation onToggleTranslation={noop} showConservation={false} onToggleConservation={noop}

@@ -376,7 +376,6 @@ Choose FASTA, GenBank, GFF3 or Dunceious project, then set options and the filen
 
 The **Project and options** cog in the top bar holds the Project actions (Save, Open and Clear workspace), followed by these options:
 
-- **Chrome theme**: Clean, Halo, Aurora or Mesh. Remembered in this browser.
 - **Feature Colors**: a colour per feature type; **Reset to Defaults** restores them. Colours are saved with the project.
 
 Hovering (or keyboard-focusing) any control shows a tooltip explaining it, with its shortcut where it has one and the reason when it is disabled. Animations are switched off when your system asks for reduced motion.

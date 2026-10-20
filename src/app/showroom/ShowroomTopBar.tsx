@@ -149,8 +149,7 @@ export function ShowroomTopBar({ workspace, tab, onTabChange, toolsRef, sidebarO
       disabledReason: isAlignmentLoaded ? undefined : 'Conservation needs an alignment: upload a pre-aligned FASTA first' },
   ];
   return (
-    <nav data-theme="clean" aria-label="Workbench" className="app-nav relative z-50 h-11 shrink-0 border-b border-slate-800/80 bg-slate-900">
-      <div className="hf-env" aria-hidden="true" />
+    <nav aria-label="Workbench" className="app-nav relative z-50 h-11 shrink-0 border-b border-slate-800/80 bg-slate-900">
       <div className="relative z-[1] flex h-full items-center gap-1.5 px-1.5">
         <button ref={sidebarToggleRef} type="button" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarOpen}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60">

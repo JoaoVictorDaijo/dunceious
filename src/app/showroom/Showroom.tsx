@@ -23,8 +23,7 @@ import { UiEffectsContext } from '@/src/app/components/uiEffects';
 import GenomeViewer from '@/src/app/viewer/GenomeViewer';
 import { deriveAlignmentState } from '@/src/app/logic/viewModel';
 import { clearAlignConsent } from '@/src/app/logic/alignConsentPref';
-import { resolveEnvAccent } from '@/src/app/logic/environment';
-import { DEFAULT_THEME_KEY, getTheme, resolveThemeVars } from '@/src/app/logic/theme';
+import { envAccentVars, resolveEnvAccent } from '@/src/app/logic/environment';
 import { ExplainCallout } from './ExplainCallout';
 import type { ExplainId, ExplainVars } from './explanations';
 import { usePressAnchor } from './pressAnchor';
@@ -152,7 +151,7 @@ export default function Showroom({ onExit }: { onExit: () => void }) {
 
   const { alignmentLength, isAlignmentLoaded, sessionMoleculeType } = useMemo(() => deriveAlignmentState(workspace.records, false), [workspace.records]);
   const env = resolveEnvAccent('alignment', sessionMoleculeType);
-  const themeStyle = resolveThemeVars(getTheme(DEFAULT_THEME_KEY), env) as CSSProperties;
+  const themeStyle = envAccentVars(env) as CSSProperties;
   const comparison = useShowroomComparison(workspace.records, sessionMoleculeType === 'protein');
 
   return (

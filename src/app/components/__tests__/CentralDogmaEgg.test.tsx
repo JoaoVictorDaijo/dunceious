@@ -123,7 +123,7 @@ describe('StatusBar version taps', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   it('reopens the finished egg on a tap after it has been unlocked', () => {
-    render(<StatusBar sessionMoleculeType={null} themeKey="clean" />);
+    render(<StatusBar sessionMoleculeType={null} />);
     const version = screen.getByText(/^Dunceious v/);
     for (let i = 0; i < UNLOCK_TAPS; i++) fireEvent.click(version);
     expect(screen.queryByText('DUNCEIOUS expressed')).toBeNull();

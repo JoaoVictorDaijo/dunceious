@@ -43,11 +43,11 @@ export const EXPLANATIONS: Record<ExplainId, { title: string; body: string | ((v
   },
   project: {
     title: 'Project and options',
-    body: 'Saves the whole workspace as a project file on your computer, opens a project you saved before, or clears the workspace. A project keeps the records, annotations, colours and view settings. The same cog holds feature colours and the chrome theme.',
+    body: 'Saves the whole workspace as a project file on your computer, opens a project you saved before, or clears the workspace. A project keeps the records, annotations, colours and view settings. The same cog holds feature colours.',
   },
   options: {
     title: 'Options',
-    body: 'Sets the colour of each feature type and the look of the top and bottom bars. This browser remembers the theme you pick.',
+    body: 'Sets the colour of each feature type. Colours show in the viewer tracks and the annotation hub, and are saved with the project.',
   },
   'ingest-sequences': {
     title: 'Drop input batch',
