@@ -37,6 +37,7 @@ All notable changes to Dunceious. Format loosely follows
 
 ### Fixed
 
+- A failure of the idle search worker no longer cancels a running Local search.
 - Report a failed clipboard write in the record details panel instead of losing it silently, and fix the phone test drive's Export list, Hub first screen, draft handling and export wording.
 
 ## [3.6.0] — 2026-10-19

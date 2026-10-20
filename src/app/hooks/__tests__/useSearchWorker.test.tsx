@@ -119,6 +119,23 @@ describe('explicit search cleanup', () => {
 });
 
 describe('busy worker retirement', () => {
+  it.each(['onerror', 'onmessageerror'] as const)('restarts on the next exact search after an idle %s', event => {
+    const h = setup();
+    act(() => {
+      if (event === 'onerror') h.worker.onerror!(new ErrorEvent('error', { message: 'idle failure' }));
+      else h.worker.onmessageerror!(new MessageEvent('messageerror'));
+    });
+    expect(h.worker.terminate).toHaveBeenCalledTimes(1);
+    expect(SearchWorker.instances).toHaveLength(1);
+    h.search('CCCC');
+    expect(SearchWorker.instances).toHaveLength(2);
+    expect(SearchWorker.instances[1].requests[0]).toMatchObject({ searchQuery: 'CCCC', mode: 'exact' });
+    h.complete();
+    expect(h.result.current.isSearching).toBe(false);
+    expect(h.result.current.searchResults.map(hit => hit.sequence)).toEqual(['CCCC']);
+    expect(h.focus).toHaveBeenCalledWith({ start: 4, end: 8, recordIds: ['synthetic'] });
+  });
+
   it('retires the busy worker when a pending fuzzy search is cleared and serves the next search from a fresh one', () => {
     const h = setup(); h.search('AAAA', 'fuzzy');
     const first = h.worker.postMessage.mock.calls[0][0];
