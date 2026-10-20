@@ -38,7 +38,7 @@ function fittingColumns(pre: HTMLPreElement, format: (columns: number) => string
   const context = document.createElement('canvas').getContext('2d');
   if (!context || inner <= 0) return MAX_COLUMNS;
   context.font = `${style.fontSize} ${style.fontFamily}`;
-  const charWidth = context.measureText('0'.repeat(100)).width / 100;
+  const charWidth = (context.measureText('0'.repeat(100))?.width ?? 0) / 100;
   if (!charWidth) return MAX_COLUMNS;
   // Label and coordinate characters around the sequence, which grow for reverse-strand names.
   const overhead = Math.max(...format(10).split('\n').map(line => line.length)) - 10;
