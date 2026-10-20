@@ -19,9 +19,10 @@
 
 import { matchLineSymbol, type HitColumn, type HitCounts, type HitMode } from '@/src/core/search/hitColumns';
 
-/** EMBOSS 6.6.0 ajalign.c alignWriteSrsAny: 13-character names, 6-character coordinates, 60 columns. */
+/** EMBOSS 6.6.0 ajalign.c alignWriteSrsAny: 13-character names, 6-character coordinates, 60 columns by default.
+ *  `width` only re-blocks the same rows, so the on-screen sidebar view can be narrower than the copied text. */
 export function formatPairAlignment(input: { columns: HitColumn[]; queryName: string; recordName: string;
-  queryStart: number; recordStart: number; strand: 1 | -1; width?: 60 }): string {
+  queryStart: number; recordStart: number; strand: 1 | -1; width?: number }): string {
   const { columns, queryName, queryStart, recordStart, strand, width = 60 } = input;
   const recordName = strand === -1 ? `${input.recordName} (reverse strand)` : input.recordName;
   // The reverse label must remain legible rather than being cut to the pair format's name field.
