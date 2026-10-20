@@ -195,7 +195,8 @@ export interface LocalSearchRun {
 }
 export interface LocalSearchProgress { phase: 'score' | 'align'; streamsDone: number; streamsTotal: number; currentFraction: number }
 export interface LocalSearchResult { results: SearchResult[]; counts: LocalSearchCounts }
-export type LocalSearchRequest = { type: 'init'; wasm: ArrayBuffer }
+/** `scoreWasm` is the SSW SIMD score module, sent only where wasm SIMD validates. */
+export type LocalSearchRequest = { type: 'init'; wasm: ArrayBuffer; scoreWasm?: ArrayBuffer }
   | { type: 'bound'; requestId: number; boundScore2: number } | {
   type: 'search'; phase: 'score' | 'align'; requestId: number; boundScore2: number | null; query: string; scoring: LocalScoringId;
   moleculeType: 'dna' | 'rna' | 'protein'; limit: number; filters: LocalFilters;

@@ -115,9 +115,10 @@ best passing score for result limit N) stops streams only below that score, pres
 counts cover the final cut-off or all positive alignments when no cut-off applies. See
 [the architecture search section](./ARCHITECTURE.md#search-srcworkershandlerssearchts) for scheduling.
 
-Rebuild the committed `public/wasm/local-align.wasm` with `bash scripts/build-local-engine.sh`
-using Docker. The script pins `emscripten/emsdk:3.1.74` by digest; builds use no SIMD or alternate
-engine. [`PROVENANCE.json`](./wasm/local-align/PROVENANCE.json) records the image digest, source
+Rebuild the committed `public/wasm/local-align.wasm` and `public/wasm/local-align-ssw.wasm` with
+`bash scripts/build-local-engine.sh` using Docker. The script pins `emscripten/emsdk:3.1.74` by
+digest. The engine has no SIMD. The second module is SSW's SIMD score pass, loaded only where wasm
+SIMD validates; elsewhere the engine's scalar score pass gives the same scores. [`PROVENANCE.json`](./wasm/local-align/PROVENANCE.json) records the image digest, source
 and matrix hashes, flags, environment and artifact hash. CI rebuilds separately and requires
 byte-identical output. Normal app builds use the committed artifact and need no Emscripten.
 

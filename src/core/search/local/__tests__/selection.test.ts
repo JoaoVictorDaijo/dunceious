@@ -101,7 +101,7 @@ function observedEngine(alignments: LocalAlignment[], onNext?: (enumerated: numb
   let closed = 0;
   const localEngine: LocalEngine = {
     maxScore: () => alignments[0]?.score2 ?? 0,
-    peakMemoryBytes: () => 0,
+    scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0,
     enumerate: () => {
       let index = 0;
       return {
@@ -193,7 +193,7 @@ it('closes the underlying iterator on consumer return and on an engine failure',
   expect(observed.closed()).toBe(1);
   expect(observed.enumerated()).toBe(1);
   let closed = 0;
-  const failing: LocalEngine = { maxScore: () => 0, peakMemoryBytes: () => 0, enumerate: () => ({
+  const failing: LocalEngine = { maxScore: () => 0, scoreKernel: 'scalar' as const, peakMemoryBytes: () => 0, enumerate: () => ({
     next() { throw new Error('Enumeration failed'); },
     return() { closed++; return { done: true, value: undefined }; },
   }) };

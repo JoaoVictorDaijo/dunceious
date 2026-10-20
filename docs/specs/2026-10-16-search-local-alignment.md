@@ -144,8 +144,9 @@ each **stream** (a record and one strand) is searched on its own.
   every alignment scoring at least s* is enumerated in every stream; equal scores at s* are always
   included, so T can choose among them.
 - **Schedule** (speed only; results are the same for any schedule that obeys the rule above):
-  1. every stream computes a score-only Gotoh local maximum, ub, using matcher's exact doubled
-     matrix scores and affine gap arithmetic (open qr, extend r), without candidate nodes or origins;
+  1. every stream computes a score-only local maximum, ub, using matcher's exact doubled matrix
+     scores and affine gap arithmetic (open qr, extend r), without candidate nodes or origins (see
+     *Score pass* for the two kernels, which return the same ub);
   2. ub = 0 marks a stream with no positive alignment. With both display filters off, retain a
      first-score placeholder for every ub > 0 stream. Broadcast the multiset's N-th score, if it
      exists, to every worker before dispatching any align job; replace placeholders with verified
@@ -160,8 +161,8 @@ each **stream** (a record and one strand) is searched on its own.
 
   *Sources.* Scoring first and then running Huang–Miller follows FASTA's `lalign36`: its SIMD build
   links `smith_waterman_sse2.o` (Farrar's striped score pass) with `lsim4.o` (the SIM code)
-  (fasta36, `make/Makefile`, `DROPLAL_SSE_O`). Here the score pass is scalar, so it uses
-  `matcher`'s exact arithmetic. The bound rests on the property that recomputed values never
+  (fasta36, `make/Makefile`, `DROPLAL_SSE_O`). Here, too, the score pass is Farrar's striped
+  kernel, through SSW, wherever wasm SIMD is available, and a scalar Gotoh pass elsewhere. The bound rests on the property that recomputed values never
   exceed the originals, "H2(i,j) ≤ H1(i,j)" (Huang, Miller, Schwartz & Hardison 1992, p. 156,
   after Waterman & Eggert 1987). The first alignment, the matrix maximum, therefore bounds every
   later alignment in its stream. The same paper parallelizes one stream exactly by column bands.
@@ -242,9 +243,22 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
 
 ## Computation
 
-- **Score pass:** a scalar Gotoh local maximum uses two record-length rows (O(record length)
-  memory), no node list and no origins. It equals the first matcher's score2; it does not select
-  a path or alter ties. The full enumeration checks that equality before exposing its first hit.
+- **Score pass:** the best local score only, with no node list, origins, path or tie choice. It
+  equals the first matcher's score2, and the full enumeration checks that equality before exposing
+  its first hit. Two kernels compute it and return the same integer:
+  - **SSW** (Zhao et al. 2013), unmodified at commit a66636b7, in its own module
+    `local-align-ssw.wasm`. The wrapper calls only SSW's 16-bit striped pass (`qP_word`,
+    `sw_sse2_word`), which is Farrar's (2007) kernel with SWPS3's lazy-F loop. It uses the same gap
+    cost, open + (n − 1) × extend. Its lazy-F loop can't reach a deletion directly followed by an
+    insertion. Swapping those two gaps gives a path with the same end cells and cost, so the
+    maximum is unchanged;
+  - **scalar Gotoh** in the engine (`la_max_score`), with two record-length rows.
+
+  The SSW kernel runs only when the page's wasm SIMD probe validates. Even then, the engine takes
+  the scalar kernel if an input is empty or `max entry × min(query, record length) ≥ 32 767`. That
+  inequality guarantees the saturating 16-bit adds never clip, and it covers queries above 3 276
+  bases or 1 489 residues. On the perf workload (50 × 30 kb, both strands), SSW's score pass ran
+  10–17× faster than the scalar pass.
 - **Engine:** Waterman–Eggert in Huang & Miller's linear-space form, the structure of EMBOSS
   `matcher` 6.6.0:
   - one full scoring pass over the stream keeps the best candidates (`matcher_BigPass`);
@@ -315,25 +329,30 @@ follow `water`'s report (`ajalign.c`): Length is the denominator for Identity, S
 
 ## Build, provenance and licensing
 
-- The single `.wasm` artifact is **committed**, so the Cloudflare Pages build needs no Emscripten.
-  It must stay under Pages' 25 MiB per-asset limit, which the build checks.
+- Both `.wasm` artifacts are **committed** (the engine `local-align.wasm` and the SIMD score
+  module `local-align-ssw.wasm`), so the Cloudflare Pages build needs no Emscripten. Each must stay
+  under Pages' 25 MiB per-asset limit, which the build checks.
 - A build script (with the AGPL header) and a provenance file record:
   - the source revision;
   - the Emscripten version;
   - the flags;
   - the artifact's SHA-256.
-- **CI rebuilds** the artifact in a pinned Emscripten container and requires byte-identical output
+- **CI rebuilds** both artifacts in a pinned Emscripten container and requires byte-identical output
   (builder's call). If the build proves non-deterministic, the PR documents why, and CI runs the
   full validation suite on both the rebuilt and the committed artifacts.
 - **Third-party notices** (via #138): the `matcher`-derived engine's GPL notice and attribution,
-  and the EMBOSS matrix attribution. Vendored C sources, matrices and `.wasm` files are outside the
+  and the EMBOSS matrix attribution. SSW's MIT notice and Farrar's BSD-2-Clause notice ship now
+  as `public/wasm/local-align-ssw.NOTICE.txt`, next to the module. Vendored C sources, matrices and `.wasm` files are outside the
   AGPL header rule.
 - No Content-Security-Policy is sent today. If one is added, it must allow `'wasm-unsafe-eval'`.
 
 ## Browser requirements
 
-WebAssembly 1.0, which every current browser supports. There's no SIMD requirement, nothing to
-install, and no flags.
+WebAssembly 1.0, which every current browser supports. There's nothing to install and no flags.
+wasm SIMD is optional (Chrome 91, Firefox 89, Safari 16.4 and later). The page validates a SIMD
+probe module and fetches the SSW score module only if the probe passes. Without SIMD, the scalar
+score pass returns the same results, more slowly. A SIMD browser that can't load the score module
+reports a load failure, as it would for the engine, rather than falling back silently.
 
 ## Interface
 
@@ -418,16 +437,21 @@ only in the search context and minimizes, with Local's extra options collapsed b
    - **record gaps:** reverse hits through leading, internal and trailing record gaps;
    - **input rejection:** unsupported characters in the query and in records.
 8. **Pool parity:** pool sizes 1 and the default, with shuffled completion order, return identical
-   results on every fixture.
-9. **Performance,** measured:
-   - **workload:** 50 synthetic 30 kb records, both strands; a 300-nt and a 1 000-nt query;
-   - **recording:** timings at pool sizes 1 and the default, recorded in the PR;
-   - **target:** the 300-nt query in under 5 s at the default pool size on a mid-range laptop. If
-     it's missed, the PR reports it and the owner decides on the vectorized follow-up;
-   - **slow PC:** the owner checks that progress updates steadily and Cancel stops at once.
-10. **Workers:** progress reporting, cancellation, replacement, stale responses, a pool member
+   results on every fixture, and so do pools with and without the SSW score module.
+9. **Score kernels:**
+   - both kernels match check 1's Gotoh on its randomized cases;
+   - both give the closed-form self-alignment score at and past the 16-bit limit (3 276 / 3 277
+     bases of `A`, 1 489 / 1 490 residues of `W`);
+   - SSW equals the scalar kernel on related pairs with substitutions and indels.
+10. **Performance,** measured:
+    - **workload:** 50 synthetic 30 kb records, both strands; a 300-nt and a 1 000-nt query;
+    - **recording:** timings at pool sizes 1 and the default, recorded in the PR;
+    - **target:** the 300-nt query in under 5 s at the default pool size on a mid-range laptop. If
+      it's missed, the PR reports it and the owner decides on the vectorized follow-up;
+    - **slow PC:** the owner checks that progress updates steadily and Cancel stops at once.
+11. **Workers:** progress reporting, cancellation, replacement, stale responses, a pool member
     failing, completion order, and each failure stage in *Computation*.
-11. **Local-only and offline:**
+12. **Local-only and offline:**
     - an e2e test allows only an enumerated list of the app's own static assets and fails on any
       other request, of any method and to any origin, through page load, a search, a failure, a
       cancellation and a replacement;
@@ -436,7 +460,8 @@ only in the search context and minimizes, with Local's extra options collapsed b
 
 ## Rejected alternatives
 
-- **SSW (SIMD) as the engine.** It finds only the best alignment per stream; its second score is
+- **SSW (SIMD) as the engine.** (Its score-only word pass is used for the score pass; see
+  *Computation*.) It finds only the best alignment per stream; its second score is
   heuristic. Several hits would need either repeated masked runs, which isn't an established method
   and can't be validated against `matcher`, or changes inside its striped kernel. Its signed 16-bit
   arithmetic also caps query length (3 276 bases, 1 489 residues), and its banded traceback can
@@ -483,5 +508,8 @@ only in the search context and minimizes, with Local's extra options collapsed b
   - `nucleus/embaln.c`;
   - `ajax/core/ajalign.c` and `ajax/core/ajmatrices.c`;
   - data files EDNAFULL and EBLOSUM62.
-- SSW (Zhao et al. 2013, *PLoS ONE* 8:e82138), considered and rejected.
+- Zhao, Lee, Garrison & Marth (2013), SSW, *PLoS ONE* 8(12):e82138,
+  doi:10.1371/journal.pone.0082138. github.com/mengyao/Complete-Striped-Smith-Waterman-Library at
+  commit a66636b79ef36ac178122437053be0d8ef345271 (MIT). Used for the score pass and rejected as the
+  engine.
 - Cloudflare Pages limits (25 MiB per asset).
