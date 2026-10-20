@@ -88,12 +88,9 @@ export interface SidebarProps {
  * Left sidebar containing selection inspector, record navigator, navigation,
  * ingestion controls, sequence search, and log terminal.
  */
-// Scaled to the common 16:9 widths (1280, 1366, 1600, 1920) so the search options fit without scrolling;
-// 1920 and up is also wide enough for a full alignment block (see SIDEBAR_ALIGNMENT_COLUMNS).
-const defaultSidebarWidth = () => {
-  const w = window.innerWidth;
-  return w >= 1920 ? 520 : w >= 1600 ? 440 : w >= 1366 ? 380 : 320;
-};
+// The same share of the window at every resolution (360 px at 1920, 480 px at 2560), rounded to 10 px
+// and kept within the drag limits.
+const defaultSidebarWidth = () => Math.min(560, Math.max(320, Math.round(window.innerWidth * 0.1875 / 10) * 10));
 
 const Sidebar: React.FC<SidebarProps> = ({
   localSearch,

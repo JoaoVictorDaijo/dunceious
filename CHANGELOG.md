@@ -22,6 +22,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.7.1] — 2026-10-20
+
+### Fixed
+
+- Size the default sidebar as the same share of the window at every resolution (360 px at 1920, 480 px at 2560) and fit the on-screen alignment rows to its width; Copy still gives the 60-column EMBOSS alignment.
+
 ## [3.7.0] — 2026-10-20
 
 ### Changed
