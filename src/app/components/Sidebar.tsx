@@ -88,12 +88,9 @@ export interface SidebarProps {
  * Left sidebar containing selection inspector, record navigator, navigation,
  * ingestion controls, sequence search, and log terminal.
  */
-// Grows from 320 px on small windows to 400 px on 1080p and larger screens; 400 px keeps the search
-// options (including the Min query identity explanation) on their intended two lines.
-const defaultSidebarWidth = () => {
-  const w = window.innerWidth;
-  return w >= 1920 ? 400 : w >= 1600 ? 380 : w >= 1366 ? 350 : 320;
-};
+// The same share of the window at every resolution (360 px at 1920, 480 px at 2560), rounded to 10 px
+// and kept within the drag limits.
+const defaultSidebarWidth = () => Math.min(560, Math.max(320, Math.round(window.innerWidth * 0.1875 / 10) * 10));
 
 const Sidebar: React.FC<SidebarProps> = ({
   localSearch,
