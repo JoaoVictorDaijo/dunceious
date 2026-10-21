@@ -22,6 +22,12 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.7.2] — 2026-10-21
+
+### Changed
+
+- Update ESLint and typescript-eslint to catch unsafe global-object calls and optional iteration, with regression checks for the existing lint configuration.
+
 ## [3.7.1] — 2026-10-20
 
 ### Fixed
