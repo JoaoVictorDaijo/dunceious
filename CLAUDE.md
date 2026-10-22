@@ -44,6 +44,22 @@ plans, review/IAR ledgers, handoffs and session notes untracked in `.code/docs/<
 at the primary repository root. Put outcomes and verification evidence in the PR description
 or comments; fold lasting decisions, invariants and limitations into the living docs.
 
+## Issues
+
+Issue forms in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) set the standard: a bug report
+or a feature/design proposal. An issue filed with `gh issue create --body` skips the form, so its
+body must use the form's `###` headings in the same order.
+
+- **Code location** is required: every place involved, as `path:line` with a permalink pinned to a
+  commit SHA, and the branch or commit read.
+- **Scientific basis** is required whenever the issue touches a scientific result (see
+  [Scientific rigor](#scientific-rigor-first-priority)): the standard or reference tool with its
+  version and section, a short quote of the rule, and a link. Otherwise write
+  `Not applicable:` and the reason.
+- Titles take a Conventional Commits prefix (`bug:`, `feat:`, `design:`, `test:`).
+- Before filing, search open and closed issues for duplicates; link related ones under
+  **Related**.
+
 ## License headers (required, enforced)
 
 Dunceious is **AGPL-3.0-or-later**. **Every covered source file MUST begin with the
