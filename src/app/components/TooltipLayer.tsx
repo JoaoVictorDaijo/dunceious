@@ -138,7 +138,7 @@ const TooltipLayer: React.FC = () => {
     >
       {tip.text}
       {tip.kbd && (
-        <kbd className="ml-2 px-1.5 py-px rounded border border-slate-600 bg-slate-800 font-mono text-[10px] text-slate-300">
+        <kbd className="ml-2 px-1.5 py-px rounded-sm border border-slate-600 bg-slate-800 font-mono text-[10px] text-slate-300">
           {tip.kbd}
         </kbd>
       )}

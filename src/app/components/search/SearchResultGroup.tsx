@@ -49,7 +49,7 @@ function ResultActions({ match, isActive, onAnnotateMatch, completedSearch }: Pi
         }}
         aria-label={`Annotate match ${match.start}–${match.end} in ${match.recordId}`}
         data-tip="Save this match as an annotation"
-        className="shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-env transition-all text-[11px] font-semibold text-env flex items-center gap-2 bg-env/10 hover:bg-env/20 px-3 py-1.5 rounded-lg border border-env/20"
+        className="shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-env transition-all text-[11px] font-semibold text-env flex items-center gap-2 bg-env/10 hover:bg-env/20 px-3 py-1.5 rounded-lg border border-env/20"
       >
         <i className="fas fa-plus text-[10px]"></i> Annotate
       </button>

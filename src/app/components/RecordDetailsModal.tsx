@@ -96,7 +96,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   };
 
   const modal = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
       <div data-record-details="" className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out border border-slate-200">
         {/* Header */}
         <div className="bg-slate-50 px-8 py-6 border-b border-slate-200 flex justify-between items-center">
@@ -153,7 +153,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
                   <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
-                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded p-2">
+                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded-sm p-2">
                     <option value="nothing">Nothing</option><option value="record">Record bases</option>
                     {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
                   </select>
@@ -175,9 +175,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     aria-label="Show sequence in viewer"
                     data-tip={showBases ? 'Hide the sequence inside this annotation' : 'Show the sequence inside this annotation'}
                     onClick={() => onSetShowBases(!showBases)}
-                    className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${showBases ? 'bg-sky-500' : 'bg-slate-300'}`}
+                    className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500/60 ${showBases ? 'bg-sky-500' : 'bg-slate-300'}`}
                   >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${showBases ? 'translate-x-5' : ''}`}></span>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${showBases ? 'translate-x-5' : ''}`}></span>
                   </button>
                 </div>
               )}
@@ -234,7 +234,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded-sm border border-slate-800">
                   {displaySeq.length} bp
                 </span>
               </div>

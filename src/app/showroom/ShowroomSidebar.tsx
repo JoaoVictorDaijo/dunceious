@@ -89,7 +89,7 @@ function Navigation({ alignmentLength, onJump }: { alignmentLength: number; onJu
           <label htmlFor="showroom-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
           <div className="relative">
             <input id="showroom-goto-position" type="number" inputMode="numeric" placeholder="e.g. 5000"
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-4 pr-10 font-mono text-[11px] text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)]"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2.5 pl-4 pr-10 font-mono text-[11px] text-slate-200 outline-hidden hover:border-slate-700 focus:border-[color:var(--env)]"
               onKeyDown={event => {
                 if (event.key !== 'Enter') return;
                 const value = parseInt(event.currentTarget.value);

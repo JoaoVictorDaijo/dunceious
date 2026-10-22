@@ -74,7 +74,7 @@ export function HitAlignment({ text, formatShown, storageKey, metrics }: { text:
       try { setCopyStatus(await copyText(text) ? 'Copied' : ''); }
       catch { setCopyStatus('Copy failed'); }
     }}>Copy</button><span role="status" className="text-xs">{copyStatus}</span>
-    <pre ref={preRef} className="custom-scrollbar-pro overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded">{shownText}</pre>
+    <pre ref={preRef} className="custom-scrollbar-pro overflow-x-auto text-[10px] font-mono p-2 bg-slate-950 rounded-sm">{shownText}</pre>
   </details>;
 }
 

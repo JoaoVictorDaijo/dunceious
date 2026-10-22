@@ -233,7 +233,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     type="number"
                     value={activeSelection.start}
                     onChange={e => onSetActiveSelection({ ...activeSelection, start: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-sm px-2 py-1 text-[11px] font-mono text-sky-400 outline-hidden focus:border-env"
                   />
                 </div>
                 <div className="space-y-1">
@@ -242,7 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     type="number"
                     value={activeSelection.end}
                     onChange={e => onSetActiveSelection({ ...activeSelection, end: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-sm px-2 py-1 text-[11px] font-mono text-sky-400 outline-hidden focus:border-env"
                   />
                 </div>
               </div>
@@ -255,7 +255,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   const s = getOriginalPos(r.alignedSequence || r.sequence, Math.min(activeSelection.start, activeSelection.end));
                   const e = getOriginalPos(r.alignedSequence || r.sequence, Math.max(activeSelection.start, activeSelection.end));
                   return (
-                    <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded">
+                    <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded-sm">
                       <span className="text-[11px] font-semibold text-slate-400 truncate max-w-[96px]">{r.id}</span>
                       <span className="text-[11px] font-mono text-slate-300">{s.toLocaleString()} - {e.toLocaleString()}</span>
                     </div>
@@ -344,7 +344,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   id="sidebar-goto-position"
                   type="number"
                   placeholder="e.g. 5000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-mono text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-mono text-slate-200 outline-hidden hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const val = parseInt((e.target as HTMLInputElement).value);
@@ -421,10 +421,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       </>}
-      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
+      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded-sm border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
       {/* One disclosure for both workspaces, so its open state carries across tab switches. */}
       <details data-log-terminal className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
-        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
+        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded-sm focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
         <div className="flex h-48 flex-col">{logOutput}</div>
       </details>
 

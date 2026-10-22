@@ -165,7 +165,7 @@ export default function GenomeZoom() {
     <figure className="m-0 flex flex-col gap-3">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full cursor-grab touch-pan-y select-none rounded outline-none focus-visible:ring-2 focus-visible:ring-sky-400 active:cursor-grabbing"
+        className="w-full cursor-grab touch-pan-y select-none rounded-sm outline-hidden focus-visible:ring-2 focus-visible:ring-sky-400 active:cursor-grabbing"
         role="slider"
         tabIndex={0}
         aria-label="Position in the phage T7 genome"

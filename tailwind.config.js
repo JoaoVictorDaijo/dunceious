@@ -19,6 +19,7 @@
 
 import animate from 'tailwindcss-animate';
 import defaultTheme from 'tailwindcss/defaultTheme';
+import colors from './tailwind.colors.json' with { type: 'json' };
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -28,14 +29,21 @@ export default {
   ],
   theme: {
     extend: {
+      // Fixed v3 line heights also govern descendants with arbitrary font sizes.
+      fontSize: defaultTheme.fontSize,
       fontFamily: {
-        sans: ['"Inter Variable"', ...defaultTheme.fontFamily.sans],
+        sans: ['"Inter Variable"', 'ui-sans-serif', 'system-ui', '-apple-system',
+          'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Noto Sans"', 'Ubuntu',
+          'Cantarell', '"Helvetica Neue"', 'sans-serif', '"Apple Color Emoji"',
+          '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"'],
         mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
       },
       colors: {
+        // Keep the existing palette: v4 defaults use different OKLCH values.
+        ...colors,
         // The three darkest slates are the app chrome; lifted from Tailwind's stock
         // values along the same hue so the dark surfaces read less like black.
-        slate: { 800: '#243146', 900: '#151e34', 950: '#091023' },
+        slate: { ...colors.slate, 800: '#243146', 900: '#151e34', 950: '#091023' },
         // The environment accent (see src/app/logic/environment.ts).
         env: 'color-mix(in srgb, var(--env) calc(<alpha-value> * 100%), transparent)',
         // The same hue pulled down to OKLCH L 0.54: every palette family sits at

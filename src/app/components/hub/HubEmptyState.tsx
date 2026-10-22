@@ -35,7 +35,7 @@ export default function HubEmptyState({ kind, locked, onImport, onClearFilters, 
       <p className="mt-3 max-w-md text-xs">Annotations, pre-aligned FASTA and projects are in the Import menu <i aria-hidden="true" className="fas fa-file-import ml-1" /></p>
     </> : <>
       <p>{kind === 'hidden' ? 'All sequences are hidden in the hub' : 'No annotations match these filters'}</p>
-      <button onClick={kind === 'hidden' ? onShowAll : onClearFilters} className="mt-2 rounded px-2 py-1 text-amber-700 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env">{kind === 'hidden' ? 'Show all' : 'Clear filters'}</button>
+      <button onClick={kind === 'hidden' ? onShowAll : onClearFilters} className="mt-2 rounded-sm px-2 py-1 text-amber-700 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-env">{kind === 'hidden' ? 'Show all' : 'Clear filters'}</button>
     </>}
   </div>;
 }

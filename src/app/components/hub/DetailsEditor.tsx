@@ -42,7 +42,7 @@ export default function DetailsEditor({ record, wide = false, focusField = 'orga
   const form = useRef<HTMLFormElement>(null);
   useLayoutEffect(() => { form.current?.querySelector<HTMLInputElement>(`[data-detail-field="${focusField}"]`)?.focus(); }, [focusField, focusRequest]);
   return <form ref={form} aria-label={`Details for ${record.id}`} className="h-full border-y border-slate-300 border-l-[3px] border-l-env bg-slate-50 px-5 py-3 text-xs text-slate-700" onSubmit={event => { event.preventDefault(); onSave(draft); }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onCancel(); } }}>
-    <div data-editor-card className="flex h-full flex-col justify-between rounded-xl bg-white p-4 shadow-sm">
+    <div data-editor-card className="flex h-full flex-col justify-between rounded-xl bg-white p-4 shadow-xs">
     <div data-editor-fields className={`grid gap-x-4 gap-y-3 ${wide ? 'grid-cols-4' : 'grid-cols-2'}`}>
       {fields.map(({ key, label, placeholder }, index) => {
         const value = details[key] ?? '';
@@ -52,11 +52,11 @@ export default function DetailsEditor({ record, wide = false, focusField = 'orga
         return <div key={key}>
           <div className="mb-1 flex h-5 min-w-0 items-center gap-1.5">
             <label htmlFor={`${id}-${key}`} className="truncate font-semibold">{label} <span aria-hidden="true" className="font-mono font-normal text-slate-500">/{qualifier}</span></label>
-            {edited && <span aria-hidden="true" className="rounded bg-amber-50 px-1.5 text-[10px] text-amber-800">edited</span>}
+            {edited && <span aria-hidden="true" className="rounded-sm bg-amber-50 px-1.5 text-[10px] text-amber-800">edited</span>}
           </div>
           <div className="relative">
             <input aria-label={label} data-detail-field={key} id={`${id}-${key}`} value={value} placeholder={placeholder} list={key === 'location' ? `${id}-countries` : undefined} aria-invalid={Boolean(warning)} aria-describedby={warning ? `${id}-${key}-warning` : undefined} className={`h-9 w-full rounded-lg border bg-white py-2 pl-2 pr-8 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${warning ? 'border-amber-500 text-amber-800' : 'border-slate-300'}`} onChange={event => onChange({ ...draft, [key]: event.target.value })} />
-            {edited && <button type="button" aria-label={`Revert ${label} to the file's value`} data-tip={`Revert ${label} to the file's value`} className="absolute inset-y-1 right-1 w-6 rounded text-amber-700 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => onChange({ ...draft, [key]: record.fileDetails?.[key] ?? '' })}><i aria-hidden="true" className="fas fa-rotate-left" /></button>}
+            {edited && <button type="button" aria-label={`Revert ${label} to the file's value`} data-tip={`Revert ${label} to the file's value`} className="absolute inset-y-1 right-1 w-6 rounded-sm text-amber-700 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={() => onChange({ ...draft, [key]: record.fileDetails?.[key] ?? '' })}><i aria-hidden="true" className="fas fa-rotate-left" /></button>}
           </div>
           {warning && <p id={`${id}-${key}-warning`} data-tip={warning} className="h-[18px] truncate leading-[18px] text-amber-700">{warning}</p>}
         </div>;
