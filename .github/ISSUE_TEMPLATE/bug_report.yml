@@ -1,0 +1,128 @@
+#
+# Dunceious
+#
+# This file is part of Dunceious.
+#
+# Dunceious is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Dunceious is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+# Issues filed with `gh issue create --body` skip this form; they must use the same
+# `###` headings in the same order (see CLAUDE.md, "Issues").
+name: Bug report
+description: Something computes, shows, imports or exports the wrong result, or breaks.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Scientists treat Dunceious results as evidence. A report that names the code and,
+        for a scientific result, the standard or reference tool it contradicts can be fixed
+        without guesswork.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences, in plain language. What is wrong and who notices it?
+    validations:
+      required: true
+  - type: textarea
+    id: location
+    attributes:
+      label: Code location
+      description: |
+        Every place that causes the defect, as `path:line` with a permalink pinned to a
+        commit SHA (open the file on GitHub, press `y`, select the lines). Say which
+        branch or commit you read. Write "Unknown" only if you have not traced it.
+      placeholder: |
+        Read on develop at 00c4b24.
+        - `src/core/genbank/locationParser.ts:109` — https://github.com/JoaoVictorDaijo/dunceious/blob/<sha>/src/core/genbank/locationParser.ts#L109
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behaviour and reproduction
+      description: |
+        The exact input (an `examples/` file, a GenBank location, a query) and the steps
+        that show the defect, then what Dunceious does. Attach screenshots if they help.
+      placeholder: |
+        1. Open `examples/peptide/human-insulin-NP_000198.gb`.
+        2. Open the details of the `Site` feature `order(32,35,37,108)`.
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What Dunceious should do instead.
+    validations:
+      required: true
+  - type: textarea
+    id: basis
+    attributes:
+      label: Scientific basis
+      description: |
+        Required when the defect touches a scientific result: search, alignment,
+        translation, coordinates, consensus, scores, statistics, import or export.
+        Name the authoritative source (a standard such as the INSDC Feature Table or SAM
+        with its version and section, or a reference tool such as EMBOSS or NCBI BLAST
+        with its version), quote the relevant rule in a short excerpt, and link it.
+        Otherwise write "Not applicable:" and the reason.
+      placeholder: |
+        INSDC Feature Table Definition, v11.4 (April 2026), §3.4.2.2:
+        > order: "The elements can be found in the specified order (5' to 3' direction) ..."
+        https://www.insdc.org/submitting-standards/feature-table/
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: The worst thing this defect does.
+      options:
+        - Wrong scientific result (a sequence, coordinate, score or export is wrong)
+        - Misleading presentation (the data is right but shown or labelled wrongly)
+        - Lost or altered data on import or export
+        - Crash, hang or broken interaction
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - High (a common input gives a wrong result with no warning)
+        - Medium (an uncommon input, or the result is wrong but flagged)
+        - Low (cosmetic, or a rare input with an obvious symptom)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      description: Dunceious version from the StatusBar, browser and OS, or the commit you read.
+      placeholder: v3.1.0, Firefox 141, Windows 11
+  - type: textarea
+    id: fix
+    attributes:
+      label: Proposed fix
+      description: Optional. The approach, and the independent oracle a test should compare against.
+  - type: textarea
+    id: related
+    attributes:
+      label: Related
+      description: Optional. Linked issues and PRs.
