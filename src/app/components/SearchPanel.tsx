@@ -181,7 +181,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
         {/* Query identity uses edit distance over the whole query. */}
         {searchMode === 'fuzzy' && !local && (
-          <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="[&>*+*]:mt-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
               <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
               <span className="px-2 py-0.5 rounded-sm bg-amber-500/10 text-amber-500 text-[10px] font-bold">
@@ -203,7 +203,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {/* Search options */}
         <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
-            <div className="space-y-2">
+            <div className="[&>*+*]:mt-2">
               <label className="text-[11px] font-semibold text-slate-400 px-1">Strand</label>
               <div className="relative">
                 <select
@@ -219,7 +219,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               </div>
             </div>
           )}
-          <div className="space-y-2">
+          <div className="[&>*+*]:mt-2">
             <label className="text-[11px] font-semibold text-slate-400 px-1">Result limit</label>
             <input
               type="number"

@@ -128,23 +128,23 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           {/* Metadata grid */}
           {feature ? (
             <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</label>
                 <p className="text-sm font-bold text-slate-700">{feature.type}</p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {feature.locationString || `${feature.start + 1}..${feature.end}`}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Strand</label>
                 <p className="text-sm font-bold text-slate-700">
                   {annotationDirection(feature, record.moleculeType)}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
@@ -184,23 +184,23 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Definition</label>
                 <p className="text-sm font-bold text-slate-700">{record.definition || 'N/A'}</p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {record.accession?.trim() || record.id || 'N/A'}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {(record.alignedSequence || record.sequence).length.toLocaleString()} bp
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="[&>*+*]:mt-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
                 <p className="text-sm font-bold text-slate-700">{record.features.length} annotations</p>
               </div>
@@ -264,7 +264,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
           {/* Additional metadata */}
           {((feature?.metadata) || (record.metadata && !feature)) && (
-            <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="[&>*+*]:mt-3 pt-4 border-t border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
                 {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (

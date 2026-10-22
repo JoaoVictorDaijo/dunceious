@@ -227,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button onClick={() => onSetActiveSelection(null)} data-tip="Clear the current selection" className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition-colors">Clear</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
+                <div className="[&>*+*]:mt-1">
                   <label className="text-[11px] font-semibold text-slate-400">Start</label>
                   <input
                     type="number"
@@ -236,7 +236,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className="w-full bg-slate-950 border border-slate-800 rounded-sm px-2 py-1 text-[11px] font-mono text-sky-400 outline-hidden focus:border-env"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="[&>*+*]:mt-1">
                   <label className="text-[11px] font-semibold text-slate-400">End</label>
                   <input
                     type="number"
@@ -337,7 +337,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 End <i className="fas fa-step-forward"></i>
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="[&>*+*]:mt-2">
               <label htmlFor="sidebar-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
               <div className="relative">
                 <input

@@ -85,7 +85,7 @@ function Navigation({ alignmentLength, onJump }: { alignmentLength: number; onJu
           <button type="button" onClick={() => onJump(0)} className={jumpButton}><i aria-hidden="true" className="fas fa-step-backward" /> Start</button>
           <button type="button" onClick={() => onJump(alignmentLength)} className={jumpButton}>End <i aria-hidden="true" className="fas fa-step-forward" /></button>
         </div>
-        <div className="space-y-2">
+        <div className="[&>*+*]:mt-2">
           <label htmlFor="showroom-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
           <div className="relative">
             <input id="showroom-goto-position" type="number" inputMode="numeric" placeholder="e.g. 5000"
