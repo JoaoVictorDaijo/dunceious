@@ -24,7 +24,8 @@ result must:
 Full rigor applies to what produces or shows a scientific result. Changes that leave results
 unchanged follow the normal engineering bar.
 
-The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority).
+The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority). Which standard governs
+each sequence operation, at which version, is recorded in [`docs/standards/`](docs/standards/README.md).
 
 ## Layer rules (the contract)
 
