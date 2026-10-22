@@ -42,7 +42,7 @@ async function addProbe(page: Page) {
       + '<span data-radius-xs class="rounded-xs"></span><span data-radius-sm class="rounded-sm"></span>'
       + '<span data-shadow class="shadow-xs"></span><span data-border class="border"></span>'
       + '<span data-env class="bg-env text-env"></span><span data-mono class="font-mono"></span>'
-      + '<div class="space-y-2"><div>A</div><div data-space>B</div></div>'
+      + '<div class="stack-y-2"><div>A</div><div data-space>B</div></div>'
       + '<div class="text-xs"><button data-inherited-leading class="text-[11px]">Small control</button></div>';
     root.append(host);
   });

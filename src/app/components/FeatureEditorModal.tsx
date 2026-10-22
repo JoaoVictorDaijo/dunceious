@@ -117,7 +117,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           </div>
         )}
 
-        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar-pro">
+        <div className="stack-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar-pro">
           {/* Target sequence selector (new features only) */}
           {isNew && (
             <div>
@@ -254,7 +254,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
               </div>
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
+              <div className="max-h-48 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
                     <span className="text-[10px] font-bold text-slate-600 uppercase w-5">#{idx + 1}</span>
@@ -328,7 +328,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 No qualifiers yet. Add <span className="font-mono text-slate-400">/note</span>, <span className="font-mono text-slate-400">/product</span>, <span className="font-mono text-slate-400">/gene</span>…
               </p>
             ) : (
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro">
+              <div className="max-h-64 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro">
                 {rows.map(row => {
                   const issue = qualifierIssue(row, rows);
                   return (

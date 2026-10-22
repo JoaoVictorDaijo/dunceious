@@ -36,9 +36,9 @@ export default function JobMonitor({ status, steps, stepsLabel, now, children }:
   status: ReactNode; steps: JobStep[]; stepsLabel: string; now: number; children?: ReactNode;
 }) {
   const icons = { pending: 'fa-circle', active: 'fa-circle-notch', done: 'fa-check', failed: 'fa-xmark', skipped: 'fa-minus' };
-  return <div className="space-y-4">
+  return <div className="stack-y-4">
     <p role="status" className="text-sm font-medium text-slate-200">{status}</p>
-    <ol aria-label={stepsLabel} className="space-y-1">{steps.map(step => <li key={step.id} data-step={step.id} data-status={step.status}
+    <ol aria-label={stepsLabel} className="stack-y-1">{steps.map(step => <li key={step.id} data-step={step.id} data-status={step.status}
       className={`flex gap-3 rounded-lg px-3 py-2 ${step.status === 'failed' ? 'bg-rose-500/10 text-rose-300' : step.status === 'active' ? 'bg-slate-800 text-[var(--env)]' : 'text-slate-400'}`}>
       <i aria-hidden="true" className={`fas ${icons[step.status]} mt-1 text-xs ${step.status === 'active' ? 'motion-safe:animate-pulse' : ''}`} />
       <div className="min-w-0 flex-1">

@@ -50,8 +50,8 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="px-8 py-6 space-y-4">
-          <div className="space-y-3">
+        <div className="px-8 py-6 stack-y-4">
+          <div className="stack-y-3">
             <div className="flex items-start gap-3">
               <div className="text-rose-400 mt-1">
                 <i className="fas fa-file text-sm"></i>

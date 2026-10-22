@@ -42,7 +42,7 @@ function RecordNavigator({ workspace, onExplain }: { workspace: ShowroomWorkspac
   return (
     <section>
       <SectionTitle icon="fa-list-ul" trailing={add}>Record Navigator</SectionTitle>
-      <div className="custom-scrollbar-pro max-h-48 space-y-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+      <div className="custom-scrollbar-pro max-h-48 stack-y-2 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
         {workspace.records.map(record => <NavigatorRow key={record.id} record={record} workspace={workspace} onExplain={onExplain} />)}
       </div>
     </section>
@@ -80,12 +80,12 @@ function Navigation({ alignmentLength, onJump }: { alignmentLength: number; onJu
   return (
     <section>
       <SectionTitle icon="fa-compass">Navigation</SectionTitle>
-      <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="stack-y-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={() => onJump(0)} className={jumpButton}><i aria-hidden="true" className="fas fa-step-backward" /> Start</button>
           <button type="button" onClick={() => onJump(alignmentLength)} className={jumpButton}>End <i aria-hidden="true" className="fas fa-step-forward" /></button>
         </div>
-        <div className="[&>*+*]:mt-2">
+        <div className="stack-y-2">
           <label htmlFor="showroom-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
           <div className="relative">
             <input id="showroom-goto-position" type="number" inputMode="numeric" placeholder="e.g. 5000"
@@ -124,7 +124,7 @@ function Ingestion({ onExplain }: { onExplain: Explain }) {
   return (
     <section>
       <SectionTitle icon="fa-plus-circle">Ingestion</SectionTitle>
-      <div className="space-y-3">
+      <div className="stack-y-3">
         {CARDS.map(card => (
           <button key={card.id} type="button" onClick={event => onExplain(card.id, rectOf(event))}
             className={`group block w-full rounded-3xl border-2 border-dashed border-slate-800 bg-slate-900/40 text-center ${'primary' in card ? 'p-6' : 'p-4'} ${card.hover}`}>
@@ -200,7 +200,7 @@ export function ShowroomSidebar({ open, onClose, workspace, view, alignmentLengt
         ? <div className="flex h-full min-h-0 flex-col">
           <HubIndex records={workspace.records} state={view.hubState} onAddSequences={() => onExplain('ingest-sequences')} />
         </div>
-        : <div className="space-y-7">
+        : <div className="stack-y-7">
           <RecordNavigator workspace={workspace} onExplain={onExplain} />
           <Navigation alignmentLength={alignmentLength} onJump={workspace.setJumpTo} />
           <Ingestion onExplain={onExplain} />

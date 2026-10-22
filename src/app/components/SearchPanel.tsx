@@ -127,8 +127,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         </div>
       }>Sequence Search</SectionTitle>
 
-      <div className="space-y-6 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
-        {searchMode === 'fuzzy' && <div className="space-y-2">
+      <div className="stack-y-6 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
+        {searchMode === 'fuzzy' && <div className="stack-y-2">
           <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
             {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
               disabled={method === 'local' && !localReady && !localOverride} title={method === 'local' && !localReady && !localOverride ? localError ?? 'Loading Local search module' : undefined}
@@ -146,7 +146,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {localJob?.phase === 'cancelled' && <p role="status" className="text-xs text-slate-300">Search cancelled</p>}
         {localJob?.phase === 'done' && <p role="status" className="text-xs text-slate-300">Search done{searchResults.length === 0 ? ' · No hits' : ''}</p>}
         {/* Search input */}
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <div className="relative group">
             <input
               type="text"
@@ -181,7 +181,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
         {/* Query identity uses edit distance over the whole query. */}
         {searchMode === 'fuzzy' && !local && (
-          <div className="[&>*+*]:mt-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="stack-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex justify-between items-center px-1">
               <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
               <span className="px-2 py-0.5 rounded-sm bg-amber-500/10 text-amber-500 text-[10px] font-bold">
@@ -203,7 +203,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
         {/* Search options */}
         <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
-            <div className="[&>*+*]:mt-2">
+            <div className="stack-y-2">
               <label className="text-[11px] font-semibold text-slate-400 px-1">Strand</label>
               <div className="relative">
                 <select
@@ -219,7 +219,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               </div>
             </div>
           )}
-          <div className="[&>*+*]:mt-2">
+          <div className="stack-y-2">
             <label className="text-[11px] font-semibold text-slate-400 px-1">Result limit</label>
             <input
               type="number"
@@ -270,7 +270,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-2 max-h-[500px]">
+            <div className="flex-1 overflow-y-auto custom-scrollbar-pro stack-y-8 pr-2 max-h-[500px]">
               {Object.entries(groupedSearchResults).map(([recordId, group]) => <SearchResultGroup
                 key={recordId} recordId={recordId} group={group} records={records} completedSearch={completedSearch}
                 getSequenceContext={getSequenceContext} currentSearchIdx={currentSearchIdx}

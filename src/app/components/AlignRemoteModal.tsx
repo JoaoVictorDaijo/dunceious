@@ -43,7 +43,7 @@ export interface AlignRemoteModalProps {
 
 function EnginePicker({ verdicts, engineId, onEngineChange }: Pick<AlignRemoteModalProps, 'verdicts' | 'engineId' | 'onEngineChange'>) {
   return (
-    <div role="radiogroup" aria-label="Alignment engine" className="space-y-2">
+    <div role="radiogroup" aria-label="Alignment engine" className="stack-y-2">
       {ALIGNMENT_ENGINES.map(engine => {
         const verdict = verdicts[engine.id];
         const reason = verdict.ok ? null : verdict.issues.find(issue => !GLOBAL_ALIGNMENT_ISSUES.has(issue.code))?.message ?? 'Resolve the input issues above.';
@@ -69,7 +69,7 @@ function EnginePicker({ verdicts, engineId, onEngineChange }: Pick<AlignRemoteMo
 function ConsentStep({ acknowledged, onChange }: { acknowledged: boolean; onChange: (checked: boolean) => void }) {
   return (
     <>
-      <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed text-slate-300">
+      <ul className="list-disc stack-y-3 pl-5 text-sm leading-relaxed text-slate-300">
         {ALIGN_CONSENT_COPY.bullets.map(bullet => <li key={bullet}>{bullet}</li>)}
       </ul>
       <p className="text-xs text-slate-400">
@@ -104,9 +104,9 @@ function AlignmentConfiguration(props: ConfigurationProps) {
         Sending to EMBL-EBI · agreed until you leave or reload this page · {' '}
         <button type="button" onClick={onReview} className="text-[var(--env)] underline">Review</button>
       </p>}
-      {commonIssues.length > 0 && <ul role="alert" className="space-y-1 text-xs text-rose-300">{commonIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
+      {commonIssues.length > 0 && <ul role="alert" className="stack-y-1 text-xs text-rose-300">{commonIssues.map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
       <EnginePicker {...props} />
-      {selected && !selected.ok && <ul className="space-y-1 text-xs text-rose-300">{selected.issues.filter(issue => !GLOBAL_ALIGNMENT_ISSUES.has(issue.code)).map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
+      {selected && !selected.ok && <ul className="stack-y-1 text-xs text-rose-300">{selected.issues.filter(issue => !GLOBAL_ALIGNMENT_ISSUES.has(issue.code)).map(issue => <li key={issue.code}>{issue.message}</li>)}</ul>}
       {hasAlignment && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">This will replace the current alignment.</p>}
       <div>
         <label htmlFor="align-email" className="mb-2 block text-xs font-semibold text-slate-300">Email</label>
@@ -215,7 +215,7 @@ const AlignRemoteModal: React.FC<AlignRemoteModalProps> = props => {
           setEmailTouched(true);
           if (consent && canSubmit && !active && !failed) onSubmit();
         }}>
-          <div className="space-y-5 px-6 py-5">
+          <div className="stack-y-5 px-6 py-5">
             {showConsent ? (
               <ConsentStep acknowledged={acknowledged} onChange={setAcknowledged} />
             ) : active || failed || state.phase === 'done' ? <AlignmentJobMonitor state={state} now={now} /> : (

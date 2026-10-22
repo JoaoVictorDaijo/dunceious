@@ -128,7 +128,7 @@ function SearchResultCard(props: CardProps) {
 
 export function SearchResultGroup({ recordId, group, onToggleRecordSelection, onJoinAllInRecord, ...props }: GroupProps) {
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-env"></div>
@@ -152,7 +152,7 @@ export function SearchResultGroup({ recordId, group, onToggleRecordSelection, on
         </div>
       </div>
 
-      <div className="space-y-3 pl-1">
+      <div className="stack-y-3 pl-1">
         {group.results.map((match, localIdx) => <SearchResultCard key={group.indices[localIdx]}
           {...props} recordId={recordId} match={match} globalIdx={group.indices[localIdx]} />)}
       </div>

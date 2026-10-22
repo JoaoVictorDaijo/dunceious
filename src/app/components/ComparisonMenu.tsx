@@ -47,7 +47,7 @@ const ComparisonPreview: React.FC<{ settings: AlignmentComparisonSettings }> = (
     return <span key={column} style={STYLES[style](char)} className="flex h-4 w-4 items-center justify-center rounded-[2px] font-mono text-[10px] font-bold">{style === 'dot' ? '·' : char}</span>;
   };
   return (
-    <div aria-hidden="true" className="rounded-lg bg-slate-900 px-2.5 py-2 space-y-1">
+    <div aria-hidden="true" className="rounded-lg bg-slate-900 px-2.5 py-2 stack-y-1">
       {[PREVIEW_REFERENCE, PREVIEW_SAMPLE].map((row, index) => (
         <div key={row} className="flex items-center gap-2">
           <span className={`w-14 shrink-0 text-[10px] font-bold ${index === 0 ? 'text-env' : 'text-slate-400'}`}>{index === 0 ? 'Reference' : 'Sample'}</span>
@@ -113,7 +113,7 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
       role="group"
       aria-label="Reference comparison"
       onKeyDown={event => { if (event.key === 'Escape') onClose(); }}
-      className="fixed z-[60] overflow-y-auto w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 space-y-3"
+      className="fixed z-[60] overflow-y-auto w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 stack-y-3"
     >
       <ComparisonPreview settings={settings} />
       <div>
