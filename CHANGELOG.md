@@ -22,6 +22,16 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [3.7.3] — 2026-10-22
+
+### Added
+
+- Document the standards that govern each sequence operation in docs/standards, with pinned sources, a fetch script and a conformance fixture checked against Biopython and EMBOSS.
+
+### Changed
+
+- Replace the generic issue templates with forms that require the code location and, for scientific results, a cited standard or reference tool.
+
 ## [3.7.2] — 2026-10-21
 
 ### Changed

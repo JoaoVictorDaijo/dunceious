@@ -24,7 +24,8 @@ result must:
 Full rigor applies to what produces or shows a scientific result. Changes that leave results
 unchanged follow the normal engineering bar.
 
-The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority).
+The full rule is in [`CLAUDE.md`](CLAUDE.md#scientific-rigor-first-priority). Which standard governs
+each sequence operation, at which version, is recorded in [`docs/standards/`](docs/standards/README.md).
 
 ## Layer rules (the contract)
 
@@ -54,6 +55,12 @@ exempt. `npm run lint:headers` enforces this in CI; auto-insert with
 ## Pushes and Cloudflare Pages builds
 
 Every push can trigger a Cloudflare Pages build. Batch pushes and follow the `[CF-Pages-Skip]` rules in [`CLAUDE.md`](CLAUDE.md#pushes-and-cloudflare-pages-builds).
+
+## Issues
+
+File issues through the forms in `.github/ISSUE_TEMPLATE/`, or reproduce their `###` headings when
+using `gh issue create --body`. Code location and, for scientific results, a cited standard or
+reference tool are required. See [`CLAUDE.md`](CLAUDE.md#issues).
 
 ## Before you claim done
 

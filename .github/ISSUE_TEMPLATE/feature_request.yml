@@ -1,0 +1,78 @@
+#
+# Dunceious
+#
+# This file is part of Dunceious.
+#
+# Dunceious is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Dunceious is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+# Issues filed with `gh issue create --body` skip this form; they must use the same
+# `###` headings in the same order (see CLAUDE.md, "Issues").
+name: Feature or design proposal
+description: New behaviour, or a product decision about how something should work.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences, in plain language. What should change, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What users cannot do today, or the decision that is still open.
+    validations:
+      required: true
+  - type: textarea
+    id: location
+    attributes:
+      label: Code location
+      description: |
+        The code the change would touch, as `path:line` with permalinks pinned to a commit
+        SHA. Write "New code" if nothing exists yet.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The behaviour you want. List the options if this is a design decision. Mockups help.
+    validations:
+      required: true
+  - type: textarea
+    id: basis
+    attributes:
+      label: Scientific basis
+      description: |
+        Required when the change computes or shows a scientific result. Name the published
+        method or standard and its source (a reference tool and version, or a specification
+        and section), quote the relevant rule in a short excerpt and link it, and give its
+        standard defaults and the independent oracle that will validate it.
+        Otherwise write "Not applicable:" and the reason.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional.
+  - type: textarea
+    id: related
+    attributes:
+      label: Related
+      description: Optional. Linked issues and PRs.

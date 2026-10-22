@@ -35,6 +35,13 @@ import and export) must meet this bar. It outranks speed, convenience and visual
 - **Keep data local.** Sequences never leave the browser except through an action the user
   explicitly chooses, such as submitting to a named remote service.
 
+**Sequence standards.** [`docs/standards/`](docs/standards/README.md) records which standard
+governs each sequence operation (INSDC Feature Table, NCBI genetic codes, IUPAC codes, GFF3,
+SAM, BED, …), at which version, and how the reference tools behave. Read the relevant rule before
+changing such an operation, and follow its order of authority: the standard's text first, then
+the recorded rules, then documented practice of the reference tools and major applications. When
+none settles a case, stop and ask. `npm run standards:fetch` downloads the pinned documents.
+
 ## Project documents
 
 Track durable documentation and historical design specs. Commit specs in `docs/specs/`
@@ -43,6 +50,24 @@ as `YYYY-MM-DD-<area>-<topic>.md` with YAML front matter; follow
 plans, review/IAR ledgers, handoffs and session notes untracked in `.code/docs/<task>/`
 at the primary repository root. Put outcomes and verification evidence in the PR description
 or comments; fold lasting decisions, invariants and limitations into the living docs.
+
+## Issues
+
+Issue forms in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) set the standard: a bug report
+or a feature/design proposal. An issue filed with `gh issue create --body` skips the form, so its
+body must use the form's `###` headings in the same order.
+
+- **Code location** is required: every place involved, as `path:line` with a permalink pinned to a
+  commit SHA, and the branch or commit read. The only exceptions are `Unknown` for a bug not yet
+  traced and `New code` for a proposal with nothing to change yet.
+- **Scientific basis** is required whenever the issue touches a scientific result (see
+  [Scientific rigor](#scientific-rigor-first-priority)): the standard or reference tool with its
+  version and section, a short quote of the rule, and a link. A proposal also names the method's
+  standard defaults and the independent oracle that will validate it. Otherwise write
+  `Not applicable:` and the reason.
+- Titles take a Conventional Commits prefix (`bug:`, `feat:`, `design:`, `test:`).
+- Before filing, search open and closed issues for duplicates; link related ones under
+  **Related**.
 
 ## License headers (required, enforced)
 
