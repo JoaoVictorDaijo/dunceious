@@ -41,7 +41,14 @@ async function main() {
   for (const doc of documents) {
     const target = path.join(doc.stored ? storedDir : cacheDir, doc.file);
     if (!doc.stored && (refresh || !existsSync(target))) {
-      const response = await fetch(doc.url, { redirect: 'follow' });
+      let response;
+      try {
+        response = await fetch(doc.url, { redirect: 'follow' });
+      } catch (error) {
+        console.error(`FAIL ${doc.id}: download failed (${error.message}) from ${doc.url}`);
+        failed = true;
+        continue;
+      }
       if (!response.ok) {
         console.error(`FAIL ${doc.id}: HTTP ${response.status} from ${doc.url}`);
         failed = true;

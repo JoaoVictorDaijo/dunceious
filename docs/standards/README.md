@@ -70,5 +70,10 @@ between accepting a symbol, matching it in search and scoring it in alignment.
 - Add or change a rule in the same PR as the code that implements it, and update the table above.
 - Re-run the [conformance fixture](conformance/README.md) when a reference tool version changes.
 - Run `npm run standards:fetch` to download the pinned documents into `.cache/standards/` and
-  check their checksums. A failure means the document changed: re-read it, then update the
-  version, checksum and any affected rule together.
+  check their checksums. It reports three different things:
+  - `FAIL … checksum`: a pinned document no longer matches. Re-read it, then update the version,
+    checksum and any affected rule together.
+  - `WARN … upstream changed`: a rolling URL now serves a newer revision. The run still passes;
+    re-verify the pin when convenient.
+  - `FAIL … HTTP` or a network error: the download failed. Nothing about the document is known;
+    retry later and do not change the pin.
