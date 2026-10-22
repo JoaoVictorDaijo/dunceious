@@ -1,0 +1,37 @@
+EMBOSS 6.6.0.0
+--- seqret round-trip location lines
+misc_feature    join(1..10,21..30)
+misc_feature    complement(join(1..10,21..30))
+misc_feature    join(complement(21..30),1..10)
+misc_feature    order(1..3,11..13)
+misc_feature    <5..>25
+misc_feature    join(115..120,1..5)
+misc_feature    10^11
+CDS             31..42
+CDS             <51..63
+CDS             71..82
+--- extractfeat -type misc_feature -join N
+	Warning: feature TESTSEQ_10_11 [misc_feature] not written out because it has zero length
+>TESTSEQ_1_10 [misc_feature] INSDC location conformance fixture.	tgttacctag
+>TESTSEQ_21_30 [misc_feature] INSDC location conformance fixture.	ctctctatgg
+>TESTSEQ_1_10 [misc_feature] INSDC location conformance fixture.	ctaggtaaca
+>TESTSEQ_21_30 [misc_feature] INSDC location conformance fixture.	ccatagagag
+>TESTSEQ_21_30 [misc_feature] INSDC location conformance fixture.	ccatagagag
+>TESTSEQ_1_10 [misc_feature] INSDC location conformance fixture.	tgttacctag
+>TESTSEQ_1_3 [misc_feature] INSDC location conformance fixture.	tgt
+>TESTSEQ_11_13 [misc_feature] INSDC location conformance fixture.	ggc
+>TESTSEQ_5_25 [misc_feature] INSDC location conformance fixture.	acctagggcgcacgcgctctc
+>TESTSEQ_115_120 [misc_feature] INSDC location conformance fixture.	ataacg
+>TESTSEQ_1_5 [misc_feature] INSDC location conformance fixture.	tgtta
+--- extractfeat -type misc_feature -join Y
+	Warning: feature TESTSEQ_10_11 [misc_feature] not written out because it has zero length
+>TESTSEQ_1_30 [misc_feature] INSDC location conformance fixture.	tgttacctagctctctatgg
+>TESTSEQ_30_1 [misc_feature] INSDC location conformance fixture.	ccatagagagctaggtaaca
+>TESTSEQ_1_30 [misc_feature] INSDC location conformance fixture.	ccatagagagtgttacctag
+>TESTSEQ_1_13 [misc_feature] INSDC location conformance fixture.	tgtggc
+>TESTSEQ_5_25 [misc_feature] INSDC location conformance fixture.	acctagggcgcacgcgctctc
+>TESTSEQ_1_120 [misc_feature] INSDC location conformance fixture.	ataacgtgtta
+--- extractfeat -type CDS
+>TESTSEQ_31_42 [CDS] INSDC location conformance fixture.	gtgaaattttaa
+>TESTSEQ_51_63 [CDS] INSDC location conformance fixture.	catggcctgttaa
+>TESTSEQ_71_82 [CDS] INSDC location conformance fixture.	atgtgaccctaa

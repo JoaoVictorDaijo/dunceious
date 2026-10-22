@@ -54,6 +54,9 @@ coverage/
 .playwright-cli/
 .playwright/
 
+# Pinned standard documents fetched by `npm run standards:fetch`
+.cache/
+
 # Browser regression output
 test-results/
 playwright-report/
