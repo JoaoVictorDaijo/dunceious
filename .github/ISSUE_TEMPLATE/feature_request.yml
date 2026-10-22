@@ -61,7 +61,8 @@ body:
       description: |
         Required when the change computes or shows a scientific result. Name the published
         method or standard and its source (a reference tool and version, or a specification
-        and section), its standard defaults, and the independent oracle that will validate it.
+        and section), quote the relevant rule in a short excerpt and link it, and give its
+        standard defaults and the independent oracle that will validate it.
         Otherwise write "Not applicable:" and the reason.
     validations:
       required: true

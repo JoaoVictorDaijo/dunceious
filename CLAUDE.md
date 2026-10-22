@@ -51,10 +51,12 @@ or a feature/design proposal. An issue filed with `gh issue create --body` skips
 body must use the form's `###` headings in the same order.
 
 - **Code location** is required: every place involved, as `path:line` with a permalink pinned to a
-  commit SHA, and the branch or commit read.
+  commit SHA, and the branch or commit read. The only exceptions are `Unknown` for a bug not yet
+  traced and `New code` for a proposal with nothing to change yet.
 - **Scientific basis** is required whenever the issue touches a scientific result (see
   [Scientific rigor](#scientific-rigor-first-priority)): the standard or reference tool with its
-  version and section, a short quote of the rule, and a link. Otherwise write
+  version and section, a short quote of the rule, and a link. A proposal also names the method's
+  standard defaults and the independent oracle that will validate it. Otherwise write
   `Not applicable:` and the reason.
 - Titles take a Conventional Commits prefix (`bug:`, `feat:`, `design:`, `test:`).
 - Before filing, search open and closed issues for duplicates; link related ones under
