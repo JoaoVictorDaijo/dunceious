@@ -35,6 +35,13 @@ import and export) must meet this bar. It outranks speed, convenience and visual
 - **Keep data local.** Sequences never leave the browser except through an action the user
   explicitly chooses, such as submitting to a named remote service.
 
+**Sequence standards.** [`docs/standards/`](docs/standards/README.md) records which standard
+governs each sequence operation (INSDC Feature Table, NCBI genetic codes, IUPAC codes, GFF3,
+SAM, BED, …), at which version, and how the reference tools behave. Read the relevant rule before
+changing such an operation, and follow its order of authority: the standard's text first, then
+the recorded rules, then documented practice of the reference tools and major applications. When
+none settles a case, stop and ask. `npm run standards:fetch` downloads the pinned documents.
+
 ## Project documents
 
 Track durable documentation and historical design specs. Commit specs in `docs/specs/`
