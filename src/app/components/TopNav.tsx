@@ -173,7 +173,7 @@ const TopNav: React.FC<TopNavProps> = ({
         onClick={onToggleSidebar}
         aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
         data-tip={sidebarOpen ? 'Hide the sidebar to widen the workspace' : 'Show the sidebar (records, navigation, search)'}
-        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/50 hover:bg-slate-700 hover:text-slate-200 text-slate-400 transition-all motion-reduce:transition-none border border-slate-700/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800/50 hover:bg-slate-700 hover:text-slate-200 text-slate-400 transition-all motion-reduce:transition-none border border-slate-700/30 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
       >
         <i className={`fas ${sidebarOpen ? 'fa-arrow-left-long' : 'fa-bars-staggered'}`}></i>
       </button>
@@ -195,7 +195,7 @@ const TopNav: React.FC<TopNavProps> = ({
           aria-label="Visual Viewport"
           aria-pressed={activeTab === 'alignment'}
           data-tip="Visual Viewport: browse the sequences, annotations and data tracks"
-          className={`group flex items-center gap-2.5 ${labels === 'icon' ? 'px-2' : 'pl-2 pr-4'} py-1.5 rounded-xl transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${activeTab === 'alignment' ? 'bg-env-strong shadow-lg' : 'hover:bg-slate-800/50'}`}
+          className={`group flex items-center gap-2.5 ${labels === 'icon' ? 'px-2' : 'pl-2 pr-4'} py-1.5 rounded-xl transition-all motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${activeTab === 'alignment' ? 'bg-env-strong shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
           <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all motion-reduce:transition-none ${activeTab === 'alignment' ? 'bg-white/15 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}>
             <i className="fas fa-crosshairs"></i>
@@ -207,7 +207,7 @@ const TopNav: React.FC<TopNavProps> = ({
           aria-label="Annotation Hub"
           aria-pressed={activeTab === 'features'}
           data-tip="Annotation Hub: list, edit, export and jump to every annotation"
-          className={`group flex items-center gap-2.5 ${labels === 'icon' ? 'px-2' : 'pl-2 pr-4'} py-1.5 rounded-xl transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${activeTab === 'features' ? 'bg-env shadow-lg' : 'hover:bg-slate-800/50'}`}
+          className={`group flex items-center gap-2.5 ${labels === 'icon' ? 'px-2' : 'pl-2 pr-4'} py-1.5 rounded-xl transition-all motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${activeTab === 'features' ? 'bg-env shadow-lg' : 'hover:bg-slate-800/50'}`}
         >
           <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all motion-reduce:transition-none ${activeTab === 'features' ? 'bg-slate-950/15 text-slate-950' : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}>
             <i className="fas fa-table-list"></i>
@@ -225,7 +225,7 @@ const TopNav: React.FC<TopNavProps> = ({
                 aria-pressed={dragMode === m.mode}
                 aria-label={m.label}
                 data-tip={m.tip}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${dragMode === m.mode ? 'bg-white text-env-strong shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'}`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${dragMode === m.mode ? 'bg-white text-env-strong shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'}`}
               >
                 <i className={`fas ${m.icon}`}></i>
               </button>
@@ -242,7 +242,7 @@ const TopNav: React.FC<TopNavProps> = ({
                 aria-pressed={l.on}
                 aria-disabled={l.disabledReason ? true : undefined}
                 data-tip={l.disabledReason ?? `${l.on ? 'Hide' : 'Show'} ${l.tip}`}
-                className={`h-8 flex items-center ${form === 'full' ? 'gap-1.5 px-2 tracking-wider' : 'gap-[5px] px-1.5 tracking-[0.03em]'} rounded-lg text-[10px] font-bold uppercase transition-all motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
+                className={`h-8 flex items-center ${form === 'full' ? 'gap-1.5 px-2 tracking-wider' : 'gap-[5px] px-1.5 tracking-[0.03em]'} rounded-lg text-[10px] font-bold uppercase transition-all motion-reduce:transition-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${
                   l.disabledReason
                     ? 'text-slate-500 cursor-not-allowed'
                     : l.on

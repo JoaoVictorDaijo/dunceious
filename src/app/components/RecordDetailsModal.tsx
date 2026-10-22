@@ -96,7 +96,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   };
 
   const modal = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
       <div data-record-details="" className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out border border-slate-200">
         {/* Header */}
         <div className="bg-slate-50 px-8 py-6 border-b border-slate-200 flex justify-between items-center">
@@ -124,36 +124,36 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
         </div>
 
         {/* Body */}
-        <div data-record-details-body="" className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro scrollbar-on-light space-y-6">
+        <div data-record-details-body="" className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar-pro scrollbar-on-light stack-y-6">
           {/* Metadata grid */}
           {feature ? (
             <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</label>
                 <p className="text-sm font-bold text-slate-700">{feature.type}</p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {feature.locationString || `${feature.start + 1}..${feature.end}`}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Strand</label>
                 <p className="text-sm font-bold text-slate-700">
                   {annotationDirection(feature, record.moleculeType)}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString()} bp
                 </p>
               </div>
-              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
+              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
                   <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
-                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded p-2">
+                    onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded-sm p-2">
                     <option value="nothing">Nothing</option><option value="record">Record bases</option>
                     {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
                   </select>
@@ -175,32 +175,32 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     aria-label="Show sequence in viewer"
                     data-tip={showBases ? 'Hide the sequence inside this annotation' : 'Show the sequence inside this annotation'}
                     onClick={() => onSetShowBases(!showBases)}
-                    className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 ${showBases ? 'bg-sky-500' : 'bg-slate-300'}`}
+                    className={`shrink-0 w-11 h-6 rounded-full relative transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500/60 ${showBases ? 'bg-sky-500' : 'bg-slate-300'}`}
                   >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${showBases ? 'translate-x-5' : ''}`}></span>
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${showBases ? 'translate-x-5' : ''}`}></span>
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Definition</label>
                 <p className="text-sm font-bold text-slate-700">{record.definition || 'N/A'}</p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {record.accession?.trim() || record.id || 'N/A'}
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {(record.alignedSequence || record.sequence).length.toLocaleString()} bp
                 </p>
               </div>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
                 <p className="text-sm font-bold text-slate-700">{record.features.length} annotations</p>
               </div>
@@ -208,7 +208,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           )}
 
           {/* Sequence viewer */}
-          <div className="space-y-3 pt-4 border-t border-slate-100">
+          <div className="stack-y-3 pt-4 border-t border-slate-100">
             <div className="flex justify-between items-center">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 {feature ? 'Reference envelope' : 'Record Sequence (Raw)'}
@@ -234,7 +234,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded-sm border border-slate-800">
                   {displaySeq.length} bp
                 </span>
               </div>
@@ -243,7 +243,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
           {/* Translation (feature only) */}
           {feature?.translation && (
-            <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="stack-y-3 pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
                 <button
@@ -264,7 +264,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
           {/* Additional metadata */}
           {((feature?.metadata) || (record.metadata && !feature)) && (
-            <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="stack-y-3 pt-4 border-t border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
                 {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (

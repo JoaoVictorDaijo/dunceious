@@ -453,7 +453,7 @@ const GenomeViewer: React.FC<Props> = ({
           {/* Mouse Guide */}
           {mousePos && (
             <div className="absolute top-0 bottom-0 w-px bg-sky-500/30 z-40 pointer-events-none" style={{ left: mousePos.x }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[11px] leading-none font-bold px-1.5 py-0.5 rounded shadow-lg">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full bg-sky-600 text-white text-[11px] leading-none font-bold px-1.5 py-0.5 rounded-sm shadow-lg">
                 {(mousePos.bp + 1).toLocaleString()} bp
               </div>
             </div>
@@ -478,7 +478,7 @@ const GenomeViewer: React.FC<Props> = ({
         {showConservation && conservationScores && (
           <div className="h-[60px] flex-none bg-white border-t border-slate-200 relative overflow-hidden flex">
             <div className="w-[120px] flex-none bg-slate-50 border-r border-slate-200 z-10 flex flex-col items-end px-2 justify-center shrink-0">
-              <div className="bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded text-[8px] font-bold text-amber-600 uppercase tracking-widest">
+              <div className="bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-sm text-[8px] font-bold text-amber-600 uppercase tracking-widest">
                 Conservation
               </div>
             </div>

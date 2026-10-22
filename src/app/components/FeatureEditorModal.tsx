@@ -117,7 +117,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           </div>
         )}
 
-        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar-pro">
+        <div className="stack-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar-pro">
           {/* Target sequence selector (new features only) */}
           {isNew && (
             <div>
@@ -125,7 +125,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <select
                 value={recordId}
                 onChange={e => onChange({ ...editing, recordId: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden focus:border-env text-slate-200"
               >
                 {records.map(r => <option key={r.id} value={r.id}>{r.id}</option>)}
               </select>
@@ -140,7 +140,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               type="text"
               value={feature.name}
               onChange={e => setFeature({ name: e.target.value })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env transition-all text-slate-200"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden focus:border-env transition-all text-slate-200"
             />
           </div>
 
@@ -151,7 +151,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <select
                 value={feature.type}
                 onChange={e => setFeature({ type: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden focus:border-env text-slate-200"
               >
                 {!FEATURE_TYPES.includes(feature.type) && <option value={feature.type}>{feature.type}</option>}
                 {FEATURE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -166,7 +166,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   delete metadata._gffStrand;
                   setFeature({ strand: Number(e.target.value) as 1 | -1, metadata, locationString: undefined });
                 }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-env text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden focus:border-env text-slate-200"
               >
                 {(getFeatureStrand(feature) === '.' || getFeatureStrand(feature) === '?') && (
                   <option value={getFeatureStrand(feature)} disabled>
@@ -218,7 +218,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 type="number"
                 value={feature.start}
                 onChange={e => setGeometry(featureCoordPatch(feature, 'start', e.target.value))}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden text-slate-200"
               />
             </div>
             <div>
@@ -231,7 +231,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 type="number"
                 value={feature.end}
                 onChange={e => setGeometry(featureCoordPatch(feature, 'end', e.target.value))}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none text-slate-200"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden text-slate-200"
               />
             </div>
           </div>
@@ -254,7 +254,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
               </div>
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
+              <div className="max-h-48 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
                     <span className="text-[10px] font-bold text-slate-600 uppercase w-5">#{idx + 1}</span>
@@ -266,7 +266,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         newSegs[idx] = { ...newSegs[idx], start: parseInt(e.target.value) };
                         setGeometry({ segments: newSegs });
                       }}
-                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-env"
+                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-hidden focus:border-env"
                     />
                     <span className="text-slate-700">..</span>
                     <input
@@ -277,7 +277,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         newSegs[idx] = { ...newSegs[idx], end: parseInt(e.target.value) };
                         setGeometry({ segments: newSegs });
                       }}
-                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-none focus:border-env"
+                      className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-hidden focus:border-env"
                     />
                     <button
                       onClick={() => {
@@ -328,7 +328,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 No qualifiers yet. Add <span className="font-mono text-slate-400">/note</span>, <span className="font-mono text-slate-400">/product</span>, <span className="font-mono text-slate-400">/gene</span>…
               </p>
             ) : (
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar-pro">
+              <div className="max-h-64 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro">
                 {rows.map(row => {
                   const issue = qualifierIssue(row, rows);
                   return (
@@ -342,7 +342,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                           aria-label="Qualifier name"
                           spellCheck={false}
                           onChange={e => updateRow(row.id, { key: e.target.value })}
-                          className={`flex-1 min-w-0 bg-transparent text-[10px] font-mono font-bold outline-none placeholder:text-slate-700 ${issue ? 'text-amber-400' : 'text-slate-300'}`}
+                          className={`flex-1 min-w-0 bg-transparent text-[10px] font-mono font-bold outline-hidden placeholder:text-slate-700 ${issue ? 'text-amber-400' : 'text-slate-300'}`}
                         />
                         <button
                           onClick={() => commitRows(rows.filter(r => r.id !== row.id))}
@@ -358,7 +358,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         rows={Math.min(4, Math.max(1, Math.ceil(row.value.length / 48)))}
                         aria-label={`Value of ${row.key || 'qualifier'}`}
                         onChange={e => updateRow(row.id, { value: e.target.value })}
-                        className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-none break-words"
+                        className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-hidden break-words"
                       />
                       {issue && <p className="text-[11px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
                     </div>

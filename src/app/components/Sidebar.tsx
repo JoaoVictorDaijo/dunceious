@@ -198,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="absolute inset-y-0 left-0 w-px bg-slate-700/60 group-hover:bg-env/60 transition-colors" />
       </div>
     )}
-    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro space-y-8 pr-1'}>
+    <div className={activeTab === 'features' ? 'flex min-h-0 flex-1 flex-col gap-3 pr-1' : 'flex-1 overflow-y-auto custom-scrollbar-pro stack-y-8 pr-1'}>
 
       <input ref={addSequencesInput} aria-label="Add sequences files" hidden disabled={isAlignmentLocked} type="file" accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} />
       {activeTab === 'features' && hubState && <><HubIndex records={records} featureColors={featureColors} state={hubState} addLocked={isAlignmentLocked} onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} /></>}
@@ -207,7 +207,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {activeSelection && (
         <section className="animate-in slide-in-from-left-2 duration-300">
           <SectionTitle icon="fa-vector-square">Selection Inspector</SectionTitle>
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 stack-y-4">
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-semibold text-slate-400">Range</span>
               <span className="text-[11px] font-mono text-sky-400">
@@ -221,41 +221,41 @@ const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 space-y-3">
+            <div className="pt-3 border-t border-slate-800 stack-y-3">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[11px] font-semibold text-slate-400">Manual selection</span>
                 <button onClick={() => onSetActiveSelection(null)} data-tip="Clear the current selection" className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition-colors">Clear</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
+                <div className="stack-y-1">
                   <label className="text-[11px] font-semibold text-slate-400">Start</label>
                   <input
                     type="number"
                     value={activeSelection.start}
                     onChange={e => onSetActiveSelection({ ...activeSelection, start: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-sm px-2 py-1 text-[11px] font-mono text-sky-400 outline-hidden focus:border-env"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="stack-y-1">
                   <label className="text-[11px] font-semibold text-slate-400">End</label>
                   <input
                     type="number"
                     value={activeSelection.end}
                     onChange={e => onSetActiveSelection({ ...activeSelection, end: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-sky-400 outline-none focus:border-env"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-sm px-2 py-1 text-[11px] font-mono text-sky-400 outline-hidden focus:border-env"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 space-y-2">
+            <div className="pt-3 border-t border-slate-800 stack-y-2">
               <span className="text-[11px] font-semibold text-slate-400 block mb-1">Original coordinates</span>
-              <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar-pro">
+              <div className="max-h-32 overflow-y-auto stack-y-1.5 pr-1 custom-scrollbar-pro">
                 {transposedRecords.map(r => {
                   const s = getOriginalPos(r.alignedSequence || r.sequence, Math.min(activeSelection.start, activeSelection.end));
                   const e = getOriginalPos(r.alignedSequence || r.sequence, Math.max(activeSelection.start, activeSelection.end));
                   return (
-                    <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded">
+                    <div key={r.id} className="flex justify-between items-center bg-black/20 px-2 py-1 rounded-sm">
                       <span className="text-[11px] font-semibold text-slate-400 truncate max-w-[96px]">{r.id}</span>
                       <span className="text-[11px] font-mono text-slate-300">{s.toLocaleString()} - {e.toLocaleString()}</span>
                     </div>
@@ -283,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {activeTab === 'alignment' && records.length > 0 && (
         <section className="animate-in slide-in-from-left-2 duration-300 [container-type:inline-size]">
           <SectionTitle icon="fa-list-ul" trailing={<WorkspaceTitleActions onAddSequences={() => { if (!isAlignmentLocked) addSequencesInput.current?.click(); }} addLocked={isAlignmentLocked} />}>Record Navigator</SectionTitle>
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 stack-y-2 max-h-48 overflow-y-auto custom-scrollbar-pro">
             {records.map(r => (
               <div
                 key={r.id}
@@ -328,7 +328,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {activeTab === 'alignment' && records.length > 0 && (
         <section className="animate-in slide-in-from-left-2 duration-300">
           <SectionTitle icon="fa-compass">Navigation</SectionTitle>
-          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 space-y-4">
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 stack-y-4">
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => onSetJumpTo(0)} data-tip="Jump to the first base" className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[11px] font-semibold text-slate-400 transition-all flex items-center justify-center gap-2">
                 <i className="fas fa-step-backward"></i> Start
@@ -337,14 +337,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 End <i className="fas fa-step-forward"></i>
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <label htmlFor="sidebar-goto-position" className="text-[11px] font-semibold text-slate-400">Go to position</label>
               <div className="relative">
                 <input
                   id="sidebar-goto-position"
                   type="number"
                   placeholder="e.g. 5000"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-mono text-slate-200 outline-none hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-mono text-slate-200 outline-hidden hover:border-slate-700 focus:border-[color:var(--env)] transition-colors"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const val = parseInt((e.target as HTMLInputElement).value);
@@ -421,10 +421,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       />
 
       </>}
-      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
+      {activeTab === 'features' && hubState && <button data-hub-focus aria-haspopup="dialog" onClick={() => hubState.setShortcutsOpen(true)} className="flex shrink-0 items-center gap-2 border-t border-slate-800 pt-3 text-left text-xs text-slate-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i className="fas fa-keyboard" aria-hidden="true" />Keyboard shortcuts<kbd className="ml-auto rounded-sm border border-slate-800 px-1 font-mono text-[10px]">?</kbd></button>}
       {/* One disclosure for both workspaces, so its open state carries across tab switches. */}
       <details data-log-terminal className="group shrink-0 border-t border-slate-800 pt-3 text-xs text-slate-400">
-        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
+        <summary aria-label="Log Terminal" className="cursor-pointer list-none rounded-sm focus-visible:ring-2 focus-visible:ring-env [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-terminal" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Log Terminal</SectionTitle></summary>
         <div className="flex h-48 flex-col">{logOutput}</div>
       </details>
 
