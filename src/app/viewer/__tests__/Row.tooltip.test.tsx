@@ -125,10 +125,17 @@ it('a touch tap hides a tooltip a mouse opened', () => {
   }
 });
 
-it('warns in the tooltip when a CDS names a genetic code NCBI does not define', () => {
+it.each([
+  ['CDS', '7', true],
+  ['CDS', '', true],
+  ['CDS', '11x', true],
+  ['CDS', '6', false],
+  ['CDS', undefined, false],
+  ['gene', '7', false],
+] as const)('shows the genetic-code warning only for invalid coding qualifiers: %s/%s', (type, table, warned) => {
   const cdsRecords: SeqRecord[] = [{
     id: 'c', name: 'c', sequence: 'ATG'.repeat(100),
-    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 300, strand: 1, metadata: { transl_table: '7' } }],
+    features: [{ type, name: 'Odd', start: 0, end: 300, strand: 1, metadata: table === undefined ? undefined : { transl_table: table } }],
   }];
   const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
     records={cdsRecords} consensus={cdsRecords[0].sequence} showAnnotations showTracks
@@ -136,5 +143,7 @@ it('warns in the tooltip when a CDS names a genetic code NCBI does not define', 
     onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
     searchResults={[]} currentSearchIdx={-1} />);
   pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
-  expect(view.getByText(/transl_table=7 is not an NCBI genetic code/)).toBeTruthy();
+  const warning = view.queryByText(/is not an NCBI genetic code/);
+  if (warned) expect(warning?.textContent).toContain(`/transl_table=${table} is not an NCBI genetic code`);
+  else expect(warning).toBeNull();
 });

@@ -1,5 +1,5 @@
 {
- "_source": "Biopython 1.88 Bio.Data.CodonTable.unambiguous_dna_by_id, an implementation independent of Dunceious (both derive from NCBI gc.prt). Each codon maps to its sense amino acid where the table has one (dual-coding codons in tables 27, 28 and 31 included), otherwise \"_\" for a stop. Regenerate with Biopython if NCBI publishes a new gc.prt.",
+ "_source": "Biopython 1.88 Bio.Data.CodonTable.unambiguous_dna_by_id, an implementation independent of Dunceious (both derive from NCBI gc.prt). Each codon maps to its sense amino acid where the table has one (dual-coding codons in tables 27, 28 and 31 included), otherwise \"_\" for a stop. Regenerate with Biopython if NCBI publishes a new gc.prt. \"starts\" follows gc.prt sncbieaa notation from Biopython start_codons/stop_codons: \"M\" initiation, \"*\" can terminate, \"-\" neither.",
  "tables": {
   "1": {
    "name": "Standard",
@@ -68,7 +68,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**--*----M---------------M----------------------------"
   },
   "2": {
    "name": "Vertebrate Mitochondrial",
@@ -137,7 +138,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**--------------------MMMM----------**---M------------"
   },
   "3": {
    "name": "Yeast Mitochondrial",
@@ -206,7 +208,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**----------------------MM---------------M------------"
   },
   "4": {
    "name": "Mold Mitochondrial",
@@ -275,7 +278,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--MM------**-------M------------MMMM---------------M------------"
   },
   "5": {
    "name": "Invertebrate Mitochondrial",
@@ -344,7 +348,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**--------------------MMMM---------------M------------"
   },
   "6": {
    "name": "Ciliate Nuclear",
@@ -413,7 +418,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--------------*--------------------M----------------------------"
   },
   "9": {
    "name": "Echinoderm Mitochondrial",
@@ -482,7 +488,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**-----------------------M---------------M------------"
   },
   "10": {
    "name": "Euplotid Nuclear",
@@ -551,7 +558,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**-----------------------M----------------------------"
   },
   "11": {
    "name": "Bacterial",
@@ -620,7 +628,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**--*----M------------MMMM---------------M------------"
   },
   "12": {
    "name": "Alternative Yeast Nuclear",
@@ -689,7 +698,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**--*----M---------------M----------------------------"
   },
   "13": {
    "name": "Ascidian Mitochondrial",
@@ -758,7 +768,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**----------------------MM---------------M------------"
   },
   "14": {
    "name": "Alternative Flatworm Mitochondrial",
@@ -827,7 +838,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "-----------*-----------------------M----------------------------"
   },
   "15": {
    "name": "Blepharisma Macronuclear",
@@ -896,7 +908,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------*---*--------------------M----------------------------"
   },
   "16": {
    "name": "Chlorophycean Mitochondrial",
@@ -965,7 +978,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------*---*--------------------M----------------------------"
   },
   "21": {
    "name": "Trematode Mitochondrial",
@@ -1034,7 +1048,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**-----------------------M---------------M------------"
   },
   "22": {
    "name": "Scenedesmus obliquus Mitochondrial",
@@ -1103,7 +1118,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "------*---*---*--------------------M----------------------------"
   },
   "23": {
    "name": "Thraustochytrium Mitochondrial",
@@ -1172,7 +1188,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--*-------**--*-----------------M--M---------------M------------"
   },
   "24": {
    "name": "Pterobranchia Mitochondrial",
@@ -1241,7 +1258,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**-------M---------------M---------------M------------"
   },
   "25": {
    "name": "Candidate Division SR1",
@@ -1310,7 +1328,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------**-----------------------M---------------M------------"
   },
   "26": {
    "name": "Pachysolen tannophilus Nuclear",
@@ -1379,7 +1398,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**--*----M---------------M----------------------------"
   },
   "27": {
    "name": "Karyorelict Nuclear",
@@ -1448,7 +1468,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--------------*--------------------M----------------------------"
   },
   "28": {
    "name": "Condylostoma Nuclear",
@@ -1517,7 +1538,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**--*--------------------M----------------------------"
   },
   "29": {
    "name": "Mesodinium Nuclear",
@@ -1586,7 +1608,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--------------*--------------------M----------------------------"
   },
   "30": {
    "name": "Peritrich Nuclear",
@@ -1655,7 +1678,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "--------------*--------------------M----------------------------"
   },
   "31": {
    "name": "Blastocrithidia Nuclear",
@@ -1724,7 +1748,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "----------**-----------------------M----------------------------"
   },
   "32": {
    "name": "Balanophoraceae Plastid",
@@ -1793,7 +1818,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M------*---*----M------------MMMM---------------M------------"
   },
   "33": {
    "name": "Cephalodiscidae Mitochondrial",
@@ -1862,7 +1888,8 @@
     "GGC": "G",
     "GGA": "G",
     "GGG": "G"
-   }
+   },
+   "starts": "---M-------*-------M---------------M---------------M------------"
   }
  }
 }

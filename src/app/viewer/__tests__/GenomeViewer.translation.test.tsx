@@ -117,5 +117,9 @@ it('covers both spans of an origin-crossing CDS with the genetic-code warning', 
   const spans = [...view.container.querySelectorAll<HTMLElement>('[data-genetic-code-warning]')];
   expect(spans).toHaveLength(2);
   const lefts = spans.map(span => parseFloat(span.style.left)).sort((a, b) => a - b);
-  expect(lefts[0]).toBeLessThan(lefts[1]);
+  const widths = spans.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left))
+    .map(span => parseFloat(span.style.width));
+  expect(widths[0]).toBeGreaterThan(0);
+  expect(widths[1] / widths[0]).toBeCloseTo(30 / 9);
+  expect((lefts[1] - lefts[0]) / widths[0]).toBeCloseTo(90 / 9);
 });

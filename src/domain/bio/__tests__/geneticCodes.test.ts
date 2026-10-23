@@ -29,16 +29,15 @@ const oracle = JSON.parse(
 const ids = Object.keys(oracle.tables).map(Number);
 
 describe('NCBI genetic codes', () => {
-  it('knows exactly the 27 NCBI tables', () => {
-    expect(ids).toHaveLength(27);
+  it('accepts the NCBI table ids and rejects unavailable or non-integral ids', () => {
     for (const id of ids) expect(isNcbiGeneticCode(id)).toBe(true);
-    for (const id of [0, 7, 8, 17, 18, 19, 20, 34, NaN]) expect(isNcbiGeneticCode(id)).toBe(false);
+    for (const id of [-1, 0, 7, 8, 17, 18, 19, 20, 34, 1.5, NaN, Infinity]) expect(isNcbiGeneticCode(id)).toBe(false);
   });
 
   it.each(ids)('translates every codon of table %i like the NCBI table', id => {
     for (const [codon, residue] of Object.entries(oracle.tables[id].codons)) {
       expect(translateSequence(codon, id), `table ${id} ${codon}`).toBe(residue);
-      expect(translateSequence(codon.replace(/T/g, 'U'), id), `table ${id} RNA ${codon}`).toBe(residue);
+      expect(translateSequence(codon.toLowerCase().replace(/t/g, 'u'), id), `table ${id} lowercase RNA ${codon}`).toBe(residue);
     }
   });
 
@@ -62,11 +61,15 @@ describe('featureTranslTable', () => {
   it('reads the integer value', () => {
     expect(featureTranslTable({ metadata: { transl_table: '11' } })).toBe(11);
     expect(featureTranslTable({ metadata: { transl_table: ' 4 ' } })).toBe(4);
+    expect(featureTranslTable({ metadata: { transl_table: 6 } })).toBe(6);
   });
   it('keeps an invalid value invalid instead of falling back to table 1', () => {
-    expect(featureTranslTable({ metadata: { transl_table: 'abc' } })).toBeNaN();
-    expect(featureTranslTable({ metadata: { transl_table: '' } })).toBeNaN();
-    expect(featureTranslTable({ metadata: { transl_table: '11a' } })).toBeNaN();
+    for (const value of ['abc', '', '  ', '11a', '1.5', '-1', '0xB', '1e1']) {
+      const table = featureTranslTable({ metadata: { transl_table: value } });
+      expect(table, value).toBeNaN();
+      expect(translateSequence('ATGTAA', table), value).toBe('??');
+    }
+    expect(featureTranslTable({ metadata: { transl_table: '7' } })).toBe(7);
     expect(isNcbiGeneticCode(featureTranslTable({ metadata: { transl_table: '7' } }))).toBe(false);
   });
 });
@@ -77,7 +80,10 @@ describe('translateFeature at the end of a complete CDS', () => {
   it.each([
     [27, 'ATGAAATGA', 'MK_'],
     [28, 'ATGAAATAA', 'MK_'],
+    [28, 'ATGAAATAG', 'MK_'],
+    [28, 'ATGAAATGA', 'MK_'],
     [31, 'ATGAAATAA', 'MK_'],
+    [31, 'ATGAAATAG', 'MK_'],
     [1, 'ATGAAATAA', 'MK_'],
   ])('reads the last codon of a complete table-%i CDS as the stop', (table, seq, protein) => {
     expect(translateFeature({}, seq, table)).toBe(protein);
@@ -88,9 +94,34 @@ describe('translateFeature at the end of a complete CDS', () => {
     expect(translateFeature({}, 'ATGTGAAAATGA', 27)).toBe('MWK_');
   });
 
-  it('leaves a partial or out-of-frame CDS as translated', () => {
-    expect(translateFeature({ locationString: '1..>9' }, 'ATGAAATGA', 27)).toBe('MKW');
-    expect(translateFeature({ locationString: 'complement(<1..9)' }, 'ATGAAATGA', 27)).toBe('MKW');
-    expect(translateFeature({}, 'ATGAAATGAA', 27)).toBe('MKW');
+  it.each(['1..>9', 'complement(<1..9)'])('preserves the sense residue at a partial CDS end: %s', locationString => {
+    expect(translateFeature({ locationString }, 'ATGAAATGA', 27)).toBe('MKW');
+  });
+
+  // The final three bases spell TGA out of frame and cannot terminate the last full codon.
+  it.each([
+    ['ATGAAATGAATGA', 'MKWM'],
+    ['ATGAAATGAAATGA', 'MKWN'],
+  ])('does not terminate a CDS with an incomplete final codon: %s', (seq, protein) => {
+    expect(translateFeature({}, seq, 27)).toBe(protein);
+  });
+
+  it('recognizes a lowercase RNA terminal dual-coding codon', () => {
+    expect(translateFeature({}, 'augaaauga', 27)).toBe('MK_');
+  });
+
+  it('does not turn sense or ambiguous final codons into stops', () => {
+    expect(translateFeature({}, 'ATGAAA', 27)).toBe('MK');
+    expect(translateFeature({}, 'ATGTGN', 27)).toBe('M?');
+  });
+
+  it('claims no terminal stop with an unknown table or empty coding sequence', () => {
+    expect(translateFeature({}, 'ATGAAATGA', 7)).toBe('???');
+    expect(translateFeature({}, '', 27)).toBe('');
+  });
+
+  it('keeps alternative initiation literal unless a stored translation supplies Met', () => {
+    expect(translateFeature({}, 'GTGAAATAA', 11)).toBe('VK_');
+    expect(translateFeature({ translation: 'MK' }, 'GTGAAATAA', 11)).toBe('MK_');
   });
 });
