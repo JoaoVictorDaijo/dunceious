@@ -194,11 +194,27 @@ describe('RecordDetailsModal edge captions and controls', () => {
     expect(caption()).toBe('Sequence defined by the location: bases 2..5. The feature gives no strand, so its bases read 5′ → 3′ as the record is written.');
   });
 
+  const locus = () => Array.from(document.querySelectorAll('label')).find(l => l.textContent === 'Locus')?.nextElementSibling?.textContent;
+
   it('names a zero-length location as a site between two bases', () => {
     // start 2, end 2 (0-based, half-open) is the site between bases 2 and 3: INSDC 2^3.
     const feature: BioFeature = { type: 'misc_feature', name: 'site', start: 2, end: 2, strand: 1 };
     open({ id: 'r', name: 'r', sequence: 'ACGT', features: [feature] }, feature);
     expect(lengths()).toBe('0 bp feature sequence · 1 location interval0 bp region spanned · 2^3');
     expect(caption()).toBe('Zero-length site 2^3: the location covers no bases.');
+    expect(locus()).toBe('2^3');
+  });
+
+  // INSDC FT 11.4 §3.4.2.1: on a circular molecule the origin site is n^1, n its length (4 here).
+  it.each([
+    ['the origin of a circular record, at its end', 4, true, '4^1'],
+    ['the origin of a circular record, at its start', 0, true, '4^1'],
+    ['the start of a linear record', 0, false, 'before base 1'],
+    ['the end of a linear record', 4, false, 'after base 4'],
+  ])('names a zero-length site at %s', (_where, position, isCircular, label) => {
+    const feature: BioFeature = { type: 'misc_feature', name: 'site', start: position, end: position, strand: 1 };
+    open({ id: 'r', name: 'r', sequence: 'ACGT', isCircular, features: [feature] }, feature);
+    expect(locus()).toBe(label);
+    expect(caption()).toBe(`Zero-length site ${label}: the location covers no bases.`);
   });
 });
