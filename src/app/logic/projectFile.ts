@@ -18,6 +18,7 @@
  */
 
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
 
@@ -107,6 +108,11 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
     const id = record.id.toLowerCase();
     if (ids.has(id)) return { ok: false, message: `This project file contains a duplicate record ID: ${record.id}.` };
     ids.add(id);
+    const aligned = record.alignedSequence;
+    if (aligned?.includes('.')) return { ok: false, message: `This project file contains an alignment with "." gaps in ${record.id}; only "-" is supported.` };
+    if (aligned && !isGappedCopyOf(aligned, record.sequence)) {
+      return { ok: false, message: `This project file contains an alignment whose residues differ from sequence ${record.id}.` };
+    }
   }
   return { ok: true, project: value as unknown as ProjectFile };
 }

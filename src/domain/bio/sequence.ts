@@ -412,10 +412,12 @@ export function removeGapsWithMap(seq: string): { ungapped: string; map: number[
  * aligned-FASTA gap symbol: Biopython 1.88 AlignIO; EMBOSS 6.6.0 alignment formats)
  * are removed from both. `original` is stripped too because a batch-loaded FASTA
  * can keep '-' in a record's sequence, as the EBI submission already strips it.
- * Case is ignored, since lower case marks residues without changing them.
+ * ASCII case is ignored, since lower case marks residues without changing them;
+ * Unicode folding is avoided because it can change length ('ß' → 'SS').
  */
 export function isGappedCopyOf(aligned: string, original: string): boolean {
-  return aligned.replace(/-/g, '').toUpperCase() === original.replace(/-/g, '').toUpperCase();
+  const residues = (seq: string) => seq.replace(/-/g, '').replace(/[a-z]/g, c => c.toUpperCase());
+  return residues(aligned) === residues(original);
 }
 
 /**

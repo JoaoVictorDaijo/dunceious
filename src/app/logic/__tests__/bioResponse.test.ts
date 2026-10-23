@@ -336,6 +336,12 @@ describe('applyFastaResponse residue integrity (#249)', () => {
     expect(res.next).toBe(prev);
   });
 
+  it('folds only ASCII case, so "ß" cannot stand in for a loaded "SS"', () => {
+    const loaded = [rec({ id: 'a', sequence: 'SS', moleculeType: 'protein' }), rec({ id: 'b', sequence: 'AG', moleculeType: 'protein' })];
+    expect(applyFastaResponse(loaded, [fa('a', 'ß-'), fa('b', 'AG')], true))
+      .toEqual({ next: loaded, kind: 'reject-residues', ids: ['a'] });
+  });
+
   it('refuses "." gaps explicitly instead of reading them as residues', () => {
     const res = applyFastaResponse(prev, [fa('a', 'AC.GT'), fa('b', 'A.G-T')], true);
     expect(res).toEqual({ next: prev, kind: 'reject-dot-gap', ids: ['a', 'b'] });

@@ -42,8 +42,10 @@ export interface AlignmentIssue {
 export type AlignmentPreflight = { ok: true; submission: AlignmentSubmission } | { ok: false; issues: AlignmentIssue[] };
 export const GLOBAL_ALIGNMENT_ISSUES = new Set<AlignmentIssue['code']>(['too-few', 'empty-sequence', 'invalid-characters', 'internal-stop']);
 
+// Only '-' is removed: the returned overlay must match the loaded residues once '-'
+// is stripped (isGappedCopyOf), so '.' or whitespace is left for the alphabet guard.
 function normalizeSequence(sequence: string, protein: boolean): string {
-  const ungapped = sequence.replace(/[-.\s]/g, '');
+  const ungapped = sequence.replace(/-/g, '');
   return protein ? ungapped.replace(/\*$/, '') : ungapped;
 }
 export function measureAlignmentBytes(records: readonly AlignmentInput[]): number {
@@ -67,7 +69,7 @@ export function preflightAlignment(records: readonly AlignmentInput[], engineId:
   const terminalStops = new Set<string>();
   const normalized = records.map(record => {
     const sequence = normalizeSequence(record.sequence, protein);
-    if (protein && record.sequence.replace(/[-.\s]/g, '').endsWith('*')) terminalStops.add(record.id);
+    if (protein && record.sequence.replace(/-/g, '').endsWith('*')) terminalStops.add(record.id);
     if (!sequence) empty.push(record.id);
     if (protein && sequence.includes('*')) stops.push(record.id);
     const bad = [...new Set([...sequence].filter(char => !alphabet.test(char) && !(protein && char === '*')))];
