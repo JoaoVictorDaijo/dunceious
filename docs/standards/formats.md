@@ -150,10 +150,12 @@ EMBOSS documents gapped FASTA. Neither specifies a workspace-ID reconciliation a
 selection windows and residue-integrity checks are Unknown there.
 
 **Dunceious.** Partial. Local overlay checks equal, nonempty rows and ID sets
-(`src/app/logic/bioResponse.ts:156`), but duplicate upload IDs can evade set comparison and no
-ungapped-residue equality is checked: [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249).
-**Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9), and
-define workspace replacement/residue-integrity requirements. Longest-prefix reconciliation has
+(`src/app/logic/bioResponse.ts:156`), but duplicate upload IDs can evade set comparison. Each row
+with `-` removed must equal its record's loaded residues, ignoring case, or the overlay is refused
+with the offending IDs and the workspace unchanged; rows containing `.` are refused as an
+unsupported gap symbol (owner decision, [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)).
+The remote path shares this check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
+**Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9). Longest-prefix reconciliation has
 no established reference contract. Selection
 export slices aligned-or-raw strings (`src/app/hooks/useFileHandlers.ts:336`); equal widths are
 conditional on the input and not independently checked there. `[Slice: start-end]` is private
@@ -304,7 +306,7 @@ widths and case-insensitively identical dash-stripped residues
 returned alignment is locally postprocessed. Exact validation/postprocessing and provenance
 remain **Owner decision open**: retain a disclosed transformed alignment or expose provider
 output and local transformations separately; neither choice establishes engine reproducibility.
-Related deviations: [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249),
+Related deviation:
 [#252](https://github.com/JoaoVictorDaijo/dunceious/issues/252). The full status/error vocabulary,
 `aln-fasta`→`fa`→`out` fallback and engine versions remain Unknown from these sources. Comparative
 claims and provenance display use METRIC-8b/8c; the API contract does not validate them.

@@ -37,6 +37,7 @@ export {
   detectMoleculeType,
   classifyLocusMoleculeType,
   removeGapsWithMap,
+  isGappedCopyOf,
   mapUngappedRangeToAligned,
   getOriginalPos,
   alignedToOriginalPositions,

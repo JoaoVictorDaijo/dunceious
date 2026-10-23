@@ -408,6 +408,16 @@ export function removeGapsWithMap(seq: string): { ungapped: string; map: number[
 }
 
 /**
+ * Whether `aligned` is `original` with only '-' gaps inserted: the aligned-FASTA
+ * gap symbol (Biopython 1.88 AlignIO; EMBOSS 6.6.0 alignment formats). Case is
+ * ignored, as EBI's remote-result check does, since lower case marks residues
+ * without changing them.
+ */
+export function isGappedCopyOf(aligned: string, original: string): boolean {
+  return aligned.replace(/-/g, '').toUpperCase() === original.toUpperCase();
+}
+
+/**
  * Maps an ungapped-space half-open range `[start, end)` back to aligned-space
  * coordinates using a `map` from `removeGapsWithMap`. `start`/`end` are clamped
  * into range; the aligned end is exclusive (last mapped index + 1). Returns
