@@ -295,6 +295,13 @@ describe('import provenance and annotation ownership', () => {
     expect(result.unmatched).toEqual(['a']);
   });
 
+  it('keeps the imported region source through GFF3 import and export', () => {
+    const parsed = parseGFF3('a\tRefSeq\tregion\t1\t4\t.\t+\t.\tID=a.0;gbkey=Src\na\ttoolX\tgene\t1\t4\t.\t+\t.\tID=g');
+    const result = applyAnnotations([rec({ id: 'a', sequence: 'AAAA' })], parsed.features, parsed.details);
+    const columns = exportToGff3(result.next).text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t')[1]);
+    expect(columns).toEqual(['RefSeq', 'toolX']);
+  });
+
   it('fills only empty unedited details and preserves existing imported values', () => {
     const record = rec({ id: 'a', sequence: 'A'.repeat(1000), fileDetails: { host: 'original', location: 'Oman' }, features: [{ type: 'source', name: 'source', start: 0, end: 1000, strand: 1, metadata: { host: 'edited' } }] });
     const result = applyAnnotations([record], {}, { a: { ...region(1000), details: { host: 'camel', organism: 'virus', location: 'Egypt' } } });

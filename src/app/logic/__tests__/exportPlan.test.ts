@@ -91,12 +91,26 @@ describe('serializer previews', () => {
 });
 
 
-it.each(['genbank', 'genpept', 'gff3', 'fasta'] as const)('does not leak annotation edit marks into %s', format => {
+it.each(['genbank', 'genpept', 'fasta'] as const)('does not leak annotation edit marks into %s', format => {
   const original = { ...records[0], moleculeType: format === 'genpept' ? 'protein' as const : 'dna' as const };
   const marked = { ...original, features: original.features.map((feature, index) => ({ ...feature, hubEdit: index ? 'added' as const : 'edited' as const })) };
   const dispatch = format === 'genpept' ? 'genbank' : format;
   expect(serializeExport([marked], dispatch).text).toBe(serializeExport([original], dispatch).text);
   expect(serializeExport([marked], dispatch).text).not.toContain('hubEdit');
+});
+it('lets annotation edit marks change only the GFF3 source of added features', () => {
+  const original = records[0];
+  const marked = { ...original, features: original.features.map((feature, index) => ({ ...feature, hubEdit: index ? 'added' as const : 'edited' as const })) };
+  const rows = (text: string) => text.split('\n').map(line => line.split('\t'));
+  const before = rows(serializeExport([original], 'gff3').text);
+  const after = rows(serializeExport([marked], 'gff3').text);
+  const added = new Set(original.features.slice(1).map((_, index) => `${original.id}.${index + 2}`));
+  after.forEach((row, index) => {
+    const isAdded = row.length === 9 && added.has(/(?:^|;)ID=([^;]+)/.exec(row[8])?.[1] ?? '');
+    expect(row).toEqual(isAdded ? [before[index][0], 'Dunceious', ...before[index].slice(2)] : before[index]);
+  });
+  expect(after.filter(row => row[1] === 'Dunceious')).toHaveLength(1);
+  expect(after.flat().join('\t')).not.toContain('hubEdit');
 });
 it('stores annotation edit marks in project format 2', () => {
   const record = { ...records[0], features: [{ ...records[0].features[0], hubEdit: 'added' as const }] };

@@ -405,3 +405,27 @@ same nonempty cumulative sample without resetting per record, so it does not rel
 three nonempty records. This algorithm does not gain scientific support from format-autodetection
 practice. Owner options remain explicit format, scoped autodetection or extension routing, with
 an explicit ambiguous-input policy; no option is selected here.
+
+## FMT-17. GFF3 source column
+
+**Rule.** Column 2 is "a free text qualifier intended to describe the algorithm or operating
+procedure that generated this feature"; undefined fields are `.`; tab, newline, carriage return,
+`%` and control characters must be percent-encoded, and no other characters may be
+([GFF3 1.26](https://raw.githubusercontent.com/The-Sequence-Ontology/Specifications/master/gff3.md),
+column 2 and the general escaping rule). Converting or re-exporting a feature does not generate it.
+
+**Reference tools.** Documented: [NCBI GFF3](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/)
+(observed 2026-10-23) writes the pipeline method (for example `Gnomon`, `tRNAscan-SE`) and, when
+the method is unavailable, the record's source database (`RefSeq`, `GenBank`, `EMBL`, `DDBJ`).
+No runtime oracle was run.
+
+**Applications.** Unknown.
+
+**Dunceious.** Conforms (`src/core/formats/gff3.ts:49`, [#251](https://github.com/JoaoVictorDaijo/dunceious/issues/251)).
+An imported source is decoded on import and written back unchanged, including after the feature is
+edited; a literal non-conforming `%` is kept as text. Features added in Dunceious, and with no
+source of their own, are written as `Dunceious`. Every other feature, and the `region` row of a
+record whose GFF3 region carried no source, is written as `.`: a GenBank or EMBL file does not
+show whether its records came from that database, so NCBI's database-name fallback is not applied.
+The source never appears as a column-9 attribute, and GenBank export omits it as a non-INSDC
+attribute (FMT-3).
