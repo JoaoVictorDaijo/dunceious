@@ -167,7 +167,7 @@ describe('RecordDetailsModal sequence views', () => {
 });
 
 describe('RecordDetailsModal edge captions and controls', () => {
-  it('uses native radios in one group, so arrow keys move the selection', () => {
+  it('groups the native view radios under one accessible selection', () => {
     open(fixture, labelled('J1'));
     const [feature, region] = [radio('Feature sequence'), radio('Region spanned')];
     expect(feature.type).toBe('radio');
@@ -201,4 +201,20 @@ describe('RecordDetailsModal edge captions and controls', () => {
     expect(lengths()).toBe('0 bp feature sequence · 1 location interval0 bp region spanned · 2^3');
     expect(caption()).toBe('Zero-length site 2^3: the location covers no bases.');
   });
+});
+
+describe('RecordDetailsModal nested complement sequence views', () => {
+  it.each(['J4', 'J5'])('%s: copies the nested feature sequence and switches to its forward region', async label => {
+    const { sequence, copyText } = open(fixture, labelled(label));
+    expect(sequence()).toBe(oracle[label]);
+    expect(lengths()).toBe('4 bp feature sequence · sum of 2 location intervals6 bp region spanned · 1..6');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy feature sequence \(4 bp\)/ })); });
+    expect(copyText).toHaveBeenCalledOnce();
+    expect(copyText.mock.calls[0][0].toUpperCase()).toBe(oracle[label]);
+    fireEvent.click(radio('Region spanned'));
+    expect(sequence()).toBe('TGTTAC');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy region \(6 bp\)/ })); });
+    expect(copyText.mock.calls[1][0].toUpperCase()).toBe('TGTTAC');
+  });
+
 });

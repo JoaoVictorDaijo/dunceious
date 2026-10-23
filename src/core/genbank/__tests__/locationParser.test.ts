@@ -18,11 +18,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { parseLocation } from '../locationParser';
-
-// ---------------------------------------------------------------------------
-// Simple ranges
-// ---------------------------------------------------------------------------
 
 describe('parseLocation – simple range', () => {
   it('converts 1-based inclusive to 0-based half-open [start, end)', () => {
@@ -47,10 +44,6 @@ describe('parseLocation – simple range', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Single-position and point-between-bases
-// ---------------------------------------------------------------------------
-
 describe('parseLocation – single position and site', () => {
   it('parses a single-position location (n)', () => {
     const r = parseLocation('42');
@@ -58,16 +51,13 @@ describe('parseLocation – single position and site', () => {
     expect(r.end).toBe(42);
   });
 
-  it('parses a site between bases (n^m)', () => {
+  it('characterises the known LOC-5 two-base deviation for n^m', () => {
+    // FIXME(#230): an INSDC between-base site must cover zero bases.
     const r = parseLocation('100^101');
     expect(r.start).toBe(99);
     expect(r.end).toBe(101);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Complement
-// ---------------------------------------------------------------------------
 
 describe('parseLocation – complement', () => {
   it('sets strand to -1 for complement()', () => {
@@ -85,26 +75,10 @@ describe('parseLocation – complement', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Linear join
-// ---------------------------------------------------------------------------
-
 describe('parseLocation – linear join', () => {
   it('creates multiple segments for join()', () => {
     const r = parseLocation('join(1..10,21..30)');
-    expect(r.segments).toHaveLength(2);
-    expect(r.segments[0]).toEqual({ start: 0, end: 10 });
-    expect(r.segments[1]).toEqual({ start: 20, end: 30 });
-  });
-
-  it('envelope start/end is the overall min/max', () => {
-    const r = parseLocation('join(1..10,21..30)');
-    expect(r.start).toBe(0);
-    expect(r.end).toBe(30);
-  });
-
-  it('strand is +1 for a plain join', () => {
-    expect(parseLocation('join(1..10,21..30)').strand).toBe(1);
+    expect(r).toEqual({ start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] });
   });
 
   it('handles three-segment join', () => {
@@ -113,39 +87,17 @@ describe('parseLocation – linear join', () => {
     expect(r.start).toBe(0);
     expect(r.end).toBe(25);
   });
-
-  it('complement join yields strand -1', () => {
-    const r = parseLocation('complement(join(10..20,30..40))');
-    expect(r.strand).toBe(-1);
-    expect(r.segments).toHaveLength(2);
-  });
 });
 
-// ---------------------------------------------------------------------------
-// Circular wrap-around join (origin-crossing feature)
-// ---------------------------------------------------------------------------
-
 describe('parseLocation – circular wrap-around join', () => {
-  it('detects origin-crossing when firstStart > lastEnd', () => {
-    // join(2427..3323,1..1758): first segment at high coords, last at low
-    const r = parseLocation('join(2427..3323,1..1758)');
-    expect(r.start).toBeGreaterThan(r.end);
-  });
-
   it('preserves both segments for circular join', () => {
     const r = parseLocation('join(2427..3323,1..1758)');
     expect(r.segments).toHaveLength(2);
-    // Segments should be in file order: high-coord first
+    expect({ start: r.start, end: r.end }).toEqual({ start: 2426, end: 1758 });
     expect(r.segments[0].start).toBe(2426);
     expect(r.segments[0].end).toBe(3323);
     expect(r.segments[1].start).toBe(0);
     expect(r.segments[1].end).toBe(1758);
-  });
-
-  it('sets start = first segment start, end = last segment end for wrap', () => {
-    const r = parseLocation('join(2427..3323,1..1758)');
-    expect(r.start).toBe(2426);
-    expect(r.end).toBe(1758);
   });
 
   it('complement circular join sets strand -1', () => {
@@ -161,14 +113,6 @@ describe('parseLocation – circular wrap-around join', () => {
     expect(r.segments).toHaveLength(3);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Scattered / trans-spliced join is NOT an origin-crossing wrap.
-// A descending join (firstStart > lastEnd) only wraps the origin when it is
-// *contiguous* around it, which requires a segment at base 1 (0-based 0). A
-// trans-splice assembles parts from distant loci, none at the origin, so its
-// envelope must be the linear bounding box — not a start > end wrap (issue #69).
-// ---------------------------------------------------------------------------
 
 describe('parseLocation – scattered / trans-spliced join is not a wrap', () => {
   it('real Arabidopsis rps12 CDS resolves to a linear bounding box', () => {
@@ -206,11 +150,6 @@ describe('parseLocation – scattered / trans-spliced join is not a wrap', () =>
   });
 });
 
-// ---------------------------------------------------------------------------
-// Mixed-strand trans-splice: a join whose segments live on different strands
-// (e.g. Arabidopsis rps12). Each segment must carry its own strand.
-// ---------------------------------------------------------------------------
-
 describe('parseLocation – mixed-strand trans-splice', () => {
   it('assigns per-segment strand for join(complement(a),b,c)', () => {
     const r = parseLocation('join(complement(69611..69724),139856..140087,140625..140650)');
@@ -218,21 +157,13 @@ describe('parseLocation – mixed-strand trans-splice', () => {
     expect(r.segments[0]).toEqual({ start: 69610, end: 69724, strand: -1 });
     expect(r.segments[1]).toEqual({ start: 139855, end: 140087, strand: 1 });
     expect(r.segments[2]).toEqual({ start: 140624, end: 140650, strand: 1 });
-  });
-
-  it('gives the mixed-strand join a linear envelope (per-segment path)', () => {
-    // The usePerSegment path computes the same envelope; a scattered mixed-strand
-    // join must not wrap. firstStart 69610 < lastEnd 140650, so linear regardless
-    // of the base-1 guard.
-    const r = parseLocation('join(complement(69611..69724),139856..140087,140625..140650)');
-    expect(r.start).toBeLessThan(r.end);
-    expect(r.start).toBe(69610);
-    expect(r.end).toBe(140650);
+    expect({ start: r.start, end: r.end }).toEqual({ start: 69610, end: 140650 });
   });
 
   it('leaves uniform complement(join(...)) without per-segment strand (unchanged shape)', () => {
     const r = parseLocation('complement(join(10..20,30..40))');
     expect(r.strand).toBe(-1);
+    expect(r.segments).toHaveLength(2);
     expect(r.segments[0]).toEqual({ start: 9, end: 20 });
     expect(r.segments[1]).toEqual({ start: 29, end: 40 });
   });
@@ -246,5 +177,19 @@ describe('parseLocation – mixed-strand trans-splice', () => {
       { start: 6, end: 9, strand: -1 },
     ]);
     expect(r.strand).toBe(-1);
+  });
+});
+
+describe('nested complement evaluation (INSDC 11.4)', () => {
+  it.each([
+    ['join', 'complement(1..2),3..4,7..8', 'AAGGAA', [7, 6, 3, 2, 0, 1]],
+    ['join', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1]],
+    ['join', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1]],
+    ['order', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1]],
+    ['order', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1]],
+  ])('complement(%s(%s)) reverses evaluated elements', (operator, elements, sequence, indices) => {
+    const location = parseLocation(`complement(${operator}(${elements}))`);
+    expect(extractFeatureSequence(location, 'AACCGGTT')).toEqual({ featureSeq: sequence, alignedIndices: indices });
+    expect({ start: location.start, end: location.end }).toEqual({ start: 0, end: elements.includes('7..8') ? 8 : 6 });
   });
 });

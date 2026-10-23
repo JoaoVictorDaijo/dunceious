@@ -97,16 +97,12 @@ function parseCoord(el: string): { start: number; end: number } {
 }
 
 export function parseLocation(loc: string): LocationData {
-  // Strip fuzzy indicators (<, >) and whitespace
   const cleanLoc = loc.replace(/[<>\s]/g, '');
 
-  // An outer complement(...) wrapping the whole location reverse-complements it,
-  // flipping the strand of every inner segment.
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;
   const body = outer ? outer[1] : cleanLoc;
 
-  // join(...) / order(...) element list, else a single element.
   const listMatch = body.match(/^(?:join|order)\((.*)\)$/);
   const elements = listMatch ? splitTopLevelCommas(listMatch[1]) : [body];
 
@@ -123,20 +119,19 @@ export function parseLocation(loc: string): LocationData {
   const strands = parsed.map(p => p.strand);
   const mixedStrand = strands.some(s => s !== strands[0]);
 
-  // Per-segment orientation (each segment reverse-complemented on its own, in
-  // join order) is required whenever the strands differ, OR when the
-  // complements are inner — join(complement(a),complement(b)) means
-  // rc(a) then rc(b), which the whole-feature path would reverse. An OUTER
-  // complement(join(...)) is the historical uniform case and stays whole-feature.
-  const usePerSegment = mixedStrand || (anyInnerComplement && !outerComplement);
+  // INSDC FT 11.4 §3.4.2.2: inner complements require per-interval
+  // orientation; an outer complement also reverses the evaluated list.
+  // Keep `parsed` in written order for the origin-wrap heuristic below.
+  const usePerSegment = anyInnerComplement || mixedStrand;
+  const evaluated = outerComplement && anyInnerComplement ? [...parsed].reverse() : parsed;
 
   let segments: FeatureSegment[];
   let strand: 1 | -1;
 
   if (usePerSegment) {
-    // Preserve each segment's own strand; the parent strand is the majority
-    // (ties resolve to +1). extractCodingSequence orients each segment itself.
-    segments = parsed.map(p => ({ start: p.start, end: p.end, strand: p.strand }));
+    // The parent strand is the majority (ties resolve to +1); extraction
+    // uses each segment's strand when the location supplies inner complements.
+    segments = evaluated.map(p => ({ start: p.start, end: p.end, strand: p.strand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
   } else {
     // Uniform strand with no inner complement: keep the historical shape (no
@@ -149,22 +144,20 @@ export function parseLocation(loc: string): LocationData {
   let start = 0;
   let end = 0;
 
-  if (segments.length > 0) {
-    const firstStart = segments[0].start;
-    const lastEnd = segments[segments.length - 1].end;
-    const minStart = Math.min(...segments.map(s => s.start));
+  if (parsed.length > 0) {
+    const firstStart = parsed[0].start;
+    const lastEnd = parsed[parsed.length - 1].end;
+    const minStart = Math.min(...parsed.map(s => s.start));
 
     // Origin wrap vs. scattered trans-splice: a genuine wrap is contiguous
     // around the origin, so it includes base 1 (minStart === 0); a scattered
     // join is also descending but sits mid-genome. See the file header.
-    if (segments.length > 1 && firstStart > lastEnd && minStart === 0) {
-      // Keep start > end to signal wrap-around to callers
+    if (parsed.length > 1 && firstStart > lastEnd && minStart === 0) {
       start = firstStart;
       end = lastEnd;
     } else {
-      // Linear: envelope is min start … max end
       start = minStart;
-      end = Math.max(...segments.map(s => s.end));
+      end = Math.max(...parsed.map(s => s.end));
     }
   }
 

@@ -24,7 +24,7 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { featureSequenceViews } from '../viewModel';
 
 // Independent oracle: INSDC rules applied by hand (docs/standards/conformance/oracle.py), which
-// Biopython 1.88 and EMBOSS 6.6.0 `extractfeat -join Y` reproduce on the same fixture.
+// Reference-tool agreements and deviations are recorded beside that oracle.
 const dir = 'docs/standards/conformance';
 const [record] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8'));
 const oracle = Object.fromEntries(readFileSync(`${dir}/expected-oracle.txt`, 'utf8').trim().split('\n')
@@ -37,8 +37,18 @@ const views = (label: string) => {
 const upper = (s: string | null) => s?.toUpperCase() ?? null;
 
 describe('featureSequenceViews against the INSDC conformance oracle', () => {
-  it.each(['J1', 'J2', 'J3', 'W1'])('%s: the feature sequence is the joined, oriented location', label => {
+  it.each(['J1', 'J2', 'J3', 'J4', 'J5', 'W1', 'W2'])('%s: the feature sequence is the joined, oriented location', label => {
     expect(upper(views(label).feature)).toBe(oracle[label]);
+  });
+
+  it.each(['J4', 'J5'])('%s: nested evaluation order does not turn the region into a wrap', label => {
+    expect(views(label)).toMatchObject({ featureLength: 4, regionStart: 0, regionEnd: 6, regionLength: 6 });
+    expect(upper(views(label).region)).toBe('TGTTAC');
+  });
+
+  it('W2: nested orientation retains the written origin-crossing region', () => {
+    expect(views('W2')).toMatchObject({ regionStart: 114, regionEnd: 5, regionLength: 11 });
+    expect(upper(views('W2').region)).toBe(oracle.W1);
   });
 
   it('O1: an order() location has no feature sequence, only its region', () => {
