@@ -88,12 +88,13 @@ export const isNcbiGeneticCode = (id: number): boolean => Object.hasOwn(NCBI_GEN
 
 /**
  * The feature's `/transl_table` id: 1 (the Standard Code) when the qualifier is absent, as
- * INSDC defines, or NaN when its value is not an integer. A NaN or unknown id is not replaced
- * by table 1, so {@link translateSequence} claims no residue for it.
+ * INSDC defines, or NaN when its value is not an integer (an empty `/transl_table=` included).
+ * A NaN or unknown id is not replaced by table 1, so {@link translateSequence} claims no
+ * residue for it.
  */
 export const featureTranslTable = (feature: { metadata?: Record<string, unknown> }): number => {
   const value = feature.metadata?.transl_table;
-  if (value === undefined || value === null || value === '') return 1;
+  if (value === undefined || value === null) return 1;
   const text = String(value).trim();
   return /^\d+$/.test(text) ? Number(text) : NaN;
 };
@@ -105,6 +106,7 @@ export const featureTranslTable = (feature: { metadata?: Record<string, unknown>
  * Each codon gets its own residue, independent of position: a codon that the code allows to
  * terminate in context (tables 27, 28 and 31) shows its sense residue, as gc.prt's `ncbieaa`
  * row does, and an alternative initiation codon shows its sense residue, not Met.
+ * {@link translateFeature} reads the last such codon of a complete CDS as the stop.
  *
  * @param seq         Coding sequence (5'→3', translation-ready).
  * @param translTable NCBI genetic-code id (default 1, the Standard Code).
@@ -238,6 +240,28 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
 }
 
 /**
+ * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
+ * residue depending on context (gc.prt `sncbieaa` `*` with a residue in `ncbieaa`, tables 27, 28
+ * and 31), the last codon reads as the stop. This matches Biopython 1.88 `translate(cds=True)`.
+ * A partial feature (`<` or `>` in its location) or a length that is not whole codons is left
+ * as translated, since its last codon need not be the end of the protein.
+ */
+function terminateLastCodon(
+  feature: { locationString?: string },
+  codingSeq: string,
+  translTable: number,
+  protein: string,
+): string {
+  const code = NCBI_GENETIC_CODES[translTable];
+  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || /[<>]/.test(feature.locationString ?? '')) {
+    return protein;
+  }
+  const lastCodon = codingSeq.slice(-3).toUpperCase().replace(/U/g, 'T');
+  const index = codonIndex(lastCodon);
+  return index >= 0 && code.starts[index] === '*' ? `${protein.slice(0, -1)}_` : protein;
+}
+
+/**
  * Amino-acid string for a feature's coding sequence, preferring the authoritative
  * `/translation` qualifier over recomputation where present — one residue per
  * codon, aligned to the codons of `codingSeq` (hence to
@@ -251,11 +275,11 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
  * mismatch — falls back to the computed residue.
  */
 export function translateFeature(
-  feature: { translation?: string },
+  feature: { translation?: string; locationString?: string },
   codingSeq: string,
   translTable = 1,
 ): string {
-  const computed = translateSequence(codingSeq, translTable);
+  const computed = terminateLastCodon(feature, codingSeq, translTable, translateSequence(codingSeq, translTable));
   const stored = feature.translation;
   if (!stored) return computed;
   let protein = '';

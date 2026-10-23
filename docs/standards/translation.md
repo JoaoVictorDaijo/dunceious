@@ -25,11 +25,14 @@ is unknown.
 (`src/domain/bio/geneticCodes.ts`, by `npm run standards:genetic-codes` from the pinned copy) and
 tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
 that is not an NCBI code is never replaced by table 1: no residue or stop is claimed (`?`), and
-the feature's tooltip says the code is not an NCBI genetic code. Fixed in #229.
+the feature's tooltip and its translation band say the code is not an NCBI genetic code. An empty
+`/transl_table=` counts as invalid, not absent. Fixed in #229.
 
-Limitation: translation is codon by codon. In tables 27, 28 and 31, where a codon can be a sense
-codon or a stop depending on context, the computed residue is the sense one gc.prt gives, also
-at the last codon.
+Tables 27, 28 and 31 let some codons be a residue or a stop depending on context (gc.prt gives
+the residue in `ncbieaa` and `*` in `sncbieaa`). Inside a CDS they read as the residue; the last
+codon of a complete CDS reads as the stop, as Biopython 1.88 `translate(cds=True)` does. A
+partial CDS (`<` or `>`) keeps the residue at its last codon, since that codon need not end the
+protein.
 
 ## TRANS-2. `/codon_start`
 

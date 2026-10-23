@@ -38,13 +38,14 @@ if (digest !== pin.sha256) {
 
 const text = bytes.toString('latin1');
 const version = /--\s*Version\s+([\d.]+)/.exec(text)?.[1];
-const tables = [...text.matchAll(/\{\s*name "([^"]+)"\s*(?:,\s*name "[^"]+"\s*)?,\s*id (\d+)\s*,\s*ncbieaa\s+"([A-Z*]{64})"/g)]
-  .map(([, name, id, aminoAcids]) => ({ id: Number(id), name: name.replace(/\s+/g, ' '), aminoAcids }));
+const tables = [...text.matchAll(/\{\s*name "([^"]+)"\s*(?:,\s*name "[^"]+"\s*)?,\s*id (\d+)\s*,\s*ncbieaa\s+"([A-Z*]{64})"\s*,\s*sncbieaa\s+"([-A-Z*]{64})"/g)]
+  .map(([, name, id, aminoAcids, starts]) => ({ id: Number(id), name: name.replace(/\s+/g, ' '), aminoAcids, starts }));
 if (!version || tables.length === 0) throw new Error(`Could not parse ${pin.file}.`);
 
 const header = readFileSync(path.resolve('scripts/gen-genetic-codes.mjs'), 'utf8').split('\n').slice(0, 18).join('\n');
 const rows = tables
-  .map(({ id, name, aminoAcids }) => `  ${id}: { name: '${name.replace(/'/g, "\\'")}', aminoAcids: '${aminoAcids}' },`)
+  .map(({ id, name, aminoAcids, starts }) =>
+    `  ${id}: {\n    name: '${name.replace(/'/g, "\\'")}',\n    aminoAcids: '${aminoAcids}',\n    starts: '${starts}',\n  },`)
   .join('\n');
 
 writeFileSync(path.resolve('src/domain/bio/geneticCodes.ts'), `${header}
@@ -54,12 +55,18 @@ writeFileSync(path.resolve('src/domain/bio/geneticCodes.ts'), `${header}
 // gc.prt credits PIR for its initial data and NCBI for maintenance.
 
 /**
- * The NCBI genetic codes, keyed by \`/transl_table\` id. \`aminoAcids\` is gc.prt's \`ncbieaa\`
- * row: one residue per codon, codons ordered with bases T, C, A, G in that order at each
- * position (TTT, TTC, TTA, TTG, TCT, …, GGG); \`*\` is a stop. Where gc.prt gives a sense
- * residue for a codon that can also terminate (tables 27, 28 and 31), the residue is kept.
+ * The NCBI genetic codes, keyed by \`/transl_table\` id. Both rows give one character per codon,
+ * codons ordered with bases T, C, A, G in that order at each position (TTT, TTC, TTA, TTG, TCT,
+ * …, GGG). \`aminoAcids\` is gc.prt's \`ncbieaa\` row: the residue, or \`*\` for a stop. \`starts\`
+ * is its \`sncbieaa\` row: \`M\` for an initiation codon and \`*\` for a codon that can terminate.
+ * In tables 27, 28 and 31 a codon can have a residue in \`aminoAcids\` and \`*\` in \`starts\`:
+ * it is read as that residue, or as a stop depending on context.
  */
-export const NCBI_GENETIC_CODES: Readonly<Record<number, { readonly name: string; readonly aminoAcids: string }>> = {
+export const NCBI_GENETIC_CODES: Readonly<Record<number, {
+  readonly name: string;
+  readonly aminoAcids: string;
+  readonly starts: string;
+}>> = {
 ${rows}
 };
 

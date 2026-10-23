@@ -22,39 +22,153 @@
 // gc.prt credits PIR for its initial data and NCBI for maintenance.
 
 /**
- * The NCBI genetic codes, keyed by `/transl_table` id. `aminoAcids` is gc.prt's `ncbieaa`
- * row: one residue per codon, codons ordered with bases T, C, A, G in that order at each
- * position (TTT, TTC, TTA, TTG, TCT, …, GGG); `*` is a stop. Where gc.prt gives a sense
- * residue for a codon that can also terminate (tables 27, 28 and 31), the residue is kept.
+ * The NCBI genetic codes, keyed by `/transl_table` id. Both rows give one character per codon,
+ * codons ordered with bases T, C, A, G in that order at each position (TTT, TTC, TTA, TTG, TCT,
+ * …, GGG). `aminoAcids` is gc.prt's `ncbieaa` row: the residue, or `*` for a stop. `starts`
+ * is its `sncbieaa` row: `M` for an initiation codon and `*` for a codon that can terminate.
+ * In tables 27, 28 and 31 a codon can have a residue in `aminoAcids` and `*` in `starts`:
+ * it is read as that residue, or as a stop depending on context.
  */
-export const NCBI_GENETIC_CODES: Readonly<Record<number, { readonly name: string; readonly aminoAcids: string }>> = {
-  1: { name: 'Standard', aminoAcids: 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  2: { name: 'Vertebrate Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG' },
-  3: { name: 'Yeast Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  4: { name: 'Mold Mitochondrial; Protozoan Mitochondrial; Coelenterate Mitochondrial; Mycoplasma; Spiroplasma', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  5: { name: 'Invertebrate Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG' },
-  6: { name: 'Ciliate Nuclear; Dasycladacean Nuclear; Hexamita Nuclear', aminoAcids: 'FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  9: { name: 'Echinoderm Mitochondrial; Flatworm Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG' },
-  10: { name: 'Euplotid Nuclear', aminoAcids: 'FFLLSSSSYY**CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  11: { name: 'Bacterial, Archaeal and Plant Plastid', aminoAcids: 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  12: { name: 'Alternative Yeast Nuclear', aminoAcids: 'FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  13: { name: 'Ascidian Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG' },
-  14: { name: 'Alternative Flatworm Mitochondrial', aminoAcids: 'FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG' },
-  15: { name: 'Blepharisma Macronuclear', aminoAcids: 'FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  16: { name: 'Chlorophycean Mitochondrial', aminoAcids: 'FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  21: { name: 'Trematode Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG' },
-  22: { name: 'Scenedesmus obliquus Mitochondrial', aminoAcids: 'FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  23: { name: 'Thraustochytrium Mitochondrial', aminoAcids: 'FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  24: { name: 'Rhabdopleuridae Mitochondrial', aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG' },
-  25: { name: 'Candidate Division SR1 and Gracilibacteria', aminoAcids: 'FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  26: { name: 'Pachysolen tannophilus Nuclear', aminoAcids: 'FFLLSSSSYY**CC*WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  27: { name: 'Karyorelict Nuclear', aminoAcids: 'FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  28: { name: 'Condylostoma Nuclear', aminoAcids: 'FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  29: { name: 'Mesodinium Nuclear', aminoAcids: 'FFLLSSSSYYYYCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  30: { name: 'Peritrich Nuclear', aminoAcids: 'FFLLSSSSYYEECC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  31: { name: 'Blastocrithidia Nuclear', aminoAcids: 'FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  32: { name: 'Balanophoraceae Plastid', aminoAcids: 'FFLLSSSSYY*WCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG' },
-  33: { name: 'Cephalodiscidae Mitochondrial', aminoAcids: 'FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG' },
+export const NCBI_GENETIC_CODES: Readonly<Record<number, {
+  readonly name: string;
+  readonly aminoAcids: string;
+  readonly starts: string;
+}>> = {
+  1: {
+    name: 'Standard',
+    aminoAcids: 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '---M------**--*----M---------------M----------------------------',
+  },
+  2: {
+    name: 'Vertebrate Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSS**VVVVAAAADDEEGGGG',
+    starts: '----------**--------------------MMMM----------**---M------------',
+  },
+  3: {
+    name: 'Yeast Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWTTTTPPPPHHQQRRRRIIMMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**----------------------MM---------------M------------',
+  },
+  4: {
+    name: 'Mold Mitochondrial; Protozoan Mitochondrial; Coelenterate Mitochondrial; Mycoplasma; Spiroplasma',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--MM------**-------M------------MMMM---------------M------------',
+  },
+  5: {
+    name: 'Invertebrate Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSSSVVVVAAAADDEEGGGG',
+    starts: '---M------**--------------------MMMM---------------M------------',
+  },
+  6: {
+    name: 'Ciliate Nuclear; Dasycladacean Nuclear; Hexamita Nuclear',
+    aminoAcids: 'FFLLSSSSYYQQCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--------------*--------------------M----------------------------',
+  },
+  9: {
+    name: 'Echinoderm Mitochondrial; Flatworm Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG',
+    starts: '----------**-----------------------M---------------M------------',
+  },
+  10: {
+    name: 'Euplotid Nuclear',
+    aminoAcids: 'FFLLSSSSYY**CCCWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**-----------------------M----------------------------',
+  },
+  11: {
+    name: 'Bacterial, Archaeal and Plant Plastid',
+    aminoAcids: 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '---M------**--*----M------------MMMM---------------M------------',
+  },
+  12: {
+    name: 'Alternative Yeast Nuclear',
+    aminoAcids: 'FFLLSSSSYY**CC*WLLLSPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**--*----M---------------M----------------------------',
+  },
+  13: {
+    name: 'Ascidian Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNKKSSGGVVVVAAAADDEEGGGG',
+    starts: '---M------**----------------------MM---------------M------------',
+  },
+  14: {
+    name: 'Alternative Flatworm Mitochondrial',
+    aminoAcids: 'FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNNKSSSSVVVVAAAADDEEGGGG',
+    starts: '-----------*-----------------------M----------------------------',
+  },
+  15: {
+    name: 'Blepharisma Macronuclear',
+    aminoAcids: 'FFLLSSSSYY*QCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------*---*--------------------M----------------------------',
+  },
+  16: {
+    name: 'Chlorophycean Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------*---*--------------------M----------------------------',
+  },
+  21: {
+    name: 'Trematode Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIMMTTTTNNNKSSSSVVVVAAAADDEEGGGG',
+    starts: '----------**-----------------------M---------------M------------',
+  },
+  22: {
+    name: 'Scenedesmus obliquus Mitochondrial',
+    aminoAcids: 'FFLLSS*SYY*LCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '------*---*---*--------------------M----------------------------',
+  },
+  23: {
+    name: 'Thraustochytrium Mitochondrial',
+    aminoAcids: 'FF*LSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--*-------**--*-----------------M--M---------------M------------',
+  },
+  24: {
+    name: 'Rhabdopleuridae Mitochondrial',
+    aminoAcids: 'FFLLSSSSYY**CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG',
+    starts: '---M------**-------M---------------M---------------M------------',
+  },
+  25: {
+    name: 'Candidate Division SR1 and Gracilibacteria',
+    aminoAcids: 'FFLLSSSSYY**CCGWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '---M------**-----------------------M---------------M------------',
+  },
+  26: {
+    name: 'Pachysolen tannophilus Nuclear',
+    aminoAcids: 'FFLLSSSSYY**CC*WLLLAPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**--*----M---------------M----------------------------',
+  },
+  27: {
+    name: 'Karyorelict Nuclear',
+    aminoAcids: 'FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--------------*--------------------M----------------------------',
+  },
+  28: {
+    name: 'Condylostoma Nuclear',
+    aminoAcids: 'FFLLSSSSYYQQCCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**--*--------------------M----------------------------',
+  },
+  29: {
+    name: 'Mesodinium Nuclear',
+    aminoAcids: 'FFLLSSSSYYYYCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--------------*--------------------M----------------------------',
+  },
+  30: {
+    name: 'Peritrich Nuclear',
+    aminoAcids: 'FFLLSSSSYYEECC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '--------------*--------------------M----------------------------',
+  },
+  31: {
+    name: 'Blastocrithidia Nuclear',
+    aminoAcids: 'FFLLSSSSYYEECCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '----------**-----------------------M----------------------------',
+  },
+  32: {
+    name: 'Balanophoraceae Plastid',
+    aminoAcids: 'FFLLSSSSYY*WCC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG',
+    starts: '---M------*---*----M------------MMMM---------------M------------',
+  },
+  33: {
+    name: 'Cephalodiscidae Mitochondrial',
+    aminoAcids: 'FFLLSSSSYYY*CCWWLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSSKVVVVAAAADDEEGGGG',
+    starts: '---M-------*-------M---------------M---------------M------------',
+  },
 };
 
 /** gc.prt version the table above was generated from. */

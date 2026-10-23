@@ -61,7 +61,7 @@ Every claim about a tool carries one of these:
 ## Not covered yet
 
 These need their own sources and fixture cases before any decision depends on them: complete
-versus 5′/3′-partial CDS and stop-codon policy; every one of the 27 NCBI genetic codes; codons
+versus 5′/3′-partial CDS and stop-codon policy beyond the last codon; codons
 split across exons; GFF3 phase; partial ends on the minus strand; `length^1` sites; circular
 features whose parts do not touch base 1; remote-accession locations; and the difference
 between accepting a symbol, matching it in search and scoring it in alignment.

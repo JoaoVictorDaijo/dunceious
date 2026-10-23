@@ -19,7 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { detectEarlyStop, featureTranslTable, isNcbiGeneticCode, translateSequence } from '@/src/domain/bio/sequence';
+import { detectEarlyStop, featureTranslTable, isNcbiGeneticCode, translateFeature, translateSequence } from '@/src/domain/bio/sequence';
 
 // Independent oracle: Biopython's NCBI codon tables, not Dunceious's own data.
 const oracle = JSON.parse(
@@ -65,7 +65,32 @@ describe('featureTranslTable', () => {
   });
   it('keeps an invalid value invalid instead of falling back to table 1', () => {
     expect(featureTranslTable({ metadata: { transl_table: 'abc' } })).toBeNaN();
+    expect(featureTranslTable({ metadata: { transl_table: '' } })).toBeNaN();
     expect(featureTranslTable({ metadata: { transl_table: '11a' } })).toBeNaN();
     expect(isNcbiGeneticCode(featureTranslTable({ metadata: { transl_table: '7' } }))).toBe(false);
+  });
+});
+
+// Oracle: Biopython 1.88 Seq.translate(table, cds=True) ends a complete CDS at a codon that can
+// terminate, e.g. table 27 ATGAAATGA -> "MK" (plain translate gives "MKW").
+describe('translateFeature at the end of a complete CDS', () => {
+  it.each([
+    [27, 'ATGAAATGA', 'MK_'],
+    [28, 'ATGAAATAA', 'MK_'],
+    [31, 'ATGAAATAA', 'MK_'],
+    [1, 'ATGAAATAA', 'MK_'],
+  ])('reads the last codon of a complete table-%i CDS as the stop', (table, seq, protein) => {
+    expect(translateFeature({}, seq, table)).toBe(protein);
+    expect(translateFeature({ translation: 'MK' }, seq, table)).toBe(protein);
+  });
+
+  it('keeps internal dual-coding codons as residues', () => {
+    expect(translateFeature({}, 'ATGTGAAAATGA', 27)).toBe('MWK_');
+  });
+
+  it('leaves a partial or out-of-frame CDS as translated', () => {
+    expect(translateFeature({ locationString: '1..>9' }, 'ATGAAATGA', 27)).toBe('MKW');
+    expect(translateFeature({ locationString: 'complement(<1..9)' }, 'ATGAAATGA', 27)).toBe('MKW');
+    expect(translateFeature({}, 'ATGAAATGAA', 27)).toBe('MKW');
   });
 });
