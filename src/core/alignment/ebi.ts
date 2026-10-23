@@ -18,6 +18,7 @@
  */
 
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { parseFasta, type FastaRecord } from '../formats/fasta';
 
 export type EngineId = 'mafft' | 'kalign' | 'clustalo' | 'muscle';
@@ -116,7 +117,7 @@ export function remapAlignment(fasta: string, submission: AlignmentSubmission): 
   const lengths = new Set(records.map(record => record.sequence.length));
   if (lengths.size !== 1 || lengths.has(0)) return { ok: false, reason: 'Aligned lengths must be equal and greater than zero.' };
   for (const [alias, sequence] of returned) {
-    if (sequence.replace(/-/g, '').toUpperCase() !== submission.sequences.get(alias)?.toUpperCase()) {
+    if (!isGappedCopyOf(sequence, submission.sequences.get(alias)!)) {
       return { ok: false, reason: `The returned sequence for ${alias} differs from the submitted sequence.` };
     }
   }

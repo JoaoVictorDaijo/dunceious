@@ -50,6 +50,14 @@ describe('project format 2', () => {
   it.each([{ ...state, records: {} }, { ...state, records: [{}] }, { ...state, featureColors: null }, { ...state, showAnnotations: 'yes' }])('refuses malformed format 2 data without returning a partial project', invalid => {
     expect(parseProject(JSON.stringify({ ...invalid, format: 2 }))).toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
   });
+  it.each([
+    ['TTTT', 'This project file contains an alignment whose residues differ from sequence local_1.'],
+    ['A--CG', 'This project file contains an alignment whose residues differ from sequence local_1.'],
+    ['A.-CGT', 'This project file contains an alignment with "." gaps in local_1; only "-" is supported.'],
+  ])('refuses a saved alignment %s that is not the record residues with "-" gaps (#249)', (alignedSequence, message) => {
+    const text = serializeProject({ ...state, records: [{ ...record, alignedSequence }] });
+    expect(parseProject(text)).toEqual({ ok: false, message });
+  });
 });
 
 

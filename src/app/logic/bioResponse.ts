@@ -20,6 +20,7 @@
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
+import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import type { GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
 
@@ -152,7 +153,11 @@ export function applyAnnotations(
   return { next, totalAdded, unmatched };
 }
 
-/** Alignment overlays change only aligned residues; batch loads capture file provenance. */
+/**
+ * Alignment overlays change only aligned residues; batch loads capture file provenance.
+ * An overlay row must hold its record's loaded residues once '-' is removed from both,
+ * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
+ */
 export function applyFastaResponse(
   prev: SeqRecord[],
   alignedData: FastaAlignedRecord[],
@@ -163,7 +168,9 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
-  | ({ next: SeqRecord[]; kind: 'reject-empty' }) {
+  | ({ next: SeqRecord[]; kind: 'reject-empty' })
+  | ({ next: SeqRecord[]; kind: 'reject-dot-gap'; ids: string[] })
+  | ({ next: SeqRecord[]; kind: 'reject-residues'; ids: string[] }) {
   if (!asAlignment) {
     const incoming = alignedData.map(({ header: _header, details, ...r }) =>
       details && Object.keys(details).length > 0 ? writeDetails(r, details) : r);
@@ -189,6 +196,13 @@ export function applyFastaResponse(
     return { next: prev, kind: 'reject-length', lengths: Array.from(lengths) };
   }
 
+  const dotGapIds = alignedData.filter(d => d.sequence.includes('.')).map(d => d.id);
+  if (dotGapIds.length > 0) return { next: prev, kind: 'reject-dot-gap', ids: dotGapIds };
+
+  const loaded = new Map(prev.map(r => [r.id, r.sequence]));
+  const changedIds = alignedData.filter(d => !isGappedCopyOf(d.sequence, loaded.get(d.id)!)).map(d => d.id);
+  if (changedIds.length > 0) return { next: prev, kind: 'reject-residues', ids: changedIds };
+
   const next = prev.map(r => {
     const match = alignedData.find(d => d.id === r.id);
     return { ...r, alignedSequence: match?.sequence };
@@ -206,6 +220,8 @@ export function applyFastaAndLog(
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
     case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
+    case 'reject-dot-gap': addLog(`ERROR: Alignment gaps must be written as "-"; "." found in: [${result.ids.join(', ')}]`); break;
+    case 'reject-residues': addLog(`ERROR: Aligned residues differ from the loaded sequence ("-" removed from both, case ignored): [${result.ids.join(', ')}]`); break;
     default: {
       // Exhaustiveness guard: a new `kind` without a case is a compile error, and
       // an unhandled kind still logs instead of dropping silently.

@@ -63,7 +63,7 @@ Every claim about a tool carries one of these:
 | FMT-3 | INSDC feature-table and qualifier fidelity | INSDC FT 11.4; GenBank 274.0 §3.4.12 | Deviates: #242 | [formats](formats.md#fmt-3-insdc-feature-table-and-qualifier-fidelity) |
 | FMT-4 | Ordinary FASTA syntax and wrapping | Biopython 1.88; scoped NCBI FASTA guidance | Deviates: #244 | [formats](formats.md#fmt-4-ordinary-fasta-syntax-and-wrapping) |
 | FMT-5 | NCBI FASTA definition-line modifiers | NCBI FASTA modifiers, 2026-10-23 | Partial | [formats](formats.md#fmt-5-ncbi-fasta-definition-line-modifiers) |
-| FMT-6 | Aligned FASTA and alignment columns | Biopython 1.88; EMBOSS aligned FASTA | Deviates: #249; Owner decision open | [formats](formats.md#fmt-6-aligned-fasta-and-alignment-columns) |
+| FMT-6 | Aligned FASTA and alignment columns | Biopython 1.88; EMBOSS aligned FASTA | Partial; Owner decision open | [formats](formats.md#fmt-6-aligned-fasta-and-alignment-columns) |
 | FMT-7 | BED fields, coordinates and scores | GA4GH BED v1 | Deviates: #250 | [formats](formats.md#fmt-7-bed-fields-coordinates-and-scores) |
 | FMT-8 | UCSC bedGraph intervals and values | UCSC bedGraph, 2026-10-23 | Deviates: #250 | [formats](formats.md#fmt-8-ucsc-bedgraph-intervals-and-values) |
 | FMT-9 | GFF3 attachment to the named landmark | GFF3 1.26 column 1 | Partial; Owner decision open | [formats](formats.md#fmt-9-gff3-attachment-to-the-named-landmark) |

@@ -377,7 +377,8 @@ a version or imply a pinned engine from a pinned client contract.
 `src/app/hooks/useRemoteAlignment.ts:120` logs engine label/job ID and :124 elapsed time;
 version/complete parameters are absent from those log messages. FMT-12 distinguishes provider
 output from alias remapping, local validation and terminal-stop restoration. Overlay width/ID
-checks alone do not establish residue identity ([#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)).
+checks alone do not establish residue identity, so the overlay also requires ungapped residue
+equality ([#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)).
 
 ## METRIC-9a. Compact-strip overflow
 
