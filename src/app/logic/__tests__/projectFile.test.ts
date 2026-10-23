@@ -20,6 +20,8 @@
 import { describe, it, expect } from 'vitest';
 import { serializeProject, parseProject } from '../projectFile';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { exportToGenBank } from '@/src/core/genbank/serialize';
+import { exportToGff3 } from '@/src/core/formats/gff3';
 
 const record: SeqRecord = { id: 'local_1', name: 'local_1', sequence: 'ACGT', alignedSequence: 'A--CGT',
   label: 'camel isolate', accession: 'X', version: 'X.2', importedFrom: 'camel.gb', locationQualifier: 'country',
@@ -97,4 +99,21 @@ it('keeps search provenance through project save and load', () => {
   const loaded = parseProject(saved);
   expect(loaded.ok).toBe(true);
   if (loaded.ok) expect(loaded.project.records[0].features[0].metadata?._searchHit).toBe(raw);
+});
+
+it.each([
+  [{}, 'fuzzy search (whole query)'],
+  [{ minQueryIdentity: 75 }, 'fuzzy search (whole query, min query identity 75%)'],
+])('exports only the threshold that loaded search provenance %o records', (params, method) => {
+  const provenance = { v: 1, query: 'AAA', mode: 'whole', alphabet: 'nucleotide', params, strand: 1, cigar: '3=', edits: 0,
+    span: { start: 0, end: 3, strand: 1 }, appVersion: '3.7.3', createdAt: '2026-10-16', exportNote: true };
+  const saved = serializeProject({ records: [{ id: 'hit', name: 'hit', sequence: 'AAA', features: [{ name: 'hit', type: 'misc_feature', start: 0, end: 3, strand: 1, metadata: { _searchHit: JSON.stringify(provenance) } }] }], featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false });
+  const loaded = parseProject(saved);
+  if (!loaded.ok) throw new Error(loaded.message);
+  const note = `Found by Dunceious ${method}: query AAA (3 nt), 100% query identity, 0 edits, CIGAR 3=`;
+  const gb = exportToGenBank(loaded.project.records).text.replace(/\n {21}/g, ' ');
+  const gff = decodeURIComponent(exportToGff3(loaded.project.records).text);
+  expect(gb).toContain(`/note="${note}"`);
+  expect(gff).toContain(`Note=${note}`);
+  if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
