@@ -55,7 +55,7 @@ describe('featureEnvelope', () => {
   });
 
   it('characterises the false wrap when an edited nested feature loses its raw location', () => {
-    // FIXME(#239): discarding locationString loses written-order provenance.
+    // FIXME(#241): discarding locationString loses written-order provenance.
     expect(featureEnvelope(feature({ start: 0, end: 6,
       segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] })))
       .toEqual({ start: 4, end: 2 });

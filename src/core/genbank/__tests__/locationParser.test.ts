@@ -182,14 +182,14 @@ describe('parseLocation – mixed-strand trans-splice', () => {
 
 describe('nested complement evaluation (INSDC 11.4)', () => {
   it.each([
-    ['join', 'complement(1..2),3..4,7..8', 'AAGGAA', [7, 6, 3, 2, 0, 1]],
-    ['join', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1]],
-    ['join', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1]],
-    ['order', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1]],
-    ['order', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1]],
-  ])('complement(%s(%s)) reverses evaluated elements', (operator, elements, sequence, indices) => {
+    ['join', 'complement(1..2),3..4,7..8', 'AAGGAA', [7, 6, 3, 2, 0, 1], 8],
+    ['join', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1], 6],
+    ['join', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1], 6],
+    ['order', 'complement(1..2),5..6', 'CCAA', [5, 4, 0, 1], 6],
+    ['order', 'complement(1..2),complement(5..6)', 'GGAA', [4, 5, 0, 1], 6],
+  ])('complement(%s(%s)) reverses evaluated elements', (operator, elements, sequence, indices, end) => {
     const location = parseLocation(`complement(${operator}(${elements}))`);
     expect(extractFeatureSequence(location, 'AACCGGTT')).toEqual({ featureSeq: sequence, alignedIndices: indices });
-    expect({ start: location.start, end: location.end }).toEqual({ start: 0, end: elements.includes('7..8') ? 8 : 6 });
+    expect({ start: location.start, end: location.end }).toEqual({ start: 0, end });
   });
 });

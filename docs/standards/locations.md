@@ -121,7 +121,7 @@ interval starts after the last ends **and** one interval starts at base 1
 (`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
 in written order, including when a nested outer complement reverses sequence evaluation order.
 `featureEnvelope` recovers that order from retained `locationString`; if editing discards the
-text while retaining evaluation-order segments, it can infer a false wrap. GFF3 export writes
+text while retaining evaluation-order segments, it can infer a false wrap (#241). GFF3 export writes
 the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
 
 ## LOC-7. The sequence of a multi-interval feature
