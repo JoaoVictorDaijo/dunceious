@@ -74,6 +74,7 @@ Every claim about a tool carries one of these:
 | FMT-14 | Private project schema | Bounded private-schema search | No standard found; Owner decision open | [formats](formats.md#fmt-14-private-project-schema) |
 | FMT-15 | Private saved-search provenance and notes | Bounded private-provenance search; separate SAM/identity rules | No standard found; Owner decision open | [formats](formats.md#fmt-15-private-saved-search-provenance-and-notes) |
 | FMT-16 | Parser routing and ambiguous formats | NCBI/EMBOSS autodetection; Biopython explicit format; IGV extensions | Owner decision open | [formats](formats.md#fmt-16-parser-routing-and-ambiguous-formats) |
+| FMT-17 | GFF3 source column | GFF3 1.26 column 2 | Conforms (#251) | [formats](formats.md#fmt-17-gff3-source-column) |
 | OP-1 | Molecule type inferred from composition | Geneious composition inference/correction | Owner decision open | [operations](operations.md#op-1-molecule-type-inferred-from-composition) |
 | OP-2 | Declared GenBank molecule type | GenBank 274.0 §3.4.4.1–2 | Deviates: #243; fallback Owner decision open | [operations](operations.md#op-2-declared-genbank-molecule-type) |
 | OP-3 | Mixed molecule types in a workspace | Bounded gate search; contrary Geneious list-container practice | No standard found; Owner decision open | [operations](operations.md#op-3-mixed-molecule-types-in-a-workspace) |

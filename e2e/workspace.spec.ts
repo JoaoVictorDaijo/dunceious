@@ -74,7 +74,7 @@ test('built workers, annotations and exports preserve biological coordinates and
   expect(genbank).toContain('complement(4..9)');
   expect(genbank).not.toContain('hubEdit');
   const gff = await exported(page, 'GFF3');
-  expect(gff).toMatch(/sample\tDunceious\tgene\t4\t9\t\.\t-\t\./);
+  expect(gff).toMatch(/sample\ttest\tgene\t4\t9\t\.\t-\t\./);
   expect(gff).not.toContain('hubEdit');
   const projectText = await exported(page, 'Dunceious project');
   const project = JSON.parse(projectText);
