@@ -29,11 +29,26 @@ export function isOrderLocation(feature: Pick<BioFeature, 'locationString'>): bo
 }
 
 /**
- * An outer `complement()` around a `join()`/`order()` that has inner complements: the parser stores
- * its intervals in evaluation order (reversed), not as written (INSDC FT 11.4 §3.4.2.2).
+ * An outer `complement()` around a `join()`/`order()` whose top-level elements include a
+ * `complement()`: the parser stores its intervals in evaluation order (reversed), not as written
+ * (INSDC FT 11.4 §3.4.2.2). Reads the elements as `parseLocation` does, so both agree on the form.
  */
 export function isNestedComplementLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
-  return /^complement\((?:join|order)\(.*\bcomplement\(/.test(feature.locationString?.replace(/\s/g, '') ?? '');
+  const list = (feature.locationString ?? '').replace(/[<>\s]/g, '').match(/^complement\((?:join|order)\((.*)\)\)$/);
+  if (!list) return false;
+  let depth = 0;
+  let element = '';
+  for (const ch of `${list[1]},`) {
+    if (ch === ',' && depth === 0) {
+      if (/^complement\(.*\)$/.test(element)) return true;
+      element = '';
+      continue;
+    }
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    element += ch;
+  }
+  return false;
 }
 
 /** `<` or `>` (INSDC FT 11.4 §3.4.2.1): an end lies beyond the stated base (LOC-4). */

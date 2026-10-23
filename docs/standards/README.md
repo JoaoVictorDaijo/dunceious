@@ -47,7 +47,7 @@ Every claim about a tool carries one of these:
 | LOC-4 | `<` `>` uncertain bounds | INSDC FT 11.4 §3.4.2.1, §3.4.3 | Deviates: #226 | [locations](locations.md#loc-4-uncertain-bounds) |
 | LOC-5 | `n^(n+1)` between-base sites | INSDC FT 11.4 §3.4.2.1 | Deviates: #230 | [locations](locations.md#loc-5-between-base-sites) |
 | LOC-6 | Features crossing the origin | INSDC FT 11.4; GFF3 1.26 | Partial | [locations](locations.md#loc-6-features-crossing-the-origin) |
-| LOC-7 | The sequence of a multi-interval feature | INSDC FT 11.4 §3.4.2.2 | Sequences conform; nested caption gap (LOC-7) | [locations](locations.md#loc-7-the-sequence-of-a-multi-interval-feature) |
+| LOC-7 | The sequence of a multi-interval feature | INSDC FT 11.4 §3.4.2.2 | Conforms; decided in #81 | [locations](locations.md#loc-7-the-sequence-of-a-multi-interval-feature) |
 | COORD-1 | Positions shown to users | INSDC FT 11.4 §3.4.2.1 | Mixed: #231 | [alphabets and coordinates](alphabets-and-coordinates.md#coord-1-positions-shown-to-users) |
 | ALPHA-1 | Nucleotide ambiguity codes, T and U | NC-IUB 1984; INSDC FT 11.4 §7.4.1 | Conforms | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-1-nucleotide-ambiguity-codes-t-and-u) |
 | ALPHA-2 | Amino-acid codes U O B Z J X | INSDC FT 11.4 §7.4.3 | Conforms, mode-specific | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-2-amino-acid-codes) |

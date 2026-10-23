@@ -28,6 +28,7 @@ import { Row, type RowData } from '@/src/app/viewer/Row';
 import { TRANSLATION_MIN_ZOOM } from '../constants';
 import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 
 const ZOOM = 8;
 const LEN = 100;
@@ -138,6 +139,24 @@ describe('Row feature drawing', () => {
 });
 
 describe('Row segment connectors', () => {
+  // A nested outer complement stores its parts in evaluation order; connectors follow the written order.
+  const nested = (locationString: string): BioFeature =>
+    ({ type: 'misc_feature', name: 'n', locationString, ...parseLocation(locationString) });
+
+  it('bridges the interior gap of a linear nested complement, not the origin', () => {
+    // Written 1..20 then 81..100: linear, with one gap from base 21 to 80.
+    const { container } = renderRow(rec([nested('complement(join(complement(1..20),81..100))')]));
+    const lines = Array.from(connectors(container));
+    expect(lines.map(spanOf)).toEqual([[20 * ZOOM, 80 * ZOOM]]);
+  });
+
+  it('draws origin connectors for a nested complement written across the origin', () => {
+    // Written 81..95 then 1..20: crosses from base 95 to the record end. The part from the origin
+    // has no width because 1..20 starts at base 1, so only one connector is drawn.
+    const { container } = renderRow(rec([nested('complement(join(complement(81..95),1..20))')]));
+    expect(Array.from(connectors(container)).map(spanOf)).toEqual([[95 * ZOOM, LEN * ZOOM]]);
+  });
+
   // rps12 shape: segments descend, but no segment starts at the origin, so
   // parseLocation gives it a linear envelope — descent alone must not draw a wrap.
   it('draws one connector across the gap of a descending join', () => {

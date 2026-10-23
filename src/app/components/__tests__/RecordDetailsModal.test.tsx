@@ -217,8 +217,12 @@ describe('RecordDetailsModal nested complement sequence views', () => {
     expect(copyText.mock.calls[1][0].toUpperCase()).toBe('TGTTAC');
   });
 
-  it('explains the nested evaluation: inner complements first, then the outer one', () => {
-    open(fixture, labelled('J4'));
-    expect(caption()).toBe('Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.');
+  it.each([
+    // J4 = rc(b) + a: one reverse part, one forward part. J5 = b + a: both forward.
+    ['J4', 'Read 5′ → 3′, each interval on its own strand.'],
+    ['J5', 'Read 5′ → 3′ on the forward (+) strand.'],
+  ])('%s: explains inner complements first, then the outer one, and the strand of the result', (label, read) => {
+    open(fixture, labelled(label));
+    expect(caption()).toBe(`Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`);
   });
 });

@@ -29,6 +29,7 @@ import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
@@ -385,11 +386,12 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               if (f.segments && f.segments.length > 0) {
                 const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
-                // Draw connecting lines between segments
+                // Connectors pair intervals as the location writes them, the order the origin test reads.
+                const written = writtenOrderSegments(f) ?? f.segments;
                 const connectingLines: React.ReactElement[] = [];
-                for (let idx = 0; idx < f.segments.length - 1; idx++) {
-                  const s1 = f.segments[idx];
-                  const s2 = f.segments[idx + 1];
+                for (let idx = 0; idx < written.length - 1; idx++) {
+                  const s1 = written[idx];
+                  const s2 = written[idx + 1];
 
                   // parseLocation sets a descending envelope only for a vetted origin
                   // wrap, and it cannot see the crossings its header calls "false
@@ -441,7 +443,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 
                 const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
-                const crossesOrigin = f.segments.some((s1, k) => k < f.segments!.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > f.segments![k + 1].start);
+                const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);
                 const displayStarts = new Map(f.segments.map(segment => [
                   originalPositions ? originalPositions[segment.start] : segment.start,

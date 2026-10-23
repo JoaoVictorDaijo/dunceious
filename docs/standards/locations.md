@@ -172,6 +172,5 @@ outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) buil
 track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
 read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
 longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
-(`src/app/logic/__tests__/featureSequenceViews.test.ts`). The per-interval details caption still
-says the intervals are joined in written order for nested outer complements; their evaluated
-order is reversed. The displayed and copied bases follow LOC-3.
+(`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
+caption names both steps, inner complements first and then the outer one.

@@ -33,8 +33,10 @@
  * All coordinates are converted to 0-based half-open intervals [start, end).
  *
  * Circular wrap-around detection:
- *   A join() crosses the origin when its first segment starts *after* its last
- *   segment ends AND some segment begins at the origin (0-based start 0). The
+ *   A join() crosses the origin when its first interval, as written, starts
+ *   *after* its last written interval ends AND some interval begins at the
+ *   origin (0-based start 0). A nested outer complement stores its segments in
+ *   evaluation order, so the test always reads the written order. The
  *   origin requirement is what separates a genuine wrap — contiguous around the
  *   origin, so it must include base 1 — from a scattered trans-splice
  *   (e.g. rps12), which is also out-of-order but whose parts sit mid-genome.

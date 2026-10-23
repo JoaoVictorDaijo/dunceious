@@ -71,7 +71,11 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
   let orientation = '';
   if (!protein) {
     if (isNestedComplementLocation(feature)) {
-      orientation = ', inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.';
+      // The two complements cancel for an inner-complemented interval, so the strand comes from the parsed parts.
+      const strands = new Set(feature.segments?.map(s => s.strand ?? feature.strand));
+      const read = strands.size > 1 ? 'Read 5′ → 3′, each interval on its own strand.'
+        : strands.has(-1) ? 'Read 5′ → 3′ on the reverse (−) strand.' : 'Read 5′ → 3′ on the forward (+) strand.';
+      orientation = `, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`;
     } else if (feature.segments?.some(s => s.strand !== undefined)) {
       orientation = ', each read 5′ → 3′ on its own strand (complement(…) intervals reverse-complemented).';
     } else if (strand === -1) {
