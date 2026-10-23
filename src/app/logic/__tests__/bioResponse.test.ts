@@ -349,6 +349,13 @@ describe('applyFastaResponse residue integrity (#249)', () => {
     ]);
   });
 
+  it('compares a loaded sequence that kept "-" from a batch FASTA without its gaps', () => {
+    const gapped = [rec({ id: 'a', sequence: 'AC-GT' }), rec({ id: 'b', sequence: 'ACGT' })];
+    expect(applyFastaResponse(gapped, [fa('a', 'AC-GT'), fa('b', 'ACG-T')], true).kind).toBe('overlay');
+    expect(applyFastaResponse(gapped, [fa('a', 'AC-GA'), fa('b', 'ACG-T')], true))
+      .toEqual({ next: gapped, kind: 'reject-residues', ids: ['a'] });
+  });
+
   it('requires a loaded terminal stop to stay in the protein row', () => {
     const proteins = [rec({ id: 'p', sequence: 'MK*', moleculeType: 'protein' }), rec({ id: 'q', sequence: 'MAK', moleculeType: 'protein' })];
     expect(applyFastaResponse(proteins, [fa('p', 'M-K'), fa('q', 'MAK')], true))

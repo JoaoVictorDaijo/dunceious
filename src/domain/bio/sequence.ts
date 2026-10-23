@@ -408,13 +408,14 @@ export function removeGapsWithMap(seq: string): { ungapped: string; map: number[
 }
 
 /**
- * Whether `aligned` is `original` with only '-' gaps inserted: the aligned-FASTA
- * gap symbol (Biopython 1.88 AlignIO; EMBOSS 6.6.0 alignment formats). Case is
- * ignored, as EBI's remote-result check does, since lower case marks residues
- * without changing them.
+ * Whether `aligned` holds the residues of `original` in order, once '-' gaps (the
+ * aligned-FASTA gap symbol: Biopython 1.88 AlignIO; EMBOSS 6.6.0 alignment formats)
+ * are removed from both. `original` is stripped too because a batch-loaded FASTA
+ * can keep '-' in a record's sequence, as the EBI submission already strips it.
+ * Case is ignored, since lower case marks residues without changing them.
  */
 export function isGappedCopyOf(aligned: string, original: string): boolean {
-  return aligned.replace(/-/g, '').toUpperCase() === original.toUpperCase();
+  return aligned.replace(/-/g, '').toUpperCase() === original.replace(/-/g, '').toUpperCase();
 }
 
 /**

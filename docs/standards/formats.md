@@ -151,10 +151,11 @@ selection windows and residue-integrity checks are Unknown there.
 
 **Dunceious.** Partial. Local overlay checks equal, nonempty rows and ID sets
 (`src/app/logic/bioResponse.ts:156`), but duplicate upload IDs can evade set comparison. Each row
-with `-` removed must equal its record's loaded residues, ignoring case, or the overlay is refused
-with the offending IDs and the workspace unchanged; rows containing `.` are refused as an
-unsupported gap symbol (owner decision, [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)).
-The remote path shares this check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
+must equal its record's loaded residues once `-` is removed from both, ignoring case, or the
+overlay is refused with the offending IDs and the workspace unchanged; rows containing `.` are
+refused as an unsupported gap symbol (owner decision,
+[#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)). The remote path shares this
+check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
 **Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9). Longest-prefix reconciliation has
 no established reference contract. Selection
 export slices aligned-or-raw strings (`src/app/hooks/useFileHandlers.ts:336`); equal widths are

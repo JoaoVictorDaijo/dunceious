@@ -221,7 +221,7 @@ export function applyFastaAndLog(
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
     case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
     case 'reject-dot-gap': addLog(`ERROR: Alignment gaps must be written as "-"; "." found in: [${result.ids.join(', ')}]`); break;
-    case 'reject-residues': addLog(`ERROR: Aligned residues differ from the loaded sequence (gaps "-" removed, case ignored): [${result.ids.join(', ')}]`); break;
+    case 'reject-residues': addLog(`ERROR: Aligned residues differ from the loaded sequence ("-" removed from both, case ignored): [${result.ids.join(', ')}]`); break;
     default: {
       // Exhaustiveness guard: a new `kind` without a case is a compile error, and
       // an unhandled kind still logs instead of dropping silently.
