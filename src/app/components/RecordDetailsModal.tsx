@@ -20,6 +20,7 @@
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isNestedComplementLocation } from '@/src/domain/bio/locationFlags';
 import React, { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUiEffects } from './uiEffects';
@@ -79,7 +80,13 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
   const strand = getFeatureStrand(feature);
   let orientation = '';
   if (!protein) {
-    if (feature.segments?.some(s => s.strand !== undefined)) {
+    if (isNestedComplementLocation(feature)) {
+      // The two complements cancel for an inner-complemented interval, so the strand comes from the parsed parts.
+      const strands = new Set(feature.segments?.map(s => s.strand ?? feature.strand));
+      const read = strands.size > 1 ? 'Read 5′ → 3′, each interval on its own strand.'
+        : strands.has(-1) ? 'Read 5′ → 3′ on the reverse (−) strand.' : 'Read 5′ → 3′ on the forward (+) strand.';
+      orientation = `, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`;
+    } else if (feature.segments?.some(s => s.strand !== undefined)) {
       orientation = ', each read 5′ → 3′ on its own strand (complement(…) intervals reverse-complemented).';
     } else if (strand === -1) {
       orientation = `, ${n > 1 ? 'then ' : ''}reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.`;

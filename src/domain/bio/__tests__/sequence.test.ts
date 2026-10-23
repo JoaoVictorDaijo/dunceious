@@ -22,6 +22,7 @@ import {
   reverseComplement,
   translateSequence,
   extractCodingSequence,
+  extractFeatureSequence,
   detectEarlyStop,
   isFeatureBroken,
   detectMoleculeType,
@@ -286,5 +287,35 @@ describe('alignedToOriginalPositions', () => {
 
   it('is the identity for an ungapped sequence', () => {
     expect([...alignedToOriginalPositions('ATG')]).toEqual([0, 1, 2, 3]);
+  });
+});
+
+
+describe('feature extraction and CDS frame', () => {
+  it.each([
+    { codon_start: '1', codingSeq: 'AACCGG', alignedIndices: [9, 8, 6, 4, 1, 2] },
+    { codon_start: '2', codingSeq: 'ACCGG', alignedIndices: [8, 6, 4, 1, 2] },
+    { codon_start: '3', codingSeq: 'CCGG', alignedIndices: [6, 4, 1, 2] },
+  ])('applies codon_start=$codon_start after interval orientation and gap removal', ({ codon_start, codingSeq, alignedIndices }) => {
+    // rc(TT) + rc(GG) + GG, in evaluation order; hyphens have no source base.
+    const feature = { start: 1, end: 10, strand: -1 as const, metadata: { codon_start }, segments: [
+      { start: 8, end: 10, strand: -1 as const },
+      { start: 4, end: 7, strand: -1 as const },
+      { start: 1, end: 3, strand: 1 as const },
+    ] };
+    expect(extractFeatureSequence(feature, '-GG-G-G-TT')).toEqual({
+      featureSeq: 'AACCGG', alignedIndices: [9, 8, 6, 4, 1, 2],
+    });
+    expect(extractCodingSequence(feature, '-GG-G-G-TT')).toEqual({ codingSeq, alignedIndices });
+  });
+
+  it('complements IUPAC and RNA residues with source indices in reverse order', () => {
+    expect(extractFeatureSequence({ start: 0, end: 16, strand: -1 }, 'ACGURYSWKMBDHVN-', 'rna'))
+      .toEqual({ featureSeq: 'NBDHVKMWSRYACGU', alignedIndices: [14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] });
+  });
+
+  it('extracts no residues or indices from an empty interval', () => {
+    expect(extractFeatureSequence({ start: 2, end: 2, strand: -1 }, 'ACGT'))
+      .toEqual({ featureSeq: '', alignedIndices: [] });
   });
 });

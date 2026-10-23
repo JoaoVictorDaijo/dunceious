@@ -1,7 +1,13 @@
 biopython 1.88
+parser warning: double complement in '{text}'?; setting feature location to None.
+parser warning: double complement in '{text}'?; setting feature location to None.
+parser warning: double complement in '{text}'?; setting feature location to None.
 J1	loc=join{[0:10](+), [20:30](+)} operator=join partial=(False, False)	extract=TGTTACCTAGCTCTCTATGG	
 J2	loc=join{[20:30](-), [0:10](-)} operator=join partial=(False, False)	extract=CCATAGAGAGCTAGGTAACA	
 J3	loc=join{[20:30](-), [0:10](+)} operator=join partial=(False, False)	extract=CCATAGAGAGTGTTACCTAG	
+J4	loc=None: parser rejected location; extraction unavailable
+J5	loc=None: parser rejected location; extraction unavailable
+W2	loc=None: parser rejected location; extraction unavailable
 O1	loc=order{[0:3](+), [10:13](+)} operator=order partial=(False, False)	extract=TGTGGC	
 P1	loc=[<4:>25](+) operator=None partial=(True, True)	extract=ACCTAGGGCGCACGCGCTCTC	
 W1	loc=join{[114:120](+), [0:5](+)} operator=join partial=(False, False)	extract=ATAACGTGTTA	
@@ -9,6 +15,7 @@ S1	loc=[10:10](+) operator=None partial=(False, False)	extract=
 C1	loc=[30:42](+) operator=None partial=(False, False)	extract=GTGAAATTTTAA	translate(cds=False)=VKF* translate(cds=True)=MKF
 C2	loc=[<50:63](+) operator=None partial=(True, False)	extract=CATGGCCTGTTAA	translate(cds=False)=MAC* translate(cds=True)=MAC
 C3	loc=[70:82](+) operator=None partial=(False, False)	extract=ATGTGACCCTAA	translate(cds=False)=M*P* translate(cds=True)=ERROR TranslationError: Extra in frame stop codon 'TGA' found.
+--- round-trip omits parser-rejected features: J4, J5, W2
 --- round-trip location lines
 misc_feature    join(1..10,21..30)
 misc_feature    complement(join(1..10,21..30))

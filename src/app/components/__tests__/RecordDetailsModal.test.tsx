@@ -167,7 +167,7 @@ describe('RecordDetailsModal sequence views', () => {
 });
 
 describe('RecordDetailsModal edge captions and controls', () => {
-  it('uses native radios in one group, so arrow keys move the selection', () => {
+  it('groups the native view radios under one accessible selection', () => {
     open(fixture, labelled('J1'));
     const [feature, region] = [radio('Feature sequence'), radio('Region spanned')];
     expect(feature.type).toBe('radio');
@@ -216,5 +216,29 @@ describe('RecordDetailsModal edge captions and controls', () => {
     open({ id: 'r', name: 'r', sequence: 'ACGT', isCircular, features: [feature] }, feature);
     expect(locus()).toBe(label);
     expect(caption()).toBe(`Zero-length site ${label}: the location covers no bases.`);
+  });
+});
+
+describe('RecordDetailsModal nested complement sequence views', () => {
+  it.each(['J4', 'J5'])('%s: copies the nested feature sequence and switches to its forward region', async label => {
+    const { sequence, copyText } = open(fixture, labelled(label));
+    expect(sequence()).toBe(oracle[label]);
+    expect(lengths()).toBe('4 bp feature sequence · sum of 2 location intervals6 bp region spanned · 1..6');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy feature sequence \(4 bp\)/ })); });
+    expect(copyText).toHaveBeenCalledOnce();
+    expect(copyText.mock.calls[0][0].toUpperCase()).toBe(oracle[label]);
+    fireEvent.click(radio('Region spanned'));
+    expect(sequence()).toBe('TGTTAC');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy region \(6 bp\)/ })); });
+    expect(copyText.mock.calls[1][0].toUpperCase()).toBe('TGTTAC');
+  });
+
+  it.each([
+    // J4 = rc(b) + a: one reverse part, one forward part. J5 = b + a: both forward.
+    ['J4', 'Read 5′ → 3′, each interval on its own strand.'],
+    ['J5', 'Read 5′ → 3′ on the forward (+) strand.'],
+  ])('%s: explains inner complements first, then the outer one, and the strand of the result', (label, read) => {
+    open(fixture, labelled(label));
+    expect(caption()).toBe(`Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`);
   });
 });

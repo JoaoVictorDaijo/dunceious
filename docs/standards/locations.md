@@ -55,15 +55,18 @@ of operations: `complement(join(a,b))` is the reverse complement of `a`+`b`; `jo
 is `rc(b)` followed by `a`.
 
 **Reference tools.** Biopython 1.88 and EMBOSS 6.6.0 (`-join Y`), Tested: J2 and J3 match the oracle.
+For nested outer complements J4, J5 and W2, Biopython rejects the locations and EMBOSS returns
+sequences differing from the oracle; see the conformance results. The INSDC text governs.
 
 **Applications.** Artemis documents EMBL complement syntax
 ([manual 18.0.0](https://sanger-pathogens.github.io/Artemis/Artemis/artemis-manual.html)); mixed
 strands are unknown. Others unknown.
 
-**Dunceious.** Conforms for J2 and J3, which the details-window tests check against the oracle
-(`src/app/logic/__tests__/featureSequenceViews.test.ts`). Deviates — #239: an outer complement
-around inner complements, `complement(join(complement(a),b))`, keeps the written order instead
-of reversing it (`locationParser.ts:105-140`).
+**Dunceious.** Conforms for whole-feature, per-interval and nested outer complements. A nested
+outer complement reverses the evaluated interval order and flips each interval's strand
+(`src/core/genbank/locationParser.ts`). The whole-feature J2 shape remains in written order
+with a parent strand; extraction reverse-complements the joined result once. Parser, extraction,
+view-model and details-window copy tests check the nested results against the INSDC oracle.
 
 ## LOC-4. Uncertain bounds
 
@@ -115,8 +118,11 @@ GFF3 rows beyond the end only for circular references
 
 **Dunceious.** Partial. Extraction is correct (W1). A wrap is inferred only when the first
 interval starts after the last ends **and** one interval starts at base 1
-(`locationParser.ts:160-164`). GFF3 export writes the parts as separate in-bounds rows sharing
-one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
+(`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
+in written order, including when a nested outer complement reverses sequence evaluation order.
+`featureEnvelope` recovers that order from retained `locationString`; if editing discards the
+text while retaining evaluation-order segments, it can infer a false wrap (#241). GFF3 export writes
+the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
 
 ## LOC-7. The sequence of a multi-interval feature
 
@@ -161,9 +167,10 @@ first, the default the standard defines:
   caption names what the feature sequence is only where the key defines it (CDS: the coding
   sequence; mRNA: the transcript sequence).
 
-**Dunceious.** Conforms, except where LOC-3 deviates (#239). `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both
-views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), the extraction the CDS
+**Dunceious.** The sequences conform for supported location forms, including LOC-3’s nested
+outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), the extraction the CDS
 track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
 read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
-longer has. Tested against the oracle for J1, J2, J3, W1, O1 and P1
-(`src/app/logic/__tests__/featureSequenceViews.test.ts`).
+longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
+(`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
+caption names both steps, inner complements first and then the outer one.
