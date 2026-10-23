@@ -216,6 +216,9 @@ test('top bar keeps layers inline on office screens', async ({ page }) => {
   const nav = page.locator('nav.app-nav');
   await nav.getByRole('button', { name: 'Annotation Hub', exact: true }).click();
   await page.getByLabel('Import sequences files', { exact: true }).setInputFiles(file('records.fa', fasta));
+  const gapNotice = page.getByRole('alertdialog', { name: 'Alignment gaps removed' });
+  await expect(gapNotice.getByRole('listitem')).toHaveText(['sample1 gap character']);
+  await gapNotice.getByRole('button', { name: 'Dismiss' }).click();
   await expect(page.getByRole('button', { name: 'Jump to sequence sample', exact: true })).toBeVisible();
   await page.getByLabel('Import pre-aligned FASTA file', { exact: true }).setInputFiles(file('aligned.fa', fasta));
   await nav.getByRole('button', { name: 'Visual Viewport', exact: true }).click();

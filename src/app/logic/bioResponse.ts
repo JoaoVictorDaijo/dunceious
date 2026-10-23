@@ -153,8 +153,15 @@ export function applyAnnotations(
   return { next, totalAdded, unmatched };
 }
 
+/** A record loaded as a sequence whose '-' gap characters were removed, by workspace ID. */
+export interface GapRemoval { id: string; removed: number }
+
 /**
  * Alignment overlays change only aligned residues; batch loads capture file provenance.
+ * A batch load removes '-' so a stored sequence holds residues only, as NCBI does for
+ * sequences outside an alignment ("do not use "?" or "-" characters. These will be
+ * stripped from the sequence.", https://www.ncbi.nlm.nih.gov/genbank/fastaformat/).
+ * The removals are reported; a file that would leave a record empty is refused whole.
  * An overlay row must hold its record's loaded residues once '-' is removed from both,
  * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
  */
@@ -164,7 +171,8 @@ export function applyFastaResponse(
   asAlignment: boolean | undefined,
   filename?: string,
 ):
-  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap })
+  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
+  | ({ next: SeqRecord[]; kind: 'reject-gap-only'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
@@ -172,9 +180,20 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'reject-dot-gap'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-residues'; ids: string[] }) {
   if (!asAlignment) {
-    const incoming = alignedData.map(({ header: _header, details, ...r }) =>
-      details && Object.keys(details).length > 0 ? writeDetails(r, details) : r);
-    return { ...applyParseSuccess(prev, incoming, filename), kind: 'batch' };
+    const residues = alignedData.map(d => d.sequence.replace(/-/g, ''));
+    const gapOnly = alignedData.filter((d, i) => d.sequence.length > 0 && residues[i].length === 0).map(d => d.id);
+    if (gapOnly.length > 0) return { next: prev, kind: 'reject-gap-only', ids: gapOnly };
+    // Ungap before writeDetails so the generated source feature spans residues only.
+    const incoming = alignedData.map(({ header: _header, details, ...r }, i) => {
+      const record = { ...r, sequence: residues[i] };
+      return details && Object.keys(details).length > 0 ? writeDetails(record, details) : record;
+    });
+    const loaded = applyParseSuccess(prev, incoming, filename);
+    const added = loaded.next.slice(prev.length);
+    const gapsRemoved = alignedData
+      .map((d, i) => ({ id: added[i].id, removed: d.sequence.length - residues[i].length }))
+      .filter(gap => gap.removed > 0);
+    return { ...loaded, kind: 'batch', gapsRemoved };
   }
 
   const currentIds = new Set(prev.map(r => r.id));
@@ -215,7 +234,15 @@ export function applyFastaAndLog(
 ): ReturnType<typeof applyFastaResponse> {
   const result = applyFastaResponse(records, alignedData, asAlignment, filename);
   switch (result.kind) {
-    case 'batch': addLog(`Batch ingestion complete: ${result.count} records added.`); break;
+    case 'batch': {
+      addLog(`Batch ingestion complete: ${result.count} records added.`);
+      const gaps = result.gapsRemoved;
+      if (gaps.length > 0) {
+        addLog(`Removed alignment gaps ("-") from ${gaps.length} record${gaps.length === 1 ? '' : 's'} in ${filename ?? 'the FASTA file'}: ${gaps.map(gap => `${gap.id} (${gap.removed})`).join(', ')}.`);
+      }
+      break;
+    }
+    case 'reject-gap-only': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records contain only "-" gap characters: [${result.ids.join(', ')}].`); break;
     case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;

@@ -151,3 +151,32 @@ describe('deferred bio processing across record identity and teardown', () => {
     await expect(h.result.current.requestBio({ type: 'PROCESS_RECORDS', records: [] })).rejects.toThrow('unavailable');
   });
 });
+
+describe('gap removal notices for FASTA loaded as sequences (#267)', () => {
+  const load = async (h: ReturnType<typeof setup>, filename: string, content: string) => {
+    const pending = h.result.current.requestBio({ type: 'PARSE_FASTA', filename, content, asAlignment: false });
+    const index = h.worker.requests.length - 1;
+    act(() => h.worker.release(index));
+    return pending;
+  };
+
+  it('collects one notice per file that lost "-" characters until dismissed', async () => {
+    const h = setup();
+    await load(h, 'first.fa', '>a\nAC-GT\n');
+    await load(h, 'clean.fa', '>c\nACGT\n');
+    await load(h, 'second.fa', '>b\nA--C\n');
+    expect(h.result.current.gapNotices).toEqual([
+      { fileName: 'first.fa', records: [{ id: 'a', removed: 1 }] },
+      { fileName: 'second.fa', records: [{ id: 'b', removed: 2 }] },
+    ]);
+    act(() => h.result.current.dismissGapNotices());
+    expect(h.result.current.gapNotices).toEqual([]);
+  });
+
+  it('rejects a gap-only file so a dropped batch attaches nothing, and keeps the workspace', async () => {
+    const h = setup();
+    await expect(load(h, 'only.fa', '>a\nACGT\n>b\n---\n')).rejects.toThrow('only.fa was not loaded.');
+    expect(h.result.current.records.map(r => r.id)).toEqual(['original']);
+    expect(h.result.current.gapNotices).toEqual([]);
+  });
+});
