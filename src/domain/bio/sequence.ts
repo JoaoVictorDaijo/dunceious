@@ -27,6 +27,7 @@
  * export is a pure function over strings/number arrays.
  */
 
+import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
 import type { SeqRecord } from './types';
 
@@ -69,50 +70,56 @@ export function complementAlphabet(sequence: string, moleculeType?: SeqRecord['m
 // Translation
 // ---------------------------------------------------------------------------
 
-/** NCBI translation table 1 — the Standard Code. `_` marks a stop codon. */
-const STANDARD_CODE: Record<string, string> = {
-  'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
-  'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K', 'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
-  'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L', 'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
-  'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q', 'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
-  'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V', 'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
-  'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E', 'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
-  'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S', 'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
-  'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_', 'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
+const CODON_BASES = 'TCAG';
+
+/** Index of a codon in gc.prt's TCAG order, or -1 when it has a base outside T, C, A, G. */
+const codonIndex = (codon: string): number => {
+  let index = 0;
+  for (const base of codon) {
+    const value = CODON_BASES.indexOf(base);
+    if (value < 0) return -1;
+    index = index * 4 + value;
+  }
+  return index;
 };
 
+/** Whether `id` is one of the NCBI genetic codes (`/transl_table` values) in gc.prt. */
+export const isNcbiGeneticCode = (id: number): boolean => Object.hasOwn(NCBI_GENETIC_CODES, id);
+
 /**
- * Per-table codon reassignments relative to {@link STANDARD_CODE}, keyed by NCBI
- * `transl_table` id. Only internal-codon differences are modeled (alternative
- * start codons are handled via the annotated `/translation` and `/codon_start`,
- * not here). Tables 1 and 11 use the standard code for internal codons.
+ * The feature's `/transl_table` id: 1 (the Standard Code) when the qualifier is absent, as
+ * INSDC defines, or NaN when its value is not an integer (an empty `/transl_table=` included).
+ * A NaN or unknown id is not replaced by table 1, so {@link translateSequence} claims no
+ * residue for it.
  */
-const CODE_OVERRIDES: Record<number, Record<string, string>> = {
-  2: { 'AGA': '_', 'AGG': '_', 'ATA': 'M', 'TGA': 'W' }, // Vertebrate Mitochondrial
-  3: { 'ATA': 'M', 'CTA': 'T', 'CTC': 'T', 'CTG': 'T', 'CTT': 'T', 'TGA': 'W' }, // Yeast Mitochondrial
-  4: { 'TGA': 'W' }, // Mold/Protozoan/Coelenterate Mitochondrial + Mycoplasma/Spiroplasma
-  5: { 'AGA': 'S', 'AGG': 'S', 'ATA': 'M', 'TGA': 'W' }, // Invertebrate Mitochondrial
-};
-
-const codeTable = (translTable: number): Record<string, string> => {
-  const overrides = CODE_OVERRIDES[translTable];
-  return overrides ? { ...STANDARD_CODE, ...overrides } : STANDARD_CODE;
+export const featureTranslTable = (feature: { metadata?: Record<string, unknown> }): number => {
+  const value = feature.metadata?.transl_table;
+  if (value === undefined || value === null) return 1;
+  const text = String(value).trim();
+  return /^\d+$/.test(text) ? Number(text) : NaN;
 };
 
 /**
- * Translates DNA or RNA codon-by-codon; U is normalized only for table lookup.
+ * Translates DNA or RNA codon-by-codon with an NCBI genetic code (gc.prt; see
+ * docs/standards/translation.md, TRANS-1); U is normalized only for table lookup.
+ *
+ * Each codon gets its own residue, independent of position: a codon that the code allows to
+ * terminate in context (tables 27, 28 and 31) shows its sense residue, as gc.prt's `ncbieaa`
+ * row does, and an alternative initiation codon shows its sense residue, not Met.
+ * {@link translateFeature} reads the last such codon of a complete CDS as the stop.
  *
  * @param seq         Coding sequence (5'→3', translation-ready).
  * @param translTable NCBI genetic-code id (default 1, the Standard Code).
- *                    Unknown ids fall back to the standard code.
- * @returns Amino-acid string; `_` for stop codons, `?` for unresolvable codons.
+ * @returns Amino-acid string; `_` for stop codons, `?` for a codon with an ambiguous base and
+ *          for every codon when `translTable` is not an NCBI genetic code.
  */
 export const translateSequence = (seq: string, translTable = 1): string => {
-  const table = codeTable(translTable);
-  let protein = "";
+  const code = NCBI_GENETIC_CODES[translTable];
+  let protein = '';
   for (let i = 0; i < seq.length - 2; i += 3) {
-    const tCodon = seq.substring(i, i + 3).toUpperCase().replace(/U/g, 'T');
-    protein += table[tCodon] || '?';
+    const index = code ? codonIndex(seq.substring(i, i + 3).toUpperCase().replace(/U/g, 'T')) : -1;
+    const residue = index < 0 ? '?' : code.aminoAcids[index];
+    protein += residue === '*' ? '_' : residue;
   }
   return protein;
 };
@@ -242,7 +249,8 @@ export function extractCodingSequence(
  * @param translTable NCBI genetic-code id (default 1). A codon that is a stop
  *                    under one code may be a sense codon under another (e.g.
  *                    TGA is Trp under the mitochondrial codes), so the table
- *                    must match the feature's `/transl_table`.
+ *                    must match the feature's `/transl_table`. Under an id that is
+ *                    not an NCBI genetic code no codon is known, so none is a stop.
  */
 export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   const fullCodons = Math.floor(codingSeq.length / 3);
@@ -253,6 +261,28 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
     }
   }
   return false;
+}
+
+/**
+ * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
+ * residue depending on context (gc.prt `sncbieaa` `*` with a residue in `ncbieaa`, tables 27, 28
+ * and 31), the last codon reads as the stop. This matches Biopython 1.88 `translate(cds=True)`.
+ * A partial feature (`<` or `>` in its location) or a length that is not whole codons is left
+ * as translated, since its last codon need not be the end of the protein.
+ */
+function terminateLastCodon(
+  feature: { locationString?: string },
+  codingSeq: string,
+  translTable: number,
+  protein: string,
+): string {
+  const code = NCBI_GENETIC_CODES[translTable];
+  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || /[<>]/.test(feature.locationString ?? '')) {
+    return protein;
+  }
+  const lastCodon = codingSeq.slice(-3).toUpperCase().replace(/U/g, 'T');
+  const index = codonIndex(lastCodon);
+  return index >= 0 && code.starts[index] === '*' ? `${protein.slice(0, -1)}_` : protein;
 }
 
 /**
@@ -269,11 +299,11 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
  * mismatch — falls back to the computed residue.
  */
 export function translateFeature(
-  feature: { translation?: string },
+  feature: { translation?: string; locationString?: string },
   codingSeq: string,
   translTable = 1,
 ): string {
-  const computed = translateSequence(codingSeq, translTable);
+  const computed = terminateLastCodon(feature, codingSeq, translTable, translateSequence(codingSeq, translTable));
   const stored = feature.translation;
   if (!stored) return computed;
   let protein = '';

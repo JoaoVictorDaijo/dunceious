@@ -51,7 +51,7 @@ Every claim about a tool carries one of these:
 | COORD-1 | Positions shown to users | INSDC FT 11.4 §3.4.2.1 | Mixed: #231 | [alphabets and coordinates](alphabets-and-coordinates.md#coord-1-positions-shown-to-users) |
 | ALPHA-1 | Nucleotide ambiguity codes, T and U | NC-IUB 1984; INSDC FT 11.4 §7.4.1 | Conforms | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-1-nucleotide-ambiguity-codes-t-and-u) |
 | ALPHA-2 | Amino-acid codes U O B Z J X | INSDC FT 11.4 §7.4.3 | Conforms, mode-specific | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-2-amino-acid-codes) |
-| TRANS-1 | Genetic code from `/transl_table` | NCBI genetic codes, gc.prt 4.6 | Deviates: #229 | [translation](translation.md#trans-1-genetic-code-from-transl_table) |
+| TRANS-1 | Genetic code from `/transl_table` | NCBI genetic codes, gc.prt 4.6 | Conforms (#229) | [translation](translation.md#trans-1-genetic-code-from-transl_table) |
 | TRANS-2 | `/codon_start` | INSDC FT 11.4 | Conforms | [translation](translation.md#trans-2-codon_start) |
 | TRANS-3 | Alternative initiation codons | NCBI genetic codes | Gap in computed path | [translation](translation.md#trans-3-alternative-initiation-codons) |
 | TRANS-4 | `/transl_except` | INSDC FT 11.4 | Gap in computed path | [translation](translation.md#trans-4-transl_except) |
@@ -61,7 +61,7 @@ Every claim about a tool carries one of these:
 ## Not covered yet
 
 These need their own sources and fixture cases before any decision depends on them: complete
-versus 5′/3′-partial CDS and stop-codon policy; every one of the 27 NCBI genetic codes; codons
+versus 5′/3′-partial CDS and stop-codon policy beyond the last codon; codons
 split across exons; GFF3 phase; partial ends on the minus strand; `length^1` sites; circular
 features whose parts do not touch base 1; remote-accession locations; and the difference
 between accepting a symbol, matching it in search and scoring it in alignment.

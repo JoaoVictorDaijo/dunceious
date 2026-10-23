@@ -19,10 +19,19 @@
 
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { alignedToOriginalPositions, extractCodingSequence, isFeatureBroken } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
+
+/**
+ * The warning for a CDS/ORF whose `/transl_table` is not an NCBI genetic code, or null. Its
+ * codons are not translated (see `translateSequence`), and the warning says why.
+ */
+export const geneticCodeWarning = (feature: BioFeature): string | null =>
+  CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature))
+    ? `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code; codons are not translated`
+    : null;
 
 /**
  * Maps each CDS/ORF feature to whether its protein has an internal (early) stop
@@ -44,7 +53,7 @@ export const computeBrokenFeatureMap = (
     .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
-      const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
+      const translTable = featureTranslTable(f);
       map.set(f, isFeatureBroken(f, codingSeq, translTable));
     });
   return map;
