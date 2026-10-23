@@ -46,17 +46,27 @@ type SequenceView = 'feature' | 'region';
 const fmt = (n: number) => n.toLocaleString('en-US');
 const KEY_SEQUENCE: Record<string, string> = { CDS: 'For a CDS this is the coding sequence.', mRNA: 'For an mRNA this is the transcript sequence.' };
 
-/** INSDC notation for the envelope: `a..b`, or `n^n+1` for a zero-length site (LOC-5). */
-const regionLabel = (views: FeatureSequenceViews) => views.regionStart === views.regionEnd
-  ? `${views.regionStart}^${views.regionStart + 1}`
-  : `${views.regionStart + 1}..${views.regionEnd}`;
+/**
+ * INSDC notation for a 0-based half-open span: `a..b`, or a between-base site (LOC-5, INSDC FT 11.4
+ * §3.4.2.1): `n^n+1`, or `n^1` at a circular molecule's origin, where n is its length. A linear
+ * molecule has no site before base 1 or after its last base, so those are named in words.
+ */
+function locationLabel(start: number, end: number, record: SeqRecord): string {
+  if (start !== end) return `${start + 1}..${end}`;
+  const n = record.sequence.length;
+  if (start === 0 || start === n) {
+    if (record.isCircular) return `${n}^1`;
+    return start === 0 ? 'before base 1' : `after base ${n}`;
+  }
+  return `${start}^${start + 1}`;
+}
 
 /** What the sequence box shows, in INSDC terms only (LOC-7): never "exons" or "spliced". */
 function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureSequenceViews, shown: SequenceView): React.ReactNode {
   const protein = record.moleculeType === 'protein';
   const n = views.intervals;
   const residues = protein ? 'residues' : 'bases';
-  const span = `${regionLabel(views)}${views.regionStart > views.regionEnd ? ' across the origin' : ''}`;
+  const span = `${locationLabel(views.regionStart, views.regionEnd, record)}${views.regionStart > views.regionEnd ? ' across the origin' : ''}`;
   const region = views.regionLength === 0
     ? `Zero-length site ${span}: the location covers no ${residues}.`
     : `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
@@ -194,7 +204,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {feature.locationString || `${feature.start + 1}..${feature.end}`}
+                  {feature.locationString || locationLabel(feature.start, feature.end, record)}
                 </p>
               </div>
               <div className="space-y-1">
@@ -215,7 +225,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   </span>
                 </p>
                 <p className="text-[11px] font-mono text-slate-500">
-                  {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {regionLabel(views)}</span>
+                  {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {locationLabel(views.regionStart, views.regionEnd, record)}</span>
                 </p>
               </div>}
               {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
