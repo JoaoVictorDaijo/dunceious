@@ -1,6 +1,6 @@
 # Additional sequence-tool standards survey
 
-Research date: 2026-10-23. Adoption/cohort evidence: [cohort.md](2026-10-23-cohort.md). All new behavior evidence is **Documented**, not Tested. Old Tested cells are inherited explicitly from the supplied conformance report; no sequence tool or project test suite was run in this research session.
+Research date: 2026-10-23. Adoption/cohort evidence: [cohort](2026-10-23-cohort.md). All new behavior evidence is **Documented**, not Tested. Old Tested cells are inherited explicitly from the supplied conformance report; no sequence tool or project test suite was run in this research session.
 
 ## 1. Summary
 
@@ -22,9 +22,9 @@ The owner-approved cohort and group-specific counts are recorded in section5.
 
 **C** = documented conformance for the named operation and scope; **D** = documented difference from the stated INSDC convention; **N** = explicitly unsupported in that interface; **U** = not verified. **N/A** = no documented applicability to that operation in this evidence set; this is a relevance decision, not a claim that the product cannot do it. C is not a claim of whole-tool conformance. A generic selectable table does not prove automatic `/transl_table` handling. A model flag does not prove round-trip preservation. Every U/`?` cell means the examined documentation did not establish the behavior, not absence.[^0]
 
-The owner-approved matrix covers18 new tools:8 CLI/library entries (BioPerl, BioJava, Bioconductor package group, bedtools, gffread, SeqKit, samtools, AGAT),1 NCBI reference utility (table2asn), and9 interactive tools (IGB, Apollo, MEGA, AliView, Clone Manager, Sequencher, Addgene analyzer, SeaView, Tablet). Bioconductor here means Biostrings2.80.2, GenomicFeatures1.64.0 and the concrete BSgenome1.80.0 `getSeq` method, not every ecosystem package. Current releases and behavior-document versions are separately listed in cohort.md; old manuals are not passed off as current conformance testing.
+The owner-approved matrix covers18 new tools:8 CLI/library entries (BioPerl, BioJava, Bioconductor package group, bedtools, gffread, SeqKit, samtools, AGAT),1 NCBI reference utility (table2asn), and9 interactive tools (IGB, Apollo, MEGA, AliView, Clone Manager, Sequencher, Addgene analyzer, SeaView, Tablet). Bioconductor here means Biostrings2.80.2, GenomicFeatures1.64.0 and the concrete BSgenome1.80.0 `getSeq` method, not every ecosystem package. Current releases and behavior-document versions are separately listed in the cohort ledger; old manuals are not passed off as current conformance testing.
 
-Official exclusions: Genome Workbench retired March2024; Vector NTI support ended2020-12-31; GBrowse officially unsupported. Evidence and quotations are in cohort.md and sources51–52.[^51][^52] Serial Cloner, GENtle and TeselaGen are reserves with unresolved adoption/maintenance evidence, not declared discontinued or niche. Neutral registry/review candidates and proposed scope decisions are fully listed in cohort.md. Existing matrices are reused with their evidence levels in the combined comparison and machine-readable records.
+Official exclusions: Genome Workbench retired March2024; Vector NTI support ended2020-12-31; GBrowse officially unsupported. Evidence and quotations are in the cohort ledger and sources51–52.[^51][^52] Serial Cloner, GENtle and TeselaGen are reserves with unresolved adoption/maintenance evidence, not declared discontinued or niche. Neutral registry/review candidates and proposed scope decisions are fully listed in the cohort ledger. Existing matrices are reused with their evidence levels in the combined comparison and machine-readable records.
 
 ## 3. Operations matrix
 
@@ -88,7 +88,7 @@ Row1 is separated into joined extraction, separate parts, region and strand. **P
 
 ## 4. Formats and vocabularies
 
-R=reads/interprets, W=writes, RW=both, no=explicitly unsupported in the named interface, ?=unverified. INSDC FT requires evidence beyond GenBank support; location-grammar parsers alone are not standalone FT readers. Rows are transposed relative to current-tools.md so columns match the operations matrix. Format support is directional, not a claim of lossless preservation.
+R=reads/interprets, W=writes, RW=both, no=explicitly unsupported in the named interface, ?=unverified. INSDC FT requires evidence beyond GenBank support; location-grammar parsers alone are not standalone FT readers. Rows are transposed relative to tools.md (2026-10-22 version) so columns match the operations matrix. Format support is directional, not a claim of lossless preservation.
 
 ### CLI/library scope
 
@@ -132,7 +132,7 @@ The Sequencher FT cell refers only to explicitly documented embedded GenBank fea
 
 ## 5. Adoption-filtered, group-specific extraction comparison
 
-The owner approved the cohort through ask_claude on2026-10-23 with the W9 relevance filter. See [cohort.md](2026-10-23-cohort.md) for release evidence, the full ranked candidate table, exact citation queries and vendor-count sources. Rank only applicable tools within each group/metric stratum; take ceil(n/2), retaining ties. Unknown-usage tools have no numerical rank. Clone Manager, Sequencher and Addgene analyzer are evidence-only and excluded from these counts.
+The owner approved the cohort on 2026-10-23 with the relevance filter. See [cohort](2026-10-23-cohort.md) for release evidence, the full ranked candidate table, exact citation queries and vendor-count sources. Rank only applicable tools within each group/metric stratum; take ceil(n/2), retaining ties. Unknown-usage tools have no numerical rank. Clone Manager, Sequencher and Addgene analyzer are evidence-only and excluded from these counts.
 
 Counts measure **documented capabilities**, not conformance percentages or votes determining a scientific rule. They overlap: a tool can offer both concatenated and separate extraction. Only Tested or Documented positive cells count. A standalone reverse-complement primitive does not count as documented reverse-complement **extraction**; an explicit orientation option attached to a region extractor does. User-defined coordinate spans are included in region capability counts and labelled R in the matrix. Mixed-strand/written-order semantics are not inferred.
 
@@ -152,11 +152,11 @@ Counts measure **documented capabilities**, not conformance percentages or votes
 
 These are lower bounds. A zero means no qualifying affirmative evidence, not that the capability is absent. AGAT's row is displayed separately to avoid giving unknown numerical adoption a ranked vote. Databases, BLAST, ORFfinder and table2asn annotation/translation semantics are reference context, not interchangeable feature-extraction UI evidence. The later supplied primary survey and reopened NCBI manual establish Sequence Viewer's separate-exon option; joined/minus behavior remains U.[^60]
 
-**Auditable applicable/ranked sets (recent2024–2026 citations; all values and query URLs in cohort.md):**
+**Auditable applicable/ranked sets (recent2024–2026 citations; all values and query URLs in the cohort ledger):**
 
 - Interactive paper stratum: Geneious2670 (Basic predecessor proxy), UCSC1000, UGENE723, SeaView451, Artemis217, Tablet158, Ensembl97, Apollo89, IGB84. Top half is **Geneious, UCSC, UGENE, SeaView, Artemis**. UGENE and Artemis document feature export, but their within-feature multipart/strand details remain U in the inherited matrix.[^59] SeaView/Tablet document feature handling but their multipart details remain U; they do not add affirmative counts. Joined positives: Geneious,UCSC,Ensembl,Apollo,IGB. Separate positives: Geneious,UCSC. Region positives: Ensembl,Apollo,IGB. All extraction-strand cells remain U. UCSC is specifically CDS FASTA **alignment** output; IGB uses historical2007 documentation.
 - Interactive vendor stratum: **SnapGene** is the only applicable product with a direct scientist-count metric (vendor-stated>50000). Its selected span is documented. Benchling's vendor-stated200000+ does not qualify it for this extraction row: intron-skipping translation is not nucleotide extraction. MEGA/AliView are N/A for feature extraction on these sources, even though their overall usage ranks are high.
-- CLI/library paper stratum: samtools11081 (SAMtools/BCFtools proxy), bedtools8747, Biopython1965, SeqKit1816, EMBOSS1187, gffread888 (GffRead/GffCompare proxy), Bioconductor723 (framework proxy), BioPerl48, BioJava11 (version5 proxy). Top half is **samtools, bedtools, Biopython, SeqKit, EMBOSS**. Joined positives: bedtools,Biopython,EMBOSS,gffread,Bioconductor,BioPerl,BioJava. Separate positives: EMBOSS,Bioconductor. Region positives: samtools,bedtools,SeqKit,gffread,Bioconductor,BioJava. Reverse-complement extraction positives: samtools,bedtools,Biopython,SeqKit,EMBOSS,gffread,Bioconductor. BioPerl/BioJava standalone primitives are not counted as extraction-strand proof. The gffread source/dependency caveat remains attached to its positive cell.
+- CLI/library paper stratum: samtools11081 (SAMtools/BCFtools proxy), bedtools8747, Biopython1965, SeqKit1816, EMBOSS1187, gffread888 (GffRead/GffCompare proxy), Bioconductor745 (2015 framework paper, selected by recent citations), BioPerl48, BioJava11 (version5 proxy). Top half is **samtools, bedtools, Biopython, SeqKit, EMBOSS**. Joined positives: bedtools,Biopython,EMBOSS,gffread,Bioconductor,BioPerl,BioJava. Separate positives: EMBOSS,Bioconductor. Region positives: samtools,bedtools,SeqKit,gffread,Bioconductor,BioJava. Reverse-complement extraction positives: samtools,bedtools,Biopython,SeqKit,EMBOSS,gffread,Bioconductor. BioPerl/BioJava standalone primitives are not counted as extraction-strand proof. The gffread source/dependency caveat remains attached to its positive cell.
 
 For the CLI/library group, an **all-applicable inventory including unranked AGAT** is10tools:8joined,3separate,7region,8reverse-complement. This inventory is deliberately not merged with the interactive group or presented as a popularity-weighted vote. Removing the source-qualified gffread strand cell reduces only its all-group reverse-complement lower bound by1; the top-half result is unchanged.
 
@@ -164,14 +164,14 @@ For the CLI/library group, an **all-applicable inventory including unranked AGAT
 
 The comparison below includes the existing apps using their supplied primary matrix and the later fixture reports, plus the new tools.[^59] Each result is **C/D/N/U**, never a conformance percentage. U is displayed for auditability but contributes no affirmative evidence. Scope remains attached to each underlying cell: selectable tables are not proof of qualifier import, and alphabet recognition is not proof of every search policy. New and inherited rows sometimes have different sub-operation coverage, so counts describe only those scoped findings.
 
-Applicability is based on documented operation families, as approved by the coordinator: annotation handlers for location/ontology questions; documented translators for translation/amino-acid questions; sequence handlers for coordinates/nucleotide alphabets. Missing details within an applicable family are U. Other families are N/A, not explicitly unsupported. The member lists below make these relevance decisions reproducible. Vendor metrics rank Benchling before SnapGene; CLC's parent-company count is not a product metric. AGAT is unranked. Reference contracts/services are reported separately without a popularity top half. Unknown usage never earns a rank.
+Applicability is based on documented operation families, as approved by the owner: annotation handlers for location/ontology questions; documented translators for translation/amino-acid questions; sequence handlers for coordinates/nucleotide alphabets. Missing details within an applicable family are U. Other families are N/A, not explicitly unsupported. The member lists below make these relevance decisions reproducible. Vendor metrics rank Benchling before SnapGene; CLC's parent-company count is not a product metric. AGAT is unranked. Reference contracts/services are reported separately without a popularity top half. Unknown usage never earns a rank.
 
 | Rule | Group / metric | All applicable members | All C/D/N/U | Top-half members | Top C/D/N/U |
 |---|---|---|---|---|---|
 |LOC-2|Interactive / papers|Geneious Prime, SeqBuilder, MacVector, UGENE, ApE, Jalview, Artemis, IGV, JBrowse 2, Ensembl, UCSC, IGB, Apollo, SeaView, Tablet|0/0/0/15|IGV, Geneious Prime, Jalview, JBrowse 2, UCSC, UGENE, SeaView, Artemis|0/0/0/8|
 |LOC-2|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |LOC-2|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
-|LOC-2|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, Biopython, EMBOSS|0/2/0/6|bedtools, Biopython, SeqKit, EMBOSS|0/2/0/2|
+|LOC-2|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, Biopython, EMBOSS|0/2/0/6 (combined sub-operations; see tools.json)|bedtools, Biopython, SeqKit, EMBOSS|0/2/0/2 (combined)|
 |LOC-2|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 |LOC-2|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, NCBI Sequence Viewer, table2asn|3/0/0/2|Not ranked|—|
 |LOC-4|Interactive / papers|Geneious Prime, SeqBuilder, MacVector, UGENE, ApE, Jalview, Artemis, IGV, JBrowse 2, Ensembl, UCSC, IGB, Apollo, SeaView, Tablet|0/0/0/15|IGV, Geneious Prime, Jalview, JBrowse 2, UCSC, UGENE, SeaView, Artemis|0/0/0/8|
@@ -198,25 +198,25 @@ Applicability is based on documented operation families, as approved by the coor
 |COORD-1|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, samtools, Biopython, EMBOSS|3/2/0/4|samtools, bedtools, Biopython, SeqKit, EMBOSS|1/2/0/2|
 |COORD-1|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 |COORD-1|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, BLAST, ORFfinder, NCBI Sequence Viewer, table2asn|4/0/0/3|Not ranked|—|
-|TRANS-1|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView|3/0/0/6|MEGA, Geneious Prime, Jalview, UCSC, UGENE|1/0/0/4|
+|TRANS-1|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView, AliView, Tablet, IGV, MacVector|3/0/0/10|MEGA, IGV, Geneious Prime, Jalview, AliView, UCSC, UGENE|1/0/0/6|
 |TRANS-1|Interactive / vendor|Benchling, SnapGene|0/1/0/1|Benchling|0/1/0/0|
 |TRANS-1|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
 |TRANS-1|CLI/library / papers|BioPerl, BioJava, Bioconductor, gffread, SeqKit, Biopython, EMBOSS|4/1/0/2|Biopython, SeqKit, EMBOSS, gffread|2/1/0/1|
 |TRANS-1|CLI/library / unranked|AGAT|1/0/0/0|Not ranked|—|
 |TRANS-1|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, BLAST, ORFfinder, NCBI Sequence Viewer, table2asn|4/0/0/3|Not ranked|—|
-|TRANS-2|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView|0/1/0/8|MEGA, Geneious Prime, Jalview, UCSC, UGENE|0/1/0/4|
+|TRANS-2|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView, AliView, Tablet, IGV, MacVector|0/1/0/12|MEGA, IGV, Geneious Prime, Jalview, AliView, UCSC, UGENE|0/1/0/6|
 |TRANS-2|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |TRANS-2|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
 |TRANS-2|CLI/library / papers|BioPerl, BioJava, Bioconductor, gffread, SeqKit, Biopython, EMBOSS|2/0/0/5|Biopython, SeqKit, EMBOSS, gffread|1/0/0/3|
 |TRANS-2|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 |TRANS-2|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, BLAST, ORFfinder, NCBI Sequence Viewer, table2asn|4/0/0/3|Not ranked|—|
-|TRANS-3|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView|0/0/0/9|MEGA, Geneious Prime, Jalview, UCSC, UGENE|0/0/0/5|
+|TRANS-3|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView, AliView, Tablet, IGV, MacVector|0/0/0/13|MEGA, IGV, Geneious Prime, Jalview, AliView, UCSC, UGENE|0/0/0/7|
 |TRANS-3|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |TRANS-3|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
 |TRANS-3|CLI/library / papers|BioPerl, BioJava, Bioconductor, gffread, SeqKit, Biopython, EMBOSS|3/0/0/4|Biopython, SeqKit, EMBOSS, gffread|2/0/0/2|
 |TRANS-3|CLI/library / unranked|AGAT|1/0/0/0|Not ranked|—|
 |TRANS-3|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, BLAST, ORFfinder, NCBI Sequence Viewer, table2asn|1/0/0/6|Not ranked|—|
-|TRANS-4|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView|0/0/0/9|MEGA, Geneious Prime, Jalview, UCSC, UGENE|0/0/0/5|
+|TRANS-4|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView, AliView, Tablet, IGV, MacVector|0/0/0/13|MEGA, IGV, Geneious Prime, Jalview, AliView, UCSC, UGENE|0/0/0/7|
 |TRANS-4|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |TRANS-4|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
 |TRANS-4|CLI/library / papers|BioPerl, BioJava, Bioconductor, gffread, SeqKit, Biopython, EMBOSS|0/1/0/6|Biopython, SeqKit, EMBOSS, gffread|0/1/0/3|
@@ -225,10 +225,10 @@ Applicability is based on documented operation families, as approved by the coor
 |ALPHA-1|Interactive / papers|Geneious Prime, SeqBuilder, MacVector, UGENE, ApE, Jalview, Artemis, IGV, JBrowse 2, Ensembl, UCSC, IGB, Apollo, MEGA, AliView, SeaView, Tablet|3/0/0/14|MEGA, IGV, Geneious Prime, Jalview, JBrowse 2, AliView, UCSC, UGENE, SeaView|3/0/0/6|
 |ALPHA-1|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |ALPHA-1|Interactive / unranked|CLC|0/0/0/1|Not ranked|—|
-|ALPHA-1|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, samtools, Biopython, EMBOSS|3/0/0/6|samtools, bedtools, Biopython, SeqKit, EMBOSS|1/0/0/4|
+|ALPHA-1|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, samtools, Biopython, EMBOSS|3/0/0/6 (combined sub-operations; see tools.json)|samtools, bedtools, Biopython, SeqKit, EMBOSS|1/0/0/4 (combined)|
 |ALPHA-1|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 |ALPHA-1|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, BLAST, ORFfinder, NCBI Sequence Viewer, table2asn|0/0/0/7|Not ranked|—|
-|ALPHA-2|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView|0/1/0/8|MEGA, Geneious Prime, Jalview, UCSC, UGENE|0/1/0/4|
+|ALPHA-2|Interactive / papers|Geneious Prime, UGENE, ApE, Jalview, Artemis, UCSC, Apollo, MEGA, SeaView, AliView, Tablet, IGV, MacVector|0/1/0/12|MEGA, IGV, Geneious Prime, Jalview, AliView, UCSC, UGENE|0/1/0/6|
 |ALPHA-2|Interactive / vendor|Benchling, SnapGene|0/0/0/2|Benchling|0/0/0/1|
 |ALPHA-2|Interactive / unranked|CLC|1/0/0/0|Not ranked|—|
 |ALPHA-2|CLI/library / papers|BioPerl, BioJava, Bioconductor, gffread, SeqKit, Biopython, EMBOSS|2/1/0/4|Biopython, SeqKit, EMBOSS, gffread|1/0/0/3|
@@ -240,6 +240,14 @@ Applicability is based on documented operation families, as approved by the coor
 |FMT-1|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, Biopython, EMBOSS|0/0/0/8|bedtools, Biopython, SeqKit, EMBOSS|0/0/0/4|
 |FMT-1|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 |FMT-1|Reference contracts/services|GenBank / RefSeq, ENA, DDBJ, NCBI Sequence Viewer, table2asn|2/0/0/3|Not ranked|—|
+|LOC-2.preserve|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, Biopython, EMBOSS|2/0/0/6|bedtools, Biopython, SeqKit, EMBOSS|2/0/0/2|
+|LOC-2.preserve|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
+|LOC-2.extract|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, Biopython, EMBOSS|0/2/0/6|bedtools, Biopython, SeqKit, EMBOSS|0/2/0/2|
+|LOC-2.extract|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
+|ALPHA-1.complement|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, samtools, Biopython, EMBOSS|4/0/0/5|samtools, bedtools, Biopython, SeqKit, EMBOSS|2/0/0/3|
+|ALPHA-1.complement|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
+|ALPHA-1.search|CLI/library / papers|BioPerl, BioJava, Bioconductor, bedtools, gffread, SeqKit, samtools, Biopython, EMBOSS|2/0/0/7|samtools, bedtools, Biopython, SeqKit, EMBOSS|1/0/0/4|
+|ALPHA-1.search|CLI/library / unranked|AGAT|0/0/0/1|Not ranked|—|
 
 For LOC-2, Biopython and EMBOSS retain the `order` token but their extraction paths concatenate it (EMBOSS only with explicit joining): D here concerns contiguous extraction, not parser token loss. For LOC-4 their tested import/export preservation does not verify the requested editing lifecycle, so that full row stays U. ALN-1 has no INSDC conformance rule and therefore no C/D consensus: inherited EMBOSS/Biopython defaults differ, CLC's 10/1 costs belong to multiple alignment, Benchling's named default is MAFFT Auto, and BLAST defaults are task-specific.[^59] New-tool local-scoring defaults remain U in section3.
 
@@ -269,9 +277,9 @@ UGENE, Artemis and CLC have documented extraction interfaces but unresolved mult
 
 ## 7. Sources
 
-All positive new claims use sources opened by the research team on2026-10-23. Inherited evidence and access failures are explicitly identified below. Rolling pages are identified by access date rather than silently assigned a software version. Quotes below are short anchors; claims use the cited sections as well as the quoted phrase. Each URL has less than25 quoted words in this survey. Adoption sources, query URLs and scope caveats are in cohort.md.
+All positive new claims use sources opened by the research team on2026-10-23. Inherited evidence and access failures are explicitly identified below. Rolling pages are identified by access date rather than silently assigned a software version. Quotes below are short anchors; claims use the cited sections as well as the quoted phrase. Each URL has less than25 quoted words in this survey. Adoption sources, query URLs and scope caveats are in the cohort ledger.
 
-[^0]: Evidence policy: supplied [current-readme.md](../README.md), accessed2026-10-23. Quote: “Unknown is never evidence of absence” is the research-brief rule; the supplied index says “not established”. U/`?` applies to the examined source set, not a universal negative.
+[^0]: Evidence policy: supplied [README](../README.md), accessed2026-10-23. Quote: “Unknown is never evidence of absence” is the research-brief rule; the supplied index says “not established”. U/`?` applies to the examined source set, not a universal negative.
 [^1]: [Clone Manager12 Help](https://scied.com/downloads/CM12_Help.pdf), version12, accessed2026-10-23; PDF pages55–59,333,340–341. Quotes: “Extracts the sequence of the selected feature”; “Codon Start”; “IUPAC codes for ambiguous bases”; “Translation table”. Official PDF downloaded and read locally; browser opener failed. Format sections describe GenBank/EMBL/FASTA import and GenBank/FASTA export.
 [^2]: [AliView help](https://www.ormbunkar.se/aliview/), page advertises1.33 (2026-09-28), accessed2026-10-23. Quotes: “Save selection as Fasta”; “Reverse complement clipboard”; “follows IUPAC codes”. File/Edit sections document alignment sequence manipulation, not annotated-feature extraction.
 [^3]: [Gene Codes Sequencher5 User Manual](https://www.uv.es/scsieweb/SCSIE/SCSIE-BIO/Documents/Sequencher_5_User_Manual.pdf), official authored manual,2011, university-hosted copy; pp17–18,157–162,168–170. Quotes: “GenBank Feature Table”; “Reverse Complement”; “IUPAC-IUB coding system”. Format import/export tables, orientation options and genetic-code editor support scoped claims; this is not proof of current5.4.6 behavior.
@@ -317,13 +325,13 @@ All positive new claims use sources opened by the research team on2026-10-23. In
 [^43]: [MEGA IUPAC codes](https://megasoftware.net/web_help_12/IUPAC_Single_Letter_Codes.htm),MEGA12 help. Quote: “The single-letter codes supported in MEGA are as follows.” Explicit nucleotide ambiguity table and basic amino-acid table; extended amino-acid semantics remain U.
 [^44]: [MEGA genetic-code tables](https://megasoftware.net/web_help_12/Adding_Modifying_Genetic_Code_Tables.htm),MEGA12 help. Quote: “add new genetic code tables and/or edit existing code tables”.
 [^45]: [MEGA importing data](https://megasoftware.net/web_help_12/Importing_Data.htm),MEGA12 help. Quote: “FASTA format”.
-[^46]: Supplied [current-locations.md](../locations.md) LOC-1/3/7 and [current-conformance.md](../conformance/README.md), dated2026-10-22. Quotes: “joins and orients by strand”; “extractfeat -join Y”. These are inherited Tested/Documented evidence, not rerun in this session.
+[^46]: Supplied [locations](../locations.md) LOC-1/3/7 and [conformance](../conformance/README.md), dated2026-10-22. Quotes: “joins and orients by strand”; “extractfeat -join Y”. These are inherited Tested/Documented evidence, not rerun in this session.
 [^47]: [Geneious annotations](https://manual.geneious.com/en/latest/Annotations.html), rolling manual reopened2026-10-23. Quotes: “can be concatenated into a single sequence”; “each interval in the annotation will be extracted to a separate sequence”. Strand not established.
-[^48]: [Ensembl sequence/id](https://rest.ensembl.org/documentation/info/sequence_id), source linked in supplied2026-10-22 LOC-7 evidence. This URL returned500 in this pass; no fresh quote claimed. Supplied documented statement: genomic default plus spliced cDNA/CDS. Retained as inherited evidence per coordinator guidance, with this access limitation explicit.
+[^48]: [Ensembl sequence/id](https://rest.ensembl.org/documentation/info/sequence_id), source linked in supplied2026-10-22 LOC-7 evidence. This URL returned500 in this pass; no fresh quote claimed. Supplied documented statement: genomic default plus spliced cDNA/CDS. Retained as evidence inherited from the first survey, with this access limitation explicit.
 [^49]: [UCSC Table Browser help](https://www.genome.ucsc.edu/goldenPath/help/hgTablesHelp.html), rolling guide reopened2026-10-23, “Displaying CDS FASTA alignments”. Quote: “coding exons of each gene to be concatenated into one sequence”. Per-exon option documented. This alignment context has additional projection limitations and is not a universal feature exporter.
 [^50]: [SnapGene Extract a Region](https://support.snapgene.com/hc/en-us/articles/10384297596180-Extract-a-Region-in-a-Sequence-to-a-New-File),updated2026-09-11. Quote: “select both features and any intervening sequence”. Selected span is not evidence of spliced feature extraction.
 [^51]: [NCBI Genome Workbench retirement](https://ncbiinsights.ncbi.nlm.nih.gov/2023/09/06/genome-workbench-retire-march-2024/),2023-09-06 updated2024-01-22. Quote: “no additional public releases or updates after March 2024”.
-[^52]: [Vector NTI official discontinuation FAQ](https://www.thermofisher.com/content/dam/LifeTech/global/life-sciences/Cloning/Images/TFS_Vector-NTI-Software_FAQ.pdf), undated, accessed2026-10-23. Quote: “all three software versions”. Dated sales/support endpoints are in the linked official notice recorded in cohort.md.
+[^52]: [Vector NTI official discontinuation FAQ](https://www.thermofisher.com/content/dam/LifeTech/global/life-sciences/Cloning/Images/TFS_Vector-NTI-Software_FAQ.pdf), undated, accessed2026-10-23. Quote: “all three software versions”. Dated sales/support endpoints are in the linked official notice recorded in the cohort ledger.
 [^53]: [SeaView manual](https://doua.prabi.fr/software/seaview_data/seaview),header5.1, accessed2026-10-23. Quotes: “specified feature key”; “correct genetic code and reading frame”; “Complement sequence”; “Reverse sequence”; “/transl_table=”; “IUPAC nucleotide ambiguity symbols”. Database import does not prove GenBank/EMBL flat-file I/O. Manual File/Props/command-line sections establish FASTA and table selection.
 [^54]: [Tablet Importing Features](https://tablet.hutton.ac.uk/en/latest/importing_features.html),1.21.02.08 manual. Quote: “Tablet currently makes no attempt to link features”. GFF3 import; feature rows do not prove transcript grouping.
 [^55]: [Tablet release notes](https://ics.hutton.ac.uk/tablet/download-tablet/tablet-release-notes/), through1.21.02.08. Quotes: “portion of reference sequence mapping to a feature”; “GTF format”; “BED file format”; “VCF file format”. Feature copying and input support; multipart/strand behavior U.
@@ -331,29 +339,5 @@ All positive new claims use sources opened by the research team on2026-10-23. In
 [^57]: [Tablet Application Menu](https://tablet.hutton.ac.uk/en/latest/application_menu.html),1.21.02.08 manual, revision2804f6e5. Quote: “Save is a placeholder option for possible future functionality”. Save As is likewise a placeholder; no inference about all export mechanisms.
 [^58]: [Tablet Open Assembly](https://tablet.hutton.ac.uk/en/latest/open_assembly.html),1.21.02.08 manual. Quotes: “SAM or BAM file formats”; “read from a FASTA file”.
 
-[^59]: Supplied [previous survey](2026-10-22-first-survey.md), 2026-10-22, primary matrix and sources1–87; [translation](../translation.md), [locations](../locations.md), [coordinates/alphabets](../alphabets-and-coordinates.md), [formats](../formats.md), [alignment](../alignment.md). Inherited Documented/Contract/Tested evidence; not rerun. Quote: “A tool's format support is not evidence that it implements the format's semantics correctly” (current-tools.md). Full source identities and corrected cells are retained in tools-data.json.
+[^59]: Supplied [previous survey](2026-10-22-first-survey.md), 2026-10-22, primary matrix and sources1–87; [translation](../translation.md), [locations](../locations.md), [coordinates/alphabets](../alphabets-and-coordinates.md), [formats](../formats.md), [alignment](../alignment.md). Inherited Documented/Contract/Tested evidence; not rerun. Quote: “A tool's format support is not evidence that it implements the format's semantics correctly” (tools.md (2026-10-22 version)). Full source identities and corrected cells are retained in tools.json.
 [^60]: [NCBI Sequence Viewer: Accessing RNA and protein sequence data](https://www.ncbi.nlm.nih.gov/tools/sviewer/mrnaproteindata/), updated2020-05-12, reopened2026-10-23. Quote: “The exons option provides the individual exons of an RNA feature as separate FASTA”.
-
-## 8. Work-item status
-
-| ID | Status | Reason |
-|---|---|---|
-| W1 | **Partially verified** | Every included tool and all 15 existing apps have an adoption/release audit in cohort.md. Some exact release dates and product-specific usage values remain unknown; see the list below. |
-| W2 | **Not done — superseded** | Its provisional three-year release cutoff was explicitly replaced by W7; no release-age exclusions were applied. |
-| W3 | **Done** | All-applicable and top-half counts are provided within comparable metric strata; rankings, members and unknowns are explicit. Reference contracts are separate, not votes. |
-| W4 | **Done** | Neutral bio.tools queries and published comparison tables broadened candidate discovery; search scope and reserves are recorded. This is not an exhaustive registry review. |
-| W5 | **Done** | cohort.md was approved through ask_claude before final counts, with the owner's W9 relevance filter. |
-| W6 | **Done** | Interactive, CLI/library and NCBI/INSDC reference groups are separate throughout; citation counts and vendor counts are not pooled. |
-| W7 | **Done** | Release age is informational. Only Genome Workbench, Vector NTI and GBrowse have evidence-backed lifecycle exclusions. |
-| W8 | **Done, with explicit measurement gaps** | Identified-paper total/recent counts, exact PUB_YEAR queries and retrieval date are recorded, with vendor metrics and verified distribution inclusion where available. Unknown usage remains unranked. |
-| W9 | **Done** | Relevance is determined per operation family before ranking; all/top-half sets are shown. Unknown cells never contribute affirmative counts. |
-| W10 | **Done** | tools-data.json consolidates 54 researched, existing, reference, excluded and reserve records, including 918 operation objects and all 87 inherited source entries; unsourced metadata remains null. |
-| W11 | **Done** | Prior app cells and source provenance are carried into the data, with all six supplied corrections and inherited evidence levels retained. |
-
-Remaining W1 values include exact release dates for CLC, Clone Manager, Addgene analyzer and several artifact/month-only releases; individual Bioconductor package release dates and usage; product-specific numerical usage for CLC, Clone Manager, Sequencher and Addgene analyzer; a comparable paper count for AGAT; and release/adoption gaps for Serial Cloner, GENtle and other reserves as marked in cohort.md. No precise user counts are inferred from “thousands,” parent-company reach, repository inclusion or absent search results. Some records use approved, explicitly labelled predecessor/family/framework publication proxies rather than a dedicated current-product paper.
-
-License models and platforms were not established by this evidence set and remain null in every reusable record; maintainer and kind fields are likewise null where unsourced. These are metadata gaps, not claims about the tools.
-
-The coordinator explicitly accepted a completed research report with these unresolved values on 2026-10-23. They remain unknown findings, not unfinished hidden verification. [tools-data.json](../tools.json) is the reusable record set; [operation-counts.json](../tool-counts.json) preserves the remaining-row counting inputs. No commits were made. Validation checks record coverage, enum values, source references, matrix widths and count arithmetic; no software conformance tests were run.
-
-STATUS: DONE

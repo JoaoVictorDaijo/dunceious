@@ -6542,7 +6542,7 @@
           "quote": "tr/acgtrymkswhbvdnxACGTRYMKSWHBVDNX/tgcayrkmswdvbhnxTGCAYRKMSWDVBHNX/"
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -7005,7 +7005,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -7513,7 +7513,7 @@
           "quote": "\"hitCount\":745"
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -7922,7 +7922,7 @@
           "note": "Pinned parseGffLine accepts eight/nine tab-delimited fields, parses sequence coordinates and strand, converts the one-based start, and preserves other fields as opaque data. This supports the narrow GFF3/GTF interval input claim in getfasta, not feature hierarchy or ontology interpretation. Reopened through the official GitHub contents API on 2026-10-23."
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -8359,7 +8359,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -8748,7 +8748,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -9094,7 +9094,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -9460,7 +9460,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -9826,7 +9826,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -10168,7 +10168,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -10510,7 +10510,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -10859,7 +10859,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -11176,7 +11176,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -11494,7 +11494,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -11859,7 +11859,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -12163,7 +12163,7 @@
           "note": "[Addgene Analyze Sequence Guide](https://www.addgene.org/analyze-sequence/guide/), undated live guide, accessed2026-10-23. Quotes: “View your sequence in FASTA format”; “View your sequence in GenBank format”; “View the reverse complement of your sequence.” These describe whole submitted sequence views."
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null
     },
     {
@@ -12514,7 +12514,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -12899,7 +12899,7 @@
           "quote": null
         }
       ],
-      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md/cohort.md and remain null. Kind is the survey scope category.",
+      "metadata_note": "Maintainer/vendor, license model and platforms were not established by survey/2026-10-23-tools-survey.md and survey/2026-10-23-cohort.md and remain null. Kind is the survey scope category.",
       "maintainer_vendor": null,
       "deviation_evidence": [
         {
@@ -13110,14 +13110,14 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-locations",
-          "url": "current-locations.md",
+          "url": "locations.md",
           "title": "Inherited location rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -13352,14 +13352,14 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-locations",
-          "url": "current-locations.md",
+          "url": "locations.md",
           "title": "Inherited location rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -13580,14 +13580,14 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-locations",
-          "url": "current-locations.md",
+          "url": "locations.md",
           "title": "Inherited location rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -13784,7 +13784,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -13988,7 +13988,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -14292,35 +14292,35 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-alignment",
-          "url": "current-alignment.md",
+          "url": "alignment.md",
           "title": "Inherited alignment rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-conformance",
-          "url": "current-conformance.md",
+          "url": "conformance/README.md",
           "title": "Inherited conformance results",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-locations",
-          "url": "current-locations.md",
+          "url": "locations.md",
           "title": "Inherited location rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-translation",
-          "url": "current-translation.md",
+          "url": "translation.md",
           "title": "Inherited translation rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -14718,42 +14718,42 @@
         },
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-alignment",
-          "url": "current-alignment.md",
+          "url": "alignment.md",
           "title": "Inherited alignment rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-alphabets-and-coordinates",
-          "url": "current-alphabets-and-coordinates.md",
+          "url": "alphabets-and-coordinates.md",
           "title": "Inherited alphabet and coordinate rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-conformance",
-          "url": "current-conformance.md",
+          "url": "conformance/README.md",
           "title": "Inherited conformance results",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-locations",
-          "url": "current-locations.md",
+          "url": "locations.md",
           "title": "Inherited location rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
         },
         {
           "id": "current-translation",
-          "url": "current-translation.md",
+          "url": "translation.md",
           "title": "Inherited translation rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -14996,14 +14996,14 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
         },
         {
           "id": "current-translation",
-          "url": "current-translation.md",
+          "url": "translation.md",
           "title": "Inherited translation rules",
           "version_or_date": "2026-10-22 inherited evidence",
           "quote": null
@@ -15215,7 +15215,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -15420,7 +15420,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -15631,7 +15631,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -15828,7 +15828,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16039,7 +16039,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16229,7 +16229,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16419,7 +16419,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16605,7 +16605,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16781,7 +16781,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -16971,7 +16971,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -17161,7 +17161,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -17346,7 +17346,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null
@@ -17510,7 +17510,7 @@
       "sources": [
         {
           "id": "cohort",
-          "url": "cohort.md",
+          "url": "survey/2026-10-23-cohort.md",
           "title": "Approved adoption-based cohort",
           "version_or_date": "2026-10-23",
           "quote": null

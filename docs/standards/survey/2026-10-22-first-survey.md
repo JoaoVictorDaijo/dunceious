@@ -359,18 +359,6 @@ This is a source-document register, separate from evidence that a product implem
 
 For a later source bundle, the EMBL manual has explicit copying conditions, SO and the SBOL PDF have explicit CC BY 4.0 statements, and NCBI provides a government-work policy with third-party exceptions. For the other documents this report supplies links and states the unresolved terms; it does not assert permission to redistribute complete source texts. The 1983 amino-acid recommendation alone should not be cited as proof of every later U/O/J software convention.
 
-## Work-item completion
-
-| ID | Status | Reason |
-|---|---|---|
-| W1 | Done | All 15 requested apps retained and covered; exclusions considered, none justified by evidence. Reference databases/tools retained separately. |
-| W2 | Done | Secondary tool×standard matrix records read/write direction, explicit no and unknown with numbered evidence. Reference services have a separately scoped matrix with the same standard columns. |
-| W3 | Done | Reproducible lower-bound counts for every requested standard, with semantic differences and unknowns distinguished from absence. |
-| W4 | Done | Primary matrix has all 16 testable operation rows across 22 app/reference columns, split into readable panels; unverified sub-behaviors explicitly marked. |
-| W5 | Done | Register covers all 14 requested document families, versions/dates where verified, download URLs or explicit access gaps, and document-specific license evidence. Source texts were not stored because this task authorizes only this report. |
-
-Completion means the requested evidence survey and explicit gaps are delivered, not that every product has passed conformance tests. No commits or implementation-repository changes were made; only this report was written.
-
 ## Sources (full numbered list)
 
 All sources accessed 2026-10-22. Quotations are deliberately brief. “Undated” means no applicable source version/date was established, not that a current executable was tested.
@@ -464,5 +452,3 @@ All sources accessed 2026-10-22. Quotations are deliberately brief. “Undated�
 [^85]: **SBOL**, [Data Model Specification index](https://sbolstandard.org/datamodel-specification/), current version **3.1.0**, published **October 26, 2022**. Quote: “Content is licensed CC BY-NC-ND 4.0” (website footer, not PDF license).
 [^86]: **SBOL editors/authors**, [SBOL 3.1.0 PDF](https://sbolstandard.org/docs/SBOL3.1.0.pdf), **October 26, 2022**, page 1. Quote: “This work is made available under the Creative Commons Attribution 4.0 International Public License.”
 [^87]: **NCBI**, [FASTA Format for Nucleotide Sequences](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/), updated **June 18, 2025**. Quote: “Please only use IUPAC symbols within the nucleotide sequence.” Applies to the NCBI submission profile described on the page.
-
-STATUS: DONE

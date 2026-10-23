@@ -136,7 +136,7 @@ span between two selected features including the sequence between them
 of 9 command-line tools and libraries that document extraction, 7 offer the joined sequence,
 6 the region spanned and 7 strand-aware (reverse-complemented) output; of the 9 paper-ranked interactive
 applications, 5 document the joined sequence and 3 the region, and none documents its
-reverse-strand behaviour. The documented practice is therefore to offer the joined, oriented
+reverse-strand behaviour (only the unranked Clone Manager documents a feature-orientation option). The documented practice is therefore to offer the joined, oriented
 sequence and the region as distinct outputs.
 
 **Dunceious.** Shows and copies the whole envelope on the forward strand

@@ -125,7 +125,9 @@ documenting each behaviour; a tool can offer several. Unknown never counts.
   `extractfeat -join`, Bioconductor `getSeq`.
 - Among interactive applications, joining is documented by Geneious Prime, UCSC, Ensembl,
   Apollo and IGB, and the region by Ensembl, Apollo, IGB and SnapGene (a span between two
-  features). **No interactive application documents what it does on the reverse strand.**
+  features). **No ranked interactive application documents what it does on the reverse
+  strand.** The only interactive evidence is Clone Manager's option to orient a fragment's
+  features, and Clone Manager is evidence-only because its adoption could not be measured.
 
 ## Format support
 
