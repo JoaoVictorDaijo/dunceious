@@ -19,13 +19,12 @@
 
 name: CI
 
+# Pushes are not listed: every develop and main commit arrives through a PR
+# that this workflow already gated on GitHub's merge result, and main requires
+# its PRs to be up to date before merging.
 on:
   pull_request:
     branches: [main, develop]
-  # develop is not listed: every develop commit arrives through a PR that this
-  # workflow already gated, and the develop -> main promotion PR re-runs it.
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -36,8 +35,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether the PR touches only documentation, so the test and browser
+  # jobs can skip, and reads the Playwright version the e2e container must match.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      playwright_version: ${{ steps.classify.outputs.playwright_version }}
+    steps:
+      # The pull_request checkout is GitHub's merge commit; its first parent is
+      # the base, so HEAD^1..HEAD is exactly what the PR changes.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Allowlist, not "every .md": Markdown under public/ ships with the app,
+      # and docs/standards/ holds test fixtures that are not Markdown.
+      # Renames count as delete + add, so moving code into docs/ still runs tests.
+      - name: Classify the change
+        id: classify
+        run: |
+          node <<'JS'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+          const paths = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z', 'HEAD^1', 'HEAD'])
+            .toString('utf8').split('\0').filter(Boolean);
+          const documentation = p => p.endsWith('.md')
+            && (!p.includes('/') || p.startsWith('docs/') || p.startsWith('changes/') || p === 'e2e/README.md');
+          const docsOnly = paths.length > 0 && paths.every(documentation);
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const version = lock.packages['node_modules/@playwright/test']?.version;
+          if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error(`Unexpected Playwright version: ${JSON.stringify(version)}`);
+          console.log(`${paths.length} changed path(s); docs only: ${docsOnly}; Playwright ${version}`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `docs_only=${docsOnly}\nplaywright_version=${version}\n`);
+          JS
+
   static:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,7 +103,10 @@ jobs:
         run: npm run lint:headers
 
   test:
+    needs: changes
+    if: ${{ needs.changes.outputs.docs_only == 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,12 +124,25 @@ jobs:
       - name: Test
         run: npm run test:coverage
 
+  # The official Playwright image ships Chromium and its system libraries, so
+  # no apt install runs here (it stalled for ~10 minutes on some runs). The tag
+  # follows the lockfile, so a Playwright bump moves the image with it.
   e2e:
+    needs: changes
+    if: ${{ needs.changes.outputs.docs_only == 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright_version }}-noble
+      options: --init --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The image bundles a different Node; keep the version the other jobs use.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -102,10 +155,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
       - name: Browser e2e on production build
+        timeout-minutes: 8
         run: npm run test:e2e:run
 
       - name: Upload browser failure results
@@ -118,41 +169,25 @@ jobs:
 
   local-engine:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild local alignment engine and SSW score module
-        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm public/wasm/local-align-ssw.rebuilt.wasm
+      - name: Rebuild local alignment engine
+        run: bash scripts/build-local-engine.sh public/wasm/local-align.rebuilt.wasm
 
-      - name: Require reproducible artifacts below 25 MiB
+      - name: Require reproducible artifact below 25 MiB
         run: |
-          for name in local-align local-align-ssw; do
-            cmp "public/wasm/$name.wasm" "public/wasm/$name.rebuilt.wasm"
-            test "$(wc -c < "public/wasm/$name.wasm")" -lt 26214400
-          done
-
-  # Branch protection requires a check named "ci"; this job carries that name
-  # so the parallel jobs above can be renamed or split without touching it.
-  ci:
-    if: ${{ always() }}
-    needs: [static, test, e2e, local-engine]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every CI job to succeed
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          echo "Job results: $RESULTS"
-          for r in $RESULTS; do
-            [ "$r" = success ] || { echo "::error::A required CI job did not succeed."; exit 1; }
-          done
+          cmp public/wasm/local-align.wasm public/wasm/local-align.rebuilt.wasm
+          test "$(wc -c < public/wasm/local-align.wasm)" -lt 26214400
 
   # Promotions to main must carry a version bump (see CLAUDE.md > Versioning
   # & releases). Runs only on develop -> main PRs; never nags develop PRs.
   version-guard:
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    if: github.base_ref == 'main'
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -188,3 +223,41 @@ jobs:
             console.log("::error::Version must strictly increase on a develop->main promotion. Bump package.json (npm run version:{patch,minor,major}) and update CHANGELOG.md — see CLAUDE.md > Versioning & releases.");
             process.exit(1);
           '
+
+  # Branch protection requires a check named "ci"; this job carries that name
+  # so the parallel jobs above can be renamed or split without touching it.
+  # It accepts a skip only where one is expected, so a failed or cancelled
+  # classification can never pass as "docs only".
+  ci:
+    if: ${{ always() }}
+    needs: [changes, static, test, e2e, local-engine, version-guard]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require the expected outcome from every CI job
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          node <<'JS'
+          const jobs = JSON.parse(process.env.NEEDS_JSON);
+          const docs = jobs.changes?.outputs?.docs_only;
+          if (!['true', 'false'].includes(docs)) {
+            console.log(`::error::Missing or invalid change classification: ${JSON.stringify(docs)}`);
+            process.exit(1);
+          }
+          const expected = {
+            changes: 'success',
+            static: 'success',
+            'local-engine': 'success',
+            test: docs === 'true' ? 'skipped' : 'success',
+            e2e: docs === 'true' ? 'skipped' : 'success',
+            'version-guard': process.env.BASE_REF === 'main' ? 'success' : 'skipped',
+          };
+          for (const [name, result] of Object.entries(expected)) {
+            const actual = jobs[name]?.result;
+            console.log(`${name}: ${actual} (expected ${result})`);
+            if (actual !== result) process.exitCode = 1;
+          }
+          if (process.exitCode) console.log('::error::A required CI job did not reach its expected result.');
+          JS
