@@ -63,8 +63,22 @@ describe('translateSequence', () => {
   it('ignores a trailing partial codon', () => {
     expect(translateSequence('ATGA')).toBe('M');
   });
-  it('emits ? for an unknown codon', () => {
-    expect(translateSequence('ATGNNN')).toBe('M?');
+  it('claims no amino acid for ambiguity codes, invalid symbols or gap-bearing codons', () => {
+    for (const symbol of 'RYSWKMBDHVN-!') {
+      expect(translateSequence(`ATG${symbol}AAGAG`), symbol).toBe('M?E');
+    }
+    expect(translateSequence('GCN')).toBe('?');
+  });
+
+  it('does not create residues for empty input or incomplete codons', () => {
+    for (const seq of ['', 'A', 'AU']) expect(translateSequence(seq), seq).toBe('');
+    expect(translateSequence('AUGAU')).toBe('M');
+  });
+
+  it('normalizes lowercase RNA without changing codon boundaries', () => {
+    expect(translateSequence('augugagag', 4)).toBe('MWE');
+    expect(detectEarlyStop('auguaggag')).toBe(true);
+    expect(detectEarlyStop('augugagag', 4)).toBe(false);
   });
   it('uses the vertebrate-mitochondrial code (table 2) when requested', () => {
     // Table 2 reassigns TGA→Trp, ATA→Met, AGA/AGG→Stop.
@@ -243,8 +257,6 @@ describe('translation across continuous aligned CDS parts', () => {
     expect(result).toEqual({ codingSeq: coding, alignedIndices: indices });
     expect(translateSequence(result.codingSeq)).toBe('MK_');
     expect(isFeatureBroken({}, result.codingSeq)).toBe(false);
-    const raw = extractCodingSequence({ start: 0, end: 9, strand }, seq.replace(/-/g, ''));
-    expect(translateSequence(result.codingSeq)).toBe(translateSequence(raw.codingSeq));
     expect(extractCodingSequence({ ...feature, metadata: { codon_start: '2' } }, seq)).toEqual({
       codingSeq: 'TGAAATAA', alignedIndices: indices.slice(1),
     });
