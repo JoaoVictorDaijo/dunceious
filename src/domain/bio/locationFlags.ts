@@ -28,6 +28,14 @@ export function isOrderLocation(feature: Pick<BioFeature, 'locationString'>): bo
   return /\border\(/.test(feature.locationString ?? '');
 }
 
+/**
+ * An outer `complement()` around a `join()`/`order()` that has inner complements: the parser stores
+ * its intervals in evaluation order (reversed), not as written (INSDC FT 11.4 §3.4.2.2).
+ */
+export function isNestedComplementLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
+  return /^complement\((?:join|order)\(.*\bcomplement\(/.test(feature.locationString?.replace(/\s/g, '') ?? '');
+}
+
 /** `<` or `>` (INSDC FT 11.4 §3.4.2.1): an end lies beyond the stated base (LOC-4). */
 export function isPartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
   return /[<>]/.test(feature.locationString ?? '');

@@ -20,6 +20,7 @@
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isNestedComplementLocation } from '@/src/domain/bio/locationFlags';
 import React, { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUiEffects } from './uiEffects';
@@ -69,7 +70,9 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
   const strand = getFeatureStrand(feature);
   let orientation = '';
   if (!protein) {
-    if (feature.segments?.some(s => s.strand !== undefined)) {
+    if (isNestedComplementLocation(feature)) {
+      orientation = ', inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.';
+    } else if (feature.segments?.some(s => s.strand !== undefined)) {
       orientation = ', each read 5′ → 3′ on its own strand (complement(…) intervals reverse-complemented).';
     } else if (strand === -1) {
       orientation = `, ${n > 1 ? 'then ' : ''}reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.`;
