@@ -4,7 +4,7 @@ Governing standard: **INSDC Feature Table Definition 11.4** (April 2026), §3.4 
 GenBank, ENA and DDBJ share it ("This feature table format is shared by GenBank, EMBL and
 DDBJ"). Pinned as `insdc-ft` in [`sources.json`](sources.json).
 
-Code references are to `develop` at 13aff79. Fixture cases (J1, O1, …) are in
+Code references are to `develop` at f5a6ad2. Fixture cases (J1, O1, …) are in
 [`conformance/`](conformance/README.md).
 
 ## LOC-1. `join()` concatenates in written order
@@ -22,7 +22,7 @@ Benchling translation groups skip introns
 ([help, 2025-09-30](https://help.benchling.com/hc/en-us/articles/39768268305805-How-to-characterize-sequences-with-annotations-and-translations)).
 Neither documents literal `join` parsing or arbitrary interval order.
 
-**Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), which
+**Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), which
 the CDS track and the details window share, including out-of-order trans-spliced joins. See
 LOC-7.
 
@@ -41,8 +41,8 @@ if Dunceious ever offers it, it must be labelled as such.
 
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
-**Dunceious.** Deviates — #225. The structured model reads `order` as `join`
-(`src/core/genbank/locationParser.ts:109-111`). The details window reads `order(` from the raw
+**Dunceious.** Deviates — [#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225). The structured model reads `order` as `join`
+(`src/core/genbank/locationParser.ts:108`). The details window reads `order(` from the raw
 location text instead and never joins it (LOC-7); an edited feature has lost that text. The original text survives an unchanged
 GenBank export (`featureParser.ts:79`, `serialize.ts:32`); after a geometry or strand edit the
 location is rebuilt as `join(...)` (`serialize.ts:40`).
@@ -62,7 +62,8 @@ sequences differing from the oracle; see the conformance results. The INSDC text
 ([manual 18.0.0](https://sanger-pathogens.github.io/Artemis/Artemis/artemis-manual.html)); mixed
 strands are unknown. Others unknown.
 
-**Dunceious.** Conforms for whole-feature, per-interval and nested outer complements. A nested
+**Dunceious.** Conforms for whole-feature, per-interval and nested outer complements
+([#239](https://github.com/JoaoVictorDaijo/dunceious/issues/239)). A nested
 outer complement reverses the evaluated interval order and flips each interval's strand
 (`src/core/genbank/locationParser.ts`). The whole-feature J2 shape remains in written order
 with a parent strand; extraction reverse-complements the joined result once. Parser, extraction,
@@ -83,8 +84,8 @@ round-tripped. EMBOSS 6.6.0, Tested: round-tripped by `seqret`.
 ([release history](https://macvector.com/getting-started/macvector-major-release-details-and-history/));
 Artemis accepts fuzzy syntax. The full import-edit-export lifecycle is unknown everywhere.
 
-**Dunceious.** Deviates — #226. The numeric model strips the markers
-(`locationParser.ts:100-101`); the details window flags a partial feature from the raw text
+**Dunceious.** Deviates — [#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226). The numeric model strips the markers
+(`locationParser.ts:102`); the details window flags a partial feature from the raw text
 (LOC-7). The raw text survives an unchanged GenBank export and GFF3
 partial attributes, but is lost after a geometry or strand edit (`FeatureEditorModal.tsx:78,167`)
 or a selection export (`useFileHandlers.ts:360`).
@@ -101,8 +102,8 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 
 **Applications.** Unknown.
 
-**Dunceious.** Deviates — #230. `parseCoord` reads `10^11` as bases 10–11, length 2
-(`locationParser.ts:87-96`).
+**Dunceious.** Deviates — [#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230). `parseCoord` reads `10^11` as bases 10–11, length 2
+(`locationParser.ts:90`).
 
 ## LOC-6. Features crossing the origin
 
@@ -167,10 +168,13 @@ first, the default the standard defines:
   caption names what the feature sequence is only where the key defines it (CDS: the coding
   sequence; mRNA: the transcript sequence).
 
-**Dunceious.** The sequences conform for supported location forms, including LOC-3’s nested
-outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), the extraction the CDS
+**Dunceious.** The sequences conform for supported location forms under the decision in
+[#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
+outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
 track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
 read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
 longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
 (`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
-caption names both steps, inner complements first and then the outer one.
+caption names both steps, inner complements first and then the outer one. The interval-sum
+and region lengths have distinct labels, the presentation requirement tracked by
+[#227](https://github.com/JoaoVictorDaijo/dunceious/issues/227).
