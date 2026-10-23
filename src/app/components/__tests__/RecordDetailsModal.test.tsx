@@ -26,6 +26,7 @@ import { UiEffectsContext, DEFAULT_UI_EFFECTS } from '../uiEffects';
 import { parseGenBank } from '@/src/core/genbank';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
+const radio = (name: string) => screen.getByRole('radio', { name }) as HTMLInputElement;
 const caption = () => document.querySelector('[data-sequence-caption]')?.textContent;
 const lengths = () => document.querySelector('[data-feature-lengths]')?.textContent?.replace(/^Length/, '').replace(/\s+/g, ' ').replace(/ (?=\d+ (bp|aa) region)/, '');
 
@@ -83,7 +84,7 @@ function open(record: SeqRecord, feature: BioFeature) {
 describe('RecordDetailsModal sequence views', () => {
   it('opens a complement(join) feature on its feature sequence and switches to the region', async () => {
     const { copyText, onCopyLog, sequence } = open(fixture, labelled('J2'));
-    expect(screen.getByRole('radio', { name: 'Feature sequence' }).getAttribute('aria-checked')).toBe('true');
+    expect(radio('Feature sequence').checked).toBe(true);
     expect(sequence()).toBe(oracle.J2);
     expect(lengths()).toBe('20 bp feature sequence · sum of 2 location intervals30 bp region spanned · 1..30');
     expect(screen.getByText('20 bp feature sequence')).toBeTruthy();
@@ -117,7 +118,7 @@ describe('RecordDetailsModal sequence views', () => {
     const { sequence } = open(fixture, labelled('O1'));
     const feature = screen.getByRole('radio', { name: 'Feature sequence' });
     expect(feature.hasAttribute('disabled')).toBe(true);
-    expect(screen.getByRole('radio', { name: 'Region spanned' }).getAttribute('aria-checked')).toBe('true');
+    expect(radio('Region spanned').checked).toBe(true);
     expect(sequence()).toBe('TGTTACCTAGGGC');
     expect(lengths()).toBe('6 bp in 2 intervals (not joined)13 bp region spanned · 1..13');
     expect(caption()).toMatch(/^order\(\) location: INSDC gives the order of these 2 intervals but does not imply they form one sequence/);
@@ -161,5 +162,43 @@ describe('RecordDetailsModal sequence views', () => {
     expect(document.querySelector('[data-record-details-body] p.break-all')?.textContent).toBe('GGGC');
     expect(screen.getByRole('option', { name: 'Query aligned to record' }).hasAttribute('disabled')).toBe(false);
     expect(screen.getByRole('button', { name: 'Remove search details' })).toBeTruthy();
+  });
+
+});
+
+describe('RecordDetailsModal edge captions and controls', () => {
+  it('uses native radios in one group, so arrow keys move the selection', () => {
+    open(fixture, labelled('J1'));
+    const [feature, region] = [radio('Feature sequence'), radio('Region spanned')];
+    expect(feature.type).toBe('radio');
+    expect(feature.name).toBeTruthy();
+    expect(region.name).toBe(feature.name);
+  });
+
+  it('keeps the partial explanation in the region view', () => {
+    open(fixture, labelled('P1'));
+    fireEvent.click(radio('Region spanned'));
+    expect(caption()).toBe('Record bases 5..25, forward (+) strand, 5′ → 3′. Partial: at least one end lies beyond the annotated base (< or >), so this sequence is incomplete.');
+  });
+
+  it('keeps the partial explanation for a partial order() location', () => {
+    const feature: BioFeature = { type: 'misc_feature', name: 'po', start: 0, end: 13, strand: 1,
+      segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(<1..3,11..>13)' };
+    open(fixture, feature);
+    expect(caption()).toMatch(/only the region spanned is shown\. Record bases 1\.\.13, .* Partial: at least one end lies beyond the annotated base/);
+  });
+
+  it('does not call a feature without a strand forward', () => {
+    const feature: BioFeature = { type: 'gene', name: 'g', start: 1, end: 5, strand: 1, metadata: { _gffStrand: '?' } };
+    open({ id: 'r', name: 'r', sequence: 'AACCGGTT', features: [feature] }, feature);
+    expect(caption()).toBe('Sequence defined by the location: bases 2..5. The feature gives no strand, so its bases read 5′ → 3′ as the record is written.');
+  });
+
+  it('names a zero-length location as a site between two bases', () => {
+    // start 2, end 2 (0-based, half-open) is the site between bases 2 and 3: INSDC 2^3.
+    const feature: BioFeature = { type: 'misc_feature', name: 'site', start: 2, end: 2, strand: 1 };
+    open({ id: 'r', name: 'r', sequence: 'ACGT', features: [feature] }, feature);
+    expect(lengths()).toBe('0 bp feature sequence · 1 location interval0 bp region spanned · 2^3');
+    expect(caption()).toBe('Zero-length site 2^3: the location covers no bases.');
   });
 });

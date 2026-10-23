@@ -93,4 +93,13 @@ describe('featureSequenceViews on hand-derived cases', () => {
   it('gives an empty feature sequence for an empty interval', () => {
     expect(featureSequenceViews(rec('ACGT'), feat({ start: 2, end: 2 }))).toMatchObject({ feature: '', region: '', featureLength: 0 });
   });
+
+  it('extracts a 300 kb reverse interval of a mixed-strand join', () => {
+    // join(complement(1..300000),300001) on A×300000 then C: rc gives T×300000, then C.
+    const sequence = 'A'.repeat(300000) + 'C';
+    const v = featureSequenceViews(rec(sequence), feat({ start: 0, end: 300001, strand: 1,
+      segments: [{ start: 0, end: 300000, strand: -1 }, { start: 300000, end: 300001, strand: 1 }] }));
+    expect(v.feature).toBe('T'.repeat(300000) + 'C');
+  });
 });
+

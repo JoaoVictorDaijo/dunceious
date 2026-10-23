@@ -178,7 +178,7 @@ export function extractFeatureSequence(
         segIndices.reverse();
       }
       featureSeq += segSeq;
-      alignedIndices.push(...segIndices);
+      for (const index of segIndices) alignedIndices.push(index);
     });
   } else {
     segments.forEach(seg => {

@@ -19,7 +19,8 @@
 
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
-import React, { useState } from 'react';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
+import React, { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUiEffects } from './uiEffects';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -44,36 +45,42 @@ type SequenceView = 'feature' | 'region';
 const fmt = (n: number) => n.toLocaleString('en-US');
 const KEY_SEQUENCE: Record<string, string> = { CDS: 'For a CDS this is the coding sequence.', mRNA: 'For an mRNA this is the transcript sequence.' };
 
+/** INSDC notation for the envelope: `a..b`, or `n^n+1` for a zero-length site (LOC-5). */
+const regionLabel = (views: FeatureSequenceViews) => views.regionStart === views.regionEnd
+  ? `${views.regionStart}^${views.regionStart + 1}`
+  : `${views.regionStart + 1}..${views.regionEnd}`;
+
 /** What the sequence box shows, in INSDC terms only (LOC-7): never "exons" or "spliced". */
 function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureSequenceViews, shown: SequenceView): React.ReactNode {
   const protein = record.moleculeType === 'protein';
   const n = views.intervals;
   const residues = protein ? 'residues' : 'bases';
-  const span = `${views.regionStart + 1}..${views.regionEnd}${views.regionStart > views.regionEnd ? ' across the origin' : ''}`;
-  const region = `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
+  const span = `${regionLabel(views)}${views.regionStart > views.regionEnd ? ' across the origin' : ''}`;
+  const region = views.regionLength === 0
+    ? `Zero-length site ${span}: the location covers no ${residues}.`
+    : `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
+  const partial = views.partial && <> <Flag>Partial:</Flag> at least one end lies beyond the annotated base (&lt; or &gt;), so this sequence is incomplete.</>;
   if (views.feature === null) {
-    return <><Flag>order() location:</Flag> INSDC gives the order of these {n} intervals but does not imply they form one sequence, so only the region spanned is shown. {region}</>;
+    return <><Flag>order() location:</Flag> INSDC gives the order of these {n} intervals but does not imply they form one sequence, so only the region spanned is shown. {region}{partial}</>;
   }
-  if (shown === 'region') return region;
+  if (shown === 'region' || (n === 1 && views.featureLength === 0)) return <>{region}{partial}</>;
 
   const parts = n > 1 ? `the ${n} intervals joined in the order written` : `${residues} ${span}`;
+  const strand = getFeatureStrand(feature);
   let orientation = '';
   if (!protein) {
     if (feature.segments?.some(s => s.strand !== undefined)) {
       orientation = ', each read 5′ → 3′ on its own strand (complement(…) intervals reverse-complemented).';
-    } else if (feature.strand === -1) {
+    } else if (strand === -1) {
       orientation = `, ${n > 1 ? 'then ' : ''}reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand.`;
-    } else {
+    } else if (strand === 1) {
       orientation = '. Read 5′ → 3′ on the forward (+) strand.';
+    } else {
+      orientation = '. The feature gives no strand, so its bases read 5′ → 3′ as the record is written.';
     }
   }
   const key = protein ? '' : KEY_SEQUENCE[feature.type] ?? '';
-  return (
-    <>
-      {[`Sequence defined by the location: ${parts}${orientation || '.'}`, key].filter(Boolean).join(' ')}
-      {views.partial && <> <Flag>Partial:</Flag> at least one end lies beyond the annotated base (&lt; or &gt;), so this sequence is incomplete.</>}
-    </>
-  );
+  return <>{[`Sequence defined by the location: ${parts}${orientation || '.'}`, key].filter(Boolean).join(' ')}{partial}</>;
 }
 
 const Flag = ({ children }: { children: React.ReactNode }) => <span className="text-amber-700 font-bold">{children}</span>;
@@ -100,6 +107,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
+  const viewGroup = useId();
   const shown: SequenceView = views?.feature != null && view === 'feature' ? 'feature' : 'region';
   const displaySeq = !views ? record.sequence : shown === 'feature' ? views.feature ?? '' : views.region;
   const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
@@ -200,7 +208,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   </span>
                 </p>
                 <p className="text-[11px] font-mono text-slate-500">
-                  {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {views.regionStart + 1}..{views.regionEnd}</span>
+                  {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {regionLabel(views)}</span>
                 </p>
               </div>}
               {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 space-y-2 text-xs text-slate-600">
@@ -272,18 +280,15 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     {(['feature', 'region'] as const).map(option => {
                       const disabled = option === 'feature' && views.feature === null;
                       return (
-                        <button
+                        <label
                           key={option}
-                          type="button"
-                          role="radio"
-                          aria-checked={shown === option}
-                          disabled={disabled}
                           data-tip={disabled ? 'An order() location does not define one joined sequence' : undefined}
-                          onClick={() => setView(option)}
-                          className={`px-2.5 py-1 rounded-md transition-colors ${shown === option ? 'bg-white text-slate-800 shadow' : 'text-slate-500 hover:text-slate-700'} ${disabled ? 'line-through opacity-60 cursor-not-allowed' : ''}`}
+                          className={`px-2.5 py-1 rounded-md transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-500/60 ${shown === option ? 'bg-white text-slate-800 shadow' : 'text-slate-500 hover:text-slate-700'} ${disabled ? 'line-through opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
+                          <input type="radio" name={viewGroup} value={option} checked={shown === option} disabled={disabled}
+                            onChange={() => setView(option)} className="sr-only" />
                           {option === 'feature' ? 'Feature sequence' : 'Region spanned'}
-                        </button>
+                        </label>
                       );
                     })}
                   </div>
