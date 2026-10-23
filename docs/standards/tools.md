@@ -6,7 +6,7 @@ A tool's format support is not evidence that it implements the format's semantic
 and adoption counts never select a scientific rule.
 
 **The data lives in [`tools.json`](tools.json):** one record per tool with release, lifecycle,
-adoption evidence, formats, every rule ID in this folder (plus feature extraction), known
+adoption evidence, formats, the rule IDs assessed by that dated survey (plus feature extraction), known
 deviations and numbered sources. [`tool-counts.json`](tool-counts.json) holds the per-operation
 counts. This page summarises them. Evidence ledgers: [first survey](survey/2026-10-22-first-survey.md)
 (2026-10-22), [tool survey](survey/2026-10-23-tools-survey.md) and [cohort](survey/2026-10-23-cohort.md)
