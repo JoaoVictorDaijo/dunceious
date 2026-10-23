@@ -408,14 +408,14 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
       data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
-    {translationVisible && codeWarnings.map(({ feature, strand, warning }) => {
-      const end = feature.end > feature.start ? feature.end : seq.length;
-      return <button key={`code-${feature.start}-${feature.end}-${strand}-${feature.name}`} type="button"
-        data-genetic-code-warning="" aria-label={warning} data-tip={warning}
-        style={{ position: 'absolute', left: xScale(feature.start) - scrollX, width: Math.max(3, xScale(end) - xScale(feature.start)),
-          top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
-          background: 'transparent', zIndex: 1 }} />;
-    })}
+    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning }) =>
+      // A feature crossing the origin of a circular record has two spans, end of record and start.
+      (feature.start > feature.end ? [[feature.start, seq.length], [0, feature.end]] : [[feature.start, feature.end]])
+        .map(([start, end]) => <button key={`code-${start}-${end}-${strand}-${feature.name}`} type="button"
+          data-genetic-code-warning="" aria-label={warning} data-tip={warning}
+          style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
+            top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
+            background: 'transparent', zIndex: 1 }} />))}
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,
