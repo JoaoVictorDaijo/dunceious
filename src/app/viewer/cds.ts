@@ -19,7 +19,7 @@
 
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { alignedToOriginalPositions, extractCodingSequence, isFeatureBroken } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
@@ -44,7 +44,7 @@ export const computeBrokenFeatureMap = (
     .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
-      const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
+      const translTable = featureTranslTable(f);
       map.set(f, isFeatureBroken(f, codingSeq, translTable));
     });
   return map;

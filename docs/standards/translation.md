@@ -21,10 +21,15 @@ does not read `/transl_table`.
 Geneious Prime, SnapGene and CLC offer genetic-code selectors; whether they read the qualifier
 is unknown.
 
-**Dunceious.** Deviates — #229. The qualifier is read, but computed translation models only
-tables 1–5 and 11 and silently uses the standard code for the other 21
-(`src/domain/bio/sequence.ts:84-110`). This also drives the broken-CDS flag when `/translation`
-is absent (`sequence.ts:223-230, 276-284`).
+**Dunceious.** Conforms. Computed translation uses all 27 NCBI tables, generated from gc.prt 4.6
+(`src/domain/bio/geneticCodes.ts`, by `npm run standards:genetic-codes` from the pinned copy) and
+tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
+that is not an NCBI code is never replaced by table 1: no residue or stop is claimed (`?`), and
+the feature's tooltip says the code is not an NCBI genetic code. Fixed in #229.
+
+Limitation: translation is codon by codon. In tables 27, 28 and 31, where a codon can be a sense
+codon or a stop depending on context, the computed residue is the sense one gc.prt gives, also
+at the last codon.
 
 ## TRANS-2. `/codon_start`
 

@@ -42,6 +42,21 @@ describe('computeBrokenFeatureMap', () => {
     expect(computeBrokenFeatureMap([f], 'ATGCCCGAG').get(f)).toBe(false);
   });
 
+  it('does not flag a ciliate CDS whose internal TAA/TAG are glutamine (table 6)', () => {
+    // ATG TAA TAG GAG — both internal codons are Gln under NCBI table 6.
+    const seq = 'ATGTAATAGGAG';
+    const plain = cds({ start: 0, end: 12 });
+    const ciliate = cds({ start: 0, end: 12, metadata: { transl_table: '6' } });
+    expect(computeBrokenFeatureMap([plain], seq).get(plain)).toBe(true);
+    expect(computeBrokenFeatureMap([ciliate], seq).get(ciliate)).toBe(false);
+  });
+
+  it('does not flag a CDS whose /transl_table is not an NCBI genetic code', () => {
+    // No residue is claimed under an unknown code, so no stop can be either.
+    const f = cds({ start: 0, end: 9, metadata: { transl_table: '7' } });
+    expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').get(f)).toBe(false);
+  });
+
   it('honours the feature /transl_table so a mitochondrial TGA is not a false stop', () => {
     // TGG TGA AAA — internal TGA is a stop under the standard code, Trp under table 2.
     const seq = 'TGGTGAAAA';

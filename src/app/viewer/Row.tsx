@@ -27,10 +27,10 @@ import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
-import { segmentFrameshifts } from '@/src/domain/bio';
+import { featureTranslTable, isNcbiGeneticCode, segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
-import { computeBrokenFeatureMap } from './cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
@@ -317,6 +317,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
+                CDS_ORF_TYPES.includes(f.type) && !isNcbiGeneticCode(featureTranslTable(f))
+                  ? `⚠ /transl_table=${f.metadata?.transl_table} is not an NCBI genetic code; codons are not translated`
+                  : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),

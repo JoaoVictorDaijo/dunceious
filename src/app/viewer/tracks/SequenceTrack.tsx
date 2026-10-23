@@ -25,7 +25,7 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
 import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
@@ -321,7 +321,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(f) ?? false;
-        const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
+        const translTable = featureTranslTable(f);
 
         const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
         const lanes = translationLanes.laneOf.get(f);
