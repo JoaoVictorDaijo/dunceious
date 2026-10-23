@@ -117,34 +117,34 @@ export const translateSequence = (seq: string, translTable = 1): string => {
   return protein;
 };
 
+type LocatedFeature = {
+  strand: 1 | -1;
+  start: number;
+  end: number;
+  segments?: { start: number; end: number; strand?: 1 | -1 }[];
+};
+
 /**
- * Extracts the coding sequence for a feature from the full genome sequence,
- * respecting multi-part (join) and circular wrap-around locations. Gap columns
- * are omitted from both outputs so aligned annotation spans do not alter codons.
+ * The sequence a feature's location defines (INSDC Feature Table 11.4 §3.4.2.2): the intervals
+ * joined in the order written; a whole-feature `complement(join(...))` reverse-complements the
+ * joined result, and per-interval strands (`join(complement(a),b)`) orient each interval on its
+ * own. Read 5'→3' on the feature's strand. Matches Biopython 1.88 `SeqFeature.extract()` and
+ * EMBOSS 6.6.0 `extractfeat -join Y` on `docs/standards/conformance` (J1, J2, J3, W1).
  *
- * For reverse-strand features the nucleotide string is reverse-complemented
- * and `alignedIndices` is reversed so that codon position `i` maps to the
- * correct genomic coordinate.
+ * Gap columns are omitted so aligned annotation spans keep the record's bases. For reverse-strand
+ * intervals `alignedIndices` is reversed so position `i` maps to its source coordinate. Protein
+ * records have no strand, so `'protein'` joins the intervals without orienting them. `alphabet`
+ * picks the complement of A (`'rna'` writes U); see {@link complementAlphabet}.
  *
- * The GenBank `/codon_start` qualifier (1, 2, or 3) is honored last, against
- * the fully-oriented coding sequence: the leading `codon_start - 1` bases (and
- * their `alignedIndices`) are dropped so translation begins in the right frame.
- * Absent or invalid values default to frame 1 (no offset).
- *
- * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
- * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
- * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
+ * @param feature  A BioFeature-like object with strand, start, end and optional segments.
+ * @param seq      Raw or aligned record sequence, in the feature's coordinate space.
+ * @returns        `{ featureSeq, alignedIndices }`.
  */
-export function extractCodingSequence(
-  feature: {
-    strand: 1 | -1;
-    start: number;
-    end: number;
-    segments?: { start: number; end: number; strand?: 1 | -1 }[];
-    metadata?: Record<string, any>;
-  },
-  seq: string
-): { codingSeq: string; alignedIndices: number[] } {
+export function extractFeatureSequence(
+  feature: LocatedFeature,
+  seq: string,
+  alphabet: 'dna' | 'rna' | 'protein' = 'dna',
+): { featureSeq: string; alignedIndices: number[] } {
   const seqLen = seq.length;
   let segments: { start: number; end: number; strand?: 1 | -1 }[];
 
@@ -154,7 +154,8 @@ export function extractCodingSequence(
     segments = splitWrapAround(feature.start, feature.end, seqLen);
   }
 
-  let codingSeq = '';
+  const oriented = alphabet !== 'protein';
+  let featureSeq = '';
   const alignedIndices: number[] = [];
 
   // Mixed-strand (trans-spliced) features carry a per-segment strand: orient
@@ -172,11 +173,11 @@ export function extractCodingSequence(
           segIndices.push(j);
         }
       }
-      if (seg.strand === -1) {
-        segSeq = reverseComplement(segSeq);
+      if (oriented && seg.strand === -1) {
+        segSeq = reverseComplement(segSeq, alphabet);
         segIndices.reverse();
       }
-      codingSeq += segSeq;
+      featureSeq += segSeq;
       alignedIndices.push(...segIndices);
     });
   } else {
@@ -184,17 +185,40 @@ export function extractCodingSequence(
       for (let j = seg.start; j < seg.end; j++) {
         const char = seq[j];
         if (char && char !== '-') {
-          codingSeq += char;
+          featureSeq += char;
           alignedIndices.push(j);
         }
       }
     });
 
-    if (feature.strand === -1) {
-      codingSeq = reverseComplement(codingSeq);
+    if (oriented && feature.strand === -1) {
+      featureSeq = reverseComplement(featureSeq, alphabet);
       alignedIndices.reverse();
     }
   }
+
+  return { featureSeq, alignedIndices };
+}
+
+/**
+ * Extracts the coding sequence for a feature from the full genome sequence:
+ * {@link extractFeatureSequence}, then the GenBank `/codon_start` qualifier.
+ *
+ * `/codon_start` (1, 2, or 3) is honored last, against the fully-oriented coding
+ * sequence: the leading `codon_start - 1` bases (and their `alignedIndices`) are
+ * dropped so translation begins in the right frame. Absent or invalid values
+ * default to frame 1 (no offset).
+ *
+ * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
+ * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
+ * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
+ */
+export function extractCodingSequence(
+  feature: LocatedFeature & { metadata?: Record<string, any> },
+  seq: string
+): { codingSeq: string; alignedIndices: number[] } {
+  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq);
+  let codingSeq = featureSeq;
 
   const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);
   const offset = Number.isFinite(codonStart) && codonStart > 1 ? codonStart - 1 : 0;

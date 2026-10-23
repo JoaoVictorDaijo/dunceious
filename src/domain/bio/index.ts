@@ -26,6 +26,7 @@ export {
   reverseComplement,
   complementAlphabet,
   translateSequence,
+  extractFeatureSequence,
   extractCodingSequence,
   detectEarlyStop,
   translateFeature,
