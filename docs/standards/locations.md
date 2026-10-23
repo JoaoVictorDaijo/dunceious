@@ -22,9 +22,9 @@ Benchling translation groups skip introns
 ([help, 2025-09-30](https://help.benchling.com/hc/en-us/articles/39768268305805-How-to-characterize-sequences-with-annotations-and-translations)).
 Neither documents literal `join` parsing or arbitrary interval order.
 
-**Dunceious.** Conforms in `extractCodingSequence` (`src/domain/bio/sequence.ts:138`),
-including out-of-order trans-spliced joins. The details window shows the whole envelope
-instead; see LOC-7.
+**Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), which
+the CDS track and the details window share, including out-of-order trans-spliced joins. See
+LOC-7.
 
 ## LOC-2. `order()` is not `join()`
 
@@ -42,7 +42,8 @@ if Dunceious ever offers it, it must be labelled as such.
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
 **Dunceious.** Deviates — #225. The structured model reads `order` as `join`
-(`src/core/genbank/locationParser.ts:109-111`). The original text survives an unchanged
+(`src/core/genbank/locationParser.ts:109-111`). The details window reads `order(` from the raw
+location text instead and never joins it (LOC-7); an edited feature has lost that text. The original text survives an unchanged
 GenBank export (`featureParser.ts:79`, `serialize.ts:32`); after a geometry or strand edit the
 location is rebuilt as `join(...)` (`serialize.ts:40`).
 
@@ -78,7 +79,8 @@ round-tripped. EMBOSS 6.6.0, Tested: round-tripped by `seqret`.
 Artemis accepts fuzzy syntax. The full import-edit-export lifecycle is unknown everywhere.
 
 **Dunceious.** Deviates — #226. The numeric model strips the markers
-(`locationParser.ts:100-101`). The raw text survives an unchanged GenBank export and GFF3
+(`locationParser.ts:100-101`); the details window flags a partial feature from the raw text
+(LOC-7). The raw text survives an unchanged GenBank export and GFF3
 partial attributes, but is lost after a geometry or strand edit (`FeatureEditorModal.tsx:78,167`)
 or a selection export (`useFileHandlers.ts:360`).
 
@@ -139,5 +141,27 @@ applications, 5 document the joined sequence and 3 the region, and none document
 reverse-strand behaviour (only the unranked Clone Manager documents a feature-orientation option). The documented practice is therefore to offer the joined, oriented
 sequence and the region as distinct outputs.
 
-**Dunceious.** Shows and copies the whole envelope on the forward strand
-(`src/app/logic/viewModel.ts:32`). **Owner decision open — #81.**
+**Decision** (owner, 2026-10-23, #81). The details window offers both outputs and opens on the
+first, the default the standard defines:
+
+- **Feature sequence**: the location evaluated under `join`/`complement` (LOC-1, LOC-3), read
+  5′→3′ on the feature's strand; mixed-strand joins orient each interval on its own. For
+  protein records, the intervals' residues joined, with no strand.
+- **Region spanned**: record bases over the feature's envelope, forward strand, 5′→3′, gaps
+  between intervals included; an origin-crossing feature reads across the origin (LOC-6).
+- Both lengths are shown and named: "N bp feature sequence · sum of K location intervals" and
+  "M bp region spanned · start..end". The copy button and the badge name the view they measure.
+- `order()` (LOC-2): no feature sequence; only the region, and the length reads "N bp in K
+  intervals (not joined)".
+- `<`/`>` (LOC-4): a "Partial" tag next to the length, and the caption says the sequence is
+  incomplete.
+- Wording uses INSDC terms only: location intervals, feature sequence, region spanned. A
+  caption names what the feature sequence is only where the key defines it (CDS: the coding
+  sequence; mRNA: the transcript sequence).
+
+**Dunceious.** Conforms. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both
+views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), the extraction the CDS
+track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
+read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
+longer has. Tested against the oracle for J1, J2, J3, W1, O1 and P1
+(`src/app/logic/__tests__/featureSequenceViews.test.ts`).

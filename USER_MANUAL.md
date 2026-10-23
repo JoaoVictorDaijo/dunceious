@@ -343,7 +343,14 @@ The **Metadata Inspector** edits one annotation (sequence source details use **E
 
 ### 3.4 Annotation Details
 
-Clicking an annotation (or **View details** in the Hub) shows its metadata, location and, for coding features, its protein translation. From there you can **Focus** it, **Copy Sequence**, **Copy AA**, **Export FASTA**, or switch on **Show sequence in viewer**.
+Clicking an annotation (or **View details** in the Hub) shows its metadata, location and, for coding features, its protein translation. From there you can **Focus** it, copy its sequence, **Copy AA**, or switch on **Show sequence in viewer**.
+
+The sequence box has two views, following the INSDC feature table:
+
+- **Feature sequence** (shown first): the sequence the location defines. Its intervals are joined in the order written, and `complement(…)` reverse-complements them, so a reverse-strand feature reads 5′ → 3′ on its own strand. For a CDS this is the coding sequence.
+- **Region spanned**: the record's bases from the start of the feature to its end, forward strand, including the bases between intervals.
+
+**Length** names both numbers: the feature sequence (the sum of the location intervals) and the region spanned. The copy button and the length badge say which view they copy and measure. An `order()` location has no feature sequence, because INSDC does not say its intervals form one; only the region is shown. A location with `<` or `>` is tagged **Partial**: at least one end lies beyond the annotated base, so the sequence is incomplete.
 
 ### 3.5 Quantitative Tracks
 
