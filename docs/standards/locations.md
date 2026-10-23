@@ -60,8 +60,10 @@ is `rc(b)` followed by `a`.
 ([manual 18.0.0](https://sanger-pathogens.github.io/Artemis/Artemis/artemis-manual.html)); mixed
 strands are unknown. Others unknown.
 
-**Dunceious.** Conforms for these cases, verified by calling the parser on J2 and J3
-(`locationParser.ts:105-131`). No fixture test in the suite yet.
+**Dunceious.** Conforms for J2 and J3, which the details-window tests check against the oracle
+(`src/app/logic/__tests__/featureSequenceViews.test.ts`). Deviates — #239: an outer complement
+around inner complements, `complement(join(complement(a),b))`, keeps the written order instead
+of reversing it (`locationParser.ts:105-140`).
 
 ## LOC-4. Uncertain bounds
 
@@ -159,7 +161,7 @@ first, the default the standard defines:
   caption names what the feature sequence is only where the key defines it (CDS: the coding
   sequence; mRNA: the transcript sequence).
 
-**Dunceious.** Conforms. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both
+**Dunceious.** Conforms, except where LOC-3 deviates (#239). `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both
 views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:143`), the extraction the CDS
 track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
 read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
