@@ -28,6 +28,7 @@ export {
   translateSequence,
   isNcbiGeneticCode,
   featureTranslTable,
+  extractFeatureSequence,
   extractCodingSequence,
   detectEarlyStop,
   translateFeature,

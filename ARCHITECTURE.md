@@ -41,8 +41,10 @@ src/
 │   ├── consensus.ts
 │   ├── referenceComparison.ts # per-residue relation to a reference (identical/substitution/gap/ambiguous)
 │   ├── intervals.ts     # clip/split/wrap — the ONE clipInterval; splitWrapAround
-│   ├── sequence.ts      # reverseComplement, translate + GENETIC_CODE, molecule-type
-│   │                    #   detection, gap↔ungapped mapping, isProteinSession
+│   ├── sequence.ts      # reverseComplement, feature/coding-sequence extraction, translate +
+│   │                    #   GENETIC_CODE, molecule-type detection, gap↔ungapped mapping,
+│   │                    #   isProteinSession
+│   ├── locationFlags.ts # order() and partial (</>) read from the raw INSDC location text
 │   ├── frameshift.ts    # programmed ribosomal frameshifts read from join coordinates
 │   ├── strand.ts        # getFeatureStrand (keeps GFF '.'/'?' strands)
 │   └── index.ts         # barrel
