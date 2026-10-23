@@ -155,8 +155,8 @@ export function applyAnnotations(
 
 /**
  * Alignment overlays change only aligned residues; batch loads capture file provenance.
- * An overlay row must be its record's loaded residues with only '-' gaps inserted
- * (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
+ * An overlay row must hold its record's loaded residues once '-' is removed from both,
+ * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
  */
 export function applyFastaResponse(
   prev: SeqRecord[],
