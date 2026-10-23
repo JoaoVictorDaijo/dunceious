@@ -19,19 +19,25 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@/src/app/testing/renderHarness';
+import { readFileSync } from 'node:fs';
+import { render, screen, fireEvent, act } from '@/src/app/testing/renderHarness';
 import RecordDetailsModal from '../RecordDetailsModal';
-import type { SeqRecord } from '@/src/domain/bio/types';
+import { UiEffectsContext, DEFAULT_UI_EFFECTS } from '../uiEffects';
+import { parseGenBank } from '@/src/core/genbank';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+
+const caption = () => document.querySelector('[data-sequence-caption]')?.textContent;
+const lengths = () => document.querySelector('[data-feature-lengths]')?.textContent?.replace(/^Length/, '').replace(/\s+/g, ' ').replace(/ (?=\d+ (bp|aa) region)/, '');
 
 describe('RecordDetailsModal biological coordinates', () => {
-  it('shows the joined biological length and focuses every aligned part', () => {
+  it('names both lengths and focuses every aligned part', () => {
     const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSequence: '--A-CG--TA-C--GT--',
       features: [{ type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
         segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] }] };
     const onFocusFeature = vi.fn();
     render(<RecordDetailsModal record={record} feature={record.features[0]} onClose={() => {}}
       onFocusFeature={onFocusFeature} onExportRecord={() => {}} onCopyLog={() => {}} />);
-    expect(screen.getByText('7 bp')).toBeTruthy();
+    expect(lengths()).toBe('7 bp feature sequence · sum of 2 location intervals8 bp region spanned · 1..8');
     fireEvent.click(screen.getByText(/Focus/));
     expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
   });
@@ -54,4 +60,106 @@ it('keeps joined annotations on record bases only', () => {
     onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} />);
   expect(screen.queryByRole('option', { name: 'Query aligned to record' })).toBeNull();
   expect(screen.getByText("The query layer isn't available for joined annotations.")).toBeTruthy();
+});
+
+// Expected sequences come from docs/standards/conformance/expected-oracle.txt (INSDC rules by hand).
+const dir = 'docs/standards/conformance';
+const [fixture] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8'));
+const oracle = Object.fromEntries(readFileSync(`${dir}/expected-oracle.txt`, 'utf8').trim().split('\n')
+  .map(line => line.split('\t') as [string, string]));
+const labelled = (label: string) => fixture.features.find(f => f.metadata?.label === label)!;
+
+function open(record: SeqRecord, feature: BioFeature) {
+  const copyText = vi.fn().mockResolvedValue(true);
+  const onCopyLog = vi.fn();
+  render(<UiEffectsContext.Provider value={{ ...DEFAULT_UI_EFFECTS, copyText }}>
+    <RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
+      onExportRecord={vi.fn()} onCopyLog={onCopyLog} />
+  </UiEffectsContext.Provider>);
+  const sequence = () => document.querySelector('[data-record-details-body] p.break-all')?.textContent?.toUpperCase();
+  return { copyText, onCopyLog, sequence };
+}
+
+describe('RecordDetailsModal sequence views', () => {
+  it('opens a complement(join) feature on its feature sequence and switches to the region', async () => {
+    const { copyText, onCopyLog, sequence } = open(fixture, labelled('J2'));
+    expect(screen.getByRole('radio', { name: 'Feature sequence' }).getAttribute('aria-checked')).toBe('true');
+    expect(sequence()).toBe(oracle.J2);
+    expect(lengths()).toBe('20 bp feature sequence · sum of 2 location intervals30 bp region spanned · 1..30');
+    expect(screen.getByText('20 bp feature sequence')).toBeTruthy();
+    expect(screen.getByText(/then reverse-complemented because the location is complement\(…\)\. Read 5′ → 3′ on the reverse \(−\) strand\./)).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy feature sequence \(20 bp\)/ })); });
+    expect(copyText.mock.calls[0][0].toUpperCase()).toBe(oracle.J2);
+    expect(onCopyLog).toHaveBeenLastCalledWith('Feature sequence for J2 in TESTSEQ copied to clipboard.');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Region spanned' }));
+    expect(sequence()).toBe('TGTTACCTAGGGCGCACGCGCTCTCTATGG');
+    expect(screen.getByText('30 bp region')).toBeTruthy();
+    expect(screen.getByText(/Record bases 1\.\.30, forward \(\+\) strand, 5′ → 3′, including the bases between the 2 intervals\./)).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy region \(30 bp\)/ })); });
+    expect(copyText.mock.calls[1][0].toUpperCase()).toBe('TGTTACCTAGGGCGCACGCGCTCTCTATGG');
+    expect(onCopyLog).toHaveBeenLastCalledWith('Region for J2 in TESTSEQ copied to clipboard.');
+  });
+
+  it('orients each interval of a mixed-strand join on its own', () => {
+    const { sequence } = open(fixture, labelled('J3'));
+    expect(sequence()).toBe(oracle.J3);
+    expect(screen.getByText(/each read 5′ → 3′ on its own strand/)).toBeTruthy();
+  });
+
+  it('joins an origin-crossing feature and shows its region across the origin', () => {
+    const { sequence } = open(fixture, labelled('W1'));
+    expect(sequence()).toBe(oracle.W1);
+    expect(lengths()).toBe('11 bp feature sequence · sum of 2 location intervals11 bp region spanned · 115..5');
+  });
+
+  it('offers only the region for an order() location', () => {
+    const { sequence } = open(fixture, labelled('O1'));
+    const feature = screen.getByRole('radio', { name: 'Feature sequence' });
+    expect(feature.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('radio', { name: 'Region spanned' }).getAttribute('aria-checked')).toBe('true');
+    expect(sequence()).toBe('TGTTACCTAGGGC');
+    expect(lengths()).toBe('6 bp in 2 intervals (not joined)13 bp region spanned · 1..13');
+    expect(caption()).toMatch(/^order\(\) location: INSDC gives the order of these 2 intervals but does not imply they form one sequence/);
+    expect(screen.getByText('order() location:').className).toContain('text-amber-700');
+    expect(screen.getByRole('button', { name: /Copy region \(13 bp\)/ })).toBeTruthy();
+  });
+
+  it('flags a partial location next to its length and in the caption', () => {
+    const { sequence } = open(fixture, labelled('P1'));
+    expect(sequence()).toBe(oracle.P1.split(' ')[0]);
+    expect(lengths()).toBe('21 bp Partial feature sequence · 1 location interval21 bp region spanned · 5..25');
+    expect(caption()).toBe('Sequence defined by the location: bases 5..25. Read 5′ → 3′ on the forward (+) strand. Partial: at least one end lies beyond the annotated base (< or >), so this sequence is incomplete.');
+    expect(screen.queryByText('Partial', { selector: '[data-record-details-body] span' })).toBeTruthy();
+  });
+
+  it('reverse-complements a single-interval reverse CDS and names it the coding sequence', () => {
+    // complement(2..7) on AATGCCCA: bases ATGCCC, reverse complement GGGCAT.
+    const feature: BioFeature = { type: 'CDS', name: 'orf', start: 1, end: 7, strand: -1, locationString: 'complement(2..7)' };
+    const { sequence } = open({ id: 'r', name: 'r', sequence: 'AATGCCCA', features: [feature] }, feature);
+    expect(sequence()).toBe('GGGCAT');
+    expect(caption()).toBe('Sequence defined by the location: bases 2..7, reverse-complemented because the location is complement(…). Read 5′ → 3′ on the reverse (−) strand. For a CDS this is the coding sequence.');
+  });
+
+  it('uses residues and no strand for a protein record', () => {
+    const feature: BioFeature = { type: 'Region', name: 'dom', start: 1, end: 8, strand: 1, segments: [{ start: 1, end: 3 }, { start: 5, end: 8 }] };
+    const { sequence } = open({ id: 'p', name: 'p', sequence: 'MKVLATGQW', moleculeType: 'protein', features: [feature] }, feature);
+    expect(sequence()).toBe('KVTGQ');
+    expect(lengths()).toBe('5 aa feature sequence · sum of 2 location intervals7 aa region spanned · 2..8');
+    expect(screen.getByText('Sequence defined by the location: the 2 intervals joined in the order written.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Region spanned' }));
+    expect(screen.getByText('Record residues 2..8, including the residues between the 2 intervals.')).toBeTruthy();
+  });
+
+  it('gives a reverse search hit the same views and keeps its search controls', () => {
+    const provenance = { v: 1, query: 'GGGC', mode: 'whole', alphabet: 'nucleotide', params: {}, strand: -1, cigar: '4=', span: { start: 2, end: 6, strand: -1 }, appVersion: '3.7.3', createdAt: '2026-10-23', exportNote: false };
+    const feature: BioFeature = { name: 'hit', type: 'misc_feature', start: 2, end: 6, strand: -1, metadata: { _searchHit: JSON.stringify(provenance) } };
+    const record: SeqRecord = { id: 'r', name: 'r', sequence: 'AAGCCCTT', features: [feature] };
+    render(<RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
+      onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} onRemoveSearchDetails={vi.fn()} />);
+    // Record bases 3..6 are GCCC; on the reverse strand they read GGGC, the query.
+    expect(document.querySelector('[data-record-details-body] p.break-all')?.textContent).toBe('GGGC');
+    expect(screen.getByRole('option', { name: 'Query aligned to record' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Remove search details' })).toBeTruthy();
+  });
 });
