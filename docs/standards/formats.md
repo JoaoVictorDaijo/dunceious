@@ -68,7 +68,7 @@ Display-name truncation, SOURCE fallback and the legacy geography flag remain lo
 continuation lines, feature-key spelling, doubled quotes, flags and qualifier values according
 to [INSDC FT 11.4](https://ftp.ncbi.nlm.nih.gov/genbank/docs/FTv11_4.html), §§3.3.2–3.3.3,
 4.2–4.4 and individual qualifier definitions. GenBank qualifier/continuation data occupies
-columns 22–80 ([GenBank 274.0](https://ftp.ncbi.nlm.nih.gov/genbank/gbrel.txt), §3.4.12.1).
+columns 22–80 ([GenBank 274.0](https://ftp.ncbi.nlm.nih.gov/genbank/gbrel.txt), §3.4.12).
 Location meanings remain LOC-1–LOC-7; translation meanings remain TRANS-1–TRANS-4.
 
 **Reference tools.** Documented: INSDC permits multiple values by repeating qualifiers and

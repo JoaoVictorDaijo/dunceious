@@ -60,7 +60,7 @@ Every claim about a tool carries one of these:
 | FMT-1 | INSDC feature key to SO term in GFF3 | GFF3 1.26; SO 2026-08-07 | Conforms to grammar | [formats](formats.md#fmt-1-insdc-feature-key-to-so-term-in-gff3) |
 | ALN-1 | Local alignment scoring defaults | EMBOSS 6.6.0 `water` | Conforms | [alignment](alignment.md#aln-1-local-alignment-scoring-defaults) |
 | FMT-2 | GenBank entries, headers and sequence layout | GenBank 274.0 §3 | Deviates: #243, #244 | [formats](formats.md#fmt-2-genbank-entries-headers-and-sequence-layout) |
-| FMT-3 | INSDC feature-table and qualifier fidelity | INSDC FT 11.4; GenBank 274.0 §3.4.12.1 | Deviates: #242 | [formats](formats.md#fmt-3-insdc-feature-table-and-qualifier-fidelity) |
+| FMT-3 | INSDC feature-table and qualifier fidelity | INSDC FT 11.4; GenBank 274.0 §3.4.12 | Deviates: #242 | [formats](formats.md#fmt-3-insdc-feature-table-and-qualifier-fidelity) |
 | FMT-4 | Ordinary FASTA syntax and wrapping | Biopython 1.88; scoped NCBI FASTA guidance | Deviates: #244 | [formats](formats.md#fmt-4-ordinary-fasta-syntax-and-wrapping) |
 | FMT-5 | NCBI FASTA definition-line modifiers | NCBI FASTA modifiers, 2026-10-23 | Partial | [formats](formats.md#fmt-5-ncbi-fasta-definition-line-modifiers) |
 | FMT-6 | Aligned FASTA and alignment columns | Biopython 1.88; EMBOSS aligned FASTA | Deviates: #249; Owner decision open | [formats](formats.md#fmt-6-aligned-fasta-and-alignment-columns) |
