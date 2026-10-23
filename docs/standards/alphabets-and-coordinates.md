@@ -8,8 +8,10 @@ Code references are to `develop` at 13aff79.
 This numbering designates the first base (5' end) of the presented sequence as base 1." A
 span `n..m` includes both ends. File formats differ: GFF3 and SAM are 1-based; BED is 0-based
 half-open (GA4GH BED v1). These are file conventions; the standards do not prescribe a user
-interface. Every interface surveyed shows 1-based, inclusive positions, so Dunceious does too,
-and converts only at file and API boundaries.
+interface. Every interface that documents its convention (below) shows 1-based, inclusive
+positions, though most surveyed applications do not document it (see [Tools](tools.md)).
+Dunceious follows the INSDC numbering in its interface and converts only at file and API
+boundaries.
 
 **Applications and services** (Documented): SnapGene numbering starts at 1; NCBI ORFfinder "The
 range includes the residue at the To coordinate"

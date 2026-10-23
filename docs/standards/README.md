@@ -4,7 +4,8 @@ Dunceious follows published standards for every sequence operation. This folder 
 standard governs each operation, what it says, how the reference tools behave, and where
 Dunceious stands. Cite a rule by its ID (for example `LOC-2`) in code comments, issues and PRs.
 
-Last verified: 2026-10-22, against Dunceious `develop` at 13aff79 (v3.7.2).
+Last verified: 2026-10-22, against Dunceious `develop` at 13aff79 (v3.7.2). Tool survey
+([Tools](tools.md), data in [`tools.json`](tools.json)): 2026-10-23.
 
 ## Order of authority
 

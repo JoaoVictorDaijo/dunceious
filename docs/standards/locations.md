@@ -132,5 +132,12 @@ the UCSC Table Browser concatenates CDS exons with a per-exon option
 span between two selected features including the sequence between them
 ([help, 2026-09-11](https://support.snapgene.com/hc/en-us/articles/10384297596180-Extract-a-Region-in-a-Sequence-to-a-New-File)).
 
+**Consensus** (adoption-ranked survey, 2026-10-23, [Tools](tools.md#feature-extraction-what-the-tools-do)):
+of 9 command-line tools and libraries that document extraction, 7 offer the joined sequence,
+6 the region spanned and 7 strand-aware (reverse-complemented) output; of the 9 paper-ranked interactive
+applications, 5 document the joined sequence and 3 the region, and none documents its
+reverse-strand behaviour. The documented practice is therefore to offer the joined, oriented
+sequence and the region as distinct outputs.
+
 **Dunceious.** Shows and copies the whole envelope on the forward strand
 (`src/app/logic/viewModel.ts:32`). **Owner decision open — #81.**
