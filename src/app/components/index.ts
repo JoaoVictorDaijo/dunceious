@@ -30,6 +30,8 @@ export type { EditingFeatureState } from './FeatureEditorModal';
 
 export { default as MoleculeTypeMismatchModal } from './MoleculeTypeMismatchModal';
 export type { MoleculeTypeMismatchModalProps } from './MoleculeTypeMismatchModal';
+export { default as GapRemovalNotice } from './GapRemovalNotice';
+export type { GapRemovalNoticeProps } from './GapRemovalNotice';
 
 export { default as ProcessingOverlay } from './ProcessingOverlay';
 

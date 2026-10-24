@@ -114,6 +114,17 @@ wrapping (`src/core/formats/fasta.ts:69`), including the original-residue single
 residues or metadata. Molecule inference uses OP-1. The private Slice field and filenames remain
 application policy; aligned slicing uses FMT-6.
 
+A FASTA loaded as sequences (not as an alignment) has `-` removed from each record before it is
+stored, and the change is reported per record in the log and a dialog
+(`src/app/logic/bioResponse.ts:168`); a record left without residues, including a header-only
+record, refuses the whole file. This is an
+owner decision ([#267](https://github.com/JoaoVictorDaijo/dunceious/issues/267)) that follows NCBI's
+rule for sequences outside an alignment: "do not use "?" or "-" characters. These will be
+stripped from the sequence." ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),
+observed 2026-10-23). Biopython 1.88 `FastaIterator` and EMBOSS 6.6.0 `seqret` keep `-` as format
+converters; Dunceious differs because its stored sequence is the residue coordinate space of
+features (OP-4). `?` and other characters remain under #244, and saved projects are not rewritten.
+
 ## FMT-5. NCBI FASTA definition-line modifiers
 
 **Rule.** For NCBI-submission-compatible headers, write single-line bracketed
@@ -150,7 +161,7 @@ EMBOSS documents gapped FASTA. Neither specifies a workspace-ID reconciliation a
 selection windows and residue-integrity checks are Unknown there.
 
 **Dunceious.** Partial. Local overlay checks equal, nonempty rows and ID sets
-(`src/app/logic/bioResponse.ts:156`), but duplicate upload IDs can evade set comparison. Each row
+(`src/app/logic/bioResponse.ts:168`), but duplicate upload IDs can evade set comparison. Each row
 must equal its record's loaded residues once `-` is removed from both, ignoring case, or the
 overlay is refused with the offending IDs and the workspace unchanged; rows containing `.` are
 refused as an unsupported gap symbol (owner decision,
