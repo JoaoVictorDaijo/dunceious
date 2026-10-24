@@ -47,7 +47,12 @@ describe('GapRemovalNotice', () => {
     render(<GapRemovalNotice notices={notices} onClose={onClose} />);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Dismiss' }));
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    const windowEscape = vi.fn();
+    window.addEventListener('keydown', windowEscape);
     fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+    window.removeEventListener('keydown', windowEscape);
     expect(onClose).toHaveBeenCalledTimes(2);
+    // The viewer clears its selection on a window-level Escape.
+    expect(windowEscape).not.toHaveBeenCalled();
   });
 });

@@ -49,7 +49,7 @@ function fastaReply(msg: ParseFastaSuccessResponse, result: ReturnType<typeof ap
     return result.gapsRemoved.length > 0 ? { reply, notice: { fileName: msg.filename, records: result.gapsRemoved } } : { reply };
   }
   // A refused file must fail its request, so a dropped batch attaches no annotations.
-  if (result.kind === 'reject-gap-only') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
+  if (result.kind === 'reject-no-residues') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
   return { reply: msg };
 }
 

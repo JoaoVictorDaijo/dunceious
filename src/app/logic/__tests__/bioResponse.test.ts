@@ -537,9 +537,10 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
   it.each([
     ['a gap-only record after one with residues', '>a\nACGT\n>b\n---\n', ['b']],
     ['a file of gap-only records', '>a\n--\n>b\n-\n', ['a', 'b']],
+    ['a header-only record beside a gapped one', '>good\nAC-GT\n>empty\n', ['empty']],
   ])('refuses the whole file for %s and leaves the workspace untouched', (_case, content, ids) => {
     const prev = [rec({ id: 'kept', sequence: 'GGGG' })];
-    expect(applyFastaResponse(prev, parsed(content), false, 'gapped.fa')).toEqual({ next: prev, kind: 'reject-gap-only', ids });
+    expect(applyFastaResponse(prev, parsed(content), false, 'gapped.fa')).toEqual({ next: prev, kind: 'reject-no-residues', ids });
   });
 
   it('logs the removal and the refusal', () => {
@@ -549,7 +550,7 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
     expect(logs).toEqual([
       'Batch ingestion complete: 2 records added.',
       'Removed alignment gaps ("-") from 2 records in gapped.fa: a (1), b (2).',
-      'ERROR: only.fa was not loaded: records contain only "-" gap characters: [b].',
+      'ERROR: only.fa was not loaded: records with no residues: [b].',
     ]);
   });
 });

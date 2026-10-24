@@ -116,7 +116,8 @@ application policy; aligned slicing uses FMT-6.
 
 A FASTA loaded as sequences (not as an alignment) has `-` removed from each record before it is
 stored, and the change is reported per record in the log and a dialog
-(`src/app/logic/bioResponse.ts:168`); a record left empty refuses the whole file. This is an
+(`src/app/logic/bioResponse.ts:168`); a record left without residues, including a header-only
+record, refuses the whole file. This is an
 owner decision ([#267](https://github.com/JoaoVictorDaijo/dunceious/issues/267)) that follows NCBI's
 rule for sequences outside an alignment: "do not use "?" or "-" characters. These will be
 stripped from the sequence." ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),

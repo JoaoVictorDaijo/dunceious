@@ -38,7 +38,8 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
   }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
+    // Stop here so the viewer's window-level Escape does not also clear the selection.
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); return; }
     if (event.key !== 'Tab') return;
     const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button') ?? [])];
     const first = focusable[0];

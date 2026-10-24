@@ -173,9 +173,9 @@ describe('gap removal notices for FASTA loaded as sequences (#267)', () => {
     expect(h.result.current.gapNotices).toEqual([]);
   });
 
-  it('rejects a gap-only file so a dropped batch attaches nothing, and keeps the workspace', async () => {
+  it.each([['gap-only', '>a\nACGT\n>b\n---\n'], ['header-only', '>a\nAC-GT\n>b\n']])('rejects a file with a %s record so a dropped batch attaches nothing, and keeps the workspace', async (_case, content) => {
     const h = setup();
-    await expect(load(h, 'only.fa', '>a\nACGT\n>b\n---\n')).rejects.toThrow('only.fa was not loaded.');
+    await expect(load(h, 'only.fa', content)).rejects.toThrow('only.fa was not loaded.');
     expect(h.result.current.records.map(r => r.id)).toEqual(['original']);
     expect(h.result.current.gapNotices).toEqual([]);
   });

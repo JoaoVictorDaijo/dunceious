@@ -161,7 +161,7 @@ export interface GapRemoval { id: string; removed: number }
  * A batch load removes '-' so a stored sequence holds residues only, as NCBI does for
  * sequences outside an alignment ("do not use "?" or "-" characters. These will be
  * stripped from the sequence.", https://www.ncbi.nlm.nih.gov/genbank/fastaformat/).
- * The removals are reported; a file that would leave a record empty is refused whole.
+ * The removals are reported; a file with a record left without residues is refused whole.
  * An overlay row must hold its record's loaded residues once '-' is removed from both,
  * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
  */
@@ -172,7 +172,7 @@ export function applyFastaResponse(
   filename?: string,
 ):
   | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
-  | ({ next: SeqRecord[]; kind: 'reject-gap-only'; ids: string[] })
+  | ({ next: SeqRecord[]; kind: 'reject-no-residues'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
@@ -181,8 +181,8 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'reject-residues'; ids: string[] }) {
   if (!asAlignment) {
     const residues = alignedData.map(d => d.sequence.replace(/-/g, ''));
-    const gapOnly = alignedData.filter((d, i) => d.sequence.length > 0 && residues[i].length === 0).map(d => d.id);
-    if (gapOnly.length > 0) return { next: prev, kind: 'reject-gap-only', ids: gapOnly };
+    const empty = alignedData.filter((_, i) => residues[i].length === 0).map(d => d.id);
+    if (empty.length > 0) return { next: prev, kind: 'reject-no-residues', ids: empty };
     // Ungap before writeDetails so the generated source feature spans residues only.
     const incoming = alignedData.map(({ header: _header, details, ...r }, i) => {
       const record = { ...r, sequence: residues[i] };
@@ -242,7 +242,7 @@ export function applyFastaAndLog(
       }
       break;
     }
-    case 'reject-gap-only': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records contain only "-" gap characters: [${result.ids.join(', ')}].`); break;
+    case 'reject-no-residues': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records with no residues: [${result.ids.join(', ')}].`); break;
     case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
