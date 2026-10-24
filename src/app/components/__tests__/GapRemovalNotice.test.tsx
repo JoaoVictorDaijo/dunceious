@@ -37,7 +37,7 @@ describe('GapRemovalNotice', () => {
     expect(screen.getAllByRole('listitem').map(item => item.textContent)).toEqual([
       'seq13 gap characters', 'seq21 gap character', 'other12 gap characters',
     ]);
-    expect(text).toContain('Positions refer to the ungapped sequence');
+    expect(text).toContain('Gap characters (-) were removed from the loaded sequences. Positions refer to the ungapped sequence');
     expect(screen.getByRole('link', { name: /NCBI/ }).getAttribute('href')).toBe('https://www.ncbi.nlm.nih.gov/genbank/fastaformat/');
     expect(text).toContain('import this file as an alignment');
   });

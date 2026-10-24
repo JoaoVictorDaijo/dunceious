@@ -62,7 +62,8 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
 
         <div className="px-8 py-6 space-y-4 overflow-y-auto text-sm">
           <p id="gap-notice-rule" className="text-slate-300">
-            Gap characters (-) were removed. Positions refer to the ungapped sequence (<a href={NCBI_FASTA_GUIDANCE} target="_blank" rel="noreferrer" className="text-amber-300 underline">NCBI FASTA guidance</a>).
+            Gap characters (-) were removed from the loaded sequences. Positions refer to the ungapped
+            sequence (<a href={NCBI_FASTA_GUIDANCE} target="_blank" rel="noreferrer" className="text-amber-300 underline">NCBI FASTA guidance</a>).
           </p>
           {notices.map(notice => (
             <section key={notice.fileName} aria-label={notice.fileName}>
