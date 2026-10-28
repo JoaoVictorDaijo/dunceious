@@ -60,7 +60,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
           className="absolute top-0 w-px h-full bg-slate-400/30 pointer-events-none z-40"
           style={{ left: mousePos.x }}
         >
-          <div className="absolute top-0 left-2 bg-slate-800 text-white text-[11px] leading-none font-mono px-1 rounded shadow-sm whitespace-nowrap">
+          <div className="absolute top-0 left-2 bg-slate-800 text-white text-[11px] leading-none font-mono px-1 rounded-sm shadow-xs whitespace-nowrap">
             {(mousePos.bp + 1).toLocaleString()} bp
           </div>
         </div>

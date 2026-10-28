@@ -47,7 +47,7 @@ const ComparisonPreview: React.FC<{ settings: AlignmentComparisonSettings }> = (
     return <span key={column} style={STYLES[style](char)} className="flex h-4 w-4 items-center justify-center rounded-[2px] font-mono text-[10px] font-bold">{style === 'dot' ? '·' : char}</span>;
   };
   return (
-    <div aria-hidden="true" className="rounded-lg bg-slate-900 px-2.5 py-2 space-y-1">
+    <div aria-hidden="true" className="rounded-lg bg-slate-900 px-2.5 py-2 stack-y-1">
       {[PREVIEW_REFERENCE, PREVIEW_SAMPLE].map((row, index) => (
         <div key={row} className="flex items-center gap-2">
           <span className={`w-14 shrink-0 text-[10px] font-bold ${index === 0 ? 'text-env' : 'text-slate-400'}`}>{index === 0 ? 'Reference' : 'Sample'}</span>
@@ -113,7 +113,7 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
       role="group"
       aria-label="Reference comparison"
       onKeyDown={event => { if (event.key === 'Escape') onClose(); }}
-      className="fixed z-[60] overflow-y-auto w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 space-y-3"
+      className="fixed z-[60] overflow-y-auto w-80 rounded-xl border border-slate-800 bg-slate-950 p-3 shadow-xl text-xs text-slate-200 stack-y-3"
     >
       <ComparisonPreview settings={settings} />
       <div>
@@ -126,8 +126,8 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
               aria-checked={settings.highlight === option.value}
               data-tip={option.tip}
               onClick={() => update({ highlight: option.value })}
-              className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
-                settings.highlight === option.value ? 'bg-env-strong text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-bold focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${
+                settings.highlight === option.value ? 'bg-env-strong text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {option.label}
@@ -141,7 +141,7 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ settings, update, ref
           id={referenceSelectId}
           value={reference?.id ?? ''}
           onChange={event => update({ referenceId: event.target.value })}
-          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60"
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60"
         >
           {candidates.map(record => (
             <option key={record.id} value={record.id}>{record.name || record.id}{record.visible === false ? ' (hidden)' : ''}</option>
@@ -195,7 +195,7 @@ const ComparisonMenu: React.FC<ComparisonMenuProps> = ({ settings, onChange, ref
         aria-expanded={open}
         data-tip={active ? `Comparing every row against ${reference.name}` : 'Compare every aligned row against a reference sequence'}
         onClick={() => setOpen(value => !value)}
-        className={`${arrive ? 'compare-arrival motion-reduce:animate-none' : ''} h-10 flex max-w-[14rem] items-center gap-2 rounded-xl border px-3 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
+        className={`${arrive ? 'compare-arrival motion-reduce:animate-none' : ''} h-10 flex max-w-[14rem] items-center gap-2 rounded-xl border px-3 text-xs focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${
           active
               ? 'border-env/50 bg-env/10 text-env'
               : 'border-slate-800 bg-slate-950 text-slate-200 hover:bg-slate-800/60'

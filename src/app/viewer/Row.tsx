@@ -188,10 +188,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
           {isReference && (
             <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
-              className="mr-1 rounded px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
+              className="mr-1 rounded-sm px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
           )}
           {l.id}
         </div>
@@ -487,7 +487,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           </svg>
           {focusedRegion && focusLabelLeft !== null && (
             <div
-              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-sm animate-in fade-in duration-300 motion-reduce:animate-none"
+              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
               {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
@@ -501,7 +501,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             return (
               <div 
                 key={track.id} 
-                className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5" 
+                className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-xs shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5"
                 style={{ height: track.height, top: trackTop }}
                 onPointerMove={(e) => {
                   if (!showsHoverTooltip(e.pointerType)) return;
@@ -534,7 +534,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
-                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border shadow-sm"
+                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm border shadow-xs"
                     style={{ 
                       color: trackColor, 
                       backgroundColor: '#fff',

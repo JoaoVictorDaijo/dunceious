@@ -48,7 +48,7 @@ function ZoomScene() {
     <div className="flex w-[300px] max-w-full flex-col gap-3.5">
       <div className="flex flex-col gap-1">
         <span className={caption}>Whole genome</span>
-        <div className="flex h-[22px] overflow-hidden rounded">
+        <div className="flex h-[22px] overflow-hidden rounded-sm">
           {DENSITY.map((c, i) => <span key={i} className="flex-1" style={{ background: c }} />)}
         </div>
       </div>
@@ -80,7 +80,7 @@ function SearchScene() {
       </div>
       <div className="relative h-[26px] rounded-md bg-slate-800">
         {PROMOTER_HITS.map((p) => (
-          <span key={p} className="absolute -bottom-1 -top-1 w-1 rounded-sm bg-amber-400" style={{ left: `${(p / GENOME_LENGTH) * 100}%` }} />
+          <span key={p} className="absolute -bottom-1 -top-1 w-1 rounded-xs bg-amber-400" style={{ left: `${(p / GENOME_LENGTH) * 100}%` }} />
         ))}
       </div>
       <div className="text-sm text-slate-300">{PROMOTER_HITS.length} hits · each one a T7 promoter</div>

@@ -49,18 +49,18 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs motion-safe:animate-in motion-safe:fade-in">
       <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="gap-notice-title" aria-describedby="gap-notice-rule"
         onKeyDown={handleKeyDown}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-amber-500/30">
         <div className="bg-gradient-to-r from-amber-500/10 to-transparent px-8 py-6 border-b border-amber-500/20 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
             <i aria-hidden="true" className="fas fa-triangle-exclamation text-lg"></i>
           </div>
           <h2 id="gap-notice-title" className="text-lg font-bold uppercase tracking-tight text-white">Alignment gaps removed</h2>
         </div>
 
-        <div className="px-8 py-6 space-y-4 overflow-y-auto text-sm">
+        <div className="px-8 py-6 stack-y-4 overflow-y-auto text-sm">
           <p id="gap-notice-rule" className="text-slate-300">
             Gap characters (-) were removed from the loaded sequences. Positions refer to the ungapped
             sequence (<a href={NCBI_FASTA_GUIDANCE} target="_blank" rel="noreferrer" className="text-amber-300 underline">NCBI FASTA guidance</a>).
@@ -68,7 +68,7 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
           {notices.map(notice => (
             <section key={notice.fileName} aria-label={notice.fileName}>
               <h3 className="font-bold text-slate-100 break-all">{notice.fileName}</h3>
-              <ul className="mt-1 space-y-0.5 text-slate-300">
+              <ul className="mt-1 stack-y-0.5 text-slate-300">
                 {notice.records.map(record => (
                   <li key={record.id} className="flex justify-between gap-4">
                     <span className="font-mono break-all">{record.id}</span>

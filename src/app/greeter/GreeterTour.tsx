@@ -34,7 +34,7 @@ export default function GreeterTour({ onClose }: { onClose: () => void }) {
     <main className="mx-auto flex min-h-[100dvh] max-w-xl flex-col bg-slate-950 text-slate-200">
       <div className="grid grid-cols-4 gap-1.5 px-4 pt-4" aria-hidden="true">
         {TOUR_STEPS.map((_, i) => (
-          <span key={i} className={`h-1 rounded-sm ${i <= step ? 'bg-sky-400' : 'bg-slate-800'}`} />
+          <span key={i} className={`h-1 rounded-xs ${i <= step ? 'bg-sky-400' : 'bg-slate-800'}`} />
         ))}
       </div>
       <div className="flex items-center justify-between pl-4 pr-2 pt-1.5">
@@ -49,7 +49,7 @@ export default function GreeterTour({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex flex-col gap-2.5 px-6 pt-6">
-        <h1 ref={headingRef} tabIndex={-1} className="m-0 text-[28px] font-extrabold leading-tight tracking-tight outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className="m-0 text-[28px] font-extrabold leading-tight tracking-tight outline-hidden">
           {TOUR_STEPS[step].title}
         </h1>
         <p className="m-0 text-base leading-normal text-slate-300">{TOUR_STEPS[step].body}</p>

@@ -1,0 +1,76 @@
+# Tailwind 4 migration
+
+**Approved browser policy:** Chrome/Edge 111+, Firefox 128+, Safari 16.4+.
+The owner approved this compatibility change on 2026-10-28. Integration targets develop;
+a release or production deployment is handled separately.
+
+## Compatibility decision
+
+Tailwind 4.3.3 requires Safari 16.4+, Chrome 111+ and Firefox 128+ for its CSS engine.
+The Vite build/CSS targets are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
+Former targets were Chrome 87, Edge 88, Firefox 78 and Safari 14. JavaScript transpilation
+cannot restore missing CSS features. Older browser versions are no longer supported.
+Tests on current browser engines do not certify those exact minimum versions.
+
+This migration inherits the app version from develop; repository policy bumps only at develop-to-main promotion.
+The Changed fragment records the compatibility change. A future release must account for the
+breaking browser compatibility change.
+
+## Compiler and theme
+
+Pin tailwindcss and @tailwindcss/postcss to matching 4.3.3 versions. PostCSS already
+integrates Vite and the CSS regression tests, so both retain one compiler path.
+The dedicated Vite plugin is an alternative, not needed alongside that existing path.
+The adapter handles imports/prefixing; remove standalone autoprefixer, retain PostCSS
+for the tests. The new Oxide dependency requires Node 20+.
+
+The CSS entry imports Tailwind and explicitly loads tailwind.config.js with @config.
+Keep the custom slate/environment colors, the full prior sans/mono fallback stacks, animations and
+tailwindcss-animate plugin. tailwind.colors.json records the published 3.4.19 palette,
+preventing an incidental switch to v4's different OKLCH colors. It is static data, not
+a retained v3 compiler/dependency. The original MIT notice ships in public/tailwind-palette.NOTICE.txt. Tests compile the real entry/config through v4.
+
+## Breaking-change review
+
+| Area | Project decision / verification |
+| --- | --- |
+| Directives/config | Replace @tailwind with the v4 import; explicitly load JavaScript config. No CLI integration is used. |
+| Radius/shadow/blur | Map old small utilities to extra-small and old bare utilities to small, preserving the prior scale. |
+| Outline | Map outline-none to outline-hidden to retain forced-colors visibility. The interactive genome strip needs focus-visible:outline-solid because outline-hidden otherwise leaves v4 focus outlines at none; a real-control browser regression protects it. |
+| Rings | Preserve explicit widths/colors and the legacy default blue at 50% opacity; bare ring maps to ring-3. |
+| Borders/controls | Keep gray-200 default borders, gray-400 placeholders and enabled/disabled button cursors. |
+| Fonts/colors/plugins | Keep Inter/JetBrains Mono, prior colors, environment opacity modifiers and animation utilities. Restore fixed font-size line heights; v4 unitless defaults otherwise shrink arbitrary-size descendants and move Hub/sidebar controls. |
+| Spacing/dividers | All 59 existing vertical stacks use the project stack-y utility, preserving v3 visible-sibling selection, top spacing, bottom-margin reset and selector priority. This includes inline fields, explicit child margins, hidden children and rendered component roots. Ten existing numeric scales (including 0.5 and 1.5) are supported; no horizontal or reverse spacing consumer exists. Actual field and complete-stack geometry are compared against v3. |
+| Variants/dark | Check arbitrary state selectors and keyboard focus. Dark chrome uses explicit colors, not dark: variants. Descendant focus stacks now target the focused child (v3 generated parent-focus selectors); actual export keyboard outlines are tested. No direct-child/typography ordering stack was found. |
+| Arbitrary values | Grid commas are minmax() arguments, not comma-separated tracks. No bare variable shorthand was found. |
+| Hidden | Native file inputs remain hidden; viewport bands/labels toggle the hidden property; showroom sidebar uses conditional hidden. No DOM consumer relies on display utilities overriding hidden. |
+| Hover/touch | Hover is now restricted to hover-capable primary pointers. Touch controls must remain usable through their existing explicit rules/actions. |
+| Transforms | No transform-none reset or custom transition-[...,transform] consumer was found. Viewer transform attributes are separate. |
+| Cascade/imports | Compare the real font/app/chrome/Font Awesome import order, project Hub styles and focused controls. |
+| Other features | The gap-removal icon maps the removed flex-shrink-0 alias to shrink-0. No other removed opacity/flex aliases, prefix, safelist, corePlugins, container override or custom @layer utilities were found. Existing @layer blocks contain base rules only. |
+
+## Validation and review
+
+Preserve the two neutral Hub color/edge assertions. Add regressions for explicit theme,
+environment utilities, animation generation and real-browser computed styles/focus.
+Cover controls, borders/rings, radius/shadows, spacing/fonts, responsive layouts and
+light/dark preferences, plus import/export/project reload, navigation and the showroom.
+Record reused baseline evidence separately from newly executed tests.
+
+The current-develop integration also preserves the gap-removal notice and feature/region selector,
+with production browser coverage for their spacing, backdrop blur, selected shadow and keyboard focus.
+
+Independent review and current-develop validation are required before integration.
+Owner approval of the supported browser floor does not certify exact minimum engine versions.
+
+## Sources
+
+Reviewed on 2026-10-22:
+
+- https://tailwindcss.com/docs/upgrade-guide
+- https://github.com/tailwindlabs/tailwindcss/releases/tag/v4.3.3
+- https://tailwindcss.com/docs/font-size
+- https://tailwindcss.com/docs/outline-style
+- https://tailwindcss.com/docs/adding-custom-styles
+- Published npm metadata and installed manifests/integrities for tailwindcss,
+  @tailwindcss/postcss, @tailwindcss/node and @tailwindcss/oxide 4.3.3.

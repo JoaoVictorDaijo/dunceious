@@ -36,11 +36,11 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
   const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-rose-500/30">
         {/* Header */}
         <div className="bg-gradient-to-r from-rose-500/10 to-transparent px-8 py-6 border-b border-rose-500/20 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
             <i className="fas fa-triangle-exclamation text-lg"></i>
           </div>
           <div>
@@ -50,8 +50,8 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="px-8 py-6 space-y-4">
-          <div className="space-y-3">
+        <div className="px-8 py-6 stack-y-4">
+          <div className="stack-y-3">
             <div className="flex items-start gap-3">
               <div className="text-rose-400 mt-1">
                 <i className="fas fa-file text-sm"></i>
@@ -82,7 +82,7 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
 
           <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50 text-xs text-slate-300">
             <p className="flex items-start gap-2">
-              <i className="fas fa-lightbulb text-amber-400 mt-0.5 flex-shrink-0"></i>
+              <i className="fas fa-lightbulb text-amber-400 mt-0.5 shrink-0"></i>
               <span><span className="font-bold">Solution:</span> Clear all records first to switch sequence types.</span>
             </p>
           </div>

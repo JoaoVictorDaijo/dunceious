@@ -54,7 +54,7 @@ const SequenceIndexEntry = memo(function SequenceIndexEntry({ section, selected,
       <button aria-label={`${hidden ? 'Show' : 'Hide'} ${record.id} in hub`} data-tip={hidden ? 'Show in hub' : 'Hide in hub'} onClick={() => onToggleHubHidden(record.id)} className="p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500"><i aria-hidden="true" className={`fas ${hidden ? 'fa-eye-slash' : 'fa-eye'}`} /></button>
     </div>
     <div className="min-w-0 text-[10px] text-slate-400"><p className="truncate">{isolateOf(record)} · <span className="font-mono">{record.sequence.length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span></p>
-      <div className="flex h-4 gap-1 overflow-hidden">{editSummary && <span className="shrink-0 font-mono text-amber-200">{editSummary}{flags.length > 0 && ' · '}</span>}{flags.map(flag => <span key={String(flag)} className="whitespace-nowrap rounded bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
+      <div className="flex h-4 gap-1 overflow-hidden">{editSummary && <span className="shrink-0 font-mono text-amber-200">{editSummary}{flags.length > 0 && ' · '}</span>}{flags.map(flag => <span key={String(flag)} className="whitespace-nowrap rounded-sm bg-slate-800 px-1 text-[9px]">{flag}</span>)}</div>
     </div>
     <GenomeStrip trackWindow={trackWindow} record={record} featureColors={featureColors} highlight={highlight} onPick={pick} />
   </div>;
@@ -77,7 +77,7 @@ const SEQUENCE_SORTS: [SortOrder, string][] = [['load', 'Load order'], ['accessi
 function SequenceSort({ state }: { state: ReturnType<typeof useHubState> }) {
   return <label data-sequence-sort data-tip="Order of the sequences in the index and the list" className="ml-auto flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900 pl-2.5 pr-1 text-slate-400 focus-within:outline focus-within:outline-2 focus-within:outline-amber-500">
     <i aria-hidden="true" className="fas fa-arrow-down-wide-short text-[11px]" />
-    <select aria-label="Sort sequences" className="min-w-0 max-w-full cursor-pointer truncate bg-transparent pr-1 text-xs text-slate-200 focus:outline-none" value={state.sort} onChange={e => state.setSort(e.target.value as SortOrder)}>{SEQUENCE_SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+    <select aria-label="Sort sequences" className="min-w-0 max-w-full cursor-pointer truncate bg-transparent pr-1 text-xs text-slate-200 focus:outline-hidden" value={state.sort} onChange={e => state.setSort(e.target.value as SortOrder)}>{SEQUENCE_SORTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
   </label>;
 }
 
