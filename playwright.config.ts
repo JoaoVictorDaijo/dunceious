@@ -31,7 +31,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
-    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE },
+    // Playwright hides Chromium's scrollbars by default; the app's scroll panels reserve 12 px gutters, as in Chrome.
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, ignoreDefaultArgs: ['--hide-scrollbars'] },
   },
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
