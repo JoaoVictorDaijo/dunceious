@@ -23,6 +23,7 @@ import {
   applyParseSuccess,
   applyAnnotations,
   applyFastaResponse,
+  applyFastaAndLog,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
@@ -30,6 +31,7 @@ import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { processTransposition } from '@/src/domain/bio/coordinate';
 
 const rec = (o: Partial<SeqRecord> & { id: string }): SeqRecord => ({
   name: o.id, sequence: '', features: [], ...o,
@@ -154,7 +156,7 @@ describe('applyFastaResponse', () => {
   });
 
   it('overlays alignedSequence onto matching records when ids match exactly and lengths agree', () => {
-    const prev = [rec({ id: 'a', sequence: 'ACGT' }), rec({ id: 'b', sequence: 'ACGT' })];
+    const prev = [rec({ id: 'a', sequence: 'ACGT' }), rec({ id: 'b', sequence: 'ACGGT' })];
     const res = applyFastaResponse(prev, [fa('a', 'AC-GT'), fa('b', 'ACGGT')], true);
     expect(res.kind).toBe('overlay');
     if (res.kind === 'overlay') {
@@ -295,6 +297,13 @@ describe('import provenance and annotation ownership', () => {
     expect(result.unmatched).toEqual(['a']);
   });
 
+  it('keeps the imported region source through GFF3 import and export', () => {
+    const parsed = parseGFF3('a\tRefSeq\tregion\t1\t4\t.\t+\t.\tID=a.0;gbkey=Src\na\ttoolX\tgene\t1\t4\t.\t+\t.\tID=g');
+    const result = applyAnnotations([rec({ id: 'a', sequence: 'AAAA' })], parsed.features, parsed.details);
+    const columns = exportToGff3(result.next).text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t')[1]);
+    expect(columns).toEqual(['RefSeq', 'toolX']);
+  });
+
   it('fills only empty unedited details and preserves existing imported values', () => {
     const record = rec({ id: 'a', sequence: 'A'.repeat(1000), fileDetails: { host: 'original', location: 'Oman' }, features: [{ type: 'source', name: 'source', start: 0, end: 1000, strand: 1, metadata: { host: 'edited' } }] });
     const result = applyAnnotations([record], {}, { a: { ...region(1000), details: { host: 'camel', organism: 'virus', location: 'Egypt' } } });
@@ -309,6 +318,62 @@ describe('import provenance and annotation ownership', () => {
     expect(result.next[0].features).toEqual([region(100).feature]);
     expect(result.totalAdded).toBe(1);
     expect(result.unmatched).toEqual(['missing']);
+  });
+});
+
+describe('applyFastaResponse residue integrity (#249)', () => {
+  const fa = (id: string, sequence: string) => ({ id, name: id, sequence, features: [] as BioFeature[], moleculeType: 'dna' as const });
+  const gene: BioFeature = { type: 'gene', name: 'g', start: 0, end: 2, strand: 1 };
+  const prev = [rec({ id: 'a', sequence: 'ACGT', features: [gene] }), rec({ id: 'b', sequence: 'AGT' })];
+
+  it.each([
+    ['a substitution', 'TTTT'],
+    ['a dropped residue', 'AC-G'],
+    ['an inserted residue', 'ACGTA'],
+    ['reordered residues', 'CAGT'],
+    ['U written for a loaded T', 'ACGU'],
+  ])('refuses %s with the offending ID and leaves the workspace untouched', (_case, aligned) => {
+    const res = applyFastaResponse(prev, [fa('a', aligned), fa('b', 'AGT'.padEnd(aligned.length, '-'))], true);
+    expect(res).toEqual({ next: prev, kind: 'reject-residues', ids: ['a'] });
+    expect(res.next).toBe(prev);
+  });
+
+  it('folds only ASCII case, so "ß" cannot stand in for a loaded "SS"', () => {
+    const loaded = [rec({ id: 'a', sequence: 'SS', moleculeType: 'protein' }), rec({ id: 'b', sequence: 'AG', moleculeType: 'protein' })];
+    expect(applyFastaResponse(loaded, [fa('a', 'ß-'), fa('b', 'AG')], true))
+      .toEqual({ next: loaded, kind: 'reject-residues', ids: ['a'] });
+  });
+
+  it('refuses "." gaps explicitly instead of reading them as residues', () => {
+    const res = applyFastaResponse(prev, [fa('a', 'AC.GT'), fa('b', 'A.G-T')], true);
+    expect(res).toEqual({ next: prev, kind: 'reject-dot-gap', ids: ['a', 'b'] });
+  });
+
+  it('accepts a case-only difference and keeps the loaded residues as the source', () => {
+    const res = applyFastaResponse(prev, [fa('a', 'ac-gt'), fa('b', 'A-G-T')], true);
+    expect(res.kind).toBe('overlay');
+    expect(res.next.map(r => [r.sequence, r.alignedSequence, r.features])).toEqual([
+      ['ACGT', 'ac-gt', [gene]], ['AGT', 'A-G-T', []],
+    ]);
+  });
+
+  it('compares a loaded sequence that kept "-" from a batch FASTA without its gaps', () => {
+    const gapped = [rec({ id: 'a', sequence: 'AC-GT' }), rec({ id: 'b', sequence: 'ACGT' })];
+    expect(applyFastaResponse(gapped, [fa('a', 'AC-GT'), fa('b', 'ACG-T')], true).kind).toBe('overlay');
+    expect(applyFastaResponse(gapped, [fa('a', 'AC-GA'), fa('b', 'ACG-T')], true))
+      .toEqual({ next: gapped, kind: 'reject-residues', ids: ['a'] });
+  });
+
+  it('requires a loaded terminal stop to stay in the protein row', () => {
+    const proteins = [rec({ id: 'p', sequence: 'MK*', moleculeType: 'protein' }), rec({ id: 'q', sequence: 'MAK', moleculeType: 'protein' })];
+    expect(applyFastaResponse(proteins, [fa('p', 'M-K'), fa('q', 'MAK')], true))
+      .toEqual({ next: proteins, kind: 'reject-residues', ids: ['p'] });
+    expect(applyFastaResponse(proteins, [fa('p', 'M-K*'), fa('q', 'MAK-')], true).kind).toBe('overlay');
+  });
+
+  it('keeps the ID and length refusals ahead of the residue check', () => {
+    expect(applyFastaResponse(prev, [fa('a', 'TTTT')], true).kind).toBe('reject-mismatch');
+    expect(applyFastaResponse(prev, [fa('a', 'TTTT'), fa('b', 'AGT')], true).kind).toBe('reject-length');
   });
 });
 
@@ -432,4 +497,60 @@ it('does not use sanitized IDs to override ambiguous name matches or refused bat
   const records = [rec({ id: 'seq_1', name: 'seq(1)' }), rec({ id: 'other', name: 'seq(1)' })];
   expect(applyAnnotations(records, { 'seq(1)': [feature] }).unmatched).toEqual(['seq(1)']);
   expect(applyAnnotations(records.slice(0, 1), { 'seq(1)': [feature] }, {}, { 'seq(1)': null }).unmatched).toEqual(['seq(1)']);
+});
+
+
+describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
+  const parsed = (content: string) => {
+    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'gapped.fa', content });
+    if (response.type !== 'FASTA_SUCCESS') throw new Error(`unexpected ${response.type}`);
+    return response.alignedData;
+  };
+
+  it('keeps residues, case, U and protein letters and reports each changed record', () => {
+    const result = applyFastaResponse([], parsed('>d\nac-gt\n>r\nAU--GC\n>p\nMU-OP\n>clean\nACGT\n'), false, 'gapped.fa');
+    expect(result.kind).toBe('batch');
+    expect(result.next.map(r => [r.id, r.sequence])).toEqual([['d', 'acgt'], ['r', 'AUGC'], ['p', 'MUOP'], ['clean', 'ACGT']]);
+    if (result.kind === 'batch') expect(result.gapsRemoved).toEqual([{ id: 'd', removed: 1 }, { id: 'r', removed: 2 }, { id: 'p', removed: 1 }]);
+  });
+
+  it('sizes the source details from residues and reports the deduplicated workspace ID', () => {
+    const result = applyFastaResponse([rec({ id: 'a', sequence: 'TTTT' })], parsed('>a [host=camel]\nAC--GT\n'), false, 'gapped.fa');
+    expect(result.next[1]).toMatchObject({ id: 'a_1', sequence: 'ACGT', features: [{ type: 'source', start: 0, end: 4 }] });
+    if (result.kind === 'batch') expect(result.gapsRemoved).toEqual([{ id: 'a_1', removed: 2 }]);
+  });
+
+  it('places features and exports on residue positions, and the same file still overlays as an alignment', () => {
+    const loaded = applyFastaResponse([], parsed('>a\nAC-GT\n>b\nACGGT\n'), false).next;
+    const withGene = [{ ...loaded[0], features: [{ type: 'gene', name: 'GT', start: 2, end: 4, strand: 1 as const }] }, loaded[1]];
+    const genbank = exportToGenBank([withGene[0]]).text;
+    expect(genbank).toMatch(/^LOCUS\s+a\s+4 bp/m);
+    expect(genbank).toMatch(/^\s+1 acgt$/m);
+    expect(genbank).toMatch(/gene\s+3\.\.4/);
+    const overlay = applyFastaResponse(withGene, parsed('>a\nAC-GT\n>b\nACGGT\n'), true);
+    expect(overlay.kind).toBe('overlay');
+    const shown = processTransposition(overlay.next)[0];
+    expect([shown.features[0].start, shown.features[0].end]).toEqual([3, 5]);
+    expect(shown.alignedSequence!.slice(3, 5)).toBe('GT');
+  });
+
+  it.each([
+    ['a gap-only record after one with residues', '>a\nACGT\n>b\n---\n', ['b']],
+    ['a file of gap-only records', '>a\n--\n>b\n-\n', ['a', 'b']],
+    ['a header-only record beside a gapped one', '>good\nAC-GT\n>empty\n', ['empty']],
+  ])('refuses the whole file for %s and leaves the workspace untouched', (_case, content, ids) => {
+    const prev = [rec({ id: 'kept', sequence: 'GGGG' })];
+    expect(applyFastaResponse(prev, parsed(content), false, 'gapped.fa')).toEqual({ next: prev, kind: 'reject-no-residues', ids });
+  });
+
+  it('logs the removal and the refusal', () => {
+    const logs: string[] = [];
+    applyFastaAndLog([], parsed('>a\nAC-GT\n>b\nA--C\n'), false, message => logs.push(message), 'gapped.fa');
+    applyFastaAndLog([], parsed('>a\nACGT\n>b\n---\n'), false, message => logs.push(message), 'only.fa');
+    expect(logs).toEqual([
+      'Batch ingestion complete: 2 records added.',
+      'Removed alignment gaps ("-") from 2 records in gapped.fa: a (1), b (2).',
+      'ERROR: only.fa was not loaded: records with no residues: [b].',
+    ]);
+  });
 });

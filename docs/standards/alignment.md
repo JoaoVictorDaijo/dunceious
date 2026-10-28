@@ -23,3 +23,13 @@ scoring as `water`).
 **Dunceious.** Conforms: EMBOSS 6.6.0 defaults in `src/core/search/local/scoring.ts`, with gaps
 stored in half-units (open 20, extend 1). Global multiple alignment is sent to the named EBI
 services (Clustal Omega, MAFFT, MUSCLE) with their own defaults (`src/core/alignment/ebi.ts`).
+
+The remote protocol is governed by [FMT-12](formats.md#fmt-12-dated-ebi-submission-and-result-contracts),
+not these local scoring defaults. Service input caps, comparative claims and remote provenance
+are separate requirements in [METRIC-8a](metrics.md#metric-8a-service-limits),
+[METRIC-8b](metrics.md#metric-8b-comparative-alignment-claims) and
+[METRIC-8c](metrics.md#metric-8c-remote-alignment-provenance). A service name does not pin an
+engine release. For local result counts and score cutoffs, see
+[OP-13](operations.md#op-13-ranking-and-merging-local-alignments) and
+[METRIC-10d](metrics.md#metric-10d-local-search-count-ledger). These sources establish neither
+runtime equivalence nor worker-schedule invariance for the current implementation.

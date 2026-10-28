@@ -114,3 +114,30 @@ it('roundtrips a newly created reverse annotation with separate segments', () =>
   expect(exported).toContain('complement(join(2..3,7..9))');
   expect(parseGenBank(exported)[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
 });
+
+
+describe('GenBank location writing', () => {
+  it.each([
+    'complement(join(complement(1..2),5..6))',
+    'complement(join(complement(1..2),complement(5..6)))',
+    'complement(order(complement(1..2),5..6))',
+  ])('writes unedited %s verbatim after import', location => {
+    const [source] = parseGenBank(`LOCUS       R 8 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    ${location}
+                     /label=nested
+ORIGIN
+        1 aaccggtt
+//`);
+    expect(source.sequence).toBe('AACCGGTT');
+    const exported = exportToGenBank([source]).text;
+    expect(exported.split('\n').filter(line => line.startsWith('     misc_feature')))
+      .toEqual([`     misc_feature    ${location}`]);
+  });
+
+  it('writes explicit interval complements in evaluation order when raw text is absent', () => {
+    const source = record({ features: [{ type: 'misc_feature', name: 'nested', start: 0, end: 6, strand: 1,
+      segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] }] });
+    expect(exportToGenBank([source]).text).toContain('     misc_feature    join(complement(5..6),1..2)\n');
+  });
+});

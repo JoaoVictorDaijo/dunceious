@@ -39,7 +39,7 @@ a retained v3 compiler/dependency. The original MIT notice ships in public/tailw
 | Rings | Preserve explicit widths/colors and the legacy default blue at 50% opacity; bare ring maps to ring-3. |
 | Borders/controls | Keep gray-200 default borders, gray-400 placeholders and enabled/disabled button cursors. |
 | Fonts/colors/plugins | Keep Inter/JetBrains Mono, prior colors, environment opacity modifiers and animation utilities. Restore fixed font-size line heights; v4 unitless defaults otherwise shrink arbitrary-size descendants and move Hub/sidebar controls. |
-| Spacing/dividers | All 57 existing vertical stacks use the project stack-y utility, preserving v3 visible-sibling selection, top spacing, bottom-margin reset and selector priority. This includes inline fields, explicit child margins, hidden children and rendered component roots. Nine existing numeric scales (including 1.5) are supported; no horizontal or reverse spacing consumer exists. Actual field and complete-stack geometry are compared against v3. |
+| Spacing/dividers | All 59 existing vertical stacks use the project stack-y utility, preserving v3 visible-sibling selection, top spacing, bottom-margin reset and selector priority. This includes inline fields, explicit child margins, hidden children and rendered component roots. Ten existing numeric scales (including 0.5 and 1.5) are supported; no horizontal or reverse spacing consumer exists. Actual field and complete-stack geometry are compared against v3. |
 | Variants/dark | Check arbitrary state selectors and keyboard focus. Dark chrome uses explicit colors, not dark: variants. Descendant focus stacks now target the focused child (v3 generated parent-focus selectors); actual export keyboard outlines are tested. No direct-child/typography ordering stack was found. |
 | Arbitrary values | Grid commas are minmax() arguments, not comma-separated tracks. No bare variable shorthand was found. |
 | Hidden | Native file inputs remain hidden; viewport bands/labels toggle the hidden property; showroom sidebar uses conditional hidden. No DOM consumer relies on display utilities overriding hidden. |
@@ -55,6 +55,9 @@ environment utilities, animation generation and real-browser computed styles/foc
 Cover controls, borders/rings, radius/shadows, spacing/fonts, responsive layouts and
 light/dark preferences, plus import/export/project reload, navigation and the showroom.
 Record reused baseline evidence separately from newly executed tests.
+
+The current-develop integration also preserves the gap-removal notice and feature/region selector,
+with production browser coverage for their spacing, backdrop blur, selected shadow and keyboard focus.
 
 Independent review remains required before publication; owner browser-policy approval is required before merge.
 

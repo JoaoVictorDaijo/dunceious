@@ -103,7 +103,9 @@ test('navigation, search, selection and metadata keep their inline-label spacing
   await page.locator('path[data-annotation-feature="marker"]').first().click();
   await expect(page.getByRole('heading', { name: 'Annotation Details', exact: true })).toBeVisible();
   await settled(page);
-  await expectFields(details, [['Type', 8, 28], ['Locus', 8, 28], ['Strand', 8, 28], ['Length', 8, 28], ['Additional Metadata', 16, 53]]);
+  // Current develop adds a region-length row; its shared grid row stretches Strand too.
+  // Both values were measured against the v3 baseline in Chromium, Firefox and WebKit.
+  await expectFields(details, [['Type', 8, 28], ['Locus', 8, 28], ['Strand', 8, 49.5], ['Length', 8, 48.5], ['Additional Metadata', 16, 53]]);
 });
 
 test('showroom navigation and shared search controls keep their inline-label spacing', async ({ page }) => {
@@ -127,7 +129,7 @@ test('stack spacing preserves hidden siblings, explicit margins and component-ro
     root.append(host);
     const rows: { mode: string; scale: number; firstGap: number; secondGap: number; firstTop: string; secondBottom: string }[] = [];
     for (const mode of ['block', 'flex']) {
-      for (const scale of [1, 1.5, 2, 3, 4, 5, 6, 7, 8]) {
+      for (const scale of [0.5, 1, 1.5, 2, 3, 4, 5, 6, 7, 8]) {
         const parent = document.createElement('div');
         parent.className = 'stack-y-' + scale;
         parent.style.cssText = 'width:20px;display:' + mode + (mode === 'flex' ? ';flex-direction:column' : '');

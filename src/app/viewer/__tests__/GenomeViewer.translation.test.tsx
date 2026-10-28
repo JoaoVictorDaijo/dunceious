@@ -87,3 +87,39 @@ it.each([
   expect(row(view.container, 'second').style.transform).toBe('translateY(42px)');
   expect(view.container.querySelector('[data-translation-band][aria-hidden="false"]')).toBeNull();
 });
+
+it('explains on the translation band when a CDS names a genetic code NCBI does not define', () => {
+  const records: SeqRecord[] = [{
+    id: 'odd', name: 'odd', sequence: 'ATG'.repeat(300), moleculeType: 'dna',
+    features: [{ type: 'CDS', name: 'odd', start: 0, end: 300, strand: 1, metadata: { transl_table: '7' } }],
+  }];
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}
+    showAnnotations={false} showTranslation showTracks={false} showConservation={false}
+    dragMode="pan" activeSelection={null} onSelectionChange={() => {}} onExportFasta={() => {}}
+    onAddAnnotation={() => {}} searchResults={[]} currentSearchIdx={-1} />);
+  expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
+  for (let i = 0; i < 9; i++) fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
+  const warning = view.container.querySelector<HTMLElement>('[data-genetic-code-warning]');
+  expect(warning?.dataset.tip).toBe('⚠ /transl_table=7 is not an NCBI genetic code; codons are not translated');
+});
+
+it('covers both spans of an origin-crossing CDS with the genetic-code warning', () => {
+  const records: SeqRecord[] = [{
+    id: 'wrap', name: 'wrap', sequence: 'ATG'.repeat(40), moleculeType: 'dna',
+    features: [{ type: 'CDS', name: 'wrap', start: 90, end: 9, strand: 1, metadata: { transl_table: '7' },
+      segments: [{ start: 90, end: 120 }, { start: 0, end: 9 }] }],
+  }];
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}
+    showAnnotations={false} showTranslation showTracks={false} showConservation={false}
+    dragMode="pan" activeSelection={null} onSelectionChange={() => {}} onExportFasta={() => {}}
+    onAddAnnotation={() => {}} searchResults={[]} currentSearchIdx={-1} />);
+  for (let i = 0; i < 9; i++) fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
+  const spans = [...view.container.querySelectorAll<HTMLElement>('[data-genetic-code-warning]')];
+  expect(spans).toHaveLength(2);
+  const lefts = spans.map(span => parseFloat(span.style.left)).sort((a, b) => a - b);
+  const widths = spans.sort((a, b) => parseFloat(a.style.left) - parseFloat(b.style.left))
+    .map(span => parseFloat(span.style.width));
+  expect(widths[0]).toBeGreaterThan(0);
+  expect(widths[1] / widths[0]).toBeCloseTo(30 / 9);
+  expect((lefts[1] - lefts[0]) / widths[0]).toBeCloseTo(90 / 9);
+});

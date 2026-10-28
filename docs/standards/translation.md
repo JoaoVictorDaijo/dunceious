@@ -2,7 +2,7 @@
 
 Governing sources: **NCBI, The Genetic Codes** (page updated 2024-09-23; machine-readable
 `gc.prt` version 4.6, pinned as `ncbi-genetic-codes`) and the CDS qualifiers of the **INSDC
-Feature Table 11.4**. Code references are to `develop` at 13aff79.
+Feature Table 11.4**. Code references are to `develop` at f5a6ad2.
 
 ## TRANS-1. Genetic code from `/transl_table`
 
@@ -21,10 +21,29 @@ does not read `/transl_table`.
 Geneious Prime, SnapGene and CLC offer genetic-code selectors; whether they read the qualifier
 is unknown.
 
-**Dunceious.** Deviates — #229. The qualifier is read, but computed translation models only
-tables 1–5 and 11 and silently uses the standard code for the other 21
-(`src/domain/bio/sequence.ts:84-110`). This also drives the broken-CDS flag when `/translation`
-is absent (`sequence.ts:223-230, 276-284`).
+**Dunceious.** Conforms. Computed translation uses all 27 NCBI tables, generated from gc.prt 4.6
+(`src/domain/bio/geneticCodes.ts`, by `npm run standards:genetic-codes` from the pinned copy) and
+tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
+that is not an NCBI code is never replaced by table 1: no residue or stop is claimed (`?`), and
+the feature's tooltip and its translation band say the code is not an NCBI genetic code. An empty
+`/transl_table=` counts as invalid, not absent. Fixed in #229.
+
+Tables 27, 28 and 31 let some codons be a residue or a stop depending on context (gc.prt gives
+the residue in `ncbieaa` and `*` in `sncbieaa`). Inside a CDS they read as the residue; the last
+codon of a complete CDS reads as the stop, as Biopython 1.88 `translate(cds=True)` does. A
+partial CDS (`<` or `>`) keeps the residue at its last codon, since that codon need not end the
+protein.
+
+The greeter is also subject to TRANS-1 and TRANS-3. Its `codonAt` translates isolated triplets
+with the default table 1 (`src/app/greeter/genomeZoom.ts:92`), while the bundled T7 CDS
+annotations declare table 11 (`examples/nucleotide/t7-phages/phage-t7-NC_001604.gb:216`).
+In pinned gc.prt 4.6 the ordinary amino-acid rows of tables 1 and 11 are identical; their
+initiation rows differ. Internal sense-codon agreement therefore does not establish correct
+CDS initiation; TRANS-3 records the gap.
+The displayed genes are a curated subset that omits nested CDSs
+(`src/app/greeter/greeterContent.ts:51`); **Owner decision open** on keeping that curated subset
+or presenting the full annotated CDS population. Neither option changes the genetic-code rules.
+The bundled record supplies annotation evidence; external accession freshness is unknown.
 
 ## TRANS-2. `/codon_start`
 
@@ -39,7 +58,7 @@ complete amino-termini must be set to 1." Values 1, 2 or 3.
 ([Calculate menu](https://www.jalview.org/help/html/menus/alwcalculate.html)); it is not a
 qualifier handler.
 
-**Dunceious.** Conforms (`src/domain/bio/sequence.ts:199`).
+**Dunceious.** Conforms (`src/domain/bio/sequence.ts:230`).
 
 ## TRANS-3. Alternative initiation codons
 
@@ -53,9 +72,14 @@ Met.
 **Applications.** Benchling has an optional initial-Met setting in sequence analysis only; UGENE
 uses alternative starts to find ORFs. Neither documents the translated residue of a CDS.
 
-**Dunceious.** Gap in the computed path: GTG translates as V. The track shows the stored
-`/translation` when present (`src/domain/bio/sequence.ts:86-117, 247-259`;
-`src/app/viewer/tracks/SequenceTrack.tsx:336`).
+**Dunceious.** Partial. The computed path translates an alternative GTG initiator as V.
+The track shows the stored
+`/translation` when present (`src/domain/bio/sequence.ts:116, 301`;
+`src/app/viewer/tracks/SequenceTrack.tsx:343`). The greeter also translates isolated
+triplets without CDS initiation context (`src/app/greeter/genomeZoom.ts:92`);
+[#261](https://github.com/JoaoVictorDaijo/dunceious/issues/261) tracks that gap. The ordinary
+amino-acid rows of tables 1 and 11 agree, so the table mismatch alone does not imply an
+internal sense-codon error.
 
 ## TRANS-4. `/transl_except`
 
@@ -68,5 +92,11 @@ in-frame TGA).
 
 **Applications.** Unknown.
 
-**Dunceious.** Gap in the computed path, like Biopython: the qualifier is kept but not applied;
-the stored `/translation` is preferred (`src/app/viewer/tracks/SequenceTrack.tsx:336`).
+**Dunceious.** Partial. In the computed path, like Biopython, the qualifier is kept but not applied;
+the stored `/translation` is preferred (`src/app/viewer/tracks/SequenceTrack.tsx:343`).
+
+Preferring a stored `/translation` does not establish that it remains valid after an edit;
+[#253](https://github.com/JoaoVictorDaijo/dunceious/issues/253) tracks that separate fidelity issue.
+Use [OP-8](operations.md#op-8-biological-codons-and-display-frames) for codon construction and
+[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase) for exported phase. Neither rule
+closes the computed initiation or exception gaps above.

@@ -20,6 +20,7 @@
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
+import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import type { GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
 
@@ -152,22 +153,47 @@ export function applyAnnotations(
   return { next, totalAdded, unmatched };
 }
 
-/** Alignment overlays change only aligned residues; batch loads capture file provenance. */
+/** A record loaded as a sequence whose '-' gap characters were removed, by workspace ID. */
+export interface GapRemoval { id: string; removed: number }
+
+/**
+ * Alignment overlays change only aligned residues; batch loads capture file provenance.
+ * A batch load removes '-' so a stored sequence holds residues only, as NCBI does for
+ * sequences outside an alignment ("do not use "?" or "-" characters. These will be
+ * stripped from the sequence.", https://www.ncbi.nlm.nih.gov/genbank/fastaformat/).
+ * The removals are reported; a file with a record left without residues is refused whole.
+ * An overlay row must hold its record's loaded residues once '-' is removed from both,
+ * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
+ */
 export function applyFastaResponse(
   prev: SeqRecord[],
   alignedData: FastaAlignedRecord[],
   asAlignment: boolean | undefined,
   filename?: string,
 ):
-  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap })
+  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
+  | ({ next: SeqRecord[]; kind: 'reject-no-residues'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
-  | ({ next: SeqRecord[]; kind: 'reject-empty' }) {
+  | ({ next: SeqRecord[]; kind: 'reject-empty' })
+  | ({ next: SeqRecord[]; kind: 'reject-dot-gap'; ids: string[] })
+  | ({ next: SeqRecord[]; kind: 'reject-residues'; ids: string[] }) {
   if (!asAlignment) {
-    const incoming = alignedData.map(({ header: _header, details, ...r }) =>
-      details && Object.keys(details).length > 0 ? writeDetails(r, details) : r);
-    return { ...applyParseSuccess(prev, incoming, filename), kind: 'batch' };
+    const residues = alignedData.map(d => d.sequence.replace(/-/g, ''));
+    const empty = alignedData.filter((_, i) => residues[i].length === 0).map(d => d.id);
+    if (empty.length > 0) return { next: prev, kind: 'reject-no-residues', ids: empty };
+    // Ungap before writeDetails so the generated source feature spans residues only.
+    const incoming = alignedData.map(({ header: _header, details, ...r }, i) => {
+      const record = { ...r, sequence: residues[i] };
+      return details && Object.keys(details).length > 0 ? writeDetails(record, details) : record;
+    });
+    const loaded = applyParseSuccess(prev, incoming, filename);
+    const added = loaded.next.slice(prev.length);
+    const gapsRemoved = alignedData
+      .map((d, i) => ({ id: added[i].id, removed: d.sequence.length - residues[i].length }))
+      .filter(gap => gap.removed > 0);
+    return { ...loaded, kind: 'batch', gapsRemoved };
   }
 
   const currentIds = new Set(prev.map(r => r.id));
@@ -189,6 +215,13 @@ export function applyFastaResponse(
     return { next: prev, kind: 'reject-length', lengths: Array.from(lengths) };
   }
 
+  const dotGapIds = alignedData.filter(d => d.sequence.includes('.')).map(d => d.id);
+  if (dotGapIds.length > 0) return { next: prev, kind: 'reject-dot-gap', ids: dotGapIds };
+
+  const loaded = new Map(prev.map(r => [r.id, r.sequence]));
+  const changedIds = alignedData.filter(d => !isGappedCopyOf(d.sequence, loaded.get(d.id)!)).map(d => d.id);
+  if (changedIds.length > 0) return { next: prev, kind: 'reject-residues', ids: changedIds };
+
   const next = prev.map(r => {
     const match = alignedData.find(d => d.id === r.id);
     return { ...r, alignedSequence: match?.sequence };
@@ -201,11 +234,21 @@ export function applyFastaAndLog(
 ): ReturnType<typeof applyFastaResponse> {
   const result = applyFastaResponse(records, alignedData, asAlignment, filename);
   switch (result.kind) {
-    case 'batch': addLog(`Batch ingestion complete: ${result.count} records added.`); break;
+    case 'batch': {
+      addLog(`Batch ingestion complete: ${result.count} records added.`);
+      const gaps = result.gapsRemoved;
+      if (gaps.length > 0) {
+        addLog(`Removed alignment gaps ("-") from ${gaps.length} record${gaps.length === 1 ? '' : 's'} in ${filename ?? 'the FASTA file'}: ${gaps.map(gap => `${gap.id} (${gap.removed})`).join(', ')}.`);
+      }
+      break;
+    }
+    case 'reject-no-residues': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records with no residues: [${result.ids.join(', ')}].`); break;
     case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
     case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
+    case 'reject-dot-gap': addLog(`ERROR: Alignment gaps must be written as "-"; "." found in: [${result.ids.join(', ')}]`); break;
+    case 'reject-residues': addLog(`ERROR: Aligned residues differ from the loaded sequence ("-" removed from both, case ignored): [${result.ids.join(', ')}]`); break;
     default: {
       // Exhaustiveness guard: a new `kind` without a case is a compile error, and
       // an unhandled kind still logs instead of dropping silently.

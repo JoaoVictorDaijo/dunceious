@@ -25,10 +25,10 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, extractCodingSequence, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, type TranslationLanes } from '../cds';
+import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
@@ -78,6 +78,13 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
 
   const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
+  // Shown on the translation band itself, so the reason for the `?` residues is there even
+  // when annotations are hidden.
+  const codeWarnings = useMemo(() => features.flatMap(f => {
+    const warning = geneticCodeWarning(f);
+    const strand = getFeatureStrand(f);
+    return warning && typeof strand === 'number' ? [{ feature: f, strand, warning }] : [];
+  }), [features]);
   const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
   const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
@@ -321,7 +328,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(f) ?? false;
-        const translTable = parseInt(String(f.metadata?.transl_table ?? '1'), 10) || 1;
+        const translTable = featureTranslTable(f);
 
         const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
         const lanes = translationLanes.laneOf.get(f);
@@ -401,6 +408,14 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
       data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
+    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning }) =>
+      // A feature crossing the origin of a circular record has two spans, end of record and start.
+      (feature.start > feature.end ? [[feature.start, seq.length], [0, feature.end]] : [[feature.start, feature.end]])
+        .map(([start, end]) => <button key={`code-${start}-${end}-${strand}-${feature.name}`} type="button"
+          data-genetic-code-warning="" aria-label={warning} data-tip={warning}
+          style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
+            top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
+            background: 'transparent', zIndex: 1 }} />))}
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,

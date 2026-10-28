@@ -17,7 +17,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { isOrderLocation, isPartialLocation } from '@/src/domain/bio/locationFlags';
 
 /**
  * The sequence slice a record/feature detail view should display.
@@ -53,6 +56,46 @@ export function featureLength(
     return seqLen !== undefined ? (seqLen - start) + end : Math.abs(end - start);
   }
   return Math.abs(end - start);
+}
+
+/**
+ * The two sequences the annotation details window offers (LOC-7 in `docs/standards/locations.md`).
+ *
+ * - `feature`: the sequence the location defines ({@link extractFeatureSequence}); `null` for
+ *   `order()`, which INSDC does not join (LOC-2).
+ * - `region`: record bases over the feature's envelope, forward strand, gaps between intervals
+ *   included; `regionStart > regionEnd` crosses the origin.
+ *
+ * `featureLength` is the sum of the location intervals; `regionLength` the envelope's length.
+ */
+export interface FeatureSequenceViews {
+  feature: string | null;
+  featureLength: number;
+  intervals: number;
+  region: string;
+  regionLength: number;
+  regionStart: number;
+  regionEnd: number;
+  partial: boolean;
+}
+
+export function featureSequenceViews(
+  record: Pick<SeqRecord, 'sequence' | 'moleculeType'>,
+  feature: BioFeature,
+): FeatureSequenceViews {
+  const { sequence } = record;
+  const alphabet = record.moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, record.moleculeType);
+  const envelope = featureEnvelope(feature);
+  return {
+    feature: isOrderLocation(feature) ? null : extractFeatureSequence(feature, sequence, alphabet).featureSeq,
+    featureLength: featureLength(sequence.length, feature.start, feature.end, feature.segments),
+    intervals: feature.segments?.length || 1,
+    region: getDisplaySeq(sequence, envelope),
+    regionLength: featureLength(sequence.length, envelope.start, envelope.end),
+    regionStart: envelope.start,
+    regionEnd: envelope.end,
+    partial: isPartialLocation(feature),
+  };
 }
 
 /**

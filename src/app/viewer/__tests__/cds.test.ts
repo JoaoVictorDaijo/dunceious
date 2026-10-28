@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { assignTranslationLanes, computeBrokenFeatureMap, codonFrame } from '../cds';
+import { assignTranslationLanes, computeBrokenFeatureMap, codonFrame, geneticCodeWarning } from '../cds';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 const cds = (over: Partial<BioFeature>): BioFeature => ({
@@ -40,6 +40,33 @@ describe('computeBrokenFeatureMap', () => {
   it('does not flag a valid CDS', () => {
     const f = cds({ start: 0, end: 9 });
     expect(computeBrokenFeatureMap([f], 'ATGCCCGAG').get(f)).toBe(false);
+  });
+
+  it('does not flag a ciliate CDS whose internal TAA/TAG are glutamine (table 6)', () => {
+    // ATG TAA TAG GAG — both internal codons are Gln under NCBI table 6.
+    const seq = 'ATGTAATAGGAG';
+    const plain = cds({ start: 0, end: 12 });
+    const ciliate = cds({ start: 0, end: 12, metadata: { transl_table: '6' } });
+    expect(computeBrokenFeatureMap([plain], seq).get(plain)).toBe(true);
+    expect(computeBrokenFeatureMap([ciliate], seq).get(ciliate)).toBe(false);
+  });
+
+  it('claims no early stop under unknown, empty or malformed table qualifiers', () => {
+    for (const value of ['7', '', '11x']) {
+      const f = cds({ start: 0, end: 9, metadata: { transl_table: value } });
+      expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').get(f), value).toBe(false);
+    }
+  });
+
+  it('uses the selected code after orienting an origin-crossing reverse CDS', () => {
+    // join(10..12,1..9) has sequence TTAAGGTCACAT; its complement is ATGTGACCTTAA.
+    const genome = 'AGGTCACATTTA';
+    const plain = cds({ start: 9, end: 9, strand: -1,
+      segments: [{ start: 9, end: 12 }, { start: 0, end: 9 }] });
+    const mitochondrial = { ...plain, metadata: { transl_table: '2' } };
+    const map = computeBrokenFeatureMap([plain, mitochondrial], genome);
+    expect(map.get(plain)).toBe(true);
+    expect(map.get(mitochondrial)).toBe(false);
   });
 
   it('honours the feature /transl_table so a mitochondrial TGA is not a false stop', () => {
@@ -157,4 +184,20 @@ it('shares a translation lane with a different-frame feature inside a circular j
   const wrap = cds({ start: 98, end: 4, segments: [{ start: 98, end: 100 }, { start: 0, end: 4 }] });
   const middle = cds({ start: 30, end: 36 });
   expect(assignTranslationLanes([wrap, middle], 'A'.repeat(100)).forward).toBe(1);
+});
+
+
+describe('geneticCodeWarning', () => {
+  it('warns for invalid coding qualifiers, with no warning for supported codes or non-coding features', () => {
+    for (const type of ['CDS', 'cds', 'ORF', 'orf']) {
+      for (const transl_table of ['7', '', '11x']) {
+        expect(geneticCodeWarning(cds({ type, metadata: { transl_table } }))).toBe(
+          `⚠ /transl_table=${transl_table} is not an NCBI genetic code; codons are not translated`,
+        );
+      }
+      expect(geneticCodeWarning(cds({ type }))).toBeNull();
+      expect(geneticCodeWarning(cds({ type, metadata: { transl_table: '27' } }))).toBeNull();
+    }
+    expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
+  });
 });

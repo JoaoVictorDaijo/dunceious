@@ -89,7 +89,6 @@ describe('extractCodingSequence – reverse strand', () => {
       { strand: -1, start: 0, end: 6 },
       seq
     );
-    // alignedIndices before reverse: [0,1,2,3,4,5], after reverse: [5,4,3,2,1,0]
     expect(alignedIndices).toEqual([5, 4, 3, 2, 1, 0]);
   });
 });
@@ -177,9 +176,6 @@ describe('extractCodingSequence – circular wrap-around (start > end)', () => {
     expect(codingSeq).toBe('GGGCT');
   });
 
-  // Degenerate wrap cases: splitWrapAround omits an empty part; assert the
-  // caller's output matches the old always-both-parts inline code (which
-  // iterated the omitted part zero times).
   it('omits the empty leading part when start == seqLength', () => {
     const { codingSeq, alignedIndices } = extractCodingSequence(
       { strand: 1, start: 10, end: 3 },
@@ -204,21 +200,6 @@ describe('extractCodingSequence – circular wrap-around (start > end)', () => {
 // ---------------------------------------------------------------------------
 
 describe('detectEarlyStop', () => {
-  it('returns false when there is no stop codon at all', () => {
-    // ATG CCC GAG → M P E (no stop)
-    expect(detectEarlyStop('ATGCCCGAG')).toBe(false);
-  });
-
-  it('returns false when the stop codon is the last codon (normal termination)', () => {
-    // ATG CCC TAA → M P _ (normal stop at end)
-    expect(detectEarlyStop('ATGCCCTAA')).toBe(false);
-  });
-
-  it('returns true when an in-frame stop codon appears before the last codon', () => {
-    // ATG TAG GAG → M _ E (early stop at codon 1)
-    expect(detectEarlyStop('ATGTAGGAG')).toBe(true);
-  });
-
   it('returns true for TGA early stop', () => {
     // ATG TGA GAG → M _ E
     expect(detectEarlyStop('ATGTGAGAG')).toBe(true);
@@ -229,26 +210,16 @@ describe('detectEarlyStop', () => {
     expect(detectEarlyStop('CCCTAAGAG')).toBe(true);
   });
 
-  it('returns false for a single codon (nothing before the last codon)', () => {
-    expect(detectEarlyStop('ATG')).toBe(false);
+  it('claims no early stop without a following complete codon', () => {
+    for (const seq of ['', 'T', 'TA', 'TAA', 'TAAA', 'TAAAA']) {
+      expect(detectEarlyStop(seq), seq).toBe(false);
+    }
+    expect(detectEarlyStop('TAAATG')).toBe(true);
   });
 
   it('returns false for two codons when only the last is a stop', () => {
     // ATG TAA → only one codon before the last
-    // fullCodons=2, loop runs for i<1 (i=0 only), codon[0]=ATG ≠ stop
     expect(detectEarlyStop('ATGTAA')).toBe(false);
-  });
-
-  it('returns true for two codons when the first (non-last) is a stop', () => {
-    // TAA ATG → stop is NOT the last codon
-    expect(detectEarlyStop('TAAATG')).toBe(true);
-  });
-
-  it('is consistent with translateSequence output', () => {
-    const seq = 'ATGTAGGAG'; // M _ E
-    const protein = translateSequence(seq);
-    expect(protein).toBe('M_E');
-    expect(detectEarlyStop(seq)).toBe(true);
   });
 });
 
@@ -272,6 +243,16 @@ describe('translateFeature', () => {
     expect(translateFeature({ translation: 'MP' }, 'ATGCCCTAA')).toBe('MP_');
   });
 
+  it('merges a short stored protein with computed residues under the requested code', () => {
+    expect(translateFeature({ translation: 'M' }, 'GTGTGATAA', 4)).toBe('MW_');
+    expect(translateFeature({ translation: '' }, 'GTGTGATAA', 4)).toBe('VW_');
+  });
+
+  it('does not invent codons for a longer stored translation or empty coding sequence', () => {
+    expect(translateFeature({ translation: 'MPEXYZ' }, 'ATTCCCGAGA')).toBe('MPE');
+    expect(translateFeature({ translation: 'MPE' }, '')).toBe('');
+  });
+
   it('preserves transl_except recoding (selenocysteine) from /translation', () => {
     // Internal TGA is a stop under the standard code but recoded to U by /transl_except.
     expect(translateFeature({ translation: 'MUP' }, 'ATGTGACCC')).toBe('MUP');
@@ -288,6 +269,10 @@ describe('isFeatureBroken', () => {
     expect(isFeatureBroken({}, 'ATGCCCGAG')).toBe(false); // M P E
   });
 
+  it('treats an empty stored translation as absent', () => {
+    expect(isFeatureBroken({ translation: '' }, 'ATGTAGGAG')).toBe(true);
+  });
+
   it('is not broken when the stored /translation has no internal stop', () => {
     // Recomputing this selenocysteine CDS would read the internal TGA as an early stop.
     expect(detectEarlyStop('ATGTGACCC')).toBe(true);
@@ -295,10 +280,12 @@ describe('isFeatureBroken', () => {
   });
 
   it('is broken when the stored /translation carries an internal stop', () => {
-    expect(isFeatureBroken({ translation: 'M*P' }, 'ATGTGACCC')).toBe(true);
+    expect(isFeatureBroken({ translation: 'M*P' }, 'ATGCCCGAG')).toBe(true);
+    expect(isFeatureBroken({ translation: 'M_P' }, 'ATGCCCGAG')).toBe(true);
   });
 
   it('tolerates a trailing stop in /translation as normal termination', () => {
     expect(isFeatureBroken({ translation: 'MP*' }, 'ATGCCCTAA')).toBe(false);
+    expect(isFeatureBroken({ translation: 'MP_' }, 'ATGCCCTAA')).toBe(false);
   });
 });

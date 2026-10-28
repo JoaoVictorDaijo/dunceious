@@ -43,6 +43,24 @@ describe('featureEnvelope', () => {
       .toEqual({ start: 98, end: 4 });
   });
 
+  it.each(['join', 'order'])('uses written order for nested complement(%s) envelopes', operator => {
+    const linear = feature({ start: 0, end: 6,
+      locationString: ` complement( ${operator}( complement(<1..2), 5..>6 ) ) `,
+      segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] });
+    expect(featureEnvelope(linear)).toEqual({ start: 0, end: 6 });
+    expect(featureEnvelope(feature({ start: 4, end: 2,
+      locationString: `complement(${operator}(complement(5..6),1..2))`,
+      segments: [{ start: 0, end: 2, strand: -1 }, { start: 4, end: 6, strand: 1 }] })))
+      .toEqual({ start: 4, end: 2 });
+  });
+
+  it('characterises the false wrap when an edited nested feature loses its raw location', () => {
+    // FIXME(#241): discarding locationString loses written-order provenance.
+    expect(featureEnvelope(feature({ start: 0, end: 6,
+      segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] })))
+      .toEqual({ start: 4, end: 2 });
+  });
+
   it('preserves a single wrapping segment', () => {
     expect(featureEnvelope(feature({ segments: [{ start: 90, end: 10 }] }))).toEqual({ start: 90, end: 10 });
   });

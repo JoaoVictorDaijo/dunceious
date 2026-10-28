@@ -27,6 +27,7 @@ import AnnotationHubPanel, { type HubFocusOrigin } from './components/Annotation
 import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
+import GapRemovalNotice from './components/GapRemovalNotice';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import AlignRemoteModal from './components/AlignRemoteModal';
 import AlignmentJobPill from './components/AlignmentJobPill';
@@ -130,6 +131,8 @@ const App: React.FC = () => {
     requestBio,
     getRecords,
     applyAlignmentOverlay,
+    gapNotices,
+    dismissGapNotices,
   } = useBioWorker(addLog);
 
   const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
@@ -412,6 +415,8 @@ const App: React.FC = () => {
           onClose={closeMismatchModal}
         />
       )}
+
+      {gapNotices.length > 0 && <GapRemovalNotice notices={gapNotices} onClose={dismissGapNotices} />}
 
       {remoteAlignment.presentation === 'dialog' && (
         <AlignRemoteModal

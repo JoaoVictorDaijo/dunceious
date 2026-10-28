@@ -147,3 +147,55 @@ it('remaps repeated imported IDs within each record independently', () => {
   ]);
   expect(report.droppedAttributes).toBe(0);
 });
+
+// GFF3 1.26 column 2 names the procedure that generated the feature, so expectations are spec literals.
+it('keeps the imported source column and the remapped relations it travels with', () => {
+  const input = 'a\ttoolX\tgene\t1\t4\t.\t+\t.\tID=g;Name=G\na\tAUGUSTUS\tmRNA\t1\t4\t.\t+\t.\tID=t;Parent=g\na\t.\tpolypeptide\t1\t4\t.\t+\t.\tID=p;Derives_from=t';
+  const features = parseGFF3(input).features.a;
+  expect(features[0].metadata?.source).toBe('toolX');
+  const { text, report } = exportToGff3([{ ...record(features, 'AAAA'), id: 'a' }]);
+  const exported = rows(text).slice(1);
+  expect(exported.map(row => row[1])).toEqual(['toolX', 'AUGUSTUS', '.']);
+  expect(exported[1][8]).toContain('Parent=a.1');
+  expect(exported[2][8]).toContain('Derives_from=a.2');
+  expect(exported.every(row => !/(^|;)source=/.test(row[8]))).toBe(true);
+  expect(report.droppedAttributes).toBe(0);
+});
+
+it('keeps the imported source after the feature is edited', () => {
+  const [feature] = parseGFF3('s\ttoolX\tgene\t1\t4\t.\t+\t.\tID=g').features.s;
+  const edited = { ...feature, start: 1, end: 6, segments: [{ start: 1, end: 6 }], hubEdit: 'edited' as const };
+  expect(rows(exportToGff3([record([edited])]).text)[1][1]).toBe('toolX');
+});
+
+it.each([
+  ['my%09tool', 'my\ttool'],
+  ['50%25%20cut', '50% cut'],
+  ['ab%0Ac', 'ab\nc'],
+  ['GeneMark.hmm', 'GeneMark.hmm'],
+])('round-trips the escaped source %s', (column, decoded) => {
+  const [feature] = parseGFF3(`s\t${column}\tgene\t1\t4\t.\t+\t.\tID=g`).features.s;
+  expect(feature.metadata?.source).toBe(decoded);
+  expect(rows(exportToGff3([record([feature])]).text)[1][1]).toBe(column.replace('%20', ' '));
+});
+
+it('keeps a non-conforming literal percent sign as text', () => {
+  const [feature] = parseGFF3('s\t100%tool\tgene\t1\t4\t.\t+\t.\tID=g').features.s;
+  expect(feature.metadata?.source).toBe('100%tool');
+  expect(rows(exportToGff3([record([feature])]).text)[1][1]).toBe('100%25tool');
+});
+
+it.each([
+  ['a feature of unknown origin', {}, '.'],
+  ['an edited feature of unknown origin', { hubEdit: 'edited' as const }, '.'],
+  ['an empty imported source', { metadata: { source: '' } }, '.'],
+  ['a feature added in Dunceious', { hubEdit: 'added' as const }, 'Dunceious'],
+  ['an added feature with a typed source', { hubEdit: 'added' as const, metadata: { source: 'manual curation' } }, 'manual curation'],
+])('writes the source column for %s', (_, overrides, expected) => {
+  const feature = { type: 'gene', name: 'g', start: 0, end: 4, strand: 1 as const, ...overrides };
+  expect(rows(exportToGff3([record([feature])]).text)[1][1]).toBe(expected);
+});
+
+it('writes an undefined source on a region row of unknown origin', () => {
+  expect(rows(exportToGff3([record([])]).text)[0][1]).toBe('.');
+});

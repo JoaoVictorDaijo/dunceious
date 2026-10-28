@@ -110,7 +110,7 @@ describe('exportToGff3', () => {
     })]).text;
     expect(gff.startsWith('##gff-version 3\n')).toBe(true);
     // start is 0-based 9 → GFF 1-based 10; end stays 20; strand '+'
-    expect(gff).toContain('REC1\tDunceious\tCDS\t10\t20\t.\t+\t0\tID=REC1.1;Name=my%20gene');
+    expect(gff).toContain('REC1\t.\tCDS\t10\t20\t.\t+\t0\tID=REC1.1;Name=my%20gene');
   });
 
   it('renders a minus-strand feature as a full tab-delimited line with 1-based start', () => {
@@ -118,7 +118,7 @@ describe('exportToGff3', () => {
       features: [{ type: 'gene', name: 'g1', start: 3, end: 9, strand: -1 }],
     })]).text;
     // 0-based start 3 → GFF 1-based 4; end 9; strand '-'; name → ID/Name attrs.
-    expect(gff).toContain('REC1\tDunceious\tgene\t4\t9\t.\t-\t.\tID=REC1.1;Name=g1');
+    expect(gff).toContain('REC1\t.\tgene\t4\t9\t.\t-\t.\tID=REC1.1;Name=g1');
   });
 });
 

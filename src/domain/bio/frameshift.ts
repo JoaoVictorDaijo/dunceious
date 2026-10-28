@@ -28,6 +28,7 @@
  */
 
 import type { FeatureSegment } from './types';
+import { writtenOrderSegments } from './featureEnvelope';
 
 /** Bases re-read (negative) or skipped (positive) between two consecutive codons. */
 export type FrameShift = -2 | -1 | 1 | 2;
@@ -57,12 +58,12 @@ export interface SegmentFrameshift {
 }
 
 /**
- * Frameshift junctions of a multi-segment feature. Segments are listed in
- * genomic order on both strands, so the step between a segment's end and the
- * next segment's start is the same shift read forward or in reverse.
+ * Frameshift junctions of a multi-segment feature, read in the order the location writes its
+ * intervals (genomic order on both strands), so the step between a segment's end and the next
+ * segment's start is the same shift read forward or in reverse.
  */
-export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[] }): SegmentFrameshift[] {
-  const segments = feature.segments ?? [];
+export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string }): SegmentFrameshift[] {
+  const segments = writtenOrderSegments(feature) ?? [];
   const junctions: SegmentFrameshift[] = [];
   for (let i = 0; i + 1 < segments.length; i++) {
     const shift = frameShift(segments[i].end - 1, segments[i + 1].start, 1);

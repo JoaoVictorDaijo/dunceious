@@ -82,9 +82,9 @@ describe('details UI effects', () => {
     }
     expect(writeText.mock.calls).toEqual([['ATGAAA'], ['MK'], ['ATGAAA']]);
     expect(modalProps.onCopyLog.mock.calls).toEqual([
-      ['Sequence for capsid in record-1 copied to clipboard.'],
+      ['Feature sequence for capsid in record-1 copied to clipboard.'],
       ['Translation for capsid copied.'],
-      ['Sequence for capsid in record-1 copied to clipboard.'],
+      ['Feature sequence for capsid in record-1 copied to clipboard.'],
     ]);
   });
 
