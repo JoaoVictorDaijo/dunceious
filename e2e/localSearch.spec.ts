@@ -38,6 +38,8 @@ async function restrict(context: BrowserContext, corrupt = false) {
   const requests: string[] = [];
   await context.route('**/*', async route => {
     const req = route.request(); const url = new URL(req.url());
+    // WebKit routes the page's own blob: worker scripts (Vite `?worker&inline`); they never reach the network.
+    if (url.protocol === 'blob:' && url.origin === 'http://127.0.0.1:4173') { await route.continue(); return; }
     requests.push(`${req.method()} ${req.url()}`);
     if (url.origin !== 'http://127.0.0.1:4173' || req.method() !== 'GET' || !staticPaths.has(url.pathname) || url.search) {
       forbidden.push(`${req.method()} ${req.url()}`); await route.abort(); return;
