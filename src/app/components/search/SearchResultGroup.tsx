@@ -75,7 +75,7 @@ function SearchResultCard(props: CardProps) {
       }}
       className={`group relative bg-slate-950/60 rounded-2xl p-4 border transition-all cursor-pointer ${isActive ? 'border-env ring-2 ring-env/20 bg-env/5' : 'border-slate-800/50 hover:border-slate-700 hover:bg-slate-900/40'}`}
     >
-      <div className="flex justify-between items-start mb-3">
+      <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
         <div className={`flex items-center ${match.local ? 'gap-1' : 'gap-3'}`}>
           <div className="relative flex items-center justify-center">
             <input
@@ -93,12 +93,12 @@ function SearchResultCard(props: CardProps) {
           </div>
           <div className="flex flex-col">
             <span className="text-[11px] font-bold text-slate-200 tracking-tight">
-              {(match.start + 1).toLocaleString()} <span className="text-slate-500 font-normal">→</span> {match.end.toLocaleString()}
+              <span className="whitespace-nowrap">{(match.start + 1).toLocaleString()} <span className="text-slate-500 font-normal">→</span></span> <span className="whitespace-nowrap">{match.end.toLocaleString()}</span>
             </span>
             <span className="text-[11px] font-semibold text-slate-500">Position</span>
           </div>
         </div>
-        <div className={`flex items-center ${match.local ? 'gap-1' : 'gap-2'}`}>
+        <div className={`ml-auto flex flex-wrap items-center justify-end gap-y-1.5 ${match.local ? 'gap-x-1' : 'gap-x-2'}`}>
           {match.local ? <div className="flex flex-col items-end whitespace-nowrap">
             <span className="text-[10px] font-bold text-amber-500" data-tip="Local alignment score in EMBOSS units, using the scoring scheme in Local options">Score {match.local.score}</span>
             <span className="text-[11px] font-semibold text-slate-400" data-tip="Identity = 100 × identical columns / alignment length, including gap columns">{(100 * match.local.identical / match.local.length).toFixed(1)}%</span>
