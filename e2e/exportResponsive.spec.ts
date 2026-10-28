@@ -69,7 +69,8 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
         const text = Buffer.concat(chunks).toString('utf8');
         if (format === 'FASTA') expect(text).toContain(`>sample\n${sequence}`);
         if (format === 'GenBank') expect(text).toContain('complement(4..9)');
-        if (format === 'GFF3') expect(text).toMatch(/sample\tDunceious\tgene\t4\t9\t\.\t-\t\./);
+        // Preserve the imported GFF3 source column, as current develop requires.
+        if (format === 'GFF3') expect(text).toMatch(/sample\ttest\tgene\t4\t9\t\.\t-\t\./);
         if (format === 'Dunceious project') {
           saved = text;
           expect(JSON.parse(text)).toMatchObject({ format: 2, records: [{ id: 'sample', sequence,
