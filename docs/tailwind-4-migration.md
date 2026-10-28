@@ -1,18 +1,19 @@
-# Tailwind 4 migration proposal
+# Tailwind 4 migration
 
-**Owner browser-policy approval is required before merge.** This proposal targets develop;
-it is not a release or an approval to remove older-browser support.
+**Approved browser policy:** Chrome/Edge 111+, Firefox 128+, Safari 16.4+.
+The owner approved this compatibility change on 2026-10-28. Integration targets develop;
+a release or production deployment is handled separately.
 
 ## Compatibility decision
 
 Tailwind 4.3.3 requires Safari 16.4+, Chrome 111+ and Firefox 128+ for its CSS engine.
-The proposed Vite build/CSS targets are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
+The Vite build/CSS targets are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
 Former targets were Chrome 87, Edge 88, Firefox 78 and Safari 14. JavaScript transpilation
-cannot restore missing CSS features. Keep Tailwind 3.4 if the reduction is not accepted.
+cannot restore missing CSS features. Older browser versions are no longer supported.
 Tests on current browser engines do not certify those exact minimum versions.
 
-This proposal inherits the app version from develop; repository policy bumps only at develop-to-main promotion.
-This proposal adds a Changed fragment. A future approved release must account for the
+This migration inherits the app version from develop; repository policy bumps only at develop-to-main promotion.
+The Changed fragment records the compatibility change. A future release must account for the
 breaking browser compatibility change.
 
 ## Compiler and theme
@@ -46,7 +47,7 @@ a retained v3 compiler/dependency. The original MIT notice ships in public/tailw
 | Hover/touch | Hover is now restricted to hover-capable primary pointers. Touch controls must remain usable through their existing explicit rules/actions. |
 | Transforms | No transform-none reset or custom transition-[...,transform] consumer was found. Viewer transform attributes are separate. |
 | Cascade/imports | Compare the real font/app/chrome/Font Awesome import order, project Hub styles and focused controls. |
-| Other features | No removed opacity/flex aliases, prefix, safelist, corePlugins, container override or custom @layer utilities were found. Existing @layer blocks contain base rules only. |
+| Other features | The gap-removal icon maps the removed flex-shrink-0 alias to shrink-0. No other removed opacity/flex aliases, prefix, safelist, corePlugins, container override or custom @layer utilities were found. Existing @layer blocks contain base rules only. |
 
 ## Validation and review
 
@@ -59,7 +60,8 @@ Record reused baseline evidence separately from newly executed tests.
 The current-develop integration also preserves the gap-removal notice and feature/region selector,
 with production browser coverage for their spacing, backdrop blur, selected shadow and keyboard focus.
 
-Independent review remains required before publication; owner browser-policy approval is required before merge.
+Independent review and current-develop validation are required before integration.
+Owner approval of the supported browser floor does not certify exact minimum engine versions.
 
 ## Sources
 
