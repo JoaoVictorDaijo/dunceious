@@ -37,7 +37,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         browserName: 'chromium',
-        // Preserve the app's scrollbar gutters in Chromium.
+        // Playwright hides Chromium's scrollbars by default; the app's scroll panels reserve 12 px gutters, as in Chrome.
         launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, ignoreDefaultArgs: ['--hide-scrollbars'] },
       },
     },
