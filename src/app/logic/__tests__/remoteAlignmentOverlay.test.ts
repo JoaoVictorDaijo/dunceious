@@ -41,6 +41,19 @@ describe('remote alignment through the existing worker pipe', () => {
       ['seq1', 'AC', 'A-C'], ['seq1 (1)', 'AGC', 'AGC'],
     ]);
   });
+  it('applies a protein result whose loaded terminal stop the preflight stripped and restored', () => {
+    const proteins: SeqRecord[] = [
+      { id: 'p1', name: 'p1', sequence: 'MKX*', features: [], moleculeType: 'protein' },
+      { id: 'p2', name: 'p2', sequence: 'MX', features: [], moleculeType: 'protein' },
+    ];
+    const preflight = preflightAlignment(proteins, 'mafft');
+    if (!preflight.ok) throw new Error('Expected preflight to pass');
+    const result = remapAlignment('>s1\nMKX\n>s2\nM-X\n', preflight.submission);
+    if (!result.ok) throw new Error(result.reason);
+    const applied = applyFastaResponse(proteins, result.records, true);
+    expect(applied.kind).toBe('overlay');
+    expect(applied.next.map(r => r.alignedSequence)).toEqual(['MKX*', 'M-X-']);
+  });
   it('retains first-token matching for external FASTA descriptions', () => {
     const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content: '>seq1 external description\nA-C\n>other description\nAGC', asAlignment: true });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA response');
@@ -59,6 +72,8 @@ describe('shared FASTA outcome logs', () => {
     ['>seq1\nAC\n', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: []'],
     ['>seq1\nAC\n>seq1-other\nACG', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: [seq1-other]'],
     ['>a\nAC', false, 'Batch ingestion complete: 1 records added.'],
+    ['>seq1\nA-G\n>seq1 (1)\nAGC', true, 'ERROR: Aligned residues differ from the loaded sequence ("-" removed from both, case ignored): [seq1]'],
+    ['>seq1\nA.C\n>seq1 (1)\nAGC', true, 'ERROR: Alignment gaps must be written as "-"; "." found in: [seq1]'],
   ])('preserves logging for %s', (content, asAlignment, expected) => {
     const message = handleBioMessage({ type: 'PARSE_FASTA', filename: 'fixture.fa', content });
     if (message.type !== 'FASTA_SUCCESS') throw new Error('Expected FASTA');

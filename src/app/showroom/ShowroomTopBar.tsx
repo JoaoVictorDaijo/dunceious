@@ -47,7 +47,7 @@ function WorkspaceSwitcher({ tab, onTabChange }: { tab: ShowroomTab; onTabChange
         const active = tab === choice.tab;
         return (
           <button key={choice.tab} type="button" aria-pressed={active} onClick={() => onTabChange(choice.tab)}
-            className={`group flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${active ? `${choice.on} shadow-lg` : 'hover:bg-slate-800/50'}`}>
+            className={`group flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${active ? `${choice.on} shadow-lg` : 'hover:bg-slate-800/50'}`}>
             <span className={`${tile} ${active ? choice.tileOn : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'}`}><i className={`fas ${choice.icon}`} aria-hidden="true" /></span>
             <span className={`${label} ${active ? choice.labelOn : 'text-slate-400 group-hover:text-slate-200'}`}>{choice.label}</span>
           </button>
@@ -62,7 +62,7 @@ function DragModes({ dragMode, onChange }: { dragMode: 'pan' | 'select'; onChang
     <div role="group" aria-label="Drag mode" className="flex shrink-0 rounded-lg border border-slate-800 bg-slate-950 p-0.5">
       {DRAG_MODES.map(m => (
         <button key={m.mode} type="button" onClick={() => onChange(m.mode)} aria-pressed={dragMode === m.mode} aria-label={m.label}
-          className={`flex h-7 w-7 items-center justify-center rounded-md text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${dragMode === m.mode ? 'bg-white text-env-strong shadow-lg' : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'}`}>
+          className={`flex h-7 w-7 items-center justify-center rounded-md text-xs focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${dragMode === m.mode ? 'bg-white text-env-strong shadow-lg' : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'}`}>
           <i className={`fas ${m.icon}`} aria-hidden="true" />
         </button>
       ))}
@@ -107,13 +107,13 @@ function AppActions({ onExplain, onExit }: { onExplain: Explain; onExit: () => v
   return <>
     <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-slate-700" />
     <button type="button" aria-label="Project and options" data-tip="Project and options" aria-haspopup="dialog" onClick={event => onExplain('project', rectOf(event))}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60">
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60">
       <i aria-hidden="true" className="fas fa-gear text-[15px]" />
     </button>
     <div className="ml-1 flex h-8 shrink-0 items-center overflow-hidden rounded-lg border border-sky-400/70">
       <span className="px-1.5 text-[11px] font-semibold text-sky-300">Test drive</span>
       <button type="button" onClick={onExit}
-        className="h-full border-l border-sky-400/40 px-2 text-xs font-semibold text-slate-100 hover:bg-sky-400/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400">
+        className="h-full border-l border-sky-400/40 px-2 text-xs font-semibold text-slate-100 hover:bg-sky-400/10 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400">
         Exit
       </button>
     </div>
@@ -152,7 +152,7 @@ export function ShowroomTopBar({ workspace, tab, onTabChange, toolsRef, sidebarO
     <nav aria-label="Workbench" className="app-nav relative z-50 h-11 shrink-0 border-b border-slate-800/80 bg-slate-900">
       <div className="relative z-[1] flex h-full items-center gap-1.5 px-1.5">
         <button ref={sidebarToggleRef} type="button" onClick={onToggleSidebar} aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} aria-expanded={sidebarOpen}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60">
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/30 bg-slate-800/50 text-slate-400 hover:bg-slate-700 hover:text-slate-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60">
           <i aria-hidden="true" className={`fas ${sidebarOpen ? 'fa-arrow-left-long' : 'fa-bars-staggered'}`} />
         </button>
         <span className="shrink-0 text-[14px] font-black uppercase italic tracking-wide text-white max-[799px]:hidden">Dunceious</span>

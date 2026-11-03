@@ -167,7 +167,7 @@ const AuthorCard: React.FC<{ login: string }> = ({ login }) => {
       rel="noreferrer"
       // The backdrop closes on click; following a profile link must not.
       onClick={e => e.stopPropagation()}
-      className="group flex items-center gap-3 pl-2.5 pr-4 py-2 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/50 hover:bg-slate-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+      className="group flex items-center gap-3 pl-2.5 pr-4 py-2 rounded-2xl border border-slate-800 bg-slate-900/70 hover:border-sky-500/50 hover:bg-slate-900 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500/60"
     >
       {avatarFailed ? (
         <span data-author-avatar-fallback={login} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400" aria-hidden="true">
@@ -271,7 +271,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
         aria-label="Close"
         data-tip="Close"
         data-tip-kbd="Esc"
-        className="absolute top-6 right-6 w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+        className="absolute top-6 right-6 w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
       >
         <i className="fas fa-xmark"></i>
       </button>
@@ -315,7 +315,7 @@ const CentralDogmaEgg: React.FC<CentralDogmaEggProps> = ({ onClose, replay = fal
           {!playing && (
             <button
               onClick={e => { e.stopPropagation(); setElapsed(0); setPlaying(true); }}
-              className="mt-5 px-4 py-2 rounded-xl border border-slate-700 bg-slate-900/70 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-300 hover:text-white hover:border-sky-500/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60"
+              className="mt-5 px-4 py-2 rounded-xl border border-slate-700 bg-slate-900/70 text-[10px] font-bold uppercase tracking-[0.3em] text-slate-300 hover:text-white hover:border-sky-500/50 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-sky-500/60"
             >
               <i className="fas fa-play mr-2"></i>Play animation
             </button>

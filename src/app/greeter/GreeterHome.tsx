@@ -43,19 +43,19 @@ function DesktopMock() {
   return (
     <div aria-hidden="true" className="flex flex-col overflow-hidden rounded-xl border-[6px] border-slate-800 bg-slate-900">
       <div className="flex h-4 items-center gap-1.5 bg-[#111a2e] px-1.5">
-        <span className="h-1.5 w-[34px] rounded-sm bg-slate-200" />
-        <span className="h-2 w-[30px] rounded-sm bg-sky-600" />
-        <span className="h-2 w-[30px] rounded-sm bg-slate-800" />
+        <span className="h-1.5 w-[34px] rounded-xs bg-slate-200" />
+        <span className="h-2 w-[30px] rounded-xs bg-sky-600" />
+        <span className="h-2 w-[30px] rounded-xs bg-slate-800" />
       </div>
       <div className="flex h-[180px]">
         <div className="flex w-[70px] flex-col gap-1 bg-slate-950 p-1.5">
           {['bg-sky-700', 'bg-slate-800', 'bg-slate-800', 'bg-slate-800', 'bg-slate-800'].map((c, i) => (
-            <span key={i} className={`h-3 rounded-sm ${c}`} />
+            <span key={i} className={`h-3 rounded-xs ${c}`} />
           ))}
         </div>
         <div className="m-1 flex flex-1 flex-col gap-[5px] rounded-md bg-slate-50 p-1.5">
-          <div className="h-1.5 w-[70%] rounded-sm bg-sky-200" />
-          <div className="ml-[20%] h-1.5 w-[40%] rounded-sm bg-violet-200" />
+          <div className="h-1.5 w-[70%] rounded-xs bg-sky-200" />
+          <div className="ml-[20%] h-1.5 w-[40%] rounded-xs bg-violet-200" />
           {MINI_ROWS.map((row, r) => (
             <div key={r} className="flex h-3.5">
               {row.map((c, i) => <span key={i} className="flex-1" style={{ background: c }} />)}

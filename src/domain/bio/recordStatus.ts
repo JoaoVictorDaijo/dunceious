@@ -19,6 +19,7 @@
 
 import type { BioFeature, DetailKey, SeqRecord } from './types';
 import { DETAIL_QUALIFIER, isDetailEdited } from './details';
+import { isPartialLocation } from './locationFlags';
 
 type FeatureStatus = { annotations: BioFeature[]; partial: boolean };
 // Annotation edits replace the feature array; label and visibility edits can reuse its biology.
@@ -28,7 +29,7 @@ const partialRecords = new WeakMap<SeqRecord, boolean>();
 function featureStatus(features: BioFeature[]): FeatureStatus {
   let status = featureStatuses.get(features);
   if (!status) {
-    status = { annotations: features.filter(f => !isSourceFeature(f)), partial: features.some(f => /[<>]/.test(f.locationString ?? '')) };
+    status = { annotations: features.filter(f => !isSourceFeature(f)), partial: features.some(isPartialLocation) };
     featureStatuses.set(features, status);
   }
   return status;

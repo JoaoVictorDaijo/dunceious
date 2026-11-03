@@ -65,6 +65,15 @@ describe('segmentFrameshifts', () => {
     expect(segmentFrameshifts(f)).toEqual([{ position: 199, shift: -1 }]);
   });
 
+  it('reads a nested complement in written order, like the same intervals in a plain join', () => {
+    // complement(join(complement(1..3),3..5)) is written 1..3 then 3..5, sharing base 3; the parser
+    // stores the parts reversed (evaluation order).
+    const f = { strand: 1 as const, locationString: 'complement(join(complement(1..3),3..5))',
+      segments: [{ start: 2, end: 5, strand: -1 as const }, { start: 0, end: 3, strand: 1 as const }] };
+    expect(segmentFrameshifts(f)).toEqual(segmentFrameshifts({ strand: 1, segments: [{ start: 0, end: 3 }, { start: 2, end: 5 }] }));
+    expect(segmentFrameshifts(f)).toEqual([{ position: 2, shift: -1 }]);
+  });
+
   it('ignores spliced joins, abutting segments and single-segment features', () => {
     expect(segmentFrameshifts({ strand: 1, segments: [{ start: 0, end: 10 }, { start: 200, end: 300 }] })).toEqual([]);
     expect(segmentFrameshifts({ strand: 1, segments: [{ start: 0, end: 10 }, { start: 10, end: 30 }] })).toEqual([]);

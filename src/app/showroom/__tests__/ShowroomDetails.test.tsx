@@ -75,7 +75,7 @@ describe('the showroom details panel', () => {
   it('details Focus works; copy, export, bases, show sequence and remove search details explain', () => {
     const view = mountShowroom();
     inspect(HIT_NAME);
-    expectExplains(screen.getByRole('button', { name: /Copy Sequence/ }), 'Copy');
+    expectExplains(screen.getByRole('button', { name: /^Copy (feature sequence|region) \(/ }), 'Copy');
     expectExplains(screen.getByRole('button', { name: /^Copy$/ }), 'Copy');
     fireEvent.change(screen.getByRole('combobox', { name: 'Bases inside' }), { target: { value: 'record' } });
     expect(explanation('Show bases')).toBeTruthy();

@@ -25,7 +25,7 @@ export default function LocalOptions({ filters, onChange, isProtein }: { filters
   const [open, setOpen] = useSessionOpenState('local-options');
   return <details data-local-options="" open={open} onToggle={e => setOpen(e.currentTarget.open)} className="group text-xs text-slate-400">
     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden"><SectionTitle icon="fa-sliders" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Local options</SectionTitle></summary>
-    <div className="space-y-3">
+    <div className="stack-y-3">
       {([['minIdentity', 'Min identity'], ['minQueryCoverage', 'Min query coverage']] as const).map(([key, label]) => <label key={key} className="flex items-center justify-between gap-2">{label}
         <input aria-label={label} type="number" min="0" max="100" placeholder="Off" value={filters[key] ?? ''}
           className="w-20 rounded-lg border border-slate-700 bg-slate-950 p-2"

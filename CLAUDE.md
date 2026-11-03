@@ -69,6 +69,37 @@ body must use the form's `###` headings in the same order.
 - Before filing, search open and closed issues for duplicates; link related ones under
   **Related**.
 
+### Labels
+
+Every open issue carries one label from each of these groups. Use only the labels that already
+exist (`gh label list`), and add a new `area:` label only when no existing one fits.
+
+| Group | Labels | Meaning |
+| --- | --- | --- |
+| Type | `bug`, `design`, `enhancement` | Matches the title prefix. `bug` + `design` marks a defect whose fix needs a decision. |
+| Severity | `severity:high`, `severity:medium`, `severity:low` | How bad the current behaviour is, as the bug form's Severity answer defines it. |
+| Area | `area:<package>` | The package the fix lands in. Several are allowed when the fix spans them. |
+| Clarity | `clarity:clear`, `clarity:partial`, `clarity:needs-decision` | Whether the fix can start without the owner, defined below. |
+
+Add `scientific` when the issue touches a scientific result (see
+[Scientific rigor](#scientific-rigor-first-priority)).
+
+**Clarity** decides what can be picked up without asking:
+
+- `clarity:clear`: an objective defect whose fix is dictated by a cited standard or reference tool,
+  or by a contract the code or docs already state. Nothing about the fix is a product, design or
+  method choice. Ready to work.
+- `clarity:partial`: part of the issue is clear, the rest needs a decision. A triage comment names
+  the clear part and the open decision. A fix may land the clear part alone and leave the issue
+  open, or the issue may be split so each part carries one clarity label.
+- `clarity:needs-decision`: no fix can start until the owner chooses a method, default, threshold
+  or presentation. The issue states the options.
+
+Set clarity when filing or triaging, from the issue text and the current code, not from the
+proposed fix alone: a fix that invents a threshold or heuristic is never `clear`. When the owner
+records a decision on the issue (and in the living docs it governs), relabel it. Close an issue
+already fixed on `develop` with a comment naming the PR that fixed it.
+
 ## License headers (required, enforced)
 
 Dunceious is **AGPL-3.0-or-later**. **Every covered source file MUST begin with the

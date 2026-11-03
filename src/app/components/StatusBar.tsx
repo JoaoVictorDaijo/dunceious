@@ -28,7 +28,7 @@ interface StatusBarProps {
 const Divider: React.FC = () => <span aria-hidden="true" className="w-px h-3 bg-slate-700/70" />;
 
 const linkClass =
-  "flex items-center gap-1.5 rounded transition-colors hover:text-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60";
+  "flex items-center gap-1.5 rounded-sm transition-colors hover:text-slate-100 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60";
 
 /**
  * Footer status bar shown at the bottom of the app. The session pill takes the
@@ -82,7 +82,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType }) => {
         {/* Tap seven times, as with Android's build number. */}
         <button
           onClick={onVersionTap}
-          className="uppercase text-slate-300 hover:text-white rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+          className="uppercase text-slate-300 hover:text-white rounded-sm transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
           data-tip="Dunceious build version"
         >
           Dunceious v{__APP_VERSION__}

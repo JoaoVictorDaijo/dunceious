@@ -55,16 +55,20 @@ describe('alignment preflight', () => {
     expect(preflightAlignment([{ id: 'a', sequence: 'A'.repeat(990000) }, records[1]], 'mafft').ok).toBe(false);
   });
   it('reports all global issues with IDs and distinct bad characters', () => {
-    const result = preflightAlignment([{ id: 'empty', sequence: '- . \n' }, { id: 'bad', sequence: 'AC@22' }], 'mafft');
+    const result = preflightAlignment([{ id: 'empty', sequence: '---' }, { id: 'bad', sequence: 'AC@22' }], 'mafft');
     expect(result).toMatchObject({ ok: false, issues: [
       { code: 'empty-sequence', recordIds: ['empty'] },
       { code: 'invalid-characters', recordIds: ['bad'], characters: ['@', '2'], message: expect.stringContaining('Dunceious') },
     ] });
   });
-  it('normalizes gaps/whitespace and accepts nucleotide IUPAC including U and lowercase', () => {
-    const result = preflightAlignment([{ id: 'a', sequence: 'acgtu .-\nryswkmbdhvn' }, records[1]], 'mafft');
+  it('removes "-" gaps and accepts nucleotide IUPAC including U and lowercase', () => {
+    const result = preflightAlignment([{ id: 'a', sequence: 'acgtu-ryswkmbdhvn' }, records[1]], 'mafft');
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.submission.sequences.get('s1')).toBe('acgturyswkmbdhvn');
+  });
+  it('refuses "." and whitespace before submission, since the returned overlay could not be applied (#249)', () => {
+    expect(preflightAlignment([{ id: 'a', sequence: 'AC.GT' }, { id: 'b', sequence: 'A C' }], 'mafft')).toMatchObject({ ok: false,
+      issues: [{ code: 'invalid-characters', recordIds: ['a', 'b'], characters: ['.', ' '] }] });
   });
   it('strips a single terminal protein stop but rejects internal stops', () => {
     const protein = [{ id: 'p', sequence: 'ACDEFGHIKLMNPQRSTVWYBXZJUO*', moleculeType: 'protein' as const }, { id: 'q', sequence: 'MK' }];

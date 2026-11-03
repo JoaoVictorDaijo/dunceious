@@ -42,9 +42,9 @@ function OverviewRail({ indicatorRef, scrollRef, blocks, currentKey, total, offs
     const current = scrollRef.current?.scrollTop ?? 0;
     scrollTo(current + (y < railThumb(total, height, current).top ? -height : height));
   }}>
-    {blocks.map((block, i) => <button key={block.key} tabIndex={-1} aria-label={`Jump to ${block.label}`} data-tip={block.tip || block.label} aria-current={block.key === currentKey} className={`absolute left-[2px] right-[2px] rounded-sm ${block.key === currentKey ? 'bg-env opacity-100 shadow-[inset_0_0_0_1px_var(--env3)]' : i % 2 ? 'bg-slate-300' : 'bg-slate-200'} hover:bg-slate-400`} style={{ top: positions[i].top, height: positions[i].size }} onClick={() => scrollTo(block.start, block.key)} />)}
+    {blocks.map((block, i) => <button key={block.key} tabIndex={-1} aria-label={`Jump to ${block.label}`} data-tip={block.tip || block.label} aria-current={block.key === currentKey} className={`absolute left-[2px] right-[2px] rounded-xs ${block.key === currentKey ? 'bg-env opacity-100 shadow-[inset_0_0_0_1px_var(--env3)]' : i % 2 ? 'bg-slate-300' : 'bg-slate-200'} hover:bg-slate-400`} style={{ top: positions[i].top, height: positions[i].size }} onClick={() => scrollTo(block.start, block.key)} />)}
     {ticks.map(hit => <span aria-hidden="true" key={hit} className="pointer-events-none absolute left-1/2 right-0 h-[2px] bg-amber-500" style={{ top: hit + 6 }} />)}
-    <div ref={indicatorRef} aria-hidden="true" data-scroll-thumb className="hub-scroll-thumb absolute left-0 right-0 rounded border-[1.5px] border-slate-900/45 bg-slate-900/[0.12]" style={{ top: thumb.top, height: thumb.size }} onPointerDown={event => {
+    <div ref={indicatorRef} aria-hidden="true" data-scroll-thumb className="hub-scroll-thumb absolute left-0 right-0 rounded-sm border-[1.5px] border-slate-900/45 bg-slate-900/[0.12]" style={{ top: thumb.top, height: thumb.size }} onPointerDown={event => {
       event.preventDefault(); event.stopPropagation();
       dragging.current = { y: event.clientY, offset: scrollRef.current?.scrollTop ?? 0, pointer: event.pointerId };
       event.currentTarget.setPointerCapture?.(event.pointerId);

@@ -43,7 +43,7 @@ export default function ProjectActionsSection({ sequenceCount, locked, onSave: s
         }}>
           <span aria-hidden="true" className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg ${item.danger ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-env'}`}><i className={`fas ${item.icon}`} /></span>
           <span className="min-w-0 flex-1"><span className={`block font-semibold ${item.danger ? 'text-rose-400' : 'text-slate-100'}`}>{item.label}</span><span className="block text-[11px] text-slate-400">{item.description}</span></span>
-          {item.keys && <kbd aria-hidden="true" className="shrink-0 rounded border border-slate-700 px-1.5 font-mono text-[10px] text-slate-400">{item.keys}</kbd>}
+          {item.keys && <kbd aria-hidden="true" className="shrink-0 rounded-sm border border-slate-700 px-1.5 font-mono text-[10px] text-slate-400">{item.keys}</kbd>}
         </button>
       </div>)}
   </section>;

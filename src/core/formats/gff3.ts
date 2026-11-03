@@ -41,6 +41,20 @@ function encodeSeqid(value: string): string {
   return Array.from(value).map(char => /^[a-zA-Z0-9.:^*$@!+_?|-]$/.test(char) ? char : encode(char)).join('');
 }
 
+/**
+ * GFF3 1.26 column 2 names "the algorithm or operating procedure that generated this feature".
+ * Exporting does not generate a feature, so an imported source is never replaced; only features
+ * added in Dunceious claim it, and an unknown origin is the spec's undefined `.`.
+ */
+function sourceColumn(source: string | undefined, addedHere: boolean): string {
+  // GFF3 1.26 percent-encodes only tab, newline, carriage return, % and control characters.
+  if (source) return Array.from(source).map(char => {
+    const code = char.charCodeAt(0);
+    return code < 0x20 || code === 0x7f || char === '%' ? '%' + code.toString(16).toUpperCase().padStart(2, '0') : char;
+  }).join('');
+  return addedHere ? 'Dunceious' : '.';
+}
+
 function attributeText(attributes: Record<string, string | string[]>): string {
   return Object.entries(attributes).map(([key, value]) => `${encode(key)}=${Array.isArray(value) ? value.map(encode).join(',') : encode(value)}`).join(';');
 }
@@ -164,7 +178,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     addQualifiers(attributes, sourceMetadata, referenceIds, report);
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
-    lines.push([id, 'Dunceious', 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
+    lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
     for (const [featureIndex, feature] of record.features.entries()) {
       if (feature.type === 'source') continue;
@@ -185,7 +199,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
         if (markers?.[3]) partAttrs.insdc_partial_end = markers[3];
         const direction = segment.strand ?? getFeatureStrand(feature);
         const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, 'Dunceious', so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
+        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
       });
     }
   }
@@ -196,6 +210,15 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
 
 function decode(value: string): string {
   return decodeURIComponent(value);
+}
+
+/** Non-conforming files may hold a literal `%`; such a column is kept as written rather than rejected. */
+function decodeSource(value: string): string {
+  try {
+    return decode(value);
+  } catch {
+    return value;
+  }
 }
 
 function parseAttributes(raw: string): Record<string, string> {
@@ -261,7 +284,7 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     delete metadata.insdc_partial_start;
     delete metadata.insdc_partial_end;
     if (partialStart || partialEnd) metadata._gffPartialEnds = JSON.stringify([[start, end, partialStart, partialEnd]]);
-    metadata.source = source;
+    metadata.source = decodeSource(source);
     metadata.phase = phase;
     if (score !== '.') metadata.score = score;
     // Strand and per-part phases come from columns, never user-provided attributes.

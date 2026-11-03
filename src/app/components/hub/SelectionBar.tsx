@@ -52,8 +52,8 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onRe
       <button onClick={() => state.setFilters(f => ({ ...f, onlyIds: new Set(state.selectedRecords) }))}>Show only these</button><button onClick={() => state.setFilters(f => ({ ...f, onlyIds: undefined }))}>Show all</button>
       <button aria-haspopup="dialog" onClick={onExport}>Export…</button>
       <button onClick={() => state.setHubHidden(previous => new Set([...previous, ...chosen.map(record => record.id)]))}>Hide in hub</button>
-      <label>Set detail <select aria-label="Detail field" value={field} onChange={e => setField(e.target.value as DetailKey)} className="rounded border border-slate-300 bg-slate-950 text-slate-200 p-1"><option value="organism">Organism</option><option value="host">Host</option><option value="location">Location</option><option value="collectionDate">Collection date</option></select></label>
-      <input ref={valueInput} aria-label="Detail value" value={value} onChange={e => setValue(e.target.value)} className="w-32 rounded border border-slate-300 bg-slate-950 text-slate-200 p-1" />
+      <label>Set detail <select aria-label="Detail field" value={field} onChange={e => setField(e.target.value as DetailKey)} className="rounded-sm border border-slate-300 bg-slate-950 text-slate-200 p-1"><option value="organism">Organism</option><option value="host">Host</option><option value="location">Location</option><option value="collectionDate">Collection date</option></select></label>
+      <input ref={valueInput} aria-label="Detail value" value={value} onChange={e => setValue(e.target.value)} className="w-32 rounded-sm border border-slate-300 bg-slate-950 text-slate-200 p-1" />
       <label className="flex gap-1"><input type="checkbox" checked={onlyEmpty} onChange={e => setOnlyEmpty(e.target.checked)} />only where empty</label>
       <button disabled={locked || !value.trim()} onClick={() => {
         if (locked || !value.trim() || !allowAction('set-detail')) return;
@@ -61,7 +61,7 @@ export default function SelectionBar({ records, state, locked, onSetDetail, onRe
         const kept = chosen.length - eligible.length;
         onSetDetail(new Set(eligible.map(r => r.id)), field, value);
         setMessage(`Set ${label} on ${eligible.length} sequences${kept ? ` · ${kept} already had a value and kept it` : ''}`);
-      }} className="rounded border border-slate-300 bg-slate-800 px-2 py-1 disabled:opacity-40">Apply</button>
+      }} className="rounded-sm border border-slate-300 bg-slate-800 px-2 py-1 disabled:opacity-40">Apply</button>
       <button disabled={locked} className="text-rose-300 disabled:opacity-40" onClick={() => { if (!locked && allowAction('remove-records') && confirm(`Remove ${chosen.length} sequences from the workspace?`)) { onRemoveRecords(new Set(chosen.map(r => r.id))); state.setSelectedRecords(new Set()); } }}>Remove…</button>
     </>}
     {rows.size > 0 && <><strong>{rows.size} annotations selected</strong><button onClick={exportRows}>Export GFF3</button><button disabled={locked} className="text-rose-300 disabled:opacity-40" onClick={() => { if (!locked) { onDeleteRows(new Set(rows)); state.setSelectedRows(new Set()); } }}>Delete with undo</button></>}

@@ -32,9 +32,9 @@ export function DisplayNameEditor({ record, label, onChange, onSave, onCancel }:
   const id = useId();
   return <form className="flex h-full flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-5 py-3 text-xs" onSubmit={event => { event.preventDefault(); onSave(label); }} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onCancel(); } }}>
     <label htmlFor={id}>Display name</label>
-    <input autoFocus id={id} value={label} placeholder={record.accession || record.id} onChange={event => onChange(event.target.value)} className="min-w-0 flex-1 rounded border border-slate-300 p-2 focus-visible:ring-2 focus-visible:ring-amber-500" />
-    <button type="submit" className="rounded bg-amber-100 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Save name</button>
-    <button type="button" onClick={onCancel} className="rounded border border-slate-300 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Cancel</button>
+    <input autoFocus id={id} value={label} placeholder={record.accession || record.id} onChange={event => onChange(event.target.value)} className="min-w-0 flex-1 rounded-sm border border-slate-300 p-2 focus-visible:ring-2 focus-visible:ring-amber-500" />
+    <button type="submit" className="rounded-sm bg-amber-100 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Save name</button>
+    <button type="button" onClick={onCancel} className="rounded-sm border border-slate-300 px-3 py-2 focus-visible:ring-2 focus-visible:ring-amber-500">Cancel</button>
     <p className="w-full text-slate-500">Display names are saved in the project only.</p>
   </form>;
 }

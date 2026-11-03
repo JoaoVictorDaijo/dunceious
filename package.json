@@ -1,7 +1,7 @@
 {
   "name": "genedunceious",
   "private": true,
-  "version": "3.7.3",
+  "version": "4.0.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -22,7 +22,8 @@
     "test:e2e": "npm run build && npm run test:e2e:run",
     "test:e2e:run": "playwright test",
     "changelog:release": "node scripts/changelog-release.mjs",
-    "standards:fetch": "node scripts/fetch-standards.mjs"
+    "standards:fetch": "node scripts/fetch-standards.mjs",
+    "standards:genetic-codes": "node scripts/gen-genetic-codes.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
+    "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/d3": "^7.4.3",
@@ -44,12 +46,11 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "^4.1.11",
-    "autoprefixer": "^10.6.1",
     "eslint": "^10.13.0",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.30",
-    "tailwindcss": "^3.4.19",
+    "tailwindcss": "4.3.3",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",

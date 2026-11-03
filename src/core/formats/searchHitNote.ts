@@ -25,7 +25,9 @@ export function searchHitNote(feature: BioFeature): string | null {
   if (!hit?.exportNote || !isSearchHitCurrent(feature)) return null;
   const query = hit.query.length > 20 ? hit.query.slice(0, 5) + '…' + hit.query.slice(-5) : hit.query;
   const length = `${hit.query.length} ${hit.alphabet === 'protein' ? 'aa' : 'nt'}`;
-  const method = hit.mode === 'whole' ? `fuzzy search (whole query, min query identity ${hit.params.minQueryIdentity ?? 80}%)`
+  // Provenance may omit the threshold; the note states only what was recorded, never a current default.
+  const threshold = hit.params.minQueryIdentity === undefined ? '' : `, min query identity ${hit.params.minQueryIdentity}%`;
+  const method = hit.mode === 'whole' ? `fuzzy search (whole query${threshold})`
     : hit.mode === 'iupac' ? 'IUPAC search' : `local search (${hit.params.scoring ?? ''})`;
   const metrics = hit.edits === undefined ? '' : `${Math.floor(100 * (hit.query.length - hit.edits) / hit.query.length)}% query identity, ${hit.edits} edit${hit.edits === 1 ? '' : 's'}, `;
   return `Found by Dunceious ${method}: query ${query} (${length}), ${metrics}CIGAR ${hit.cigar}`;

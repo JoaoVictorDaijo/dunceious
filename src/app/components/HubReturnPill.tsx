@@ -35,7 +35,7 @@ const HubReturnPill: React.FC<HubReturnPillProps> = ({ label, onReturn, onDismis
     <button
       onClick={onReturn}
       data-tip="Return to the hub with this row highlighted"
-      className="group flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full text-slate-200 hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+      className="group flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full text-slate-200 hover:bg-slate-800 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500/60"
     >
       <span className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center transition-transform group-hover:-translate-x-0.5">
         <i className="fas fa-arrow-left text-[10px]"></i>
@@ -47,7 +47,7 @@ const HubReturnPill: React.FC<HubReturnPillProps> = ({ label, onReturn, onDismis
       onClick={onDismiss}
       aria-label="Dismiss"
       data-tip="Dismiss"
-      className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+      className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
     >
       <i className="fas fa-xmark text-[11px]"></i>
     </button>

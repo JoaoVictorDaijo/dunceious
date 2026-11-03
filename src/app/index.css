@@ -17,9 +17,29 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+/* Keep the existing v3 visible-sibling contract, including component-root
+   margin priority and hidden children, while using the v4 compiler. */
+@utility stack-y-* {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * --value(number));
+    margin-bottom: 0;
+  }
+}
+
+
+/* Preserve the v3 defaults used by existing controls while adopting v4. */
+@theme {
+  --default-ring-color: rgb(59 130 246 / 0.5);
+}
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button { border-color: #e5e7eb; }
+  input::placeholder, textarea::placeholder { color: #9ca3af; }
+  button, [role="button"] { cursor: pointer; }
+  :disabled { cursor: default; }
+}
 
 @layer base {
   html {

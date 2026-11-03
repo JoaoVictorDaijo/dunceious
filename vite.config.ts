@@ -119,11 +119,13 @@ export default defineConfig(() => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
-    // Keep Vite 6's compilation targets while upgrading the build pipeline.
-    // Vite 7/8 otherwise silently raise the minimum browser versions.
+    // Supported browsers are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+ (Tailwind 4; see
+    // docs/tailwind-4-migration.md). cssTarget sits at the oldest engines with cascade layers,
+    // which Tailwind's output cannot do without, so the minifier lowers range media queries
+    // and static colours and those engines keep media-query responsiveness.
     build: {
-      target: ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'],
-      cssTarget: ['chrome87', 'edge88', 'firefox78', 'safari14'],
+      target: ['es2020', 'chrome111', 'edge111', 'firefox128', 'safari16.4'],
+      cssTarget: ['chrome99', 'edge99', 'firefox97', 'safari15.4'],
     },
     server: {
       port: 3000,

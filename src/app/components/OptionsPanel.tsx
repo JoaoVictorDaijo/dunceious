@@ -106,7 +106,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
         aria-expanded={open}
         aria-label="Project and options"
         data-tip={open ? undefined : 'Project and options'}
-        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-env/60 ${
+        className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-env/60 ${
           open
             ? 'bg-env/10 border-env/40 text-env'
             : 'bg-slate-800/50 border-slate-700/30 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
@@ -126,7 +126,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
           aria-label="Project and options"
           tabIndex={-1}
           style={{ maxHeight: `calc(100vh - ${triggerRef.current?.getBoundingClientRect().bottom ?? 64}px - 28px)` }}
-          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden flex flex-col focus:outline-none animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute right-0 top-full mt-3 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl z-[60] overflow-hidden flex flex-col focus:outline-hidden animate-in fade-in slide-in-from-top-2 duration-200"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
             <span className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-200">
@@ -137,7 +137,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
               aria-label="Close options"
               data-tip="Close"
               data-tip-kbd="Esc"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               <i className="fas fa-xmark text-sm"></i>
             </button>
@@ -165,7 +165,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
                     type="color"
                     value={featureColors[type] || getFeatureColor(type)}
                     onChange={e => onSetFeatureColors({ ...featureColors, [type]: e.target.value })}
-                    className="w-6 h-6 rounded border-none bg-transparent cursor-pointer transition-transform hover:scale-110"
+                    className="w-6 h-6 rounded-sm border-none bg-transparent cursor-pointer transition-transform hover:scale-110"
                     aria-label={`${type} color`}
                   />
                 </label>
@@ -174,7 +174,7 @@ const OptionsPanel: React.FC<OptionsPanelProps> = ({
             <button
               onClick={() => onSetFeatureColors({})}
               data-tip="Restore the built-in colour for every feature type"
-              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/60"
+              className="w-full mt-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-400 transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-500/60"
             >
               Reset to Defaults
             </button>

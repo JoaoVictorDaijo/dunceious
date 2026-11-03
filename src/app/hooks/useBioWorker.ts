@@ -19,8 +19,11 @@
 
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord } from '@/src/domain/bio/types';
-import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaAndLog } from '@/src/app/logic/bioResponse';
+import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
+import { applyParseSuccess, applyAnnotations, applyFastaAndLog, type GapRemoval } from '@/src/app/logic/bioResponse';
+
+/** One FASTA file loaded as sequences whose records lost '-' gap characters. */
+export interface GapNotice { fileName: string; records: GapRemoval[] }
 
 export interface UseBioWorkerReturn {
   getRecords: () => SeqRecord[];
@@ -34,6 +37,20 @@ export interface UseBioWorkerReturn {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
   /** Ref to the underlying Worker instance — used by file-upload handlers. */
   bioWorkerRef: React.MutableRefObject<Worker | null>;
+  /** Files whose records lost '-' since the user last dismissed the notice. */
+  gapNotices: GapNotice[];
+  dismissGapNotices: () => void;
+}
+
+/** The reply a FASTA request settles with, and the gap notice its batch load raised. */
+function fastaReply(msg: ParseFastaSuccessResponse, result: ReturnType<typeof applyFastaAndLog>): { reply: BioWorkerResponse; notice?: GapNotice } {
+  if (result.kind === 'batch') {
+    const reply = { ...msg, idMap: result.idMap };
+    return result.gapsRemoved.length > 0 ? { reply, notice: { fileName: msg.filename, records: result.gapsRemoved } } : { reply };
+  }
+  // A refused file must fail its request, so a dropped batch attaches no annotations.
+  if (result.kind === 'reject-no-residues') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
+  return { reply: msg };
 }
 
 /**
@@ -69,6 +86,8 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   const [transposedRecords, setTransposedRecords] = useState<SeqRecord[]>([]);
   const [consensus, setConsensus] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [gapNotices, setGapNotices] = useState<GapNotice[]>([]);
+  const dismissGapNotices = useCallback(() => setGapNotices([]), []);
 
   const bioWorkerRef = useRef<Worker | null>(null);
 
@@ -149,7 +168,10 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       } else if (msg.type === 'FASTA_SUCCESS') {
         const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
         setRecords(result.next);
-        if (result.kind === 'batch') msg = { ...msg, idMap: result.idMap };
+        const outcome = fastaReply(msg, result);
+        msg = outcome.reply;
+        const notice = outcome.notice;
+        if (notice) setGapNotices(notices => [...notices, notice]);
         setIsProcessing(false);
 
       } else if (msg.type === 'ERROR') {
@@ -212,5 +234,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     isProcessing,
     setIsProcessing,
     bioWorkerRef,
+    gapNotices,
+    dismissGapNotices,
   };
 }

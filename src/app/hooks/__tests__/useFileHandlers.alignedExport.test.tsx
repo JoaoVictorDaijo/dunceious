@@ -64,7 +64,7 @@ describe('exports with aligned annotations', () => {
     expect(vi.mocked(downloadBlob).mock.calls[1][0]).toMatch(/^LOCUS\s+r\s/m);
     expect(vi.mocked(downloadBlob).mock.calls[1][0]).not.toContain('other');
     result.current.exportRecords(['r'], 'gff3', {});
-    expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('r\tDunceious\tgene');
+    expect(vi.mocked(downloadBlob).mock.calls[2][0]).toContain('r\t.\tgene');
     expect(vi.mocked(downloadBlob).mock.calls[2][0]).not.toContain('other');
     result.current.exportRecords(['r'], 'project', { fileName: 'subset.json' });
     const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[3][0] as string);

@@ -49,7 +49,7 @@ export default function LocalSearchMonitor({ job, onCancel }: { job: LocalSearch
   const { streamsDone, streamsTotal } = job.progress;
   if (minimized) return <JobPill label={active ? `${status} · ${streamsDone}/${streamsTotal}` : status} elapsed={elapsed} active={active}
     done={job.phase === 'done'} failed={job.phase === 'failed'} monitorName="search" dataAttribute="data-local-search-pill" onOpen={() => setMinimized(false)} />;
-  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setMinimized(true); }}>
+  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs" onClick={e => { if (e.target === e.currentTarget) setMinimized(true); }}>
     <div ref={dialog} role="dialog" aria-modal="true" aria-label="Local search job monitor" tabIndex={-1}
       onKeyDown={e => {
         if (e.key === 'Escape') { e.preventDefault(); setMinimized(true); }

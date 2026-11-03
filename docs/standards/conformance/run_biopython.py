@@ -19,12 +19,19 @@
 
 from Bio import SeqIO
 from Bio.SeqFeature import BeforePosition, AfterPosition
-import Bio, io
-rec = SeqIO.read('fixture.gb', 'genbank')
+import Bio, io, warnings
+with warnings.catch_warnings(record=True) as parser_warnings:
+    warnings.simplefilter('always')
+    rec = SeqIO.read('fixture.gb', 'genbank')
 print('biopython', Bio.__version__)
+for warning in parser_warnings:
+    print(f'parser warning: {warning.message}')
 for f in rec.features[1:]:
     lab = f.qualifiers['label'][0]
     loc = f.location
+    if loc is None:
+        print(f'{lab}\tloc=None: parser rejected location; extraction unavailable')
+        continue
     op = getattr(loc, 'operator', None)
     partial = (isinstance(loc.start, BeforePosition), isinstance(loc.end, AfterPosition))
     try: ext = str(f.extract(rec.seq))
@@ -37,6 +44,10 @@ for f in rec.features[1:]:
         except Exception as e: trc = f'ERROR {type(e).__name__}: {e}'
         tr = f'translate(cds=False)={tr} translate(cds=True)={trc}'
     print(f'{lab}\tloc={loc} operator={op} partial={partial}\textract={ext}\t{tr}')
+rejected = [f.qualifiers['label'][0] for f in rec.features if f.location is None]
+if rejected:
+    print('--- round-trip omits parser-rejected features: ' + ', '.join(rejected))
+    rec.features = [f for f in rec.features if f.location is not None]
 buf = io.StringIO(); SeqIO.write(rec, buf, 'genbank')
 print('--- round-trip location lines')
 for line in buf.getvalue().splitlines():

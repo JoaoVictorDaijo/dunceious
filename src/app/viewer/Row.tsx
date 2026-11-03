@@ -29,8 +29,9 @@ import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
-import { computeBrokenFeatureMap } from './cds';
+import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
@@ -187,10 +188,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-sm tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
           {isReference && (
             <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
-              className="mr-1 rounded px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
+              className="mr-1 rounded-sm px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
           )}
           {l.id}
         </div>
@@ -317,6 +318,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
+                geneticCodeWarning(f),
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
@@ -385,11 +387,12 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               if (f.segments && f.segments.length > 0) {
                 const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
-                // Draw connecting lines between segments
+                // Connectors pair intervals as the location writes them, the order the origin test reads.
+                const written = writtenOrderSegments(f) ?? f.segments;
                 const connectingLines: React.ReactElement[] = [];
-                for (let idx = 0; idx < f.segments.length - 1; idx++) {
-                  const s1 = f.segments[idx];
-                  const s2 = f.segments[idx + 1];
+                for (let idx = 0; idx < written.length - 1; idx++) {
+                  const s1 = written[idx];
+                  const s2 = written[idx + 1];
 
                   // parseLocation sets a descending envelope only for a vetted origin
                   // wrap, and it cannot see the crossings its header calls "false
@@ -441,7 +444,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 
                 const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
-                const crossesOrigin = f.segments.some((s1, k) => k < f.segments!.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > f.segments![k + 1].start);
+                const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);
                 const displayStarts = new Map(f.segments.map(segment => [
                   originalPositions ? originalPositions[segment.start] : segment.start,
@@ -484,7 +487,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           </svg>
           {focusedRegion && focusLabelLeft !== null && (
             <div
-              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-sm animate-in fade-in duration-300 motion-reduce:animate-none"
+              className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
               {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
@@ -498,7 +501,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             return (
               <div 
                 key={track.id} 
-                className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-sm shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5" 
+                className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-xs shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5"
                 style={{ height: track.height, top: trackTop }}
                 onPointerMove={(e) => {
                   if (!showsHoverTooltip(e.pointerType)) return;
@@ -531,7 +534,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               >
                 <div className="absolute left-2 top-2 z-10">
                   <span 
-                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border shadow-sm"
+                    className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm border shadow-xs"
                     style={{ 
                       color: trackColor, 
                       backgroundColor: '#fff',

@@ -1,0 +1,1987 @@
+[
+  {
+    "operation": "LOC-2",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "0/0/0/15",
+    "top_half": [
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "UCSC",
+      "UGENE",
+      "SeaView",
+      "Artemis"
+    ],
+    "top_counts_CDNU": "0/0/0/8",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U[^58]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "IGV": "U[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U[^16]",
+      "UCSC": "U[^19]",
+      "IGB": "U",
+      "Apollo": "U",
+      "SeaView": "U",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "LOC-2",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "LOC-2",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "LOC-2",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "0/2/0/6",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "0/2/0/2",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U lifecycle; parser distinguishes terms[^27]",
+      "Bioconductor": "U",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "U",
+      "Biopython": "D order retained but extract concatenates",
+      "EMBOSS": "D order retained but explicit joined extraction concatenates"
+    },
+    "verification": {
+      "status": "UNVERIFIABLE",
+      "reason": "Dataset and ledger label different suboperations. Preserve original scoped observations; use explicit suboperation rows, not this combined count."
+    }
+  },
+  {
+    "operation": "LOC-2",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "LOC-2",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "3/0/0/2",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "0/0/0/15",
+    "top_half": [
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "UCSC",
+      "UGENE",
+      "SeaView",
+      "Artemis"
+    ],
+    "top_counts_CDNU": "0/0/0/8",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U full lifecycle; partial annotation notation documented[^59]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U lifecycle; fuzzy syntax accepted (Artemis)[^45]",
+      "IGV": "U[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U[^16]",
+      "UCSC": "U[^19]",
+      "IGB": "U",
+      "Apollo": "U",
+      "SeaView": "U",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "0/0/0/8",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "0/0/0/4",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U",
+      "Bioconductor": "U",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "U",
+      "Biopython": "U edit/export; fuzzy position model[^32]",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "LOC-4",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "0/0/0/5",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "U lifecycle; partial syntax C-contract[^1]",
+      "ENA": "U lifecycle; partial syntax C-contract[^1]",
+      "DDBJ": "U lifecycle; partial syntax C-contract[^1]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U lifecycle; D GFF range hints ignored[^18]"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "0/0/0/15",
+    "top_half": [
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "UCSC",
+      "UGENE",
+      "SeaView",
+      "Artemis"
+    ],
+    "top_counts_CDNU": "0/0/0/8",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U[^58]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "IGV": "U[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U[^16]",
+      "UCSC": "U[^19]",
+      "IGB": "U",
+      "Apollo": "U",
+      "SeaView": "U",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/0/0/6",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "2/0/0/2",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U extraction; model has between-base flag[^25]",
+      "Bioconductor": "U",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "U",
+      "Biopython": "C Tested inherited",
+      "EMBOSS": "C Tested inherited"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "LOC-5",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "3/0/0/2",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "0/0/0/15",
+    "top_half": [
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "UCSC",
+      "UGENE",
+      "SeaView",
+      "Artemis"
+    ],
+    "top_counts_CDNU": "0/0/0/8",
+    "cells": {
+      "Geneious Prime": "U feature export; circular origin extraction exists[^23]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U feature serialization; origin selection supported[^59]",
+      "UGENE": "U[^47]",
+      "ApE": "U spanning features; circular rotation documented[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "IGV": "U[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U[^16]",
+      "UCSC": "U[^19]",
+      "IGB": "U",
+      "Apollo": "U",
+      "SeaView": "U",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "1/0/0/1",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "1/0/0/0",
+    "cells": {
+      "Benchling": "C circular annotation wrap[^21]",
+      "SnapGene": "U origin-feature serialization; topology supported[^29]"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "1/0/0/0",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "C GFF3 beyond-end only for circular reference[^38]"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/0/0/6",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "2/0/0/2",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U extraction; parser circular settings[^27]",
+      "Bioconductor": "U",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "U; circular windows only[^11]",
+      "Biopython": "C Tested inherited",
+      "EMBOSS": "C Tested inherited"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "LOC-6",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "4/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "C multi-interval circular genes in input[^17]"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "MEGA",
+      "AliView",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "3/0/0/14",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "AliView",
+      "UCSC",
+      "UGENE",
+      "SeaView"
+    ],
+    "top_counts_CDNU": "1/0/0/8",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U[^58]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "IGV": "U UI; BED 0-half-open, GFF 1-closed[^54]",
+      "JBrowse 2": "U exact UI convention; example starts 1[^56]",
+      "Ensembl": "C 1-based inclusive Ensembl/API[^15]",
+      "UCSC": "C UI 1-closed; D BED 0-half-open[^19]",
+      "IGB": "U UI; GTF conversion not proof",
+      "Apollo": "U",
+      "MEGA": "U",
+      "AliView": "U",
+      "SeaView": "U",
+      "Tablet": "C first base1; padded/unpadded[^56]"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "1/0/0/1",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "C starts at 1; original numbering optional[^30]"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "samtools",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "3/2/0/4",
+    "top_half": [
+      "samtools",
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "1/2/0/2",
+    "cells": {
+      "BioPerl": "C 1-based inclusive API[^21]",
+      "BioJava": "C 1-based API[^28]",
+      "Bioconductor": "U for general interface convention",
+      "bedtools": "D BED start0/end-exclusive input[^7]",
+      "gffread": "U",
+      "SeqKit": "C `subseq`1-based inclusive; negative extensions[^11]",
+      "samtools": "U",
+      "Biopython": "D API 0-based half-open[^32]",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "COORD-1",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "4/0/0/3",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C flat-file numbering[^1]",
+      "ENA": "C flat-file numbering[^1]",
+      "DDBJ": "C flat-file numbering[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "C 1-based inclusive[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "UCSC",
+      "Apollo",
+      "MEGA",
+      "SeaView",
+      "AliView",
+      "Tablet",
+      "IGV",
+      "MacVector"
+    ],
+    "counts_CDNU": "3/0/0/10",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "AliView",
+      "UCSC",
+      "UGENE"
+    ],
+    "top_counts_CDNU": "1/0/0/6",
+    "cells": {
+      "Geneious Prime": "U qualifier; selectable/custom codes[^23]",
+      "UGENE": "U qualifier; translation-table selector[^60]",
+      "ApE": "U table/qualifier; translation exists[^49]",
+      "Jalview": "U qualifier; alternative tables since 2.11[^53]",
+      "Artemis": "U qualifier; configurable Standard Code[^45]",
+      "UCSC": "U[^19]",
+      "Apollo": "C configurable NCBI tables[^40]",
+      "MEGA": "C selectable/custom tables; NCBI mapping U[^44]",
+      "SeaView": "C `/transl_table` in names/comments; coverage U[^53]",
+      "AliView": "U; documented translation family; detailed rule behavior unverified",
+      "Tablet": "U; documented translation family; detailed rule behavior unverified",
+      "IGV": "U; documented translation family; detailed rule behavior unverified",
+      "MacVector": "U; documented translation family; detailed rule behavior unverified"
+    },
+    "applicability_sources": {
+      "AliView": "https://www.ormbunkar.se/aliview/",
+      "Tablet": "https://tablet.hutton.ac.uk/en/latest/protein_translations.html",
+      "IGV": "https://igv.org/doc/desktop/UserGuide/tools/batch/",
+      "MacVector": "https://macvector.com/getting-started/macvector-major-release-details-and-history/"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/1/0/1",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/1/0/0",
+    "cells": {
+      "Benchling": "D NCBI except 27/28/31; imported code used[^21]",
+      "SnapGene": "U qualifier; genetic-code selector[^27]"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U qualifier; NCBI-derived selector[^40]"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "4/1/0/2",
+    "top_half": [
+      "Biopython",
+      "SeqKit",
+      "EMBOSS",
+      "gffread"
+    ],
+    "top_counts_CDNU": "2/1/0/1",
+    "cells": {
+      "BioPerl": "C explicit table ID; automatic qualifier U[^21][^22]",
+      "BioJava": "U",
+      "Bioconductor": "C `getGeneticCode`; qualifier U[^35]",
+      "gffread": "U",
+      "SeqKit": "C selected NCBI table; qualifier U[^11]",
+      "Biopython": "C Tested",
+      "EMBOSS": "D transeq table 0 default; qualifier use U[^14]"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "1/0/0/0",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "C selectable codon table; NCBI coverage U[^14]"
+    }
+  },
+  {
+    "operation": "TRANS-1",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "4/0/0/3",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U qualifier import; table selector exists[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "C genetic-code selection[^16]"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "UCSC",
+      "Apollo",
+      "MEGA",
+      "SeaView",
+      "AliView",
+      "Tablet",
+      "IGV",
+      "MacVector"
+    ],
+    "counts_CDNU": "0/1/0/12",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "AliView",
+      "UCSC",
+      "UGENE"
+    ],
+    "top_counts_CDNU": "0/1/0/6",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "D Translate as cDNA not frame-aware[^53]",
+      "Artemis": "U[^45]",
+      "UCSC": "U[^19]",
+      "Apollo": "U",
+      "MEGA": "U",
+      "SeaView": "U",
+      "AliView": "U; documented translation family; detailed rule behavior unverified",
+      "Tablet": "U; documented translation family; detailed rule behavior unverified",
+      "IGV": "U; documented translation family; detailed rule behavior unverified",
+      "MacVector": "U; documented translation family; detailed rule behavior unverified"
+    },
+    "applicability_sources": {
+      "AliView": "https://www.ormbunkar.se/aliview/",
+      "Tablet": "https://tablet.hutton.ac.uk/en/latest/protein_translations.html",
+      "IGV": "https://igv.org/doc/desktop/UserGuide/tools/batch/",
+      "MacVector": "https://macvector.com/getting-started/macvector-major-release-details-and-history/"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/0/0/5",
+    "top_half": [
+      "Biopython",
+      "SeqKit",
+      "EMBOSS",
+      "gffread"
+    ],
+    "top_counts_CDNU": "1/0/0/3",
+    "cells": {
+      "BioPerl": "C explicit `-offset`1/2/3; qualifier automatic U[^21]",
+      "BioJava": "U",
+      "Bioconductor": "U",
+      "gffread": "U; GFF phase is separate",
+      "SeqKit": "U",
+      "Biopython": "C Tested",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U; GFF phase is separate"
+    }
+  },
+  {
+    "operation": "TRANS-2",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "4/0/0/3",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "C default1, configurable[^19]"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "UCSC",
+      "Apollo",
+      "MEGA",
+      "SeaView",
+      "AliView",
+      "Tablet",
+      "IGV",
+      "MacVector"
+    ],
+    "counts_CDNU": "0/0/0/13",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "AliView",
+      "UCSC",
+      "UGENE"
+    ],
+    "top_counts_CDNU": "0/0/0/7",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "UGENE": "U M; alternative initiation option[^60]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "UCSC": "U[^19]",
+      "Apollo": "U; selecting non-ATG start insufficient[^39]",
+      "MEGA": "U",
+      "SeaView": "U",
+      "AliView": "U; documented translation family; detailed rule behavior unverified",
+      "Tablet": "U; documented translation family; detailed rule behavior unverified",
+      "IGV": "U; documented translation family; detailed rule behavior unverified",
+      "MacVector": "U; documented translation family; detailed rule behavior unverified"
+    },
+    "applicability_sources": {
+      "AliView": "https://www.ormbunkar.se/aliview/",
+      "Tablet": "https://tablet.hutton.ac.uk/en/latest/protein_translations.html",
+      "IGV": "https://igv.org/doc/desktop/UserGuide/tools/batch/",
+      "MacVector": "https://macvector.com/getting-started/macvector-major-release-details-and-history/"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U default; M checkbox documented[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "3/0/0/4",
+    "top_half": [
+      "Biopython",
+      "SeqKit",
+      "EMBOSS",
+      "gffread"
+    ],
+    "top_counts_CDNU": "2/0/0/2",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U",
+      "Bioconductor": "C `translate` default initiation handling[^35]",
+      "gffread": "U",
+      "SeqKit": "C explicit `-M` option[^11]",
+      "Biopython": "C Tested",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "1/0/0/0",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "C opt-in alternative start, phase0 only[^14]"
+    }
+  },
+  {
+    "operation": "TRANS-3",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "1/0/0/6",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C initiation M[^5]",
+      "ENA": "U[^3]",
+      "DDBJ": "U[^4]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U M output; ATG/alternative/sense modes[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "UCSC",
+      "Apollo",
+      "MEGA",
+      "SeaView",
+      "AliView",
+      "Tablet",
+      "IGV",
+      "MacVector"
+    ],
+    "counts_CDNU": "0/0/0/13",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "AliView",
+      "UCSC",
+      "UGENE"
+    ],
+    "top_counts_CDNU": "0/0/0/7",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^53]",
+      "Artemis": "U[^45]",
+      "UCSC": "U[^19]",
+      "Apollo": "U; readthrough editing insufficient[^39]",
+      "MEGA": "U",
+      "SeaView": "U",
+      "AliView": "U; documented translation family; detailed rule behavior unverified",
+      "Tablet": "U; documented translation family; detailed rule behavior unverified",
+      "IGV": "U; documented translation family; detailed rule behavior unverified",
+      "MacVector": "U; documented translation family; detailed rule behavior unverified"
+    },
+    "applicability_sources": {
+      "AliView": "https://www.ormbunkar.se/aliview/",
+      "Tablet": "https://tablet.hutton.ac.uk/en/latest/protein_translations.html",
+      "IGV": "https://igv.org/doc/desktop/UserGuide/tools/batch/",
+      "MacVector": "https://macvector.com/getting-started/macvector-major-release-details-and-history/"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U[^38]"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "0/1/0/6",
+    "top_half": [
+      "Biopython",
+      "SeqKit",
+      "EMBOSS",
+      "gffread"
+    ],
+    "top_counts_CDNU": "0/1/0/3",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U",
+      "Bioconductor": "U",
+      "gffread": "U",
+      "SeqKit": "U",
+      "Biopython": "D Tested exception not applied",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "TRANS-4",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "4/0/0/3",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "C parsed qualifier[^17][^18]"
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "MEGA",
+      "AliView",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "3/0/0/14",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "AliView",
+      "UCSC",
+      "UGENE",
+      "SeaView"
+    ],
+    "top_counts_CDNU": "3/0/0/6",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U[^58]",
+      "UGENE": "U[^47]",
+      "ApE": "U U; IUPAC DNA search/display[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U U/display; IUB search (Artemis)[^45]",
+      "IGV": "U U; BAM ambiguity since 2.0.11[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U[^16]",
+      "UCSC": "U[^19]",
+      "IGB": "U",
+      "Apollo": "U",
+      "MEGA": "C listed ambiguity symbols[^43]",
+      "AliView": "C ambiguity-aware search[^2]",
+      "SeaView": "C ambiguity and consensus output[^53]",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U DNA/RNA IUPAC display documented; search unverified[^28]"
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U operation-specific; IUPAC includes U[^39]"
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "samtools",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "3/0/0/6",
+    "top_half": [
+      "samtools",
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "1/0/0/4",
+    "cells": {
+      "BioPerl": "C documented ambiguity recognition[^22]",
+      "BioJava": "U",
+      "Bioconductor": "C alphabet/complement[^35]",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "C library alphabet; version caveat[^12]",
+      "samtools": "U",
+      "Biopython": "U search; DNA RC treats U as T[^33]",
+      "EMBOSS": "U[^13]"
+    },
+    "verification": {
+      "status": "UNVERIFIABLE",
+      "reason": "Dataset and ledger label different suboperations. Preserve original scoped observations; use explicit suboperation rows, not this combined count."
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "ALPHA-1",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "0/0/0/7",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "U search; IUPAC file alphabet[^1]",
+      "ENA": "U search; IUPAC file alphabet[^1]",
+      "DDBJ": "U search; IUPAC file alphabet[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U ambiguity/U; hyphens rejected[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "UCSC",
+      "Apollo",
+      "MEGA",
+      "SeaView",
+      "AliView",
+      "Tablet",
+      "IGV",
+      "MacVector"
+    ],
+    "counts_CDNU": "0/1/0/12",
+    "top_half": [
+      "MEGA",
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "AliView",
+      "UCSC",
+      "UGENE"
+    ],
+    "top_counts_CDNU": "0/1/0/6",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U[^45]",
+      "UCSC": "D CDS alignment output uses Z for STOP[^20]",
+      "Apollo": "U",
+      "MEGA": "U for extended alphabet[^43]",
+      "SeaView": "U",
+      "AliView": "U; documented translation family; detailed rule behavior unverified",
+      "Tablet": "U; documented translation family; detailed rule behavior unverified",
+      "IGV": "U; documented translation family; detailed rule behavior unverified",
+      "MacVector": "U; documented translation family; detailed rule behavior unverified"
+    },
+    "applicability_sources": {
+      "AliView": "https://www.ormbunkar.se/aliview/",
+      "Tablet": "https://tablet.hutton.ac.uk/en/latest/protein_translations.html",
+      "IGV": "https://igv.org/doc/desktop/UserGuide/tools/batch/",
+      "MacVector": "https://macvector.com/getting-started/macvector-major-release-details-and-history/"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "1/0/0/0",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "C documented U/O/B/Z/J/X alphabet[^41]"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/1/0/4",
+    "top_half": [
+      "Biopython",
+      "SeqKit",
+      "EMBOSS",
+      "gffread"
+    ],
+    "top_counts_CDNU": "1/0/0/3",
+    "cells": {
+      "BioPerl": "D manual defines J as Ile/Val; implementation U[^22]",
+      "BioJava": "U",
+      "Bioconductor": "C documented alphabet[^35]",
+      "gffread": "U",
+      "SeqKit": "C library alphabet; version caveat[^12]",
+      "Biopython": "U[^32]",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "ALPHA-2",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "BLAST",
+      "ORFfinder",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "3/0/0/4",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C-contract[^1]",
+      "ENA": "C-contract[^1]",
+      "DDBJ": "C-contract[^1]",
+      "BLAST": "U[^7]",
+      "ORFfinder": "U[^6]",
+      "NCBI Sequence Viewer": "U[^10]",
+      "table2asn": "U"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "Interactive / papers",
+    "all": [
+      "Geneious Prime",
+      "SeqBuilder",
+      "MacVector",
+      "UGENE",
+      "ApE",
+      "Jalview",
+      "Artemis",
+      "IGV",
+      "JBrowse 2",
+      "Ensembl",
+      "UCSC",
+      "IGB",
+      "Apollo",
+      "SeaView",
+      "Tablet"
+    ],
+    "counts_CDNU": "0/0/0/15",
+    "top_half": [
+      "IGV",
+      "Geneious Prime",
+      "Jalview",
+      "JBrowse 2",
+      "UCSC",
+      "UGENE",
+      "SeaView",
+      "Artemis"
+    ],
+    "top_counts_CDNU": "0/0/0/8",
+    "cells": {
+      "Geneious Prime": "U[^22]",
+      "SeqBuilder": "U[^57]",
+      "MacVector": "U[^58]",
+      "UGENE": "U[^47]",
+      "ApE": "U[^49]",
+      "Jalview": "U[^51]",
+      "Artemis": "U mapping; GFF3 writer exists[^66]",
+      "IGV": "U[^54]",
+      "JBrowse 2": "U[^56]",
+      "Ensembl": "U mapping; SOFA types in GFF3[^16]",
+      "UCSC": "U export mapping; Browser GFF3 input unsupported is a different operation",
+      "IGB": "U; SO category displayed[^37]",
+      "Apollo": "U mapping; SO types interpreted[^40]",
+      "SeaView": "U",
+      "Tablet": "U"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "Interactive / vendor",
+    "all": [
+      "Benchling",
+      "SnapGene"
+    ],
+    "counts_CDNU": "0/0/0/2",
+    "top_half": [
+      "Benchling"
+    ],
+    "top_counts_CDNU": "0/0/0/1",
+    "cells": {
+      "Benchling": "U[^21]",
+      "SnapGene": "U[^26]"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "Interactive / unranked",
+    "all": [
+      "CLC"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "CLC": "U export mapping; D SO-accession import interpretation[^38]"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "0/0/0/8",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "0/0/0/4",
+    "cells": {
+      "BioPerl": "U",
+      "BioJava": "U",
+      "Bioconductor": "U",
+      "bedtools": "U",
+      "gffread": "U",
+      "SeqKit": "U",
+      "Biopython": "U[^32]",
+      "EMBOSS": "U[^13]"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U"
+    }
+  },
+  {
+    "operation": "FMT-1",
+    "group": "Reference contracts/services",
+    "all": [
+      "GenBank / RefSeq",
+      "ENA",
+      "DDBJ",
+      "NCBI Sequence Viewer",
+      "table2asn"
+    ],
+    "counts_CDNU": "2/0/0/3",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "GenBank / RefSeq": "C SOFA + gbkey[^9]",
+      "ENA": "U[^3]",
+      "DDBJ": "U[^4]",
+      "NCBI Sequence Viewer": "U mapping; GFF3 download[^10]",
+      "table2asn": "C recognized mappings; unknown types dropped[^18]"
+    }
+  },
+  {
+    "operation": "LOC-2.preserve",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/0/0/6",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "2/0/0/2",
+    "cells": {
+      "BioPerl": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "BioJava": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "Bioconductor": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "bedtools": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "gffread": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "SeqKit": "U; Parse/export preservation of order() was not established by the reviewed evidence.",
+      "Biopython": "C; Inherited fixture O1: parse/export retains order operator. Existing test report read; not rerun in this verification.",
+      "EMBOSS": "C; Inherited fixture O1: parse/export retains order operator. Existing test report read; not rerun in this verification."
+    }
+  },
+  {
+    "operation": "LOC-2.preserve",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U; Parse/export preservation of order() was not established by the reviewed evidence."
+    }
+  },
+  {
+    "operation": "LOC-2.extract",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "0/2/0/6",
+    "top_half": [
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "0/2/0/2",
+    "cells": {
+      "BioPerl": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "BioJava": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "Bioconductor": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "bedtools": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "gffread": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "SeqKit": "U; Extraction behavior for order() was not established by the reviewed evidence.",
+      "Biopython": "D; Inherited fixture O1: extract() concatenates order parts; does not establish a biologically contiguous sequence.",
+      "EMBOSS": "D; Inherited fixture O1: extractfeat concatenates order parts only with explicit -join Y; parser still preserves order."
+    }
+  },
+  {
+    "operation": "LOC-2.extract",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U; Extraction behavior for order() was not established by the reviewed evidence."
+    }
+  },
+  {
+    "operation": "ALPHA-1.complement",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "samtools",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "4/0/0/5",
+    "top_half": [
+      "samtools",
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "2/0/0/3",
+    "cells": {
+      "BioPerl": "C; PrimarySeqI 1.7.8 revcom calls _revcom_from_string, whose transliteration explicitly implements the IUPAC ambiguity-complement map before reversing. Scope is ambiguity mapping. RNA mode first converts U to T and later T back to U; in DNA mode the shown table does not translate U, so do not infer the Biopython DNA-U-as-T policy.",
+      "BioJava": "U; DNASequence documents complement/reverse complement primitives, but examined API text does not establish the ambiguity-symbol complement map or compound-set choice.",
+      "Bioconductor": "C; reverseComplement manual p95 explicitly gives all ambiguity pairs: M/K, R/Y, S/S, V/B, W/W, H/D, N/N. DNA A/C/G/T maps to T/G/C/A; RNA A/C/G/U maps to U/G/C/A. This is an operation-specific statement, not merely alphabet acceptance.",
+      "bedtools": "U; getfasta -s establishes strand orientation, but the examined docs/source path do not establish the complete ambiguity-symbol complement map.",
+      "gffread": "U; The reviewed getSpliced path calls ntComplement, but the ntComplement implementation/map was not part of the opened sources; orientation alone is insufficient.",
+      "SeqKit": "C; alphabet.go DNAredundant and RNAredundant explicitly pair IUPAC symbols to their complements, and NewAlphabet maps N/n to themselves. The source establishes the component map only; retain the existing unmatched-build qualification in every count/display using this positive.",
+      "samtools": "U; faidx -i establishes reverse-complement output but its examined manual does not enumerate the ambiguity-symbol map.",
+      "Biopython": "C; Documented ambiguity-aware complement; DNA reverse_complement treats U as T; reverse_complement_rna emits U. Search behavior is a separate field.",
+      "EMBOSS": "U; Inherited fixture covers orientation on concrete sequence cases, not ambiguity-symbol mapping. No positive ambiguity-complement claim is established from those fixture results."
+    }
+  },
+  {
+    "operation": "ALPHA-1.complement",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U; extract_sequences documents reverse complement and strand behavior but does not establish the ambiguity-symbol complement map."
+    }
+  },
+  {
+    "operation": "ALPHA-1.search",
+    "group": "CLI/library / papers",
+    "all": [
+      "BioPerl",
+      "BioJava",
+      "Bioconductor",
+      "bedtools",
+      "gffread",
+      "SeqKit",
+      "samtools",
+      "Biopython",
+      "EMBOSS"
+    ],
+    "counts_CDNU": "2/0/0/7",
+    "top_half": [
+      "samtools",
+      "bedtools",
+      "Biopython",
+      "SeqKit",
+      "EMBOSS"
+    ],
+    "top_counts_CDNU": "1/0/0/4",
+    "cells": {
+      "BioPerl": "U; CodonTable recognizes ambiguity for codon translation/reverse translation; this does not establish sequence motif-search degeneracy.",
+      "BioJava": "U; Examined Location and DNASequence APIs do not establish ambiguity-aware pattern search.",
+      "Bioconductor": "C; Biostrings lowlevel-matching p34 defines fixed=FALSE as IUPAC set-aware matching in pattern and subject. fixed=\"subject\" interprets pattern ambiguities only; fixed=\"pattern\" interprets subject ambiguities only. matchPattern examples p48 demonstrate fixed=FALSE. Default fixed=TRUE is literal-code matching, so the positive is opt-in capability rather than the default.",
+      "bedtools": "U; The scoped getfasta extractor documentation does not establish degenerate motif matching.",
+      "gffread": "U; The reviewed gffread extraction/conversion sources do not establish ambiguity-aware motif search.",
+      "SeqKit": "C; grep -s -d explicitly supports degenerate query bases (including R/Y/M examples). locate -d example searches AUGGACUN and reports AUGGACUG and AUGGACUC matches. Thus query degeneracy is demonstrated in documentation; general subject-ambiguity set intersection is not established. The feature is opt-in, not a default literal-search policy.",
+      "samtools": "U; The scoped faidx manual covers indexed regions and orientation; ambiguity-aware motif matching is not established.",
+      "Biopython": "U; The supplied standards document explicitly distinguishes complement from search; no opened source here establishes ambiguity-aware Biopython motif search.",
+      "EMBOSS": "U; EDNAFULL scoring/local alignment defaults are not by themselves proof of the requested ambiguity-aware motif-search suboperation."
+    }
+  },
+  {
+    "operation": "ALPHA-1.search",
+    "group": "CLI/library / unranked",
+    "all": [
+      "AGAT"
+    ],
+    "counts_CDNU": "0/0/0/1",
+    "top_half": null,
+    "top_counts_CDNU": null,
+    "cells": {
+      "AGAT": "U; The examined extraction manual and task catalog do not establish ambiguity-aware motif search."
+    }
+  }
+]

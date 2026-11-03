@@ -28,7 +28,7 @@ export function SearchDetails({ mode, recordCount, counts }: { mode: HitMode; re
     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
       <SectionTitle icon="fa-info-circle" trailing={<i aria-hidden="true" className="fas fa-chevron-up text-[10px] transition-transform group-open:rotate-180 motion-reduce:transition-none" />}>Search details</SectionTitle>
     </summary>
-    <div className="space-y-1">
+    <div className="stack-y-1">
       <p>Hits across {recordCount} {recordCount === 1 ? 'record' : 'records'}.</p>
       {counts && <>
       <p>{counts.cutoff === null ? 'Exact counts across all alignments' : `Counts cover alignments scoring at least ${counts.cutoff} in EMBOSS units`}</p>
@@ -41,7 +41,7 @@ export function SearchDetails({ mode, recordCount, counts }: { mode: HitMode; re
       <p>{counts.beyondLimit} beyond the result limit</p>
       </>}
     </div>
-    <ul className="list-disc pl-4 space-y-1 mt-2" aria-label="Search marks legend">
+    <ul className="list-disc pl-4 stack-y-1 mt-2" aria-label="Search marks legend">
       <li>| Identical: hit tint and record letter</li>
       <li>{mode === 'local' ? ': Similar: dashed outline, positive matrix score' : ': Matched through an ambiguity code: dotted underline'}</li>
       <li>. Mismatch: ink cell, query letter above</li>

@@ -60,7 +60,7 @@ function ToolbarControls({ activeSelection, alignmentLength, comparisonMenu, onC
           placeholder="Go to..."
           aria-label="Go to position"
           data-tip="Type a base position and press Enter"
-          className="w-24 bg-transparent pl-5 pr-2 py-1 text-[11px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-none focus:ring-1 focus:ring-env rounded"
+          className="w-24 bg-transparent pl-5 pr-2 py-1 text-[11px] font-bold text-[#e8edf7] placeholder:text-[#7c8bb0] outline-hidden focus:ring-1 focus:ring-env rounded-sm"
           value={gotoPos}
           onChange={e => setGotoPos(e.target.value)}
           onKeyDown={e => {
