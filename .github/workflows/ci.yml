@@ -159,8 +159,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The job runs as root, but HOME is /github/home, owned by the image's pwuser;
+      # Firefox refuses to start under another user's HOME.
       - name: Browser e2e on production build
         timeout-minutes: 8
+        env:
+          HOME: /root
         run: npm run test:e2e:run -- --project=${{ matrix.project }}
 
       - name: Upload browser failure results
