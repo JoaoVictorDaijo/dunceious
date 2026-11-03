@@ -47,6 +47,7 @@ All notable changes to Dunceious. Format loosely follows
 - Evaluate nested complemented feature intervals in the INSDC order, keeping the written-order region envelope and unedited GenBank location text.
 - Refuse an uploaded alignment whose residues differ from the loaded sequences or whose gaps are written as `.`.
 - Search notes in GenBank and GFF3 exports no longer claim an 80% minimum query identity when the saved search did not record its threshold.
+- Read the last codon of a CDS whose 3′ end is complete as the stop under genetic codes 27, 28 and 31 even when its 5′ end is partial, as the NCBI validator does, and restore the CI check that the SSW score module rebuilds byte-for-byte from source.
 - Let the Local search browser tests load the app's own blob: worker scripts, so their request allowlist no longer blocks the Local engine in WebKit.
 
 ## [3.7.3] — 2026-10-22
