@@ -29,6 +29,7 @@
 
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
+import { isThreePrimePartialLocation } from './locationFlags';
 import type { SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
@@ -263,21 +264,26 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
+/** A feature as {@link translateFeature} reads it: the stored protein and the location text. */
+type TranslatedFeature = { translation?: string; locationString?: string };
+
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
  * residue depending on context (gc.prt `sncbieaa` `*` with a residue in `ncbieaa`, tables 27, 28
  * and 31), the last codon reads as the stop. This matches Biopython 1.88 `translate(cds=True)`.
- * A partial feature (`<` or `>` in its location) or a length that is not whole codons is left
- * as translated, since its last codon need not be the end of the protein.
+ * Only the 3′ end decides, as NCBI C++ Toolkit `x_Translate` gates it on `is_3prime_complete`
+ * alone and the NCBI validator (table2asn 1.29.324) reports the stop for 5′-partial CDSs too.
+ * A 3′-partial feature or a length that is not whole codons is left as translated, since its
+ * last codon need not be the end of the protein.
  */
 function terminateLastCodon(
-  feature: { locationString?: string },
+  feature: TranslatedFeature,
   codingSeq: string,
   translTable: number,
   protein: string,
 ): string {
   const code = NCBI_GENETIC_CODES[translTable];
-  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || /[<>]/.test(feature.locationString ?? '')) {
+  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || isThreePrimePartialLocation(feature)) {
     return protein;
   }
   const lastCodon = codingSeq.slice(-3).toUpperCase().replace(/U/g, 'T');
@@ -299,7 +305,7 @@ function terminateLastCodon(
  * mismatch — falls back to the computed residue.
  */
 export function translateFeature(
-  feature: { translation?: string; locationString?: string },
+  feature: TranslatedFeature,
   codingSeq: string,
   translTable = 1,
 ): string {
