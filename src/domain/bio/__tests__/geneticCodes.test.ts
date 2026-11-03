@@ -94,21 +94,18 @@ describe('translateFeature at the end of a complete CDS', () => {
     expect(translateFeature({}, 'ATGTGAAAATGA', 27)).toBe('MWK_');
   });
 
-  it.each([
-    ['1..>9', 1],
-    ['complement(<1..9)', -1],
-  ] as const)('preserves the sense residue at a 3′-partial CDS end: %s', (locationString, strand) => {
-    expect(translateFeature({ locationString, strand }, 'ATGAAATGA', 27)).toBe('MKW');
+  it.each(['1..>9', 'complement(<1..9)'])('preserves the sense residue at a 3′-partial CDS end: %s', locationString => {
+    expect(translateFeature({ locationString }, 'ATGAAATGA', 27)).toBe('MKW');
   });
 
   // Oracle: the NCBI validator's translation, which marks the terminal stop only when the 3′ end
   // is complete, whatever the 5′ end.
-  const validator: { cases: { id: string; sequence: string; location: string; validatorStopResidues: number[] }[] } = JSON.parse(
-    readFileSync(new URL('./fixtures/ncbi-validator-terminal-stop.json', import.meta.url), 'utf8'),
-  );
-  it.each(validator.cases)('matches the NCBI validator terminal stop: $id ($location)', ({ sequence, location, validatorStopResidues }) => {
-    const strand = location.startsWith('complement(') ? -1 : 1;
-    const feature = { start: 0, end: sequence.length, strand, locationString: location } as const;
+  const validator: { cases: {
+    id: string; sequence: string; location: string;
+    segments: { start: number; end: number; strand: 1 | -1 }[]; validatorStopResidues: number[];
+  }[] } = JSON.parse(readFileSync(new URL('./fixtures/ncbi-validator-terminal-stop.json', import.meta.url), 'utf8'));
+  it.each(validator.cases)('matches the NCBI validator terminal stop: $id ($location)', ({ sequence, location, segments, validatorStopResidues }) => {
+    const feature = { start: 0, end: sequence.length, strand: segments[0].strand, segments, locationString: location };
     const protein = translateFeature(feature, extractCodingSequence(feature, sequence).codingSeq, 27);
     const stops = [...protein].flatMap((residue, i) => residue === '_' ? [i + 1] : []);
     expect(stops).toEqual(validatorStopResidues);

@@ -29,6 +29,7 @@
 
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
+import { isThreePrimePartialLocation } from './locationFlags';
 import type { SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
@@ -263,24 +264,8 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
-/** A feature as {@link translateFeature} reads it: the stored protein and the location's 3′ end. */
-type TranslatedFeature = {
-  translation?: string;
-  locationString?: string;
-  strand?: 1 | -1;
-  segments?: { strand?: 1 | -1 }[];
-};
-
-/**
- * Whether the location marks its 3′ end partial (INSDC FT 11.4 §3.4.2.1): `>` on the forward
- * strand, `<` on the reverse, read on the interval translated last.
- * FIXME(#226): read the marker of that end from the parsed location once the parser keeps it.
- */
-function isThreePrimePartial(feature: TranslatedFeature): boolean {
-  const text = feature.locationString ?? '';
-  const strand = feature.segments?.at(-1)?.strand ?? feature.strand;
-  return strand === -1 ? text.includes('<') : text.includes('>');
-}
+/** A feature as {@link translateFeature} reads it: the stored protein and the location text. */
+type TranslatedFeature = { translation?: string; locationString?: string };
 
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
@@ -298,7 +283,7 @@ function terminateLastCodon(
   protein: string,
 ): string {
   const code = NCBI_GENETIC_CODES[translTable];
-  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || isThreePrimePartial(feature)) {
+  if (!code || protein.length === 0 || codingSeq.length % 3 !== 0 || isThreePrimePartialLocation(feature)) {
     return protein;
   }
   const lastCodon = codingSeq.slice(-3).toUpperCase().replace(/U/g, 'T');
