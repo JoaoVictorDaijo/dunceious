@@ -22,6 +22,34 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-11-03
+
+### Added
+
+- Extend sequence standards coverage to format I/O, operations and displayed metrics, with scoped evidence, deviation issues and open owner decisions.
+- Add a verified dataset of 54 sequence tools (adoption, formats and standards behaviour) to docs/standards, chosen and ranked by current adoption.
+
+### Changed
+
+- Skip unit and browser tests on documentation-only PRs, run browser tests in the official Playwright image, stop re-running CI on pushes to main, and cap each CI job's run time.
+- Lower the CSS build targets to Chrome/Edge 99, Firefox 97 and Safari 15.4, so browsers below the supported floor keep media-query responsiveness instead of losing it. The supported browsers are unchanged.
+- Say in the alignment gaps dialog that gap characters were removed from the loaded sequences.
+- Migrate to Tailwind CSS 4 with preserved UI styling. Supported browsers are now Chrome/Edge 111+, Firefox 128+ and Safari 16.4+; this is a breaking browser compatibility change. The former Chrome 87, Firefox 78 and Safari 14 build targets were nominal: the app already needed at least Chrome/Edge 93, Firefox 92 and Safari 15.4.
+- Run production browser regressions in Chromium, Firefox and WebKit, with explicit Chromium-only native multi-touch coverage and portable real-sequence search checks.
+
+### Fixed
+
+- Translate CDS features with every NCBI genetic code (all 27 tables, generated from gc.prt 4.6) instead of silently using the standard code for 21 of them, and flag a /transl_table that is not an NCBI code.
+- Remove "-" gap characters from FASTA records loaded as sequences, and list the changed records in a dialog and the log.
+- The annotation details window now opens on the feature sequence, joined and oriented as INSDC defines it, with the region spanned one click away. Both lengths are named, the copy button and badge say which view they measure, order() locations are never joined, and partial features are flagged.
+- GFF3 exports keep each feature's imported source column instead of replacing it with Dunceious, and write "." when the origin is unknown.
+- Search hit cards wrap their score and strand onto a second row when the sidebar is narrow, instead of pushing the strand badge into the card edge, and never split a coordinate. Browser tests in Chromium now show scrollbars, as Chrome does, so scrollbar-width layout problems are caught.
+- Evaluate nested complemented feature intervals in the INSDC order, keeping the written-order region envelope and unedited GenBank location text.
+- Refuse an uploaded alignment whose residues differ from the loaded sequences or whose gaps are written as `.`.
+- Search notes in GenBank and GFF3 exports no longer claim an 80% minimum query identity when the saved search did not record its threshold.
+- Read the last codon of a CDS whose 3′ end is complete as the stop under genetic codes 27, 28 and 31 even when its 5′ end is partial, as the NCBI validator does, and restore the CI check that the SSW score module rebuilds byte-for-byte from source.
+- Let the Local search browser tests load the app's own blob: worker scripts, so their request allowlist no longer blocks the Local engine in WebKit.
+
 ## [3.7.3] — 2026-10-22
 
 ### Added
