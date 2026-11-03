@@ -31,9 +31,19 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
-    // Playwright hides Chromium's scrollbars by default; the app's scroll panels reserve 12 px gutters, as in Chrome.
-    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, ignoreDefaultArgs: ['--hide-scrollbars'] },
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium',
+        // Playwright hides Chromium's scrollbars by default; the app's scroll panels reserve 12 px gutters, as in Chrome.
+        launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, ignoreDefaultArgs: ['--hide-scrollbars'] },
+      },
+    },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+    { name: 'webkit', use: { browserName: 'webkit' } },
+  ],
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',

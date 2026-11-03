@@ -24,6 +24,9 @@ const horizontalSelector = 'div.overflow-x-auto.overflow-y-hidden';
 type Finger = { id: number; x: number; y: number };
 type Probe = { cancels: number; brushMouseDowns: number; captures: string[]; releases: number[]; presses: number[] };
 
+// Native multi-touch injection and capture handoff require Chromium's CDP API.
+test.skip(({ browserName }) => browserName !== 'chromium', 'Native multi-touch injection requires Chromium CDP; Firefox/WebKit touch gestures remain unverified.');
+
 test.use({ hasTouch: true, isMobile: false, viewport: { width: 1280, height: 800 } });
 
 async function touch(cdp: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', fingers: Finger[]) {
