@@ -32,8 +32,9 @@ All notable changes to Dunceious. Format loosely follows
 ### Changed
 
 - Skip unit and browser tests on documentation-only PRs, run browser tests in the official Playwright image, stop re-running CI on pushes to main, and cap each CI job's run time.
+- Lower the CSS build targets to Chrome/Edge 99, Firefox 97 and Safari 15.4, so browsers below the supported floor keep media-query responsiveness instead of losing it. The supported browsers are unchanged.
 - Say in the alignment gaps dialog that gap characters were removed from the loaded sequences.
-- Migrate to Tailwind CSS 4 with preserved UI styling and modern browser requirements (Chrome/Edge 111+, Firefox 128+, Safari 16.4+). Older browser versions are no longer supported; this is a breaking browser compatibility change.
+- Migrate to Tailwind CSS 4 with preserved UI styling. Supported browsers are now Chrome/Edge 111+, Firefox 128+ and Safari 16.4+; this is a breaking browser compatibility change. The former Chrome 87, Firefox 78 and Safari 14 build targets were nominal: the app already needed at least Chrome/Edge 93, Firefox 92 and Safari 15.4.
 - Run production browser regressions in Chromium, Firefox and WebKit, with explicit Chromium-only native multi-touch coverage and portable real-sequence search checks.
 
 ### Fixed
