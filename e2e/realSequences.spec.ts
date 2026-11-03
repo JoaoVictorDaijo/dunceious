@@ -167,7 +167,8 @@ for (const scenario of scenarios) {
     } finally {
       await testInfo.attach('real-sequence-observations', {
         body: JSON.stringify({ files: scenario.files.map(file => path.basename(file)), records: records.length,
-          lengths: records.map(record => record.sequence.length), cpuThrottleRate: 4, observations, errors }, null, 2),
+          lengths: records.map(record => record.sequence.length), browserName, cpuThrottleRate: browserName === 'chromium' ? 4 : 1,
+          observations, errors }, null, 2),
         contentType: 'application/json',
       });
     }
