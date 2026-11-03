@@ -75,7 +75,7 @@ const scenarios = [
 ];
 
 for (const scenario of scenarios) {
-  test(`real sequences remain searchable at reduced CPU speed: ${scenario.name}`, async ({ page, context }, testInfo) => {
+  test(`real sequences remain searchable (4× CPU slowdown on Chromium): ${scenario.name}`, async ({ page, context, browserName }, testInfo) => {
     const errors: string[] = [];
     const observations: SearchObservation[] = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -87,8 +87,12 @@ for (const scenario of scenarios) {
         return original.call(this, message, ...args);
       };
     });
-    const cdp = await context.newCDPSession(page);
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    // CDP slowdown is Chromium-only; the same search assertions run at native speed elsewhere.
+    if (browserName === 'chromium') {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    }
+    testInfo.annotations.push({ type: 'cpu-throttling', description: browserName === 'chromium' ? '4× slowdown' : 'Unavailable: native speed' });
     await page.goto('/');
     await page.getByRole('button', { name: /Annotation Hub$/ }).click();
     const records = scenario.files.flatMap(recordsIn);
@@ -105,8 +109,10 @@ for (const scenario of scenarios) {
       await page.evaluate(() => {
         const probe = window.realSequenceProbe;
         probe.longTasks = [];
-        probe.observer = new PerformanceObserver(list => probe.longTasks.push(...list.getEntries().map(entry => entry.duration)));
-        probe.observer.observe({ type: 'longtask' });
+        if (PerformanceObserver.supportedEntryTypes.includes('longtask')) {
+          probe.observer = new PerformanceObserver(list => probe.longTasks.push(...list.getEntries().map(entry => entry.duration)));
+          probe.observer.observe({ type: 'longtask' });
+        }
         probe.started = performance.now();
       });
       await page.getByRole('button', { name: 'Search', exact: true }).click();

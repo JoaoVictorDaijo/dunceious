@@ -19,7 +19,12 @@
 
 import { test, expect, type Locator, type Page } from '@playwright/test';
 
-test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });
+test.use({
+  // Firefox supports touch and the responsive viewport, but not isMobile emulation.
+  isMobile: async ({ browserName }, use) => { await use(browserName !== 'firefox'); },
+  hasTouch: true,
+  viewport: { width: 390, height: 844 },
+});
 
 const explanation = (page: Page, title: string) => page.getByRole('dialog', { name: title, exact: true });
 
