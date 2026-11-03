@@ -19,7 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { detectEarlyStop, featureTranslTable, isNcbiGeneticCode, translateFeature, translateSequence } from '@/src/domain/bio/sequence';
+import { detectEarlyStop, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature, translateSequence } from '@/src/domain/bio/sequence';
 
 // Independent oracle: Biopython's NCBI codon tables, not Dunceious's own data.
 const oracle = JSON.parse(
@@ -94,8 +94,24 @@ describe('translateFeature at the end of a complete CDS', () => {
     expect(translateFeature({}, 'ATGTGAAAATGA', 27)).toBe('MWK_');
   });
 
-  it.each(['1..>9', 'complement(<1..9)'])('preserves the sense residue at a partial CDS end: %s', locationString => {
-    expect(translateFeature({ locationString }, 'ATGAAATGA', 27)).toBe('MKW');
+  it.each([
+    ['1..>9', 1],
+    ['complement(<1..9)', -1],
+  ] as const)('preserves the sense residue at a 3′-partial CDS end: %s', (locationString, strand) => {
+    expect(translateFeature({ locationString, strand }, 'ATGAAATGA', 27)).toBe('MKW');
+  });
+
+  // Oracle: the NCBI validator's translation, which marks the terminal stop only when the 3′ end
+  // is complete, whatever the 5′ end.
+  const validator: { cases: { id: string; sequence: string; location: string; validatorStopResidues: number[] }[] } = JSON.parse(
+    readFileSync(new URL('./fixtures/ncbi-validator-terminal-stop.json', import.meta.url), 'utf8'),
+  );
+  it.each(validator.cases)('matches the NCBI validator terminal stop: $id ($location)', ({ sequence, location, validatorStopResidues }) => {
+    const strand = location.startsWith('complement(') ? -1 : 1;
+    const feature = { start: 0, end: sequence.length, strand, locationString: location } as const;
+    const protein = translateFeature(feature, extractCodingSequence(feature, sequence).codingSeq, 27);
+    const stops = [...protein].flatMap((residue, i) => residue === '_' ? [i + 1] : []);
+    expect(stops).toEqual(validatorStopResidues);
   });
 
   // The final three bases spell TGA out of frame and cannot terminate the last full codon.

@@ -1,0 +1,58 @@
+{
+  "source": "NCBI table2asn 1.29.324 validator (-V v), linux64 build sha256 88ec2acb32ab63b67d758311865b7dc0d4b98cae16c5b9f42454f28afb921d5b, genetic code 27 via [gcode=27]",
+  "note": "validatorStopResidues lists 1-based protein positions where SEQ_FEAT.MisMatchAA reports the validator's translation as '*' against table2asn's own protein, which reads the dual-coding TGA as W.",
+  "cases": [
+    {
+      "id": "plus_complete",
+      "sequence": "ATGCCCTGA",
+      "location": "1..9",
+      "validatorStopResidues": [
+        3
+      ]
+    },
+    {
+      "id": "plus_5partial",
+      "sequence": "ATGCCCTGA",
+      "location": "<1..9",
+      "validatorStopResidues": [
+        3
+      ]
+    },
+    {
+      "id": "plus_3partial",
+      "sequence": "ATGCCCTGA",
+      "location": "1..>9",
+      "validatorStopResidues": []
+    },
+    {
+      "id": "minus_complete",
+      "sequence": "TCAGGGCAT",
+      "location": "complement(1..9)",
+      "validatorStopResidues": [
+        3
+      ]
+    },
+    {
+      "id": "minus_5partial",
+      "sequence": "TCAGGGCAT",
+      "location": "complement(1..>9)",
+      "validatorStopResidues": [
+        3
+      ]
+    },
+    {
+      "id": "minus_3partial",
+      "sequence": "TCAGGGCAT",
+      "location": "complement(<1..9)",
+      "validatorStopResidues": []
+    },
+    {
+      "id": "plus_internal",
+      "sequence": "ATGTGACCCTGA",
+      "location": "1..12",
+      "validatorStopResidues": [
+        4
+      ]
+    }
+  ]
+}

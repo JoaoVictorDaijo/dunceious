@@ -30,9 +30,14 @@ the feature's tooltip and its translation band say the code is not an NCBI genet
 
 Tables 27, 28 and 31 let some codons be a residue or a stop depending on context (gc.prt gives
 the residue in `ncbieaa` and `*` in `sncbieaa`). Inside a CDS they read as the residue; the last
-codon of a complete CDS reads as the stop, as Biopython 1.88 `translate(cds=True)` does. A
-partial CDS (`<` or `>`) keeps the residue at its last codon, since that codon need not end the
-protein.
+codon of a CDS whose 3′ end is complete reads as the stop, as Biopython 1.88
+`translate(cds=True)` does. Only the 3′ end decides: NCBI C++ Toolkit `x_Translate`
+(`src/objmgr/util/sequence.cpp`, ncbi-cxx-toolkit-public `912b751`) applies the stop on
+`is_3prime_complete` alone, and the NCBI validator (table2asn 1.29.324) reports it for
+`<1..9` and `complement(1..>9)` as well. A 3′-partial CDS (`>` on the forward strand, `<` on
+the reverse) keeps the residue at its last codon, since that codon need not end the protein.
+Tested against the validator's output in
+`src/domain/bio/__tests__/fixtures/ncbi-validator-terminal-stop.json`.
 
 The greeter is also subject to TRANS-1 and TRANS-3. Its `codonAt` translates isolated triplets
 with the default table 1 (`src/app/greeter/genomeZoom.ts:92`), while the bundled T7 CDS
