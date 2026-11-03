@@ -7,10 +7,23 @@ a release or production deployment is handled separately.
 ## Compatibility decision
 
 Tailwind 4.3.3 requires Safari 16.4+, Chrome 111+ and Firefox 128+ for its CSS engine.
-The Vite build/CSS targets are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
-Former targets were Chrome 87, Edge 88, Firefox 78 and Safari 14. JavaScript transpilation
-cannot restore missing CSS features. Older browser versions are no longer supported.
-Tests on current browser engines do not certify those exact minimum versions.
+The Vite build target is Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
+The former build targets were Chrome 87, Edge 88, Firefox 78 and Safari 14, but the app's own
+code already needed Chrome/Edge 93, Firefox 92 and Safari 15.4 (`Array.prototype.at()`,
+`Object.hasOwn()`). Its accent colours needed Chrome/Edge 111, Firefox 113 and Safari 16.2
+(`color-mix()`), and Chrome/Edge 122, Firefox 128 and Safari 18 for `env-strong` (relative
+colour syntax). JavaScript transpilation cannot restore missing CSS features. Older browser
+versions are no longer supported. Tests on current browser engines do not certify those exact
+minimum versions.
+
+The CSS target (`cssTarget`) is lower: Chrome/Edge 99, Firefox 97 and Safari 15.4, the first
+engines with cascade layers. Tailwind 4 puts all of its output in `@layer`, so older engines
+drop it whatever the target. Between there and the supported floor, the Lightning CSS minifier
+lowers range media queries and static colours. It cannot lower cascade layers, `@property`,
+`color-mix()` or relative colours that read a variable, or the `translate`, `scale` and
+`rotate` properties. On those engines, accent tints with an opacity modifier render at full
+opacity, and Chrome/Edge 99–103 lose those transforms. This is best-effort degradation, not
+support.
 
 This migration inherits the app version from develop; repository policy bumps only at develop-to-main promotion.
 The Changed fragment records the compatibility change. A future release must account for the
