@@ -55,3 +55,50 @@ export function isNestedComplementLocation(feature: Pick<BioFeature, 'locationSt
 export function isPartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
   return /[<>]/.test(feature.locationString ?? '');
 }
+
+/** One interval of a location in translation order, with the strand it is read on. */
+interface EvaluatedInterval { strand: 1 | -1; startPartial: boolean; endPartial: boolean }
+
+function splitTopLevel(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of list) {
+    if (ch === ',' && depth === 0) {
+      out.push(current);
+      current = '';
+      continue;
+    }
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    current += ch;
+  }
+  out.push(current);
+  return out;
+}
+
+/**
+ * INSDC FT 11.4 §3.4.2.2: `complement()` reverses the order of what it encloses and reads it on
+ * the other strand; `join()`/`order()` keep their elements in the order written.
+ */
+function evaluateIntervals(text: string, strand: 1 | -1): EvaluatedInterval[] {
+  const operator = text.match(/^(complement|join|order)\((.*)\)$/);
+  if (operator?.[1] === 'complement') return evaluateIntervals(operator[2], strand === 1 ? -1 : 1).reverse();
+  if (operator) return splitTopLevel(operator[2]).flatMap(element => evaluateIntervals(element, strand));
+  const [first, last = first] = text.replace(/^[^:]*:/, '').split(/\.\.|\^/);
+  return [{ strand, startPartial: first.includes('<'), endPartial: last.includes('>') }];
+}
+
+/**
+ * Whether the 3′ end of the sequence a location defines is partial (INSDC FT 11.4 §3.4.2.1): the
+ * marker on the interval translated last, `>` on its end when read forward or `<` on its start
+ * when complemented. A marker on any other end leaves the 3′ end complete. False without the raw
+ * location text (#226).
+ */
+export function isThreePrimePartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
+  const text = (feature.locationString ?? '').replace(/\s/g, '');
+  if (!text) return false;
+  const terminal = evaluateIntervals(text, 1).at(-1);
+  if (!terminal) return false;
+  return terminal.strand === 1 ? terminal.endPartial : terminal.startPartial;
+}
