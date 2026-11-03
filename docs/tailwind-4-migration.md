@@ -9,21 +9,28 @@ a release or production deployment is handled separately.
 Tailwind 4.3.3 requires Safari 16.4+, Chrome 111+ and Firefox 128+ for its CSS engine.
 The Vite build target is Chrome/Edge 111+, Firefox 128+ and Safari 16.4+.
 The former build targets were Chrome 87, Edge 88, Firefox 78 and Safari 14, but the app's own
-code already needed Chrome/Edge 93, Firefox 92 and Safari 15.4 (`Array.prototype.at()`,
-`Object.hasOwn()`). Its accent colours needed Chrome/Edge 111, Firefox 113 and Safari 16.2
-(`color-mix()`), and Chrome/Edge 122, Firefox 128 and Safari 18 for `env-strong` (relative
-colour syntax). JavaScript transpilation cannot restore missing CSS features. Older browser
-versions are no longer supported. Tests on current browser engines do not certify those exact
-minimum versions.
+code already needed more. Its untranspiled `Array.prototype.at()` and `Object.hasOwn()` calls
+(Hub, viewer layout and format code) need Chrome/Edge 93, Firefox 92 and Safari 15.4. The minimap's `CanvasRenderingContext2D.roundRect()`
+needs Chrome/Edge 99, Firefox 112 and Safari 16. Remote alignment's `AbortSignal.throwIfAborted()`
+needs Chrome/Edge 100, Firefox 97 and Safari 15.4. The accent colours needed Chrome/Edge 111,
+Firefox 113 and Safari 16.2 for `color-mix()`. `env-strong` uses relative colour syntax, which
+MDN lists as fully supported from Chrome/Edge 122, Firefox 128 and Safari 18 and partially from
+Chrome/Edge 119 and Safari 16.4. The partial limits concern channel calculations, which
+`env-strong` does not use. JavaScript transpilation cannot restore missing CSS features. Older
+browser versions are no longer supported. Tests on current browser engines do not certify those
+exact minimum versions.
 
 The CSS target (`cssTarget`) is lower: Chrome/Edge 99, Firefox 97 and Safari 15.4, the first
 engines with cascade layers. Tailwind 4 puts all of its output in `@layer`, so older engines
 drop it whatever the target. Between there and the supported floor, the Lightning CSS minifier
-lowers range media queries and static colours. It cannot lower cascade layers, `@property`,
-`color-mix()` or relative colours that read a variable, or the `translate`, `scale` and
-`rotate` properties. On those engines, accent tints with an opacity modifier render at full
-opacity, and Chrome/Edge 99–103 lose those transforms. This is best-effort degradation, not
-support.
+rewrites range media queries to `min-width` and static colours to rgb fallbacks, which keeps
+media-query responsiveness on Chrome/Edge 99–103 and Safari 15.4–16.3. It cannot lower cascade
+layers, `@property`, `color-mix()` or relative colours that read a variable, the `translate`,
+`scale` and `rotate` properties, `dvh` units, `:has()` or container queries. Where `color-mix()`
+is unavailable (below Chrome/Edge 111, Firefox 113 and Safari 16.2), accent tints with an opacity
+modifier render at full opacity. Chrome/Edge 99–103 lose those transforms, and viewport-height
+caps, container-responsive labels and some focus selectors degrade on engines without those
+features. This is best-effort degradation, not support.
 
 This migration inherits the app version from develop; repository policy bumps only at develop-to-main promotion.
 The Changed fragment records the compatibility change. A future release must account for the

@@ -122,7 +122,7 @@ export default defineConfig(() => {
     // Supported browsers are Chrome/Edge 111+, Firefox 128+ and Safari 16.4+ (Tailwind 4; see
     // docs/tailwind-4-migration.md). cssTarget sits at the oldest engines with cascade layers,
     // which Tailwind's output cannot do without, so the minifier lowers range media queries
-    // and static colours and those engines degrade instead of losing layout.
+    // and static colours and those engines keep media-query responsiveness.
     build: {
       target: ['es2020', 'chrome111', 'edge111', 'firefox128', 'safari16.4'],
       cssTarget: ['chrome99', 'edge99', 'firefox97', 'safari15.4'],
