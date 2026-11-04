@@ -19,8 +19,8 @@
 
 import { test, expect } from './fixtures';
 
-// The probe hosts use the reserved .invalid domain, so a broken guard still sends nothing out:
-// the recorded attempts prove interception, while the failed fetches alone would not.
+// The probe hosts are under the reserved .invalid domain, which never resolves, so a broken guard
+// reaches no server. The recorded attempts, not the failed fetches, prove interception.
 test('the network guard blocks and records requests and WebSockets to other origins', async ({ page, networkGuard }) => {
   await page.goto('/');
   const outcomes = await page.evaluate(async () => {
@@ -39,4 +39,23 @@ test('the network guard blocks and records requests and WebSockets to other orig
     'GET https://worker.blocked.invalid/probe',
     'WebSocket wss://socket.blocked.invalid/probe',
   ]);
+});
+
+test('the network guard records a same-origin redirect to another origin', async ({ page, networkGuard }) => {
+  await page.route('**/redirect-probe', route => route.fulfill({
+    status: 302,
+    headers: { location: 'https://redirect.blocked.invalid/probe' },
+  }));
+  await page.goto('/');
+  const outcome = await page.evaluate(() => fetch('/redirect-probe').then(() => 'reached', () => 'blocked'));
+  expect(outcome).toBe('blocked');
+  expect(networkGuard.takeBlocked()).toEqual(['GET https://redirect.blocked.invalid/probe']);
+});
+
+// Load-bearing for the guard's teardown assertion: without it this test passes, and test.fail()
+// reports that as a failure.
+test('an attempt the spec leaves unconsumed fails the test', async ({ page }) => {
+  test.fail();
+  await page.goto('/');
+  await page.evaluate(() => fetch('https://teardown.blocked.invalid/probe').catch(() => undefined));
 });

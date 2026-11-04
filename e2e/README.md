@@ -45,8 +45,14 @@ remote alignment services, and it can't reach any other origin by accident:
 - **Every spec imports `test` and `expect` from `e2e/fixtures.ts`.** Its guard aborts any request
   or WebSocket to another origin, before it reaches the network, and fails the test that made it.
   ESLint rejects a direct `@playwright/test` import under `e2e/`.
-- **`networkIsolation.spec.ts` checks the guard itself** in every engine, against requests from the
-  page, from a worker, and from a WebSocket.
+- **A redirect can't be aborted.** Routing sees only a redirect's first URL. A same-origin
+  response that redirects to another origin still fails the test, but the redirected request
+  isn't stopped. The preview server issues no such redirects.
+- **Workers can't open WebSockets.** Playwright can't route a WebSocket opened in a worker, so
+  ESLint keeps `WebSocket` out of `src/`. The page's WebSockets are closed by the guard.
+- **`networkIsolation.spec.ts` checks the guard itself** in every engine. It sends requests from the
+  page and from a worker, opens a WebSocket, follows a redirect, and checks that an attempt left
+  unconsumed fails its test.
 - **`playwright.config.ts` blocks service workers,** because request interception can't see what
   a service worker answers.
 
