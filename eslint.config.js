@@ -133,6 +133,17 @@ export default tseslint.config(
       ] }],
     },
   },
+  // A browser test that imports Playwright directly skips the guard that blocks other origins.
+  {
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/fixtures.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [
+        { name: '@playwright/test',
+          message: 'Browser tests import test and expect from ./fixtures, which blocks requests to other origins.' },
+      ] }],
+    },
+  },
   {
     ignores: ['dist/**', 'node_modules/**'],
   },

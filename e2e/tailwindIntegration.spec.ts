@@ -18,7 +18,7 @@
  */
 
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('current-develop gap notice retains its backdrop, visible-sibling spacing and focus', async ({ page }) => {
   await page.goto('/?shell=desktop');

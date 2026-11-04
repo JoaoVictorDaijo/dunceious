@@ -19,7 +19,7 @@
 
 import { mkdirSync, readdirSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Page } from './fixtures';
 const root = resolve('dist');
 const staticPaths = new Set(['/', ...readdirSync(root, { recursive: true, withFileTypes: true }).filter(f => f.isFile()).map(f => '/' + relative(root, resolve(f.parentPath, f.name)).split(sep).join('/'))]);
 function dna(length: number, seed: number) {
