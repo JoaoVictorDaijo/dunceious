@@ -31,6 +31,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
+    // Request interception can't see what a service worker answers; e2e/fixtures.ts relies on this.
+    serviceWorkers: 'block',
   },
   projects: [
     {

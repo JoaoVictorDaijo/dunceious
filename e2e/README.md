@@ -40,6 +40,23 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:e2e:run -- --proje
 ```
 
 This is a local build check, not a deployment. It does not submit sequences to
-remote alignment services. The existing unit/component/integration suite remains
+remote alignment services, and it can't reach any other origin by accident:
+
+- **Every spec imports `test` and `expect` from `e2e/fixtures.ts`.** Its guard aborts any request
+  or WebSocket to another origin, before it reaches the network, and fails the test that made it.
+  ESLint rejects a direct `@playwright/test` import under `e2e/`.
+- **A redirect can't be aborted.** Routing sees only a redirect's first URL. A same-origin
+  response that redirects to another origin still fails the test, but the redirected request
+  isn't stopped. The preview server issues no such redirects.
+- **Workers can't open WebSockets.** Playwright can't route a WebSocket opened in a worker, so
+  ESLint keeps `WebSocket` out of `src/`. The page's WebSockets are closed by the guard.
+- **`networkIsolation.spec.ts` checks the guard itself** in every engine. It sends requests from the
+  page and from a worker, opens a WebSocket, and checks that an attempt left unconsumed fails its
+  test. It also follows a faked redirect in Chromium and Firefox; Playwright's WebKit can't fake
+  one.
+- **`playwright.config.ts` blocks service workers,** because request interception can't see what
+  a service worker answers.
+
+The existing unit/component/integration suite remains
 `npm test`; browser tests run separately. Failure traces and downloaded-test
 artifacts live in ignored `test-results/`. Automated coverage does not replace visual review of the mobile shell.

@@ -21,6 +21,9 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+const webSocketMessage = 'The app opens no WebSockets: the browser-test guard in e2e/fixtures.ts '
+  + "can't intercept one from a worker. Extend the guard before adding one.";
+
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -130,6 +133,28 @@ export default tseslint.config(
           message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
         { regex: '^(\\.\\./)+(App|hooks|lib|shell|greeter)(/|\\.|$)',
           message: 'Showroom rule: the showroom may not import App, hooks/, lib/, shell/ or greeter/.' },
+      ] }],
+    },
+  },
+  // The browser-test guard in e2e/fixtures.ts can't intercept a WebSocket opened in a worker, so
+  // the app opens none.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': ['error', { name: 'WebSocket', message: webSocketMessage }],
+      'no-restricted-properties': ['error', ...['globalThis', 'self', 'window'].map(object => (
+        { object, property: 'WebSocket', message: webSocketMessage }
+      ))],
+    },
+  },
+  // A browser test that imports Playwright directly skips the guard that blocks other origins.
+  {
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/fixtures.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [
+        { name: '@playwright/test',
+          message: 'Browser tests import test and expect from ./fixtures, which blocks requests to other origins.' },
       ] }],
     },
   },
