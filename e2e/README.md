@@ -51,8 +51,9 @@ remote alignment services, and it can't reach any other origin by accident:
 - **Workers can't open WebSockets.** Playwright can't route a WebSocket opened in a worker, so
   ESLint keeps `WebSocket` out of `src/`. The page's WebSockets are closed by the guard.
 - **`networkIsolation.spec.ts` checks the guard itself** in every engine. It sends requests from the
-  page and from a worker, opens a WebSocket, follows a redirect, and checks that an attempt left
-  unconsumed fails its test.
+  page and from a worker, opens a WebSocket, and checks that an attempt left unconsumed fails its
+  test. It also follows a faked redirect in Chromium and Firefox; Playwright's WebKit can't fake
+  one.
 - **`playwright.config.ts` blocks service workers,** because request interception can't see what
   a service worker answers.
 

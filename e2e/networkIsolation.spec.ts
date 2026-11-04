@@ -41,7 +41,8 @@ test('the network guard blocks and records requests and WebSockets to other orig
   ]);
 });
 
-test('the network guard records a same-origin redirect to another origin', async ({ page, networkGuard }) => {
+test('the network guard records a same-origin redirect to another origin', async ({ page, networkGuard, browserName }) => {
+  test.skip(browserName === 'webkit', "Playwright's WebKit can't fulfill a redirect status, so the probe can't produce a redirect there.");
   await page.route('**/redirect-probe', route => route.fulfill({
     status: 302,
     headers: { location: 'https://redirect.blocked.invalid/probe' },
