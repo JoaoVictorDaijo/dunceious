@@ -22,9 +22,9 @@
  *
  * ## How to run
  *
- *   npm run perf           # runs with --expose-gc (GC-aware memory sampling)
+ *   pnpm perf           # runs with --expose-gc (GC-aware memory sampling)
  *
- * This file is intentionally excluded from the default `npm test` (vitest run)
+ * This file is intentionally excluded from the default `pnpm test` (vitest run)
  * suite via the `exclude` pattern in vite.config.ts.  Benchmarks are slow and
  * non-deterministic by nature; mixing them with unit tests would make CI
  * flaky.

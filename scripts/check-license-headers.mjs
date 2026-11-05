@@ -24,7 +24,8 @@
  *
  * Covered: .ts .tsx .js .mjs .cjs .css (block) / .html .svg (xml) /
  *          .py .yml .yaml .sh + .gitignore (hash).
- * Exempt (cannot or by convention): .json (no comments), .md, binary assets.
+ * Exempt (cannot or by convention): .json (no comments), .md, binary assets,
+ *        pnpm-lock.yaml.
  * Only git-tracked files are considered.
  */
 import { execFileSync } from 'node:child_process';
@@ -65,7 +66,11 @@ const EXT_STYLE = {
 };
 const NAME_STYLE = { '.gitignore': 'hash' };
 
-const styleFor = (file) => EXT_STYLE[extname(file)] || NAME_STYLE[basename(file)] || null;
+// pnpm rewrites its lockfile on every install and drops any comment in it.
+const EXEMPT_NAMES = new Set(['pnpm-lock.yaml']);
+
+const styleFor = (file) =>
+  EXEMPT_NAMES.has(basename(file)) ? null : EXT_STYLE[extname(file)] || NAME_STYLE[basename(file)] || null;
 
 /** First line index at which the header may be inserted (after shebang/doctype/xml decl). */
 function insertionIndex(lines, ext) {

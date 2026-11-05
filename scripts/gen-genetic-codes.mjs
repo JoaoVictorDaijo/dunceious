@@ -18,10 +18,10 @@
  */
 
 // Generates src/domain/bio/geneticCodes.ts from NCBI's gc.prt, pinned as
-// `ncbi-genetic-codes` in docs/standards/sources.json (run `npm run standards:fetch` first).
+// `ncbi-genetic-codes` in docs/standards/sources.json (run `pnpm standards:fetch` first).
 // The checksum must match the pin, so a changed gc.prt is re-verified before it reaches code.
 //
-// Usage: npm run standards:fetch && npm run standards:genetic-codes
+// Usage: pnpm standards:fetch && pnpm standards:genetic-codes
 
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';

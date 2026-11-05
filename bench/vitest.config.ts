@@ -19,7 +19,7 @@
 
 /**
  * Vitest config for the GenBank parse-time data-collection grid.
- * Run via:  npm run bench   (and npm run plot to regenerate SVGs)
+ * Run via:  pnpm bench   (and pnpm plot to regenerate SVGs)
  */
 import { defineConfig } from 'vitest/config';
 import { sharedBenchConfig } from '../vitest.shared';

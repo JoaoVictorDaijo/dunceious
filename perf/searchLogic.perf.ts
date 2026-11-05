@@ -22,7 +22,7 @@
  *
  * ## How to run
  *
- *   npm run perf           # runs with --expose-gc (GC-aware memory sampling)
+ *   pnpm perf           # runs with --expose-gc (GC-aware memory sampling)
  *
  * Covers three resources from services/searchLogic.ts:
  *   - reverseComplement – O(n) string reversal + complement mapping

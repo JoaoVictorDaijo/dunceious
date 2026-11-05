@@ -16,10 +16,10 @@
 > **Required for refactor PRs.**
 > All boxes must be checked before merging a refactor PR.
 
-- [ ] **App boots** — dev server (`npm run dev`) starts without errors.
-- [ ] **Build passes** — `npm run build` completes with no errors or new warnings.
-- [ ] **Lint passes** — `npm run lint` exits 0 (0 errors; warnings are acceptable for pre-existing issues).
-- [ ] **All tests pass** — `npm run test` shows 0 failed tests.
+- [ ] **App boots** — dev server (`pnpm dev`) starts without errors.
+- [ ] **Build passes** — `pnpm build` completes with no errors or new warnings.
+- [ ] **Lint passes** — `pnpm lint` exits 0 (0 errors; warnings are acceptable for pre-existing issues).
+- [ ] **All tests pass** — `pnpm test` shows 0 failed tests.
 - [ ] **GenBank loading unchanged** — loading a `.gb` file produces the same records as before.
 - [ ] **Alignment unchanged** — running an alignment produces the same aligned sequences and consensus.
 - [ ] **Search unchanged** — exact and fuzzy queries return the same results as before.

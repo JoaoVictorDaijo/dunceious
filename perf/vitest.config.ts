@@ -19,7 +19,7 @@
 
 /**
  * Vitest config for the performance regression guardrails.
- * Run via:  npm run perf
+ * Run via:  pnpm perf
  */
 import { defineConfig } from 'vitest/config';
 import { sharedBenchConfig } from '../vitest.shared';

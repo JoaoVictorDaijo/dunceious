@@ -32,7 +32,7 @@
  *   - heap-vs-seqlength.svg       peak heap vs sequence length
  *
  * Invoked automatically from the bench suite's afterAll hook and also
- * runnable standalone via `npm run plot`.
+ * runnable standalone via `pnpm plot`.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';

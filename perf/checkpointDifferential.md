@@ -98,6 +98,6 @@ The engine's CI differential property uses 32 deterministic seeds and compares
 up to 128 alignments per stream. A longer run can select another seed count:
 
 ```sh
-LOCAL_CHECKPOINT_SEEDS=512 rtk proxy npx vitest run \
+LOCAL_CHECKPOINT_SEEDS=512 rtk proxy pnpm exec vitest run \
   src/core/search/local/__tests__/checkpoints.test.ts
 ```
