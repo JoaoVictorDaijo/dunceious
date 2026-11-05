@@ -8,7 +8,7 @@ and gap removal. It is outside CI. Run it from the repository root:
 LOCAL_CHECKPOINT_CASES=/path/to/cases.json \
 LOCAL_CHECKPOINT_SUMMARY=/path/to/summary.json \
 rtk proxy node --expose-gc node_modules/.bin/vitest run \
-  --config perf/vitest.config.ts perf/checkpointDifferential.perf.ts --maxWorkers=25%
+  --config perf/vitest.config.ts perf/checkpointDifferential.perf.ts
 ```
 
 The output directory must exist. The summary cannot overwrite the manifest or
@@ -18,7 +18,7 @@ the synthetic self-tests still run. To exercise only the self-tests:
 
 ```sh
 rtk proxy node --expose-gc node_modules/.bin/vitest run \
-  --config perf/vitest.config.ts perf/checkpointDifferential.perf.ts --maxWorkers=25% -t synthetic
+  --config perf/vitest.config.ts perf/checkpointDifferential.perf.ts -t synthetic
 ```
 
 ## Manifest
@@ -99,5 +99,5 @@ up to 128 alignments per stream. A longer run can select another seed count:
 
 ```sh
 LOCAL_CHECKPOINT_SEEDS=512 rtk proxy npx vitest run \
-  src/core/search/local/__tests__/checkpoints.test.ts --maxWorkers=25%
+  src/core/search/local/__tests__/checkpoints.test.ts
 ```
