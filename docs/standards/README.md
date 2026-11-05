@@ -156,7 +156,7 @@ populations, format routing, overflow, interpolation, performance claims and bio
 - Add or change a rule with its supporting evidence and update the table above. A documentation-only
   coverage update may record an existing deviation or open decision without changing application code.
 - Re-run the [conformance fixture](conformance/README.md) when a reference tool version changes.
-- Run `npm run standards:fetch` to download the pinned documents into `.cache/standards/` and
+- Run `pnpm standards:fetch` to download the pinned documents into `.cache/standards/` and
   check their checksums. It reports three different things:
   - `FAIL … checksum`: a pinned document no longer matches. Re-read it, then update the version,
     checksum and any affected rule together.

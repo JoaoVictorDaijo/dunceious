@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -19,7 +20,7 @@
 
 /**
  * Vitest config for the GenBank parse-time data-collection grid.
- * Run via:  npm run bench   (and npm run plot to regenerate SVGs)
+ * Run via:  pnpm bench   (and pnpm plot to regenerate SVGs)
  */
 import { defineConfig } from 'vitest/config';
 import { sharedBenchConfig } from '../vitest.shared';

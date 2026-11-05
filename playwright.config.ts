@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -31,6 +32,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
     trace: 'retain-on-failure',
+    // Request interception can't see what a service worker answers; e2e/fixtures.ts relies on this.
+    serviceWorkers: 'block',
   },
   projects: [
     {
@@ -45,7 +48,7 @@ export default defineConfig({
     { name: 'webkit', use: { browserName: 'webkit' } },
   ],
   webServer: {
-    command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
+    command: 'pnpm preview --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: false,
   },

@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -22,7 +23,7 @@
  *
  * ## How to run
  *
- *   npm run perf           # runs with --expose-gc (GC-aware memory sampling)
+ *   pnpm perf           # runs with --expose-gc (GC-aware memory sampling)
  *
  * The "2-D grid" here is the aligned genomic sequence viewer where
  *   columns = aligned nucleotide positions (up to the full alignment length)

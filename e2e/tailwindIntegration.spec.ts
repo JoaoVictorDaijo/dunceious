@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -18,7 +19,7 @@
  */
 
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test('current-develop gap notice retains its backdrop, visible-sibling spacing and focus', async ({ page }) => {
   await page.goto('/?shell=desktop');

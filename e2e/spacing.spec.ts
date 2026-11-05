@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -17,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from './fixtures';
 
 async function settled(page: Page) {
   await page.evaluate(() => document.fonts.ready);

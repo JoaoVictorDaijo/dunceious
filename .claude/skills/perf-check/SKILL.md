@@ -1,6 +1,6 @@
 ---
 name: perf-check
-description: Run the assertion-based performance regression guard (npm run perf) on core algorithms and interpret pass/fail against pinned p95 + scaling budgets. GC-aware, console-only, not a CI gate. Heavy; run deliberately. Separate from /bench-check.
+description: Run the assertion-based performance regression guard (pnpm perf) on core algorithms and interpret pass/fail against pinned p95 + scaling budgets. GC-aware, console-only, not a CI gate. Heavy; run deliberately. Separate from /bench-check.
 disable-model-invocation: true
 ---
 
@@ -26,7 +26,7 @@ After changes to core search/bio/genbank algorithms or the domain grid math —
 ## Run
 
 ```bash
-npm run perf
+pnpm perf
 ```
 
 ## Interpret

@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -32,7 +33,7 @@
  *   - heap-vs-seqlength.svg       peak heap vs sequence length
  *
  * Invoked automatically from the bench suite's afterAll hook and also
- * runnable standalone via `npm run plot`.
+ * runnable standalone via `pnpm plot`.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';

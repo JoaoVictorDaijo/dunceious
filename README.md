@@ -40,27 +40,27 @@ Example files to try are in [`examples/`](./examples/README.md).
 
 ## Run it locally
 
-You only need this to run it yourself and work offline. Install [Node.js](https://nodejs.org/) 20.19+ or 22.12+ (for example with [nvm](https://github.com/nvm-sh/nvm)), then:
+You only need this to run it yourself and work offline. Install [pnpm](https://pnpm.io/installation) (any recent version; it switches to the one the project pins). `pnpm install` also downloads the Node version the project runs on, so the Node on your machine doesn't matter. Then:
 
 ```bash
 git clone https://github.com/JoaoVictorDaijo/dunceious.git
 cd dunceious
-npm ci
-npm run dev       # http://localhost:3000
+pnpm install
+pnpm dev       # http://localhost:3000
 ```
 
-`npm run build` makes a production build in `dist/`. Tests, benchmarks and other scripts are listed in [`package.json`](./package.json).
+`pnpm build` makes a production build in `dist/`. Tests, benchmarks and other scripts are listed in [`package.json`](./package.json).
 
 ## Contributing
 
 Open pull requests against `develop`; `main` is what gets deployed. Before pushing, run:
 
 ```bash
-npm run typecheck && npm run lint && npm test && npm run build && npm run lint:headers
+pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm lint:headers
 ```
 
 Source files need the AGPL header (`node scripts/check-license-headers.mjs --fix` adds it). Releases are described in [CLAUDE.md](./CLAUDE.md#versioning--releases).
 
 ## License
 
-[AGPL-3.0-or-later](./COPYING). The DNA mark is the Font Awesome Free `fa-dna` icon ([CC BY 4.0](https://fontawesome.com/license/free)); the banner lettering is set in [Inter](https://github.com/rsms/inter) ([SIL OFL 1.1](https://openfontlicense.org)).
+[AGPL-3.0-or-later](./COPYING). Production builds carry the license as `COPYING.txt` and the bundled dependencies' licenses as `THIRD_PARTY_NOTICES.txt`. The DNA mark is the Font Awesome Free `fa-dna` icon ([CC BY 4.0](https://fontawesome.com/license/free)); the banner lettering is set in [Inter](https://github.com/rsms/inter) ([SIL OFL 1.1](https://openfontlicense.org)).

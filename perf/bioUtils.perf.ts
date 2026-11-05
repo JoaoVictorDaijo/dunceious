@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -22,7 +23,7 @@
  *
  * ## How to run
  *
- *   npm run perf           # runs with --expose-gc (GC-aware memory sampling)
+ *   pnpm perf           # runs with --expose-gc (GC-aware memory sampling)
  *
  * Covers three resources from services/bioUtils.ts:
  *   - translateSequence      – codon-by-codon protein translation

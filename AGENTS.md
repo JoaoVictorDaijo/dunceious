@@ -49,7 +49,7 @@ One canonical home per type: model types in `src/domain/bio/types.ts`; worker wi
 Dunceious is **AGPL-3.0-or-later**. Every covered source file (`.ts .tsx .js .mjs .cjs .css`,
 `.html .svg`, `.py .yml .yaml .sh`, `.gitignore`) MUST begin with the project's AGPL header (copy
 it from any existing source file, e.g. `vite.config.ts`). `.md`, `.json`, and binary assets are
-exempt. `npm run lint:headers` enforces this in CI; auto-insert with
+exempt. `pnpm lint:headers` enforces this in CI; auto-insert with
 `node scripts/check-license-headers.mjs --fix`. See [`CLAUDE.md`](CLAUDE.md) for the full rule.
 
 ## Pushes and Cloudflare Pages builds
@@ -64,7 +64,10 @@ reference tool are required. See [`CLAUDE.md`](CLAUDE.md#issues).
 
 ## Before you claim done
 
-`npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` · `npm run lint:headers` — all green.
+Use pnpm, never npm or npx: pnpm runs every script on the Node pinned in `devEngines.runtime`. See
+[`CLAUDE.md`](CLAUDE.md#toolchain-pnpm-and-the-pinned-node).
+
+`pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm build` · `pnpm lint:headers` — all green.
 
 ## Project documents
 

@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -18,7 +19,7 @@
  */
 
 import { readFileSync, mkdirSync } from 'node:fs';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 const genbank = readFileSync('examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'utf8');
 const genome = genbank.slice(genbank.indexOf('\nORIGIN') + 7).replace(/[^acgt]/gi, '').toUpperCase();

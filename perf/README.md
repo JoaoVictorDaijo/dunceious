@@ -17,7 +17,7 @@ Console output only — no artifacts, not a CI gate.
 ## Run
 
 ```bash
-npm run perf
+pnpm perf
 ```
 
 Runs with `--expose-gc` so memory assertions are meaningful. See

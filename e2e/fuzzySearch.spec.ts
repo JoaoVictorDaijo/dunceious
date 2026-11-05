@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -18,7 +19,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 
 const GENOME_FILE = 'examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb';
 const genbank = readFileSync(GENOME_FILE, 'utf8');

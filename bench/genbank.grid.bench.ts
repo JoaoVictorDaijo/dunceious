@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -25,7 +26,7 @@
  *
  *   - seqLength_bp ∈ [5 000, 10 000, 50 000, 100 000, 200 000, 300 000]
  *   - numRecords   ∈ [1, 10, 30, 50] by default, or a custom list passed via
- *                   `npm run bench -- 1 10 30 50 100`
+ *                   `pnpm bench 1 10 30 50 100`
  *
  * Each cell is run `REPLICATES` times and reduced to mean / standard error.
  * Raw samples are also persisted so the plotter can render uncertainty.
@@ -36,7 +37,7 @@
  * JSON to `bench/results/benchmark.json` at the end of the run.
  *
  * Run with:
- *   npm run bench
+ *   pnpm bench
  */
 
 import { describe, it, afterAll, expect } from 'vitest';

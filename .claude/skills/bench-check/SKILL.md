@@ -1,6 +1,6 @@
 ---
 name: bench-check
-description: Run the GenBank parse-time benchmark grid (npm run bench / plot) and interpret the results — exploratory time/memory data collection across sequence-length × record-count, not a pass/fail gate. Heavy; run deliberately. Separate from /perf-check.
+description: Run the GenBank parse-time benchmark grid (pnpm bench / plot) and interpret the results — exploratory time/memory data collection across sequence-length × record-count, not a pass/fail gate. Heavy; run deliberately. Separate from /perf-check.
 disable-model-invocation: true
 ---
 
@@ -26,9 +26,9 @@ budget (that is `/perf-check`).
 ## Run
 
 ```bash
-npm run bench              # full grid, default record counts [1, 10, 30, 50]
-npm run bench -- 1 10 100  # custom record counts
-npm run plot               # re-render SVGs from an existing results file
+pnpm bench              # full grid, default record counts [1, 10, 30, 50]
+pnpm bench 1 10 100  # custom record counts
+pnpm plot               # re-render SVGs from an existing results file
 ```
 
 Output (git-ignored): `bench/results/benchmark.json` and `bench/plots/*.svg`.

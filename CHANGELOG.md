@@ -22,6 +22,21 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [4.0.1] — 2026-11-05
+
+### Changed
+
+- Fail any browser regression that requests another origin or opens a WebSocket, and block service workers during browser tests.
+- Switch the toolchain to pnpm and pin Node 22.23.4, which pnpm downloads and runs every script on, so tests no longer depend on the machine's Node.
+
+### Fixed
+
+- Ship COPYING.txt and THIRD_PARTY_NOTICES.txt with every build, carrying the full license and notice texts of the bundled packages, and name the copyright holders in the source headers and the footer.
+
+### Security
+
+- Patch the jsdom test dependency to Undici 7.30.1.
+
 ## [4.0.0] — 2026-11-03
 
 ### Added

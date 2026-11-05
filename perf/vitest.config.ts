@@ -1,5 +1,6 @@
 /*
  * Dunceious
+ * Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
  *
  * This file is part of Dunceious.
  *
@@ -19,7 +20,7 @@
 
 /**
  * Vitest config for the performance regression guardrails.
- * Run via:  npm run perf
+ * Run via:  pnpm perf
  */
 import { defineConfig } from 'vitest/config';
 import { sharedBenchConfig } from '../vitest.shared';

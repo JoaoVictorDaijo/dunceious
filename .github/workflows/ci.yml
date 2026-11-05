@@ -1,5 +1,6 @@
 #
 # Dunceious
+# Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
 #
 # This file is part of Dunceious.
 #
@@ -65,8 +66,8 @@ jobs:
           const documentation = p => p.endsWith('.md')
             && (!p.includes('/') || p.startsWith('docs/') || p.startsWith('changes/') || p === 'e2e/README.md');
           const docsOnly = paths.length > 0 && paths.every(documentation);
-          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-          const version = lock.packages['node_modules/@playwright/test']?.version;
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          const version = lock.match(/^      '@playwright\/test':\n        specifier: .+\n        version: (\S+)$/m)?.[1];
           if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error(`Unexpected Playwright version: ${JSON.stringify(version)}`);
           console.log(`${paths.length} changed path(s); docs only: ${docsOnly}; Playwright ${version}`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `docs_only=${docsOnly}\nplaywright_version=${version}\n`);
@@ -79,28 +80,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # Each gate runs even if an earlier one fails, so a single CI run
       # surfaces every failure at once. The job still fails if any gate fails.
       - name: Type-check
         if: ${{ !cancelled() }}
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Lint
         if: ${{ !cancelled() }}
-        run: npm run lint
+        run: pnpm lint
 
       - name: License headers
         if: ${{ !cancelled() }}
-        run: npm run lint:headers
+        run: pnpm lint:headers
 
   test:
     needs: changes
@@ -111,18 +115,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # No worker cap: the runner is a dedicated VM, unlike a shared dev machine.
       - name: Test
-        run: npm run test:coverage
+        run: pnpm test:coverage
 
   # The official Playwright image ships Chromium, Firefox, WebKit and their system libraries, so
   # no apt install runs here (it stalled for ~10 minutes on some runs). The tag
@@ -146,18 +153,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The image bundles a different Node; keep the version the other jobs use.
+      # The image bundles a different Node; keep the pinned one the other jobs use.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm build
 
       # The job runs as root, but HOME is /github/home, owned by the image's pwuser;
       # Firefox refuses to start under another user's HOME.
@@ -165,7 +175,7 @@ jobs:
         timeout-minutes: 8
         env:
           HOME: /root
-        run: npm run test:e2e:run -- --project=${{ matrix.project }}
+        run: pnpm test:e2e:run --project=${{ matrix.project }}
 
       - name: Upload browser failure results
         if: ${{ failure() }}
@@ -205,7 +215,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       - name: Fetch base branch
         env:
@@ -230,7 +240,7 @@ jobs:
             const [a, b] = [parse(head), parse(base)];
             const cmp = a.map((x, i) => x - (b[i] || 0)).find(d => d !== 0) || 0;
             if (cmp > 0) { console.log("Version increased."); process.exit(0); }
-            console.log("::error::Version must strictly increase on a develop->main promotion. Bump package.json (npm run version:{patch,minor,major}) and update CHANGELOG.md — see CLAUDE.md > Versioning & releases.");
+            console.log("::error::Version must strictly increase on a develop->main promotion. Bump package.json (pnpm version:{patch,minor,major}) and update CHANGELOG.md — see CLAUDE.md > Versioning & releases.");
             process.exit(1);
           '
 

@@ -40,7 +40,30 @@ governs each sequence operation (INSDC Feature Table, NCBI genetic codes, IUPAC 
 SAM, BED, …), at which version, and how the reference tools behave. Read the relevant rule before
 changing such an operation, and follow its order of authority: the standard's text first, then
 the recorded rules, then documented practice of the reference tools and major applications. When
-none settles a case, stop and ask. `npm run standards:fetch` downloads the pinned documents.
+none settles a case, stop and ask. `pnpm standards:fetch` downloads the pinned documents.
+
+## Toolchain: pnpm and the pinned Node
+
+Use **pnpm** (`packageManager` in `package.json` selects 11.7.0; a pnpm already on PATH
+switches to it). Do not use npm or npx here, and don't run a tool from
+`node_modules/.bin` directly.
+
+The Node version is pinned in `devEngines.runtime` (`package.json`): `pnpm install`
+downloads that Node into pnpm's store, and every pnpm script and `pnpm exec` runs on it,
+whatever Node is on PATH. Run tests as `pnpm test`, `pnpm test:coverage` or
+`pnpm exec vitest run <file>`. A Vitest run started on another Node (`npx vitest`, a newer
+system Node) stops in its global setup and names the expected version. A newer Node
+breaks the jsdom tests: Node 25+ defines its own `localStorage`, which shadows jsdom's.
+
+`.nvmrc` holds the same version for CI's `setup-node` and for Cloudflare Pages;
+`scripts/__tests__/node-pin.test.ts` fails when `.nvmrc`, `devEngines.runtime` and the
+workflows disagree. To change the Node version, edit both `.nvmrc` and
+`devEngines.runtime`, then run `pnpm install`, which records the runtime's checksums in
+`pnpm-lock.yaml`. `pnpm store prune` removes runtimes no checkout uses anymore.
+
+pnpm forwards a literal `--` to the script, so pass arguments directly:
+`pnpm test:e2e:run --project=firefox`, `pnpm changelog:release X.Y.Z`. A dependency's
+install script runs only when `allowBuilds` in `pnpm-workspace.yaml` lists it as `true`.
 
 ## Project documents
 
@@ -104,7 +127,8 @@ already fixed on `develop` with a comment naming the PR that fixed it.
 
 Dunceious is **AGPL-3.0-or-later**. **Every covered source file MUST begin with the
 project's AGPL license header.** Copy the exact text from any existing source file
-(e.g. `vite.config.ts`).
+(e.g. `vite.config.ts`). The header names the copyright holders on its second line; the
+checker fails a header without that line.
 
 - **Covered** (must have the header):
   - `.ts .tsx .js .mjs .cjs .css` → block comment `/* … */`
@@ -118,7 +142,7 @@ project's AGPL license header.** Copy the exact text from any existing source fi
   is produced by `scripts/gen-brand-assets.py`, which writes the header into its output.
   Do not hand-edit generated files; they get overwritten.
 
-**Enforcement:** `npm run lint:headers` runs in CI and fails on any missing header.
+**Enforcement:** `pnpm lint:headers` runs in CI and fails on any missing header.
 Auto-insert missing headers with:
 
 ```bash
@@ -127,7 +151,7 @@ node scripts/check-license-headers.mjs --fix
 
 When you create **any** new covered file, add the header (or run `--fix`) before committing.
 
-The ESLint warning ceiling in `npm run lint` only goes down; never raise it.
+The ESLint warning ceiling in `pnpm lint` only goes down; never raise it.
 
 ## Versioning & releases
 
@@ -176,8 +200,8 @@ Each PR adds one `changes/unreleased/<short-slug>.md` fragment; see
 1. Decide the bump from commits since the last release tag:
      git log "$(git tag --list 'v*' --sort=-v:refname | head -1)"..develop --no-merges --format='%s'
 2. On develop, bump package.json + lock (no tag) and assemble the changelog:
-     npm run version:minor      # or version:patch / version:major
-     npm run changelog:release -- X.Y.Z  # optional second argument: YYYY-MM-DD
+     pnpm version:minor      # or version:patch / version:major
+     pnpm changelog:release X.Y.Z  # optional second argument: YYYY-MM-DD
    Commit: chore(release): vX.Y.Z  — include CHANGELOG.md and fragment deletions
 3. Open the develop → main promotion PR; CI must be green.
 4. After merge, the Release tag workflow tags the MAIN merge commit vX.Y.Z.
