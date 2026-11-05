@@ -22,7 +22,7 @@ Geneious Prime, SnapGene and CLC offer genetic-code selectors; whether they read
 is unknown.
 
 **Dunceious.** Conforms. Computed translation uses all 27 NCBI tables, generated from gc.prt 4.6
-(`src/domain/bio/geneticCodes.ts`, by `npm run standards:genetic-codes` from the pinned copy) and
+(`src/domain/bio/geneticCodes.ts`, by `pnpm standards:genetic-codes` from the pinned copy) and
 tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
 that is not an NCBI code is never replaced by table 1: no residue or stop is claimed (`?`), and
 the feature's tooltip and its translation band say the code is not an NCBI genetic code. An empty

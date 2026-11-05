@@ -31,6 +31,6 @@ domain  ←  core  ←  workers/handlers  ←  app
 
 ## Non-negotiables
 
-- **License headers:** every covered source file (`.ts .tsx .js .mjs .cjs .css`, plus `.html .svg .py .yml .yaml .sh`, `.gitignore`) must start with the AGPL header. `.md`/`.json`/binaries are exempt. `npm run lint:headers` enforces; auto-fix with `node scripts/check-license-headers.mjs --fix`. See the repo `CLAUDE.md`.
+- **License headers:** every covered source file (`.ts .tsx .js .mjs .cjs .css`, plus `.html .svg .py .yml .yaml .sh`, `.gitignore`) must start with the AGPL header. `.md`/`.json`/binaries are exempt. `pnpm lint:headers` enforces; auto-fix with `node scripts/check-license-headers.mjs --fix`. See the repo `CLAUDE.md`.
 - **One home per type:** model types in `src/domain/bio/types.ts`; wire contracts in `src/workers/protocol.ts`. Never add a duplicate `SearchResult` / `SearchOptions` / FASTA-record shape.
-- **Green after every change:** `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`.
+- **Green after every change:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.

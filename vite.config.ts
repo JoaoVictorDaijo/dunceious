@@ -111,7 +111,7 @@ export default defineConfig(() => {
   // Single source of truth for the app version: read from package.json and
   // injected as the `__APP_VERSION__` global so every UI/provenance string reads
   // one value. Applies to the build and (via this shared config) the tests.
-  // Bump with `npm version`.
+  // Bump with `pnpm version:patch` (or minor/major).
   const pkg = JSON.parse(
     readFileSync(path.resolve(ROOT, "package.json"), "utf-8"),
   ) as { version: string };
@@ -139,6 +139,8 @@ export default defineConfig(() => {
     },
     test: {
       environment: "node",
+      // Stops a run on any Node but devEngines.runtime, which pnpm provides.
+      globalSetup: ["./scripts/assert-pinned-node.mjs"],
       // Whole-app and whole-showroom UI tests take 3–6 s when CI workers share the
       // CPU, past Vitest's 5 s default; 15 s still fails a hung test quickly.
       testTimeout: 15_000,

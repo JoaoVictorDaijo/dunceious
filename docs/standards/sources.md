@@ -2,7 +2,7 @@
 
 The standards and documented reference practices behind the rules in this folder.
 [`sources.json`](sources.json) holds the fetchable standard pins with download URLs and SHA-256
-checksums; the cite-only references below record versions or dated observations separately. Run `npm run standards:fetch` to download the pinned copies into `.cache/standards/`
+checksums; the cite-only references below record versions or dated observations separately. Run `pnpm standards:fetch` to download the pinned copies into `.cache/standards/`
 and check them. Retrieved 2026-10-22.
 
 | ID | Document | Pinned version | Copy |

@@ -37,7 +37,7 @@ function saveMeasurements() {
   writeFileSync('/tmp/ls-phase4-performance.json', JSON.stringify({ cpus: availableParallelism(), meminfo: readFileSync('/proc/meminfo', 'utf8').split('\n').slice(0, 3), measurements }, null, 2));
 }
 beforeAll(async () => {
-  server = spawn('rtk', ['proxy', 'npm', 'run', 'preview', '--', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], { detached: true, stdio: 'ignore' });
+  server = spawn('rtk', ['proxy', 'pnpm', 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], { detached: true, stdio: 'ignore' });
   for (let attempt = 0; ; attempt++) {
     if (server.exitCode !== null) throw new Error(`Performance preview exited: ${server.exitCode}`);
     const listening = await fetch('http://127.0.0.1:4173').then(response => response.ok, () => false);

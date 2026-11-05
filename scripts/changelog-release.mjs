@@ -24,7 +24,7 @@ const types = ['Added', 'Changed', 'Fixed', 'Removed', 'Security'];
 
 function release(args) {
   if (args.length < 1 || args.length > 2) {
-    throw new Error('Usage: npm run changelog:release -- <version> [YYYY-MM-DD]');
+    throw new Error('Usage: pnpm changelog:release <version> [YYYY-MM-DD]');
   }
   const [version, date = new Date().toISOString().slice(0, 10)] = args;
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
