@@ -127,7 +127,8 @@ already fixed on `develop` with a comment naming the PR that fixed it.
 
 Dunceious is **AGPL-3.0-or-later**. **Every covered source file MUST begin with the
 project's AGPL license header.** Copy the exact text from any existing source file
-(e.g. `vite.config.ts`).
+(e.g. `vite.config.ts`). The header names the copyright holders on its second line; the
+checker fails a header without that line.
 
 - **Covered** (must have the header):
   - `.ts .tsx .js .mjs .cjs .css` → block comment `/* … */`

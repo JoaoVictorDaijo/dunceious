@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Dunceious
+# Copyright (C) 2026 João Victor Daijo and Murilo Cassiano
 #
 # This file is part of Dunceious.
 #
