@@ -7,7 +7,7 @@ Dunceious stands. Cite a rule by its ID (for example `LOC-2`) in code comments, 
 Coverage and code references checked: 2026-10-23, against `develop` at f5a6ad2 (v3.7.3).
 Existing conformance evidence retains its recorded fixture/tool scope; the coverage update is a
 static code/document comparison, not a new runtime conformance run. Tool survey
-([Tools](tools.md), data in [`tools.json`](tools.json)): 2026-10-23.
+([Tools](tools.md); its dataset is kept outside the repository): 2026-10-23.
 
 ## Order of authority
 

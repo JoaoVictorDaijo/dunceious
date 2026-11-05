@@ -5,12 +5,13 @@ industry practice where a standard is silent (step 3 of the [order of authority]
 A tool's format support is not evidence that it implements the format's semantics correctly,
 and adoption counts never select a scientific rule.
 
-**The data lives in [`tools.json`](tools.json):** one record per tool with release, lifecycle,
-adoption evidence, formats, the rule IDs assessed by that dated survey (plus feature extraction), known
-deviations and numbered sources. [`tool-counts.json`](tool-counts.json) holds the per-operation
-counts. This page summarises them. Evidence ledgers: [first survey](survey/2026-10-22-first-survey.md)
-(2026-10-22), [tool survey](survey/2026-10-23-tools-survey.md) and [cohort](survey/2026-10-23-cohort.md)
-(2026-10-23). Both surveys were independently re-verified before commit.
+**The survey dataset is kept outside the repository.** This page summarises it: one record per
+tool with release, lifecycle, adoption evidence, formats, the rule IDs assessed by that dated survey
+(plus feature extraction), known deviations and numbered sources; the per-operation counts; and the
+evidence ledgers of the first survey (2026-10-22), the tool survey and the cohort (2026-10-23). Both
+surveys were independently re-verified before commit. The last commit holding the dataset
+(`tools.json`, `tool-counts.json`, `survey/`) is
+[`5058424`](https://github.com/JoaoVictorDaijo/dunceious/tree/50584245388d3fcfbe70b116c126c85683c5e1e0/docs/standards).
 
 ## How tools were chosen
 
@@ -18,7 +19,7 @@ These are the owner's rulings for this survey; keep them when updating it.
 
 - **Discovery is neutral:** the ELIXIR bio.tools registry (sequence visualisation, editing and
   annotation operations) and peer-reviewed reviews of genome browsers and plasmid editors, plus
-  the earlier cohort. Queries and dates are in the cohort ledger.
+  the earlier cohort. Queries and dates are in the dataset's cohort ledger.
 - **Adoption means current use:** citations of the tool's primary paper from papers published
   2024–2026 (Europe PMC), next to the all-time count. Where a tool has several papers, the one
   with the most recent citations represents it. Commercial tools without a paper use the
@@ -179,6 +180,6 @@ R = reads, W = writes, RW = both, no = explicitly unsupported, ? = not documente
 
 ## Updating
 
-Re-run the citation queries stored in each record (`adoption.query_url`), keep the rulings
-above, and re-verify independently before committing. Change `tools.json` and
-`tool-counts.json` first; then update this page from them.
+Update the dataset first: re-run the citation queries stored in each record
+(`adoption.query_url`), keep the rulings above, and re-verify independently. Then update this page
+from it, with the new survey date.
