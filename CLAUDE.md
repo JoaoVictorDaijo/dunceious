@@ -16,6 +16,9 @@ import and export) must meet this bar. It outranks speed, convenience and visual
   source before relying on it: a widely used reference implementation (EMBOSS, NCBI BLAST, edlib,
   SSW), its documentation or source code, or a standard specification (SAM, INSDC). These
   implementations settle a method; there's no need to track down or re-derive the original paper.
+  When a recorded rule or a test can't settle a case, or a reference tool disagrees with it,
+  settle it with the oracle: read the reference implementation's source at the branch that
+  decides it, or run the reference tool, and cite the file and commit or the tool version.
   Say what you could not verify.
 - **Match the effort to the risk.** Full rigor applies to what produces or shows a scientific
   result. Plumbing, interface chrome and refactors that leave results unchanged follow the normal
