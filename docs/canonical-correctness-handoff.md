@@ -1,6 +1,6 @@
 # Canonical-correctness audit: handoff
 
-This file lets the audit in [#284](https://github.com/JoaoVictorDaijo/dunceious/pull/284) resume on another computer without the original session. It is the entry point, and its [appendix](#appendix-the-audit-library) holds the text of the audit's local library.
+A new agent does the audit's work in [#284](https://github.com/JoaoVictorDaijo/dunceious/pull/284), and this file is where it starts. It holds the resume guide and what the audit has found so far, and its [appendix](#appendix-the-audit-library) holds the text of the audit's local library.
 
 > [!IMPORTANT]
 > **Delete this file in the last commit before #284 merges.** The project's `CLAUDE.md` (§ Project documents) keeps handoffs untracked. The owner asked for this one to be tracked on 2026-11-05, and only while #284 is open.
@@ -24,9 +24,10 @@ The orchestrator plans, dispatches and verifies. It owns the index, the ledger a
 
 ## How work lands: #284 is the audit
 
-Owner's instruction, 2026-11-05: **#284 is the audit's actual work.** It stays an open draft into `develop`, on branch `docs/standards-oracle-audit`. Its findings, fixture tests, rule updates in `docs/standards/` and fixes all land on this branch. This replaces the older "one PR per module into `develop`" lines in the original orchestrator handoff (appendix, `handoff.md`). The worker procedure and the briefs already follow the new model.
+Owner's instruction, 2026-11-05: **#284 is the audit's actual work.** The tasks split out on 2026-11-05 are done in it: the four v4.0.0-batch briefs, then the other modules. It stays a draft into `develop`, on branch `docs/standards-oracle-audit`, until that work is done, and **then the owner merges it**. Its findings, fixture tests, rule updates in `docs/standards/` and fixes all land on this branch. This replaces the older "one PR per module into `develop`" lines in the original orchestrator handoff (appendix, `handoff.md`). The worker procedure and the briefs already follow the new model.
 
 - **Workers:** each worker gets a module branch cut from `docs/standards-oracle-audit`. After its cross-check and regression guard, the orchestrator merges the branch into `docs/standards-oracle-audit` with a merge commit and pushes. #284's CI must then be green. Workers open no PRs of their own.
+- **Merging:** the owner merges #284 into `develop` once the audit's work is done. Module branches merge into `docs/standards-oracle-audit` with merge commits. Promotions to `main` follow the release checklist in `CLAUDE.md`.
 - **Keep it current:** when `develop` moves, merge `origin/develop` into the branch with a merge commit. Never rebase it.
 - **Commits:** Conventional Commits, each carrying `[CF-Pages-Skip]`.
 - **PR description:** update the title and description as findings land, giving the defect, the oracle and its version, and the test.
@@ -39,7 +40,7 @@ Owner's instruction, 2026-11-05: **#284 is the audit's actual work.** It stays a
 | Item | State |
 |---|---|
 | Phase 0: local library | Done on the original machine: the oracles below, [an index of 12 modules (M1–M12)](#indexmd), and [a ledger seeded with A1's 13 cases](#ledgermd) |
-| PR #284 | Draft into `develop`, on branch `docs/standards-oracle-audit`, pushed to origin. **Don't merge it** |
+| PR #284 | Draft into `develop`, on branch `docs/standards-oracle-audit`, pushed to origin. **It merges once the audit's work is done** |
 | CLAUDE.md wording | In #284 (`626b666`), with the widened trigger ("…or a reference tool disagrees with it") |
 | Survey move-out (Option A) | **Done in #284** (`be2e9f2`), with the owner's approval on 2026-11-05. `survey/`, `tools.json` and `tool-counts.json` are out of the tree, and `tools.md` links the last commit that holds them (`5058424`). Local copies are in `.code/keep/canonical-correctness/reference/` on the original machine |
 | History rewrite (Option B) | Commands and rollback are in the appendix (`proposals/move-out.md`). **Not recommended** (see decision 1) |
@@ -66,9 +67,6 @@ Owner's instruction, 2026-11-05: **#284 is the audit's actual work.** It stays a
    - the widened variant that #284 carries now.
 3. **UCSC `bedToBigBed`/`validateFiles` for M7.** Their licence allows only non-commercial use.
 4. **Jalview for METRIC-5.** This matters only once #254 is decided.
-5. **Merges.** **Never merge #284.** The owner decides when it goes to `develop`, and this file is deleted before then.
-   - Module branches merge into `docs/standards-oracle-audit` with merge commits.
-   - Promotions to `main` follow the release checklist in `CLAUDE.md`.
 
 ## Resume steps
 
@@ -94,7 +92,7 @@ Owner's instruction, 2026-11-05: **#284 is the audit's actual work.** It stays a
    - The last line replaces the original machine's path in the briefs and the procedure.
    - Then rebuild `oracles/` (below) and A1's run folder (below).
 3. Get the owner's answers to [the decisions above](#owner-decisions-waiting).
-4. Dispatch the four v4.0.0-batch workers as side sessions the owner can watch: a task chip, or `start_session` when the app offers it, but never the Agent tool's background `fork`. Each one branches from `docs/standards-oracle-audit`. Then work through Phase 1 step 2 by risk: M1 → M2 → M4/M5/M6 → M8/M9 → M10 → M11, then M3, M7 and M12.
+4. Do the four tasks split out on 2026-11-05, the v4.0.0 batch: one worker per brief in the appendix, as side sessions the owner can watch: a task chip, or `start_session` when the app offers it, but never the Agent tool's background `fork`. Each one branches from `docs/standards-oracle-audit`. Then work through Phase 1 step 2 by risk: M1 → M2 → M4/M5/M6 → M8/M9 → M10 → M11, then M3, M7 and M12.
 5. Merge each worker's branch into `docs/standards-oracle-audit`, and its `runs/<module>/ledger.md` into `ledger.md`. Relay worker questions as quotes, and keep the GitHub footprint to #284 itself.
 
 ## Rebuild the oracles (Linux x86-64)
@@ -665,7 +663,7 @@ table) and each oracle's `$LIB/oracles/<tool>/run.md` before running it.
 
 1. Your worktree may start from a stale branch. Before anything else, with no changes of your own:
    `git fetch origin && git switch -C <branch> origin/docs/standards-oracle-audit`, the branch of the
-   working PR #284 (owner, 2026-11-05: the audit's work lands there; #284 stays open and unmerged).
+   working PR #284 (owner, 2026-11-05: the audit's work lands there, and #284 merges once it is done).
    Name your module branch in the repo's style
    (`fix/<module>-<topic>`, `test/<…>`, `docs/<…>`); never `claude/*`, `agent-*` or a provider name.
 2. Read, from that checkout: `CLAUDE.md` § Scientific rigor, § Sequence standards, § Issues,
@@ -741,7 +739,8 @@ not verify, and the branch and commit SHAs. Then end your turn saying so.
 - Any oracle needing a login, a licence or a system install.
 - Removing anything tracked, editing CLAUDE.md, or any GitHub post (PRs, issues, comments): the
   orchestrator owns #284 and files an issue only when the owner agrees.
-- Merging: never merge anything into `develop` or `main`, and never merge #284.
+- Merging: never merge anything into `develop` or `main`, and never merge #284: the owner merges it
+  once the audit's work is done.
 `````
 
 </details>
