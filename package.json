@@ -4,6 +4,7 @@
   "version": "4.0.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
+  "packageManager": "npm@10.9.9",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
