@@ -64,6 +64,43 @@ const INDEL_FILL = '#475569';
 const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined) =>
   comparisonStyle(char, comparison?.referenceSeq[column], comparison);
 
+interface AssumedHoverSpan {
+  key: string;
+  order: number;
+  start: number;
+  end: number;
+  feature: BioFeature;
+  frame: 0 | 1 | 2;
+  codon: string;
+  residue: string;
+  codeSensitive: boolean;
+}
+
+interface AssumedHoverNode {
+  span: AssumedHoverSpan;
+  maxEnd: number;
+  left: AssumedHoverNode | null;
+  right: AssumedHoverNode | null;
+}
+
+function indexAssumedHovers(spans: AssumedHoverSpan[], from = 0, to = spans.length): AssumedHoverNode | null {
+  if (from >= to) return null;
+  const middle = Math.floor((from + to) / 2);
+  const span = spans[middle];
+  const left = indexAssumedHovers(spans, from, middle);
+  const right = indexAssumedHovers(spans, middle + 1, to);
+  return { span, left, right, maxEnd: Math.max(span.end, left?.maxEnd ?? 0, right?.maxEnd ?? 0) };
+}
+
+// Max-end pruning retains split/joined codons without scanning offscreen pieces on every pan.
+function visibleAssumedHovers(node: AssumedHoverNode | null, start: number, end: number, result: AssumedHoverSpan[] = []): AssumedHoverSpan[] {
+  if (!node || node.maxEnd <= start || end <= start) return result;
+  visibleAssumedHovers(node.left, start, end, result);
+  if (node.span.start >= end) return result;
+  if (node.span.end > start) result.push(node.span);
+  return visibleAssumedHovers(node.right, start, end, result);
+}
+
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, record, completedSearch, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx, comparison
@@ -107,6 +144,27 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   // Frames and frameshifts are read in biological bases, so an alignment gap
   // between two codons is neither a frame change nor a skipped base.
   const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
+
+  const assumedHoverIndex = useMemo(() => {
+    const spans: AssumedHoverSpan[] = [];
+    [...assumedViews].forEach(([feature, { codingSeq, alignedIndices, assumed }], featureIndex) => {
+      for (let i = feature.translation?.length ?? 0; i < assumed.residues.length; i++) {
+        const indices = alignedIndices.slice(i * 3, i * 3 + 3);
+        const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
+        const frame = codonFrame(firstBase, feature.strand);
+        const codon = codingSeq.slice(i * 3, i * 3 + 3);
+        codonSpans(indices, originalPositions).forEach((piece, pieceIndex) => spans.push({
+          ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, order: spans.length, feature, frame, codon,
+          residue: assumed.residues[i], codeSensitive: assumed.codeSensitive[i],
+        }));
+      }
+    });
+    spans.sort((a, b) => a.start - b.start || a.end - b.end);
+    return indexAssumedHovers(spans);
+  }, [assumedViews, originalPositions]);
+  // Keep biological tab order while querying geometry in genomic order.
+  const assumedHoverSpans = useMemo(() => visibleAssumedHovers(assumedHoverIndex, vStart, vEnd)
+    .sort((a, b) => a.order - b.order), [assumedHoverIndex, vStart, vEnd]);
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
@@ -436,27 +494,17 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
             top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
             background: 'transparent', zIndex: 1 }} />))}
-    {translationVisible && [...assumedViews].flatMap(([feature, { codingSeq, alignedIndices, assumed }], featureIndex) => {
-      const lanes = translationLanes.laneOf.get(feature);
-      if (!lanes) return [];
-      const targets: React.ReactNode[] = [];
-      for (let i = feature.translation?.length ?? 0; i < assumed.residues.length; i++) {
-        const indices = alignedIndices.slice(i * 3, i * 3 + 3);
-        const pieces = codonSpans(indices, originalPositions).filter(piece => piece.end > vStart && piece.start < vEnd);
-        if (!pieces.length) continue;
-        const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
-        const lane = lanes.get(codonFrame(firstBase, feature.strand)) ?? 0;
-        const top = feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
-        const description = assumedCodonDescription(codingSeq.slice(i * 3, i * 3 + 3), assumed.residues[i], assumed.codeSensitive[i]);
-        for (const piece of pieces) {
-          targets.push(<button key={`assumed-${featureIndex}-${i}-${piece.start}`} type="button" data-assumed-codon=""
-            aria-label={description} data-tip={description}
-            style={{ position: 'absolute', left: xScale(piece.start) - scrollX, top,
-              width: Math.max(3, xScale(piece.end) - xScale(piece.start)), height: AA_ROW_HEIGHT,
-              background: 'transparent', zIndex: 2 }} />);
-        }
-      }
-      return targets;
+    {translationVisible && assumedHoverSpans.map(span => {
+      const lanes = translationLanes.laneOf.get(span.feature);
+      if (!lanes) return null;
+      const lane = lanes.get(span.frame) ?? 0;
+      const top = span.feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
+      const description = assumedCodonDescription(span.codon, span.residue, span.codeSensitive);
+      return <button key={`assumed-${span.key}`} type="button" data-assumed-codon=""
+        aria-label={description} data-tip={description}
+        style={{ position: 'absolute', left: xScale(span.start) - scrollX, top,
+          width: Math.max(3, xScale(span.end) - xScale(span.start)), height: AA_ROW_HEIGHT,
+          background: 'transparent', zIndex: 2 }} />;
     })}
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}

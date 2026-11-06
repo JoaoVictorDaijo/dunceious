@@ -25,9 +25,9 @@ import { TrackTooltipProvider, useTrackTooltip } from '../TrackTooltip';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
 import type { BioFeature } from '@/src/domain/bio/types';
 
-function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna' }: { sequence: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein' }) {
+function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1 }: { sequence: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
   const update = useTrackTooltip();
-  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: 1, translation, metadata: { transl_table: table } };
+  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, translation, metadata: { transl_table: table, ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
   return <button onClick={() => update({ record: { id: 'r', name: 'r', sequence, moleculeType, features: [feature] }, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
 }
 
@@ -90,4 +90,22 @@ it('does not show a provisional nucleotide count on a protein record', () => {
   const text = view.getByRole('tooltip').textContent!;
   expect(text).not.toContain('if table 1');
   expect(text).not.toContain("can't verify");
+});
+
+it.each(['?', '.'] as const)('retains the unverifiable metric without assuming orientation %s', orientation => {
+  const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" orientation={orientation} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  const text = view.getByRole('tooltip').textContent!;
+  expect(text).toContain("can't verify");
+  expect(text).not.toContain('if table 1');
+  expect(text).not.toContain('Assumed table 1');
+});
+
+it('uses an explicit reverse strand for its provisional count', () => {
+  expect(oracle('TTACCACAT')).toBe('3 aa if table 1');
+  const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" orientation={-1} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  const text = view.getByRole('tooltip').textContent!;
+  expect(text).toContain("can't verify");
+  expect(text).toContain('3 aa if table 1');
 });

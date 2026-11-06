@@ -27,9 +27,10 @@ import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, 
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
-export function geneticCodeWarning(feature: BioFeature, codingSeq?: string): string | null {
+export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
   if (!CDS_ORF_TYPES.includes(feature.type) || isNcbiGeneticCode(featureTranslTable(feature))) return null;
   const prefix = `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code.`;
+  if (moleculeType === 'protein' || typeof getFeatureStrand(feature) !== 'number') return prefix;
   const stored = feature.translation;
   if (!stored) return `${prefix} Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.`;
   if (codingSeq !== undefined && stored.length < Math.floor(codingSeq.length / 3)) {

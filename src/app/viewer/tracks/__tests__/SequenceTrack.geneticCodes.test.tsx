@@ -20,7 +20,8 @@
 
 // @vitest-environment jsdom
 import * as d3 from 'd3';
-import { beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import * as cdsHelpers from '../../cds';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '../SequenceTrack';
 import { assignTranslationLanes } from '../../cds';
@@ -28,6 +29,7 @@ import type { BioFeature } from '@/src/domain/bio/types';
 
 let recorder: CanvasRecorder;
 beforeEach(() => { recorder = installCanvasRecorder(); });
+afterEach(() => { vi.restoreAllMocks(); });
 
 function props(seq: string, feature: BioFeature): SequenceTrackProps {
   return {
@@ -142,4 +144,65 @@ it.each(['CDS', 'cds', 'ORF', 'orf', 'gene'])('limits assumed codon hovers to tr
   expect(tips[2]).toContain('D or N, in every NCBI code');
   expect(tips[3]).toContain('Every reading of GCN is A in every NCBI code');
   expect(tips[4]).toContain('TGG reads W in every NCBI code');
+});
+
+it('reuses assumed codon geometry across pan and zoom, emitting only visible targets', () => {
+  const seq = 'ATGTGAGCNTGN'.repeat(12);
+  const feature: BioFeature = { type: 'CDS', name: 'long', start: 0, end: seq.length, strand: 1, metadata: { transl_table: '99' } };
+  const trackProps = { ...props(seq, feature), viewportWidth: 60 };
+  const geometry = vi.spyOn(cdsHelpers, 'codonSpans');
+  const view = render(<SequenceTrack {...trackProps} />);
+  const tips = () => [...view.container.querySelectorAll<HTMLElement>('[data-assumed-codon]')];
+  expect(tips()).toHaveLength(1);
+  expect(tips()[0].dataset.tip).toContain('ATG');
+  // Isolate hover work from the separate canvas traversal on viewport redraws.
+  HTMLCanvasElement.prototype.getContext = (() => null) as HTMLCanvasElement['getContext'];
+  geometry.mockClear();
+  view.rerender(<SequenceTrack {...trackProps} scrollX={60} />);
+  expect(tips()).toHaveLength(1);
+  expect(tips()[0].dataset.tip).toContain('TGA');
+  expect(tips()[0].style.left).toBe('0px');
+  expect(geometry).not.toHaveBeenCalled();
+  view.rerender(<SequenceTrack {...trackProps} scrollX={120} zoomLevel={40}
+    xScale={d3.scaleLinear().domain([0, seq.length]).range([0, seq.length * 40])} />);
+  expect(tips()).toHaveLength(1);
+  expect(tips()[0].dataset.tip).toContain('TGA');
+  expect(geometry).not.toHaveBeenCalled();
+});
+
+it.each([
+  { name: 'reverse', seq: 'ATGTGGGCT', strand: -1 as const, start: 0, end: 9, segments: undefined, left: 3, right: 6, codon: 'CCA' },
+  { name: 'joined codon piece', seq: 'ATCCCCTGGG', strand: 1 as const, start: 0, end: 10,
+    segments: [{ start: 0, end: 2 }, { start: 6, end: 10 }], left: 6, right: 7, codon: 'ATT' },
+  { name: 'join gap', seq: 'ATCCCCTGGG', strand: 1 as const, start: 0, end: 10,
+    segments: [{ start: 0, end: 2 }, { start: 6, end: 10 }], left: 2, right: 6, codon: undefined },
+  { name: 'circular forward start', seq: 'TGGGCT' + 'A'.repeat(24) + 'ATG', strand: 1 as const, start: 30, end: 6,
+    segments: [{ start: 30, end: 33 }, { start: 0, end: 6 }], left: 0, right: 3, codon: 'TGG' },
+  { name: 'circular reverse start', seq: 'TGGGCT' + 'A'.repeat(24) + 'ATG', strand: -1 as const, start: 30, end: 6,
+    segments: [{ start: 30, end: 33 }, { start: 0, end: 6 }], left: 0, right: 3, codon: 'CCA' },
+  { name: 'circular end', seq: 'TGGGCT' + 'A'.repeat(24) + 'ATG', strand: 1 as const, start: 30, end: 6,
+    segments: [{ start: 30, end: 33 }, { start: 0, end: 6 }], left: 30, right: 33, codon: 'ATG' },
+])('queries visible assumed targets in a $name', ({ seq, strand, start, end, segments, left, right, codon }) => {
+  const feature: BioFeature = { type: 'CDS', name: 'geometry', start, end, strand, segments, metadata: { transl_table: '99' } };
+  const view = render(<SequenceTrack {...props(seq, feature)} scrollX={left * 20} viewportWidth={(right - left) * 20} />);
+  const targets = [...view.container.querySelectorAll<HTMLElement>('[data-assumed-codon]')];
+  expect(targets).toHaveLength(codon ? 1 : 0);
+  if (codon) {
+    expect(targets[0].dataset.tip).toContain(codon);
+    expect(targets[0].dataset.tip).toContain('assuming table 1');
+    expect(targets[0].style.left).toBe('0px');
+    expect(targets[0].style.width).toBe(`${(right - left) * 20}px`);
+  }
+});
+
+it.each([
+  { seq: 'ATGTGGGCT', strand: -1 as const, start: 0, end: 9, segments: undefined, codons: ['AGC', 'CCA', 'CAT'] },
+  { seq: 'TGGGCT' + 'A'.repeat(24) + 'ATG', strand: 1 as const, start: 30, end: 6,
+    segments: [{ start: 30, end: 33 }, { start: 0, end: 6 }], codons: ['ATG', 'TGG', 'GCT'] },
+])('keeps biological translation order for keyboard hover targets on strand $strand', ({ seq, strand, start, end, segments, codons }) => {
+  const feature: BioFeature = { type: 'CDS', name: 'order', start, end, strand, segments, metadata: { transl_table: '99' } };
+  const view = render(<SequenceTrack {...props(seq, feature)} />);
+  const targets = [...view.container.querySelectorAll<HTMLElement>('[data-assumed-codon]')];
+  expect(targets).toHaveLength(codons.length);
+  for (const [i, codon] of codons.entries()) expect(targets[i].dataset.tip).toContain(codon);
 });

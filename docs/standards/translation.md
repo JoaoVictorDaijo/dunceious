@@ -36,8 +36,12 @@ claimed (`?`). The viewer separately shows a literal table-1 reading where no st
 `/translation` residue exists. Invariant residues (including resolved IUPAC codons whose
 expansions are all invariant) use normal solid cells; code-sensitive and unresolved codons use
 dashed outlines. Every assumed codon's hover says "assuming table 1". Table-1 stops are dashed red `*`, never computed early-stop cells. The feature and
-band warnings identify stored, assumed or mixed sources; the hub says "can't verify" and shows
-a separately labelled provisional count only when no stored protein exists. These assumed
+band warnings identify stored, assumed or mixed sources. For protein records and features
+with unknown or unstranded direction, feature warnings report only the invalid code, since no
+translation is displayed. For nucleotide records,
+the hub says "can't verify" and shows a separately labelled provisional count only when no
+stored protein exists and the feature has an explicit forward or reverse strand; unknown and
+unstranded features never receive an orientation-dependent provisional count. These assumed
 residues never enter computation, comparison, early-stop status, `/translation`, interchange
 exports or project files. This provisional view is a Dunceious presentation choice, not a
 reference-tool fallback. An empty `/transl_table=` counts as invalid, not absent. See the

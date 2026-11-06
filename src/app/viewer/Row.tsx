@@ -319,7 +319,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
-                geneticCodeWarning(f) ? geneticCodeWarning(f, extractCodingSequence(f, seq).codingSeq) : null,
+                geneticCodeWarning(f)
+                  ? geneticCodeWarning(f,
+                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq).codingSeq,
+                    l.record.moleculeType)
+                  : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),

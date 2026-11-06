@@ -59,7 +59,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   const strand = getFeatureStrand(feature);
   const aminoAcids = feature.metadata?.translation?.replace(/\s/g, '').length ?? Math.floor(Math.max(0, length - (Number(feature.metadata?.codon_start || 1) - 1)) / 3);
   const invalidCode = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature));
-  const assumed = invalidCode && !feature.translation ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
+  const assumed = invalidCode && (strand === 1 || strand === -1) && !feature.translation ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
   const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
   const tip = useRef<HTMLDivElement>(null);
   const ref = useCallback((element: HTMLDivElement | null) => {
