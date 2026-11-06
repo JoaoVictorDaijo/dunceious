@@ -78,10 +78,13 @@ point C asks that GenBank stay ungapped.
 
 ## Goals
 
-- No record enters the workspace with a sequence, coordinates or molecule that differ from what
-  the file states.
+- No record enters the workspace with a sequence, coordinates or nucleotide/protein category
+  that differ from what the file states. The DNA/RNA subtype keeps today's classifier and its
+  known limit until #243 (see "Category and subtype").
 - Every refusal names the file, each record and the problem, all at once.
-- Every conformance problem is visible on demand, without interrupting the load.
+- Every problem the Warning table lists is visible on demand, without interrupting the load.
+  Checks it doesn't list are out of scope: the protein vocabulary, and qualifier values beyond
+  `/codon_start` and `/transl_table`.
 - GenBank export never writes a residue GenBank cannot hold, and never counts one in LOCUS.
 
 ## Non-goals
@@ -152,7 +155,7 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Mandatory qualifier missing | e.g. `source` without `/organism` or `/mol_type`; `regulatory` without `/regulatory_class` | REJECT in legacy Sequin for a missing organism. Dunceious keeps the record and warns, because its sequence and coordinates are intact |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
-| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value | Error-level in NCBI's validator |
+| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame | Error-level in NCBI's validator |
 | Unknown genetic code | `/transl_table` not an NCBI code. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
 | `/translation` differs from the DNA | Computed and counted by #253's spec; this summary displays it | Error (mismatch) |
 
@@ -178,8 +181,15 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
     `/calculated_mol_wt`, for example, stay recognised and keep being exported.
   - Any other qualifier, and any whose name starts with `_`, is stored in a separate
     `feature.unknownQualifiers` map. No computation reads it.
-  - Display-name selection may still read a name-like qualifier from that map, such as `/label`
-    (`featureParser.ts` NAME_QUALIFIERS). Naming is display only.
+  - **Naming keeps today's behaviour, deliberately.** Name selection still reads the name-like
+    qualifiers in `NAME_QUALIFIERS` (`featureParser.ts:34`), `/label` included. The feature
+    name then feeds what it feeds today:
+    - feature comparison's identity fallback (`featureComparison.ts:38`);
+    - the exported `/standard_name` (`serialize.ts:88`).
+
+    FMT-3 records name selection as a local policy, and changing it would change comparison
+    groups for SnapGene files. That is outside this spec. "Inert" here means no frame, strand,
+    translation, coordinate or molecule computation reads the map.
   - It is kept in project files and shown in the feature details. The GenBank writer leaves it
     out and counts it, as it already does for unknown attributes (`report.droppedAttributes`,
     `serialize.ts:107-110`).
@@ -326,7 +336,8 @@ Expected results never come from the parser under test.
 | Inert qualifiers | GenBank `/phase=1` on a CDS without `/codon_start`: stored in `unknownQualifiers`, the frame stays 1, export writes no `/codon_start=2`, and reimport gives the same CDS. `/_gffStrand="."`: the strand stays as parsed |
 | Aliases | A refused file with `LOCUS X` and `ACCESSION AB123`, dropped with a GFF3 naming `AB123`, into a workspace that already has a record with accession `AB123`: the GFF3 rows stay unmatched |
 | Stale responses | The workspace is replaced while a malformed file and a file with notes are parsing: neither the dialog nor the notes appear, and the log says why |
-| Frame-dependent outputs | `/codon_start=4` and `2junk` on a 9-base CDS with no stored translation: the Hub shows the reason, not `2 aa` or `NaN aa`; no GFF3 phase is exported from them. `/codon_start=2`: count and phase as today |
+| Frame-dependent outputs | `/codon_start=4` and `2junk` on a 9-base CDS with no stored translation: the Hub shows the reason, not `2 aa` or `NaN aa`; no GFF3 phase is exported from them. `/codon_start=2`: count and phase as today. A selection export clipping a `/codon_start=4` CDS keeps `4`, and on reimport the CDS is still flagged with translation suppressed. A clipped `/codon_start=2` CDS gets today's rebased frame |
+| Naming unchanged | A CDS named only by `/label=A`: its name is `A`, comparison groups it as today, and export writes `/standard_name="A"` as today |
 | Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. A category-mismatched GenBank file followed by a valid file: the valid file loads. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
 | Combined dialog | A protein file with a length mismatch, dropped into a nucleotide workspace: one dialog listing the mismatch and the category refusal. A file with an unreadable LOCUS unit: the LOCUS finding only |
 | Notes access | Seven invalid-frame CDSs: the group shows five, "Show all 7" lists all seven, and "Copy details" includes all seven |
