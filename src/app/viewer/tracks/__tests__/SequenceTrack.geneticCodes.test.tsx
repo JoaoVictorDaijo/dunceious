@@ -230,3 +230,25 @@ it.each([
     expect(tip).toContain(`M as a start in tables ${starts.join(', ')}`);
   } else expect(tip).not.toContain('as a start');
 });
+
+
+it.each([1, -1] as const)('shows the suppressed-frame warning without translated cells on strand %s', strand => {
+  const seq = 'ATGTGAAAA';
+  const feature: BioFeature = { type: 'CDS', name: 'invalid-frame', start: 0, end: 9, strand,
+    translation: 'M*K', metadata: { codon_start: '4', transl_table: '99' } };
+  const trackProps = props(seq, feature);
+  const view = render(<SequenceTrack {...trackProps} />);
+  const warning = view.getByRole('button', { name: '⚠ /codon_start=4 is invalid; codons are not translated' });
+  expect([warning.style.top, warning.style.height, warning.style.width]).toEqual([
+    strand === 1 ? '82px' : '122px', '18px', '180px',
+  ]);
+  expect(warning.textContent).toBe('⚠');
+  expect(warning.style.background).not.toBe('transparent');
+  expect(trackProps.translationLanes.laneOf.has(feature)).toBe(false);
+  expect(recorder.texts()).toEqual([...seq]);
+  expect(recorder.fillRects().filter(rect => rect[3] === 18)).toEqual([]);
+  expect(recorder.strokeRects().filter(rect => rect.rect[3] === 18)).toEqual([]);
+  expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
+  view.rerender(<SequenceTrack {...trackProps} showTranslation={false} />);
+  expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
+});

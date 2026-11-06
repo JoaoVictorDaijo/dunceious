@@ -272,3 +272,17 @@ it('packs touching half-open intervals together and gap-split identities in sepa
   const gapped = rec({ id: 'g', sequence: 'ACGT', alignedSequence: 'AC--GT', tracks: [{ id: 'q', name: 'q', kind: 'interval', data: [{ start: 0, end: 4, value: 2 }, { start: 1, end: 4, value: 5 }] }] });
   expect(computeRecordLayouts([gapped], ALL)[0].trackLayouts[0].packedRows).toEqual([[0], [1]]);
 });
+
+
+it.each([1, -1] as const)('reserves warning-only space inside the record on strand %s', strand => {
+  const record = rec({ id: 'invalid-frame', sequence: 'ATGTGAAAA', features: [
+    { type: 'CDS', name: 'invalid', start: 0, end: 9, strand, metadata: { codon_start: '4' } },
+  ] });
+  const opts = { showAnnotations: false, translationVisible: true, showTracks: false };
+  const [visible] = computeRecordLayouts([record], opts);
+  expect(visible.seqBaseY).toBe(strand === 1 ? 18 : 0);
+  expect(visible.height).toBe(18 + 22 + 20);
+  expect(visible.translationLanes.laneOf.size).toBe(0);
+  const [hidden] = computeRecordLayouts([record], { ...opts, translationVisible: false });
+  expect(hidden).toMatchObject({ seqBaseY: 0, height: 22 + 20 });
+});

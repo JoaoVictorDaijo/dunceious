@@ -25,9 +25,9 @@ import { TrackTooltipProvider, useTrackTooltip } from '../TrackTooltip';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
 import type { BioFeature } from '@/src/domain/bio/types';
 
-function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1 }: { sequence: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
+function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1, codonStart }: { sequence: string; codonStart?: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
   const update = useTrackTooltip();
-  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, translation, metadata: { transl_table: table, ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
+  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, translation, metadata: { transl_table: table, ...(codonStart !== undefined ? { codon_start: codonStart } : {}), ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
   return <button onClick={() => update({ record: { id: 'r', name: 'r', sequence, moleculeType, features: [feature] }, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
 }
 
@@ -144,4 +144,18 @@ it('uses an explicit reverse strand for its provisional count', () => {
   expect(view.getByRole('tooltip').querySelector('[data-unverified-count]')?.textContent).toBe('3 aa');
   expect(text).toContain('table 1 assumed');
   expect(text).not.toContain("can't verify");
+});
+
+
+it.each([
+  { table: '1', translation: undefined }, { table: '99', translation: undefined },
+  { table: '1', translation: 'M*K' }, { table: '99', translation: 'M*K' },
+])('suppresses all amino-acid counts for an invalid frame under $table with stored $translation', ({ table, translation }) => {
+  const view = render(<TrackTooltipProvider><Subject sequence="ATGTGAAAA" table={table} translation={translation} codonStart="0" /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  const tip = view.getByRole('tooltip');
+  expect(tip.textContent).toContain('/codon_start=0 is invalid; codons are not translated');
+  expect(tip.textContent).not.toMatch(/\d+ (?:aa|positions)/);
+  expect(tip.textContent).not.toContain('table 1 assumed');
+  expect(tip.querySelector('[data-unverified-count]')).toBeNull();
 });

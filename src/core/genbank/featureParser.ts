@@ -26,6 +26,9 @@
  * (indented 21 spaces) that do not start with '/'.
  */
 
+import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
+import type { FindingSink, GenBankFinding } from './findings';
+import { validateLocation } from './locationValidation';
 import type { BioFeature } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { parseQualifiers } from './qualifierParser';
@@ -35,7 +38,7 @@ const NAME_QUALIFIERS = ['gene', 'product', 'label', 'locus_tag'];
 
 const INDENT21 = ' '.repeat(21);
 
-export function parseFeatures(lines: string[]): BioFeature[] {
+export function parseFeatures(lines: string[], finding?: FindingSink, protein = false, length?: number): BioFeature[] {
   const features: BioFeature[] = [];
   let inFeatures = false;
 
@@ -48,16 +51,16 @@ export function parseFeatures(lines: string[]): BioFeature[] {
     }
     if (!inFeatures) continue;
 
-    // ORIGIN marks the end of the FEATURES section
-    if (line.startsWith('ORIGIN')) break;
+    if (/^(ORIGIN|CONTIG|\/\/)/.test(line)) break;
 
     // Feature key line: exactly 5 spaces, then a non-space key token.
     // Keys such as 5'UTR are valid in GenBank and are not matched by \w+.
-    const featureMatch = line.match(/^ {5}(\S+) +(.+)$/);
+    const featureMatch = line.match(/^ {5}(\S+)(?: +(.*))?$/);
     if (!featureMatch) continue;
 
+    const featureLine = i + 1;
     const [, type, initialLoc] = featureMatch;
-    let fullLocation = initialLoc.trim();
+    let fullLocation = (initialLoc ?? '').trim();
 
     // Accumulate multi-line location (continuation lines, no qualifier)
     while (
@@ -68,7 +71,10 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       fullLocation += lines[++i].trim();
     }
 
-    const { segments, strand, start, end } = parseLocation(fullLocation);
+    const error = validateLocation(fullLocation, length);
+    let location;
+    try { location = parseLocation(fullLocation); } catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }
+    const { segments, strand, start, end } = location;
 
     const feature: BioFeature = {
       type,
@@ -81,8 +87,8 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       metadata: {},
     };
 
-    // Parse qualifiers immediately following this feature
-    const { qualifiers, lastIdx } = parseQualifiers(lines, i + 1);
+    const qualifierFindings: Omit<GenBankFinding, 'record'>[] = [];
+    const { qualifiers, lastIdx } = parseQualifiers(lines, i + 1, (tier, code, message, line) => qualifierFindings.push({ tier, code, message, line }));
     i = lastIdx;
 
     for (const [key, value] of Object.entries(qualifiers)) {
@@ -92,11 +98,15 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       if (key === 'translation') {
         feature.translation = value;
       }
-      feature.metadata![key] = value;
+      const recognised: readonly string[] = protein ? FEATURE_TABLE.proteinQualifiers : FEATURE_TABLE.nucleotideQualifiers;
+      if (key.startsWith('_') || !recognised.includes(key)) (feature.unknownQualifiers ??= Object.create(null))[key] = value;
+      else feature.metadata![key] = value;
     }
 
     if (!NAME_QUALIFIERS.some(key => qualifiers[key]) && qualifiers.standard_name) feature.name = qualifiers.standard_name;
 
+    if (error) finding?.('refuse', error.code, `${type} location ${fullLocation || '(missing)'}: ${error.message}`, featureLine, { key: type, name: feature.name });
+    for (const f of qualifierFindings) finding?.(f.tier, f.code, f.message, f.line, { key: type, name: feature.name });
     features.push(feature);
   }
 

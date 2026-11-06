@@ -1,0 +1,1047 @@
+{
+  "assembly_gap": {
+    "mandatory": [
+      "estimated_length",
+      "gap_type",
+      "linkage_evidence"
+    ],
+    "optional": []
+  },
+  "C_region": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "CDS": {
+    "mandatory": [],
+    "optional": [
+      "EC_number",
+      "allele",
+      "artificial_location",
+      "circular_RNA",
+      "codon_start",
+      "db_xref",
+      "exception",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "number",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "protein_id",
+      "pseudo",
+      "pseudogene",
+      "ribosomal_slippage",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id",
+      "transl_except",
+      "transl_table",
+      "translation"
+    ]
+  },
+  "centromere": {
+    "mandatory": [],
+    "optional": [
+      "db_xref",
+      "experiment",
+      "inference",
+      "note",
+      "standard_name"
+    ]
+  },
+  "D-loop": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag"
+    ]
+  },
+  "D_segment": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "exon": {
+    "mandatory": [],
+    "optional": [
+      "EC_number",
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "number",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing"
+    ]
+  },
+  "gap": {
+    "mandatory": [
+      "estimated_length"
+    ],
+    "optional": [
+      "experiment",
+      "inference",
+      "map",
+      "note"
+    ]
+  },
+  "gene": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "phenotype",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing"
+    ]
+  },
+  "iDNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "number",
+      "old_locus_tag",
+      "standard_name"
+    ]
+  },
+  "intron": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "number",
+      "old_locus_tag",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing"
+    ]
+  },
+  "J_segment": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "mat_peptide": {
+    "mandatory": [],
+    "optional": [
+      "EC_number",
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "misc_binding": {
+    "mandatory": [
+      "bound_moiety"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag"
+    ]
+  },
+  "misc_difference": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "clone",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "phenotype",
+      "replace",
+      "standard_name"
+    ]
+  },
+  "misc_feature": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "number",
+      "old_locus_tag",
+      "phenotype",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "misc_recomb": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "recombination_class",
+      "standard_name"
+    ]
+  },
+  "misc_RNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id"
+    ]
+  },
+  "misc_structure": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name"
+    ]
+  },
+  "mobile_element": {
+    "mandatory": [
+      "mobile_element_type"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "rpt_family",
+      "rpt_type",
+      "standard_name"
+    ]
+  },
+  "modified_base": {
+    "mandatory": [
+      "mod_base"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "frequency",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag"
+    ]
+  },
+  "mRNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "artificial_location",
+      "circular_RNA",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id"
+    ]
+  },
+  "ncRNA": {
+    "mandatory": [
+      "ncRNA_class"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id"
+    ]
+  },
+  "N_region": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "old_sequence": {
+    "mandatory": [
+      "citation",
+      "compare"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "replace"
+    ]
+  },
+  "operon": {
+    "mandatory": [
+      "operon"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "inference",
+      "map",
+      "note",
+      "phenotype",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "oriT": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "bound_moiety",
+      "db_xref",
+      "direction",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "rpt_family",
+      "rpt_type",
+      "rpt_unit_range",
+      "rpt_unit_seq",
+      "standard_name"
+    ]
+  },
+  "polyA_site": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag"
+    ]
+  },
+  "precursor_RNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id"
+    ]
+  },
+  "prim_transcript": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "primer_bind": {
+    "mandatory": [],
+    "optional": [
+      "PCR_conditions",
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name"
+    ]
+  },
+  "propeptide": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "protein_bind": {
+    "mandatory": [
+      "bound_moiety"
+    ],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "standard_name"
+    ]
+  },
+  "regulatory": {
+    "mandatory": [
+      "regulatory_class"
+    ],
+    "optional": [
+      "allele",
+      "bound_moiety",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "phenotype",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "repeat_region": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "rpt_family",
+      "rpt_type",
+      "rpt_unit_range",
+      "rpt_unit_seq",
+      "satellite",
+      "standard_name"
+    ]
+  },
+  "rep_origin": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "direction",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name"
+    ]
+  },
+  "rRNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "S_region": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "sig_peptide": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "source": {
+    "mandatory": [
+      "mol_type",
+      "organism"
+    ],
+    "optional": [
+      "PCR_primers",
+      "altitude",
+      "bio_material",
+      "cell_line",
+      "cell_type",
+      "chromosome",
+      "clone",
+      "collected_by",
+      "collection_date",
+      "cultivar",
+      "culture_collection",
+      "db_xref",
+      "dev_stage",
+      "ecotype",
+      "environmental_sample",
+      "focus",
+      "geo_loc_name",
+      "germline",
+      "haplogroup",
+      "haplotype",
+      "host",
+      "isolate",
+      "isolation_source",
+      "lab_host",
+      "lat_lon",
+      "macronuclear",
+      "map",
+      "mating_type",
+      "metagenome_source",
+      "note",
+      "organelle",
+      "plasmid",
+      "proviral",
+      "rearranged",
+      "segment",
+      "serotype",
+      "serovar",
+      "sex",
+      "specimen_voucher",
+      "strain",
+      "sub_species",
+      "submitter_seqid",
+      "tissue_type",
+      "transgenic",
+      "type_material",
+      "variety"
+    ]
+  },
+  "stem_loop": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "standard_name"
+    ]
+  },
+  "STS": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name"
+    ]
+  },
+  "telomere": {
+    "mandatory": [],
+    "optional": [
+      "db_xref",
+      "experiment",
+      "inference",
+      "note",
+      "rpt_type",
+      "rpt_unit_range",
+      "rpt_unit_seq",
+      "standard_name"
+    ]
+  },
+  "tmRNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "tag_peptide",
+      "transcript_id"
+    ]
+  },
+  "transit_peptide": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name"
+    ]
+  },
+  "tRNA": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "anticodon",
+      "circular_RNA",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "operon",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "trans_splicing",
+      "transcript_id"
+    ]
+  },
+  "unsure": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "replace"
+    ]
+  },
+  "V_region": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_id"
+    ]
+  },
+  "V_segment": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "product",
+      "pseudo",
+      "pseudogene",
+      "standard_name",
+      "transcript_ud"
+    ]
+  },
+  "variation": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "frequency",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "phenotype",
+      "product",
+      "replace",
+      "standard_name"
+    ]
+  },
+  "3'UTR": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name",
+      "trans_splicing"
+    ]
+  },
+  "5'UTR": {
+    "mandatory": [],
+    "optional": [
+      "allele",
+      "db_xref",
+      "experiment",
+      "function",
+      "gene",
+      "gene_synonym",
+      "inference",
+      "locus_tag",
+      "map",
+      "note",
+      "old_locus_tag",
+      "standard_name",
+      "trans_splicing"
+    ]
+  }
+}

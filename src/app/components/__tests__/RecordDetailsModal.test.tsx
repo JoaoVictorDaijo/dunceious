@@ -66,10 +66,10 @@ it('keeps joined annotations on record bases only', () => {
 
 // Expected sequences come from docs/standards/conformance/expected-oracle.txt (INSDC rules by hand).
 const dir = 'docs/standards/conformance';
-const [fixture] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8'));
+const [fixture] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8')).records;
 const oracle = Object.fromEntries(readFileSync(`${dir}/expected-oracle.txt`, 'utf8').trim().split('\n')
   .map(line => line.split('\t') as [string, string]));
-const labelled = (label: string) => fixture.features.find(f => f.metadata?.label === label)!;
+const labelled = (label: string) => fixture.features.find(f => f.unknownQualifiers?.label === label)!;
 
 function open(record: SeqRecord, feature: BioFeature) {
   const copyText = vi.fn().mockResolvedValue(true);

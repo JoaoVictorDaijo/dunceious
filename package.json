@@ -31,6 +31,7 @@
     "test:e2e:run": "playwright test",
     "changelog:release": "node scripts/changelog-release.mjs",
     "standards:fetch": "node scripts/fetch-standards.mjs",
+    "standards:verify-vocab": "node scripts/gen-feature-table.mjs --check",
     "standards:genetic-codes": "node scripts/gen-genetic-codes.mjs"
   },
   "dependencies": {

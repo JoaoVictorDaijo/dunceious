@@ -77,6 +77,7 @@ function validRecord(value: unknown): boolean {
     && (feature.strand === 1 || feature.strand === -1)
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.metadata === undefined || stringMap(feature.metadata))
+    && (feature.unknownQualifiers === undefined || stringMap(feature.unknownQualifiers))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
   return value.tracks === undefined || (Array.isArray(value.tracks) && value.tracks.every(track => isObject(track)

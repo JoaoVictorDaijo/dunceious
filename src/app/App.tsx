@@ -28,6 +28,7 @@ import AnnotationHubPanel, { type HubFocusOrigin } from './components/Annotation
 import HubReturnPill from './components/HubReturnPill';
 import FeatureEditorModal from './components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from './components/MoleculeTypeMismatchModal';
+import { GenBankRefusalDialog } from './components/GenBankImportDiagnostics';
 import GapRemovalNotice from './components/GapRemovalNotice';
 import ProcessingOverlay from './components/ProcessingOverlay';
 import AlignRemoteModal from './components/AlignRemoteModal';
@@ -132,6 +133,10 @@ const App: React.FC = () => {
     requestBio,
     getRecords,
     applyAlignmentOverlay,
+    genBankRefusals,
+    dismissGenBankRefusals,
+    importNotes,
+    clearImportNotes,
     pendingConfirmations,
     confirmGapRemoval,
     invalidateImports,
@@ -425,6 +430,8 @@ const App: React.FC = () => {
         />
       )}
 
+      {genBankRefusals.length > 0 && pendingConfirmations.length === 0 && <GenBankRefusalDialog files={genBankRefusals} onClose={dismissGenBankRefusals} />}
+
       {pendingConfirmations.length > 0 && <GapRemovalNotice key={pendingConfirmations[0].token} notices={pendingConfirmations} onClose={() => confirmGapRemoval(pendingConfirmations[0].token, false)} onLoad={() => confirmGapRemoval(pendingConfirmations[0].token, true)} />}
 
       {remoteAlignment.presentation === 'dialog' && (
@@ -616,7 +623,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <StatusBar sessionMoleculeType={sessionMoleculeType} />
+      <StatusBar sessionMoleculeType={sessionMoleculeType} importNotes={importNotes} onClearImportNotes={clearImportNotes} />
 
       <TooltipLayer />
 

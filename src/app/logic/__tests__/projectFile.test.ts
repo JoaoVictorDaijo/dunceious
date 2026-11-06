@@ -127,6 +127,32 @@ it.each([
   if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
 
+it.each([
+  { private_note: { toString: 'not callable' } },
+  { private_note: [] },
+  { private_note: 42 },
+  { private_note: false },
+  { private_note: null },
+  [],
+  'not a map',
+  null,
+])('refuses malformed inert qualifier data at the project boundary: %j', unknownQualifiers => {
+  const project = { ...state, records: [{ ...record, features: [{ ...record.features[0], unknownQualifiers }] }] };
+  expect(parseProject(JSON.stringify({ ...project, format: 2 }))).toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+});
+
+it('preserves own inert string keys including prototype-shaped names through a project round trip', () => {
+  const unknownQualifiers = JSON.parse('{"__proto__":"literal prototype","constructor":"literal constructor","phase":"1"}');
+  const project = { ...state, records: [{ ...record, features: [{ ...record.features[0], unknownQualifiers }] }] };
+  const restored = parseProject(serializeProject(project));
+  expect(restored).toEqual({ ok: true, project: { ...project, format: 2 } });
+  if (!restored.ok) throw new Error(restored.message);
+  const inert = restored.project.records[0].features[0].unknownQualifiers!;
+  expect(Object.keys(inert).sort()).toEqual(['__proto__', 'constructor', 'phase']);
+  expect(inert.__proto__).toBe('literal prototype');
+  expect(inert.constructor).toBe('literal constructor');
+});
+
 it('refuses damaged residues and unequal alignment widths, and accepts valid alignment', () => {
   expect(parseProject(serializeProject({ ...state, records: [{ ...record, sequence: 'AC-GT' }] }))).toEqual({ ok: false,
     message: 'This project file contains gap characters in the sequence of local_1; the file is damaged' });

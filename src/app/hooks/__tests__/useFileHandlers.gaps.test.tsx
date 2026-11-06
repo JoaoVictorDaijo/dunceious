@@ -92,7 +92,8 @@ it('sends every GenBank picker file to the worker and settles its category at co
   expect(index).toBeGreaterThanOrEqual(0);
   act(() => h.worker.release(index));
   expect(h.result.current.bio.records.map(r => r.id)).toEqual(['p']);
-  expect(h.result.current.files.moleculeTypeMismatch).toEqual({ incoming: 'nucleotide', loaded: 'protein', fileName: 'dna.gb' });
+  expect(h.result.current.files.moleculeTypeMismatch).toBeNull();
+  expect(h.result.current.bio.genBankRefusals).toEqual([expect.objectContaining({ filename: 'dna.gb', findings: [expect.objectContaining({ code: 'category-mismatch' })] })]);
 });
 it('keeps both gap-free picker files in the same workspace', async () => {
   const h = setup();

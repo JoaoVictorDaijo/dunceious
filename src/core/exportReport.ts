@@ -23,6 +23,7 @@ import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@
 
 export interface ExportReport {
   gapRecordsOmitted: string[];
+  genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
   emptyRowsOmitted: string[];
   unalignedRows: string[];
@@ -38,7 +39,7 @@ export interface ExportResult { text: string; unalignedText?: string; report: Ex
 
 export function emptyReport(): ExportReport {
   return {
-    gapRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
+    gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,

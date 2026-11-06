@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
+
 export type QualifierSyntax = 'quoted' | 'unquoted' | 'flag';
 
 // Value syntax is part of the format contract, even for numeric-looking text.
@@ -130,22 +132,9 @@ export const NUCLEOTIDE_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new M
   ['variety', 'quoted'],
 ]);
 
-// GenPept adds protein feature qualifiers to the INSDC vocabulary.
-// https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/main/src/objtools/format/feature_item.cpp (2026-10-13)
-export const PROTEIN_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new Map([
-  ...NUCLEOTIDE_QUALIFIERS,
-  ['bond_type', 'quoted'],
-  ['calculated_mol_wt', 'unquoted'],
-  ['coded_by', 'quoted'],
-  ['derived_from', 'quoted'],
-  ['heterogen', 'quoted'],
-  ['name', 'quoted'],
-  ['non_std_residue', 'quoted'],
-  ['region_name', 'quoted'],
-  ['sec_str_type', 'quoted'],
-  ['site_type', 'quoted'],
-  ['UniProtKB_evidence', 'quoted'],
-]);
+export const PROTEIN_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new Map(
+  FEATURE_TABLE.proteinQualifiers.map(key => [key, NUCLEOTIDE_QUALIFIERS.get(key) ?? (key === 'calculated_mol_wt' ? 'unquoted' : 'quoted')]),
+);
 
 export function formatQualifier(key: string, value: string, syntax: QualifierSyntax): string[] {
   const indent = ' '.repeat(21);

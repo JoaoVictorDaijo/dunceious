@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, SeqRecord } from './types';
 
 /**
@@ -155,7 +156,7 @@ function clipFeature(
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
-    result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
+    if (validCodonStart(feature.metadata?.codon_start)) result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
   }
   return result;
 }
