@@ -1,12 +1,12 @@
 ---
 title: "Invalid /transl_table: a provisional table-1 view, labelled as assumed"
-status: proposed
+status: implemented
 date: 2026-11-06
 areas: ["translation", "viewer", "annotations"]
 prs: [295]
 issues: [288]
 superseded_by: null
-summary: "When a CDS's /transl_table is not an NCBI genetic code, the viewer shows a provisional table-1 translation drawn as dashed outlines and labelled 'assumed table 1' everywhere it appears, while computed translation, comparison, early-stop status and export still claim nothing for that CDS."
+summary: "When a CDS's /transl_table is not an NCBI genetic code, the viewer shows a provisional table-1 translation, with code-sensitive codons drawn as dashed outlines, labelled 'assumed table 1' everywhere it appears, while computed translation, comparison, early-stop status and export still claim nothing for that CDS."
 ---
 # Assumed genetic code for an invalid `/transl_table` — design
 
@@ -41,6 +41,14 @@ the list is reported, never replaced by table 1".
 say table 1 is assumed, and label the count "assumed table 1". The approved mockup's #288
 section (`.code/docs/translation-marks/translation-marks.html` at the primary checkout, untracked)
 shows the look. Every mark explains itself on hover.
+
+**Invariant codons are solid** (owner, 2026-11-06, answering this spec's open question):
+- A codon that reads the same residue in all 27 NCBI codes is drawn as a normal solid cell. If
+  the invalid value was meant to be any real code, that residue is right.
+- Only code-sensitive codons, and ambiguous codons left as `?`, get the dashed outline.
+- Every codon's hover still says the code is assumed, and the hub count still says
+  "if table 1".
+- Export and the #229 guarantee are unchanged.
 
 ## Standards and reference tools
 
@@ -132,12 +140,16 @@ export function otherReadings(codon: string): { residue: string; tables: number[
 
 Every surface that shows these residues, or a number derived from them, says "assumed table 1".
 
-1. **Translation band** (`SequenceTrack.tsx`). Drawn as in the mockup:
-   - each codon is a dashed 1 px outline in the strand colour, with no fill and the letter in
-     the strand colour;
-   - a table-1 stop is a dashed red outline with `*`, never the solid red `!` early-stop cell,
-     since the code itself is unknown;
-   - search highlights stay beneath and show through the empty cell.
+1. **Translation band** (`SequenceTrack.tsx`):
+   - **Invariant codon** (one residue in all 27 NCBI codes, including resolved ambiguous codons
+     whose every expansion is invariant, such as GCN → A): the normal solid cell in the strand
+     colour, with a white letter, exactly as a valid-code residue is drawn.
+   - **Code-sensitive codon, or unresolved `?`:** a dashed 1 px outline in the strand colour,
+     with no fill and the letter in the strand colour, as in the mockup.
+   - **A table-1 stop** is always code-sensitive (TAA, TAG and TGA all read as residues in some
+     code). It is a dashed red outline with `*`, never the solid red `!` early-stop cell.
+   - Search highlights stay beneath. They show through dashed cells, and are covered by solid
+     cells as today.
 2. **Codon hover.** Each assumed codon gets a hover target, like the existing warning targets.
    - Code-sensitive codon: "TGA: stop, assuming table 1. W in tables 2, 3, 4, …; C in 10; G in
      25."
@@ -155,7 +167,7 @@ Every surface that shows these residues, or a number derived from them, says "as
      the annotation's /translation and can't be checked against the DNA."
    - Stored protein shorter than the CDS: "The first 120 residues are the annotation's
      /translation and can't be checked; the rest assume table 1." The codons past the stored
-     protein's end are drawn from the assumed view, dashed. They are not the computed `?` that
+     protein's end are drawn from the assumed view, solid or dashed by the same rule. They are not the computed `?` that
      `translateFeature` fills in today (`sequence.ts:317`). The tail is found from the stored
      length alone, so it works for an invalid code in both landing orders. #253's
      `storedShortBy` comes from comparing with an available conceptual translation, so it never
@@ -217,10 +229,10 @@ The oracle is literal gc.prt 4.6 rows, not the code's own output.
 | Eligible types | same and `SequenceTrack` test | CDS, cds, ORF and orf with an invalid code get the assumed view; a `gene` does not |
 | Never computed | same and `sequence.test.ts` | `translateSequence(seq, 99)` still gives `?` per codon; `conceptualTranslation` (once #253 lands) still `unavailable`; GenBank and GFF3 output for that CDS has no `/translation` added; project serialization contains no assumed residue |
 | Stored wins | `SequenceTrack` and `Row` tests | Invalid code with a full-length stored `/translation`: band shows the stored residues with no dashed cells, the tooltip shows the stored-protein warning, and no provisional count appears |
-| Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no red cell |
-| Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein: every codon drawn as a `setLineDash` outline, no `fillRect` for residue cells; a table-1 stop drawn red dashed with `*`, never `!` |
+| Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no solid red early-stop cell (the codon is the dashed red `*`) |
+| Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein, `ATGTGAGCNTGN`: ATG and GCN (A) drawn as solid `fillRect` cells with no line dash; TGA drawn as a red `setLineDash` outline with `*`, never `!`; TGN (`?`) drawn as a dashed outline with no fill. Every one of the four hovers says "assuming table 1" |
 | Count | `TrackTooltip` test, oracle: a test-local loop expanding IUPAC codons over the Biopython fixture's table 1 | `ATGTGGTAA` gives "2 aa if table 1". `ATGTGATGG` gives "3 positions, 1 stop, if table 1". `ATGTGNTGG` gives "3 positions, 1 ambiguous, if table 1". `ATGTGGTGN` gives "3 positions, 1 ambiguous, if table 1, end uncertain". `ATGGCNTAA` gives "2 aa if table 1" |
-| Short stored protein | `SequenceTrack`, `Row`, `TrackTooltip` and `cds` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M, codons 2–3 dashed `W`, `A`; the tooltip names both sources; the hub shows "can't verify" and no provisional count. Stored `MK*G` over a six-codon CDS whose assumed tail is `TAA TGG`: before #253 the stored `*` flags and is drawn red, the tail's `TAA` is a dashed red `*` and does not add to the flag; after #253 there is no flag |
+| Short stored protein | `SequenceTrack`, `Row`, `TrackTooltip` and `cds` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M; codons 2–3 show `W` and `A` from the assumed view, solid because both are invariant, with assumed hovers; the tooltip names both sources; the hub shows "can't verify" and no provisional count. Stored `MK*G` over a six-codon CDS whose assumed tail is `TAA TGG`: before #253 the stored `*` flags and is drawn red, the tail's `TAA` is a dashed red `*` and does not add to the flag; after #253 there is no flag |
 | Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows "can't verify" plus the provisional count. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text. Every assumed-codon hover, including both ambiguity texts, contains "assuming table 1" |
 
 ## Living documents
@@ -241,9 +253,6 @@ It cites the NCBI `GenCodeInvalid` and Biopython `KeyError` behaviour above.
 - **Guessing the intended code** from the organism or a nearby valid value. No reference tool
   does this, and it would be a heuristic hidden behind a residue.
 
-## Open for the owner
+## Owner questions
 
-- **Draw invariant codons solid?** 51 of 64 codons read the same in all 27 NCBI codes. If the
-  invalid value is a typo for a real code, those residues are right whatever the code was. The
-  design keeps every codon dashed, as approved. Drawing invariant codons solid would show more
-  certainty where it exists, but would mix two looks in one CDS.
+None open. The invariant-codon question was answered on 2026-11-06 (see Owner decision).

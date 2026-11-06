@@ -55,14 +55,14 @@ it.each([
   expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
 });
 
-it('draws unknown residues and explains the unavailable code without claiming an early stop', () => {
+it('draws assumed residues and explains the unavailable code without claiming an early stop', () => {
   const seq = 'ATGTAGGAG';
   const feature: BioFeature = { type: 'CDS', name: 'unknown', start: 0, end: 9,
     strand: 1, metadata: { transl_table: '7' } };
   const view = render(<SequenceTrack {...props(seq, feature)} />);
-  expect(recorder.texts().slice(-3)).toEqual(['?', '?', '?']);
+  expect(recorder.texts().slice(-3)).toEqual(['M', '*', 'E']);
   expect(recorder.texts()).not.toContain('!');
-  expect(view.getByRole('button', { name: '⚠ /transl_table=7 is not an NCBI genetic code; codons are not translated' })).toBeTruthy();
+  expect(view.getByRole('button', { name: /Residues assume table 1/ })).toBeTruthy();
 });
 
 it('preserves the stored translation while merging the selected-code terminal stop in the band', () => {
@@ -95,4 +95,51 @@ it('suppresses translation and its warning overlay in a protein record', () => {
   expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
   expect(view.container.querySelector('[data-translation-band]')).toBeNull();
   expect(recorder.texts()).toEqual([...seq]);
+});
+
+const assumedCases = [
+  { translation: undefined, seq: 'ATGTGAGCNTGN', glyphs: ['M', '*', 'A', '?'], assumed: 4, dashed: 2, red: 1, early: false },
+  { translation: undefined, seq: 'ATGTGATGG', glyphs: ['M', '*', 'W'], assumed: 3, dashed: 1, red: 1, early: false },
+  { translation: 'MVA', seq: 'ATGTGGGCT', glyphs: ['M', 'V', 'A'], assumed: 0, dashed: 0, red: 0, early: false },
+  { translation: 'M', seq: 'ATGTGGGCT', glyphs: ['M', 'W', 'A'], assumed: 2, dashed: 0, red: 0, early: false },
+  { translation: 'MK*G', seq: 'ATGAAATGAGGATAATGG', glyphs: ['M', 'K', '!', 'G', '*', 'W'], assumed: 2, dashed: 1, red: 1, early: true },
+];
+it.each(assumedCases)('distinguishes stored and assumed cells for $translation', ({ translation, seq, glyphs, assumed, dashed, red, early }) => {
+  const feature: BioFeature = { type: 'CDS', name: 'mixed', start: 0, end: seq.length, strand: 1,
+    translation, metadata: { transl_table: '99' } };
+  const view = render(<SequenceTrack {...props(seq, feature)} />);
+  expect(recorder.texts().slice(-glyphs.length)).toEqual(glyphs);
+  const outlines = recorder.strokeRects().filter(r => r.dash.length > 0);
+  expect(outlines).toHaveLength(dashed);
+  expect(outlines.filter(r => r.color === '#ef4444')).toHaveLength(red);
+  expect(outlines.every(r => r.width === 1)).toBe(true);
+  expect(recorder.fillRects().filter(r => r[3] === 18)).toHaveLength(glyphs.length - dashed);
+  expect(recorder.texts().includes('!')).toBe(early);
+  expect(recorder.fillColors().filter(color => color === '#ef4444')).toHaveLength(early ? 1 : 0);
+  if (seq === 'ATGTGAGCNTGN') {
+    expect(outlines.map(r => r.rect[0])).toEqual([60.5, 180.5]);
+    expect(recorder.fillRects().filter(r => r[3] === 18).map(r => r[0])).toEqual([0, 120]);
+    expect(recorder.textColors().slice(-4)).toEqual(['#fff', '#ef4444', '#fff', '#475569']);
+  }
+  const warning = view.container.querySelector('[data-genetic-code-warning]')!.getAttribute('data-tip');
+  expect(warning).toContain(translation ? "annotation's /translation" : 'Residues assume table 1');
+  if (translation && assumed) expect(warning).toContain(`first ${translation.length} residues`);
+  expect(view.container.querySelectorAll('[data-assumed-codon]')).toHaveLength(assumed);
+  expect([...view.container.querySelectorAll('[data-assumed-codon]')].every(e => e.getAttribute('data-tip')?.includes('assuming table 1'))).toBe(true);
+});
+
+it.each(['CDS', 'cds', 'ORF', 'orf', 'gene'])('limits assumed codon hovers to translated types: %s', type => {
+  const seq = 'TGATGNRAYGCNTGG';
+  const feature: BioFeature = { type, name: 'hover', start: 0, end: seq.length, strand: 1, metadata: { transl_table: '99' } };
+  const view = render(<SequenceTrack {...props(seq, feature)} />);
+  const tips = [...view.container.querySelectorAll('[data-assumed-codon]')].map(e => e.getAttribute('data-tip')!);
+  if (type === 'gene') { expect(tips).toEqual([]); return; }
+  expect(tips).toHaveLength(5);
+  expect(tips.every(t => t.includes('assuming table 1'))).toBe(true);
+  expect(tips[0]).toContain('W in tables 2, 3, 4');
+  expect(tips[0]).toContain('C in 10; G in 25');
+  expect(tips[1]).toContain('In table 1 it can be C, W or a stop');
+  expect(tips[2]).toContain('D or N, in every NCBI code');
+  expect(tips[3]).toContain('Every reading of GCN is A in every NCBI code');
+  expect(tips[4]).toContain('TGG reads W in every NCBI code');
 });

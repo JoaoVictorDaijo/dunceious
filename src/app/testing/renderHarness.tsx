@@ -42,12 +42,13 @@ afterEach(() => {
 export interface CanvasRecorder {
   /** Ordered arguments passed to ctx.fillText — the glyphs/letters drawn. */
   texts(): string[];
+  textColors(): string[];
   /** Ordered [x, y, w, h] tuples passed to ctx.fillRect. */
   fillRects(): Array<[number, number, number, number]>;
   /** Colours used for each fillRect, in draw order. */
   fillColors(): string[];
   /** Ordered [x, y, w, h] tuples passed to ctx.strokeRect, with the strokeStyle and lineWidth in force. */
-  strokeRects(): Array<{ rect: [number, number, number, number]; color: string; width: number }>;
+  strokeRects(): Array<{ rect: [number, number, number, number]; color: string; width: number; dash: number[] }>;
 }
 
 /** A recording context lets jsdom exercise drawing without a native canvas dependency. */
@@ -57,22 +58,25 @@ export function installCanvasRecorder(): CanvasRecorder {
     restoreCanvas = () => Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', original);
   }
   const texts: string[] = [];
+  const textColors: string[] = [];
   const fillRects: Array<[number, number, number, number]> = [];
   const fillColors: string[] = [];
-  const strokeRects: Array<{ rect: [number, number, number, number]; color: string; width: number }> = [];
+  const strokeRects: Array<{ rect: [number, number, number, number]; color: string; width: number; dash: number[] }> = [];
   let fillStyle = '';
   let strokeStyle = '';
   let lineWidth = 1;
+  let dash: number[] = [];
 
   const ctx = new Proxy(
     {
-      fillText: (t: unknown) => { texts.push(String(t)); },
+      setLineDash: (value: number[]) => { dash = [...value]; },
+      fillText: (t: unknown) => { texts.push(String(t)); textColors.push(fillStyle); },
       fillRect: (x: number, y: number, w: number, h: number) => {
         fillRects.push([x, y, w, h]);
         fillColors.push(fillStyle);
       },
       strokeRect: (x: number, y: number, w: number, h: number) => {
-        strokeRects.push({ rect: [x, y, w, h], color: strokeStyle, width: lineWidth });
+        strokeRects.push({ rect: [x, y, w, h], color: strokeStyle, width: lineWidth, dash: [...dash] });
       },
     } as Record<string, unknown>,
     {
@@ -90,7 +94,7 @@ export function installCanvasRecorder(): CanvasRecorder {
 
   HTMLCanvasElement.prototype.getContext = (() => ctx) as unknown as HTMLCanvasElement['getContext'];
 
-  return { texts: () => texts, fillRects: () => fillRects, fillColors: () => fillColors, strokeRects: () => strokeRects };
+  return { texts: () => texts, textColors: () => textColors, fillRects: () => fillRects, fillColors: () => fillColors, strokeRects: () => strokeRects };
 }
 
 /** jsdom has no ResizeObserver; install a no-op so components that construct one render. */

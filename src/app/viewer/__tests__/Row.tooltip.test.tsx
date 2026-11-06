@@ -148,3 +148,19 @@ it.each([
   if (warned) expect(warning?.textContent).toContain(`/transl_table=${table} is not an NCBI genetic code`);
   else expect(warning).toBeNull();
 });
+
+it.each([undefined, 'MVA', 'M'])('explains displayed sources for invalid code with stored %s', translation => {
+  const sequence = 'ATGTGGGCT';
+  const record: SeqRecord = { id: 'c', name: 'c', sequence,
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, translation, metadata: { transl_table: '99' } }] };
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+    records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
+    showConservation={false} dragMode="select" activeSelection={null}
+    onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+    searchResults={[]} currentSearchIdx={-1} />);
+  pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+  const warning = view.getByText(/is not an NCBI genetic code/).textContent;
+  expect(warning).toContain(translation ? "annotation's /translation" : 'Residues assume table 1');
+  if (translation === 'M') expect(warning).toContain('first 1 residues');
+  expect(view.queryByText(/Early stop codon/)).toBeNull();
+});
