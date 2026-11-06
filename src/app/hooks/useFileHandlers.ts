@@ -20,6 +20,7 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { describeSelectionLoss } from '@/src/core/exportReport';
 import { detectMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
@@ -365,7 +366,9 @@ export function useFileHandlers(
       const aligned = record.alignedSequence;
       const biologicalStart = aligned ? getOriginalPos(aligned, start) : start;
       const biologicalEnd = aligned ? getOriginalPos(aligned, end) : end;
-      return sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd)
+      const sliced = sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd);
+      for (const loss of sliced.losses) addLog(`WARNING: ${describeSelectionLoss(loss)}`);
+      return sliced.records
         .map(sliced => ({
           ...sliced,
           alignedSequence: aligned?.substring(start, end),

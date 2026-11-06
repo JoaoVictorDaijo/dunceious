@@ -197,3 +197,26 @@ it.each([false, true])('logs every GenBank omission once and counts actual downl
     `Exported ${allInvalid ? 0 : 1} sequences as genbank.`,
   ]);
 });
+
+it.each([105, 115])('delivers selection JSON biological loss details before download, end %s', end => {
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'N'.repeat(100) + 'ATGTGATAGCCCTAA', features: [{ type: 'CDS', name: 'c', start: 100, end: 115, strand: 1, segments: [{ start: 100, end: 115 }], locationString: '101..115', translationExceptions: ['(pos:104..106,aa:Sec)', '(pos:107..109,aa:Pyl)'], metadata: { translation: 'MUOP', _translationSource: 'imported' } }] };
+  const before = JSON.stringify(source);
+  const events: string[] = [];
+  vi.mocked(downloadBlob).mockImplementation(() => { events.push('download'); });
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [source], { start: 100, end, recordIds: ['r'] }, {},
+    { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, message => events.push(message)));
+  result.current.exportSelectionJson();
+  const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[0][0] as string).records[0];
+  expect(saved.sequence).toBe(end === 105 ? 'ATGTG' : 'ATGTGATAGCCCTAA');
+  expect(saved.features[0].locationString).toBeUndefined();
+  if (end === 105) {
+    expect(saved.features[0]).toMatchObject({ translationExceptions: [], segments: [{ start: 0, end: 5, partialEnd: true }] });
+    expect(saved.features[0].metadata.translation).toBeUndefined();
+    expect(events.slice(0, events.indexOf('download')).join(' ')).toMatch(/r: CDS c.*occurrence 0.*104\.\.106.*106.*occurrence 1.*107\.\.109.*wholly excluded/);
+  } else {
+    expect(saved.features[0]).toMatchObject({ translationExceptions: ['(pos:4..6,aa:Sec)', '(pos:7..9,aa:Pyl)'], metadata: { translation: 'MUOP' } });
+    expect(events[0]).toBe('download');
+  }
+  expect(JSON.stringify(source)).toBe(before);
+});

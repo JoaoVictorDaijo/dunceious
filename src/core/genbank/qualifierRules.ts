@@ -141,16 +141,25 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   if (syntax === 'flag') return [indent + '/' + key];
   if (!value) return [];
 
+  // TODO(#253): owner must choose disposition for non-printable text; line breaks retain existing folding.
   value = value.replace(/\s*[\r\n]+\s*/g, ' ');
+  if ([...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error(`/${key}=${JSON.stringify(value)}: non-printable logical text cannot be encoded losslessly in GenBank`);
   const quoted = syntax === 'quoted';
   const escaped = quoted ? value.replace(/"/g, '""') : value;
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
   const lines: string[] = [];
   while (remaining.length > 58) {
+    if (key === 'transl_except') {
+      const comma = remaining.lastIndexOf(',', 57);
+      if (comma < 0) break;
+      lines.push(indent + remaining.slice(0, comma + 1));
+      remaining = remaining.slice(comma + 1);
+      continue;
+    }
     let boundary = key === 'translation' ? 58 : -1;
     if (key !== 'translation') {
       for (let i = 58; i > 0; i--) {
-        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ') {
+        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ' && remaining[i + 1] !== '/') {
           boundary = i;
           break;
         }

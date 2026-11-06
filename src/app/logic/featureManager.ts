@@ -19,6 +19,7 @@
  */
 
 import { checkTranslation, conceptualTranslation, isCds, translationReason } from '@/src/domain/bio/translation';
+import { codeBreakMessage } from '@/src/domain/bio/translationExceptions';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
@@ -51,8 +52,31 @@ export function saveEditedFeature(
       || getFeatureStrand(previous) !== getFeatureStrand(marked)
       || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
       || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
+      || JSON.stringify(previous.translationExceptions) !== JSON.stringify(marked.translationExceptions)
       || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
     marked.metadata = { ...marked.metadata };
+    // TODO(#253): replace the plain-move lockout with the owner's coordinate policy.
+    if (previous && marked.translationExceptions?.length && previous.start !== marked.start
+      && previous.end - previous.start === marked.end - marked.start && previous.strand === marked.strand
+      && previous.metadata?.codon_start === marked.metadata.codon_start) {
+      addLog(`WARNING: CDS ${marked.name}: plain move with /transl_except awaits owner; Save refused`);
+      return r;
+    }
+    const evaluated = marked.translationExceptions?.length ? conceptualTranslation(marked, r) : undefined;
+    const previousEvidence = previous?.translationExceptions?.length ? conceptualTranslation(previous, r).exceptions : [];
+    const dropped = new Set<number>();
+    for (const evidence of evaluated?.exceptions ?? []) {
+      const inherited = previousEvidence?.some(e => e.raw === evidence.raw && e.status === 'applied');
+      if (evidence.status === 'malformed' && !inherited) {
+        addLog(`WARNING: ${codeBreakMessage(evidence)}; Save refused`);
+        return r;
+      }
+      if (evidence.status === 'dropped' || (evidence.status === 'malformed' && inherited)) {
+        addLog(`WARNING: ${codeBreakMessage(evidence)}; removed before Save`);
+        dropped.add(evidence.occurrence);
+      }
+    }
+    if (dropped.size) marked.translationExceptions = marked.translationExceptions?.filter((_, i) => !dropped.has(i));
     if (!isCds(marked)) {
       if (marked.metadata.translation !== undefined) addLog(`Translation removed from ${marked.name}: feature is not a CDS`);
       delete marked.metadata.translation; delete marked.metadata._translationSource; delete marked.metadata._translationCheck;

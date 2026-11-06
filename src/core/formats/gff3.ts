@@ -178,6 +178,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
       addQualifiers(attrs, metadata, referenceIds, report);
+      if (feature.translationExceptions?.length) attrs.transl_except = feature.translationExceptions;
       const searchNote = searchHitNote(feature);
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
@@ -204,6 +205,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
+        if (index > 0) delete partAttrs.transl_except;
         const site = segment.start === segment.end;
         if (site) partAttrs.insdc_site = 'true';
         if (segment.partialStart) partAttrs.insdc_partial_start = '<';
@@ -241,6 +243,11 @@ function parseAttributes(raw: string): Record<string, string> {
     const key = decode(attribute.slice(0, equals));
     if (key.startsWith('_')) continue;
     const values = attribute.slice(equals + 1).split(',').map(decode);
+    if (key === 'transl_except') {
+      lists[key] = [...(lists[key] ?? []), ...values];
+      result[key] = lists[key].join(',');
+      continue;
+    }
     result[key] = values.join(',');
     if (values.length > 1) lists[key] = values;
   }
@@ -349,6 +356,10 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
       start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end, ...marks }], metadata,
       ...(site && { betweenBases: true as const }),
     };
+    if (metadata.transl_except !== undefined) {
+      feature.translationExceptions = attributeValues(metadata, 'transl_except');
+      takeListAttribute(feature, 'transl_except');
+    }
     rows.push({ seqid, feature });
   }
 
@@ -416,6 +427,7 @@ export function parseGFF3(content: string): {
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         previous.strand = 1;
       }
+      if (feature.translationExceptions) previous.translationExceptions = [...(previous.translationExceptions ?? []), ...feature.translationExceptions];
       previous.segments!.push(...feature.segments!);
       previous.start = Math.min(previous.start, feature.start);
       previous.end = Math.max(previous.end, feature.end);

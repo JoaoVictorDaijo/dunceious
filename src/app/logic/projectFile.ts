@@ -47,6 +47,10 @@ export interface ProjectFile extends ProjectState { format: 2 }
 export function serializeProject(state: ProjectState): string {
   const records = state.records.map(record => ({ ...record, features: record.features.map(feature => {
     const { biological: _biological, ...stored } = feature;
+    if (stored.metadata) {
+      stored.metadata = { ...stored.metadata };
+      delete stored.metadata._translationCheck;
+    }
     return stored;
   }) }));
   return JSON.stringify({ ...state, records, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
@@ -83,6 +87,7 @@ function validRecord(value: unknown): boolean {
   if (!value.features.every(feature => isObject(feature) && coordinates(feature)
     && typeof feature.type === 'string' && typeof feature.name === 'string'
     && (feature.strand === 1 || feature.strand === -1)
+    && (feature.translationExceptions === undefined || Array.isArray(feature.translationExceptions) && feature.translationExceptions.every(item => typeof item === 'string'))
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.betweenBases === undefined || feature.betweenBases === true)

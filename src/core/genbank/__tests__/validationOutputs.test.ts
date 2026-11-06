@@ -65,7 +65,7 @@ it('returns warning findings alongside successful records', () => {
 
 it('preserves an invalid frame on clipping while rebasing a valid one', () => {
   for (const [frame, expected] of [['4', '4'], ['2', '1']]) {
-    const clipped = sliceRecordsBySelection([record(undefined, [feature(frame)])], 1, 8)[0];
+    const clipped = sliceRecordsBySelection([record(undefined, [feature(frame)])], 1, 8).records[0];
     expect(clipped.features[0].metadata?.codon_start).toBe(expected);
   }
 });

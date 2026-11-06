@@ -134,19 +134,86 @@ Both CDS computation and the greeter share this initiator helper.
 which does not conform to genetic code defined by /organism or /transl_table", written
 `(pos:<location>,aa:<amino_acid>)` with the abbreviations of ALPHA-2.
 
+**Code-break details (Documented, not runtime-tested; PR 2 design evidence).** INSDC 11.4
+§7.3.1 also permits a terminal T or TA completed to TAA by mRNA polyadenylation, represented
+by a point or two-base TERM range. Sec maps to U, Pyl to O, and OTHER to X with an explanatory
+note. Locations use entry bases, including complement and accession-qualified syntax; this
+syntax does not authorize implicit remote sequence fetching.
+NCBI C++ Toolkit `912b751`
+[`CSeqTranslator::Translate`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L4209)
+substitutes normalized code breaks after ordinary translation and initiation: LocationOffset
+minus frame identifies the protein position; TERM may append at protein length. With
+`include_stop=false` it truncates at the first stop. This permissive loop is not a validator:
+[`ValidErrItem.cpp`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objects/valerr/ValidErrItem.cpp#L1367)
+names unparsed, off-codon, out-of-CDS and conflicting-break diagnostics.
+[`CCleanup::ParseCodeBreak`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/cleanup.cpp#L4520)
+checks length/containment of simple locations and takes strand from the CDS;
+[`CdregionFeatBC`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6582)
+sorts and deduplicates equal normalized breaks. Raw translator overwrite order is not a
+standard conflict-resolution rule. The source trace additionally establishes these defaults (Documented, not executed):
+
+- **Backed by: `src/objtools/cleanup/cleanup.cpp:CCleanup::ParseCodeBreak` at commit `912b751`:**
+  skip whitespace after `pos:`/`aa:`, trim position text, assign known CDS strand to simple
+  parsed locations even when omitted/contrary in text; preserve raw values separately.
+- **Backed by: `src/objtools/cleanup/cleanup_utils.cpp:x_ValidAminoAcid` at commit `912b751`**
+  ([source](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/cleanup_utils.cpp#L640)):
+  listed multi-letter names compare case-insensitively, single letters case-sensitively;
+  unknown names (including full names) map to X, not to the intended amino acid. Xxx is a
+  tool alias; INSDC Xaa remains standard. No silent fallback claim is authorized for the app.
+- **Backed by: `src/objtools/cleanup/newcleanupp.cpp:CCodeBreakCompare`, `CCodeBreakEqual`,
+  `CNewCleanup_imp::CdregionFeatBC`; `src/objmgr/util/sequence.cpp:CSeqTranslator::Translate`
+  at commit `912b751`:** sort by offset, collapse equal adjacent normalized location/residue
+  pairs, preserve same-offset order, then overwrite; differing same-location breaks use the
+  last residue. App preserves raw occurrences and applies equal assertions once.
+- **Backed by: `src/objtools/validator/cdregion_validator.cpp:CCdregionValidator::x_ValidateCodebreak`,
+  `x_ReportTranslExceptProblems`; `src/objtools/validator/translation_problems.cpp:CCDSTranslationProblems::x_GetTranslExceptProblems`
+  at commit `912b751`**
+  ([checks](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/cdregion_validator.cpp#L647)):
+  duplicate locations are Error; partial flags on the break itself are Error TranslExceptIsPartial,
+  not a test of parent-CDS completeness. Phase warnings test full triplets and short breaks at
+  the CDS end; not all internal short breaks are rejected. Product mapping checks are conditional
+  on product presence and skip terminal breaks. Neither parser nor these checks requires T/TA
+  letters for short TERM; the permissive translator can substitute or append it. This tolerance
+  is not evidence of biological TAA completion outside INSDC's specified suffix.
+- **Backed by: `src/objmgr/util/sequence.cpp:CSeqTranslator::Translate`, `TranslateToProtein`
+  at commit `912b751`:** explicit terminal TERM is not gated on parent-CDS completeness;
+  final definite-stop removal is unconditional. Keep parent partialness distinct from a
+  break's own partial flags.
+
+Interactive edit maintenance and whole-CDS verification are app policies. **Backed by: owner
+decision 2026-11-06**, the [proposed PR 2 design](../specs/2026-11-06-translation-transl-except.md)
+requires malformed GenBank `/transl_except` to refuse file import (syntax, off-frame/partial
+codon, unsupported short stop or unknown residue), overriding #286's warning-only qualifier
+policy for this qualifier. Recognized INSDC names are case-insensitive, including one-letter
+forms. Otherwise-valid unusable entries are dropped with visible notice and computation uses
+the valid entries. OTHER/Xaa compares as any sense residue including U/O, never a definite stop.
+No silent rounding, X fallback or automatic correction is allowed. Plain-move handling,
+GFF3/project refusal scope, other-accession disposition, conflict survivors and clipped
+translation/frame policy remain [awaiting owner](../specs/2026-11-06-translation-transl-except.md#open-decisions).
+The implementation follows these approved rules with the held seams below. NCBI parser/validator execution
+remains unverified.
+
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
 in-frame TGA).
 
 **Applications.** Unknown.
 
-**Dunceious.** Partial. The qualifier is kept but not applied; the conceptual model returns
-unsupported-exception and removes the stored product on invalidating edits;
-the stored `/translation` is preferred (`src/app/viewer/tracks/SequenceTrack.tsx:343`).
+**Dunceious.** `translationExceptions` preserves ordered raw occurrences. The conceptual model
+maps exact entry bases through biological extraction, applies recognized residues after initiation
+and before terminal-stop removal, and returns per-occurrence evidence, including removed-terminal
+slots. GenBank refuses malformed syntax/shape with the CDS, occurrence, literal and rule.
+Otherwise-valid outside/repeated-visit assertions are removed with visible notices; computation uses
+the retained assertions. Stored imported proteins remain supplied data. Exact qualified identifiers
+match only the record's accession or version fields; no display-name alias or remote fetching occurs.
+OTHER/Xaa permits every sense residue including U/O, while definite stops remain incompatible.
+Identical assertions preserve multiplicity and apply once; conflicts remain unavailable pending owner.
+The independent runtime NCBI conformance gate remains pending; literal hand-derived tests are executed
+separately and do not claim NCBI parser execution.
 
 Preferring a stored `/translation` does not establish that it remains valid after an edit;
 [#253](https://github.com/JoaoVictorDaijo/dunceious/issues/253) tracks that separate fidelity issue.
 Use [OP-8](operations.md#op-8-biological-codons-and-display-frames) for codon construction and
-[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase) for exported phase. The initiation rule is enforced by the shared conceptual model; exception application remains deferred.
+[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase) for exported phase. The initiation rule is enforced by the shared conceptual model; exception application uses the shared conceptual model.
 
 ### Conceptual CDS products and comparison
 
@@ -164,8 +231,10 @@ A retained terminal stop/residue mixture is X and marks the end uncertain.
 Counts are translation positions without the terminal stop, including internal stops and
 X/U/O. They use “aa” only without internal stops. Declared protein records, unresolved
 biological strands, nonlocal/multipart order locations and unknown completeness cannot
-establish a CDS count or early-stop claim. `/transl_except` remains unsupported in the
-conceptual model: no computed product is claimed or exported after an invalidating edit.
+establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed assertions retained through
+GFF3/project files and nonmatching accession identities make computation unavailable pending owner
+policy. Plain moves carrying code breaks temporarily refuse Save; reverse/reframe removes newly
+unusable inherited breaks with notices before Save completes. Malformed new authoring refuses Save.
 
 Comparison preserves supplied proteins. Stored X is compatible with an ordinary residue,
 but not a definite DNA stop; ambiguous codons accept members of their contextual possible
@@ -179,4 +248,22 @@ computed or removed. The derived `_translationCheck` is disposable string-valued
 recomputed at import attachment, save and format-2 project load. Loading never trusts it.
 On a protein record, computed provenance is invalid derived data and is removed on load;
 an imported protein qualifier remains supplied data. Protein GenBank export and the GFF3
-phase editor retain their existing behavior pending the design's open owner decisions.
+phase editor have owner decisions dated 2026-11-06: keep supplied `/translation` on
+protein CDS export; make phase read-only and edit frame via `/codon_start`. The phase editor displays a read-only derived phase; frame edits use `/codon_start`.
+
+### Exception interchange and held policies
+
+GenBank and GFF3 preserve repeated exception values in the canonical ordered array. GFF3 splits
+raw comma lists before decoding and emits the list once on the first multipart row. Project
+format 2 preserves the array, strips derived translation checks on save, and recomputes them on load.
+Selection JSON rebases retained codons on copies, drops cut-destroyed codons, marks cut ends and
+reports every loss before download. Clipped protein omission and the existing frame formula remain
+unchanged pending owner policy. There is no reversed or GenBank/GFF3 selection-export action.
+
+Non-printable GenBank text remains held: existing newline folding remains lossy; other control
+characters refuse export with the logical value. General free-text wrapping limits remain #308.
+Malformed code breaks reaching the writer refuse export defensively. Compact exception values wrap
+only after commas; their physical continuations concatenate without inserted characters. Readers
+that insert whitespace after those commas still retain parseable locations. A token with no fitting
+comma retains the existing overlong-line limitation. Another accession and
+conflicting residues retain assertions with unavailable computation; neither is silently dropped.

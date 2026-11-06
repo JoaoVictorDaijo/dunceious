@@ -21,13 +21,14 @@
 
 import type { BioFeature, SeqRecord, ConceptualTranslation } from './types';
 export type { ConceptualTranslation } from './types';
+import { codeBreakEvidence, codeBreakMessage, SENSE_RESIDUES } from './translationExceptions';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { extractCodingSequence, featureTranslTable, initiatorResidue, isNcbiGeneticCode } from './sequence';
 import { definesOneSequence, isFivePrimePartialLocation, isThreePrimePartialLocation } from './locationFlags';
 import { invalidLocationPart } from './featureParts';
 import { getFeatureStrand } from './strand';
 
-type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number };
+type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular' | 'accession' | 'version'> & { biologicalLength?: number };
 
 
 export const isCds = (feature: Pick<BioFeature, 'type'>): boolean => ['CDS', 'cds', 'SO:0000316'].includes(feature.type);
@@ -47,7 +48,8 @@ function reading(set: string): string {
 
 /** Contextual NCBI CDS product, independent of every stored protein assertion. */
 export function conceptualTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
-  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason });
+  let exceptions = codeBreakEvidence(feature, record);
+  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason, ...(exceptions.length ? { exceptions } : {}) });
   if (record.moleculeType === 'protein') return unavailable('protein-record');
   const table = featureTranslTable(feature);
   if (!isNcbiGeneticCode(table)) return unavailable('invalid-code');
@@ -81,9 +83,26 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     const set = readings(seq.slice(full * 3).padEnd(3, 'N'), false);
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
+  let entry = -1;
+  const entryMap = [...record.sequence].map(base => base === '-' ? -1 : ++entry);
+  exceptions = codeBreakEvidence(feature, record, seq, alignedIndices.map(i => entryMap[i]));
+  if (exceptions.some(e => e.status === 'malformed' || e.status === 'deferred')) return unavailable('unsupported-exception');
+  // TODO(#253): choose conflicting survivors; retain all assertions and withhold computation.
+  const assignments = new Map<number, string>();
+  for (const evidence of exceptions) {
+    if (evidence.status !== 'applied') continue;
+    const slot = evidence.codonIndex!;
+    if (assignments.has(slot) && assignments.get(slot) !== evidence.possible) {
+      exceptions = exceptions.map(e => e.codonIndex === slot ? { ...e, status: 'deferred', reason: 'conflicting residues; awaiting owner' } : e);
+      return unavailable('unsupported-exception');
+    }
+    assignments.set(slot, evidence.possible!);
+    possible[slot] = evidence.possible!;
+    residues[slot] = reading(evidence.possible!);
+  }
   if (possible.at(-1) === '*') { possible.pop(); residues.pop(); }
   const threePrimeIndeterminate = !!possible.at(-1)?.includes('*') && possible.at(-1) !== '*';
-  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3) };
+  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
 }
 
 export function compareTranslation(stored: string, conceptual: Extract<ConceptualTranslation, { status: 'ok' }>) {
@@ -91,7 +110,8 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
   for (let i = 0; i < Math.min(stored.length, conceptual.residues.length); i++) {
     const actual = stored[i]; const expected = conceptual.residues[i];
     if (actual === expected) continue;
-    if (expected !== '*' && (actual === 'X' || conceptual.possible[i].includes(actual))) continue;
+    const actualSet = ({ B: 'DN', Z: 'EQ', J: 'IL', X: SENSE_RESIDUES } as Record<string, string>)[actual] ?? actual;
+    if (expected !== '*' && [...actualSet].some(residue => conceptual.possible[i].includes(residue))) continue;
     differing.push(i);
   }
   return { differing, storedExtra: stored.slice(conceptual.residues.length), storedShortBy: Math.max(0, conceptual.residues.length - stored.length) };
@@ -101,24 +121,35 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
   if (!isCds(feature)) return feature;
   const conceptual = conceptualTranslation(feature, record);
+  // TODO(#253): choose malformed GFF3/project ingress disposition; retain assertions without verification.
+  const dropped = new Set(conceptual.exceptions?.filter(e => e.status === 'dropped').map(e => e.occurrence));
+  if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
   return { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } };
 }
 export function translationWarning(records: SeqRecord[]): string | null {
   let count = 0;
+  const notices: string[] = [];
   for (const record of records) for (const f of record.features) {
-    if (!isCds(f) || f.metadata?.exception !== undefined) continue;
+    if (!isCds(f)) continue;
+    const checked = checkedTranslation(f, record);
+    for (const e of checked.exceptions ?? []) {
+      if (e.status !== 'applied') notices.push(codeBreakMessage(e));
+      for (const warning of e.warnings ?? []) notices.push(`${codeBreakMessage(e)}: ${warning}`);
+    }
+    if (f.metadata?.exception !== undefined) continue;
     const stored = storedTranslation(f); const result = conceptualTranslation(f, record);
     if (!stored || result.status !== 'ok') continue;
     const c = compareTranslation(stored, result);
     if (c.differing.length || c.storedExtra || c.storedShortBy) count++;
   }
-  return count ? `WARNING: ${count} CDS have a /translation that differs from their DNA` : null;
+  if (count) notices.push(`${count} CDS have a /translation that differs from their DNA`);
+  return notices.length ? `WARNING: ${notices.join('; ')}` : null;
 }
 export function translationReason(result: ConceptualTranslation, feature: BioFeature): string {
   if (result.status === 'ok') return result.internalStops.length ? `internal stop at codon ${result.internalStops[0] + 1}; fix the CDS or mark it /pseudo` : '';
-  return ({ 'protein-record': 'nucleotide translation is not applicable to a protein record', 'invalid-code': `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`, 'unsupported-exception': "/transl_except can't be applied yet", 'unknown-strand': 'biological strand is unknown', 'nonlocal-location': 'location does not define one locally available sequence', 'unknown-completeness': 'CDS end completeness cannot be established', empty: 'CDS has no translatable coding bases' })[result.reason];
+  return ({ 'protein-record': 'nucleotide translation is not applicable to a protein record', 'invalid-code': `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`, 'unsupported-exception': result.exceptions?.find(e => e.status === 'malformed' || e.status === 'deferred')?.reason ?? "/transl_except can't be applied yet", 'unknown-strand': 'biological strand is unknown', 'nonlocal-location': 'location does not define one locally available sequence', 'unknown-completeness': 'CDS end completeness cannot be established', empty: 'CDS has no translatable coding bases' })[result.reason];
 }
 
 /** Fill omitted interval orientations only in the per-interval evaluation path (LOC-3). */
@@ -142,6 +173,10 @@ export function checkedTranslation(feature: BioFeature, record: TranslationRecor
 export function translationDescription(feature: BioFeature, record: TranslationRecord): string {
   const result = checkedTranslation(feature, record);
   const clauses = [feature.metadata?._translationMessage ?? ''];
+  for (const e of result.exceptions ?? []) {
+    if (e.status !== 'applied') clauses.push(codeBreakMessage(e));
+    clauses.push(...(e.warnings ?? []));
+  }
   if (result.status === 'unavailable') clauses.push(`Can't verify: ${translationReason(result, feature)}`);
   const stored = storedTranslation(feature);
   if (stored && result.status === 'ok') {

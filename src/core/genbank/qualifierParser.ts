@@ -36,8 +36,9 @@ export function parseQualifiers(
   lines: string[],
   fromIdx: number,
   finding?: FindingSink,
-): { qualifiers: Record<string, string>; lastIdx: number } {
+): { qualifiers: Record<string, string>; lastIdx: number; translationExceptions?: string[] } {
   const qualifiers: Record<string, string> = Object.create(null);
+  const translationExceptions: string[] = [];
   let i = fromIdx;
   while (i < lines.length && lines[i].startsWith(INDENT21)) {
     const match = lines[i].trim().match(/^\/(\w+)(?:=(.*))?$/);
@@ -61,21 +62,22 @@ export function parseQualifiers(
         break;
       }
       if (!openQuote && next.startsWith('/')) break;
-      value += (key === 'translation' ? '' : ' ') + next;
+      value += key === 'transl_except' ? lines[i + 1].slice(21) : (key === 'translation' ? '' : ' ') + next;
       i++;
     }
     if (interrupted || (quoted && !quotedValueIsClosed(value))) {
       finding?.('refuse', 'malformed-qualifier', `/${key} has no closing quote; the rest of this feature was not checked.`, qualifierLine);
       break;
     }
-    if (Object.hasOwn(qualifiers, key)) finding?.('warning', 'repeated-qualifier', `/${key} is repeated; the last value is kept.`, i + 1);
+    if (key !== 'transl_except' && Object.hasOwn(qualifiers, key)) finding?.('warning', 'repeated-qualifier', `/${key} is repeated; the last value is kept.`, i + 1);
     if (quoted) {
       value = value.slice(1);
       if (value.endsWith('"')) value = value.slice(0, -1);
       value = value.replace(/""/g, '"');
     }
-    qualifiers[key] = value;
+    if (key === 'transl_except') translationExceptions.push(value);
+    else qualifiers[key] = value;
     i++;
   }
-  return { qualifiers, lastIdx: i - 1 };
+  return { qualifiers, lastIdx: i - 1, ...(translationExceptions.length ? { translationExceptions } : {}) };
 }

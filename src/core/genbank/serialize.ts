@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { isCds } from '@/src/domain/bio/translation';
+import { parseCodeBreak, codeBreakMessage } from '@/src/domain/bio/translationExceptions';
+import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
@@ -158,6 +159,7 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
       }
       if (/^[012]$/.test(phase ?? '')) metadata.codon_start = String(Number(phase) + 1);
     }
+    gb += serializeCodeBreaks(feature, r);
     for (const [key, value] of Object.entries(metadata)) {
       if (key.startsWith('_')) continue;
       const syntax = rules.get(key);
@@ -177,4 +179,17 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
   return gb + '//\n';
+}
+
+function serializeCodeBreaks(feature: BioFeature, r: SeqRecord): string {
+  if (!feature.translationExceptions?.length) return '';
+  let text = '';
+  const malformed = conceptualTranslation(feature, r).exceptions?.find(e => e.status === 'malformed');
+  if (malformed) throw new Error(codeBreakMessage(malformed));
+  for (const [occurrence, raw] of (feature.translationExceptions ?? []).entries()) {
+    const parsed = parseCodeBreak(raw, feature.strand);
+    if (typeof parsed === 'string') throw new Error(codeBreakMessage({ feature: feature.name, occurrence, raw, status: 'malformed', reason: parsed }));
+    text += formatQualifier('transl_except', raw, 'unquoted').map(line => line + '\n').join('');
+  }
+  return text;
 }
