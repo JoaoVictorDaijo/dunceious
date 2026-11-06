@@ -90,7 +90,8 @@ point C asks that GenBank stay ungapped.
 - Every refusal names the file, each record and the problem, all at once.
 - Every problem the Warning table lists is visible on demand, without interrupting the load.
   Checks it doesn't list are out of scope: the protein vocabulary, and qualifier values beyond
-  `/codon_start` and `/transl_table`.
+  `/codon_start` and `/transl_table`. The one exception is reading `assembly_gap`'s `/gap_type`
+  to decide whether `/linkage_evidence` is mandatory.
 - GenBank export never writes a residue GenBank cannot hold, and never counts one in LOCUS.
 
 ## Non-goals
@@ -142,7 +143,7 @@ and the line.
 | `guardOrderLocation` | `order(…)` | the location-reading PR on `integration/murilo-review` (#225) |
 | `guardBetweenBaseSite` | `n^n+1`, and `length^1` on a circular record | the same PR (#230) |
 | `guardRemoteLocation` | `ACC:n..m`, `ACC.V:n..m` | the same PR (#245) |
-| `guardOneOfPosition` | `n.m` (e.g. `102.110`) | stays in this spec; no fix is planned yet |
+| `guardOneOfPosition` | `n.m` (e.g. `102.110`). INSDC 11.4 §3.4.2.1 allows it only in existing entries, not newly created ones | stays in this spec; no fix is planned yet |
 | `guardSiteInCompound` | a `^` site inside a `join`/`order`, or as a span end. INSDC 11.4 §3.4.2 allows these, so they are unsupported, not malformed | stays in this spec unless the location-reading PR takes it |
 
 **Still refused after those guards go.** The location-reading PR leaves these to this spec's Malformed location and Location out of range checks, so they are refused here, each with its own message and test:
