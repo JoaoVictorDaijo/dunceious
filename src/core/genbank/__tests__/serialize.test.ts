@@ -61,7 +61,7 @@ describe('exportToGenBank', () => {
   it('round-trips the /ribosomal_slippage flag through parse and export', () => {
     const gb = exportToGenBank([record({ features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
       metadata: { ribosomal_slippage: '' } }] })]).text;
-    const [rec] = parseGenBank(gb);
+    const [rec] = parseGenBank(gb).records;
     expect(rec.features.find(f => f.type === 'CDS')?.metadata?.ribosomal_slippage).toBe('');
   });
 
@@ -96,7 +96,7 @@ describe('custom annotation roundtrip', () => {
   it.each([1, -1] as const)('retains a custom primer name, region and strand %s', strand => {
     const source = record({ features: [{ type: 'primer', name: 'Synthetic primer', start: 1, end: 8, strand }] });
     const snapshot = structuredClone(source);
-    const parsed = parseGenBank(exportToGenBank([source]).text);
+    const parsed = parseGenBank(exportToGenBank([source]).text).records;
     expect(parsed[0].features.find(f => f.type === 'primer')).toMatchObject(source.features[0]);
     expect(parsed[0].sequence).toBe(source.sequence);
     expect(source).toEqual(snapshot);
@@ -113,7 +113,7 @@ it('roundtrips a newly created reverse annotation with separate segments', () =>
   const source = record({ features: [{ type: 'misc_feature', name: 'Joined synthetic', start: 1, end: 9, strand: -1, segments: [{ start: 1, end: 3 }, { start: 6, end: 9 }] }] });
   const exported = exportToGenBank([source]).text;
   expect(exported).toContain('complement(join(2..3,7..9))');
-  expect(parseGenBank(exported)[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
+  expect(parseGenBank(exported).records[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
 });
 
 
@@ -129,7 +129,7 @@ FEATURES             Location/Qualifiers
                      /label=nested
 ORIGIN
         1 aaccggtt
-//`);
+//`).records;
     expect(source.sequence).toBe('AACCGGTT');
     const exported = exportToGenBank([source]).text;
     expect(exported.split('\n').filter(line => line.startsWith('     misc_feature')))

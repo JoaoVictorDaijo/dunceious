@@ -359,11 +359,11 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           )}
 
           {/* Additional metadata */}
-          {((feature?.metadata) || (record.metadata && !feature)) && (
+          {((feature?.metadata || feature?.unknownQualifiers) || (record.metadata && !feature)) && (
             <div className="stack-y-3 pt-4 border-t border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
-                {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (
+                {Object.entries(feature ? { ...feature.metadata, ...feature.unknownQualifiers } : record.metadata || {}).filter(([key]) => !key.startsWith('_') || feature?.unknownQualifiers?.[key] !== undefined).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{key}</span>
                     <span className={`text-[11px] font-bold text-slate-700 max-w-[300px] ${hoverTips ? 'truncate' : 'min-w-0 break-words whitespace-normal'}`} data-tip={hoverTips ? String(value) : undefined}>

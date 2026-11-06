@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
@@ -30,7 +31,9 @@ export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
  * codons are not translated (see `translateSequence`), and the warning says why.
  */
 export const geneticCodeWarning = (feature: BioFeature): string | null =>
-  CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature))
+  CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
+    ? `⚠ /codon_start=${feature.metadata?.codon_start ?? ''} is invalid; codons are not translated`
+    : CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature))
     ? `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code; codons are not translated`
     : null;
 
@@ -51,7 +54,7 @@ export const computeBrokenFeatureMap = (
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
   features
-    .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
+    .filter(f => validCodonStart(f.metadata?.codon_start) && CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
       const translTable = featureTranslTable(f);
@@ -121,7 +124,7 @@ export const assignTranslationLanes = (
   const pack = (strand: 1 | -1) => {
     const units: { feature: BioFeature; frame: Frame; spans: { start: number; end: number }[] }[] = [];
     features
-      .filter(f => CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
+      .filter(f => validCodonStart(f.metadata?.codon_start) && CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
       .forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const spans = new Map<Frame, { start: number; end: number }[]>();

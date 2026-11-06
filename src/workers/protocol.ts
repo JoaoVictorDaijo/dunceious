@@ -49,6 +49,8 @@ import type { GffSourceRegion } from '../core/formats/gff3';
 
 export interface BioRequestContext {
   requestId?: number;
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
 }
 
 export interface ProcessRecordsRequest extends BioRequestContext {
@@ -97,8 +99,18 @@ export interface ProcessRecordsSuccessResponse extends BioRequestContext {
   consensus: string;
 }
 
+export interface ParseGenBankRefusedResponse extends BioRequestContext {
+  type: 'PARSE_REFUSED';
+  filename: string;
+  records: SeqRecord[];
+  findings: import('@/src/domain/bio/types').GenBankFinding[];
+  categories: ('nucleotide' | 'protein')[];
+  idMap?: BatchIdMap;
+}
+
 export interface ParseGenBankSuccessResponse extends BioRequestContext {
   type: 'PARSE_SUCCESS';
+  findings?: import('@/src/domain/bio/types').GenBankFinding[];
   /** Workspace assignments supplied by the main-thread acknowledgment. */
   idMap?: BatchIdMap;
   filename: string;
@@ -135,6 +147,7 @@ export interface WorkerErrorResponse extends BioRequestContext {
 /** Union of all messages the bio worker can post back. */
 export type BioWorkerResponse =
   | ProcessRecordsSuccessResponse
+  | ParseGenBankRefusedResponse
   | ParseGenBankSuccessResponse
   | ParseFastaSuccessResponse
   | AnnotationsSuccessResponse

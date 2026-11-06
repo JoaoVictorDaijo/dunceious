@@ -83,24 +83,20 @@ function splitTopLevelCommas(list: string): string[] {
       cur += ch;
     }
   }
-  if (cur) out.push(cur);
+  out.push(cur);
   return out;
 }
 
 /** Parses a single coordinate element (`n..m`, `n^m`, or `n`) to a half-open range. */
 function parseCoord(el: string): { start: number; end: number } {
-  const pair = el.match(/(\d+)(?:\.\.|\^)(\d+)/);
-  if (pair) return { start: parseInt(pair[1]) - 1, end: parseInt(pair[2]) };
-  const single = el.match(/(\d+)/);
-  if (single) {
-    const val = parseInt(single[1]);
-    return { start: val - 1, end: val };
-  }
-  return { start: 0, end: 0 };
+  const pair = el.match(/^(\d+)(?:\.\.|\^)(\d+)$/);
+  if (pair) return { start: Number(pair[1]) - 1, end: Number(pair[2]) };
+  if (/^\d+$/.test(el)) return { start: Number(el) - 1, end: Number(el) };
+  throw new Error(`Unreadable location: ${el}`);
 }
 
 export function parseLocation(loc: string): LocationData {
-  const cleanLoc = loc.replace(/[<>\s]/g, '');
+  const cleanLoc = loc.replace(/\s/g, '').replace(/([<>])(?=\d)/g, '');
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;
@@ -109,15 +105,15 @@ export function parseLocation(loc: string): LocationData {
   const listMatch = body.match(/^(?:join|order)\((.*)\)$/);
   const elements = listMatch ? splitTopLevelCommas(listMatch[1]) : [body];
 
-  let anyInnerComplement = false;
-  const parsed = elements.map(el => {
-    const inner = el.match(/^complement\((.*)\)$/);
-    if (inner) anyInnerComplement = true;
-    const elementStrand: 1 | -1 = inner ? -1 : 1;
-    const effective: 1 | -1 =
-      outerComplement ? (elementStrand === 1 ? -1 : 1) : elementStrand;
-    return { ...parseCoord(inner ? inner[1] : el), strand: effective };
-  });
+  const anyInnerComplement = /complement\(/.test(body);
+  function flatten(text: string, direction: 1 | -1): { start: number; end: number; strand: 1 | -1 }[] {
+    const complement = text.match(/^complement\((.*)\)$/);
+    if (complement) return flatten(complement[1], direction === 1 ? -1 : 1).reverse();
+    const compound = text.match(/^(?:join|order)\((.*)\)$/);
+    if (compound) return splitTopLevelCommas(compound[1]).flatMap(part => flatten(part, direction));
+    return [{ ...parseCoord(text), strand: direction }];
+  }
+  const parsed = elements.flatMap(el => flatten(el, outerComplement ? -1 : 1));
 
   const strands = parsed.map(p => p.strand);
   const mixedStrand = strands.some(s => s !== strands[0]);

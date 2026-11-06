@@ -71,6 +71,7 @@ export function exportToGenBank(records: SeqRecord[]): ExportResult {
       features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
     }
     for (const feature of features) {
+      report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
       gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
       const metadata = { ...feature.metadata };
       if (feature.translation && metadata.translation === undefined) metadata.translation = feature.translation;

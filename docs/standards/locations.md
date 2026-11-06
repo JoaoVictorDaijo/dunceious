@@ -178,3 +178,14 @@ longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
 caption names both steps, inner complements first and then the outer one. The interval-sum
 and region lengths have distinct labels, the presentation requirement tracked by
 [#227](https://github.com/JoaoVictorDaijo/dunceious/issues/227).
+
+## GenBank import enforcement
+
+`src/core/genbank/locationValidation.ts` refuses unreadable or partially parsed locations,
+out-of-range local coordinates, mixed join/order syntax, non-adjoining between-base sites,
+and reversed fuzzy markers. Nested joins and nested complements are evaluated recursively.
+`guardOrderLocation`, `guardBetweenBaseSite`, `guardRemoteLocation`, `guardOneOfPosition` and
+`guardSiteInCompound` name legal but unsupported forms separately. The first three guards
+are removed with the integration location-reading work; the one-of and compound-site guards
+remain until their semantics are supported. Remote positions must not be tested against local
+sequence bounds once remote parsing is enabled. Existing saved project handling is unchanged.

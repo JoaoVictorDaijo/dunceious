@@ -28,7 +28,7 @@ import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/
 /** Pure router for bio-worker messages: maps a request to its response. */
 export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
   const response = routeBioMessage(msg);
-  return msg.requestId === undefined ? response : { ...response, requestId: msg.requestId };
+  return { ...response, requestId: msg.requestId, workspaceRevision: msg.workspaceRevision, incomingCategory: msg.incomingCategory };
 }
 
 function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
@@ -42,7 +42,12 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     }
   } else if (msg.type === 'PARSE_GENBANK') {
     try {
-      return { type: 'PARSE_SUCCESS', filename: msg.filename, records: parseGenBank(msg.content) };
+      const parsed = parseGenBank(msg.content);
+      if (parsed.findings.some(f => f.tier === 'refuse')) {
+        const categories = [...msg.content.matchAll(/^LOCUS\s+.*?\s\d+\s+(bp|aa)(?=\s|$)/gmi)].map(m => m[1].toLowerCase() === 'aa' ? 'protein' as const : 'nucleotide' as const);
+        return { type: 'PARSE_REFUSED', filename: msg.filename, ...parsed, categories };
+      }
+      return { type: 'PARSE_SUCCESS', filename: msg.filename, ...parsed };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

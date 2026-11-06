@@ -1,6 +1,6 @@
 ---
 title: "GenBank import validation: refuse broken meaning, note conformance problems"
-status: proposed
+status: implemented
 date: 2026-11-06
 areas: ["genbank-io", "sequence-io", "app"]
 prs: [298]

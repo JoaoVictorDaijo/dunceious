@@ -149,7 +149,7 @@ it('preserves origin-crossing GenBank joins through export filtering and re-impo
   expect(result.text).toContain('join(2427..3308,1..1758)');
   expect(result.text).toContain('join(2992..3308,1..964)');
   expect(result.report.writtenDetails.organism).toBe(1);
-  const parsed = parseGenBank(result.text)[0];
+  const parsed = parseGenBank(result.text).records[0];
   expect(parsed.isCircular).toBe(true);
   expect(parsed.features.filter(feature => feature.type === 'CDS').map(feature => feature.locationString)).toEqual(['join(2427..3308,1..1758)', 'join(2992..3308,1..964)', '2021..2587']);
   expect(parsed.features.some(feature => feature.type === 'mat_peptide')).toBe(false);

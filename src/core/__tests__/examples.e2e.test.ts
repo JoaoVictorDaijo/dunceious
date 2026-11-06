@@ -53,7 +53,7 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
   let records: SeqRecord[];
   let record: SeqRecord;
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
     record = records[0];
   });
 
@@ -190,7 +190,7 @@ describe(`examples/${EXAMPLES.influenzaPr8}`, () => {
   const content = loadExample(EXAMPLES.influenzaPr8);
   let records: SeqRecord[];
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
   });
 
   it('parses eight records, each carrying features', () => {
@@ -221,7 +221,7 @@ describe(`examples/${EXAMPLES.humanMitochondrion}`, () => {
   const content = loadExample(EXAMPLES.humanMitochondrion);
   let record: SeqRecord;
   beforeAll(() => {
-    record = parseGenBank(content)[0];
+    record = parseGenBank(content).records[0];
   });
 
   it('annotates all 13 CDS with the vertebrate mitochondrial code (transl_table=2)', () => {
