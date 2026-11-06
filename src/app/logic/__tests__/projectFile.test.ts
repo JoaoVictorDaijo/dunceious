@@ -180,3 +180,16 @@ describe('project partial ends saved before the flags', () => {
       .toEqual([{ start: 0, end: 15 }]);
   });
 });
+
+// #241 for projects saved before writtenOrder: the nested text gives the written order of the
+// stored (evaluation-order) segments, so a later edit keeps the linear envelope.
+describe('project written order saved before the field', () => {
+  it('reads the written order of a nested complement from its text', () => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, features: [{ type: 'misc_feature', name: 'n', strand: 1,
+      start: 0, end: 12, segments: [{ start: 9, end: 12, strand: -1 }, { start: 0, end: 3, strand: 1 }],
+      locationString: 'complement(join(complement(1..3),10..12))' } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.project.records[0].features[0].writtenOrder).toEqual([1, 0]);
+  });
+});

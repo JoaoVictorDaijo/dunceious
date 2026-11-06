@@ -440,3 +440,16 @@ describe('sliceRecordsBySelection – partial ends', () => {
       .toEqual([{ start: 5, end: 15, partialStart: true }]);
   });
 });
+
+// #241: a selection that drops an interval keeps the written order of the rest.
+describe('sliceRecordsBySelection – written order', () => {
+  it('re-ranks the written order of the kept intervals', () => {
+    const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(40), features: [{
+      type: 'misc_feature', name: 'n', start: 0, end: 40, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 5, strand: 1 }, { start: 29, end: 40, strand: -1 }, { start: 9, end: 20, strand: -1 }],
+      writtenOrder: [0, 2, 1],
+    }] }], 8, 40)[0].features;
+    expect(clipped.segments!.map(({ start, end }) => [start, end])).toEqual([[21, 32], [1, 12]]);
+    expect(clipped.writtenOrder).toEqual([1, 0]);
+  });
+});

@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, it, expect } from 'vitest';
 import { frameShift, segmentFrameshifts } from '../frameshift';
 
@@ -95,5 +96,15 @@ describe('segmentFrameshifts – order()', () => {
 
   it('still reads the same gaps under join', () => {
     expect(segmentFrameshifts({ strand: 1, segments, operator: 'join' })).toEqual([{ position: 153, shift: 1 }]);
+  });
+});
+
+// #241: complement(join(complement(1..6),6..12)) shares base 6, a −1 junction in written order. It
+// must survive an edit that clears the location text.
+describe('segmentFrameshifts – nested written order without text', () => {
+  it('keeps the −1 junction of a nested feature from its written order', () => {
+    const parsed = parseLocation('complement(join(complement(1..6),6..12))');
+    expect(segmentFrameshifts({ strand: parsed.strand, segments: parsed.segments, operator: parsed.operator,
+      writtenOrder: parsed.writtenOrder })).toEqual([{ position: 5, shift: -1 }]);
   });
 });

@@ -70,6 +70,8 @@ export interface LocationData {
   end: number;
   operator?: LocationOperator;
   betweenBases?: true;
+  /** Written position of each stored segment, when it differs from the stored (evaluation) order. */
+  writtenOrder?: number[];
 }
 
 /**
@@ -102,6 +104,21 @@ function splitTopLevelCommas(list: string): string[] {
   return out;
 }
 
+/** One interval as evaluated: the strand it is read on and its position in the written text. */
+type Interval = FeatureSegment & { strand: 1 | -1; written: number };
+
+/**
+ * INSDC FT 11.4 §3.4.2.2 at any depth: `complement()` reverses what it encloses and reads it on the
+ * other strand; `join()`/`order()` keep their elements in written order. Intervals are numbered in
+ * the order the text writes them.
+ */
+function evaluate(text: string, strand: 1 | -1, counter: { next: number }): Interval[] {
+  const operator = text.match(/^(complement|join|order)\((.*)\)$/);
+  if (operator?.[1] === 'complement') return evaluate(operator[2], strand === 1 ? -1 : 1, counter).reverse();
+  if (operator) return splitTopLevelCommas(operator[2]).flatMap(element => evaluate(element, strand, counter));
+  return [{ ...parseCoord(text), strand, written: counter.next++ }];
+}
+
 /** Parses a single coordinate element (`n..m`, `n^m`, or `n`) to a half-open range. */
 function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
   // INSDC FT 11.4 §3.4.2.1: '<' marks the start number, '>' the end number (LOC-4).
@@ -128,7 +145,6 @@ export function parseLocation(loc: string): LocationData {
 
   const listMatch = body.match(/^(join|order)\((.*)\)$/);
   const operator = listMatch?.[1] as LocationOperator | undefined;
-  const elements = listMatch ? splitTopLevelCommas(listMatch[2]) : [body];
 
   const boundary = listMatch ? null : siteBoundary(body);
   if (boundary !== null) {
@@ -136,64 +152,56 @@ export function parseLocation(loc: string): LocationData {
     return { segments: [segment], strand: outerComplement ? -1 : 1, ...segment, betweenBases: true };
   }
 
-  let anyInnerComplement = false;
-  const parsed = elements.map(el => {
-    const inner = el.match(/^complement\((.*)\)$/);
-    if (inner) anyInnerComplement = true;
-    const elementStrand: 1 | -1 = inner ? -1 : 1;
-    const effective: 1 | -1 =
-      outerComplement ? (elementStrand === 1 ? -1 : 1) : elementStrand;
-    return { ...parseCoord(inner ? inner[1] : el), strand: effective };
-  });
-
-  const strands = parsed.map(p => p.strand);
+  const evaluated = evaluate(cleanLoc, 1, { next: 0 });
+  const written = [...evaluated].sort((a, b) => a.written - b.written);
+  const strands = evaluated.map(p => p.strand);
   const mixedStrand = strands.some(s => s !== strands[0]);
 
-  // INSDC FT 11.4 §3.4.2.2: inner complements require per-interval
-  // orientation; an outer complement also reverses the evaluated list.
-  // Keep `parsed` in written order for the origin-wrap heuristic below.
-  const usePerSegment = anyInnerComplement || mixedStrand;
-  const evaluated = outerComplement && anyInnerComplement ? [...parsed].reverse() : parsed;
+  // A complement() below the outermost one, or mixed strands, needs per-interval orientation, and
+  // the intervals are stored in evaluation order (INSDC FT 11.4 §3.4.2.2). Otherwise the historical
+  // shape holds: the intervals as written, one strand on the feature, and the whole sequence
+  // reverse-complemented downstream when that strand is -1.
+  const usePerSegment = body.includes('complement(') || mixedStrand;
+  const strip = ({ strand: _strand, written: _written, ...part }: Interval): FeatureSegment => part;
 
   let segments: FeatureSegment[];
   let strand: 1 | -1;
+  let writtenOrder: number[] | undefined;
 
   if (usePerSegment) {
-    // The parent strand is the majority (ties resolve to +1); extraction
-    // uses each segment's strand when the location supplies inner complements.
-    segments = evaluated.map(({ strand: partStrand, ...part }) => ({ ...part, strand: partStrand }));
+    // The parent strand is the majority (ties resolve to +1).
+    segments = evaluated.map(interval => ({ ...strip(interval), strand: interval.strand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
+    if (evaluated.some((interval, i) => interval.written !== i)) writtenOrder = evaluated.map(interval => interval.written);
   } else {
-    // Uniform strand with no inner complement: keep the historical shape (no
-    // per-segment strand); the whole coding sequence is reverse-complemented
-    // downstream when strand = -1.
-    segments = parsed.map(({ strand: _strand, ...part }) => part);
+    segments = written.map(strip);
     strand = strands[0] ?? 1;
   }
 
   let start = 0;
   let end = 0;
 
-  if (parsed.length > 0) {
-    const firstStart = parsed[0].start;
-    const lastEnd = parsed[parsed.length - 1].end;
-    const minStart = Math.min(...parsed.map(s => s.start));
+  if (written.length > 0) {
+    const firstStart = written[0].start;
+    const lastEnd = written[written.length - 1].end;
+    const minStart = Math.min(...written.map(s => s.start));
 
     // Origin wrap vs. scattered trans-splice: a genuine wrap is contiguous
     // around the origin, so it includes base 1 (minStart === 0); a scattered
     // join is also descending but sits mid-genome. See the file header.
-    if (parsed.length > 1 && firstStart > lastEnd && minStart === 0) {
+    if (written.length > 1 && firstStart > lastEnd && minStart === 0) {
       start = firstStart;
       end = lastEnd;
     } else {
       start = minStart;
-      end = Math.max(...parsed.map(s => s.end));
+      end = Math.max(...written.map(s => s.end));
     }
   }
 
   return {
     segments, strand, start, end,
     ...(operator && { operator }),
+    ...(writtenOrder && { writtenOrder }),
   };
 }
 

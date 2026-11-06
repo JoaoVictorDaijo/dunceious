@@ -20,6 +20,7 @@
 
 import type { FeatureSegment, BioFeature, SeqRecord } from './types';
 import { isBetweenBasesSite } from './locationFlags';
+import { keptWrittenOrder } from './featureEnvelope';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -132,8 +133,10 @@ function clipFeature(
   const segments = feature.segments?.length
     ? feature.segments
     : splitWrapAround(feature.start, feature.end, seq.length);
-  const newSegments = segments.flatMap(segment => {
+  const kept: number[] = [];
+  const newSegments = segments.flatMap((segment, i) => {
     const clipped = clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
+    if (clipped) kept.push(i);
     return clipped ? [{ ...segment, ...clipped }] : [];
   });
   if (!newSegments.length) return null;
@@ -155,6 +158,9 @@ function clipFeature(
     end: Math.max(...newSegments.map(segment => segment.end)),
     segments: feature.segments?.length || feature.start > feature.end ? newSegments : undefined,
   };
+  const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
+  if (writtenOrder) result.writtenOrder = writtenOrder;
+  else delete result.writtenOrder;
   if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
     delete result.locationString;
   }

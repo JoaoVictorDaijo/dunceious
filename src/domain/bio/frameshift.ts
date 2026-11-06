@@ -65,7 +65,7 @@ export interface SegmentFrameshift {
  * segment's start is the same shift read forward or in reverse. An `order()` location has none:
  * INSDC writes slippage with `join`, and `order` implies nothing about joining.
  */
-export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string; operator?: LocationOperator }): SegmentFrameshift[] {
+export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string; operator?: LocationOperator; writtenOrder?: number[] }): SegmentFrameshift[] {
   if (!isJoinedLocation(feature)) return [];
   const segments = writtenOrderSegments(feature) ?? [];
   const junctions: SegmentFrameshift[] = [];

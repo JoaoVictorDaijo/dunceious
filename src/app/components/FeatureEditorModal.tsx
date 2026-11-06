@@ -23,6 +23,7 @@ import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { keptWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
@@ -255,7 +256,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 <button
                   onClick={() => {
                     const newSegs = [...feature.segments!, { start: feature.end, end: feature.end + 100 }];
-                    setGeometry({ segments: newSegs });
+                    // An appended segment is written last.
+                    setGeometry({ segments: newSegs, writtenOrder: feature.writtenOrder && [...feature.writtenOrder, feature.writtenOrder.length] });
                   }}
                   data-tip="Append a new segment after the last one"
                   className="text-[10px] font-bold text-env uppercase hover:text-env/80 transition-colors"
@@ -291,7 +293,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     <button
                       onClick={() => {
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
-                        setGeometry({ segments: newSegs });
+                        const kept = feature.segments!.map((_, i) => i).filter(i => i !== idx);
+                        setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept) });
                       }}
                       aria-label={`Remove segment ${idx + 1}`}
                       data-tip="Remove this segment"

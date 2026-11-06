@@ -172,6 +172,8 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
       if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
+      // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
+      if (feature.writtenOrder) attrs.insdc_written_order = feature.writtenOrder.map(String);
       if (isBetweenBasesSite(feature)) {
         // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
         attrs.insdc_site = 'true';
@@ -222,6 +224,24 @@ function parseAttributes(raw: string): Record<string, string> {
   }
   if (Object.keys(lists).length) result._gffLists = JSON.stringify(lists);
   return result;
+}
+
+/** Reads and removes `insdc_written_order`; a value that is not a permutation of the rows is dropped. */
+function takeWrittenOrder(feature: BioFeature): number[] | undefined {
+  const metadata = feature.metadata!;
+  const raw = metadata.insdc_written_order;
+  delete metadata.insdc_written_order;
+  if (metadata._gffLists) {
+    const lists = JSON.parse(metadata._gffLists);
+    delete lists.insdc_written_order;
+    if (Object.keys(lists).length) metadata._gffLists = JSON.stringify(lists);
+    else delete metadata._gffLists;
+  }
+  if (raw === undefined) return undefined;
+  const order = raw.split(',').map(Number);
+  const length = feature.segments!.length;
+  const valid = order.length === length && new Set(order).size === length && order.every(i => Number.isInteger(i) && i >= 0 && i < length);
+  return valid ? order : undefined;
 }
 
 function normalizeCircularParts(feature: BioFeature, length: number): void {
@@ -370,7 +390,12 @@ export function parseGFF3(content: string): {
     for (const feature of values) {
       if (feature.segments!.length > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
       delete feature.metadata!.insdc_operator;
-      if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
+      const writtenOrder = takeWrittenOrder(feature);
+      if (writtenOrder) {
+        // The rows are in evaluation order, each read on its own strand, as the parser stores them.
+        feature.writtenOrder = writtenOrder;
+        feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
+      } else if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
       if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

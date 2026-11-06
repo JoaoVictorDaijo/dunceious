@@ -247,3 +247,31 @@ describe('parseLocation – partial ends', () => {
     expect(parseLocation('complement(<1..9)').segments).toEqual([{ start: 0, end: 9, partialStart: true }]);
   });
 });
+
+// INSDC FT 11.4 §3.4.2.2 at any depth: complement() reverses and flips what it encloses, join() keeps
+// its elements in written order; only join mixed with order is illegal. Expected sequence applied
+// by hand: bases 1–5, then the reverse complement of bases 10–20 joined to 30–40. No reference tool
+// checks it (Biopython 1.88 rejects the related J4/J5 forms).
+describe('parseLocation – nested locations and written order', () => {
+  const seq = 'ACGTTGCAAGCTTCAGGATCCTTAAGGCCATGCATGCTAG';
+
+  it('reads join(1..5,complement(join(10..20,30..40))) in full', () => {
+    const r = parseLocation('join(1..5,complement(join(10..20,30..40)))');
+    expect(r.segments).toEqual([
+      { start: 0, end: 5, strand: 1 },
+      { start: 29, end: 40, strand: -1 },
+      { start: 9, end: 20, strand: -1 },
+    ]);
+    expect(r.writtenOrder).toEqual([0, 2, 1]);
+    expect(extractFeatureSequence(r, seq).featureSeq).toBe('ACGTTCTAGCATGCATGATCCTGAAGC');
+  });
+
+  it('records the written order of a nested outer complement (J4)', () => {
+    expect(parseLocation('complement(join(complement(1..2),5..6))').writtenOrder).toEqual([1, 0]);
+  });
+
+  it.each(['join(1..10,21..30)', 'complement(join(1..10,21..30))', 'join(complement(21..30),1..10)'])(
+    'records no written order when it equals the stored order: %s', loc => {
+      expect(parseLocation(loc).writtenOrder).toBeUndefined();
+    });
+});

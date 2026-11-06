@@ -72,6 +72,11 @@ export interface BioFeature {
    * base `start` (1-based). Read it through `isBetweenBasesSite`, which also requires `start === end`.
    */
   betweenBases?: true;
+  /**
+   * Written position of each segment, when `segments` (evaluation order) differs from the order the
+   * location writes its intervals, as in a nested `complement(join(complement(a),b))` (#241).
+   */
+  writtenOrder?: number[];
 }
 
 /** `join` concatenates its elements; `order` only places them (INSDC FT 11.4 §3.4.2.2). */

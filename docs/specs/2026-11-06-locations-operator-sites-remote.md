@@ -251,11 +251,18 @@ Owner, 2026-11-06: "ok to all", approving each recommendation below. Where a dec
     *Basis:* Dunceious's own engineering choice between the two models Murilo offers; no tool
     settles it, as Biopython 1.88 rejects these nested forms. Unchanged extraction rests on the
     #240 oracle cases.
+
+    **Refined while building it (2026-11-06):** after an edit the serializer writes the nested
+    written form back, rebuilt from `writtenOrder`, not the evaluated form. The evaluated form of J4,
+    `join(complement(5..6),1..2)`, has its first interval above its last and touches base 1, so the
+    origin-crossing rule (LOC-6) would read it as a crossing on re-import, which is #241 itself. The
+    rebuilt text is re-parsed and used only when it gives the stored segments back; otherwise the
+    evaluated form is written.
 15. **How GFF3 carries the written order.** GFF3 rows have no nesting, so a nested feature's rows come back
     in evaluation order, and the false crossing of #241 reappears after a GFF3 round trip. Probed
     with `tsx`: `complement(join(complement(1..3),10..12))` on a circular 20 bp record has the
     envelope `{0, 12}`; exported to GFF3 and read back, it has `{9, 3}`. An `insdc_written_order` attribute holding the permutation (e.g.
-    `insdc_written_order=1,0`), on the feature's first row, like decisions 2, 6 and 8. *Basis:*
+    `insdc_written_order=1,0`), on each of the feature's rows, like decisions 2, 6 and 8. *Basis:*
     the attribute is Dunceious's own, filling a GFF3 1.26 gap.
 
 ## Invalid shapes, refused by #298

@@ -202,3 +202,18 @@ describe('exportToGenBank – partial ends after an edit', () => {
     expect(text).toContain('join(<1..6,complement(10..>12))');
   });
 });
+
+// #241: with the text cleared, the written order rebuilds the nested form that was read, so a
+// re-import reads the same written order (the evaluated form of J4 would read as an origin crossing).
+describe('exportToGenBank – nested locations without their text', () => {
+  it.each([
+    'complement(join(complement(1..2),5..6))',
+    'complement(join(complement(1..2),complement(5..6)))',
+    'join(1..5,complement(join(10..20,30..40)))',
+  ])('writes %s back from its written order', location => {
+    const parsed = parseLocation(location);
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(40), features: [{ type: 'misc_feature', name: 'n', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator, writtenOrder: parsed.writtenOrder }] })]).text;
+    expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
+  });
+});

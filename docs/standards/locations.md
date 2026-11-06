@@ -70,8 +70,13 @@ strands are unknown. Others unknown.
 **Dunceious.** Conforms for whole-feature, per-interval and nested outer complements
 ([#239](https://github.com/JoaoVictorDaijo/dunceious/issues/239)). A nested
 outer complement reverses the evaluated interval order and flips each interval's strand
-(`src/core/genbank/locationParser.ts`). The whole-feature J2 shape remains in written order
-with a parent strand; extraction reverse-complements the joined result once. Parser, extraction,
+(`src/core/genbank/locationParser.ts`). `parseLocation` evaluates `complement()` and `join()` at
+any depth, so a nested `join` such as `join(1..5,complement(join(10..20,30..40)))` is read in
+full ([#241](https://github.com/JoaoVictorDaijo/dunceious/issues/241); checked against the INSDC
+text applied by hand, no reference tool). The whole-feature J2 shape remains in written order
+with a parent strand; extraction reverse-complements the joined result once. Other per-strand
+shapes are stored in evaluation order with `writtenOrder`, the written position of each interval,
+and GenBank export rebuilds the nested written form from it. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
 
 ## LOC-4. Uncertain bounds
@@ -140,8 +145,8 @@ GFF3 rows beyond the end only for circular references
 interval starts after the last ends **and** one interval starts at base 1
 (`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
 in written order, including when a nested outer complement reverses sequence evaluation order.
-`featureEnvelope` recovers that order from retained `locationString`; if editing discards the
-text while retaining evaluation-order segments, it can infer a false wrap (#241). GFF3 export writes
+`featureEnvelope` reads that order from `writtenOrder` (LOC-3), so an edit that clears the text no
+longer infers a false wrap; GFF3 carries it as `insdc_written_order`. GFF3 export writes
 the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
 
 ## LOC-7. The sequence of a multi-interval feature

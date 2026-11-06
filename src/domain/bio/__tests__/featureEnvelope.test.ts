@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, expect, it } from 'vitest';
 import { featureEnvelope } from '../featureEnvelope';
 import type { BioFeature } from '../types';
@@ -55,11 +56,12 @@ describe('featureEnvelope', () => {
       .toEqual({ start: 4, end: 2 });
   });
 
-  it('characterises the false wrap when an edited nested feature loses its raw location', () => {
-    // FIXME(#241): discarding locationString loses written-order provenance.
-    expect(featureEnvelope(feature({ start: 0, end: 6,
-      segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] })))
-      .toEqual({ start: 4, end: 2 });
+  // #241: the written order travels on the feature, so an edit that clears the location text keeps
+  // the linear envelope of complement(join(complement(1..3),10..12)), not a false origin crossing.
+  it('keeps a nested feature linear after an edit clears its location text', () => {
+    const parsed = parseLocation('complement(join(complement(1..3),10..12))');
+    expect(featureEnvelope(feature({ start: parsed.start, end: parsed.end, segments: parsed.segments,
+      writtenOrder: parsed.writtenOrder }))).toEqual({ start: 0, end: 12 });
   });
 
   it('preserves a single wrapping segment', () => {

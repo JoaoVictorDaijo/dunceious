@@ -80,6 +80,7 @@ function validRecord(value: unknown): boolean {
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.betweenBases === undefined || feature.betweenBases === true)
+    && (feature.writtenOrder === undefined || (Array.isArray(feature.writtenOrder) && feature.writtenOrder.every(Number.isInteger)))
     && (feature.metadata === undefined || stringMap(feature.metadata))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
@@ -96,9 +97,9 @@ function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): bo
 }
 
 /**
- * Projects saved before features carried `operator`, `betweenBases` and per-end partial flags hold
- * them only in `locationString`, which the first edit clears; read them from that text while it is
- * still there.
+ * Projects saved before features carried `operator`, `betweenBases`, per-end partial flags and
+ * `writtenOrder` hold them only in `locationString`, which the first edit clears; read them from
+ * that text while it is still there.
  */
 function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (!feature.locationString) return feature;
@@ -108,6 +109,7 @@ function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature 
   if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
     next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
   }
+  if (!next.writtenOrder && parsed.writtenOrder && sameIntervals(next.segments, parsed.segments)) next = { ...next, writtenOrder: parsed.writtenOrder };
   if (!isPartialLocation(next) && isPartialLocation(parsed) && sameIntervals(next.segments, parsed.segments)) {
     next = { ...next, segments: next.segments!.map((part, i) => ({ ...part,
       ...(parsed.segments[i].partialStart && { partialStart: true as const }),

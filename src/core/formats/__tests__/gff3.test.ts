@@ -22,7 +22,9 @@ import { it, expect } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGff3, parseGFF3 } from '../gff3';
 import { soTypeFor } from '../soTypes';
-import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { extractCodingSequence, extractFeatureSequence } from '@/src/domain/bio/sequence';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 
 const feature = (extra: Partial<BioFeature> = {}): BioFeature => ({ type: 'CDS', name: 'gene1', start: 0, end: 150, strand: 1, ...extra });
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'seq_1', name: 'seq_1', sequence: 'A'.repeat(1000), features: [], ...extra });
@@ -271,4 +273,18 @@ it('writes and reads back per-row partial markers from the interval flags', () =
   const [imported] = parseGFF3(exportToGff3([record({ features: [partial] })]).text).features.seq_1;
   expect(imported.segments).toEqual([{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }]);
   expect(imported.metadata).not.toHaveProperty('_gffPartialEnds');
+});
+
+// #241 through GFF3: rows have no nesting, so insdc_written_order carries the written order and the
+// nested feature keeps its linear envelope and its sequence after a round trip.
+it('keeps the written order of a nested feature through GFF3', () => {
+  const parsed = parseLocation('complement(join(complement(1..3),10..12))');
+  const nested = feature({ type: 'misc_feature', name: 'n', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, writtenOrder: parsed.writtenOrder });
+  const circular = record({ sequence: 'ACGTTGCAAGCTTCAGGATC', isCircular: true, features: [nested] });
+  const [imported] = parseGFF3(exportToGff3([circular]).text).features.seq_1;
+  expect(imported.writtenOrder).toEqual([1, 0]);
+  expect(featureEnvelope(imported)).toEqual({ start: 0, end: 12 });
+  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe(extractFeatureSequence(nested, circular.sequence).featureSeq);
+  expect(imported.metadata).not.toHaveProperty('insdc_written_order');
 });

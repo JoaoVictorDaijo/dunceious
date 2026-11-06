@@ -45,7 +45,7 @@ Every claim about a tool carries one of these:
 |---|---|---|---|---|
 | LOC-1 | `join()` concatenates in written order | INSDC FT 11.4 §3.4.2.2 | Conforms | [locations](locations.md#loc-1-join-concatenates-in-written-order) |
 | LOC-2 | `order()` is not `join()` | INSDC FT 11.4 §3.4.2.2 | Conforms | [locations](locations.md#loc-2-order-is-not-join) |
-| LOC-3 | `complement()`, whole feature or per interval | INSDC FT 11.4 §3.4.2.2 | Conforms, including nested outer complements | [locations](locations.md#loc-3-complement-whole-feature-or-per-interval) |
+| LOC-3 | `complement()`, whole feature or per interval | INSDC FT 11.4 §3.4.2.2 | Conforms, including nesting at any depth | [locations](locations.md#loc-3-complement-whole-feature-or-per-interval) |
 | LOC-4 | `<` `>` uncertain bounds | INSDC FT 11.4 §3.4.2.1, §3.4.3 | Conforms | [locations](locations.md#loc-4-uncertain-bounds) |
 | LOC-5 | `n^(n+1)` between-base sites | INSDC FT 11.4 §3.4.2.1 | Conforms | [locations](locations.md#loc-5-between-base-sites) |
 | LOC-6 | Features crossing the origin | INSDC FT 11.4; GFF3 1.26 | Partial | [locations](locations.md#loc-6-features-crossing-the-origin) |
