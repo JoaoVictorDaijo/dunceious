@@ -164,7 +164,9 @@ export function formatInsdcLocation(
    when:
    - a coordinate is not an integer, or is negative;
    - a coordinate is beyond the record length;
-   - it is descending (`start > end`) on a linear record.
+   - it is descending (`start > end`) on a linear record;
+   - it is `[length, 0)` on a circular record, a "wrap" that covers no base, for which
+     `splitWrapAround` returns no pieces (`intervals.ts:73`).
 
    Project import accepts any finite numbers (`projectFile.ts:55`), and the segment editor allows
    inverted or out-of-range parts (`FeatureEditorModal.tsx:262`). An invalid part makes the
@@ -225,13 +227,15 @@ otherwise the formatter's `text`.
   merges only after #230**, and its tests check the full export-then-import round trip. There is
   no fallback mode.
 - **A `no-insdc-form` result is not written.** The feature is skipped, and the export report
-  counts it as a new `ExportReport` field, `featuresWithoutInsdcLocation`
-  (`src/core/exportReport.ts:24`). Today such a feature would be written as an invalid `1..0`.
+  counts it in a new `ExportReport` field, `featuresWithoutInsdcLocation: { linearEdgeSite:
+  number; invalidGeometry: number }` (`src/core/exportReport.ts:24`). Today such a feature would
+  be written as an invalid location such as `1..0`.
 - **The skip is shown as a warning line,** not an ordinary note.
   - The GenBank export dialog drops the summary's first line (`ExportDialog.tsx:170`), and
     `describeExport` puts ordinary notes there (`exportPlan.ts:88-100`). So `describeExport`
-    adds the skip on its own warning line, the way it adds `missingOrganismWarning`: "1 feature
-    not written: a site at a linear sequence's edge has no GenBank location".
+    adds one warning line per reason, the way it adds `missingOrganismWarning`:
+    - "1 feature not written: a site at a linear sequence's edge has no GenBank location";
+    - "2 features not written: their location is invalid (outside the sequence or reversed)".
   - The dialog's annotation count pill counts written non-`source` annotations directly
     (today it counts selected ones, `ExportDialog.tsx:133`), so it can never go negative. When
     some were skipped, its title says how many.
@@ -257,9 +261,15 @@ is used by all five places in the table.
 **Viewer tooltip.** It formats the source geometry, not a reconstruction.
 - Transposition drops zero-length parts (`coordinate.ts:172`), so a site inside a join can't be
   recovered from aligned columns.
-- **Aligned parts keep evaluation order.** `processTransposition` maps the parts that
-  `featureParts` yields, already split and ordered by rule 3, instead of splitting each stored
-  segment itself (`coordinate.ts:169-174`). So a reverse per-part wrap stays `[0,end)` then
+- **Aligned parts keep evaluation order and keep sites.** `processTransposition` maps the
+  parts that `featureParts` yields, already split and ordered by rule 3, instead of splitting
+  each stored segment itself (`coordinate.ts:169-174`).
+  - Zero-length parts are kept as zero-length aligned parts, at the boundary that
+    `createCoordinateLookup` already defines for empty intervals (`coordinate.ts:48-71`).
+    Today they're dropped (`coordinate.ts:172`).
+  - So a feature whose parts are all sites never becomes `segments: []` with a non-empty
+    envelope, which extraction would then read as bases.
+  - Renderers draw nothing for a zero-width part, as today. Drawing a site marker is #230's. So a reverse per-part wrap stays `[0,end)` then
   `[start,length)` in the aligned copy. The translation track (`SequenceTrack.tsx:330`) and CDS
   lanes (`cds.ts:123`), which read the aligned copy, then translate the same bases as the source.
 - **`biological` is derived display state, never stored.** `processTransposition` sets it on
@@ -307,8 +317,9 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line. A source-only record plus one edge site shows 0 annotations, not −1 |
 | Site round trip | `serialize.test.ts` plus the parser from #230 | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry |
 | Extraction agrees | `sequence.test.ts` | On circular `ACGTACGTGA`, a stored explicit `[8,2)` extracts `GAAC`, both from the stored feature and from its re-imported `join(9..10,1..2)`. The reverse per-part case extracts `GTTC`. The partly specified case extracts `GAACTA` both ways |
+| Aligned sites | `coordinate.test.ts`, `sequence.test.ts` | Envelope `[3,6)` with parts `[3,3)`, `[6,6)` on a gapped record: the aligned copy keeps two zero-length parts, and extraction gives an empty sequence, no indices and no translation |
 | Aligned order | `coordinate.test.ts`, `sequence.test.ts` | On circular `ACGTACGTGA` aligned with a gap, a reverse per-part `[8,2)` extracts `GTTC` from the aligned copy, the same as the source (the current split would give `TCGT`) |
-| Invalid geometry | `insdcLocation.test.ts`, `FeatureEditorModal` test, `projectFile.test.ts`, `serialize.test.ts` | Linear 10-base record: `[8,2)` gives `9..2 (invalid location)`, never a join; `[0,15)` and `[-1,3)` are invalid too. The editor disables Save on such a part. Project import keeps the feature. Export skips it and reports it |
+| Invalid geometry | `insdcLocation.test.ts`, `FeatureEditorModal` test, `projectFile.test.ts`, `serialize.test.ts`, `exportPlan.test.ts` | Linear 10-base record: `[8,2)` gives `9..2 (invalid location)`, never a join; `[0,15)` and `[-1,3)` are invalid too. Circular `[10,0)` as envelope and as an explicit segment is invalid. An export with one invalid feature and one edge site shows both warning lines with their own counts. The editor disables Save on such a part. Project import keeps the feature. Export skips it and reports it |
 | Derived snapshot | `coordinate.test.ts`, `projectFile.test.ts` | A project feature with a conflicting `biological` field loads without it. An unaligned record's features have no `biological` after transposition. An aligned feature with retained `order(1..3,7..9)` or `<5..>25` text shows that text in the tooltip |
 | Viewer tooltip, unaligned | `Row` test | An unaligned record's join reads `join(1..3,7..9)` from the feature itself |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
