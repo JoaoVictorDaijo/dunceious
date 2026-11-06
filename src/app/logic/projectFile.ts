@@ -107,7 +107,9 @@ function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): bo
  */
 function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (!feature.locationString) return feature;
-  const parsed = parseLocation(feature.locationString);
+  let parsed: ReturnType<typeof parseLocation>;
+  // Text saved before import validation may not parse; the feature then stays as it was saved.
+  try { parsed = parseLocation(feature.locationString); } catch { return feature; }
   if (parsed.remoteParts && !feature.remoteParts) {
     const { segments, strand, start, end, operator, writtenOrder, remoteParts } = parsed;
     return { ...feature, segments, strand, start, end, remoteParts,

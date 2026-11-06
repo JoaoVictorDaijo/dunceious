@@ -242,3 +242,12 @@ it('refuses damaged residues and unequal alignment widths, and accepts valid ali
     message: 'This project file contains an alignment whose rows have different lengths' });
   expect(parseProject(serializeProject(state)).ok).toBe(true);
 });
+
+// Codex review of #306, round 3: a saved location the parser cannot read (here the obsolete 2.3)
+// leaves the feature as saved instead of failing the whole project load.
+it('loads a project whose saved location text cannot be parsed, keeping the feature as saved', () => {
+  const legacy = { ...record, sequence: 'ACGT', alignedSequence: undefined,
+    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
+  const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+  expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+});

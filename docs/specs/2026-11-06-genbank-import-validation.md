@@ -153,7 +153,12 @@ also tightened two checks this spec owns:
 - `n^1` passes only on a circular record of length n, since the validator now receives the
   topology;
 - a remote entry without a sequence version (`AB123:1..4`) is malformed, because §3.4.2.1(e) names
-  "the accession-number and sequence version".
+  "the accession-number and sequence version";
+- a remote interval that starts before base 1 or runs backwards is malformed; only the local length
+  limit is lifted for it (§3.4.2).
+
+It added one guard, `guardRemoteSite`: a between-base site in another record (`AB123.1:2^3`) is
+valid INSDC but not supported yet.
 
 **Still refused after those guards go.** The location-reading PR leaves these to this spec's Malformed location and Location out of range checks, so they are refused here, each with its own message and test:
 - unreadable location text;

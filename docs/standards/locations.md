@@ -228,7 +228,9 @@ The viewer draws its local parts, and the tooltip, details window and length nam
 in this record, plus 1 interval in J00194.1"). Import logs one warning per file naming those
 features, also in the browser console. GenBank export writes the parts back; GFF3, which has no
 remote reference, carries them as `insdc_remote` and its export report counts them, leaving out a
-feature with no interval in this record.
+feature with no interval in this record. Import validation refuses a remote interval that starts
+before base 1 or runs backwards (§3.4.2 lifts only the local length limit), and refuses a
+between-base site in another record (`AB123.1:2^3`) as unsupported (`guardRemoteSite`).
 
 ## GenBank import enforcement
 
