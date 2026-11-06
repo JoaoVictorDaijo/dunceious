@@ -243,3 +243,16 @@ describe('RecordDetailsModal nested complement sequence views', () => {
     expect(caption()).toBe(`Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`);
   });
 });
+
+it('offers both record FASTA modes for aligned records and only no gaps otherwise', () => {
+  const record: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const exported = vi.fn();
+  const props = { record, feature: null, onClose: vi.fn(), onFocusFeature: vi.fn(), onExportRecord: exported, onCopyLog: vi.fn() };
+  const view = render(<RecordDetailsModal {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (aligned)' }));
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (no gaps)' }));
+  expect(exported.mock.calls).toEqual([['a', 'aligned'], ['a', 'original']]);
+  view.rerender(<RecordDetailsModal {...props} record={{ ...record, alignedSequence: undefined }} />);
+  expect(screen.queryByRole('button', { name: 'FASTA (aligned)' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'FASTA (no gaps)' })).toBeTruthy();
+});

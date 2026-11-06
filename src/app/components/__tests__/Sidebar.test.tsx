@@ -85,3 +85,18 @@ describe('sidebar resize', () => {
     fireEvent.mouseUp(document);
   });
 });
+
+it('offers both selection FASTA modes and disables aligned mode for unaligned rows', () => {
+  const exported = vi.fn();
+  const record = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const view = render(<Sidebar {...props} activeTab="alignment" records={[record]} transposedRecords={[record]} activeSelection={{ start: 1, end: 5, recordIds: [] }} onExportSelection={exported} />);
+  const details = view.container.querySelector('details')!;
+  fireEvent.click(details.querySelector('summary')!);
+  const buttons = details.querySelectorAll('button');
+  expect(buttons[0].textContent).toBe('Aligned, with gaps');
+  expect(buttons[0].disabled).toBe(false);
+  fireEvent.click(buttons[0]); fireEvent.click(buttons[1]);
+  expect(exported.mock.calls).toEqual([['aligned'], ['original']]);
+  view.rerender(<Sidebar {...props} activeTab="alignment" records={[{ ...record, alignedSequence: undefined }]} activeSelection={{ start: 1, end: 3, recordIds: [] }} />);
+  expect(view.container.querySelector('details button')?.hasAttribute('disabled')).toBe(true);
+});

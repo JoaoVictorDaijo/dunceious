@@ -70,7 +70,7 @@ describe('exportToFasta', () => {
 
   it('slices to [start, end) and stamps the slice header when both are given', () => {
     // 'ATGCAAATAG'.substring(2, 5) → 'GCA'
-    expect(exportToFasta([record()], { residues: 'aligned', header: 'id', slice: { start: 2, end: 5 } }).text).toBe('>REC1 [Slice: 2-5]\nGCA');
+    expect(exportToFasta([record()], { residues: 'original', header: 'id', slice: { start: 2, end: 5 } }).text).toBe('>REC1 [Slice: 2-5]\nGCA');
   });
 
   it('uses original residues by default even when alignedSequence is present', () => {
@@ -103,11 +103,11 @@ it('writes canonical and pass-through modifiers, omits deprecated ones, and clea
   expect(report.writtenDetails).toMatchObject({ collectionDate: 1, host: 1 });
 });
 
-it('exports original residues and slices aligned columns only in aligned mode', () => {
+it('exports original residues and slices aligned columns in both modes', () => {
   const r = record({ sequence: 'ACGT', alignedSequence: 'A--CGT' });
   expect(exportToFasta([r], { residues: 'original', header: 'id' }).text).toBe('>REC1\nACGT');
   expect(exportToFasta([r], { residues: 'aligned', header: 'id', slice: { start: 3, end: 5 } }).text).toBe('>REC1 [Slice: 3-5]\nCG');
-  expect(exportToFasta([r], { residues: 'original', header: 'id', slice: { start: 1, end: 3 } }).text).toBe('>REC1 [Slice: 1-3]\nCG');
+  expect(exportToFasta([r], { residues: 'original', header: 'id', slice: { start: 3, end: 5 } }).text).toBe('>REC1 [Slice: 3-5]\nCG');
 });
 
 it('omits invalid edited details but keeps unchanged submitter values', () => {
@@ -141,4 +141,19 @@ it('omits empty and cleaned-empty FASTA modifiers', () => {
   expect(text).not.toContain('[custom=]');
   expect(text).not.toContain('[blank=]');
   expect(text).toContain('[other=ok]');
+});
+
+it('exports a common aligned window with or without gaps and splits mixed rows', () => {
+  const rows = [record({ id: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT' }), record({ id: 'u', sequence: 'TTTTTTTT' })];
+  expect(exportToFasta(rows, { residues: 'aligned', header: 'id', slice: { start: 1, end: 5 } })).toMatchObject({
+    text: '>a [Slice: 1-5]\nC--G', unalignedText: '>u [Slice: 1-5]\nTTTT',
+  });
+  expect(exportToFasta(rows, { residues: 'original', header: 'id', slice: { start: 1, end: 5 } }).text)
+    .toBe('>a [Slice: 1-5]\nCG\n\n>u [Slice: 1-5]\nTTTT');
+  const gaps = exportToFasta(rows.slice(0, 1), { residues: 'aligned', header: 'id', slice: { start: 2, end: 4 } });
+  expect(gaps.text).toBe('>a [Slice: 2-4]\n--');
+  expect(gaps.report.gapOnlyRows).toEqual(['a']);
+  const empty = exportToFasta(rows.slice(0, 1), { residues: 'original', header: 'id', slice: { start: 2, end: 4 } });
+  expect(empty.text).toBe('');
+  expect(empty.report.emptyRowsOmitted).toEqual(['a']);
 });

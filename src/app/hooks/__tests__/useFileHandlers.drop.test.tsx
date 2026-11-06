@@ -44,8 +44,8 @@ function setup(readText: (file: File) => Promise<string>, locked = () => false) 
   vi.stubGlobal('Worker', LocalWorker);
   const log = vi.fn();
   const hook = renderHook(() => {
-    const bio = useBioWorker(log);
     const hub = useHubState();
+    const bio = useBioWorker(log, { getWorkspaceRevision: () => hub.workspaceRevision.current, isAlignmentLocked: locked, onMismatch: error => handlers.showMismatchModal(error) });
     const handlers = useFileHandlers(bio.bioWorkerRef, bio.records, null, {},
       { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
       { onWorkspaceReplaced: hub.resetWorkspace, setRecords: bio.setRecords, setIsProcessing: bio.setIsProcessing, setFeatureColors: vi.fn(), setActiveSelection: vi.fn(),
@@ -105,21 +105,23 @@ it('blocks dispatch if the alignment lock appears while reading', async () => {
   let pending!: Promise<void>;
   await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'a.fa')]); });
   locked = true;
-  await act(async () => { finishRead('>a\nACGT'); await pending; });
-  expect(LocalWorker.instance.requests).toEqual([]);
-  expect(log).toHaveBeenCalledWith('Import stopped: alignment is locked.');
+  await act(async () => { finishRead('>a\nACGT'); });
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); await pending; });
+  expect(result.current.bio.records).toEqual([]);
+  expect(log).toHaveBeenCalledWith('a.fa was not loaded: the workspace is locked');
   expect(result.current.bio.isProcessing).toBe(false);
 });
 
-it('rejects a mixed molecule batch before dispatching its second sequence', async () => {
+it('refuses a mixed molecule file at commit time and continues', async () => {
   const { result, log } = setup(async file => file.name === 'dna.fa' ? '>a\nACGT' : '>b\nMEFW');
   let pending!: Promise<void>;
   await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa'), new File([], 'protein.fa')]); });
-  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); await pending; });
-  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(1);
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); });
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'protein.fa')!); await pending; });
+  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(2);
   expect(result.current.bio.records.map(r => r.id)).toEqual(['a']);
   expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.fa' });
-  expect(log).toHaveBeenCalledWith('Cannot load "protein.fa": molecule type differs from the session.');
+  expect(log).toHaveBeenCalledWith('protein.fa was not loaded: the session now holds nucleotide sequences');
 });
 
 it('rejects a worker error and stops the batch before annotations', async () => {
@@ -143,8 +145,7 @@ it('uses the current workspace category after a delayed read', async () => {
   await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa')]); });
   act(() => { result.current.bio.setRecords([{ id: 'protein', name: 'protein', sequence: 'MEFW', moleculeType: 'protein', features: [] }]); });
   await act(async () => { finishRead('>dna\nACGT'); });
-  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toEqual([]);
-  await pending;
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests.find(r => r.type === 'PARSE_FASTA')!); await pending; });
   expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'nucleotide', loaded: 'protein', fileName: 'dna.fa' });
 });
 
@@ -157,8 +158,8 @@ it('checks queued drops against the preceding synchronous import commit', async 
     second = result.current.handlers.handleDroppedFiles([new File([], 'protein.fa')]);
   });
   await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); await first; });
-  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(1);
-  await second;
+  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(2);
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'protein.fa')!); await second; });
   expect(result.current.bio.records.map(r => r.id)).toEqual(['dna']);
 });
 
@@ -174,8 +175,7 @@ it('checks a sequence queued after project replacement against the new workspace
     second = result.current.handlers.handleDroppedFiles([new File([], 'dna.fa')]);
     await first;
   });
-  expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toEqual([]);
-  await second;
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests.find(r => r.type === 'PARSE_FASTA')!); await second; });
   expect(result.current.bio.records.map(r => r.id)).toEqual(['protein']);
 });
 
@@ -207,5 +207,22 @@ it('does not dispatch annotations after workspace replacement while awaiting a s
   expect(LocalWorker.instance.requests.map(request => request.type)).toEqual(['PARSE_FASTA']);
   expect(result.current.bio.records).toEqual([]);
   await pending;
-  expect(log).toHaveBeenCalledWith('Drop cancelled: the workspace was replaced');
+  expect(log).toHaveBeenCalledWith('the workspace was replaced');
+});
+
+it.each([['decline', false], ['decline', true], ['category', false], ['category', true]] as const)('continues after %s with null ownership, accepted duplicate=%s', async (refusal, duplicate) => {
+  const { result, log } = setup(async file => file.name === 'a.fa' ? (refusal === 'decline' ? '>a\nAC--GT' : '>a\nMEFW')
+    : file.name === 'b.fa' ? (duplicate ? '>a\nACGT\n>b\nACTTGT' : '>b\nACTTGT') : 'a\ts\tgene\t1\t2\t.\t+\t.\tID=wrong\nb\ts\tgene\t2\t3\t.\t+\t.\tID=right');
+  act(() => result.current.bio.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([new File([], 'a.fa'), new File([], 'b.fa'), new File([], 'genes.gff3')]); });
+  const worker = LocalWorker.instance;
+  await act(async () => worker.respond(worker.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'a.fa')!));
+  if (refusal === 'decline') await act(async () => result.current.bio.confirmGapRemoval(1, false));
+  await act(async () => worker.respond(worker.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'b.fa')!));
+  const annotation = worker.requests.find(r => r.type === 'PARSE_ANNOTATIONS')!;
+  expect(annotation).toMatchObject({ idMap: { a: null, b: 'b' } });
+  await act(async () => { worker.respond(annotation); await done; });
+  expect(result.current.bio.records.map(r => [r.id, r.features.map(f => f.name)])).toEqual(duplicate ? [['a', []], ['a_1', []], ['b', ['right']]] : [['a', []], ['b', ['right']]]);
+  expect(log).toHaveBeenCalledWith('WARNING: Some IDs in file did not match active records: [a]');
 });

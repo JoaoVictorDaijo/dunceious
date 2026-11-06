@@ -1,6 +1,6 @@
 ---
 title: "Gapped and ungapped sequences: loading, exporting and mixing them consistently"
-status: proposed
+status: implemented
 date: 2026-11-06
 areas: ["sequence-io", "viewer", "export", "project-file"]
 prs: [296]

@@ -171,3 +171,10 @@ it('round-trips origin-crossing GFF3 parts with valid intervals and source quali
   expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'env')?.segments).toEqual([{ start: 2991, end: 3308 }, { start: 0, end: 964 }]);
   expect(parsed.details.J02442).toMatchObject({ details: { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: '2020' } });
 });
+
+it('previews the damaged GenBank omission and separate unaligned FASTA file', () => {
+  const rows = [{ id: 'bad', name: 'bad', sequence: 'AC-GT', features: [] }];
+  expect(describeExport(rows, 'genbank').summary).toContain('bad not exported: its sequence contains gap characters');
+  expect(describeExport([{ ...rows[0], sequence: 'ACGT' }], 'fasta', { residues: 'aligned', fileName: 'picked.fasta' }).summary)
+    .toContain("1 sequences aren't in the alignment and will be saved separately in picked_unaligned.fasta");
+});

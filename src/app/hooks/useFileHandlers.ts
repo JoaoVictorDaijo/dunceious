@@ -101,13 +101,14 @@ export interface UseFileHandlersReturn {
   handleAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleExportRecord: (recordId: string) => void;
+  handleExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   exportRecords: (ids: string[], format: HubExportFormat, options?: ExportOptions) => void;
-  exportSelection: () => void;
+  exportSelection: (mode?: 'original' | 'aligned') => void;
   exportSelectionJson: () => void;
   exportProjectJson: () => string | null;
   moleculeTypeMismatch: MoleculeTypeMismatchError | null;
   closeMismatchModal: () => void;
+  showMismatchModal: (error: MoleculeTypeMismatchError) => void;
 }
 
 /**
@@ -148,8 +149,6 @@ export function useFileHandlers(
 
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
   const [projectName, setProjectName] = useState('dunceious_project');
-  const recordsRef = useRef(records);
-  recordsRef.current = records;
   const dropQueue = useRef(Promise.resolve());
   const workspaceRevision = useRef(0);
 
@@ -168,24 +167,27 @@ export function useFileHandlers(
   // processing flag on failure (unreadable file, absent worker) so the
   // ProcessingOverlay can never hang. See logic/upload.ts.
   const workerDeps: WorkerUploadDeps = {
-    readText: readFileAsText,
+    readText: dropImport?.readText ?? readFileAsText,
     postToWorker: request => postToWorker(bioWorkerRef.current, request),
     setProcessing: setIsProcessing,
     addLog,
   };
 
+  const getRevision = () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current;
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0) return;
     setIsProcessing(true);
+    const revision = getRevision();
     addLog(`Ingesting batch: ${files.length} file(s).`);
     files.forEach(file =>
       dispatchFile(file, content => {
         if (isAlignmentLocked()) { setIsProcessing(false); return null; }
         const isFasta = content.trimStart().startsWith('>');
-        if (records.length > 0) {
-          const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
+        if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
+        if (isFasta && records.length > 0) {
+          const incoming = sniffFastaCategory(content);
           const loaded = getLoadedCategory(records);
           if (incoming !== loaded) {
             setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
@@ -196,7 +198,7 @@ export function useFileHandlers(
             return null;
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
+        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffGenBankCategory(content) };
       }, workerDeps),
     );
   };
@@ -204,14 +206,16 @@ export function useFileHandlers(
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAlignmentLocked()) return;
     const [file] = takeFiles(e.target);
-    if (!file || records.length === 0) return;
+    if (!file) return;
+    const revision = getRevision();
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
     dispatchFile(file, content => {
       if (isAlignmentLocked()) { setIsProcessing(false); return null; }
+      if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
       const incoming = sniffFastaCategory(content);
       const loaded = getLoadedCategory(records);
-      if (incoming !== loaded) {
+      if (records.length > 0 && incoming !== loaded) {
         setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
         addLog(
           `Cannot import ${incoming === 'protein' ? 'peptide' : 'nucleotide'} alignment "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
@@ -219,11 +223,12 @@ export function useFileHandlers(
         setIsProcessing(false);
         return null;
       }
-      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true };
+      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision, incomingCategory: incoming };
     }, workerDeps);
   };
 
   const handleAnnotationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0 || records.length === 0) return;
     setIsProcessing(true);
@@ -293,7 +298,6 @@ export function useFileHandlers(
       setIsProcessing(true);
       const request = async (message: BioWorkerRequest) => {
         checkWorkspace();
-        if (isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
         if (!dropImport) throw new Error('The processing worker is unavailable.');
         const response = await dropImport.requestBio(message, shouldCommit);
         if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
@@ -305,15 +309,9 @@ export function useFileHandlers(
           readText: dropImport?.readText ?? readFileAsText,
           importSequence: async (file, content) => {
             checkWorkspace();
-            const currentRecords = dropImport?.getRecords() ?? recordsRef.current;
-            const category = currentRecords.length > 0 ? getLoadedCategory(currentRecords) : undefined;
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
-            if (category && category !== incoming) {
-              setMoleculeTypeMismatch({ incoming, loaded: category, fileName: file.name });
-              throw new Error(`Cannot load "${file.name}": molecule type differs from the session.`);
-            }
-            const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, ...(isFasta ? { asAlignment: false } : {}) });
+            const incoming = sniffFastaCategory(content);
+            const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: incoming, ...(isFasta ? { asAlignment: false } : {}) });
             if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
             if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
             return response.idMap;
@@ -334,14 +332,23 @@ export function useFileHandlers(
 
   // ── Export helpers ────────────────────────────────────────────────────────
 
-  const exportSelection = () => {
+  const downloadExport = (result: ReturnType<typeof serializeExport>, fileName: string, mime = 'text/plain') => {
+    if (result.text) downloadBlob(result.text, fileName, mime);
+    if (result.unalignedText) {
+      const separateName = fileName.replace(/(\.[^.]*)?$/, '_unaligned$1');
+      downloadBlob(result.unalignedText, separateName, mime);
+      const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
+      addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
+    }
+    for (const id of result.report.gapRecordsOmitted) addLog(`${id} not exported: its sequence contains gap characters`);
+    if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
+    if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
+  };
+  const exportSelection = (mode: 'original' | 'aligned' = 'aligned') => {
     const start = activeSelection ? Math.min(activeSelection.start, activeSelection.end) : undefined;
     const end = activeSelection ? Math.max(activeSelection.start, activeSelection.end) : undefined;
-    downloadBlob(
-      exportToFasta(records, { residues: 'aligned', header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }).text,
-      activeSelection ? 'selection_export.fasta' : 'msa_export.fasta',
-      'text/plain',
-    );
+    downloadExport(exportToFasta(records, { residues: mode, header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }),
+      activeSelection ? 'selection_export.fasta' : 'msa_export.fasta');
     addLog(`${activeSelection ? 'Selection' : 'Full'} FASTA exported.`);
   };
 
@@ -378,11 +385,11 @@ export function useFileHandlers(
     addLog(`Selection JSON exported (${start}-${end}).`);
   };
 
-  const handleExportRecord = (recordId: string) => {
+  const handleExportRecord = (recordId: string, mode: 'original' | 'aligned' = 'original') => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     downloadBlob(
-      exportToFasta([record]).text,
+      exportToFasta([record], { residues: mode, header: 'id' }).text,
       `${record.id.replace(/[^a-z0-9]/gi, '_')}.fasta`,
       'text/plain',
     );
@@ -423,8 +430,8 @@ export function useFileHandlers(
       const result = serializeExport(subset, format, { ...options,
         projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
       });
-      downloadBlob(result.text, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
-      addLog(`Exported ${subset.length} sequences as ${format}.`);
+      downloadExport(result, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
+      addLog(`Exported ${subset.length - result.report.gapRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
     } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
@@ -440,6 +447,7 @@ export function useFileHandlers(
     exportSelectionJson,
     exportProjectJson,
     moleculeTypeMismatch,
+    showMismatchModal: setMoleculeTypeMismatch,
     closeMismatchModal: () => setMoleculeTypeMismatch(null),
   };
 }

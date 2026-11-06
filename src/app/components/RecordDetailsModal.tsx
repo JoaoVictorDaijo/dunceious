@@ -34,7 +34,7 @@ export interface RecordDetailsModalProps {
   feature: BioFeature | null;
   onClose: () => void;
   onFocusFeature: (target: FocusTarget) => void;
-  onExportRecord: (recordId: string) => void;
+  onExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
   onSetBasesMode?: (mode: 'nothing' | 'record' | 'query') => void;
@@ -160,8 +160,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
     onCopyLog(`Focusing on ${feature.name}`);
   };
 
-  const handleExport = () => {
-    onExportRecord(record.id);
+  const handleExport = (mode: 'original' | 'aligned' = 'original') => {
+    onExportRecord(record.id, mode);
     onClose();
   };
 
@@ -394,15 +394,10 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <i className="fas fa-search-location"></i> Focus
             </button>
           )}
-          {!feature && (
-            <button
-              onClick={handleExport}
-              data-tip="Download this record as FASTA"
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
-            >
-              <i className="fas fa-download"></i> Export FASTA
-            </button>
-          )}
+          {!feature && <div className="flex gap-2">
+            <button onClick={() => handleExport('original')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (no gaps)</button>
+            {record.alignedSequence && <button onClick={() => handleExport('aligned')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (aligned)</button>}
+          </div>}
         </div>
       </div>
     </div>

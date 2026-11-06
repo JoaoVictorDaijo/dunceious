@@ -610,3 +610,15 @@ describe('reference badge', () => {
     expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
   });
 });
+
+it.each(['dna', 'protein'] as const)('marks the own-position end of a mixed unaligned %s row', moleculeType => {
+  const raw: SeqRecord = { id: 'u', name: 'u', sequence: 'ACGT', moleculeType, features: [] };
+  const aligned = { ...raw, id: 'a', alignedSequence: 'AC--GT' };
+  const data = rowData(raw);
+  data.recordLayouts = computeRecordLayouts([raw, aligned], { showAnnotations: false, translationVisible: false, showTracks: false, basesVisible: true });
+  const view = render(<Row index={0} style={{}} data={data} />);
+  expect(view.container.querySelector<HTMLElement>('[data-unaligned]')?.style.borderStyle).toBe('dashed');
+  const tick = view.container.querySelector<HTMLElement>('[data-unaligned-end]')!;
+  expect(tick.style.left).toBe('32px');
+  expect(tick.getAttribute('data-tip')).toBe(`u ends here: 4 ${moleculeType === 'protein' ? 'aa' : 'bp'}, not aligned`);
+});
