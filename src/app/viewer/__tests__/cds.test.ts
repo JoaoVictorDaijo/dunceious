@@ -193,7 +193,7 @@ describe('geneticCodeWarning', () => {
     for (const type of ['CDS', 'cds', 'ORF', 'orf']) {
       for (const transl_table of ['7', '', '11x']) {
         expect(geneticCodeWarning(cds({ type, metadata: { transl_table } }))).toBe(
-          `⚠ /transl_table=${transl_table} is not an NCBI genetic code; codons are not translated`,
+          `⚠ /transl_table=${transl_table} is not an NCBI genetic code. Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.`,
         );
       }
       expect(geneticCodeWarning(cds({ type }))).toBeNull();
@@ -201,4 +201,19 @@ describe('geneticCodeWarning', () => {
     }
     expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
   });
+});
+
+it('keeps assumed whole and tail stops out of broken status while retaining stored internal stops', () => {
+  for (const translation of [undefined, 'M', 'MK*G']) {
+    const f = cds({ start: 0, end: 18, translation, metadata: { transl_table: '99' } });
+    expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').get(f)).toBe(translation === 'MK*G');
+  }
+});
+
+
+it.each(['1', '99'])('lets an invalid frame suppress translation and broken status under table %s', transl_table => {
+  const feature = cds({ start: 0, end: 9, translation: 'M*K', metadata: { codon_start: '0', transl_table } });
+  expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
+  expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
+  expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
 });
