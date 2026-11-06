@@ -231,3 +231,12 @@ describe('exportToGenBank – remote parts without their text', () => {
     expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
   });
 });
+
+it('omits damaged gap residues without shifting features and keeps a clean LOCUS at four bp', () => {
+  const output = exportToGenBank([record({ id: 'bad', sequence: 'AC-GT' }), record({ id: 'dot', sequence: 'AC.GT' }), record({ id: 'clean', sequence: 'ACGT' })]);
+  expect(output.report.gapRecordsOmitted).toEqual(['bad', 'dot']);
+  expect(output.text).not.toContain('bad');
+  expect(output.text).not.toContain('dot');
+  expect(output.text).toMatch(/^LOCUS\s+clean\s+4 bp/m);
+  expect(output.text).toContain('        1 acgt\n');
+});

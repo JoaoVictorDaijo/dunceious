@@ -144,8 +144,11 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
       || !Array.isArray(selection.recordIds) || !selection.recordIds.every(id => typeof id === 'string')))) {
     return { ok: false, message: 'This project file contains invalid workspace data.' };
   }
+  const widths = new Set((value.records as SeqRecord[]).filter(record => record.alignedSequence !== undefined).map(record => record.alignedSequence!.length));
+  if (widths.size > 1) return { ok: false, message: "This project file contains an alignment whose rows have different lengths" };
   const ids = new Set<string>();
   for (const record of value.records as SeqRecord[]) {
+    if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();
     if (ids.has(id)) return { ok: false, message: `This project file contains a duplicate record ID: ${record.id}.` };
     ids.add(id);

@@ -60,12 +60,16 @@ export interface ProcessRecordsRequest extends BioRequestContext {
 export type BatchIdMap = Record<string, string | null>;
 
 export interface ParseGenBankRequest extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_GENBANK';
   filename: string;
   content: string;
 }
 
 export interface ParseFastaRequest extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_FASTA';
   filename: string;
   content: string;
@@ -98,6 +102,8 @@ export interface ProcessRecordsSuccessResponse extends BioRequestContext {
 }
 
 export interface ParseGenBankSuccessResponse extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_SUCCESS';
   /** Workspace assignments supplied by the main-thread acknowledgment. */
   idMap?: BatchIdMap;
@@ -113,6 +119,8 @@ export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'f
 };
 
 export interface ParseFastaSuccessResponse extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'FASTA_SUCCESS';
   idMap?: BatchIdMap;
   filename: string;

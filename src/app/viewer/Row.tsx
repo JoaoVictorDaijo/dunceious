@@ -95,6 +95,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   } = data;
 
   const l = recordLayouts[index];
+  const unalignedInMixed = !l.record.alignedSequence && recordLayouts.some(layout => layout.record.alignedSequence !== undefined);
+  const unit = recordLayouts.some(layout => layout.record.moleculeType === 'protein') ? 'aa' : 'bp';
   const chartWidth = alignmentLength * zoomLevel;
   const xScale = useMemo(() => d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]),
     [alignmentLength, chartWidth]);
@@ -202,7 +204,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={unalignedInMixed ? "Not in the alignment. Positions are this sequence's own, so its row doesn't line up with the aligned rows." : l.id} data-unaligned={unalignedInMixed || undefined} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)`, borderStyle: unalignedInMixed ? 'dashed' : undefined }}>
           {isReference && (
             <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
               className="mr-1 rounded-sm px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
@@ -231,6 +233,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             </div>
           )}
 
+          {unalignedInMixed && <div data-unaligned-end={l.id} data-tip={`${l.id} ends here: ${l.record.sequence.length} ${unit}, not aligned`} className="absolute border-l border-dashed border-slate-500 z-20" style={{ left: xScale(l.record.sequence.length) - scrollX, top: l.seqBaseY, height: NT_ROW_HEIGHT }} />}
           <SequenceTrack 
             seq={seq}
             record={l.record}

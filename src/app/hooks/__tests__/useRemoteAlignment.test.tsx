@@ -278,7 +278,7 @@ describe('hand-off to the shared overlay reducer', () => {
       w.respond(ok('FINISHED'));
       await new Promise(resolve => setTimeout(resolve, 0));
     });
-    expect(w.log).toHaveBeenCalledWith('ERROR: Sequence mismatch. Missing: [c], Extra: []');
+    expect(w.log).toHaveBeenCalledWith('ERROR: Sequence mismatch. Missing: [c], Extra: []. Unaligned missing IDs: [c]');
     expect(w.result.current.alignment.state).toMatchObject({ phase: 'failed', reason: 'invalid-result', detail: 'Alignment overlay rejected: reject-mismatch', steps: { applied: { status: 'failed' } } });
     expect(w.result.current.bio.records).toEqual([...records, ingested]);
     expect(w.result.current.alignment.isLocked()).toBe(false);

@@ -185,3 +185,16 @@ describe('featureLengthText – remote parts', () => {
       .toBe('100 bp in this record, plus 1 interval in J00194.1');
   });
 });
+
+it('computes conservation over visible aligned rows only, and needs two', async () => {
+  const { alignedConservation } = await import('../viewModel');
+  const rows = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'b', name: 'b', sequence: 'ACTTGT', alignedSequence: 'ACTTGT', features: [] },
+    { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] },
+  ];
+  expect(alignedConservation(rows)).toEqual([1, 1, 0.5, 0.5, 1, 1]);
+  expect(alignedConservation([rows[0], rows[2]])).toEqual([]);
+  expect(alignedConservation([rows[0], { ...rows[1], visible: false }, rows[2]])).toEqual([]);
+  expect(alignedConservation(rows)).toEqual([1, 1, 0.5, 0.5, 1, 1]);
+});
