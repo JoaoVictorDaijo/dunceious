@@ -126,9 +126,8 @@ export function alignedEnvelope(display: DisplayTrack, index: number): { start: 
    - An aligned record has one run per maximal stretch of columns without `-`.
    - An unaligned record has a single run `{ column: 0, length: sequence.length, residue: 0 }`,
      so aligned and biological positions are the same.
-3. **Placement.** Each stored datum `[s, e)` with value `v` is checked in stored order:
-   - `s == e` is a BED insertion site, legal under BEDv1, and becomes `unplaced: 'empty'`. A
-     quantitative value has no base to stand on.
+3. **Placement.** Each stored datum `[s, e)` with value `v` is checked in stored order. The
+   first rule that applies gives its reason:
    - A non-integer, negative or descending coordinate, or a `v` that is not finite, becomes
      `unplaced: 'invalid'`. `parseFloat('Infinity')` and `parseFloat('1e999')` pass today's
      `isNaN` checks (`annotations.ts:53-59`, `:97-101`), and one infinite value would collapse
@@ -136,6 +135,8 @@ export function alignedEnvelope(display: DisplayTrack, index: number): { start: 
    - `e > sequence length` becomes `unplaced: 'out-of-range'`. It is **not clamped**: today's
      lookup maps an out-of-range end to the alignment length (`coordinate.ts:59-69`), which
      would silently clip `[1,99)` on a 4-base record.
+   - Otherwise, `s == e` is a BED insertion site, legal under BEDv1, and becomes
+     `unplaced: 'empty'`. A quantitative value has no base to stand on.
    - Everything else is placed.
 4. **Pieces exist only for picking.** A piece is the intersection of one placed interval with
    one residue run. It is computed only for a picked column, never for drawing (see Drawing and
@@ -148,8 +149,14 @@ export function alignedEnvelope(display: DisplayTrack, index: number): { start: 
    Value ranges (`GenomeViewer.tsx:146-169`) use placed, finite values only, and the axis
    tooltip says so.
 
-The stored type `QuantitativeTrack` (`types.ts`) is unchanged. `TrackPiece` replaces
-`TrackDatum` inside `layout.ts`, `Row.tsx` and `QuantitativeTrack.tsx`.
+The stored type `QuantitativeTrack` (`types.ts`) is unchanged.
+
+**Packing.** Interval-track rows (`layout.ts:170-194`, `QuantitativeTrack.tsx:41-62`) pack
+placed source indices by their aligned envelopes: `number[][]` in place of `TrackDatum[][]`.
+- An interval stays in one row even when a gap splits it, so the row height never depends on
+  pieces.
+- A click first finds the row under the pointer's y, then the interval in that row, and only
+  then computes the piece.
 
 ## Drawing
 
@@ -173,9 +180,13 @@ nothing reaches a gap column, whatever the intervals are.
   has.
 - Overlapping intervals, which the parser accepts (#250), are drawn one after another in stored
   order. They are never merged into an invented value.
-- **Cost per redraw:** O(log n + intervals in view + runs in view), with constant extra memory.
-  At full-record zoom that is every interval once plus every run once. It is not intervals times
-  runs.
+- **Cost per redraw:**
+  - one pass over the placed intervals in stored order, skipping those whose envelope is out of
+    view: O(n + runs in view);
+  - memory proportional to the shapes in view, plus the canvas path.
+
+  At full-record zoom that is every interval once plus every run once, never intervals times
+  runs. A faster overlap index is left for when the benchmark shows a need.
 
 **Interval tracks (`kind: 'interval'`):**
 - Remove the 1 px minimum width.
@@ -258,14 +269,14 @@ consecutive columns from that oracle, not from production helpers.
 | Mapping | `coordinate.test.ts` | `ACGT` / `--ACGT`: `[0,1)` gives piece `[2,3)` with `source [0,1)`. The stored track is the same object afterwards |
 | Gap split | same | `AC--GT`: `[0,4)` gives `[0,2)` and `[4,6)`. Also leading, internal and trailing gaps; one-base `[3,4)` at the sequence end; a record with `features: []` |
 | Unaligned identity | same | No `alignedSequence`: pieces equal the stored intervals, and the tooltip position is `floor(p) + 1` |
-| No clamping | same | `ACGT` / `ACGT--`: `[1,99)` is unplaced `out-of-range`; `[2,2)` is `empty`; `[3,1)` is `invalid`. A finite row next to an `Infinity` row: the finite one is drawn and the value range ignores the infinite one |
+| No clamping | same | `ACGT` / `ACGT--`: `[1,99)` is unplaced `out-of-range`; `[2,2)` is `empty`; `[3,1)`, `[-1,-1)`, `[0.5,0.5)` and `[1,1)` with value `Infinity` are `invalid`; `[9,9)` is `out-of-range`. A finite row next to an `Infinity` row: the finite one is drawn and the value range ignores the infinite one |
 | Strand and topology | same | Mapping is the same with reverse-strand features on the record and on a circular record. Descending track data is `invalid`, not a wrap |
 | Empty track | same | `data: []` gives no pieces and the existing "No track data available" message |
 | Geometry | `trackGeometry` unit test | On `AC--GT`, the mask has rectangles `[0,2)` and `[4,6)` only. `0 10 2` and `90 100 8`, domain `[0,100]`, width 100: no shape has any x in `(10, 90)`. Adjacent `[0,10)=2` and `[10,20)=5`: two rectangles meeting at x = 10, each top stroke clipped to its own piece, no vertical connector. At 0.1 px per column, `[0,1)` and `[2,3)` give non-overlapping shapes 0.1 px wide |
 | Overlaps | `pickTrackData` unit test | Unsorted `[10,20)`, `[0,100)`: p = 15 returns both and p = 50 returns `[0,100)`. Shared boundary: with `[0,10)` and `[10,20)`, p = 10 returns `[10,20)` only. p = 20 and a gap column return nothing |
 | Picking in the viewer | `Row` test | Double-click on unaligned `[0,100)` at 15 selects `[0,100)`. On `AC--GT` with `[0,4)`, a click at column 1 selects `[0,2)`, the whole piece. The tooltip shows the biological position and interval |
 | Hub focus | `HubList` / `focusTarget` test, then export | `ACGT` / `--ACGT`, track `[0,1)`: focus selects aligned `[2,3)`, and JSON selection export then contains the interval. Unaligned: focus selects the stored bounds. A track with every row unplaced is not focusable |
-| Packing | `layout.test.ts` | `[0,10)` and `[10,20)` share row 0 |
+| Packing | `layout.test.ts` | `[0,10)` and `[10,20)` share row 0. On a gapped alignment, two long overlapping intervals each split by gaps use two rows, and a click in row 1 picks only the row-1 interval |
 | Region export | hook test calling `exportSelectionJson` | Distinct source and display records. The serialized JSON is checked against an independently written expected document: biological, rebased track intervals and no display fields |
 | Unplaced is visible | `QuantitativeTrack` test | A track with one out-of-range row shows "1 of 3 intervals not drawn" |
 
