@@ -75,7 +75,7 @@ point C asks that GenBank stay ungapped.
     line it warns and supplies the terminator; earlier, it raises. This is from reading the
     source.
   - BioJava 5.3.0's default DNA set rejects `*` and digits, and converts `.` to `-`.
-  - No GUI tool documents its handling of invalid files.
+  - Among GUI tools, only Benchling documents an import failure, for one malformed qualifier. None documents the other checks here.
 
   So refusing is the owner's policy, not a cross-tool consensus. The evidence is in
   `gb-validation-policy/scratch/evidence.md`, outside the repository.
@@ -160,8 +160,8 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Mandatory qualifier missing | e.g. `source` without `/organism` or `/mol_type`; `regulatory` without `/regulatory_class` | REJECT in legacy Sequin for a missing organism. Dunceious keeps the record and warns, because its sequence and coordinates are intact |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
-| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame. GenBank export can't carry an invalid frame. Today it drops an empty `/codon_start=""` (`serialize.ts:91,109`), so a reimport would fall back to frame 1. So a record holding a CDS with an invalid frame (empty included) is left out of a GenBank export and named in the report: "<id> not exported: CDS <name> has an invalid /codon_start". This uses the same backstop as invalid residues. Project files keep the value | Error-level in NCBI's validator |
-| Unknown genetic code | `/transl_table` not an NCBI code. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
+| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame. GenBank export can't carry an invalid frame. Today it drops an empty `/codon_start=""` (`serialize.ts:91,109`), so a reimport would fall back to frame 1. So a record holding a CDS with an invalid frame (empty included) is left out of a GenBank export and named in the report: "<id> not exported: CDS <name> has an invalid /codon_start". This uses the same backstop as invalid residues. The same applies to an invalid `/transl_table` (see the next row). Project files keep the value | Error-level in NCBI's validator |
+| Unknown genetic code | `/transl_table` not an NCBI code, empty included. GenBank export can't carry it either: the writer drops an empty value (`serialize.ts:106-110`), and a reimport would fall back to table 1. So a record holding such a CDS is left out of a GenBank export and reported, as for an invalid frame. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
 | `/translation` differs from the DNA | Computed and counted by #253's spec; this summary displays it | Error (mismatch) |
 
 The key and qualifier checks apply to nucleotide entries only. INSDC 11.4 is a nucleotide feature table, FMT-3 records no GenPept map, and protein records such as `examples/peptide/pomc-orthologs/human-pomc-NP_000930.gb` use protein keys and omit `/mol_type`. Protein entries still get every Refuse check and the frame and code checks where they apply.
@@ -255,7 +255,7 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
 the worker handler, with no import UI. A refuse finding there already fails loudly, because the
 loader throws on anything but success. The showroom shows no import notes, since its samples
 are curated. A test pins the samples' exact warning list instead, so any new finding in a bundled
-sample fails the build. This is a scope choice for the owner to confirm.
+sample fails the build. The owner confirmed this scope.
 
 ## Presentation
 
@@ -314,8 +314,16 @@ Expected results never come from the parser under test.
   - each feature's key and its location parts as 0-based start, end and strand;
   - the extracted feature sequence.
 
-  The output is checked in. Dunceious's parsed records and extracted sequences must match it
-  for every accepted case Biopython supports: fuzzy ends, complement, joins, circular origin
+  The output is checked in.
+  - The comparison adapter first normalises both sides to one canonical form: location parts in
+    evaluation order, each with its own strand. Dunceious keeps a uniform outer complement's
+    parts in written order, with the strand on the parent (`locationParser.ts:139`). Biopython
+    lists them reversed, each with a negative strand. Both mean the same thing, so the test
+    compares meaning and needs no change to either representation.
+  - Extracted sequences are compared as they are.
+
+  Dunceious's parsed records and extracted sequences must match it for every accepted case
+  Biopython supports: fuzzy ends, complement, joins, circular origin
   crossings, boundary positions, lowercase, RNA with T, and protein records.
 - **The standard-derived oracle, where Biopython disagrees.** Biopython 1.88 rejects nested
   outer complements (conformance cases J4, J5 and W2, `docs/standards/conformance/README.md`).
@@ -347,7 +355,8 @@ Expected results never come from the parser under test.
 | Qualifier recovery | A CDS with `/note="abc` unclosed, followed by an indented `/codon_start=4` and a later `gene` with a malformed location: one dialog with the unclosed note, which says the rest of that CDS wasn't checked, and the gene's location finding |
 | Wrong-key and private qualifiers | `/codon_start` on a `gene`: wrong-key warning. `/label` on a CDS, and any qualifier on an unknown key: no wrong-key warning. An unknown key with `/gene` repeated still gets the unknown-key warning and the repeated-qualifier warning |
 | Missing location | A `gene` key line with no location, followed by a valid CDS, in an otherwise valid record: refused, naming the gene |
-| Invalid frame through GenBank | A CDS with `/codon_start=""`, and one with `4`: both loaded with notes, translation suppressed; GenBank export leaves each record out and reports it; a project file round trip keeps the value |
+| Invalid frame or code through GenBank | CDSs with `/codon_start=""`, `/codon_start=4`, `/transl_table=""` and `/transl_table=99`: each loads with a note and translation suppressed; GenBank export leaves each record out and reports it; a project file round trip keeps the value |
+| Oracle normalisation | `complement(join(1..3,7..9))`: after normalisation, the same parts and strands as Biopython, and the same extracted sequence |
 | ORIGIN grouping | A sequence line with a count and 60 residues without spaces: accepted |
 | Stale responses | The workspace is replaced while a malformed file and a file with notes are parsing: neither the dialog nor the notes appear, and neither file's refusal or notes log line is written. The log has one invalidation line per file, saying the workspace was replaced |
 | Frame-dependent outputs | `/codon_start=4` and `2junk` on a 9-base CDS with no stored translation: the Hub shows the reason, not `2 aa` or `NaN aa`; no GFF3 phase is exported from them. `/codon_start=2`: count and phase as today. A selection export clipping a `/codon_start=4` CDS keeps `4`, and on reimport the CDS is still flagged with translation suppressed. A clipped `/codon_start=2` CDS gets today's rebased frame |
