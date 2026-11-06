@@ -218,7 +218,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {fmt(views.featureLength)} {unit}
-                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">Partial</span></>}
+                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">{views.partialLabel}</span></>}
                   {' '}<span className="text-[11px] font-sans font-semibold text-slate-500">
                     {views.feature === null
                       ? `in ${views.intervals} intervals (not joined)`

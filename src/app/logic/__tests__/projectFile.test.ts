@@ -158,3 +158,25 @@ describe('project locations saved before operators and sites', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+// LOC-4 for projects saved before the partial flags existed: the text still holds < and >, and the
+// stored segments are the ones that text was read as, so the flags are copied onto them.
+describe('project partial ends saved before the flags', () => {
+  const load = (feature: Record<string, unknown>) => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined,
+      features: [{ type: 'CDS', name: 'c', strand: 1, ...feature } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    return result.project.records[0].features[0];
+  };
+
+  it('reads the markers of <1..20 from its text', () => {
+    expect(load({ start: 0, end: 20, segments: [{ start: 0, end: 20 }], locationString: '<1..20' }).segments)
+      .toEqual([{ start: 0, end: 20, partialStart: true }]);
+  });
+
+  it('leaves segments alone when they no longer match the text', () => {
+    expect(load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }).segments)
+      .toEqual([{ start: 0, end: 15 }]);
+  });
+});

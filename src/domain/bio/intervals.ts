@@ -137,6 +137,17 @@ function clipFeature(
     return clipped ? [{ ...segment, ...clipped }] : [];
   });
   if (!newSegments.length) return null;
+  // LOC-4: a cut end gains a marker. A selection is one window, so whatever it drops of the
+  // feature, a cut interval or a whole one, lies below its start or above its end; the kept
+  // interval at that side now continues beyond its base.
+  if (segments.some(segment => segment.start < selStart)) {
+    const lowest = newSegments.reduce((a, b) => (b.start < a.start ? b : a));
+    lowest.partialStart = true;
+  }
+  if (segments.some(segment => segment.end > selEnd)) {
+    const highest = newSegments.reduce((a, b) => (b.end > a.end ? b : a));
+    highest.partialEnd = true;
+  }
 
   const result: BioFeature = {
     ...feature,

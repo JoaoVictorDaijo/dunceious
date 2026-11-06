@@ -31,7 +31,7 @@
  *   - Order:                  order(1..3,11..13) – same segments as join; `operator` tells them apart
  *   - Join (circular wrap):   join(2427..3323,1..1758)  – first segment START > last segment END
  *   - Nested complement:      complement(join(1..10,21..30))
- *   - Fuzzy boundaries (</>): <1..>100  (angle brackets are stripped)
+ *   - Partial ends (</>):     <1..>100  (`partialStart`/`partialEnd` on the interval they mark)
  *
  * All coordinates are converted to 0-based half-open intervals [start, end).
  *
@@ -103,19 +103,24 @@ function splitTopLevelCommas(list: string): string[] {
 }
 
 /** Parses a single coordinate element (`n..m`, `n^m`, or `n`) to a half-open range. */
-function parseCoord(el: string): { start: number; end: number } {
-  const pair = el.match(/(\d+)(?:\.\.|\^)(\d+)/);
-  if (pair) return { start: parseInt(pair[1]) - 1, end: parseInt(pair[2]) };
-  const single = el.match(/(\d+)/);
+function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
+  // INSDC FT 11.4 §3.4.2.1: '<' marks the start number, '>' the end number (LOC-4).
+  const marks = (before: string, after: string) => ({
+    ...(before === '<' && { partialStart: true as const }),
+    ...(after === '>' && { partialEnd: true as const }),
+  });
+  const pair = el.match(/([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)/);
+  if (pair) return { start: parseInt(pair[2]) - 1, end: parseInt(pair[4]), ...marks(pair[1], pair[3]) };
+  const single = el.match(/([<>]?)(\d+)/);
   if (single) {
-    const val = parseInt(single[1]);
-    return { start: val - 1, end: val };
+    const val = parseInt(single[2]);
+    return { start: val - 1, end: val, ...marks(single[1], single[1]) };
   }
   return { start: 0, end: 0 };
 }
 
 export function parseLocation(loc: string): LocationData {
-  const cleanLoc = loc.replace(/[<>\s]/g, '');
+  const cleanLoc = loc.replace(/\s/g, '');
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;
@@ -156,13 +161,13 @@ export function parseLocation(loc: string): LocationData {
   if (usePerSegment) {
     // The parent strand is the majority (ties resolve to +1); extraction
     // uses each segment's strand when the location supplies inner complements.
-    segments = evaluated.map(p => ({ start: p.start, end: p.end, strand: p.strand }));
+    segments = evaluated.map(({ strand: partStrand, ...part }) => ({ ...part, strand: partStrand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
   } else {
     // Uniform strand with no inner complement: keep the historical shape (no
     // per-segment strand); the whole coding sequence is reverse-complemented
     // downstream when strand = -1.
-    segments = parsed.map(p => ({ start: p.start, end: p.end }));
+    segments = parsed.map(({ strand: _strand, ...part }) => part);
     strand = strands[0] ?? 1;
   }
 

@@ -19,6 +19,7 @@
  */
 
 // @vitest-environment jsdom
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import * as d3 from 'd3';
 import { beforeEach, expect, it } from 'vitest';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
@@ -47,8 +48,9 @@ it.each([
   { seq: 'TCATTTCAT', table: '27', strand: -1 as const, protein: 'MK_', locationString: 'complement(1..9)' },
   { seq: 'ATGAAATGA', table: '27', strand: 1 as const, protein: 'MKW', locationString: '1..>9' },
 ])('draws $protein under table $table on strand $strand', ({ seq, table, strand, protein, locationString }) => {
+  const { segments } = parseLocation(locationString);
   const feature: BioFeature = { type: 'CDS', name: 'coding', start: 0, end: seq.length,
-    strand, metadata: { transl_table: table }, locationString };
+    strand, segments, metadata: { transl_table: table }, locationString };
   const view = render(<SequenceTrack {...props(seq, feature)} />);
   expect(recorder.texts().slice(-protein.length)).toEqual([...protein]);
   expect(recorder.texts()).not.toContain('!');

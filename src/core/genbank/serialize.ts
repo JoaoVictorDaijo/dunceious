@@ -40,7 +40,7 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
   const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, sequenceLength);
   const mixed = segments.some(segment => 'strand' in segment && segment.strand !== undefined);
   const locations = segments.map(segment => {
-    const location = `${segment.start + 1}..${segment.end}`;
+    const location = `${segment.partialStart ? '<' : ''}${segment.start + 1}..${segment.partialEnd ? '>' : ''}${segment.end}`;
     const strand = 'strand' in segment ? segment.strand : undefined;
     return mixed && (strand ?? feature.strand) === -1 ? `complement(${location})` : location;
   });

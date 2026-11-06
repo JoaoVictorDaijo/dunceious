@@ -260,3 +260,15 @@ it('reads rows sharing an ID without insdc_operator as a join', () => {
   const text = '##gff-version 3\nseq_1\t.\tmisc_feature\t1\t3\t.\t+\t.\tID=a\nseq_1\t.\tmisc_feature\t11\t13\t.\t+\t.\tID=a\n';
   expect(parseGFF3(text).features.seq_1[0].operator).toBe('join');
 });
+
+// LOC-4 through GFF3: each row carries its own interval's markers, read from the flags, so an edited
+// feature keeps them and a remote accession's digits can never be mistaken for a base number.
+it('writes and reads back per-row partial markers from the interval flags', () => {
+  const partial = feature({ type: 'misc_feature', name: 'p', operator: 'join', start: 0, end: 30,
+    segments: [{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }] });
+  const rows = lines(exportToGff3([record({ features: [partial] })]).text).slice(1);
+  expect(rows.map(row => [row[8].includes('insdc_partial_start=%3C'), row[8].includes('insdc_partial_end=%3E')])).toEqual([[true, false], [false, true]]);
+  const [imported] = parseGFF3(exportToGff3([record({ features: [partial] })]).text).features.seq_1;
+  expect(imported.segments).toEqual([{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }]);
+  expect(imported.metadata).not.toHaveProperty('_gffPartialEnds');
+});

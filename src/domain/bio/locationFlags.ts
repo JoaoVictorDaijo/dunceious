@@ -18,11 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature } from './types';
-
-// The structured location drops `<`/`>`, so the partial flags come from the raw INSDC text, which
-// an edited feature no longer carries.
-// FIXME(#226): read the partial ends from the parsed location once the parser keeps them.
+import type { BioFeature, FeatureSegment } from './types';
 
 /**
  * `order()` (INSDC FT 11.4 §3.4.2.2): nothing is implied about joining the intervals (LOC-2).
@@ -75,54 +71,39 @@ export function isNestedComplementLocation(feature: Pick<BioFeature, 'locationSt
   return false;
 }
 
-/** `<` or `>` (INSDC FT 11.4 §3.4.2.1): an end lies beyond the stated base (LOC-4). */
-export function isPartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
-  return /[<>]/.test(feature.locationString ?? '');
-}
-
-/** One interval of a location in translation order, with the strand it is read on. */
-interface EvaluatedInterval { strand: 1 | -1; startPartial: boolean; endPartial: boolean }
-
-function splitTopLevel(list: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let current = '';
-  for (const ch of list) {
-    if (ch === ',' && depth === 0) {
-      out.push(current);
-      current = '';
-      continue;
-    }
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    current += ch;
-  }
-  out.push(current);
-  return out;
+/** `<` or `>` (INSDC FT 11.4 §3.4.2.1) on any interval end: that end lies beyond its base (LOC-4). */
+export function isPartialLocation(feature: Pick<BioFeature, 'segments'>): boolean {
+  return feature.segments?.some(segment => segment.partialStart || segment.partialEnd) ?? false;
 }
 
 /**
- * INSDC FT 11.4 §3.4.2.2: `complement()` reverses the order of what it encloses and reads it on
- * the other strand; `join()`/`order()` keep their elements in the order written.
+ * The intervals in the order the location is evaluated (INSDC FT 11.4 §3.4.2.2), each with the
+ * strand it is read on. The parser stores per-strand intervals in evaluation order already; a
+ * whole-feature `complement(join(...))` keeps them as written, so it is read in reverse.
  */
-function evaluateIntervals(text: string, strand: 1 | -1): EvaluatedInterval[] {
-  const operator = text.match(/^(complement|join|order)\((.*)\)$/);
-  if (operator?.[1] === 'complement') return evaluateIntervals(operator[2], strand === 1 ? -1 : 1).reverse();
-  if (operator) return splitTopLevel(operator[2]).flatMap(element => evaluateIntervals(element, strand));
-  const [first, last = first] = text.replace(/^[^:]*:/, '').split(/\.\.|\^/);
-  return [{ strand, startPartial: first.includes('<'), endPartial: last.includes('>') }];
+function evaluatedIntervals(feature: Partial<Pick<BioFeature, 'strand' | 'segments'>>): { segment: FeatureSegment; strand: 1 | -1 }[] {
+  const segments = feature.segments ?? [];
+  const strand = feature.strand ?? 1;
+  const perSegment = segments.some(segment => segment.strand !== undefined);
+  const ordered = !perSegment && strand === -1 ? [...segments].reverse() : segments;
+  return ordered.map(segment => ({ segment, strand: segment.strand ?? strand }));
 }
 
 /**
- * Whether the 3′ end of the sequence a location defines is partial (INSDC FT 11.4 §3.4.2.1): the
- * marker on the interval translated last, `>` on its end when read forward or `<` on its start
- * when complemented. A marker on any other end leaves the 3′ end complete. False without the raw
- * location text (#226).
+ * Whether the 5′ end of the sequence a location defines is partial: the marker on the interval read
+ * first, `<` on its start when read forward or `>` on its end when complemented.
  */
-export function isThreePrimePartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
-  const text = (feature.locationString ?? '').replace(/\s/g, '');
-  if (!text) return false;
-  const terminal = evaluateIntervals(text, 1).at(-1);
-  if (!terminal) return false;
-  return terminal.strand === 1 ? terminal.endPartial : terminal.startPartial;
+export function isFivePrimePartialLocation(feature: Partial<Pick<BioFeature, 'strand' | 'segments'>>): boolean {
+  const first = evaluatedIntervals(feature)[0];
+  return !!first && !!(first.strand === 1 ? first.segment.partialStart : first.segment.partialEnd);
+}
+
+/**
+ * Whether the 3′ end is partial: the marker on the interval translated last, `>` on its end when
+ * read forward or `<` on its start when complemented. A marker on any other end leaves the 3′ end
+ * complete, as the NCBI validator (table2asn 1.29.324) reads it.
+ */
+export function isThreePrimePartialLocation(feature: Partial<Pick<BioFeature, 'strand' | 'segments'>>): boolean {
+  const last = evaluatedIntervals(feature).at(-1);
+  return !!last && !!(last.strand === 1 ? last.segment.partialEnd : last.segment.partialStart);
 }

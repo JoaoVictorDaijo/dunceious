@@ -130,9 +130,9 @@ describe('RecordDetailsModal sequence views', () => {
   it('flags a partial location next to its length and in the caption', () => {
     const { sequence } = open(fixture, labelled('P1'));
     expect(sequence()).toBe(oracle.P1.split(' ')[0]);
-    expect(lengths()).toBe('21 bp Partial feature sequence · 1 location interval21 bp region spanned · 5..25');
+    expect(lengths()).toBe('21 bp 5′ and 3′ partial feature sequence · 1 location interval21 bp region spanned · 5..25');
     expect(caption()).toBe('Sequence defined by the location: bases 5..25. Read 5′ → 3′ on the forward (+) strand. Partial: at least one end lies beyond the annotated base (< or >), so this sequence is incomplete.');
-    expect(screen.queryByText('Partial', { selector: '[data-record-details-body] span' })).toBeTruthy();
+    expect(screen.queryByText('5′ and 3′ partial', { selector: '[data-record-details-body] span' })).toBeTruthy();
   });
 
   it('reverse-complements a single-interval reverse CDS and names it the coding sequence', () => {
@@ -184,7 +184,7 @@ describe('RecordDetailsModal edge captions and controls', () => {
 
   it('keeps the partial explanation for a partial order() location', () => {
     const feature: BioFeature = { type: 'misc_feature', name: 'po', start: 0, end: 13, strand: 1,
-      segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(<1..3,11..>13)' };
+      operator: 'order', segments: [{ start: 0, end: 3, partialStart: true }, { start: 10, end: 13, partialEnd: true }], locationString: 'order(<1..3,11..>13)' };
     open(fixture, feature);
     expect(caption()).toMatch(/only the region spanned is shown\. Record bases 1\.\.13, .* Partial: at least one end lies beyond the annotated base/);
   });

@@ -19,7 +19,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq, featureLength, deriveAlignmentState, featureCoordPatch, featureLengthText } from '../viewModel';
+import { parseLocation } from '@/src/core/genbank/locationParser';
+import { getDisplaySeq, featureLength, deriveAlignmentState, featureCoordPatch, featureLengthText, partialEndsLabel } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -144,5 +145,34 @@ describe('featureLengthText', () => {
     [dna, { start: 0, end: 1500 }, '1,500 bp'],
   ])('%o, %o → %s', (record, feature, text) => {
     expect(featureLengthText(record, { type: 'misc_feature', name: 'f', strand: 1, ...feature })).toBe(text);
+  });
+});
+
+// Owner decision 12: an edit keeps the interval's markers and strand; only the number changes.
+describe('featureCoordPatch – partial ends', () => {
+  it('keeps both markers of a one-interval feature when its end is edited', () => {
+    expect(featureCoordPatch({ start: 0, end: 206, segments: [{ start: 0, end: 206, partialStart: true, partialEnd: true }] }, 'end', '180').segments)
+      .toEqual([{ start: 0, end: 180, partialStart: true, partialEnd: true }]);
+  });
+});
+
+// Owner decision 10: the details window names the partial end read 5′→3′, from the per-end flags.
+// complement(<1..9) is 3′-partial and complement(1..>9) 5′-partial (table2asn cases of #278).
+describe('partialEndsLabel', () => {
+  it.each([
+    ['<1..9', '5′ partial'],
+    ['1..>9', '3′ partial'],
+    ['complement(<1..9)', '3′ partial'],
+    ['complement(1..>9)', '5′ partial'],
+    ['<5..>25', '5′ and 3′ partial'],
+    ['join(1..>6,10..12)', 'Partial'],
+    ['1..9', null],
+  ])('%s → %s', (location, label) => {
+    const { strand, segments } = parseLocation(location);
+    expect(partialEndsLabel({ strand, segments }, false)).toBe(label);
+  });
+
+  it('says Partial on a protein record, which has no 5′ or 3′ end', () => {
+    expect(partialEndsLabel({ strand: 1, segments: [{ start: 0, end: 9, partialStart: true }] }, true)).toBe('Partial');
   });
 });

@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
@@ -89,18 +90,30 @@ function validRecord(value: unknown): boolean {
     && track.data.every(item => isObject(item) && coordinates(item) && typeof item.value === 'number' && Number.isFinite(item.value))));
 }
 
+/** Same intervals, in the same order: the stored geometry is still the one the text was read as. */
+function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): boolean {
+  return a?.length === b.length && a.every((part, i) => part.start === b[i].start && part.end === b[i].end);
+}
+
 /**
- * Projects saved before features carried `operator` and `betweenBases` hold them only in
- * `locationString`, which the first edit clears; read them from that text while it is still there.
+ * Projects saved before features carried `operator`, `betweenBases` and per-end partial flags hold
+ * them only in `locationString`, which the first edit clears; read them from that text while it is
+ * still there.
  */
 function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
-  if (!feature.locationString || feature.operator || feature.betweenBases) return feature;
+  if (!feature.locationString) return feature;
   const parsed = parseLocation(feature.locationString);
-  if (parsed.operator && (feature.segments?.length ?? 0) > 1) return { ...feature, operator: parsed.operator };
-  if (parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
-    return { ...feature, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
+  let next = feature;
+  if (!next.operator && parsed.operator && (next.segments?.length ?? 0) > 1) next = { ...next, operator: parsed.operator };
+  if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
+    next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
   }
-  return feature;
+  if (!isPartialLocation(next) && isPartialLocation(parsed) && sameIntervals(next.segments, parsed.segments)) {
+    next = { ...next, segments: next.segments!.map((part, i) => ({ ...part,
+      ...(parsed.segments[i].partialStart && { partialStart: true as const }),
+      ...(parsed.segments[i].partialEnd && { partialEnd: true as const }) })) };
+  }
+  return next;
 }
 
 export function parseProject(text: string): { ok: true; project: ProjectFile } | { ok: false; message: string } {

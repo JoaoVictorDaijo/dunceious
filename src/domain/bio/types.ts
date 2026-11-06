@@ -32,6 +32,10 @@ export interface FeatureSegment {
    * which carry a single strand on the parent feature.
    */
   strand?: 1 | -1;
+  /** `<` before the start number: the interval begins somewhere before `start` (INSDC FT 11.4 §3.4.2.1). */
+  partialStart?: true;
+  /** `>` after the end number: the interval ends somewhere after `end`. */
+  partialEnd?: true;
 }
 
 /**

@@ -22,6 +22,9 @@ import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseGenBank } from '../index';
 import { exportToGenBank } from '../serialize';
+import { parseLocation } from '../locationParser';
+import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { readFileSync } from 'node:fs';
 
 function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
   return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
@@ -178,5 +181,24 @@ describe('exportToGenBank – rebuilt operators and sites', () => {
       segments: [{ start: 1, end: 3 }, { start: 9, end: 12 }],
     }] })]).text);
     expect(parsed.features.find(f => f.type === 'Site')).toMatchObject({ operator: 'order', locationString: 'order(2..3,10..12)' });
+  });
+});
+
+// LOC-4: an edit keeps both markers, including on the end whose number changed (owner decision 12).
+// SCU49845's TCP1-beta CDS is <1..206.
+describe('exportToGenBank – partial ends after an edit', () => {
+  it('writes <1..180 after the end of <1..206 is edited to 180', () => {
+    const [parsed] = parseGenBank(readFileSync('src/core/__tests__/fixtures/SCU49845.gb', 'utf8'));
+    const cds = parsed.features.find(f => f.type === 'CDS' && f.locationString === '<1..206')!;
+    const edited = { ...cds, ...featureCoordPatch(cds, 'end', '180'), locationString: undefined };
+    const text = exportToGenBank([{ ...parsed, features: [edited] }]).text;
+    expect(text.split('\n')).toContain(`${'CDS'.padStart(8).padEnd(21)}<1..180`);
+  });
+
+  it('writes the markers of a mixed-strand join back where they were read', () => {
+    const parsed = parseLocation('join(<1..6,complement(10..>12))');
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(20), features: [{ type: 'misc_feature', name: 'f', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator }] })]).text;
+    expect(text).toContain('join(<1..6,complement(10..>12))');
   });
 });

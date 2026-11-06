@@ -228,3 +228,22 @@ describe('parseLocation – operator', () => {
   });
 
 });
+
+// INSDC FT 11.4 §3.4.2.1: '<' and '>' belong to the base number they are written with (LOC-4);
+// Biopython 1.88 keeps <5..>25 as BeforePosition/AfterPosition (conformance case P1).
+describe('parseLocation – partial ends', () => {
+  it('flags both ends of <5..>25 on its one interval', () => {
+    expect(parseLocation('<5..>25').segments).toEqual([{ start: 4, end: 25, partialStart: true, partialEnd: true }]);
+  });
+
+  it('flags exactly the marked ends of a mixed-strand join', () => {
+    expect(parseLocation('join(<1..6,complement(10..>12))').segments).toEqual([
+      { start: 0, end: 6, strand: 1, partialStart: true },
+      { start: 9, end: 12, strand: -1, partialEnd: true },
+    ]);
+  });
+
+  it('keeps the markers inside a whole-feature complement on the numbers they mark', () => {
+    expect(parseLocation('complement(<1..9)').segments).toEqual([{ start: 0, end: 9, partialStart: true }]);
+  });
+});

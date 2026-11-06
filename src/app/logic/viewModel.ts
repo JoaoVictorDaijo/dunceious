@@ -21,7 +21,7 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { isBetweenBasesSite, isOrderLocation, isPartialLocation } from '@/src/domain/bio/locationFlags';
+import { isBetweenBasesSite, isFivePrimePartialLocation, isOrderLocation, isPartialLocation, isThreePrimePartialLocation } from '@/src/domain/bio/locationFlags';
 
 /**
  * The sequence slice a record/feature detail view should display.
@@ -90,6 +90,17 @@ export interface FeatureSequenceViews {
   regionStart: number;
   regionEnd: number;
   partial: boolean;
+  /** Which end is partial, read 5′→3′ (`isFivePrimePartialLocation`); `Partial` for protein or interior markers. */
+  partialLabel: string | null;
+}
+
+/** Names the partial end of a nucleotide feature's location; a protein record has no 5′/3′. */
+export function partialEndsLabel(feature: Pick<BioFeature, 'strand' | 'segments'>, protein: boolean): string | null {
+  if (!isPartialLocation(feature)) return null;
+  if (protein) return 'Partial';
+  const five = isFivePrimePartialLocation(feature);
+  const three = isThreePrimePartialLocation(feature);
+  return five && three ? '5′ and 3′ partial' : five ? '5′ partial' : three ? '3′ partial' : 'Partial';
 }
 
 export function featureSequenceViews(
@@ -108,6 +119,7 @@ export function featureSequenceViews(
     regionStart: envelope.start,
     regionEnd: envelope.end,
     partial: isPartialLocation(feature),
+    partialLabel: partialEndsLabel(feature, record.moleculeType === 'protein'),
   };
 }
 
@@ -160,10 +172,12 @@ export function featureCoordPatch(
   const val = parseInt(rawValue);
   const patch: Partial<BioFeature> = field === 'start' ? { start: val } : { end: val };
   if (!feature.segments || feature.segments.length <= 1) {
+    // The interval keeps its strand and partial markers; only the edited number changes (LOC-4).
+    const part = feature.segments?.[0];
     patch.segments =
       field === 'start'
-        ? [{ start: val, end: feature.end }]
-        : [{ start: feature.start, end: val }];
+        ? [{ ...part, start: val, end: feature.end }]
+        : [{ ...part, start: feature.start, end: val }];
   }
   return patch;
 }

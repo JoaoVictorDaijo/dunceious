@@ -72,28 +72,6 @@ function attributeValues(metadata: Record<string, string>, key: string): string[
   return [metadata[key]];
 }
 
-type PartialPart = [number, number, string, string];
-
-function partialParts(feature: BioFeature): PartialPart[] {
-  return Array.from((feature.locationString ?? '').matchAll(/([<>]?)([0-9]+)(?:\.\.([<>]?)([0-9]+))?/g), match =>
-    [Number(match[2]) - 1, Number(match[4] ?? match[2]), match[1], match[3] ?? ''] as PartialPart);
-}
-
-function restorePartialLocation(feature: BioFeature): void {
-  const saved = feature.metadata?._gffPartialEnds;
-  if (!saved) return;
-  const partials: PartialPart[] = JSON.parse(saved);
-  delete feature.metadata!._gffPartialEnds;
-  const mixed = feature.segments!.some(part => part.strand !== undefined);
-  const locations = feature.segments!.map(part => {
-    const markers = partials.find(([start, end]) => start === part.start && end === part.end);
-    const location = `${markers?.[2] ?? ''}${part.start + 1}..${markers?.[3] ?? ''}${part.end}`;
-    return mixed && part.strand === -1 ? `complement(${location})` : location;
-  });
-  const location = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
-  feature.locationString = !mixed && feature.strand === -1 ? `complement(${location})` : location;
-}
-
 function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
   return JSON.stringify([feature.start, feature.end, feature.strand, segments, feature.metadata?.codon_start]);
 }
@@ -193,7 +171,6 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const searchNote = searchHitNote(feature);
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
-      const partials = partialParts(feature);
       if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
       if (isBetweenBasesSite(feature)) {
         // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
@@ -205,9 +182,8 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
-        const markers = partials.find(([start, end]) => start === segment.start && end === segment.end);
-        if (markers?.[2]) partAttrs.insdc_partial_start = markers[2];
-        if (markers?.[3]) partAttrs.insdc_partial_end = markers[3];
+        if (segment.partialStart) partAttrs.insdc_partial_start = '<';
+        if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
         const direction = segment.strand ?? getFeatureStrand(feature);
         const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
         lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
@@ -292,11 +268,13 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const start = site ? Number(from) : Number(from) - 1;
     const end = Number(to);
     if (!Number.isInteger(start) || !Number.isInteger(end) || (site ? start < 1 : start < 0 || end <= start)) continue;
-    const partialStart = /^[<>]$/.test(metadata.insdc_partial_start ?? '') ? metadata.insdc_partial_start : '';
-    const partialEnd = /^[<>]$/.test(metadata.insdc_partial_end ?? '') ? metadata.insdc_partial_end : '';
+    // GFF3 has no partial ends; the insdc_partial_* attributes carry INSDC's '<' and '>' per row.
+    const marks = {
+      ...(metadata.insdc_partial_start === '<' && { partialStart: true as const }),
+      ...(metadata.insdc_partial_end === '>' && { partialEnd: true as const }),
+    };
     delete metadata.insdc_partial_start;
     delete metadata.insdc_partial_end;
-    if (partialStart || partialEnd) metadata._gffPartialEnds = JSON.stringify([[start, end, partialStart, partialEnd]]);
     metadata.source = decodeSource(source);
     metadata.phase = phase;
     if (score !== '.') metadata.score = score;
@@ -308,7 +286,7 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const feature: BioFeature = {
       type: metadata.insdc_type || type,
       name: metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${start + 1}`,
-      start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end }], metadata,
+      start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end, ...marks }], metadata,
       ...(site && { betweenBases: true as const }),
     };
     rows.push({ seqid, feature });
@@ -359,13 +337,11 @@ export function parseGFF3(content: string): {
     if (circular.has(seqid) && feature.end > lengths.get(seqid)!) {
       const length = lengths.get(seqid)!;
       const end = feature.end - length;
+      const [{ partialStart, partialEnd }] = feature.segments!;
       feature.segments = splitWrapAround(feature.start, end, length);
       feature.end = end;
-      if (metadata._gffPartialEnds) {
-        const [[, , left, right]]: PartialPart[] = JSON.parse(metadata._gffPartialEnds);
-        metadata._gffPartialEnds = JSON.stringify(feature.segments.map((part, index, parts) =>
-          [part.start, part.end, index === 0 ? left : '', index === parts.length - 1 ? right : '']));
-      }
+      if (partialStart) feature.segments[0].partialStart = true;
+      if (partialEnd) feature.segments[feature.segments.length - 1].partialEnd = true;
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }
@@ -379,11 +355,6 @@ export function parseGFF3(content: string): {
         previous.segments = previous.segments!.map(part => ({ ...part, strand: part.strand ?? previous.strand }));
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         previous.strand = 1;
-      }
-      if (metadata._gffPartialEnds) {
-        previous.metadata!._gffPartialEnds = JSON.stringify([
-          ...JSON.parse(previous.metadata!._gffPartialEnds ?? '[]'), ...JSON.parse(metadata._gffPartialEnds),
-        ]);
       }
       previous.segments!.push(...feature.segments!);
       previous.start = Math.min(previous.start, feature.start);
@@ -400,7 +371,6 @@ export function parseGFF3(content: string): {
       if (feature.segments!.length > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
       delete feature.metadata!.insdc_operator;
       if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
-      restorePartialLocation(feature);
       if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

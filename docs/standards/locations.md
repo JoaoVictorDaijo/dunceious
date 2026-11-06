@@ -89,11 +89,16 @@ round-tripped. EMBOSS 6.6.0, Tested: round-tripped by `seqret`.
 ([release history](https://macvector.com/getting-started/macvector-major-release-details-and-history/));
 Artemis accepts fuzzy syntax. The full import-edit-export lifecycle is unknown everywhere.
 
-**Dunceious.** Deviates — [#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226). The numeric model strips the markers
-(`locationParser.ts:102`); the details window flags a partial feature from the raw text
-(LOC-7). The raw text survives an unchanged GenBank export and GFF3
-partial attributes, but is lost after a geometry or strand edit (`FeatureEditorModal.tsx:78,167`)
-or a selection export (`useFileHandlers.ts:360`).
+**Dunceious.** Conforms ([#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226)). Each
+interval end keeps its marker (`FeatureSegment.partialStart` for `<`, `partialEnd` for `>`), so
+edits and selection export keep it and GenBank export writes it back. An edit keeps both markers,
+including on the end whose number changed; adding or removing one waits for the feature editor's
+toggles (#231, #246). A selection marks the kept interval facing anything it drops, a cut part or a
+whole interval. 5′/3′ partiality is read from the flags in evaluation order
+(`isFivePrimePartialLocation`, `isThreePrimePartialLocation`), and the details window names it.
+GFF3 carries the markers per row as `insdc_partial_start`/`insdc_partial_end`. Projects saved
+before the flags existed get them from their location text on load. Tested against P1 and the 13
+`table2asn` 1.29.324 cases pinned by #278.
 
 ## LOC-5. Between-base sites
 
@@ -185,9 +190,8 @@ first, the default the standard defines:
 **Dunceious.** The sequences conform for supported location forms under the decision in
 [#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
 outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
-track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2). Until
-#226 is fixed, partial ends are read from the raw location text
-(`src/domain/bio/locationFlags.ts`), which an edited feature no longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
+track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2) and
+partial ends from its per-end flags (LOC-4). Tested against the oracle for J1–J5, W1, W2, O1 and P1
 (`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
 caption names both steps, inner complements first and then the outer one. The interval-sum
 and region lengths have distinct labels, the presentation requirement tracked by

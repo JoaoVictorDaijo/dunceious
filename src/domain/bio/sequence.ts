@@ -31,7 +31,7 @@
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
 import { isThreePrimePartialLocation } from './locationFlags';
-import type { SeqRecord } from './types';
+import type { BioFeature, SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
 // Reverse complement
@@ -277,8 +277,8 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
-/** A feature as {@link translateFeature} reads it: the stored protein and the location text. */
-type TranslatedFeature = { translation?: string; locationString?: string };
+/** A feature as {@link translateFeature} reads it: the stored protein and its location's 3′ end. */
+type TranslatedFeature = { translation?: string } & Partial<Pick<BioFeature, 'strand' | 'segments'>>;
 
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a

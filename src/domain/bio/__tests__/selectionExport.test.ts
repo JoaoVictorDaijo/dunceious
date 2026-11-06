@@ -191,10 +191,10 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
     // Parent bounds clipped to [10,20) → rebased [0, 10)
     expect(f.start).toBe(0);
     expect(f.end).toBe(10);
-    // segments must be rebased (not absolute)
+    // segments must be rebased (not absolute), and each cut end gains a marker (LOC-4)
     expect(f.segments).toEqual([
-      { start: 0, end: 2 }, // [5,12) ∩ [10,20) → [10,12) → rebased [0,2)
-      { start: 8, end: 10 }, // [18,25) ∩ [10,20) → [18,20) → rebased [8,10)
+      { start: 0, end: 2, partialStart: true }, // [5,12) ∩ [10,20) → [10,12) → rebased [0,2)
+      { start: 8, end: 10, partialEnd: true }, // [18,25) ∩ [10,20) → [18,20) → rebased [8,10)
     ]);
   });
 
@@ -213,7 +213,8 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
     };
     const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].segments).toEqual([{ start: 2, end: 8 }]);
+    // The kept interval faced a dropped interval on each side, so both its ends are marked.
+    expect(result.features[0].segments).toEqual([{ start: 2, end: 8, partialStart: true, partialEnd: true }]);
   });
 
   it('discards a feature when the selection intersects only its intron', () => {
@@ -412,5 +413,30 @@ describe('sliceRecordsBySelection – operators and sites', () => {
     const kept = slice({ betweenBases: true, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, start, end);
     expect(kept.map(feature => feature.segments?.[0] ?? null).filter(Boolean)).toEqual(segments);
     kept.forEach(feature => expect(feature.betweenBases).toBe(true));
+  });
+});
+
+// LOC-4: a feature cut by a selection gains a marker on the cut end, and keeps its own markers.
+// A selection that drops a whole interval marks the kept end that faced it (owner decision 13).
+describe('sliceRecordsBySelection – partial ends', () => {
+  const clip = (feature: Partial<BioFeature>, sequence: string, start: number, end: number) => sliceRecordsBySelection([{
+    id: 'r', name: 'r', sequence,
+    features: [{ type: 'CDS', name: 'c', start: 0, end: 0, strand: 1, ...feature }],
+  }], start, end)[0].features[0];
+
+  it('keeps the > of 4..>12 and its residue reading when the selection starts inside it (#226 repro)', () => {
+    const cds = clip({ start: 3, end: 12, segments: [{ start: 3, end: 12, partialEnd: true }], locationString: '4..>12', metadata: { transl_table: '27' } }, 'AAAATGCCCTGA', 3, 12);
+    expect(cds.segments).toEqual([{ start: 0, end: 9, partialEnd: true }]);
+    expect(translateFeature(cds, extractCodingSequence(cds, 'ATGCCCTGA').codingSeq, 27)).toBe('MPW');
+  });
+
+  it('marks both cut ends of 1..20 selected at [5, 15)', () => {
+    expect(clip({ start: 0, end: 20, segments: [{ start: 0, end: 20 }] }, 'A'.repeat(30), 5, 15).segments)
+      .toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
+  });
+
+  it('marks the end that faced a dropped interval', () => {
+    expect(clip({ operator: 'join', start: 0, end: 30, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] }, 'A'.repeat(30), 15, 30).segments)
+      .toEqual([{ start: 5, end: 15, partialStart: true }]);
   });
 });
