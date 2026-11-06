@@ -43,12 +43,11 @@ Without the raw location text (after an edit or a selection export) the markers 
 Tested against the validator's output in
 `src/domain/bio/__tests__/fixtures/ncbi-validator-terminal-stop.json`.
 
-The greeter is also subject to TRANS-1 and TRANS-3. Its `codonAt` translates isolated triplets
-with the default table 1 (`src/app/greeter/genomeZoom.ts:92`), while the bundled T7 CDS
-annotations declare table 11 (`examples/nucleotide/t7-phages/phage-t7-NC_001604.gb:216`).
-In pinned gc.prt 4.6 the ordinary amino-acid rows of tables 1 and 11 are identical; their
-initiation rows differ. Internal sense-codon agreement therefore does not establish correct
-CDS initiation; TRANS-3 records the gap.
+The greeter uses table 11 explicitly for its curated T7 CDS codons
+(`src/app/greeter/genomeZoom.ts`, `codonInGene`), matching the bundled NC_001604.1
+`/transl_table` annotations. Tests verify every curated CDS is 5′-complete with
+`/codon_start=1` and `/transl_table=11`. Its first codon uses the table's initiation row
+([TRANS-3](#trans-3-alternative-initiation-codons)); internal codons use its ordinary amino-acid row.
 The displayed genes are a curated subset that omits nested CDSs
 (`src/app/greeter/greeterContent.ts:51`); **Owner decision open** on keeping that curated subset
 or presenting the full annotated CDS population. Neither option changes the genetic-code rules.
@@ -73,10 +72,13 @@ qualifier handler.
 
 **Rule.** NCBI Genetic Codes: "The possible intiator codons are marked as 'M' in the second
 ('Starts') row" (spelling as in the source). NCBI translates the initiator of a complete CDS as
-Met.
+Met when its 5′ end is complete and `/codon_start=1`; internal codons retain their
+ordinary residue. The start codons come from the selected table's own Starts row.
 
 **Reference tools.** Biopython 1.88, Tested: `translate(cds=True)` turns the GTG start of C1
 (table 11) into M; `cds=False` gives V. EMBOSS `transeq` has a methionine option.
+NCBI C++ Toolkit [`x_Translate`, `912b751`, sequence.cpp:3670](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L3670)
+gates initiation on `is_5prime_complete && frame == 0` (frame 0 corresponds to `/codon_start=1`).
 
 **Applications.** Benchling has an optional initial-Met setting in sequence analysis only; UGENE
 uses alternative starts to find ORFs. Neither documents the translated residue of a CDS.
@@ -84,11 +86,15 @@ uses alternative starts to find ORFs. Neither documents the translated residue o
 **Dunceious.** Partial. The computed path translates an alternative GTG initiator as V.
 The track shows the stored
 `/translation` when present (`src/domain/bio/sequence.ts:116, 301`;
-`src/app/viewer/tracks/SequenceTrack.tsx:343`). The greeter also translates isolated
-triplets without CDS initiation context (`src/app/greeter/genomeZoom.ts:92`);
-[#261](https://github.com/JoaoVictorDaijo/dunceious/issues/261) tracks that gap. The ordinary
-amino-acid rows of tables 1 and 11 agree, so the table mismatch alone does not imply an
-internal sense-codon error.
+`src/app/viewer/tracks/SequenceTrack.tsx:343`).
+
+The greeter conforms: `codonInGene` applies `initiatorResidue` only at codon 1 of its
+verified complete, frame-1 table-11 CDSs. The pure domain helper reads gc.prt 4.6's
+`sncbieaa` row, returning M only for an unambiguous initiation triplet in the selected table;
+callers own the completeness and frame prerequisites. `translateSequence` remains
+context-free. Tests compare tables 1 and 11 to literal Starts rows, every curated gene's
+first residue to its stored `/translation`, and gene 19's internal GTG to V.
+The general computed-feature initiation gap remains; this greeter fix does not close it.
 
 ## TRANS-4. `/transl_except`
 

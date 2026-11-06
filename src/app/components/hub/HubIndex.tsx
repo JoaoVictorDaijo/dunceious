@@ -74,7 +74,7 @@ const FeatureIndexEntry = memo(function FeatureIndexEntry({ group, current, jump
   </div>;
 });
 type IndexItem = { key: string; size: number } & ({ type: 'group'; group: string; count: number; foldKey: string } | { type: 'sequence'; section: SequenceSection; position: number } | { type: 'feature'; group: FeatureGroup; position: number });
-const SEQUENCE_SORTS: [SortOrder, string][] = [['load', 'Load order'], ['accession', 'Accession (A–Z)'], ['fewest', 'Fewest annotations first']];
+const SEQUENCE_SORTS: [SortOrder, string][] = [['load', 'Load order'], ['accession', 'Identifier (A–Z)'], ['fewest', 'Fewest annotations first']];
 function SequenceSort({ state }: { state: ReturnType<typeof useHubState> }) {
   return <label data-sequence-sort data-tip="Order of the sequences in the index and the list" className="ml-auto flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900 pl-2.5 pr-1 text-slate-400 focus-within:outline focus-within:outline-2 focus-within:outline-amber-500">
     <i aria-hidden="true" className="fas fa-arrow-down-wide-short text-[11px]" />

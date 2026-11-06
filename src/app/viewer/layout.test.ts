@@ -263,3 +263,12 @@ describe('annotation packing compatibility', () => {
     expect(computeRecordLayouts([metadataEdit], { ...opts, basesVisible: true })[0].laneHeights).toEqual([ANNOT_BAR_HEIGHT]);
   });
 });
+
+
+it('packs touching half-open intervals together and gap-split identities in separate lanes', () => {
+  const data = [{ start: 0, end: 10, value: 2 }, { start: 10, end: 20, value: 5 }];
+  const record = rec({ id: 'r', sequence: 'A'.repeat(20), tracks: [{ id: 'q', name: 'q', kind: 'interval', data }] });
+  expect(computeRecordLayouts([record], ALL)[0].trackLayouts[0].packedRows).toEqual([[0, 1]]);
+  const gapped = rec({ id: 'g', sequence: 'ACGT', alignedSequence: 'AC--GT', tracks: [{ id: 'q', name: 'q', kind: 'interval', data: [{ start: 0, end: 4, value: 2 }, { start: 1, end: 4, value: 5 }] }] });
+  expect(computeRecordLayouts([gapped], ALL)[0].trackLayouts[0].packedRows).toEqual([[0], [1]]);
+});

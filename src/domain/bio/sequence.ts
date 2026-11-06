@@ -85,6 +85,18 @@ const codonIndex = (codon: string): number => {
   return index;
 };
 
+/**
+ * Initiation Met from NCBI gc.prt 4.6's Starts (`sncbieaa`) row; unknown codes,
+ * ambiguous bases and non-triplets make no claim. DNA/RNA and case follow translateSequence.
+ * Callers must establish a 5′-complete CDS with /codon_start=1 before applying this residue
+ * (NCBI C++ Toolkit 912b751, sequence.cpp x_Translate: is_5prime_complete && frame == 0).
+ */
+export const initiatorResidue = (codon: string, translTable: number): 'M' | undefined => {
+  if (codon.length !== 3) return undefined;
+  const index = codonIndex(codon.toUpperCase().replace(/U/g, 'T'));
+  return index >= 0 && NCBI_GENETIC_CODES[translTable]?.starts[index] === 'M' ? 'M' : undefined;
+};
+
 /** Whether `id` is one of the NCBI genetic codes (`/transl_table` values) in gc.prt. */
 export const isNcbiGeneticCode = (id: number): boolean => Object.hasOwn(NCBI_GENETIC_CODES, id);
 
