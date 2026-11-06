@@ -137,10 +137,20 @@ and the line.
 
 | Guard | Style | Removed by |
 |---|---|---|
-| `guardOrderLocation` | `order(…)` | #225's fix |
-| `guardBetweenBaseSite` | `n^n+1`, and `n^1` on a circular record | #230's fix |
-| `guardOneOfPosition` | `n.m` | the one-of location fix |
-| `guardRemoteLocation` | `ACC:n..m`, `ACC.v:n..m` | the remote location fix |
+| `guardOrderLocation` | `order(…)` | the location-reading PR on `integration/murilo-review` (#225) |
+| `guardBetweenBaseSite` | `n^n+1`, and `length^1` on a circular record | the same PR (#230) |
+| `guardRemoteLocation` | `ACC:n..m`, `ACC.V:n..m` | the same PR (#245) |
+| `guardOneOfPosition` | `n.m` (e.g. `102.110`) | stays in this spec; no fix is planned yet |
+
+**Still refused after those guards go.** The location-reading PR leaves these to this spec's Malformed location and Location out of range checks, so they are refused here, each with its own message and test:
+- unreadable location text;
+- bounds outside the record;
+- `join` and `order` mixed in one location;
+- a `^` site whose two bases don't adjoin, or that falls outside the record;
+- `^` inside a compound location, or used as a span end;
+- `>` on a start, or `<` on an end.
+
+**Nested joins are valid and are not refused.** A join inside a join, e.g. `join(1..5,complement(join(10..20,30..40)))`, is valid INSDC. The location-reading PR parses it in full; today's parser drops `30..40`. This spec neither guards it nor refuses it.
 
 | Location out of range | Every position satisfies 1 ≤ position ≤ the sequence length. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
 | Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it. Recovery: parsing resynchronises at the next unambiguous boundary, a feature key line (key at column 6), `ORIGIN`, `CONTIG` or `//`. The lines in between aren't read as qualifiers, and the finding says so. Later features and records are still checked, so the "everything at once" promise holds outside the broken feature | "/note on CDS gene1 has no closing quote; the rest of that feature wasn't checked." |
@@ -356,7 +366,7 @@ Expected results never come from the parser under test.
 | Layout | Standard ORIGIN lines with counts and spaces: accepted, sequence unchanged |
 | Length | LOCUS 10 bp with 10 bases: accepted; with 9 bases: refused with both numbers; LOCUS without a length: refused. A 120,000 bp record with long count columns: accepted |
 | Structure | No LOCUS; ORIGIN header with no sequence lines; no ORIGIN at all; CONTIG with no ORIGIN; ORIGIN header followed by CONTIG and no sequence lines (CONTIG message both times); final record without `//`: each refused. A two-record file with one bad record loads neither |
-| Locations | `<1..>10`, `complement(join(1..3,7..9))`: accepted. `1..2x0`, `1..20` on 10 bp, `0..5`, `AB123:1..5`, `order(1..3,5..7)`, `5.7`: refused with their messages. `10^11` refused until #230 lands, then accepted |
+| Locations | `<1..>10`, `complement(join(1..3,7..9))`, and the nested `join(1..5,complement(join(10..20,30..40)))`: accepted. `join(1..3,order(5..7,9..10))`, `5^7`, `join(1^2,5..9)`, `>1..10` and `1..<10`: refused, each with its message. `1..2x0`, `1..20` on 10 bp, `0..5`, `AB123:1..5`, `order(1..3,5..7)`, `5.7`: refused with their messages. `10^11` refused until #230 lands, then accepted |
 | Qualifiers | Unterminated `/note="abc`: refused. Unknown key `my_feature`: warning. `/organism` missing on `source`: warning. `/gene` repeated: warning naming it. `/label` on a CDS: no finding |
 | Molecule | `LOCUS AA 4 bp DNA linear` is nucleotide; `LOCUS rnaseP 300 aa` is protein. A nucleotide and a protein record in one file: refused. A protein file picked together with a nucleotide file into an empty session: whichever commits second is refused, in both response orders. A protein-first file with a later malformed record, in a nucleotide session: one dialog listing the mismatch and the malformed record |
 | Frame | `/codon_start=0`, `4`, `2junk`: note, translation suppressed, value kept. `/codon_start=2`: no note |
