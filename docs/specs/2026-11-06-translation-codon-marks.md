@@ -372,6 +372,36 @@ strands. Split pieces share one keyboard stop with pointer targets on all pieces
 When a chip's biological endpoint is offscreen, do not pin it to an unrelated viewport
 edge; its information remains in the feature tooltip. Reserve chip geometry so it does not cover neighboring CDS cells or intercept their targets.
 
+**Tooltip lifecycle is part of the displayed-evidence contract.** The current
+[`TooltipLayer`](../../src/app/components/TooltipLayer.tsx) reads `data-tip`, shortcut
+and `getBoundingClientRect()` only when opening; changing attributes or removing a target
+does not update its snapshot. Existing Escape/blur/scroll/resize handlers alone cannot
+protect a tooltip during recomputation or a canvas pan. Extend the shared infrastructure
+with an explicit invalidation notification from the renderer, covering codon, terminal,
+chip and feature explanations (including the hub's feature/count targets):
+
+- Before publishing a changed evidence revision, dismiss any active explanation for the
+  affected feature, even when its DOM element, focus and displayed letter are unchanged.
+  Revisions include changed stored/computed residues, availability, comparisons, counts
+  and exception/provenance evidence; the next opening reads only the new revision.
+- Dismiss before an active target is removed, replaced, recycled for another logical
+  feature/codon, or made ineligible/invisible. Stable identity includes record, feature
+  and logical codon or chip identity; reusing a DOM node does not preserve that identity.
+- Dismiss before its anchor geometry changes, including pan, zoom, alignment remapping,
+  lane repacking and viewport/vertical clipping, even if the target remains visible and
+  no native scroll, pointer or focus event occurs. A geometry-only change does not
+  invalidate biological evidence.
+
+Each dismissal cancels any delayed opening, clears tooltip content/position and removes
+the old target's `aria-describedby`, including from a detached/replaced node. A cancelled
+callback must not reopen an obsolete explanation. Invalidation and the new marks/targets
+must be committed before the next paint, so old text/anchors cannot accompany new evidence
+or geometry. Keep keyboard focus on a surviving eligible target; if it disappears, leave
+no hidden focusable surrogate. A tooltip opens again only on a subsequent qualifying
+hover/focus interaction using current text and bounds; invalidation itself does not reopen
+it or move focus. These are required renderer-to-tooltip notifications, not a reliance on
+attribute mutation, blur or a fresh pointer event to detect staleness.
+
 **Feature-specific overlap is a layout contract**, not just a chip concern. Existing
 `assignTranslationLanes` (`src/app/viewer/cds.ts`) permits overlapping same-frame units
 in one lane; that cannot expose distinct proteins or exception explanations. Never paint
@@ -386,10 +416,27 @@ rendering with no lane cap that hides evidence.
 [#300](https://github.com/JoaoVictorDaijo/dunceious/issues/300) measured full interval scans
 on dense quantitative tracks; its lane-canvas limit also matters here. This PR must not add
 one full-record DOM node per residue or repeat translation/IUPAC expansion during pan.
-Build translation evidence and an exact codon-piece overlap index when biological inputs
-change; reuse/generalize #295's max-end index for drawing as well as hover. Redraw queries
+Keep biological evidence and display geometry on separate invalidation lifecycles.
+Build translation evidence when biological inputs change. From that evidence and the
+current raw-base-to-display-column mapping, build actual display pieces, their exact
+overlap index and whole-record lane occupancy, including padded/terminal pieces and chips;
+reuse/generalize #295's max-end index for drawing as well as hover. An alignment-only
+change invalidates all three display structures independently of biological evidence.
+[`applyFastaResponse`](../../src/app/logic/bioResponse.ts)'s accepted overlay replaces
+`alignedSequence` while preserving raw `sequence` and CDS features; identical raw inputs,
+CDS identity or alignment length therefore cannot serve as a display-cache key. Track the
+effective mapping revision, including gap relocation, alignment addition/removal and
+switching between aligned and raw display. Reuse conceptual translation, comparison and
+exception evidence when their biological inputs are unchanged; do not retranslate merely
+to invalidate geometry. Publish rebuilt pieces, index, occupancy, canvas and pointer/focus
+targets together for the same evidence/mapping revision, dismissing affected tooltips
+through the lifecycle above. Never paint a new alignment with old hit/keyboard geometry
+or allow a superseded rebuild to restore it. Pan/zoom alone query the existing column
+index and update pixel bounds/visible targets without rebuilding whole-record evidence
+or packing. Redraw queries
 visible pieces, draws each exact result, and creates only visible targets. Complexity is
-one evidence pass per changed CDS plus index construction, then indexed viewport lookup
+one evidence pass per biologically changed CDS plus display/index/packing construction
+per changed mapping or relevant evidence, then indexed viewport lookup
 and work proportional to returned pieces. No result cap, skipped lane, sampling, or
 silently merged warning cells. Memory grows with codon evidence, not zoom/number of pans.
 Clip canvas allocation to the visible vertical area for deep lanes; retain logical lane
@@ -459,46 +506,74 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | Protein record p: `GCTAAAGCT`, CDS `1..9`, +, frame 1, table 1, S=`QQQ` imported; repeat table 99 + `(pos:4..6,aa:Sec)` | Primary protein-record before nucleotide work; not AKA or AUA | No lane/cells/chips/codon targets/assumption/count/stop/mismatch; details/copy QQQ + Imported + not-applicable reason. Format-2 reload discards forged successful AKA/3-aa cache before publishing; same result without cache. Repeat no stored value: no computed protein | PR 1 step 0 and cache trust contract, PR 2 preservation fixture |
 | DNA `GCTAAAGCT` / RNA `GCUAAAGCU`, same CDS; absent molecule type control | Without exception AKA; with Sec at 4..6 AUA. Absent type keeps nucleotide default | Eligible projection; S=QQQ gives three curated differences; no S draws conceptual AKA/AUA. Mixed protein/DNA session excludes only protein record | G GCT/GCU=A, AAA=K; F Sec=U; PR 1 positive controls |
 | Aligned `--A-TG-AAA-TAA--`, S=`VK`; first codon A,T,G at display columns 2,4,5 (zero-based) | ATG→M; S=V differs; gap 3 is not a base | Lighter V only on [2,3),[4,6), label on [4,6); no gap paint/outline/pointer hit; same explanation on both pieces, one keyboard stop | Hand column enumeration; PR 1 comparison; real-base mapping contract |
+| Same record, raw `ATGAAATAA`, S=`VK`; accepted alignment overlay changes `--A-TG-AAA-TAA--` to `ATGAAA---TAA----` (both 16 columns), CDS unchanged | Biological MK, stored V/K and comparison unchanged; codon 1 moves from columns 2,4,5 to 0,1,2; codon 2 from 7,8,9 to 3,4,5; terminal from 11,12,13 to 9,10,11 | Rebuild pieces/index/occupancy; V paints only [0,3), K [3,6), terminal [9,12). Columns 7,8 are now gaps: no paint/pointer hit/focus target; column 4 now hits K, never stale V. One keyboard stop per visible logical codon at new bounds, biological order unchanged; evidence reused | Hand enumeration of both strings supplies literal geometry expectations; removing gaps yields the same raw DNA; G ATG=M, AAA=K, TAA stop. Fresh second-mapping projection additionally checks cache-history independence |
 | empty sequence / empty coding extraction; no S or S=`M` | No codon | No cells/chips; unavailable feature explanation | F no complete coding position; PR 1 unavailable-empty contract |
 | `ATGAGATAA`, S=`MK`, hit only on base 5 | 2 remains K vs R | Curated lighter cell plus outline over hit overlap | G AGA=R; mockup search compositing, no changed biological reading |
 | `ATNNGAGATAA`, `join(1..2,5..11)`, S=`MK` | Coding ATG AGA TAA; 2 at bases 6..8: R vs K | Curated K difference; codon 1 split over 1,2,5; no intron paint | F concatenation AT + GAGATAA = ATGAGATAA; G AGA=R |
 
+### Tooltip lifecycle acceptance fixtures
+
+Use the real track/feature targets and shared `TooltipLayer`, not a replacement tooltip.
+Open each explanation through pointer hover and keyboard focus in the same arrangements;
+after opening, perform the state change without another hover/focus, blur, scroll or
+resize event. Observe dismissal, removal of the old `aria-describedby` and cancellation
+of pending opens at the renderer commit; advance controlled tooltip timers afterward to
+reject delayed resurrection. A subsequent qualifying interaction must open current text
+at current bounds. These are presentation integration fixtures, not new translation tests.
+
+| Arrangement and change | Required observable outcome / wrong outcome rejected |
+|---|---|
+| `ATGTGAGCTTAA`, S=`MUA`, table 11; open codon 2 explanation, then separately feature/hub count explanation. Add `(pos:4..6,aa:Sec)` through the real feature-edit→recompute→renderer path, keeping each active target focused/hovered without another event. Repeat without stored S to change the displayed codon from `!` to U. | Before: stored U disagrees with DNA stop, stop edge and definite-difference count 1. After: U agrees with exception-specified U, lighter exception mark without stop edge, count 0. Dismiss all affected active explanations even if U and the target node remain; reopening explains TGA→stop then Sec→U and the new count, with no stale stop/difference claim. The no-S control dismisses the early-stop explanation before U appears. Biology oracle: the existing G/F Sec fixture, not tooltip text generated by the projection. |
+| With that codon tooltip open, pan so the codon remains visible but moves on screen; repeat with its feature tooltip open and a changed feature anchor. Then pan each active target out of view; also replace/remove its feature and cross the translation visibility threshold for a codon target. | Retained-but-moved targets dismiss despite unchanged evidence and no scroll event; next opening uses the new rectangle. Removed/replaced/ineligible targets dismiss and lose their association, cannot leave an orphan tooltip or hidden keyboard target, and cannot transfer old text to a recycled node. Surviving eligible keyboard targets retain focus. |
+| Arm the delayed opening on a codon or feature, then revise evidence, replace/remove the target or change its geometry before the delay expires. | No obsolete tooltip opens when timers advance; detached old nodes retain no `aria-describedby`. A new interaction can open the current explanation. This rejects a late callback that survives invalidation even when no tooltip was visible yet. |
+| Keep a codon/feature explanation open during the same-length alignment overlay fixture above. | Dismiss before remapped paint/targets appear; reopening uses unchanged biological explanation at the new bounds. Real pointer hits, gap misses and keyboard geometry follow the new mapping, with no new translation/comparison run. |
+
 ## Open decisions and unresolved acceptance gaps
 
-1. **Unverified stored cells' additional visual.** The mockup does not show a stored protein
-   over an unavailable comparison. Options: retain normal stored cells plus explanatory
-   feature/codon targets (recommendation, preserves #295's approved stored-wins behavior),
-   or give them the shared lighter fill with “cannot check” text. INSDC specifies no glyph;
-   NCBI validator reports invalid code, Biopython 1.88 rejects unknown table ids (documented
-   in #295), neither chooses this presentation. Do not silently label these as differences.
-2. **Exception-terminal fill detail.** Retain existing `_` plus exception/partial
-   tooltip (recommendation), or extend the lighter style to an exception-produced terminal
-   slot. INSDC permits partial TERM; NCBI produces translation/stop semantics, not glyphs;
-   EMBOSS/Biopython viewer behavior for this case was not verified. No custom partial
-   residue should be invented. Retained padded-residue paint/targets are settled above;
-   only optional terminal fill is open. This choice does not alter terminal omission.
-3. **PR 2 failed-value computation policy (dependency, not a PR 3 default).** For invalid/off-codon entries,
-   PR 2 decides between whole-computation unavailable and applying a verified valid subset
-   with diagnostics. Recommendation: whole-computation unavailable until the annotation's
-   intended protein can be established; preserve all occurrence evidence. PR 3 consumes the
-   resolved `ConceptualTranslation` status and never promotes a failed entry into a
-   substitution. The mixed valid/off-codon fixture above specifies both outcomes conditionally.
-   No unavailable result certifies even an individually applied stop/mismatch. Resolve in
-   PR 2 before implementing this branch. Bind this dependency to PR 2's eventual named
-   failed-value policy, replacing this provisional reference when settled; its current
-   “With a failed value” question is still open at `8449576`. PR 3 neither chooses nor
-   freezes its recommendation. OTHER/Xaa comparison sets, conflicting/duplicate assertions
-   and other PR 2 open application policies also remain PR 2-owned: consume their final
-   availability, possible sets, differing indices and occurrence evidence without a viewer
-   fallback. Their resolution is required before accepting affected projection cases.
-4. **Overlapping feature presentation.** The mockup and standards do not choose separate
-   lanes versus an accessible aggregate. Recommendation: extend the existing lane packer
-   to put colliding feature-specific states/targets in separate lanes (including equal
-   letters with different provenance), preserving whole-record stable packing. Alternative:
-   an explicitly labelled aggregate cell with pointer/focus chooser listing each feature,
-   literal residue, marks and full explanation; silent overpainting is forbidden.
-   No confirmed default: settle before implementing collisions. The overlap fixtures above
-   require both features to remain reachable under either approved choice.
+1. **Unverified stored cells' additional visual.** A biologist can read the deposited protein, but we
+   cannot check it against the DNA. Options: retain normal stored cells with explanatory
+   feature/codon targets, or use the shared lighter fill with “cannot check” text; neither
+   may label these as differences. The mockup does not depict this case. INSDC specifies
+   no glyph; NCBI validator reports invalid code and Biopython 1.88 rejects unknown table
+   ids (documented in #295), but neither chooses this presentation.
+   Suggestion: retain normal stored cells with explanatory feature/codon targets, preserving #295's approved stored-wins behavior.
+2. **Exception-terminal fill detail.** An annotation can specify a terminal stop even
+   when only one or two of its bases are present; a biologist needs to see why translation
+   ends there. Options: retain the existing `_` with exception/partial tooltip, or also
+   give that terminal slot the lighter fill. Retained padded-residue paint/targets are
+   settled above; only optional terminal fill is open, with terminal omission unchanged
+   and no invented partial residue. The mockup does not settle this case. INSDC permits
+   partial TERM; NCBI produces translation/stop semantics, not glyphs; EMBOSS/Biopython
+   viewer behavior for this case was not verified.
+   Suggestion: retain the existing `_` with the exception/partial tooltip.
+3. **PR 2 failed-value computation policy (dependency, not a PR 3 default).** Some
+   translation-exception annotations are invalid or cross codon boundaries, so a
+   biologist cannot assume every requested amino-acid replacement is meaningful.
+   Options, owned by PR 2: make the whole computation unavailable, or apply a verified
+   valid subset with diagnostics. Preserve all occurrence evidence in either case.
+   PR 3 consumes the resolved `ConceptualTranslation` status and never promotes a failed
+   entry into a substitution; an unavailable result certifies no applied stop/mismatch.
+   The mixed valid/off-codon fixture above specifies both outcomes conditionally. Resolve
+   in PR 2 before implementing this branch and bind to its eventual named failed-value
+   policy; “With a failed value” remains open at `8449576`. PR 3 neither chooses nor
+   freezes that recommendation. OTHER/Xaa comparison sets, conflicting/duplicate
+   assertions and other PR 2 open application policies also remain PR 2-owned: consume
+   their final availability, possible sets, differing indices and occurrence evidence
+   without a viewer fallback; resolution is required before accepting affected cases.
+   The mockup and cited INSDC text do not settle failure handling; NCBI parser/translator
+   and validator behavior for mixed valid/invalid entries has not been established.
+   Suggestion: make the whole computation unavailable until the annotation's intended protein can be established, preserving all occurrence evidence for PR 2's decision.
+4. **Overlapping feature presentation.** Two CDSs can cover the same bases yet carry
+   different proteins or explanations, even when their amino-acid letters agree; a
+   biologist must be able to inspect both. Options: extend the existing lane packer to
+   put colliding feature-specific states/targets in separate lanes with whole-record
+   stable packing, or use an explicitly labelled aggregate cell whose pointer/focus
+   chooser lists each feature, literal residue, marks and full explanation. Silent
+   overpainting is forbidden; the overlap fixtures require both features to remain
+   reachable. The mockup and standards choose neither approach, and no major-tool
+   behavior establishing this precise interaction was verified. There is no confirmed
+   default; settle before implementing collisions.
+   Suggestion: use separate lanes for colliding feature-specific states/targets, including equal letters with different provenance, preserving whole-record stable packing.
 
 The joined boundary fixture is specified exactly in verification below. No benchmark
 or live accessibility/browser validation has yet been run; performance is an acceptance
@@ -523,7 +598,8 @@ Assumed-table policy belongs to #295; this PR protects its integration in the sh
 | Zoom and transition preservation | `translationStyles.test.ts` pins shared threshold 5 and reduced-motion CSS; `SequenceTrack.test.tsx` low-zoom test keeps search within nucleotide band | Reuse threshold/transition checks; strengthen observable rendered targets at 5/just above 5, 12/just above 12 and 20, plus translation-off/protein modes. Reject hidden focus targets and stale explanations on zoom/pan. |
 | Assumed vs stored, no false biological claims / #295 | Current `SequenceTrack.geneticCodes.test.tsx` asserts invalid-code `?` and a warning; this is predecessor behavior superseded by #295 | Reconcile with #295 tests at integration; add shared-path solid invariant/dashed sensitive, stored-wins and short assumed-tail checks. Never preserve obsolete `?`-everywhere assertions as scientific truth. |
 | Per-record eligibility / PR 1 step 0 | PR 1 specifies protein/cache acceptance fixtures; no PR 3 projection protection found | Add real record→projection/details and format-2 reload checks with QQQ/imported and forged AKA cache; deny all nucleotide paint/targets/counts including table 99/exception fallback, preserve QQQ/source/copy. Include allowed DNA/RNA/absent-type controls and mixed records; a session-only gate cannot pass. |
-| Tooltip and accessibility wiring | Existing genetic-code test gets a real warning button by accessible name; none found for new codon explanations/chips | Add real renderer/tooltip focus/hover checks, Escape/blur, escaped qualifier content, biological tab order and shared text. One browser journey checks actual focus rings, readable hover and search overlap on both strands. |
+| Tooltip and accessibility wiring and lifecycle | `TooltipLayer.test.tsx` asserts delayed hover text/shortcut and `aria-describedby`, press dismissal/unlinking and warm switching; existing genetic-code test gets a real warning button by accessible name. None found for revision, removal/replacement or geometry invalidation. | Reuse existing shared-tooltip protections; add the lifecycle fixtures above through real renderer/tooltip wiring for codon and feature/count consumers, including pending timers, no fresh hover/focus and reopening with current text/bounds. Preserve Escape/blur, escaped qualifier content, biological tab order and shared text. One browser journey checks actual focus rings, readable hover, pan anchor changes and search overlap on both strands. |
+| Alignment-only display invalidation / accepted `applyFastaResponse` overlay | `bioResponse.test.ts` “accepts a case-only difference and keeps the loaded residues as the source” asserts raw sequence/features alongside new `alignedSequence`; its overlay test asserts accepted alignment strings. Neither checks renderer caches, targets or lane occupancy. | Add the same-length gap-move fixture through the accepted overlay→real track update, comparing pieces/index/occupancy with a fresh second-mapping projection. Observe exact paint, gap pointer misses, changed codon hits and keyboard bounds/order together; assert biological evidence reuse and no translation/comparison work. Include alignment removal/raw-display restoration to reject a stale mapped cache in the reverse direction. |
 | Atomic refresh after edits; feature tooltip and hub count agree | PR 1's spec proposes invalidation tests; they were not executed/credited here | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop diagnostics in feature/hub/chip but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
 | Exact visibility and deep lanes / #300 | #295 source has exact max-end hover lookup; no executed evidence for PR 3 drawing index or vertical clipping | Add indexed-vs-exhaustive synthetic comparison at boundary overlaps, split pieces and deep lanes. Minimal correctness stays in CI; opt-in dense browser benchmark measures redraw/DOM/memory over repeated pans without retranslating. No fixed fps promise without measurement. |
 
