@@ -171,3 +171,13 @@ it('round-trips origin-crossing GFF3 parts with valid intervals and source quali
   expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'env')?.segments).toEqual([{ start: 2991, end: 3308 }, { start: 0, end: 964 }]);
   expect(parsed.details.J02442).toMatchObject({ details: { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: '2020' } });
 });
+
+it('warns on separate lines for each location skip reason', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', fileDetails: { organism: 'synthetic construct' }, features: [
+    { name: 'edge', type: 'gene', start: 0, end: 0, strand: 1 },
+    { name: 'invalid', type: 'gene', start: 8, end: 2, strand: 1 },
+  ] };
+  const { summary } = describeExport([record], 'genbank');
+  expect(summary.split('\n')).toContain("1 feature not written: a site at a linear sequence's edge has no GenBank location");
+  expect(summary.split('\n')).toContain('1 feature not written: its location is invalid (outside the sequence or reversed)');
+});

@@ -23,13 +23,10 @@
  * operate on raw residue strings: reverse-complement, codon translation,
  * molecule-type detection, and gap↔ungapped coordinate mapping.
  *
- * This module imports only sibling `domain` modules (`./intervals`, for
- * `splitWrapAround` — a legal `domain`→`domain` import per spec §4.1); every
- * export is a pure function over strings/number arrays.
  */
 
 import { NCBI_GENETIC_CODES } from './geneticCodes';
-import { splitWrapAround } from './intervals';
+import { featureParts, hasPartialStrands, invalidLocationPart } from './featureParts';
 import { isThreePrimePartialLocation } from './locationFlags';
 import type { SeqRecord } from './types';
 
@@ -131,6 +128,7 @@ type LocatedFeature = {
   start: number;
   end: number;
   segments?: { start: number; end: number; strand?: 1 | -1 }[];
+  biological?: LocatedFeature;
 };
 
 /**
@@ -153,15 +151,16 @@ export function extractFeatureSequence(
   feature: LocatedFeature,
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
+  topology: { isCircular?: boolean } = { isCircular: true },
 ): { featureSeq: string; alignedIndices: number[] } {
-  const seqLen = seq.length;
-  let segments: { start: number; end: number; strand?: 1 | -1 }[];
-
-  if (feature.segments && feature.segments.length > 0) {
-    segments = feature.segments;
-  } else {
-    segments = splitWrapAround(feature.start, feature.end, seqLen);
+  const record = { length: seq.length, isCircular: topology.isCircular };
+  const source = feature.biological ?? feature;
+  const sourceRecord = { ...record, length: feature.biological ? seq.replace(/-/g, '').length : seq.length };
+  const stored = source.segments?.length ? source.segments : [source];
+  if (hasPartialStrands(source) || stored.some(part => invalidLocationPart(part, sourceRecord))) {
+    return { featureSeq: '', alignedIndices: [] };
   }
+  const segments = featureParts(feature, record);
 
   const oriented = alphabet !== 'protein';
   let featureSeq = '';
@@ -224,9 +223,10 @@ export function extractFeatureSequence(
  */
 export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
-  seq: string
+  seq: string,
+  topology: { isCircular?: boolean } = { isCircular: true },
 ): { codingSeq: string; alignedIndices: number[] } {
-  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq);
+  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq, 'dna', topology);
   let codingSeq = featureSeq;
 
   const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);

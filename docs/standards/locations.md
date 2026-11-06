@@ -23,8 +23,8 @@ Benchling translation groups skip introns
 Neither documents literal `join` parsing or arbitrary interval order.
 
 **Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), which
-the CDS track and the details window share, including out-of-order trans-spliced joins. See
-LOC-7.
+the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
+`featureParts`, preserving stored order and splitting explicit circular wraps. See LOC-7.
 
 ## LOC-2. `order()` is not `join()`
 
@@ -68,6 +68,8 @@ outer complement reverses the evaluated interval order and flips each interval's
 (`src/core/genbank/locationParser.ts`). The whole-feature J2 shape remains in written order
 with a parent strand; extraction reverse-complements the joined result once. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
+Display and export share `formatInsdcLocation`. Once retained location text is gone, nested
+outer complements are written as their equivalent per-part complements in evaluation order.
 
 ## LOC-4. Uncertain bounds
 
@@ -103,7 +105,9 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 **Applications.** Unknown.
 
 **Dunceious.** Deviates — [#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230). `parseCoord` reads `10^11` as bases 10–11, length 2
-(`locationParser.ts:90`).
+(`locationParser.ts:90`). Display formats stored zero-length sites with `formatInsdcLocation`;
+linear-edge sites are named in words and skipped with a warning on GenBank export. Interior
+and circular-origin site export keeps its legacy range text until #230 fixes parsing.
 
 ## LOC-6. Features crossing the origin
 
@@ -117,7 +121,12 @@ whose end is the wrapped end plus the landmark length, with `Is_circular=true` o
 GFF3 rows beyond the end only for circular references
 ([GFF3 format, 25.0.3](https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/2503/index.php?manual=GFF3_format.html)).
 
-**Dunceious.** Partial. Extraction is correct (W1). A wrap is inferred only when the first
+**Dunceious.** Partial. Extraction is correct (W1). Display and export share
+`formatInsdcLocation`, including explicit wrapped segments. Invalid geometry has no INSDC
+form: the editor blocks Save, project import keeps it, and GenBank export skips it with a
+warning. Invalid geometry yields no derived feature or region sequence and no translation
+lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
+piece once any piece has one. A wrap is inferred only when the first
 interval starts after the last ends **and** one interval starts at base 1
 (`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
 in written order, including when a nested outer complement reverses sequence evaluation order.

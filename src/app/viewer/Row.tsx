@@ -29,9 +29,10 @@ import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { segmentFrameshifts } from '@/src/domain/bio';
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
-import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
@@ -132,8 +133,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
-    [l.record.features, seq, l.record.moleculeType],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, l.record),
+    [l.record.features, seq, l.record.moleculeType, l.record],
   );
 
   return (
@@ -321,7 +322,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 geneticCodeWarning(f),
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
+                `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
@@ -336,6 +337,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // The name is painted once, on the first piece in view, so a long join
               // keeps its name on screen without repeating it at every segment.
               const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true, labelled = true) => {
+                if (s === e) return null;
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (!partVisible(s, e)) return null;
 

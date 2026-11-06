@@ -610,3 +610,9 @@ describe('reference badge', () => {
     expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
   });
 });
+
+it.each([false, true])('draws no glyph for a zero-width join part (aligned=%s)', aligned => {
+  const source = rec([{ type: 'gene', name: 'site join', start: 0, end: 5, strand: 1, segments: [{ start: 0, end: 3 }, { start: 5, end: 5 }] }]);
+  const record = aligned ? processTransposition([{ ...source, alignedSequence: source.sequence }])[0] : source;
+  expect(glyphs(renderRow(record).container)).toHaveLength(1);
+});

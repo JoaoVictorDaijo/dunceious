@@ -19,6 +19,7 @@
  */
 
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
 import FeatureEditorModal, { type EditingFeatureState } from '../FeatureEditorModal';
@@ -92,4 +93,32 @@ it('offers the export note only on new hits, off by default', () => {
   expect(box.checked).toBe(false);
   fireEvent.click(box);
   expect(JSON.parse(change.mock.calls[0][0].feature.metadata._searchHit).exportNote).toBe(true);
+});
+
+it.each([
+  { start: 8, end: 2 }, { start: 0, end: 15 },
+  { start: 0, end: 6, segments: [{ start: 0, end: 2, strand: 1 as const }, { start: 3, end: 6 }] },
+])('blocks saving invalid geometry or partly stranded pieces %j', geometry => {
+  show({ ...editing, feature: { ...editing.feature, ...geometry } });
+  expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+});
+it('shows a strand choice on every piece when any piece has a strand', () => {
+  const change = show({ ...editing, feature: { ...editing.feature, segments: [{ start: 1, end: 3, strand: -1 }, { start: 5, end: 8 }] } });
+  fireEvent.change(screen.getByLabelText('Segment 2 strand'), { target: { value: '1' } });
+  expect(change.mock.calls[0][0].feature.segments[1].strand).toBe(1);
+});
+
+it('requires an explicit strand for a piece appended to a per-part feature', () => {
+  function Subject() {
+    const [state, setState] = useState<EditingFeatureState>({ ...editing, feature: { ...editing.feature, segments: [{ start: 1, end: 3, strand: -1 }, { start: 5, end: 8, strand: 1 }] } });
+    return <FeatureEditorModal editing={state} records={[{ id: 'synthetic', name: 'synthetic', sequence: 'A'.repeat(200), features: [] }]} featureColors={{}} onChange={setState} onSave={vi.fn()} onDiscard={vi.fn()} />;
+  }
+  render(<Subject />);
+  const save = screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement;
+  expect(save.disabled).toBe(false);
+  fireEvent.click(screen.getByText('Add Segment'));
+  expect(screen.getAllByRole('combobox', { name: /Segment .* strand/ })).toHaveLength(3);
+  expect(save.disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Segment 3 strand'), { target: { value: '-1' } });
+  expect(save.disabled).toBe(false);
 });

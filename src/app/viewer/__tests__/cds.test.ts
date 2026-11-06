@@ -202,3 +202,11 @@ describe('geneticCodeWarning', () => {
     expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
   });
 });
+
+it('assigns no translation lane to a descending linear feature', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1 };
+  const lanes = assignTranslationLanes([feature], 'ACGTACGTGA', 'dna', { isCircular: false });
+  expect(lanes.forward).toBe(0);
+  expect(lanes.reverse).toBe(0);
+  expect(lanes.laneOf.size).toBe(0);
+});

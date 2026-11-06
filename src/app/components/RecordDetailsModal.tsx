@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { formatInsdcLocation, siteLabel } from '@/src/domain/bio/insdcLocation';
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -54,12 +56,7 @@ const KEY_SEQUENCE: Record<string, string> = { CDS: 'For a CDS this is the codin
  */
 function locationLabel(start: number, end: number, record: SeqRecord): string {
   if (start !== end) return `${start + 1}..${end}`;
-  const n = record.sequence.length;
-  if (start === 0 || start === n) {
-    if (record.isCircular) return `${n}^1`;
-    return start === 0 ? 'before base 1' : `after base ${n}`;
-  }
-  return `${start}^${start + 1}`;
+  return siteLabel(start, { length: record.sequence.length, isCircular: record.isCircular });
 }
 
 /** What the sequence box shows, in INSDC terms only (LOC-7): never "exons" or "spliced". */
@@ -128,6 +125,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const viewGroup = useId();
   const shown: SequenceView = views?.feature != null && view === 'feature' ? 'feature' : 'region';
   const displaySeq = !views ? record.sequence : shown === 'feature' ? views.feature ?? '' : views.region;
+  const formatted = feature ? formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }) : null;
+  const invalidLocation = formatted?.kind === 'no-insdc-form' && formatted.reason === 'invalid-geometry';
   const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
   const shownLabel = shown === 'feature' ? 'feature sequence' : 'region';
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
@@ -204,8 +203,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </div>
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
-                <p className="text-sm font-mono font-bold text-slate-700">
-                  {feature.locationString || locationLabel(feature.start, feature.end, record)}
+                <p className="text-sm font-mono font-bold text-slate-700 break-all">
+                  {displayLocation(feature, record)}
                 </p>
               </div>
               <div className="stack-y-1">
@@ -215,6 +214,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               {views && <div className="stack-y-1" data-feature-lengths="">
+                {invalidLocation ? <p>Invalid location</p> : <>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {fmt(views.featureLength)} {unit}
@@ -228,6 +228,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 <p className="text-[11px] font-mono text-slate-500">
                   {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {locationLabel(views.regionStart, views.regionEnd, record)}</span>
                 </p>
+                </>}
               </div>}
               {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
@@ -320,18 +321,18 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </button>
               </div>
             </div>
-            {feature && views && (
+            {feature && views && !invalidLocation && (
               <p data-sequence-caption="" className="text-[10px] text-slate-500 leading-relaxed">{sequenceCaption(record, feature, views, shown)}</p>
             )}
             <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-inner group relative">
               <div className={`max-h-[200px] overflow-y-auto custom-scrollbar-pro pr-2 ${views ? 'pt-6' : ''}`}>
-                <p className="text-[11px] font-mono text-slate-400 break-all leading-relaxed selection:bg-sky-500/30 selection:text-sky-200">
+                <p data-feature-sequence="" className="text-[11px] font-mono text-slate-400 break-all leading-relaxed selection:bg-sky-500/30 selection:text-sky-200">
                   {displaySeq}
                 </p>
               </div>
               <div className={`absolute top-2 right-2 ${views ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}`}>
                 <span className={`text-[10px] font-bold uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded-sm border ${views ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-800'}`}>
-                  {views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${displaySeq.length} bp`}
+                  {invalidLocation ? 'Invalid location' : views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${displaySeq.length} bp`}
                 </span>
               </div>
             </div>
@@ -350,6 +351,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   <i className="fas fa-copy"></i> Copy AA
                 </button>
               </div>
+              {invalidLocation && <p className="text-xs text-amber-800">Stored translation. The location is invalid, so it isn't checked against the sequence.</p>}
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-inner">
                 <p className="text-[11px] font-mono text-emerald-400 break-all leading-relaxed">
                   {feature.translation}

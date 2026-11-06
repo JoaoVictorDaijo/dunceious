@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
@@ -44,7 +45,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
   const strand = getFeatureStrand(feature);
   const aminoAcids = feature.metadata?.translation?.replace(/\s/g, '').length ?? Math.floor(Math.max(0, length - (Number(feature.metadata?.codon_start || 1) - 1)) / 3);
-  const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
+  const location = displayLocation(feature, record);
   const tip = useRef<HTMLDivElement>(null);
   const ref = useCallback((element: HTMLDivElement | null) => {
     tip.current = element;

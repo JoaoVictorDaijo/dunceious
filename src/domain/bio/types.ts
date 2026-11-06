@@ -61,6 +61,8 @@ export interface BioFeature {
   segments?: FeatureSegment[];
   /** Original source location text (e.g. GenBank join/complement), preserved for round-trip export. */
   locationString?: string;
+  /** Source geometry for aligned display; never persisted in project files. */
+  biological?: Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'>;
 }
 
 /** Quantitative track. `data` intervals are `[start, end)` 0-based half-open; `kind` = 'line' (bedGraph) or 'interval' (BED). */

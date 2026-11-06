@@ -142,3 +142,25 @@ ORIGIN
     expect(exportToGenBank([source]).text).toContain('     misc_feature    join(complement(5..6),1..2)\n');
   });
 });
+
+it('skips invalid geometry and linear edge sites but preserves legacy interior site output', () => {
+  const result = exportToGenBank([record({ features: [
+    { type: 'gene', name: 'edge', start: 0, end: 0, strand: 1 },
+    { type: 'gene', name: 'invalid', start: 8, end: 2, strand: 1 },
+    { type: 'gene', name: 'site', start: 5, end: 5, strand: 1 },
+  ] })]);
+  expect(result.text).not.toContain('standard_name="edge"');
+  expect(result.text).not.toContain('standard_name="invalid"');
+  expect(result.text).toContain('gene            6..5');
+  expect(result.report.featuresWithoutInsdcLocation).toEqual({ linearEdgeSite: 1, invalidGeometry: 1 });
+});
+
+it('preserves legacy circular origin sites and exports wrapped explicit pieces as joins', () => {
+  const result = exportToGenBank([record({ isCircular: true, features: [
+    { name: 'site', type: 'gene', start: 10, end: 10, strand: 1 },
+    { name: 'wrap', type: 'gene', start: 8, end: 2, strand: 1, segments: [{ start: 8, end: 2 }] },
+  ] })]);
+  expect(result.text).toContain('gene            11..10');
+  expect(result.text).toContain('gene            join(9..10,1..2)');
+  expect(result.report.featuresWithoutInsdcLocation).toEqual({ linearEdgeSite: 0, invalidGeometry: 0 });
+});

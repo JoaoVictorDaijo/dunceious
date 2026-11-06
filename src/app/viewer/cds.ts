@@ -47,13 +47,14 @@ export const computeBrokenFeatureMap = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
+  topology: { isCircular?: boolean } = { isCircular: true },
 ): Map<BioFeature, boolean> => {
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
   features
     .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
-      const { codingSeq } = extractCodingSequence(f, seq);
+      const { codingSeq } = extractCodingSequence(f, seq, topology);
       const translTable = featureTranslTable(f);
       map.set(f, isFeatureBroken(f, codingSeq, translTable));
     });
@@ -114,6 +115,7 @@ export const assignTranslationLanes = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
+  topology: { isCircular?: boolean } = { isCircular: true },
 ): TranslationLanes => {
   if (moleculeType === 'protein') return NO_TRANSLATION_LANES;
   const positions = seq.includes('-') ? alignedToOriginalPositions(seq) : null;
@@ -123,7 +125,7 @@ export const assignTranslationLanes = (
     features
       .filter(f => CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
       .forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, topology);
         const spans = new Map<Frame, { start: number; end: number }[]>();
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const startIdx = alignedIndices[j];

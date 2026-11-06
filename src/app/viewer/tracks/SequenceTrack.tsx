@@ -103,8 +103,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
-    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
-    [features, seq, moleculeType, translationVisible],
+    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType, record ?? { isCircular: true }) : new Map<BioFeature, boolean>()),
+    [features, seq, moleculeType, translationVisible, record],
   );
 
   useEffect(() => {
@@ -327,7 +327,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, record ?? { isCircular: true });
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
 
@@ -386,7 +386,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow, record]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',

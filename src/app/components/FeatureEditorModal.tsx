@@ -21,6 +21,8 @@
 import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
+import { invalidLocationPart } from '@/src/domain/bio/featureParts';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
@@ -70,7 +72,12 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   // A wrap-around feature has start > end (it crosses the genome origin on a
   // circular molecule).  We surface this prominently so users know the
   // coordinates are intentionally inverted, not a data error.
-  const isCircularWrap = feature.start > feature.end;
+  const record = records.find(record => record.id === recordId);
+  const locationRecord = { length: record?.sequence.length ?? 0, isCircular: record?.isCircular };
+  const location = formatInsdcLocation(feature, locationRecord);
+  const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
+  const perPart = feature.segments?.some(part => part.strand !== undefined);
+  const isCircularWrap = Boolean(record?.isCircular) && feature.start > feature.end;
 
   const setFeature = (patch: Partial<BioFeature>) =>
     onChange({ ...editing, feature: { ...feature, ...patch } });
@@ -238,7 +245,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           </div>
 
           {/* Segments editor (multi-segment features) */}
-          {feature.segments && feature.segments.length > 1 && (
+          {feature.segments && feature.segments.length > 0 && (
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -280,6 +287,13 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                       }}
                       className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-hidden focus:border-env"
                     />
+                    {perPart && <select aria-label={`Segment ${idx + 1} strand`} value={seg.strand ?? ''} onChange={e => {
+                      const segments = feature.segments!.map((part, index) => index === idx ? { ...part, strand: Number(e.target.value) as 1 | -1 } : part);
+                      setGeometry({ segments });
+                    }}>
+                      <option value="" disabled>Choose strand</option><option value="1">Forward (+)</option><option value="-1">Reverse (−)</option>
+                    </select>}
+                    {invalidLocationPart(seg, locationRecord) && <span role="alert">Invalid location</span>}
                     <button
                       onClick={() => {
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
@@ -297,6 +311,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           )}
 
+          {invalid && <p role="alert">{location.kind === 'no-insdc-form' ? location.display : ''}. Set valid coordinates and a strand on every piece.</p>}
           {/* GenBank location string — kept verbatim from the source until coordinates change */}
           {feature.locationString && (
             <div>
@@ -380,6 +395,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             Discard
           </button>
           <button
+            disabled={invalid}
             onClick={onSave}
             data-tip={isNew ? 'Add this annotation to the record' : 'Save the changes to this annotation'}
             className="flex-1 py-4 rounded-2xl bg-env-strong hover:bg-env-strong/90 text-white text-xs font-bold uppercase transition-all shadow-xl tracking-widest"

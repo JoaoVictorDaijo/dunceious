@@ -97,5 +97,10 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   if (report.deprecatedModifiersOmitted) notes.push(`${report.deprecatedModifiersOmitted} deprecated modifiers left out.`);
   if (report.adjustedIds.length) notes.push(`${report.adjustedIds.length} IDs adjusted.`);
   notes.push('Display names stay in Dunceious.');
-  return { report, summary: notes.join(' ') + (report.missingOrganism ? `\n${missingOrganismWarning(report.missingOrganism)}` : '') };
+  const warnings: string[] = [];
+  if (report.missingOrganism) warnings.push(missingOrganismWarning(report.missingOrganism));
+  const { linearEdgeSite, invalidGeometry } = report.featuresWithoutInsdcLocation;
+  if (linearEdgeSite) warnings.push(`${linearEdgeSite} ${linearEdgeSite === 1 ? 'feature' : 'features'} not written: ${linearEdgeSite === 1 ? 'a site' : 'sites'} at a linear sequence's edge ${linearEdgeSite === 1 ? 'has' : 'have'} no GenBank location`);
+  if (invalidGeometry) warnings.push(`${invalidGeometry} ${invalidGeometry === 1 ? 'feature' : 'features'} not written: ${invalidGeometry === 1 ? 'its location is' : 'their location is'} invalid (outside the sequence or reversed)`);
+  return { report, summary: [notes.join(' '), ...warnings].join('\n') };
 }

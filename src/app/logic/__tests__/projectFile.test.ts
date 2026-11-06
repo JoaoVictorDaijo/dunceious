@@ -126,3 +126,18 @@ it.each([
   expect(gff).toContain(`Note=${note}`);
   if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
+
+it('refuses partly stranded pieces naming the feature, retains invalid geometry, and strips derived geometry', () => {
+  const feature = { type: 'gene', name: 'damaged', start: 8, end: 2, strand: 1 as const,
+    segments: [{ start: 8, end: 2 }, { start: 3, end: 5, strand: 1 as const }], biological: { start: 0, end: 1, strand: 1 as const } };
+  expect(parseProject(serializeProject({ ...state, records: [{ ...record, features: [feature] }] })))
+    .toEqual({ ok: false, message: 'Feature damaged has a strand on some of its pieces but not others.' });
+  const invalid = { ...feature, segments: [] };
+  const loaded = parseProject(JSON.stringify({ ...state, format: 2, records: [{ ...record, features: [invalid] }] }));
+  expect(loaded.ok).toBe(true);
+  if (loaded.ok) {
+    expect(loaded.project.records[0].features[0]).toMatchObject({ start: 8, end: 2 });
+    expect(loaded.project.records[0].features[0]).not.toHaveProperty('biological');
+  }
+  expect(JSON.parse(serializeProject({ ...state, records: [{ ...record, features: [invalid] }] })).records[0].features[0]).not.toHaveProperty('biological');
+});

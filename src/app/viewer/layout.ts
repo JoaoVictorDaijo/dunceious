@@ -79,7 +79,7 @@ const translationLaneCache = new WeakMap<SeqRecord, TranslationLanes>();
 function translationLanesFor(record: SeqRecord, visible: boolean): TranslationLanes {
   const cached = translationLaneCache.get(record);
   if (cached || !visible) return cached ?? NO_TRANSLATION_LANES;
-  const lanes = assignTranslationLanes(record.features, record.alignedSequence || record.sequence, record.moleculeType);
+  const lanes = assignTranslationLanes(record.features, record.alignedSequence || record.sequence, record.moleculeType, record);
   translationLaneCache.set(record, lanes);
   return lanes;
 }

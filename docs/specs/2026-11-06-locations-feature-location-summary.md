@@ -1,6 +1,6 @@
 ---
 title: "Feature location summaries: one INSDC formatter for display and export"
-status: proposed
+status: partial
 date: 2026-11-06
 areas: ["locations", "record-feature-presentation", "genbank"]
 prs: [299]

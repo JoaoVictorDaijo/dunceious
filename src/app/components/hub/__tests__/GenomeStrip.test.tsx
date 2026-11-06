@@ -363,3 +363,11 @@ it('picks and reports the topmost slim feature, and keeps pinned or visible feat
   fireEvent.click(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(pick).toHaveBeenLastCalledWith(crowded.features[1]);
 });
+
+it.each([undefined, 'order(1..3,7..9)'])('shares location text between screen-reader status and hover card %s', locationString => {
+  const feature = { name: 'joined', type: 'gene', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], locationString };
+  render(<TrackTooltipProvider><GenomeStrip large onPick={noop} record={{ id: 'r', name: 'r', sequence: 'ACGTACGTAC', features: [feature] }} /></TrackTooltipProvider>);
+  fireEvent.focus(screen.getByRole('button', { name: 'Genome strip for r: 1 annotation' }));
+  expect(screen.getByRole('status').textContent).toContain(locationString ?? 'join(1..3,7..9)');
+  expect(screen.getByRole('tooltip').textContent).toContain(locationString ?? 'join(1..3,7..9)');
+});
