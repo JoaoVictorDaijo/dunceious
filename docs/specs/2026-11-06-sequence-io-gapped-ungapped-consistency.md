@@ -91,7 +91,10 @@ already skips unaligned rows (`consensus.ts:30`).
 
 ## A. Pre-aligned FASTA on an empty workspace
 
-`handleAlignmentUpload` no longer returns when `records.length === 0`. The worker request stays
+`handleAlignmentUpload` no longer returns when `records.length === 0`. It reads the workspace
+revision before reading the file and carries it in the request, as B does for batch loads. A
+response whose revision is stale is discarded and logged before either the aligned load or an
+overlay is applied, so an alignment never lands in a replacement workspace. The worker request stays
 `PARSE_FASTA` with `asAlignment: true`. `applyFastaResponse` gains a branch for an empty `prev`,
 which returns a new kind, `aligned-load`.
 
@@ -117,8 +120,10 @@ which returns a new kind, `aligned-load`.
 
 ## B. Confirm before removing gaps on the batch input
 
-The worker stays unchanged. `useBioWorker` changes what it does with a batch `FASTA_SUCCESS`
-whose rows contain `-` or `.`.
+`useBioWorker` changes what it does with a batch `FASTA_SUCCESS` whose rows contain `-` or `.`.
+The worker changes in one small way: the protocol gains two optional request fields,
+`workspaceRevision` and `incomingCategory`, which the `PARSE_FASTA` and `PARSE_GENBANK` handlers
+echo back in their responses unchanged, as they echo `filename` today. Parsing is untouched.
 
 **Entry paths.** All three batch paths reach the same branch:
 - the Sidebar file picker and the Hub import menu, through `handleFileUpload`, which posts
@@ -127,8 +132,12 @@ whose rows contain `-` or `.`.
   workspace-revision guard (`useFileHandlers.ts:287-300`).
 
 **Every batch commit is checked against the state it started from.** This applies to every
-batch sequence response, gapped or not, FASTA or GenBank. The confirm step only adds a wait in
-the middle.
+batch sequence response, gapped or not, FASTA or GenBank, and to alignment responses (A). The
+confirm step only adds a wait in the middle. The checks, in order, right before any commit:
+1. the workspace revision (below);
+2. the alignment lock (`isAlignmentLocked`). A response arriving after a remote alignment started
+   commits nothing, and the log says the workspace is locked;
+3. the molecule category (below).
 - **Workspace identity at import start.**
   - `handleFileUpload` reads the workspace revision once, before any file is read, as the drop
     path already does (`useFileHandlers.ts:287-289`).
@@ -141,7 +150,9 @@ the middle.
   - The dispatch-time category (`sniffFastaCategory` or `sniffGenBankCategory`,
     `useFileHandlers.ts:49-71`) is carried the same way, as `incomingCategory`.
   - Right before committing, it is checked against `getLoadedCategory` of the **current**
-    records, for every batch response.
+    records, for every batch response. An empty workspace has no session category and accepts
+    either, as the picker does today (`useFileHandlers.ts:186-197`). The comparison runs only
+    when records exist.
   - This closes today's gap, where files picked together are all checked against the records
     captured when the picker fired (`useFileHandlers.ts:177-199`). A gap-free nucleotide file
     could then be committed after a protein file was.
@@ -170,8 +181,15 @@ The entry is the only owner of that response, and it settles exactly once:
    - Otherwise `applyFastaAndLog` runs against the current records. It strips `-` and `.`,
      commits, logs the removal as today, and resolves a tracked request with the `idMap`.
 3. **Don't load:** nothing is committed. The log says "<file> was not loaded: gap removal
-   declined". A tracked request rejects, so a dropped batch attaches no annotations to it, the
-   same path as `reject-no-residues` (`useBioWorker.ts:52`).
+   declined".
+   - **Picker and Hub** entries have no request to settle.
+   - **A dropped file** settles its request with an empty ID map instead of an error.
+     `importDroppedBatch` (`dropRouting.ts:52-66`) then carries on with the next files, so one
+     declined file doesn't stop the rest of the batch.
+   - Annotation rows naming the declined file's IDs find no record, and are reported by the
+     existing "did not match active records" warning.
+   - A refused file (`reject-no-residues`, a stale workspace, the lock or the category) still
+     rejects, which stops the batch as today, and the log names it.
 4. **Invalidation.** These clear every entry, rejecting tracked requests and logging one line
    per file ("<file> was not loaded: <reason>"):
    - the workspace is replaced (project load, new session);
@@ -179,9 +197,16 @@ The entry is the only owner of that response, and it settles exactly once:
    - the hook unmounts.
 
 **Busy state.** Pending confirmations are a separate piece of state.
-- The app derives `busy = isProcessing || pendingConfirmations.length > 0`, and every gate that
-  checks `isProcessing` today to block workspace changes checks `busy` instead. Other worker
-  responses can still clear `isProcessing` without unblocking the workspace.
+- The app derives `busy = isProcessing || pendingConfirmations.length > 0`. While `busy` holds,
+  every control that changes the workspace is blocked:
+  - project open, through the menu, the Ctrl/Command+O shortcut (`useProjectActions.ts:32`, via
+    its `locked` prop), and drag-and-drop;
+  - workspace clear;
+  - sequence, alignment and annotation imports;
+  - the remote aligner's start.
+
+  Other worker responses can still clear `isProcessing` without unblocking these. Anything
+  already in flight is still covered by the revision and lock checks above.
 - While a confirmation is pending, the processing overlay (`ProcessingOverlay`, `z-[200]`) is not
   shown. The confirm dialog is the topmost layer, so both buttons can be reached.
 
@@ -221,6 +246,16 @@ There is one rule for every path. **Gapped** writes each aligned row's `alignedS
 
 For an unaligned row the window is its own positions, which is what the viewer shows under the
 selection.
+
+**Edges of the window.**
+- **Wider than the alignment.** The viewer's width is the longest row (`GenomeViewer.tsx:186-189`),
+  so a selection can run past the alignment's columns. A gapped export clips the window to the
+  alignment width. When nothing of the window is inside it, the gapped item is disabled, with the
+  tooltip "The selection is outside the alignment".
+- **No residues in the window.** A gapped export still writes an aligned row that has only gaps
+  in the window. It is a valid aligned FASTA row (FMT-6), and every row keeps the same width. The
+  log names such rows, since A would refuse them on reload. An ungapped export leaves out rows
+  with no residues in the window and names them.
 
 - **Viewer selection and alignment export** (toolbar download button, and the Sidebar export):
   - the button opens a two-item menu: "Aligned, with gaps" and "Sequences only, no gaps";
@@ -299,13 +334,17 @@ gaps by character. They never come from the code under test.
 | A: UI | `Sidebar` / `ImportMenu` tests | The pre-aligned input is enabled on an empty workspace with the new text, and disabled while the alignment is locked |
 | B: hold and confirm | `useBioWorker.test.tsx` | A gapped batch file commits nothing until Load, then commits ungapped records. Don't load: nothing committed, the request rejects, the log line is written, and a dropped batch attaches no annotations. Two files queue as "1 of 2". A file without gaps loads with no dialog. Each of the picker, Hub and drop paths reaches the dialog |
 | B: settle once, invalidate | `useBioWorker.test.tsx` | Workspace replaced while a dropped file waits: Load commits nothing and the request rejects. Worker failure while waiting: the queue clears with log lines. A second click on the same entry does nothing |
+| B: declined drop continues | `dropRouting` / `useFileHandlers` tests | Drop gapped A, valid B and an annotation file. Declining A loads B and its annotations; the annotation rows for A's IDs are reported as unmatched |
+| B: lock and empty session | `useBioWorker.test.tsx` | A gap-free response arriving after a remote alignment started commits nothing. A protein FASTA (immediate and confirmed) and a protein GenBank file each load into an empty workspace |
+| Busy blocks the workspace | `App` test with the dialog mounted | While a confirmation is pending, Ctrl/Command+O, workspace clear, imports and the remote aligner do nothing |
+| A: stale alignment | `useFileHandlers` test | The workspace is replaced, empty or with matching records, before the alignment read finishes or before its response arrives: nothing is applied, and the log says why |
 | B: molecule gate on every commit | `useFileHandlers` / `useBioWorker` tests | Empty workspace, a gapped protein file and an ungapped nucleotide file picked together. Nucleotide commits first: Load on the protein refuses. Protein is confirmed first, then the slower nucleotide file's read finishes: the nucleotide file refuses. The same with a GenBank file in place of the nucleotide FASTA |
 | B: replacement before queueing | same | Pick a fast file and a slow gapped file. The fast response clears processing, then the workspace is replaced, then the slow response arrives: it is discarded and never queued, and the log says why. A slow read across replacement behaves the same. Two files in the same workspace still both load |
 | B: dialog on top | `App` test with the real overlay mounted | While a confirmation is pending and another response arrives, the dialog stays reachable, both buttons work, and workspace actions stay blocked |
 | B: `.` | `bioResponse.test.ts` | Batch `AC..GT` loads as `ACGT`, counting 2 removed |
 | B: stale state | `useBioWorker.test.tsx` | A file confirmed after another load committed is applied to the current records, and no records are lost |
 | C: writer backstop | `serialize.test.ts`, `exportPlan.test.ts` | A record whose `sequence` is `AC-GT` is left out and reported. The preview shows it. A clean record's LOCUS is `4 bp` for `ACGT` |
-| D: one rule | `fasta.test.ts` | Aligned `AC--GT` with selection `[1,5)`: gapped `C--G`, ungapped `CG`. Mixed set: gapped writes only aligned rows and reports the others; ungapped writes all |
+| D: one rule | `fasta.test.ts` | Aligned `AC--GT` with selection `[1,5)`: gapped `C--G`, ungapped `CG`. Mixed set: gapped writes only aligned rows and reports the others; ungapped writes all. Selection `[2,4)` on `AC--GT`: gapped writes `--` and names the row; ungapped leaves it out and names it. Aligned width 4 with an unaligned row of 8, selection `[5,7)`: gapped item disabled |
 | D: every path | `useFileHandlers`, context-menu and `RecordDetailsModal` tests | The toolbar menu, the Sidebar export, the record context menu and the details dialog each offer both modes. The aligned item is disabled when no row is aligned. An unaligned record offers one item |
 | Project refusal | `projectFile.test.ts` | `sequence: "AC-GT"` refuses with the damaged-file message. Rows `AC--GT` (6 columns) and `ACTTGT--` (8 columns) refuse with the unequal-width message. A valid aligned project still loads |
 | Conservation | `GenomeViewer` / pure helper test | Two aligned rows plus one unaligned: scores use the two aligned rows only, against hand-computed values. One aligned row: no scores, plus the tooltip text |
