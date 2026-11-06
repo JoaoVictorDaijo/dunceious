@@ -3,7 +3,7 @@ title: "Feature location summaries: one INSDC formatter for display and export"
 status: proposed
 date: 2026-11-06
 areas: ["locations", "record-feature-presentation", "genbank"]
-prs: []
+prs: [299]
 issues: [259]
 superseded_by: null
 summary: "Every place that shows a feature's location without its original location text shows the same INSDC location string that GenBank export writes (joins, complements, origin crossings and between-base sites) from one shared formatter, never a continuous start..end envelope."
@@ -97,7 +97,9 @@ The rules are in `docs/standards/locations.md`, from INSDC Feature Table 11.4 §
 
 - No display shows `start+1..end` for a feature with more than one part, or for one crossing
   the origin.
-- Display and export produce the same string for the same feature.
+- Display and export produce the same string for the same feature. The one exception is a
+  between-base site at a linear record's edge: INSDC has no syntax for it, so display names it in
+  words and export skips that feature and reports it (see Export).
 - The viewer tooltip formats the biological feature: every part mapped from aligned columns back
   to biological coordinates, not only the envelope.
 
@@ -121,51 +123,87 @@ The rules are in `docs/standards/locations.md`, from INSDC Feature Table 11.4 §
 /** Partial ends in biological terms. Supplied by #226; absent means none known. */
 export interface LocationEnds { fivePrimePartial?: boolean; threePrimePartial?: boolean }
 
+export type InsdcLocation =
+  | { kind: 'insdc'; text: string }
+  | { kind: 'no-insdc-form'; display: string; reason: 'linear-edge-site' };
+
 /**
- * INSDC location text for a feature, from its stored geometry. Never reads `locationString`;
+ * INSDC location for a feature, from its stored geometry. Never reads `locationString`;
  * callers decide whether that wins (display and export both prefer it).
  */
 export function formatInsdcLocation(
   feature: Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'>,
   record: { length: number; isCircular?: boolean },
   ends?: LocationEnds,
-): string;
+): InsdcLocation;
 ```
 
 **Rules, in order:**
-1. **Parts.** `feature.segments` when present, else `splitWrapAround(start, end, length)`. Parts
-   keep their stored order (LOC-1).
-2. **Each part:**
-   - `start < end`: `start+1..end`, as the serializer writes today (a one-base part stays
-     `n..n`, so export output doesn't change);
-   - `start = end`: a between-base site, with the rules under Decisions. The words for a linear
-     edge appear in display only. Export of such a site is #230's.
-3. **Strand.**
+1. **Parts.** `feature.segments` when it has at least one element. Otherwise (absent or `[]`, which
+   project import accepts at `projectFile.ts:75`) the feature's own `start`/`end`. Parts keep
+   their stored order (LOC-1). Each part keeps its own strand when it has one.
+2. **Wrapped parts.** A part with `start > end`, which crosses the origin of a circular record,
+   is split with `splitWrapAround` into `[start, length)` and `[0, end)`. This applies whether it
+   came from the envelope or from `segments` (the segment editor and project import can produce
+   one, and today's serializer writes it as an invalid `9..2`).
+   - The pieces stay in that order for a forward part, and for any part under a whole-feature
+     `complement()`.
+   - For a part with its own reverse strand, the pieces are swapped. Its bases read
+     `rc([0,end)) + rc([start,length))`, so it becomes
+     `complement(1..end),complement(start+1..length)`.
+3. **Each part:**
+   - `start < end`: `start+1..end`, as the serializer writes today (a one-base part stays `n..n`);
+   - `start = end` inside the record: a between-base site, `start^start+1`;
+   - `start = end = length` on a circular record, or `start = end = 0` on a circular record:
+     `length^1` (LOC-5);
+   - `start = end = 0` or `= length` on a linear record: there is no INSDC form, so the whole
+     result is `no-insdc-form`. Its display text names the site in words ("before base 1" or
+     "after base L"), inside the same join and complement as any other parts.
+4. **Strand.**
    - If any part carries its own strand (the parser's per-part shape for inner or mixed
      complements), each reverse part is wrapped in `complement()`.
-   - Otherwise a reverse feature wraps the whole location once:
-     `complement(join(...))` or `complement(a..b)`.
+   - Otherwise a reverse feature wraps the whole location once: `complement(join(...))` or
+     `complement(a..b)`.
 
    This is today's serializer logic (`serialize.ts:35-42`). For a nested outer complement, which
-   the parser stores in evaluation order with flipped part strands (LOC-3), the output is
-   `join(complement(b),complement(a))`. That reads the same bases as the original
-   `complement(join(a,b))`, but not the same text. The text is used only when `locationString`
-   is gone, as today.
-4. **More than one part** gives `join(...)` (see the `order()` decision).
-5. **Partial ends** (when `ends` is given) go on the biological end:
-   - forward strand: 5′ is `<` on the first part's start, 3′ is `>` on the last part's end;
-   - reverse strand: 5′ is `>` on the highest coordinate, 3′ is `<` on the lowest, inside the
-     `complement()` (INSDC §3.4.2.1 attaches the symbols to the numbers);
-   - for per-part strands, the first and last parts in transcription order carry them.
+   the parser stores in evaluation order with flipped part strands (LOC-3), the output is the
+   per-part form. For example, J4 `complement(join(complement(1..2),5..6))` is stored as
+   `[(5..6, −), (1..2, +)]` and formats as `join(complement(5..6),1..2)`. That reads the same
+   bases as the original but not the same text, and is used only when `locationString` is gone,
+   as today.
+5. **More than one part** gives `join(...)` (see the `order()` decision).
+6. **Partial ends** (when `ends` is given) go on the biological ends, found in evaluation order
+   (LOC-3), not by coordinate:
+   - Build the oriented parts in evaluation order:
+     - with per-part strands, the stored order (the parser stores evaluation order);
+     - under a whole-feature reverse strand, the stored order reversed, each part reverse;
+     - otherwise, the stored order, each part forward.
+   - 5′ goes on the first oriented part: `<` on its start if forward, `>` on its end if reverse.
+   - 3′ goes on the last oriented part: `>` on its end if forward, `<` on its start if reverse.
+   - The symbols sit on the numbers, inside any `complement()` (INSDC §3.4.2.1). For example,
+     `complement(join(9..10,1..2))` with a 5′ partial is `complement(join(9..10,1..>2))`.
 
    #226 decides the stored state. This step only places it.
 
-**Export.** `exportToGenBank` (`serialize.ts:74`) calls
-`feature.locationString ?? formatInsdcLocation(feature, record, ends)`. Its output for every
-existing fixture stays byte-identical: the existing serializer tests must pass unchanged.
+**Export.** `exportToGenBank` (`serialize.ts:74`) writes `feature.locationString` when present,
+otherwise the formatter's `text`.
+- **A `no-insdc-form` result is not written.** The feature is skipped, and the export report
+  counts it as a new `ExportReport` field, `featuresWithoutInsdcLocation`
+  (`src/core/exportReport.ts:24`). The export summary names it: "1 feature not written: a site at
+  a linear sequence's edge has no GenBank location". Today such a feature would be written as an
+  invalid `1..0`.
+- **What changes in export output:**
+  - Every existing fixture (`serialize.test.ts`), and every shape already exported correctly,
+    stays byte-identical.
+  - Three shapes change from invalid to valid: interior sites (today `11..10`, now `10^11`),
+    circular origin sites (today `121..120`, now `120^1`), and wrapped explicit segments (today
+    `9..2`, now a join).
+  - Re-importing an exported `^` site still parses as two bases until #230 lands. That is #230's
+    defect, and this PR's tests check export text only.
 
-**Display.** One app helper, `displayLocation(feature, record)`, returns
-`feature.locationString ?? formatInsdcLocation(...)`. It is used by all five places in the table.
+**Display.** One app helper, `displayLocation(feature, record)`, returns `feature.locationString`
+when present, otherwise the formatter's `text` or, for `no-insdc-form`, its `display` words. It
+is used by all five places in the table.
 - `RecordDetailsModal`'s `locationLabel` stays for the "region spanned" caption, which is an
   envelope by design (#227). It and the formatter share the site rules through one small helper,
   `siteLabel`.
@@ -174,13 +212,15 @@ existing fixture stays byte-identical: the existing serializer tests must pass u
   - the hover card and details window keep `break-all`;
   - the screen-reader status reads the full text.
 
-**Viewer tooltip.** `Row.tsx:310-317` already builds `biologicalFeature`, mapping each segment's
-bounds through `alignedToOriginalPositions`, which returns a boundary array of length
-`aligned.length + 1`.
-- It maps `start` and `end` the same way, and passes the result to `displayLocation`.
-- Transposition splits an origin-crossing feature into its two parts (`coordinate.ts:170`), so
-  the mapped parts give the LOC-6 join directly.
-- `locationString`, when present, wins as before.
+**Viewer tooltip.** It formats the source geometry, not a reconstruction.
+- Transposition drops zero-length parts (`coordinate.ts:172`), so a site inside a join can't be
+  recovered from aligned columns.
+- `processTransposition` therefore copies each feature's biological `start`, `end`, `strand` and
+  `segments` onto its aligned copy as `biological`, unchanged.
+- `Row.tsx`'s tooltip calls `displayLocation` on that, with `locationString` still winning when
+  present.
+- The existing `biologicalFeature` mapping (`Row.tsx:310-317`) stays for `frameshiftSummary`,
+  which needs aligned-derived parts.
 
 ## Protein count (#259, fourth point)
 
@@ -206,11 +246,13 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Joins | `insdcLocation.test.ts` | Segments `[0,3)`, `[6,9)` give `join(1..3,7..9)`. Out-of-order trans-splice `[69610,70000)`, `[1000,1200)` gives `join(69611..70000,1001..1200)` (written order kept) |
 | Origin crossing | same | `start 8, end 2`, no segments, length 10, circular: `join(9..10,1..2)`. Conformance fixture W1 (`join(115..120,1..5)` on 120 bases), parsed, then its text dropped and formatted: `join(115..120,1..5)` |
 | Complement | same, on the parsed conformance fixtures (`docs/standards/conformance/fixture.gb`) with text dropped | J1 gives `join(1..10,21..30)`; J2 gives `complement(join(1..10,21..30))`; J3 gives `join(complement(21..30),1..10)`. J4, J5 and W2 (nested outer complements) give their per-part equivalents, and re-parsing each output then extracting gives the oracle bases in `expected-oracle.txt` (J4 `GTTG`, J5 `ACTG`, W2 `TAACAATAACG`) |
-| Sites | same | `[4,5)` gives `5..5` (unchanged). `[10,10)` gives `10^11`. Circular `[120,120)` on 120 bases gives `120^1`. Linear `[0,0)` gives "before base 1" in display only |
-| Partial ends | same, with `ends` given | Forward join with 5′ partial: `join(<1..3,7..9)`. Reverse with 5′ partial: `complement(10..>40)`. Without `ends`: no markers |
+| Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTAC`, re-parses and extracts to the hand-derived `GTGTTA` (rc of `AC`+`AC`, then `TA`) |
+| Sites | same | `[4,5)` gives `5..5` (unchanged). `[10,10)` gives `10^11`. Circular `[120,120)` on 120 bases gives `120^1`. Linear `[0,0)` and `[L,L)`, alone and inside a join with `[3,6)`: `no-insdc-form` with words "before base 1" or "after base L" |
+| Partial ends | same, with `ends` given | Forward join with 5′ partial: `join(<1..3,7..9)`. Reverse `[9,40)` with 5′ partial: `complement(10..>40)`. Reverse circular `complement(join(9..10,1..2))` with 5′: `complement(join(9..10,1..>2))`, and with 3′: `complement(join(<9..10,1..2))`. Out-of-order reverse join `[6,9)`, `[0,3)` with 5′: `complement(join(7..9,1..>3))`. J3 shape `[(21..30, −), (1..10, +)]` with 5′ and 3′: `join(complement(21..>30),1..>10)`. Without `ends`: no markers |
+| Export of edge sites | `serialize.test.ts` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation` |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
 | Display parity | `RecordDetailsModal`, `AnnotationRow`, `TrackTooltip`, `GenomeStrip` tests | A feature without `locationString`, segments `[0,3)`, `[6,9)`: each shows `join(1..3,7..9)`. A feature with `locationString` shows that text unchanged |
-| Viewer tooltip | `Row` test | Record `ACGTACGTAC` aligned with internal gaps, join `[0,3)`, `[6,9)`: Locus reads `join(1..3,7..9)`. Circular origin crossing on an aligned record: the LOC-6 join |
+| Viewer tooltip | `Row` test | Record `ACGTACGTAC` aligned with internal gaps, join `[0,3)`, `[6,9)`: Locus reads `join(1..3,7..9)`. A join `[0,3)`, `[5,5)` on a gapped record reads `join(1..3,5^6)`, the same as the details window. Circular origin crossing on an aligned record: the LOC-6 join |
 
 ## Living documents
 
