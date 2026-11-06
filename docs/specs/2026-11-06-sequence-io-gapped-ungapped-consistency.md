@@ -144,8 +144,8 @@ confirm step only adds a wait in the middle. The checks, in order, right before 
   - The request carries it (`workspaceRevision`), and the worker echoes it in the response, as
     it echoes `filename` today.
   - A response whose revision differs from the current one is discarded before it is queued or
-    committed. The log says "<file> was not loaded: the workspace was replaced". A tracked
-    request rejects.
+    committed. The log says "<file> was not loaded: the workspace was replaced". This is
+    invalidation, not a per-file refusal: a tracked request rejects and a dropped batch stops.
 - **Molecule category at dispatch.**
   - The dispatch-time category (`sniffFastaCategory` or `sniffGenBankCategory`,
     `useFileHandlers.ts:49-71`) is carried the same way, as `incomingCategory`.
