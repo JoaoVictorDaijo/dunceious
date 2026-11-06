@@ -89,8 +89,8 @@ point C asks that GenBank stay ungapped.
   known limit until #243 (see "Category and subtype").
 - Every refusal names the file, each record and the problem, all at once.
 - Every problem the Warning table lists is visible on demand, without interrupting the load.
-  Checks it doesn't list are out of scope: the protein vocabulary, and qualifier values beyond
-  `/codon_start` and `/transl_table`. The one exception is reading `assembly_gap`'s `/gap_type`
+  The protein checks follow the NCBI C++ Toolkit (see below). Checks the table doesn't list are
+  out of scope, including qualifier values beyond `/codon_start` and `/transl_table`. The one exception is reading `assembly_gap`'s `/gap_type`
   to decide whether `/linkage_evidence` is mandatory.
 - GenBank export never writes a residue GenBank cannot hold, and never counts one in LOCUS.
 
@@ -179,8 +179,8 @@ ambiguity codes are valid residues. Neither is ever a finding.
 
 | Check | Rule | NCBI analogue |
 |---|---|---|
-| Unknown feature key | Not in INSDC 11.4 Appendix II | Warning (unknown imported feature key) |
-| Qualifier not allowed on the key | A **recognised** qualifier (in Appendix III) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Unrecognised qualifiers never trigger this; they are accepted silently on any key (see below). An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
+| Unknown feature key | Not in INSDC 11.4 Appendix II (nucleotide records), or not a key the NCBI C++ Toolkit emits (protein records) | Warning (unknown imported feature key) |
+| Qualifier not allowed on the key | A **recognised** qualifier (Appendix III, or the toolkit set for protein records) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Unrecognised qualifiers never trigger this; they are accepted silently on any key (see below). An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
 | Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame. GenBank export can't carry an invalid frame. Today it drops an empty `/codon_start=""` (`serialize.ts:91,109`), so a reimport would fall back to frame 1. So a record holding a CDS with an invalid frame (empty included) is left out of a GenBank export and named in the report: "<id> not exported: CDS <name> has an invalid /codon_start". This uses the same backstop as invalid residues. The same applies to an invalid `/transl_table` (see the next row). Project files keep the value | Error-level in NCBI's validator |
@@ -197,7 +197,17 @@ The INSDC key and qualifier checks, the mandatory-qualifier refusal included, ap
 A protein record gets:
 - every refusal on sequence, coordinates and molecule, plus the frame and code checks;
 - **warnings, never refusals, for tag problems.** Those are a key the toolkit doesn't emit, a qualifier its maps don't allow on that key, or a qualifier its maps make mandatory that is missing. The toolkit deliberately doesn't require `/mol_type`, so the 5 bundled protein records, which omit it, get no finding.
-- Recognised protein qualifiers (for the inert-qualifier rule) come from the same maps. They replace the hand-written `PROTEIN_QUALIFIERS` list, which misses `/peptide`.
+- **Recognised protein qualifiers**, for the inert-qualifier rule, are two sets combined:
+  - every qualifier name in the toolkit's qualifier-name table (`SeqFeatData.cpp`);
+  - the flat-file-only qualifiers that `feature_item.cpp` writes for protein records, such as
+    `/coded_by`, `/calculated_mol_wt` and `/peptide`.
+
+  The combined set replaces the hand-written `PROTEIN_QUALIFIERS` list. The allowed-on-key
+  check uses only the subtype maps. A flat-file-only qualifier is never warned about on any
+  key, because the maps don't cover it. So `/coded_by` round-trips with no finding.
+- **Protein unknowns, as for DNA:** an unrecognised protein qualifier is accepted silently and
+  stored inert. A key the toolkit doesn't emit gets one unknown-key warning, never one per
+  qualifier.
 - The protein tables are generated into the same pinned module as the INSDC ones, recording the toolkit commit, and checked against a hand-curated expected table.
 
 The feature-key and qualifier tables come from INSDC 11.4 Appendix II. They are generated into a
@@ -215,9 +225,9 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
     - `/_gffStrand` overrides the strand (`strand.ts:27-30`);
     - any `_`-prefixed key is treated as internal state.
   - A qualifier counts as recognised when it is in INSDC 11.4 Appendix III, for nucleotide
-    entries, or in the existing protein qualifier map (`PROTEIN_QUALIFIERS`,
-    `qualifierRules.ts:135`), for protein entries. GenPept `/coded_by` and
-    `/calculated_mol_wt`, for example, stay recognised and keep being exported.
+    entries, or in the toolkit-derived protein set described above, for protein entries.
+    GenPept `/coded_by` and `/calculated_mol_wt`, for example, stay recognised and keep being
+    exported.
   - Any other qualifier, and any whose name starts with `_`, is stored in a separate
     `feature.unknownQualifiers` map. No computation reads it.
   - **Naming keeps today's behaviour, deliberately.** Name selection still reads the name-like
@@ -417,7 +427,17 @@ module.
 ## Living documents
 
 - **FMT-2:** truncation, length and residue rules now enforced.
-- **FMT-3:** the vocabulary checks.
+- **FMT-3:** the vocabulary checks, and the protein rules' source.
+- **`docs/standards/sources.json`:** pin the NCBI C++ Toolkit protein sources the same way as
+  the other standards:
+  - commit `2b8ccee`;
+  - the exact raw file URLs for `src/objects/seqfeat/SeqFeatData.cpp`,
+    `src/objtools/format/feature_item.cpp` and `src/objects/seqfeat/seqfeat.asn`;
+  - each file's sha256;
+  - `stored: false`.
+
+  `pnpm standards:fetch` then downloads them into the ignored `.cache/standards/`. FMT-3, which
+  covers protein records, cites this entry.
 - **LOC rules:** the refused unsupported forms.
 - **ALPHA-1 and ALPHA-2:** cite the shared predicate.
 - **#244:** leave open for its FASTA part.
