@@ -121,7 +121,10 @@ export function otherReadings(codon: string): { residue: string; tables: number[
   doesn't change that contract.
 - **A stored `/translation` wins.** If the CDS has one, the band shows the stored residues as
   today. They are the annotation's own claim, marked "can't verify against the DNA" under
-  #253. The assumed view appears only when there is no stored protein. Every label below
+  #253. **The assumed view fills only codons that have no stored residue:** every codon when
+  there is no stored protein, or the codons past the end of a shorter one (codon index ≥ stored
+  length; no comparison is involved). A full-length stored protein leaves nothing for it to
+  fill. Every label below
   depends on which source is shown.
 - `featureTranslTable` and `translateSequence` keep their contracts.
 
@@ -139,9 +142,9 @@ Every surface that shows these residues, or a number derived from them, says "as
    - Code-sensitive codon: "TGA: stop in table 1, assumed. W in tables 2, 3, 4, …; C in 10; G in
      25."
    - Other codons: "W, assuming table 1. TGG reads W in every NCBI code."
-   - Ambiguous codon, code-sensitive: "TGN: ambiguous. In table 1 it can be C, W or a stop;
+   - Ambiguous codon, code-sensitive: "TGN: ambiguous, assuming table 1. In table 1 it can be C, W or a stop;
      other codes read some of these differently."
-   - Ambiguous codon, not code-sensitive: "RAY: ambiguous, D or N in every NCBI code."
+   - Ambiguous codon, not code-sensitive: "RAY: ambiguous, assuming table 1. D or N, in every NCBI code."
    - Resolved ambiguous codon: "A, assuming table 1. Every reading of GCN is A in every NCBI
      code."
 3. **Band warning target and feature tooltip:** `geneticCodeWarning` takes the displayed source.
@@ -153,8 +156,12 @@ Every surface that shows these residues, or a number derived from them, says "as
    - Stored protein shorter than the CDS: "The first 120 residues are the annotation's
      /translation and can't be checked; the rest assume table 1." The codons past the stored
      protein's end are drawn from the assumed view, dashed. They are not the computed `?` that
-     `translateFeature` fills in today (`sequence.ts:317`). After #253, the stored protein's
-     length is its `storedShortBy` contract, and the tail is drawn the same way.
+     `translateFeature` fills in today (`sequence.ts:317`). The tail is found from the stored
+     length alone, so it works for an invalid code in both landing orders. #253's
+     `storedShortBy` comes from comparing with an available conceptual translation, so it never
+     applies to an invalid code. #253's rule that conceptual residues past a short stored
+     protein aren't drawn as codons concerns valid codes. It is unaffected here, because these
+     cells are assumed residues, not conceptual ones.
 4. **Hub count** (`TrackTooltip.tsx`). Two separate numbers, never merged:
    - The DNA metric of #253's spec (decision 11) is unavailable for an invalid code, so it reads
      "can't verify", exactly as #253 specifies.
@@ -187,8 +194,8 @@ Every surface that shows these residues, or a number derived from them, says "as
 
 The two PRs may land in either order:
 
-- **Before #253:** the assumed view replaces only the `?` residues of `translateFeature` for an
-  invalid code with no stored protein. The early-stop flag keeps today's behaviour: a stored
+- **Before #253:** the assumed view replaces the `?` residues that `translateFeature` gives an
+  invalid code: all of them without a stored protein, or the tail past a short one. The early-stop flag keeps today's behaviour: a stored
   internal `*` still flags, and assumed residues never do.
 - **After #253:** the assumed view sits beside `conceptualTranslation`'s
   `unavailable: 'invalid-code'`, and the count switches to decision 11's wording.
@@ -200,15 +207,15 @@ The oracle is literal gc.prt 4.6 rows, not the code's own output.
 | Guarantee | Test | Cases |
 |---|---|---|
 | Code-sensitive codons | `assumedTranslation.test.ts` | Derived from the Biopython 1.88 fixture: equals the literal table above and the production set. `otherReadings` equals the fixture-derived readings for all 13 codons |
-| Assumed residues | same | `/transl_table=99`, `ATGTGGTGAGCT` gives `MW*A`, with TGA code-sensitive. RNA lowercase `augugguga` gives `MW*`. Codon 1 GTG under 99 stays V. `TGN` gives `?` and is code-sensitive; `GCN` gives `?` and is not. `/transl_table=` (empty) and `abc` behave as 99. Absent, `1` and `11` give `undefined` |
+| Assumed residues | same | `/transl_table=99`, `ATGTGGTGAGCT` gives `MW*A`, with TGA code-sensitive. RNA lowercase `augugguga` gives `MW*`. Codon 1 GTG under 99 stays V. `TGN` gives `?`, code-sensitive and a possible stop; `GCN` gives `A` and is not code-sensitive; `RAY` gives `?` and is not code-sensitive. `/transl_table=` (empty) and `abc` behave as 99. Absent, `1` and `11` give `undefined` |
 | Eligible types | same and `SequenceTrack` test | CDS, cds, ORF and orf with an invalid code get the assumed view; a `gene` does not |
 | Never computed | same and `sequence.test.ts` | `translateSequence(seq, 99)` still gives `?` per codon; `conceptualTranslation` (once #253 lands) still `unavailable`; GenBank and GFF3 output for that CDS has no `/translation` added; project serialization contains no assumed residue |
-| Stored wins | `SequenceTrack` and `Row` tests | Invalid code with stored `/translation`: band shows the stored residues with no dashed cells, the tooltip shows the stored-protein warning, and no provisional count appears |
+| Stored wins | `SequenceTrack` and `Row` tests | Invalid code with a full-length stored `/translation`: band shows the stored residues with no dashed cells, the tooltip shows the stored-protein warning, and no provisional count appears |
 | Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no red cell |
 | Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein: every codon drawn as a `setLineDash` outline, no `fillRect` for residue cells; a table-1 stop drawn red dashed with `*`, never `!` |
 | Count | `TrackTooltip` test, oracle: a test-local loop expanding IUPAC codons over the Biopython fixture's table 1 | `ATGTGGTAA` gives "2 aa if table 1". `ATGTGATGG` gives "3 positions, 1 stop, if table 1". `ATGTGNTGG` gives "3 positions, 1 ambiguous, if table 1". `ATGTGGTGN` gives "3 positions, 1 ambiguous, if table 1, end uncertain". `ATGGCNTAA` gives "2 aa if table 1" |
 | Short stored protein | `SequenceTrack` and `Row` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M, codons 2–3 dashed `W`, `A`; the tooltip names both sources |
-| Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows "can't verify" plus the provisional count. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text |
+| Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows "can't verify" plus the provisional count. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text. Every assumed-codon hover, including both ambiguity texts, contains "assuming table 1" |
 
 ## Living documents
 
