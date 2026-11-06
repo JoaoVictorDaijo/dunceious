@@ -27,6 +27,7 @@ export {
   reverseComplement,
   complementAlphabet,
   translateSequence,
+  initiatorResidue,
   isNcbiGeneticCode,
   featureTranslTable,
   extractFeatureSequence,

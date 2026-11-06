@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { translateSequence } from '@/src/domain/bio/sequence';
+import { initiatorResidue, translateSequence } from '@/src/domain/bio/sequence';
 import { GENES, GENOME_LENGTH, type Gene } from './greeterContent';
 import { T7_GENOME } from './t7Sequence';
 
@@ -71,7 +71,16 @@ function positionOfOffset(gene: Gene, offset: number): number | undefined {
  */
 export function codonAt(pos: number): Codon | undefined {
   const gene = geneAt(pos);
-  if (!gene) return undefined;
+  return gene ? codonInGene(gene, pos) : undefined;
+}
+
+/**
+ * Reads a codon in one curated T7 CDS, including where another gene overlaps it.
+ * All greeter CDSs are 5′-complete with /codon_start=1 and /transl_table=11 in
+ * NC_001604.1; greeterContent.test.ts checks these prerequisites for initiation Met.
+ */
+export function codonInGene(gene: Gene, pos: number): Codon | undefined {
+  if (!gene.segments.some(([s, e]) => pos >= s && pos <= e)) return undefined;
   let offset = 0;
   for (const [s, e] of gene.segments) {
     if (pos >= s && pos <= e) {
@@ -90,7 +99,8 @@ export function codonAt(pos: number): Codon | undefined {
     number: first / 3 + 1,
     phase,
     positions: positions as [number, number, number],
-    residue: translateSequence(triplet).replace('_', '*'),
+    residue: (first === 0 ? initiatorResidue(triplet, 11) : undefined)
+      ?? translateSequence(triplet, 11).replace('_', '*'),
   };
 }
 
