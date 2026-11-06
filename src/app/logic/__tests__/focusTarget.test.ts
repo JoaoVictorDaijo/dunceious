@@ -33,17 +33,17 @@ describe('featureFocusTarget', () => {
     const r = record({ alignedSequence: '--A-CG--TA-C--GT--' });
     const target = targetFor(r, { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
       segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7, lengthText: '7 bp' });
   });
 
   it('keeps raw coordinates on an unaligned record', () => {
     const target = targetFor(record({}), { type: 'gene', name: 'g', start: 2, end: 6, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 6, label: 'g', length: 4 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 6, label: 'g', length: 4, lengthText: '4 bp' });
   });
 
   it('keeps the wrap order of a feature crossing the origin', () => {
     const target = targetFor(record({ isCircular: true }), { type: 'gene', name: 'ori', start: 6, end: 2, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 6, end: 2, label: 'ori', length: 4 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 6, end: 2, label: 'ori', length: 4, lengthText: '4 bp' });
   });
 });
 

@@ -23,6 +23,7 @@ import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@
 
 export interface ExportReport {
   gapRecordsOmitted: string[];
+  genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
   emptyRowsOmitted: string[];
   unalignedRows: string[];
@@ -32,16 +33,21 @@ export interface ExportReport {
   missingOrganism: number;
   adjustedIds: { from: string; to: string }[];
   deprecatedModifiersOmitted: number;
+  /** GFF3: features whose intervals in other entries travel only as the `insdc_remote` attribute. */
+  remotePartsCarried: number;
+  /** GFF3: features with no interval in this record, which GFF3 has no row for. */
+  remoteOnlyOmitted: number;
 }
 
 export interface ExportResult { text: string; unalignedText?: string; report: ExportReport }
 
 export function emptyReport(): ExportReport {
   return {
-    gapRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
+    gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,
+    remotePartsCarried: 0, remoteOnlyOmitted: 0,
   };
 }
 

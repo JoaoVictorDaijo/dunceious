@@ -373,3 +373,24 @@ it('previews the renamed companion file and exports the same name', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Export 2 sequences' }));
   expect(onExport).toHaveBeenCalledWith(['a', 'u'], 'fasta', expect.objectContaining({ residues: 'aligned', fileName: 'renamed.fasta' }));
 });
+
+it.each([false, true])('previews general GenBank omissions with matching counts and detail scope, allInvalid=%s', allInvalid => {
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACRGT', fileDetails: { organism: 'virus' }, features: [{ type: 'gene', name: 'kept', start: 0, end: 2, strand: 1 }] };
+  const bad = (id: string, sequence: string, metadata: Record<string, string> = {}): SeqRecord => ({ id, name: id, sequence, fileDetails: { organism: 'omitted' }, features: [{ type: 'CDS', name: 'broken', start: 0, end: sequence.length, strand: 1, metadata }] });
+  const damaged = [bad('gap', 'AC-GT'), bad('symbol', 'AC*GT'), bad('frame', 'ACRGT', { codon_start: '' }), bad('code', 'ACRGT', { transl_table: '99' })];
+  const detailed = damaged.map(r => writeDetails(r, { organism: 'omitted' }));
+  const value = allInvalid ? detailed : [writeDetails(good, { organism: 'virus' }), ...detailed];
+  const onExport = vi.fn(); render(<Subject value={value} selected={value.map(r => r.id)} onExport={onExport} />); open(); format('GenBank');
+  for (const reason of [
+    'gap not exported: its sequence contains gap characters',
+    'symbol not exported: its sequence contains non-residue characters',
+    'frame not exported: CDS broken has an invalid /codon_start',
+    'code not exported: CDS broken has an invalid /transl_table',
+  ]) expect(screen.getByText(reason)).toBeTruthy();
+  expect(document.querySelectorAll('[data-export-gap-omission]')).toHaveLength(1);
+  expect(exportSummary()).toBe(`${value.length} chosen · ${allInvalid ? 0 : 1} written · ${allInvalid ? 0 : 1} annotations → sequences.gb`);
+  expect(within(screen.getByRole('table', { name: 'Detail qualifiers' })).getByRole('row', { name: /^Organism / }).textContent).toContain(`${allInvalid ? 0 : 1} written · 0 empty`);
+  const button = screen.getByRole('button', { name: `Export ${allInvalid ? '0 sequences' : '1 sequence'}` }) as HTMLButtonElement;
+  expect(button.disabled).toBe(allInvalid);
+  if (allInvalid) { fireEvent.click(button); expect(onExport).not.toHaveBeenCalled(); }
+});

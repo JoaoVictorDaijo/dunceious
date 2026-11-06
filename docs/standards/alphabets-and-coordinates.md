@@ -50,7 +50,7 @@ IUPAC ambiguity handling, each for different operations (see [Tools](tools.md)).
 symbol, matching it in search and complementing it are separate behaviours.
 
 **Dunceious.** Conforms for query degeneracy (`src/core/search/query.ts`) and the U-aware
-complement (`src/domain/bio/sequence.ts:43`). The code does not yet cite NC-IUB; cite `ALPHA-1`.
+complement (`src/domain/bio/sequence.ts:43`). `isGenBankResidue` in `src/domain/bio/genbankValidation.ts` shares the INSDC nucleotide alphabet between import validation and writer eligibility; it rejects punctuation, gaps and stops without repairing sequence coordinates.
 
 ## ALPHA-2. Amino-acid codes
 
@@ -65,6 +65,7 @@ The UCSC Table Browser writes stops as `Z` in CDS alignment output
 reading `Z` as Glx; treat such output as tool-specific.
 
 **Dunceious.** Accepts all six in protein preflight (`src/core/alignment/preflight.ts:60`).
+`isGenBankResidue` also accepts these six codes for protein GenBank records and refuses `*`.
 Search expands B, Z, J and X (`src/core/search/query.ts:27`). Local scoring uses EMBOSS
 EBLOSUM62, which has no U, O or J, and rejects them (`src/core/search/local/scoring.ts:65`);
 that rejection must stay visible to the user.

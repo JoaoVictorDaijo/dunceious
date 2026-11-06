@@ -62,7 +62,8 @@ export function parseHeader(lines: string[]): HeaderData {
       name = id;
       isCircular = line.toLowerCase().includes('circular');
 
-      moleculeType = classifyLocusMoleculeType(line);
+      const unit = line.match(/\s\d+\s+(bp|aa)(?=\s|$)/i)?.[1].toLowerCase();
+      moleculeType = unit === 'aa' ? 'protein' : classifyLocusMoleculeType(line) === 'rna' ? 'rna' : 'dna';
       continue;
     }
 

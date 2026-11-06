@@ -28,10 +28,11 @@
  * export is a pure function over strings/number arrays.
  */
 
+import { validCodonStart } from './codonStart';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
 import { isThreePrimePartialLocation } from './locationFlags';
-import type { SeqRecord } from './types';
+import type { BioFeature, SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
 // Reverse complement
@@ -143,6 +144,7 @@ type LocatedFeature = {
   start: number;
   end: number;
   segments?: { start: number; end: number; strand?: 1 | -1 }[];
+  remoteParts?: unknown[];
 };
 
 /**
@@ -166,6 +168,9 @@ export function extractFeatureSequence(
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
 ): { featureSeq: string; alignedIndices: number[] } {
+  // INSDC FT 11.4 §3.4.2.1(e): a remote part's bases belong to another entry, so the location
+  // defines no sequence of this record (#245). Biopython 1.88 likewise needs the referenced record.
+  if (feature.remoteParts?.length) return { featureSeq: '', alignedIndices: [] };
   const seqLen = seq.length;
   let segments: { start: number; end: number; strand?: 1 | -1 }[];
 
@@ -227,8 +232,7 @@ export function extractFeatureSequence(
  *
  * `/codon_start` (1, 2, or 3) is honored last, against the fully-oriented coding
  * sequence: the leading `codon_start - 1` bases (and their `alignedIndices`) are
- * dropped so translation begins in the right frame. Absent or invalid values
- * default to frame 1 (no offset).
+ * dropped so translation begins in the right frame. Absent values default to frame 1; invalid values suppress translation.
  *
  * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
  * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
@@ -238,10 +242,11 @@ export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
   seq: string
 ): { codingSeq: string; alignedIndices: number[] } {
+  if (!validCodonStart(feature.metadata?.codon_start)) return { codingSeq: '', alignedIndices: [] };
   const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq);
   let codingSeq = featureSeq;
 
-  const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);
+  const codonStart = Number(feature.metadata?.codon_start ?? '1');
   const offset = Number.isFinite(codonStart) && codonStart > 1 ? codonStart - 1 : 0;
   if (offset > 0) {
     codingSeq = codingSeq.slice(offset);
@@ -277,8 +282,8 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
-/** A feature as {@link translateFeature} reads it: the stored protein and the location text. */
-type TranslatedFeature = { translation?: string; locationString?: string };
+/** A feature as {@link translateFeature} reads it: the stored protein and its location's 3′ end. */
+type TranslatedFeature = { translation?: string } & Partial<Pick<BioFeature, 'strand' | 'segments'>>;
 
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
@@ -347,10 +352,11 @@ export function translateFeature(
  * `/translation` (recomputed via the fallback).
  */
 export function isFeatureBroken(
-  feature: { translation?: string },
+  feature: { translation?: string; metadata?: Record<string, unknown> },
   codingSeq: string,
   translTable = 1,
 ): boolean {
+  if (!validCodonStart(feature.metadata?.codon_start) || !isNcbiGeneticCode(translTable)) return false;
   const stored = feature.translation;
   if (stored) return /[_*]/.test(stored.slice(0, -1));
   return detectEarlyStop(codingSeq, translTable);

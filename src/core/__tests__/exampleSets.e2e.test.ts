@@ -43,7 +43,7 @@ import { EXAMPLES, EXAMPLE_SETS, EXAMPLES_DIR, loadExample, typeHistogram } from
 
 function loadSet(paths: readonly string[]): SeqRecord[] {
   return paths.map(path => {
-    const records = parseGenBank(loadExample(path));
+    const records = parseGenBank(loadExample(path)).records;
     expect(records, path).toHaveLength(1);
     return records[0];
   });

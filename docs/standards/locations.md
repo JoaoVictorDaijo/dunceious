@@ -41,11 +41,16 @@ if Dunceious ever offers it, it must be labelled as such.
 
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
-**Dunceious.** Deviates — [#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225). The structured model reads `order` as `join`
-(`src/core/genbank/locationParser.ts:108`). The details window reads `order(` from the raw
-location text instead and never joins it (LOC-7); an edited feature has lost that text. The original text survives an unchanged
-GenBank export (`featureParser.ts:79`, `serialize.ts:32`); after a geometry or strand edit the
-location is rebuilt as `join(...)` (`serialize.ts:40`).
+**Dunceious.** Conforms ([#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225)). The
+parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`), so edits and
+selection export keep it, and a rebuilt location is written as `order(...)`. Readers ask
+`isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
+count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
+sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its
+intervals are drawn as separate bars that highlight together on hover. GFF3 has no operator, so
+export writes `insdc_operator=order` on each row and import reads it back. Projects saved before
+the field existed get it from their location text on load. Tested against O1 (Biopython 1.88
+write-back).
 
 ## LOC-3. `complement()`, whole feature or per interval
 
@@ -65,8 +70,15 @@ strands are unknown. Others unknown.
 **Dunceious.** Conforms for whole-feature, per-interval and nested outer complements
 ([#239](https://github.com/JoaoVictorDaijo/dunceious/issues/239)). A nested
 outer complement reverses the evaluated interval order and flips each interval's strand
-(`src/core/genbank/locationParser.ts`). The whole-feature J2 shape remains in written order
-with a parent strand; extraction reverse-complements the joined result once. Parser, extraction,
+(`src/core/genbank/locationParser.ts`). `parseLocation` evaluates `complement()` and `join()` at
+any depth, so a nested `join` such as `join(1..5,complement(join(10..20,30..40)))` is read in
+full ([#241](https://github.com/JoaoVictorDaijo/dunceious/issues/241); checked against the INSDC
+text applied by hand, no reference tool). The whole-feature J2 shape remains in written order
+with a parent strand; extraction reverse-complements the joined result once. Other per-strand
+shapes are stored in evaluation order with `writtenOrder`, the written position of each interval,
+and GenBank export rebuilds the nested written form from it. GFF3 rows cannot tell
+`join(complement(a),complement(b))` from `complement(join(a,b))`, so export marks per-interval
+strands with `insdc_interval_strands=true` and import reads each row on its own strand. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
 
 ## LOC-4. Uncertain bounds
@@ -84,11 +96,16 @@ round-tripped. EMBOSS 6.6.0, Tested: round-tripped by `seqret`.
 ([release history](https://macvector.com/getting-started/macvector-major-release-details-and-history/));
 Artemis accepts fuzzy syntax. The full import-edit-export lifecycle is unknown everywhere.
 
-**Dunceious.** Deviates — [#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226). The numeric model strips the markers
-(`locationParser.ts:102`); the details window flags a partial feature from the raw text
-(LOC-7). The raw text survives an unchanged GenBank export and GFF3
-partial attributes, but is lost after a geometry or strand edit (`FeatureEditorModal.tsx:78,167`)
-or a selection export (`useFileHandlers.ts:360`).
+**Dunceious.** Conforms ([#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226)). Each
+interval end keeps its marker (`FeatureSegment.partialStart` for `<`, `partialEnd` for `>`), so
+edits and selection export keep it and GenBank export writes it back. An edit keeps both markers,
+including on the end whose number changed; adding or removing one waits for the feature editor's
+toggles (#231, #246). A selection marks the kept interval facing anything it drops, a cut part or a
+whole interval. 5′/3′ partiality is read from the flags in evaluation order
+(`isFivePrimePartialLocation`, `isThreePrimePartialLocation`), and the details window names it.
+GFF3 carries the markers per row as `insdc_partial_start`/`insdc_partial_end`. Projects saved
+before the flags existed get them from their location text on load. Tested against P1 and the 13
+`table2asn` 1.29.324 cases pinned by #278.
 
 ## LOC-5. Between-base sites
 
@@ -102,8 +119,17 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 
 **Applications.** Unknown.
 
-**Dunceious.** Deviates — [#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230). `parseCoord` reads `10^11` as bases 10–11, length 2
-(`locationParser.ts:90`).
+**Dunceious.** Conforms ([#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230)) for a
+site that is the whole location or its `complement()`. `parseLocation` reads `n^n+1`, and `n^1` at
+the end of a circular record, as the empty interval at boundary n (`BioFeature.betweenBases`, with
+`start === end`); `isBetweenBasesSite` is what readers ask. The site has length 0, no feature
+sequence, and is drawn as a rule on the boundary with a caret under it. GenBank export writes it
+back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) with
+`insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
+both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
+adjoin or lie outside the record. A site inside `join`/`order` or as a span end is valid INSDC but
+not supported; #298 refuses it as unsupported. Tested against S1 (Biopython 1.88: `[10:10]`,
+written back as `10^11`).
 
 ## LOC-6. Features crossing the origin
 
@@ -121,8 +147,8 @@ GFF3 rows beyond the end only for circular references
 interval starts after the last ends **and** one interval starts at base 1
 (`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
 in written order, including when a nested outer complement reverses sequence evaluation order.
-`featureEnvelope` recovers that order from retained `locationString`; if editing discards the
-text while retaining evaluation-order segments, it can infer a false wrap (#241). GFF3 export writes
+`featureEnvelope` reads that order from `writtenOrder` (LOC-3), so an edit that clears the text no
+longer infers a false wrap; GFF3 carries it as `insdc_written_order`. GFF3 export writes
 the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
 
 ## LOC-7. The sequence of a multi-interval feature
@@ -171,10 +197,48 @@ first, the default the standard defines:
 **Dunceious.** The sequences conform for supported location forms under the decision in
 [#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
 outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
-track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
-read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
-longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
+track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2) and
+partial ends from its per-end flags (LOC-4). A location with intervals in other entries has no
+feature sequence; only its region in this record is shown (LOC-8). Tested against the oracle for J1–J5, W1, W2, O1 and P1
 (`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
 caption names both steps, inner complements first and then the outer one. The interval-sum
 and region lengths have distinct labels, the presentation requirement tracked by
 [#227](https://github.com/JoaoVictorDaijo/dunceious/issues/227).
+
+## LOC-8. Intervals in other entries
+
+**Rule.** §3.4.2.1(e): "A location in a remote entry (not the entry to which the feature table
+belongs) can be specified by giving the accession-number and sequence version of the remote entry,
+followed by a colon ":", followed by a location descriptor which applies to that entry's
+sequence". §3.4.3: `join(1..100,J00194.1:100..202)` "Joins region 1..100 of the existing entry with
+the region 100..202 of remote entry J00194". §3.4.2 allows bounds beyond the presented sequence only
+for a remote entry.
+
+**Reference tools.** Biopython 1.88, Documented (not run here): `SimpleLocation.ref` holds the
+accession, and `extract()` needs the referenced record passed in `references`.
+
+**Applications.** Unknown.
+
+**Dunceious.** Conforms ([#245](https://github.com/JoaoVictorDaijo/dunceious/issues/245)).
+`parseLocation` keeps each remote interval as a `RemotePart` (accession, that entry's coordinates,
+strand, partial ends and its place among the stored intervals); `segments` holds only this
+record's intervals. Dunceious doesn't load other records, so a feature with remote parts has no
+feature sequence, translation or early-stop flag (`extractFeatureSequence`, `definesOneSequence`).
+The viewer draws its local parts, and the tooltip, details window and length name the rest ("100 bp
+in this record, plus 1 interval in J00194.1"). Import logs one warning per file naming those
+features, also in the browser console. GenBank export writes the parts back; GFF3, which has no
+remote reference, carries them as `insdc_remote` and its export report counts them, leaving out a
+feature with no interval in this record. Import validation refuses a remote interval that starts
+before base 1 or runs backwards (§3.4.2 lifts only the local length limit), and refuses a
+between-base site in another record (`AB123.1:2^3`) as unsupported (`guardRemoteSite`).
+
+## GenBank import enforcement
+
+`src/core/genbank/locationValidation.ts` refuses unreadable or partially parsed locations,
+out-of-range local coordinates, mixed join/order syntax, non-adjoining between-base sites,
+and reversed fuzzy markers. Nested joins and nested complements are evaluated recursively.
+`guardOrderLocation`, `guardBetweenBaseSite`, `guardRemoteLocation`, `guardOneOfPosition` and
+`guardSiteInCompound` named legal but unsupported forms separately. #306 removed the first three:
+`order()` (LOC-2), between-base sites (LOC-5) and remote locations (LOC-8) are read. The one-of
+and compound-site guards remain until their semantics are supported. Remote intervals are not
+local segments, so they are never tested against local sequence bounds. Existing saved project handling is unchanged.

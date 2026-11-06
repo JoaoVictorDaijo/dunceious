@@ -26,7 +26,7 @@ import { bench } from './perfUtils';
 
 const [record] = parseGenBank(readFileSync(
   new URL('../examples/nucleotide/arabidopsis-chloroplast-NC_000932.gb', import.meta.url), 'utf8',
-));
+)).records;
 const records = [{ ...record, alignedSequence: record.sequence }];
 
 describe('processTransposition on a complete chloroplast genome', () => {

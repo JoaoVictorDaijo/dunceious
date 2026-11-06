@@ -20,6 +20,7 @@
 
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { readDetails } from '@/src/domain/bio/details';
+import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { annotationFeatures, isPartial, isUnannotated } from '@/src/domain/bio/recordStatus';
 import { matchesAnnotationFilters, matchesSequenceFilters, type HubFilters } from './hubModel';
 import { featureLength } from './viewModel';
@@ -72,9 +73,6 @@ function lengthOf(row: FeatureRow): number {
   return featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
 }
 
-function partialLocation(feature: BioFeature): boolean {
-  return /[<>]/.test(feature.locationString ?? '');
-}
 
 function featureSortKey(feature: BioFeature): string {
   return JSON.stringify([feature.type, feature.name, feature.start, feature.end, feature.strand,
@@ -104,7 +102,7 @@ function compareGroup(organism: string | null, identity: string, records: SeqRec
   for (const type of types) {
     const lengths = baseline.flatMap(record => {
       const rows = byRecord.get(record.id)?.get(type);
-      return rows?.length === 1 && !partialLocation(rows[0].feature) ? [lengthOf(rows[0])] : [];
+      return rows?.length === 1 && !isPartialLocation(rows[0].feature) ? [lengthOf(rows[0])] : [];
     });
     if (lengths.length) medians.set(type, median(lengths));
   }
@@ -116,7 +114,7 @@ function compareGroup(organism: string | null, identity: string, records: SeqRec
       if ([...entries.values()].some(rows => rows.length > 1)) state = 'duplicate';
       else if (compared && [...entries].some(([type, rows]) => {
         const reference = medians.get(type);
-        return reference !== undefined && !partialLocation(rows[0].feature)
+        return reference !== undefined && !isPartialLocation(rows[0].feature)
           && Math.abs(lengthOf(rows[0]) - reference) > reference * 0.03;
       })) state = 'odd';
       else state = 'present';
