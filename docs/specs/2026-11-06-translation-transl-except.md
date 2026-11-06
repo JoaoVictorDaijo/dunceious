@@ -17,12 +17,18 @@ This is the second PR for [#253](https://github.com/JoaoVictorDaijo/dunceious/is
 It extends PR 1's **stored-protein provenance model**, specified in
 [Translation stored protein provenance](2026-11-06-translation-stored-protein-provenance.md)
 on `fix/cds-translation-invalidation`, read at branch head
-[`b6f91a06f4f10fbddea57543e995a5cb0b77172a`](https://github.com/JoaoVictorDaijo/dunceious/blob/b6f91a06f4f10fbddea57543e995a5cb0b77172a/docs/specs/2026-11-06-translation-stored-protein-provenance.md).
-The relative sibling link becomes local after integration; the pinned branch-head link identifies
+[`aa88f37712cd4d4dbca7c37799662624a7ce1ce8`](https://github.com/JoaoVictorDaijo/dunceious/blob/aa88f37712cd4d4dbca7c37799662624a7ce1ce8/docs/specs/2026-11-06-translation-stored-protein-provenance.md).
+The requested baseline `250f1cc` was also read; the current-head revision adds the
+protein-record eligibility guard preserved below. The relative sibling link becomes local after integration; the pinned branch-head link identifies
 the version read here. References to that model are by name because its review is ongoing.
 This checkout does not yet contain its
 proposed `translation.ts`; implement PR 2 after PR 1, reconciling names against the merged model.
 This document does not change source code or close #253. PR 3 owns codon marks and hover design.
+Its revised branch head was read at
+[`a3f2aea83f3b47679f3fdc3e3ab9d20865ce85c6`](https://github.com/JoaoVictorDaijo/dunceious/blob/a3f2aea83f3b47679f3fdc3e3ab9d20865ce85c6/docs/specs/2026-11-06-translation-codon-marks.md).
+PR 2 owns the exception contract; PR 3 consumes it. Revised PR 3 already includes stop-over-X,
+length-aware counts/explanations and removed-terminal evidence; these are compatible requirements,
+not remaining competing policies. Its final implementation must satisfy the integration contract below.
 
 Binding owner decisions override drafts: one stored protein, imported `/translation` read-only,
 recompute on biological edits, preserve and lightly fill curated differences, omit computed
@@ -102,7 +108,7 @@ Extend PR 1 precisely as follows:
 | PR 1 type/function/state | PR 2 extension |
 |---|---|
 | `BioFeature` in `domain/bio/types.ts` | Add one canonical ordered `translationExceptions?: string[]` containing logical qualifier values, including malformed/unsupported ones. No duplicate `metadata.transl_except` store. |
-| `ConceptualTranslation` | Keep `ok` fields `residues`, `possible`, `internalStops`, `threePrimeIndeterminate`; add diagnostics and occurrence evidence to **both** variants, including removed-stop and failed/deferred-entry evidence below. Extend `unavailable` with invalid/unresolved/conflicting exception reasons (policy open). Retain all PR 1 eligibility reasons: `invalid-code`, `unknown-strand`, `nonlocal-location`, `unknown-completeness`, `empty`. |
+| `ConceptualTranslation` | Keep `ok` fields `residues`, `possible`, `internalStops`, `threePrimeIndeterminate`; add diagnostics and occurrence evidence to **both** variants, including removed-stop and failed/deferred-entry evidence below. Extend `unavailable` with invalid/unresolved/conflicting exception reasons (policy open). Retain all PR 1 eligibility reasons: `protein-record`, `invalid-code`, `unknown-strand`, `nonlocal-location`, `unknown-completeness`, `empty`. |
 | `conceptualTranslation(feature, record)` | Replace the blanket `unsupported-exception` return with parsing, coordinate resolution and NCBI substitution after ordinary translation/initiator handling, before final stop removal and stop/count analysis. |
 | `initiatorResidue(codon, translTable)` | Signature and context-free Starts-row meaning unchanged. An applied first-codon exception overrides its result inside `conceptualTranslation`. |
 | `compareTranslation(stored, conceptual)` | Signature unchanged; read exception-adjusted `possible`/residues. Do not report an explained recoding as a mismatch. Preserve revised PR 1's stop precedence: effective internal `*` differs from every stored non-stop, including X; ordinary stored X remains a wildcard. |
@@ -139,12 +145,15 @@ contract above.
 For multipart CDSs use the existing `(seqid, ID)` grouping in `src/core/formats/gff3.ts`,
 not new Parent-based regrouping. Append each row's items in file row/list order before
 biological segment reordering. Preserve identical occurrences and different values; application
-deduplication is a separate owner question. Do not discard later rows or sort qualifier values.
+normalization follows NCBI equality below; only an additional app refusal remains open.
+Do not discard later rows or sort qualifier values.
 GFF3 export reads the canonical array directly, percent-encodes each item including internal
 commas, then joins items with literal commas. Emit the full list once, on the first emitted
 CDS row, omitting it on subsequent rows. This serialization follows the lossless multiplicity
 contract: reimport must not manufacture duplicates. Metadata-only enumeration is insufficient.
-Whole-record export in both formats retains invalid values as data with computation warnings.
+Whole-record GFF3 export retains invalid values by percent encoding with computation warnings.
+GenBank preservation is bounded by the safe-representation contract below; no arbitrary-text
+round-trip promise overrides qualifier syntax safety.
 Selection GFF3 export follows the same transform and unresolved-export decision as GenBank;
 neither format may claim stale entry coordinates are successfully rebased.
 
@@ -159,10 +168,10 @@ even though it is absent from `residues`/`possible`; PR 3 needs this for termina
 A failed entry remains addressable; deferred mapping is not an off-frame/outside-CDS finding.
 
 An independent syntax/vocabulary/note pass visits **every** entry before eligibility exits.
-Preserve PR 1's primary reason precedence: invalid code, unknown strand, nonlocal location,
+Preserve PR 1's primary reason precedence: protein record, invalid code, unknown strand, nonlocal location,
 unknown completeness, empty extraction. These unavailable results still carry all determinable
 diagnostics; checks requiring missing geometry or translation are deferred explicitly, never
-guessed. An invalid exception must not replace an existing primary `invalid-code` reason.
+guessed. An invalid exception must not replace an existing primary `protein-record` or `invalid-code` reason.
 If eligible translation becomes unavailable under annotation policy, preserve determinable
 successful local applications, including removed terminal slots, alongside failures. This is
 partial evidence, never a verified whole-CDS protein, count, comparison or early-stop claim.
@@ -184,7 +193,8 @@ For an ordinary full-codon exception, the resolved bases must be precisely the t
 coding offsets `3k, 3k+1, 3k+2`, in the CDS's biological orientation. `k` is a zero-based codon
 index; user warnings show `k+1`. A mapping that crosses an intron can still denote one codon;
 a contiguous genomic interval containing intronic bases cannot. Discontinuous exception syntax
-and repeated CDS base occurrences require the decisions below. An off-frame interval must not
+requires the reference acceptance work below; repeated CDS base occurrences require the owner
+policy below. An off-frame interval must not
 be rounded down merely because NCBI's low-level substitution loop divides its first offset.
 
 Support a local base point/range and explicit `complement(...)`. Parse accession syntax without
@@ -195,14 +205,14 @@ PR 1's known-strand and normalized-completeness gates; false on absent segments 
 of completeness. `definesOneSequence` excludes multipart `order()` and remote parts but does
 not check strand or emptiness. Do not replace it with a text search for `order`, or use
 interior partial markers to determine biological end completeness. A between-base site is not a codon base.
-Unknown amino-acid names are outside the standard vocabulary; tolerance and refusal policy remain open below, and any fallback must be reported.
+Unknown amino-acid names are outside the standard vocabulary; tolerance and computation-availability policy remain open below, and any fallback must be reported.
 
 Import and authoring accept **both** one-letter and three-letter forms in INSDC 11.4
 §7.4.3: Sec/U→U, Pyl/O→O, Asx/B→B, Glx/Z→Z, Xle/J→J, Xaa/X→X and every ordinary
 residue pair. TERM→`*` and OTHER→X follow their qualifier-specific rules. One-letter forms
 are standard-conforming, not tolerance cases. Full names such as Selenocysteine are not
 legal abbreviations; do not label them standard values. Preserve `/note` for OTHER and terminal polyadenylation; missing explanatory
-notes produce conformance diagnostics rather than invented text. Alias/case tolerance is open.
+notes produce conformance warnings rather than invented text (import policy below). Alias/case tolerance is open.
 An exception is an annotation assertion, not a test that the DNA already encodes that residue;
 ordinary amino-acid substitutions and stop readthrough are allowed. Redundancy may be reported
 but must not change the derived protein.
@@ -219,12 +229,18 @@ For example, CDS `1231..1235`, coding `ATGTA`, `(pos:1234..1235,aa:TERM)` gives 
 stop removal. `complement(1231..1235)` over forward `TACAT` uses
 `(pos:complement(1231..1232),aa:TERM)` for the same result.
 Apply the explicit TERM before the ordinary leftover-base rule can discard the suffix. Without
-it PR 1's N-padding rule remains unchanged. Non-TERM short exceptions, arbitrary short suffixes
-and contradictory 3′-partial markers are open decisions; do not infer completion from length alone.
+it PR 1's N-padding rule remains unchanged. Internal short exceptions, non-TERM short suffixes, non-T/TA TERM suffixes
+and contradictory 3′-partial markers have separate tolerance questions below; none is standard
+TAA completion. Do not infer completion from length alone.
 
 ### Translation order and stops
 
-1. Run the independent all-occurrence diagnostics pass above.
+0. Preserve PR 1's record gate: declared `moleculeType: 'protein'` returns primary
+   `protein-record` before code lookup, coding extraction, codon expansion or substitution.
+   Do not infer nucleotide type from A/C/G/T-looking protein letters. No #288 assumption
+   bypasses this gate. DNA/RNA and absent-type nucleotide defaults remain unchanged.
+1. Run the independent all-occurrence syntax/vocabulary/note pass above. It may retain text
+   diagnostics on protein records but cannot initiate nucleotide mapping or computation there.
 2. Check PR 1 eligibility in its existing precedence, then extract/map if eligible. Return
    its primary unavailable reason with evidence on failure; otherwise resolve all exceptions,
    including entries after a stop. Defer only checks lacking required inputs.
@@ -257,7 +273,7 @@ the adjusted computed result; an unapplied exception must not leave a definite o
 stop/count claim. PR 3 implements marks; PR 2 supplies their scientific state and reasons.
 
 All PR 1 recompute triggers remain: start/end, segments/order, strand, phase/codon_start, table,
-partial ends, exception values, CDS type transitions. Record sequence changes also invalidate
+partial ends, exception values, CDS type transitions. Record molecule-type and sequence changes also invalidate
 maps and computed checks. After a biological edit, successful adjusted translation without
 internal stops replaces `metadata.translation` and sets source computed; internal stops or an
 unavailable result remove it, source removed, with a named warning. Removing the last exception
@@ -280,15 +296,37 @@ conflicting and unsupported entries are distinct. Imported `/translation` stays 
 Exception diagnostics cannot be suppressed by `/exception`; PR 1's broad `/exception` suppression
 applies only to its stored-protein mismatch warning. Successful exceptions participate in the
 ordinary once-per-file differing-CDS count, at both GenBank and attached GFF3 entry points.
-Severity and file-refusal scope for malformed exception *values* remain open; owner rules already
-refuse broken feature geometry and missing required qualifiers. A valid remote qualifier must
+File acceptance is settled by the owner policy: [#286](../../../../../keep/murilo-review/decisions.md#L5)
+warns for qualifier conformance, while [#298 item 16](../../../../../keep/murilo-review/decisions.md#L44)
+refuses missing structurally mandatory feature-key qualifiers. The owner decision file is local
+coordination evidence, not a distributable repository dependency. Here an unusable exception value,
+including a bad position inside that value, is qualifier conformance, not malformed CDS geometry:
+warn and retain the imported protein. Missing explanatory notes for OTHER/polyadenylation also
+warn; `/note` is not a structurally mandatory qualifier of the CDS key. Never invent a note.
+Broken CDS feature geometry/sequence still follows upstream refusal guards. This classification
+separates file acceptance from computation availability; failed-value computation policy remains
+open. It preserves #298's guards without reopening a file-refusal question. A valid remote qualifier must
 not be called invalid syntax just because the local translator cannot resolve it.
 
 ## GenBank, GFF3 and selection export
 
-Whole-record GenBank export emits each original logical `/transl_except` value as its own qualifier,
-unquoted in standard structured form, preserving order and multiplicity; normal line wrapping
-may change. Do not synthesize them from protein differences. Do not drop qualifiers because a
+Whole-record GenBank export emits representable logical `/transl_except` values as separate
+unquoted structured qualifiers, preserving order and multiplicity. Before publishing any bytes,
+preflight the **actual formatted lines**, including inserted wraps: each occurrence must reparse
+as exactly one `transl_except` with the same logical value and no extra qualifier or feature.
+This is a serialization safety check, not biological validation; today's scalar parser cannot
+prove occurrence preservation. The implementation's occurrence-aware reader and writer must
+agree with the independent literal expectations below. Standard structured values remain
+unquoted; quoting arbitrary malformed text does not make it standard structured syntax.
+
+Literal quotes, control/line-break characters, leading qualifier syntax and wrap-created qualifier
+lines cannot be silently normalized or emitted if logical-value or structure preservation fails.
+No unsafe file may be offered as a successful export. Keep the canonical values and protein in
+memory/project data; safe GFF3 remains available. The owner must choose block-whole-file versus
+explicit warned omission below for GenBank-unrepresentable values. Until resolved that recovery
+path is not implementation-ready; neither silent dropping nor a private escaping scheme is
+approved. This limit replaces the unconditional malformed-value preservation promise.
+Do not synthesize qualifiers from protein differences. Do not drop qualifiers because a
 protein was removed. `/translation` follows PR 1: stored curated protein if untouched, recomputed
 adjusted protein after a successful biological edit, omitted with warning after failure/internal
 stop. Diagnostics must reach the export report/preview, not only a hidden console.
@@ -303,31 +341,75 @@ Never copy absolute text unchanged into a smaller record (Biopython 1.88's known
 If the selection loses any exception base or changes its codon membership, it is no longer a
 verified applicable break. Treatment of partially retained, malformed or unresolved values is
 an owner choice below; never silently export them as if successfully rebased. Whole-record
-round-trip must retain those values even when they cannot be computed.
+round-trip retains noncomputable values when safely representable; GenBank-unrepresentable
+values follow the separate recovery question, never an unsafe-success claim.
+
+## Settled rules, reference work and sibling integration
+
+INSDC's listed one-/three-letter forms, single-codon geometry and terminal T/TA→TAA TERM are
+settled above. NCBI cleanup's equal normalized location/residue collapse is the normalization
+contract: apply once and associate all raw occurrences with that application; never erase them.
+An additional app refusal of duplicates would be a separate product restriction below.
+Exact current-record accession identity may resolve only to the same record/base map; a different
+loaded record is not made eligible by being in memory. PR 1's nonlocal-CDS gate remains intact.
+Cross-record computation would expand that contract and needs a separate design, outside PR 2.
+Alias recognition within this record is a separate question below; no network fetch is permitted.
+
+The following is **technical acceptance work, not an owner option to waive evidence**: obtain
+reproducible NCBI parser/cleanup/validator fixtures for split-codon syntax and each tolerance case
+below, identifying version/options and distinguishing normalization, translation and diagnostics.
+Standard-derived base mapping is established; NCBI text acceptance is not execution-verified.
+For `join(1..4,10..14)` with bases 1..4=`ATGT`, 10..14=`GATAA` and
+`(pos:join(4,10..11),aa:Sec)`, the mapped codon is TGA and expected protein is `MU`.
+A hand derivation alone does not satisfy the parser gate. If probes expose a remaining product
+choice, formulate that question with their evidence; do not replace the gate by a shipping vote.
+No external executable/download is part of this spec revision.
+
+**PR 3 consumption requirements:** use adjusted `possible`, `residues` and `internalStops` from
+PR 2; never reinterpret raw DNA or reparse qualifiers to undo an exception. With `ATGAAACCCTAA`,
+TERM at 4..6 and stored `MXP`, show lighter X plus the base-facing stop edge, accessible text
+“Annotated X (unknown); AAA ordinarily reads K; translation exception (pos:4..6,aa:TERM)
+specifies stop”, `differing=[1]`, one codon disagreement and one discrepant CDS in the file
+warning (absent `/exception`). Hub/feature/codon explanations share that count; no zero-codon
+clause. Internal-stop status is independently true. Stored `M*P` has differing=[] and the
+verified-stop mark; both have three positions and one internal stop. PR 3's revised head already
+states this; retain it and add the exact shared fixture above alongside its existing MXA case.
+Preserve applied, failed and deferred occurrences on unavailable results and real-base/pre-removal
+indices for partial TERM. PR 3 must replace its numbered “Open decision 3” dependency with the
+final named PR 2 failed-value policy once settled; no PR 3 default may resolve that question.
+Its whole-result-unavailable branch cannot certify even an individually applied stop/mismatch.
+PR 3 must extend its pre-projection eligibility gate to exclude `protein-record`, even with
+known local geometry and stored protein: no cells, lane, chips, codon targets or assumed-table
+fallback. Its current “other unavailable reasons” permission must exclude this reason. Add the
+protein-record fixture below at projection/details boundaries, including forged cache reload.
+Optional terminal fill remains a PR 3 presentation decision, not a PR 2 computation choice.
 
 ## Open decisions
 
-These are proposals, not defaults. Resolve before implementing the affected path; additional
-reference execution can settle technical questions but cannot approve a product policy.
+Each row is one owner question. Options are proposals, not defaults; obtain the listed reference
+work first where needed, then resolve before implementing the affected path. Legal abbreviations,
+file-conformance warnings and the parser evidence gate are not open decisions.
 
-| Question/options | Reference behavior and limit | Recommendation (unconfirmed) |
+| Owner question/options | Reference behavior and limit | Recommendation (unconfirmed) |
 |---|---|---|
-| On biological edits, should the owner retain absolute positions and revalidate, shift them, or remove affected values? | INSDC sets entry coordinates, not editing; inspected NCBI files have no editor policy. Artemis endpoint arithmetic ignores introns. | Retain absolute evidence and revalidate; explicit user repair. |
-| For OTHER/Xaa comparison, should the owner use all sense residues or literal X? | INSDC defines unspecified residue; NCBI emits X, not this app's comparison metric. | All supported sense residues excluding stop; preserve PR 1 stop precedence. |
-| For identical assertions, should application collapse them once or reject duplicates? | NCBI cleanup deduplicates equal normalized location/residue pairs; raw loop overwrites. | Apply once, preserve every occurrence and association. |
-| For conflicting assertions, should computation be unavailable, first-wins, or emulate NCBI's full normalization pipeline? | Raw NCBI loop is last-wins in object order; cleanup sorts; validator names conflicts. No standard precedence or executed full-pipeline oracle. | Unavailable; raw last-wins is not a standard rule. |
-| With any failed value, should computation be unavailable or apply a valid subset with warning? | NCBI raw substitution is permissive; full parser/validator behavior unexecuted. Biopython ignores all breaks. | Whole-CDS unavailable, retain partial evidence. |
-| For nonstandard short cases, should import retain unusable evidence or tolerate forms confirmed by NCBI probes? | INSDC settles full ordinary triplets and terminal T/TA→TAA TERM. Internal short positions, non-TERM tails and non-T/TA TERM are outside that settled case; offset division is no validator. | Retain as unusable; broaden only on independent evidence. |
-| For TERM at a marked 3′-partial end, should computation be unavailable or honor TERM with a contradiction warning? | INSDC completion example and raw NCBI loop do not settle contradictory partial annotation; validator probes pending. | Unavailable until corrected. |
-| For omitted complement on a minus CDS, should import repair orientation or leave it unusable? | NCBI cleanup assigns feature strand and repairs some minus intervals; acceptance/diagnostics unexecuted. | Probe, then adopt documented repair with diagnostic if confirmed. |
-| For explicitly contradictory strand, should import repair it or leave it unusable? | NCBI strand assignment does not independently establish explicit-contradiction acceptance. | Unusable pending validator evidence; no silent reinterpretation. |
-| For split-codon syntax, should support wait for NCBI parser fixtures or ship on standard-derived mapping fixtures alone? | NCBI delegates to ReadLocFromText and wraps lists in join; nested acceptance unexecuted. EMBOSS rejects joins; JBrowse uses only first range. | Wait for parser/validator evidence; retain raw syntax meanwhile. |
-| For accession-qualified exceptions, should resolution accept exact current-record identity only or also explicit aliases/other loaded records? | INSDC permits remotes; NCBI scope resolves identities. Neither authorizes fetching; PR 1 nonlocal-CDS gate still applies. | Exact current-record identity initially; others unresolved, never fetch. |
-| For repeated CDS base visits, should ambiguous mappings be unavailable or require an explicit occurrence selector? | NCBI offset loop is not proof of unique mapping; no inspected tool establishes a selector contract. | Unavailable; no endpoint heuristic. |
-| For nonstandard names/case/whitespace, should import diagnose unusable text or normalize confirmed NCBI-tolerated forms? | INSDC legal one/three-letter forms and NCBI GFF list encoding are settled, excluded here. General NCBI lookup is permissive; code-break aliases untraced. | Preserve text and diagnose; normalize only after reference probes, never label full names standard. |
-| For unusable values, should import warn or refuse the file? | NCBI message names establish no severity; owner #286/#298 already governs broken geometry and missing required qualifiers. | Warn, keep imported protein, verification unavailable; confirm classification. |
-| For missing explanatory notes, should import warn or refuse as a required-qualifier violation? | INSDC specifies notes for OTHER/polyadenylation; contextual required-qualifier classification under owner #298 remains unconfirmed. | Warn and refresh on note edits; confirm classification, never invent notes. |
-| When selection cannot retain/rebase a break, should export block the affected CDS, omit qualifier with warning, or omit CDS? | INSDC entry coordinates forbid a stale-success claim; Biopython stale copying is no oracle. NCBI extraction policy unknown. | Block affected CDS export with actionable report and whole-record alternative, in both formats. |
+| On biological edits, retain absolute positions and revalidate, shift them, or remove affected values? | INSDC sets entry coordinates, not editor maintenance; NCBI sources show no editor policy. Artemis endpoint arithmetic misses introns. | Retain absolute evidence and revalidate; explicit repair. |
+| For conceptual OTHER/Xaa, compare as all sense residues or as literal X? | INSDC says unspecified; NCBI emits X, not this app's metric. All-sense means ACDEFGHIKLMNPQRSTVWYUO, excludes stop; expand stored B→DN, Z→EQ, J→IL by set overlap, stored X stays PR 1's ordinary wildcard. Literal-X differs from every concrete/ambiguous stored non-X; stored X still matches. Neither option overrides definite-stop precedence. | All-sense set including U/O with defined ambiguity overlap. |
+| Should the app additionally make computation unavailable for identical normalized assertions, or accept NCBI's deduplicated application? | NCBI cleanup sorts and collapses equal location/residue pairs; normalization itself is settled. Both options retain raw occurrences; neither refuses the input file. | Accept normalized single application. |
+| For conflicting assertions, make computation unavailable or follow a fully evidenced NCBI normalization precedence? | Raw loop last-wins is not a full-pipeline oracle; cleanup sorts and validator names conflicts. Full ordering/severity probes pending. | Unavailable; no invented first/last priority. |
+| With a failed value, make the whole computation unavailable or expose a valid-subset result with explicit incomplete-verification diagnostics? | NCBI raw loop permissive; full parser/validator pipeline unexecuted. Biopython ignores breaks. Import warnings are settled independently. | Whole-CDS unavailable, retain partial evidence. |
+| For an internal one-/two-base exception, leave it unusable or tolerate an NCBI-confirmed single-codon interpretation? | INSDC's short exception is terminal T/TA TERM; offset division proves no internal tolerance. Probe this shape separately. | Unusable; never round across codons. |
+| For a short non-TERM terminal exception, leave it unusable or tolerate an NCBI-confirmed mapping? | INSDC terminal completion is TERM only. Probe separately from internal short forms. | Unusable. |
+| For a non-T/TA short TERM suffix, leave it unusable or tolerate an NCBI-confirmed interpretation? | INSDC establishes TAA completion, not arbitrary suffix completion; probe separately. | Unusable; no invented A-completion. |
+| For TERM at a marked 3′-partial end, make computation unavailable or honor TERM with a contradiction warning? | Standard completion example and raw loop do not settle the conflict; validator probes pending. | Unavailable until corrected. |
+| For omitted complement on a minus CDS, repair orientation with a diagnostic or leave it unusable? | NCBI cleanup assigns CDS strand and repairs some minus intervals; exact parser/diagnostic probes pending. | Adopt documented repair only after confirmation. |
+| For explicitly contradictory orientation, repair with a diagnostic or leave it unusable? | Explicit contradiction is distinct from omission; raw strand assignment is insufficient evidence. Probe separately. | Unusable pending evidence. |
+| Within the current record, accept only exact accession identity or also a defined alias set? | INSDC allows accession syntax; NCBI scope resolves identities. Exact same-record resolution is settled; no inspected oracle defines this app's alias set. | Exact identity initially; aliases unresolved until specified/verified. |
+| For repeated CDS base visits, make ambiguous mapping unavailable or expand scope to a separately designed occurrence selector? | No inspected reference establishes a representable selector in transl_except syntax; endpoint arithmetic cannot select a visit. | Unavailable; a selector requires a new design, not a guessed string. |
+| For nonstandard full residue names, leave text unusable or normalize confirmed NCBI aliases? | INSDC abbreviations are settled; helper alias acceptance untraced. Probe full names independently. | Preserve raw and diagnose; normalize only confirmed aliases. |
+| For nonstandard residue-name case, leave text unusable or normalize confirmed NCBI case variants? | Legal vocabulary does not settle tolerant parser case behavior; code-break probes pending. | Normalize only confirmed variants, preserving raw. |
+| For nonstandard whitespace in a structured value, leave text unusable or normalize confirmed NCBI forms? | Continuation unfolding and GFF list decoding are settled; other internal spacing needs separate probes. | Normalize only confirmed forms, preserving raw. |
+| If a selection cannot retain/rebase a break, block the entire selected-record file, omit the qualifier with a warning, or omit that CDS with a warning? | INSDC forbids claiming stale coordinates as rebased. Biopython's stale copy is not an oracle; NCBI extraction policy unknown. | Block the entire selected-record file; actionable report and whole-record alternative, subject to safe GenBank representation. |
+| For GenBank-unrepresentable exception values, block the entire requested file or omit those occurrences with an explicit data-loss report? | INSDC structured syntax and current formatter/parser cannot encode arbitrary logical strings. No inspected reference establishes a lossless arbitrary-text encoding. GFF3 percent encoding retains them. | Block the entire requested GenBank file; offer GFF3/project preservation. No implicit omission. |
 
 ## Independent-oracle validation
 
@@ -363,11 +445,11 @@ Conditional rows are acceptance gaps awaiting the decision above, not approved o
 | `1..12`, RNA `AUG UGA CCC UAA`, `4..6 Sec` | `MUP`; no conversion of the stored record to DNA | H ALPHA-1 + N substitution |
 | `1..9`, `ATG NNN TAA`, `4..6 Sec` | `MU`; adjusted possible set `U`, not every residue from NNN | N, annotation overrides codon |
 | Same without break / `ATG GCN TAA` without break | `MX` / `MA`; ordinary ambiguity handling preserved | gc.prt 4.6 hand expansion; PR 1 baseline |
-| `ATG TGA TAA`, Sec at `5..7` or `3..5` | off-codon diagnostic; no verified `MU` by rounding; final refusal policy open | H offsets + D TranslExceptPhase |
+| `ATG TGA TAA`, Sec at `5..7` or `3..5` | off-codon diagnostic; no verified `MU` by rounding; whole-computation availability open; input file warns | H offsets + D TranslExceptPhase |
 | Same, `pos:0..2`, `10..12`, `4..5 Sec`, or `pos:4^5` | respectively invalid bound, outside record/CDS, short non-TERM, between-base site; no verified substitution | H location/single-codon constraints; D CDSrange where applicable |
 | Empty record/CDS; no qualifier / empty qualifier value | unavailable empty / invalid-value diagnostic; no invented codon zero or verified empty protein | PR 1 empty contract + H: no bases to locate |
-| Two identical `4..6 Sec`; then Sec/Pyl at same codon | identical case `MU` if deduplication approved; conflicting case last-wins `MO` in raw NCBI object iteration, recommended unavailable in app | N; cleanup equality; D DuplicateTranslExcept; decision pending |
-| `pos:X22222:4..6,aa:Sec`, accession unavailable | retain raw qualifier; unresolved, no local substitution; severity policy open | H remote syntax; local-only owner constraint |
+| Two identical `4..6 Sec`; then Sec/Pyl at same codon | identical case `MU` under NCBI normalization unless the owner chooses additional app computation refusal; conflicting case last-wins `MO` in raw NCBI object iteration, recommended unavailable in app | N; cleanup equality; D DuplicateTranslExcept; decision pending |
+| `pos:X22222:4..6,aa:Sec`, accession unavailable | retain raw qualifier; unresolved, no local substitution; import warns; availability follows failed-value policy | H remote syntax; local-only owner constraint |
 | Malformed `(pos:4..6,aa:)`, unknown `aa:Banana` | recommended unparsed/invalid-amino-acid diagnostic; app fallback decision pending, never silently assert a known residue | H controlled vocabulary; NCBI cleanup initializes X and may retain it for absent aa; unknown-name helper untraced |
 | `1..>9`, `ATG TGA TGG`, `4..6 Sec` | `MUW`; 3′ partial does not block a full internal exception | H + N |
 | Terminal `ATGTA` marked 3′ partial with TERM; non-T suffix `ATGCC` with TERM | retained evidence and explicit unresolved decision; do not claim verified M | Standard's TAA completion precondition; no executed validator oracle |
@@ -381,6 +463,64 @@ Conditional rows are acceptance gaps awaiting the decision above, not approved o
 These additional cases protect the format and diagnostic contracts above. They are hand-derived
 acceptance requirements, not reports of executed tools. GFF3 rows below use nine tab-separated
 columns; `\t` denotes one literal tab and `\n` one newline. No stored protein unless specified.
+
+- **Current PR 1 molecule-type preservation:** declared protein record
+  `{id:'p', sequence:'GCTAAAGCT', moleculeType:'protein'}`, exact CDS `1..9`, +, frame 1,
+  table 1, stored `QQQ` imported and `(pos:4..6,aa:Sec)` → primary `protein-record`,
+  occurrence retained with deferred mapping/application, no nucleotide protein/count/stop/
+  mismatch claim. Table 99 or an additional malformed `(pos:4..6,aa:)` cannot replace
+  that primary reason; the latter still has a missing-residue text diagnostic. Rename preserves
+  QQQ/imported; end edit 9→6 removes it per PR 1. Reload with a forged successful cache
+  claiming AKA discards it and returns protein-record before publication; details/copy retain
+  QQQ/imported. PR 3 draws no codon lane, cells, chip or targets, including assumed ones.
+  Positive controls on DNA `GCTAAAGCT` or RNA `GCUAAAGCU` with that Sec exception give
+  `AUA` (GCT/GCU=A, AAA ordinarily K overridden to U, GCT/GCU=A); absent molecule type
+  retains PR 1's nucleotide default. Protein letters must never be reinterpreted as AUA/AKA.
+
+- **Unsafe GenBank representation, quotes:** FASTA `>r\nATGTGATAA\n`, GFF3
+  `r\t.\tCDS\t1\t9\t.\t+\t0\tID=c;transl_except=%22garbage%22`.
+  Canonical array is exactly `['"garbage"']` (both quote characters are data), no stored
+  protein. GFF3 re-export/reimport preserves that literal value. GenBank's naive
+  `/transl_except="garbage"` would instead reimport `garbage`, so it must fail preflight.
+  Under block-file policy produce no GenBank file and report feature c/occurrence 0/raw value;
+  under explicit omission policy report the omitted occurrence, and reimport the resulting
+  file with no transl_except occurrence and no stored protein. Neither approved option may
+  claim a lossless GenBank round-trip. The retained canonical array must remain unchanged.
+- **Unsafe GenBank representation, formatter-created qualifier:** same FASTA/feature, GFF3
+  attribute `transl_except=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%20%2Ftranslation%3D%22FAKE%22`.
+  Decoded value is exactly 64 A characters followed by ` /translation="FAKE"`. The current
+  58-character formatter puts the slash fragment on a new 21-space-indented line; a naive
+  reimport creates `metadata.translation='FAKE'`. Required outcome is preflight rejection
+  of that representation, even with no input newline. GFF3 round-trip retains the one raw
+  value; GenBank is either blocked (no file) or explicitly omits occurrence 0 with a report.
+  If an omitted-value file is emitted, reimport yields no exception and no stored protein;
+  it must never yield `FAKE`, a second qualifier, or a new feature. In both policies in-memory
+  values/provenance remain unchanged. A future lossless encoding would require a separately
+  reviewed reader/writer contract, not an implicit quoted-form workaround.
+- **Conformance warning versus computation:** DNA `ATGTGATAA`, CDS `1..9`, stored `MW`,
+  `(pos:4..6,aa:)` or `(pos:10..12,aa:Sec)` → file accepted, corresponding missing-residue
+  or outside-CDS qualifier warning, raw occurrence and stored `MW` retained. No verified
+  `MU` follows from either invalid entry; whole-CDS availability follows the failed-value
+  question. In contrast a CDS feature location `1..12` on that 9-base record is broken
+  feature geometry and refused upstream. DNA `ATGTA`, CDS `1..5`, `(pos:4..5,aa:TERM)`,
+  absent explanatory note → accepted with missing-note warning, conceptual `M` from
+  ATG/TAA completion; adding note `stop codon completed by polyadenylation` removes only
+  that warning, not a protein position. No refusal of either note state is an option here.
+- **Shared stop/X contract:** DNA `ATGAAACCCTAA`, CDS `1..12`, TERM at 4..6, stored `MXP` →
+  M/K/P/stop ordinarily, M/stop/P after override and terminal removal. `residues='M*P'`,
+  `possible=['M','*','P']`, `internalStops=[1]`, `differing=[1]`, unmatched tails empty/zero,
+  one discrepant CDS, three positions/one internal stop. PR 3 keeps X with stop edge and
+  accessible TERM explanation above. Stored `M*P` instead has no differing indices but
+  the same internal stop; stored `MKP` differs at [1]. Removing TERM gives `MKP`, stored X
+  ordinary wildcard → differing=[] and internalStops=[]; agreeing Sec at 4..6 with stored
+  `MUP` gives `MUP`, no differences or early stop. These reject counting lighter cells as
+  differences and raw-DNA stop analysis that ignores exceptions.
+- **Split syntax evidence gate:** record `ATGTNNNNNGATAA`, CDS `join(1..4,10..14)`,
+  `(pos:join(4,10..11),aa:Sec)` maps [4,10,11] to coding offsets [3,4,5], T/G/A → U;
+  `ATG TGA TAA` → `MU`. `(pos:4..11,aa:Sec)` includes bases 5..9 outside the CDS and must
+  not substitute U. Hand mapping establishes these outcomes but neither counts as an executed
+  NCBI text-parser fixture. With no versioned parser/validator evidence the acceptance gate
+  remains unmet; passing unit fixtures cannot turn it into a “ship on hand derivation” option.
 
 - **GFF3 ingress, egress and multiplicity:** FASTA `>r\nATGTGATAGCCCTAA\n`, GFF3
   `r\t.\tCDS\t1\t15\t.\t+\t0\tID=c;transl_except=(pos:4..6%2Caa:Sec),(pos:7..9%2Caa:Pyl)`.
@@ -431,9 +571,9 @@ columns; `\t` denotes one literal tab and `\n` one newline. No stored protein un
   `(pos:4..6,aa:OTHER)`, imported protein `MW`, source imported, absent note. Initial
   missing-note diagnostic changes to absent when note becomes `unusual amino acid`, and
   returns on removing that note; preview/save show the same refresh. Protein stays literal
-  `MW`, source stays imported, and positions stay 4..6 in all three states. If note absence
-  is classified as refusal by the owner, the boundary's refusal follows that decision;
-  no note-only edit may replace protein by conceptual `MX`.
+  `MW`, source stays imported, and positions stay 4..6 in all three states. Import accepts with
+  a conformance warning when the note is absent; no note-only edit may replace protein by
+  conceptual `MX`.
 - **Revised PR 1 preservation:** `ATGAAACCCTAA`, CDS `1..12`, break `(pos:4..6,aa:TERM)`,
   stored `MXP` → conceptual `M*P`, differing index `[1]` and internalStops `[1]`.
   This rejects the obsolete stored-X-hides-stop interpretation. Format 2 serialization of
@@ -464,14 +604,14 @@ with actual reused/added checks and executed results at handoff.
 | Guarantee/source | Existing protection | Decision |
 |---|---|---|
 | Correct base order, phase, strand and mapping | `translationHelpers.test.ts`: joined extraction asserts `[0,1,2,6,7,8]`; reverse extraction asserts reversed indices. `featureManager.test.ts`: phase deletion asserts coding `AATGAAACCC` through GenBank round-trip. | Reuse extraction regressions; add conceptual translation checks for literal adjusted proteins and split/nonzero-start maps. Detect endpoint subtraction and phase rounding. |
-| All repeated values survive parser, editor, project and writer | `qualifierParser.test.ts` checks ordinary multiline translation; `featureParser.test.ts` still asserts duplicate protein stores. No exception multiplicity protection found. Current GFF3 reader merges geometry but loses later-row attributes; writer enumerates metadata. | Add lossless parser→editor/project→GenBank/GFF3 round-trip at cheapest capable boundaries; distinguish two different breaks from last-value-only overwrite. Do not retain obsolete duplicate-protein expectation after PR 1. |
+| All repeated values survive parser, editor, project and writer | `qualifierParser.test.ts` checks ordinary multiline translation; `featureParser.test.ts` still asserts duplicate protein stores. No exception multiplicity or unsafe cross-format representation protection found. Current GFF3 reader merges geometry but loses later-row attributes; writer enumerates metadata. | Add lossless parser→editor/project→GenBank/GFF3 round-trip at cheapest capable boundaries; distinguish two different breaks from last-value-only overwrite. Do not retain obsolete duplicate-protein expectation after PR 1. |
 | Exceptions override initiation/stops/ambiguity; invalid mappings do not assert proteins | No PR 1 `translation.test.ts` present here; no exception application test found. | Add pure-domain oracle fixtures above, including allowed and invalid positions, partial ends, U/IUPAC and empty cases. Conditional cases wait for decisions. |
 | Recompute/remove on biological edits; preserve unrelated edits and imported protein | `featureManager.test.ts` asserts phase-cache invalidation on start/end/strand/segments and unrelated rename preserves phase; no exception/protein protection found. | Strengthen save-boundary checks for adjusted success and removal on invalidation/internal stops; preserve raw entries and unrelated-edit provenance. Preview must agree with save. |
 | Stored comparison, early stops and count use adjusted result, not raw DNA | No exception-specific protection found. PR 1 comparison/count assertions are planned only. | Reuse merged PR 1 checks; add Sec removing a stop, TERM adding one and genuine curated mismatch, through shared domain result and consuming app boundary. Reject false lighter-fill/mismatch and raw-TGA early stop. |
 | Both import routes diagnose without overwriting curated proteins | `bioResponse.test.ts` inspected by search; no transl_except assertions found. | Add entry-point checks for GenBank, FASTA+GFF3 attachment and project recheck, plus unavailable-result evidence and note-only preview/save refresh. Keep parser/diagnostic wiring real; invalid exceptions must not be counted as verified mismatches. |
-| Whole-record and selection export preserve qualifiers and cannot claim stale computed protein | `genbankContract.test.ts` asserts phase and translation wrapping; no exception coordinate-rebase protection found. | Add GenBank and GFF3 export→reimport checks with literal transformed locations, ordered arrays, multipart list emission and adjusted proteins, plus denied partial/unresolved extraction after policy approval; ensure report exposes loss/refusal. |
+| Whole-record and selection export preserve qualifiers and cannot claim stale computed protein | `genbankContract.test.ts` asserts phase and translation wrapping; no exception coordinate-rebase protection found. | Add GenBank and GFF3 export→reimport checks with literal transformed locations, ordered arrays, multipart list emission and adjusted proteins, plus denied partial/unresolved extraction after policy approval and the literal quote/wrap-created qualifier preflight cases above. Ensure report exposes loss/refusal and forbidden FAKE protein creation. No unsafe-export protection found in existing tests. |
 
-No new automated tests are written for this documentation-only task. Spec checks: front matter,
+No new automated tests are written for this documentation-only task. Required spec checks: front matter,
 links, evidence/decision consistency, `pnpm typecheck`, `pnpm lint`, and `pnpm lint:headers`.
 Implementation runs focused Vitest files through pnpm plus those gates; full suite/build run on
 the integration branch according to the owner's batching decision. Do not claim reference
@@ -503,6 +643,21 @@ may derive expected residues by calling the translator under test.
    variants. **You'll notice:** invalid code and malformed exception can both be explained;
    note repairs refresh warnings without replacing imported protein. **Backed by:** PR 1's
    eligibility and provenance contract, PR 3's evidence contract and this spec's all-entry diagnostics.
-7. Edit maintenance and ambiguous/invalid exception policies remain unconfirmed. **Open point:**
+7. Arbitrary malformed GFF3 values were promised unconditional GenBank preservation.
+   **Decision:** preflight actual serialized structure and logical values; never offer unsafe
+   output as success. **You'll notice:** an unrepresentable value requires an actionable
+   export report, while the original stays in the project/GFF3. **Open point:** block-file
+   versus explicit omission. **Backed by:** INSDC structured syntax and the inspected
+   `qualifierRules.ts`/`qualifierParser.ts` representation loss, not a new escape convention.
+8. Qualifier conformance could be mistaken for broken feature geometry. **Decision:** warn on
+   unusable exception values and missing explanatory notes; preserve structurally mandatory
+   feature-key refusal guards. **You'll notice:** an otherwise valid CDS record still loads
+   with its imported protein and specific warnings. **Backed by:** owner #286/#298 policy
+   classification above and INSDC's CDS-key versus explanatory-note distinction.
+9. Split syntax had an owner option to waive parser evidence. **Decision:** treat probing as
+   mandatory technical acceptance work. **You'll notice:** standard-derived mapping examples
+   are not presented as executed NCBI parser conformance. **Backed by:** scientific-rigor
+   independent-oracle requirement and the documented-versus-executed evidence limits above.
+10. Edit maintenance, unsafe-export recovery and ambiguous/invalid computation policies remain unconfirmed. **Open point:**
    resolve the Open decisions table before implementing those paths; recommendations are not
    owner decisions. **Backed by:** evidence limits above.
