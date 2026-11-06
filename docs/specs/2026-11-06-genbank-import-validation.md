@@ -187,15 +187,18 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Unknown genetic code | `/transl_table` not an NCBI code, empty included. GenBank export can't carry it either: the writer drops an empty value (`serialize.ts:106-110`), and a reimport would fall back to table 1. So a record holding such a CDS is left out of a GenBank export and reported, as for an invalid frame. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
 | `/translation` differs from the DNA | Computed and counted by #253's spec; this summary displays it | Error (mismatch) |
 
-The key and qualifier checks, the mandatory-qualifier refusal included, apply to nucleotide entries only.
+The INSDC key and qualifier checks, the mandatory-qualifier refusal included, apply to nucleotide entries only.
 
-**No canonical protein table exists.** A source survey (Sol, 2026-11-06) found no published, versioned table of protein (GenPept) feature keys with allowed and mandatory qualifiers:
-- INSDC 11.4 is a nucleotide table.
-- GenBank release 274.0 has no GenPept table.
-- NCBI's GenPept and table2asn pages describe display and submission, not a vocabulary.
-- The only rules are implementation code in the NCBI C++ Toolkit (commit `2b8ccee`): `seqfeat.asn`, `SeqFeatData.cpp`'s mandatory and allowed maps, which deliberately don't require `/mol_type`, and `feature_item.cpp`.
+**Protein records follow the NCBI C++ Toolkit (owner, 2026-11-06).** No published, versioned protein (GenPept) table of keys and qualifiers exists. Not in INSDC 11.4, which is a nucleotide table; not in GenBank release 274.0; not in NCBI's GenPept or table2asn pages. So the authority for protein records is the toolkit's implementation at commit `2b8ccee`:
+- `SeqFeatData.cpp`'s allowed and mandatory qualifier maps;
+- the protein feature keys emitted by `feature_item.cpp` (Protein, Region, Site, Bond, mature peptide and the rest);
+- `seqfeat.asn`.
 
-So protein records get every refusal on sequence, coordinates and molecule, plus the frame and code checks, but no vocabulary or mandatory-qualifier checks. All 5 bundled protein records omit `/mol_type`, and none is refused for it. Adopting the toolkit's maps would be Dunceious's own choice of an implementation as authority. That is left open.
+A protein record gets:
+- every refusal on sequence, coordinates and molecule, plus the frame and code checks;
+- **warnings, never refusals, for tag problems.** Those are a key the toolkit doesn't emit, a qualifier its maps don't allow on that key, or a qualifier its maps make mandatory that is missing. The toolkit deliberately doesn't require `/mol_type`, so the 5 bundled protein records, which omit it, get no finding.
+- Recognised protein qualifiers (for the inert-qualifier rule) come from the same maps. They replace the hand-written `PROTEIN_QUALIFIERS` list, which misses `/peptide`.
+- The protein tables are generated into the same pinned module as the INSDC ones, recording the toolkit commit, and checked against a hand-curated expected table.
 
 The feature-key and qualifier tables come from INSDC 11.4 Appendix II. They are generated into a
 pinned module (`src/domain/bio/insdcFeatureTable.ts`) by a script that reads the pinned feature
@@ -372,7 +375,7 @@ Expected results never come from the parser under test.
 
 | Guarantee | Cases |
 |---|---|
-| Mandatory qualifiers | Nucleotide `source` without `/organism`; without `/mol_type`; `regulatory` without `/regulatory_class`; `assembly_gap` with gap type "within scaffold" but no `/linkage_evidence`: each refused. `old_sequence` with `/compare` and no `/citation`: accepted. A protein record whose source has no `/mol_type`: accepted |
+| Mandatory qualifiers | Nucleotide `source` without `/organism`; without `/mol_type`; `regulatory` without `/regulatory_class`; `assembly_gap` with gap type "within scaffold" but no `/linkage_evidence`: each refused. `old_sequence` with `/compare` and no `/citation`: accepted. A protein record whose source has no `/mol_type`: accepted with no finding. A protein record with a qualifier the toolkit's maps don't allow on its key: a warning, not a refusal |
 | Real records | Every `examples/**/*.gb` loads with no refuse finding, including the protein `human-pomc-NP_000930.gb` with no vocabulary warnings. Its `/coded_by` survives import and GenBank export. Sequences, location parts and extracted sequences match the checked-in Biopython 1.88 output |
 | Residues | `acgtn` and `ACGU` with RNA LOCUS, and `ACGT` with RNA LOCUS (T in RNA): accepted. `ac-gt`, `ac.gt`, `ac*gt`, `ac1gt` inside a residue group, `ac?gt`: refused, each naming the position. Protein `MKV*`: refused at `*`; protein `MKUXBZJO`: accepted |
 | Layout | Standard ORIGIN lines with counts and spaces: accepted, sequence unchanged |
