@@ -51,21 +51,21 @@ the CONTIG alternative. No additional tested parser equivalence is claimed.
 **Applications.** Unknown for exact header and malformed-input handling in the surveyed tools;
 [format support](tools.md#format-support) does not settle it.
 
-**Dunceious.** Mixed. Canonical terminated entries split correctly, but an unterminated final
-piece is accepted (`src/core/genbank/recordSplitter.ts:24`). Header parsing reads the locus ID,
-joins DEFINITION continuations and keeps only the primary ACCESSION
-(`src/core/genbank/headerParser.ts:46`). Topology scans the whole LOCUS line, as does molecule
-classification (`src/domain/bio/sequence.ts:382`), so name substrings can change biology:
-[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243); declared molecule fields also
-use OP-2. ORIGIN import strips digits/spacing but also silently drops punctuation, retains any
-letter plus `-`/`*`, ignores declared length and does not assemble CONTIG
-(`src/core/genbank/toSeqRecord.ts:30`): [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
-The GenBank writer omits any record whose `sequence` contains `-` or `.`, names it in the
-export report/log and Hub preview, and never strips gaps to repair feature coordinates.
-LOCUS length and ORIGIN use the residue-only `sequence`. Import-validation tiers are a separate
-contract in the sibling GenBank import-validation work; this writer backstop does not claim
-that those import checks are implemented here.
-Display-name truncation, SOURCE fallback and the legacy geography flag remain local policies.
+**Dunceious.** The reader returns records and exhaustive refusal/warning findings. It refuses
+unterminated entries, absent LOCUS/sequence, CONTIG-only data, unreadable length/unit,
+length discrepancies, non-residues and mixed nucleotide/protein categories. The category uses
+the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology retain the known
+[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
+ORIGIN retains characters for validation, removing only the leading count and whitespace.
+The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
+revision, alignment lock and validated molecule category before committing records or findings.
+App accumulates refused files in one dialog; accepted warnings stay in the StatusBar import
+notes until cleared or their assigned workspace records are removed. Replaced-workspace
+responses show no diagnostics. Display naming and SOURCE fallback remain local policies.
+The GenBank writer uses `genBankExportProblem` to omit records with any non-residue
+(including `-`, `.` and `*`), names each omission in the export report/log and Hub preview,
+and never strips characters to repair feature coordinates.
+LOCUS length and ORIGIN use the residue-only `sequence`.
 
 ## FMT-3. INSDC feature-table and qualifier fidelity
 
@@ -85,16 +85,29 @@ Documented related NCBI naming practice is type-specific
 ([NCBI GFF3](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/));
 it does not prescribe Dunceious's name-selection algorithm.
 
-**Dunceious.** Deviates: [#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242).
-The basic line layout, doubled quotes and translation concatenation are supported, but the
-parser keeps only the last occurrence (`src/core/genbank/qualifierParser.ts:32`). The writer
-drops empty quoted replacements and can exceed column 80 for unbroken tokens
-(`src/core/genbank/qualifierRules.ts:149`); a whitelist does not prove value syntax,
-feature applicability or deprecation compliance. Protein vocabulary conformance is Unknown.
-Feature names follow parsed-object insertion order: every encountered gene/product/label/locus_tag
-overwrites the prior name; `standard_name` is fallback when none is truthy
-(`src/core/genbank/featureParser.ts:87`). This is not a fixed array priority. General free-text
-whitespace normalization and the exact display-name algorithm remain unsupported local choices.
+**Dunceious.** `insdcFeatureTable.ts` is generated offline from the pinned INSDC 11.4
+Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
+nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
+`old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
+value ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
+resynchronising at the next feature/data boundary. Value validation is limited to CDS
+`codon_start` and `transl_table`, with `gap_type` read only for the conditional requirement.
+
+Protein keys, allowed/mandatory maps and recognised qualifier names follow the NCBI C++ Toolkit
+at **2b8ccee**, pinned in [`sources.json`](sources.json) as `ncbi-protein-seqfeatdata`,
+`ncbi-protein-feature_item` and `ncbi-protein-seqfeat`. Protein tag problems warn. The key map
+maps `source` to `biosrc`, with no mandatory qualifiers. `coded_by` belongs to the CDS map;
+qualifiers occurring in any subtype map take precedence over flat-file-only exemptions.
+
+Unknown and underscore-prefixed input qualifiers live in `unknownQualifiers`, separate from
+computational metadata. Project files preserve them, the details view shows them, and GenBank
+export counts their omission. Name selection remains local policy: gene/product/label/locus_tag
+in input insertion order, with standard_name fallback. `/label` still names a feature even
+though it is inert metadata. The writer retains its documented wrapping/empty-value limitations.
+`genBankExportProblem` supplies the writer omission reasons for invalid residues, frames
+and genetic codes (empty values included). Preview and download share the same serializer
+report. Annotation filtering cannot hide the invalid CDS that makes a record ineligible;
+the whole record is left out, and the Hub preview counts only written records and details.
 
 ## FMT-4. Ordinary FASTA syntax and wrapping
 
@@ -301,7 +314,7 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
 phase carries across parts. Imported values are checked for count and 0/1/2, not continuity.
-Malformed `codon_start` is clamped/defaulted. Arbitrary part order, mixed strands, slippage
+Invalid `codon_start` suppresses phase export (`.`); absence defaults to frame 1. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
 

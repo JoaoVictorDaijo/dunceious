@@ -65,7 +65,7 @@ function dispatchBioRequest(req: BioWorkerRequest): BioWorkerResponse {
   }
   if (req.type === 'PARSE_GENBANK') {
     try {
-      const records = parseGenBank(req.content);
+      const records = parseGenBank(req.content).records;
       return { type: 'PARSE_SUCCESS', filename: req.filename, records };
     } catch (err) {
       return { type: 'ERROR', error: (err as Error).message };

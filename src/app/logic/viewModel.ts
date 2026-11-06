@@ -18,11 +18,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, RemotePart, SeqRecord } from '@/src/domain/bio/types';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { isOrderLocation, isPartialLocation } from '@/src/domain/bio/locationFlags';
+import { isBetweenBasesSite, isFivePrimePartialLocation, isOrderLocation, isPartialLocation, isThreePrimePartialLocation } from '@/src/domain/bio/locationFlags';
 
 /**
  * The sequence slice a record/feature detail view should display.
@@ -42,6 +42,22 @@ export function getDisplaySeq(
   const { start, end } = feature;
   if (start <= end) return sequence.substring(start, end);
   return sequence.substring(start) + sequence.substring(0, end);
+}
+
+/**
+ * One feature's length as every compact view words it: the interval sum, named "not joined" for an
+ * `order()` location (LOC-2, LOC-7), and zero for a between-base site (LOC-5).
+ */
+export function featureLengthText(record: Pick<SeqRecord, 'sequence' | 'moleculeType'>, feature: BioFeature): string {
+  const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
+  if (isBetweenBasesSite(feature)) return `0 ${unit} (between-base site)`;
+  if (feature.remoteParts?.length) {
+    const local = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
+    return `${local} ${unit} in this record, plus ${remoteIntervalsText(feature.remoteParts)}`;
+  }
+  const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
+  const intervals = feature.segments?.length ?? 1;
+  return intervals > 1 && isOrderLocation(feature) ? `${length} ${unit} in ${intervals} intervals (not joined)` : `${length} ${unit}`;
 }
 
 /** Wrapping features and segments need the source length to count across the origin. */
@@ -79,6 +95,25 @@ export interface FeatureSequenceViews {
   regionStart: number;
   regionEnd: number;
   partial: boolean;
+  /** Which end is partial, read 5′→3′ (`isFivePrimePartialLocation`); `Partial` for protein or interior markers. */
+  partialLabel: string | null;
+  /** "1 interval in J00194.1" when some intervals lie in other entries, which give no local sequence. */
+  remote: string | null;
+}
+
+/** "1 interval in J00194.1": a feature's intervals in other records, by accession. */
+export function remoteIntervalsText(parts: RemotePart[]): string {
+  const accessions = [...new Set(parts.map(part => part.accession))].join(', ');
+  return `${parts.length} ${parts.length === 1 ? 'interval' : 'intervals'} in ${accessions}`;
+}
+
+/** Names the partial end of a nucleotide feature's location; a protein record has no 5′/3′. */
+export function partialEndsLabel(feature: Pick<BioFeature, 'strand' | 'segments'>, protein: boolean): string | null {
+  if (!isPartialLocation(feature)) return null;
+  if (protein) return 'Partial';
+  const five = isFivePrimePartialLocation(feature);
+  const three = isThreePrimePartialLocation(feature);
+  return five && three ? '5′ and 3′ partial' : five ? '5′ partial' : three ? '3′ partial' : 'Partial';
 }
 
 export function featureSequenceViews(
@@ -91,7 +126,7 @@ export function featureSequenceViews(
   const location = formatInsdcLocation(feature, { length: sequence.length, isCircular: record.isCircular });
   const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
   return {
-    feature: invalid ? '' : isOrderLocation(feature) ? null : extractFeatureSequence(feature, sequence, alphabet, record).featureSeq,
+    feature: invalid ? '' : isOrderLocation(feature) || feature.remoteParts?.length ? null : extractFeatureSequence(feature, sequence, alphabet, record).featureSeq,
     featureLength: invalid ? 0 : featureLength(sequence.length, feature.start, feature.end, feature.segments),
     intervals: feature.segments?.length || 1,
     region: invalid ? '' : getDisplaySeq(sequence, envelope),
@@ -99,6 +134,8 @@ export function featureSequenceViews(
     regionStart: envelope.start,
     regionEnd: envelope.end,
     partial: isPartialLocation(feature),
+    partialLabel: partialEndsLabel(feature, record.moleculeType === 'protein'),
+    remote: feature.remoteParts?.length ? remoteIntervalsText(feature.remoteParts) : null,
   };
 }
 
@@ -151,10 +188,12 @@ export function featureCoordPatch(
   const val = parseInt(rawValue);
   const patch: Partial<BioFeature> = field === 'start' ? { start: val } : { end: val };
   if (!feature.segments || feature.segments.length <= 1) {
+    // The interval keeps its strand and partial markers; only the edited number changes (LOC-4).
+    const part = feature.segments?.[0];
     patch.segments =
       field === 'start'
-        ? [{ start: val, end: feature.end }]
-        : [{ start: feature.start, end: val }];
+        ? [{ ...part, start: val, end: feature.end }]
+        : [{ ...part, start: feature.start, end: val }];
   }
   return patch;
 }

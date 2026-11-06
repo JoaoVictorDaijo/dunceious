@@ -67,8 +67,8 @@ codon of a CDS whose 3′ end is complete reads as the stop, as Biopython 1.88
 end of the interval translated last, in INSDC evaluation order: its `>` when that interval is
 read forward, its `<` when it is complemented. A marker on any other end leaves it complete. A
 3′-partial CDS keeps the residue at its last codon, since that codon need not end the protein.
-Without the raw location text (after an edit or a selection export) the markers are lost, so a
-3′-partial CDS reads as complete (#226).
+The markers are read from each interval's `partialStart`/`partialEnd` flags
+(`isThreePrimePartialLocation`), so the verdict survives edits and selection export (#226).
 Tested against the validator's output in
 `src/domain/bio/__tests__/fixtures/ncbi-validator-terminal-stop.json`.
 

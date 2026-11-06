@@ -36,12 +36,15 @@ export function siteLabel(position: number, record: LocationRecord): string {
 
 /** INSDC FT 11.4 §3.4: format stored geometry; retained source text is the caller's choice. */
 export function formatInsdcLocation(feature: FeatureGeometry, record: LocationRecord, ends: LocationEnds = {}): InsdcLocation {
-  const stored = feature.segments?.length ? feature.segments : [feature];
+  const stored = feature.segments?.length || feature.remoteParts?.length ? feature.segments ?? [] : [feature];
   if (hasPartialStrands(feature) || stored.some(part => invalidLocationPart(part, record))) {
     return { kind: 'no-insdc-form', reason: 'invalid-geometry', display: `${stored.map(part => `${part.start + 1}..${part.end}`).join(',')} (invalid location)` };
   }
-  const parts = featureParts(feature, record);
-  const perPart = parts.some(part => part.strand !== undefined);
+  const parts: (ReturnType<typeof featureParts>[number] & { accession?: string })[] = featureParts(feature, record);
+  for (const part of [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index)) {
+    parts.splice(Math.min(part.index, parts.length), 0, { ...part, strand: part.strand });
+  }
+  const perPart = featureParts(feature, record).some(part => part.strand !== undefined) || (feature.remoteParts ?? []).some(part => part.strand !== feature.strand);
   const markers = parts.map(() => ({ start: '', end: '' }));
   const evaluation = parts.map((part, index) => ({ index, strand: perPart ? part.strand : feature.strand }));
   if (!perPart && feature.strand === -1) evaluation.reverse();
@@ -56,11 +59,11 @@ export function formatInsdcLocation(feature: FeatureGeometry, record: LocationRe
       text = siteLabel(part.start, record);
       edge ||= !record.isCircular && (part.start === 0 || part.start === record.length);
     } else {
-      text = `${markers[index].start}${part.start + 1}..${markers[index].end}${part.end}`;
+      text = `${part.accession ? `${part.accession}:` : ''}${part.partialStart ? '<' : markers[index].start}${part.start + 1}..${part.partialEnd ? '>' : markers[index].end}${part.end}`;
     }
     return perPart && part.strand === -1 ? `complement(${text})` : text;
   });
-  let text = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
+  let text = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
   if (!perPart && feature.strand === -1) text = `complement(${text})`;
   return edge ? { kind: 'no-insdc-form', reason: 'linear-edge-site', display: text } : { kind: 'insdc', text };
 }

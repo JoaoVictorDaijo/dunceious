@@ -73,9 +73,12 @@ export function startTables(codon: string): number[] {
   return Object.entries(NCBI_GENETIC_CODES).filter(([, code]) => code.starts[index] === 'M').map(([id]) => Number(id));
 }
 
-/** NCBI x_Translate (912b751) checks starts only for complete frame 1; absent location text is unknown. */
-export function assumedInitiationContext(feature: Pick<BioFeature, 'locationString' | 'metadata'>): boolean {
-  return !!feature.locationString?.trim()
+/**
+ * NCBI x_Translate (912b751) checks starts only for complete frame 1. The 5′ end is read from the
+ * per-end partial flags (LOC-4), which survive edits; a feature without intervals is unknown.
+ */
+export function assumedInitiationContext(feature: Pick<BioFeature, 'metadata' | 'strand' | 'segments'>): boolean {
+  return !!feature.segments?.length
     && (feature.metadata?.codon_start ?? '1').trim() === '1'
     && !isFivePrimePartialLocation(feature);
 }

@@ -20,7 +20,9 @@
 
 import { describe, expect, it } from 'vitest';
 import * as locationFlags from '../locationFlags';
-import { isNestedComplementLocation } from '../locationFlags';
+import { parseLocation } from '@/src/core/genbank/locationParser';
+import type { BioFeature } from '../types';
+import { definesOneSequence, isBetweenBasesSite, isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
 
 describe('isNestedComplementLocation', () => {
   // The parser reverses a list only when an outer complement wraps join/order and one of the list's
@@ -43,6 +45,43 @@ describe('isNestedComplementLocation', () => {
   });
 });
 
+// LOC-1/LOC-2: only join makes intervals one sequence. The operator survives edits that clear the
+// location text, so an edited order() feature must still read as not joined.
+describe('isJoinedLocation and isOrderLocation', () => {
+  const two = [{ start: 0, end: 3 }, { start: 10, end: 13 }];
+  it.each<[Pick<BioFeature, 'operator' | 'segments' | 'locationString'>, boolean, boolean]>([
+    [{ operator: 'join' as const, segments: two }, true, false],
+    [{ operator: 'order' as const, segments: two }, false, true],
+    [{ operator: 'order' as const, segments: two, locationString: undefined }, false, true],
+    [{ segments: two, locationString: 'order(1..3,11..13)' }, false, true],
+    [{ segments: two }, true, false],
+    [{ operator: 'join' as const, segments: [two[0]] }, false, false],
+  ])('%o → joined %s, order %s', (feature, joined, order) => {
+    expect(isJoinedLocation(feature)).toBe(joined);
+    expect(isOrderLocation(feature)).toBe(order);
+  });
+});
+
+// LOC-5: a site is zero bases; an edit that gives it a width ends the site.
+describe('isBetweenBasesSite', () => {
+  it.each([
+    [{ betweenBases: true as const, start: 10, end: 10 }, true],
+    [{ betweenBases: true as const, start: 10, end: 12 }, false],
+    [{ start: 10, end: 10 }, false],
+  ])('%o → %s', (feature, site) => {
+    expect(isBetweenBasesSite(feature)).toBe(site);
+  });
+});
+
+// #245: local intervals of a location with remote parts are not one sequence of this record.
+describe('definesOneSequence and isJoinedLocation – remote parts', () => {
+  const remote = { remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1 as const, index: 1 }] };
+  it('is false for a location with a remote part', () => {
+    expect(definesOneSequence({ segments: [{ start: 0, end: 100 }], ...remote })).toBe(false);
+    expect(isJoinedLocation({ operator: 'join', segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }], ...remote })).toBe(false);
+  });
+});
+
 it.each([
   ['<1..9', true, false],
   ['1..>9', false, true],
@@ -61,7 +100,8 @@ it.each([
   [' join( AB1:<1..3, complement(7..9) ) ', true, false],
   [undefined, false, false],
 ] as const)('reads the biological terminal markers for %s', (locationString, five, three) => {
-  expect(locationFlags.isFivePrimePartialLocation).toBeTypeOf('function');
-  expect(locationFlags.isFivePrimePartialLocation({ locationString })).toBe(five);
-  expect(locationFlags.isThreePrimePartialLocation({ locationString })).toBe(three);
+  // The markers are read from the parsed per-end flags, so they hold after an edit clears the text.
+  const feature = locationString === undefined ? {} : parseLocation(locationString);
+  expect(locationFlags.isFivePrimePartialLocation(feature)).toBe(five);
+  expect(locationFlags.isThreePrimePartialLocation(feature)).toBe(three);
 });

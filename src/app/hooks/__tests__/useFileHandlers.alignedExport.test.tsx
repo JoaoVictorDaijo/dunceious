@@ -40,11 +40,11 @@ const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSeq
   features: [{ type: 'gene', name: 'gapped', start: 2, end: 7, strand: 1, locationString: '3..7',
     segments: [{ start: 2, end: 7 }] }] };
 
-function setup() {
-  return renderHook(() => useFileHandlers({ current: null }, [record, { ...record, id: 'other' }], { start: 3, end: 8, recordIds: ['r'] }, {},
+function setup(rows: SeqRecord[] = [record, { ...record, id: 'other' }], log = vi.fn()) {
+  return renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 8, recordIds: ['r'] }, {},
     { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
     { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(),
-      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
 }
 
 describe('exports with aligned annotations', () => {
@@ -175,4 +175,25 @@ it('exports hub-focused aligned track support from source records without displa
   expect(saved).toEqual({ format:2, version:__APP_VERSION__, exportedAt:'2026-11-06T12:00:00.000Z', featureColors:{}, ...state, activeSelection:null, selectionRange:{start:2,end:3}, records:[{id:'r',name:'r',sequence:'A',alignedSequence:'A',features:[],tracks:[{id:'q',name:'q',data:[{start:0,end:1,value:7}]}]}] });
   expect(source.tracks![0].data).toEqual([{start:0,end:1,value:7}]);
   vi.useRealTimers();
+});
+
+it.each([false, true])('logs every GenBank omission once and counts actual downloads, allInvalid=%s', allInvalid => {
+  const log = vi.fn();
+  const bad = (id: string, sequence: string, metadata: Record<string, string> = {}): SeqRecord => ({ id, name: id, sequence, features: [{ type: 'CDS', name: 'broken', start: 0, end: sequence.length, strand: 1, metadata }] });
+  const rows = [bad('gap', 'AC-GT'), bad('symbol', 'AC*GT'), bad('frame', 'ACRGT', { codon_start: '' }), bad('code', 'ACRGT', { transl_table: '99' })];
+  if (!allInvalid) rows.push({ id: 'good', name: 'good', sequence: 'ACRGT', features: [] });
+  const h = setup(rows, log);
+  h.result.current.exportRecords(rows.map(r => r.id), 'genbank', { fileName: 'chosen.gb' });
+  expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(allInvalid ? 0 : 1);
+  if (!allInvalid) {
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('chosen.gb');
+    expect(String(vi.mocked(downloadBlob).mock.calls[0][0]).match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+5 bp/)]);
+  }
+  expect(log.mock.calls.map(([message]) => message)).toEqual([
+    'gap not exported: its sequence contains gap characters',
+    'symbol not exported: its sequence contains non-residue characters',
+    'frame not exported: CDS broken has an invalid /codon_start',
+    'code not exported: CDS broken has an invalid /transl_table',
+    `Exported ${allInvalid ? 0 : 1} sequences as genbank.`,
+  ]);
 });

@@ -18,17 +18,27 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { definesOneSequence } from '@/src/domain/bio/locationFlags';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 
+/** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
+export const isTranslatedFeature = (feature: BioFeature): boolean =>
+  CDS_ORF_TYPES.includes(feature.type) && definesOneSequence(feature);
+
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
-  if (!CDS_ORF_TYPES.includes(feature.type) || isNcbiGeneticCode(featureTranslTable(feature))) return null;
+  if (!CDS_ORF_TYPES.includes(feature.type)) return null;
+  if (!validCodonStart(feature.metadata?.codon_start)) {
+    return `⚠ /codon_start=${feature.metadata?.codon_start ?? ''} is invalid; codons are not translated`;
+  }
+  if (isNcbiGeneticCode(featureTranslTable(feature))) return null;
   const prefix = `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code.`;
   if (moleculeType === 'protein' || typeof getFeatureStrand(feature) !== 'number') return prefix;
   const stored = feature.translation;
@@ -86,11 +96,14 @@ export const computeBrokenFeatureMap = (
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
   features
-    .filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
+    .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq, topology);
       const translTable = featureTranslTable(f);
-      map.set(f, isFeatureBroken(f, codingSeq, translTable));
+      // Stored stops remain annotation claims; assumed residues never establish broken status.
+      const storedBroken = !isNcbiGeneticCode(translTable) && f.translation
+        ? /[_*]/.test(f.translation.slice(0, -1)) : undefined;
+      map.set(f, storedBroken ?? isFeatureBroken(f, codingSeq, translTable));
     });
   return map;
 };
@@ -131,6 +144,7 @@ type Frame = 0 | 1 | 2;
 export interface TranslationLanes {
   /** Lane of each feature's codons per reading frame, counted outward from the nucleotide row. */
   laneOf: Map<BioFeature, Map<Frame, number>>;
+  /** Row counts include space for invalid-frame warnings, which have no codon assignment. */
   forward: number;
   reverse: number;
 }
@@ -157,7 +171,7 @@ export const assignTranslationLanes = (
   const pack = (strand: 1 | -1) => {
     const units: { feature: BioFeature; frame: Frame; spans: { start: number; end: number }[] }[] = [];
     features
-      .filter(f => CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
+      .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
       .forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, topology);
         const spans = new Map<Frame, { start: number; end: number }[]>();
@@ -190,7 +204,9 @@ export const assignTranslationLanes = (
       const frames = laneOf.get(unit.feature) ?? new Map<Frame, number>();
       laneOf.set(unit.feature, frames.set(unit.frame, lane));
     });
-    return lanes.length;
+    const needsWarning = features.some(f => CDS_ORF_TYPES.includes(f.type)
+      && getFeatureStrand(f) === strand && !validCodonStart(f.metadata?.codon_start));
+    return Math.max(lanes.length, needsWarning ? 1 : 0);
   };
   const forward = pack(1);
   const reverse = pack(-1);

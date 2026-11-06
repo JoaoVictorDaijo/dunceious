@@ -19,6 +19,7 @@
  */
 
 // @vitest-environment jsdom
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import * as d3 from 'd3';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as cdsHelpers from '../../cds';
@@ -50,8 +51,9 @@ it.each([
   { seq: 'TCATTTCAT', table: '27', strand: -1 as const, protein: 'MK_', locationString: 'complement(1..9)' },
   { seq: 'ATGAAATGA', table: '27', strand: 1 as const, protein: 'MKW', locationString: '1..>9' },
 ])('draws $protein under table $table on strand $strand', ({ seq, table, strand, protein, locationString }) => {
+  const { segments } = parseLocation(locationString);
   const feature: BioFeature = { type: 'CDS', name: 'coding', start: 0, end: seq.length,
-    strand, metadata: { transl_table: table }, locationString };
+    strand, segments, metadata: { transl_table: table }, locationString };
   const view = render(<SequenceTrack {...props(seq, feature)} />);
   expect(recorder.texts().slice(-protein.length)).toEqual([...protein]);
   expect(recorder.texts()).not.toContain('!');
@@ -218,7 +220,9 @@ it.each([
   { codon: 'TTG', locationString: '1..10', codon_start: '2', residue: 'L', dashed: false },
 ])('draws and explains first $codon at $locationString /codon_start=$codon_start', ({ codon, locationString, codon_start, residue, dashed }) => {
   const seq = (codon_start === '2' ? 'A' : '') + codon + 'TGGTAA';
-  const feature: BioFeature = { type: 'CDS', name: 'start', start: 0, end: seq.length, strand: 1, locationString,
+  // The parsed geometry, as GenBank import gives it, carries the 5′ marker the initiator rule reads.
+  const segments = locationString === undefined ? undefined : parseLocation(locationString).segments;
+  const feature: BioFeature = { type: 'CDS', name: 'start', start: 0, end: seq.length, strand: 1, locationString, segments,
     metadata: { transl_table: '99', codon_start } };
   const view = render(<SequenceTrack {...props(seq, feature)} />);
   expect(recorder.texts().slice(-3)[0]).toBe(residue);
@@ -246,4 +250,25 @@ it.each([
   expect(view.container.querySelectorAll('[data-assumed-codon]')).toHaveLength(hovers);
   if (hovers) expect(recorder.texts().slice(-2)).toEqual(['A', 'M']);
   else expect(recorder.fillRects().filter(rect => rect[3] === 18)).toHaveLength(0);
+});
+
+it.each([1, -1] as const)('shows the suppressed-frame warning without translated cells on strand %s', strand => {
+  const seq = 'ATGTGAAAA';
+  const feature: BioFeature = { type: 'CDS', name: 'invalid-frame', start: 0, end: 9, strand,
+    translation: 'M*K', metadata: { codon_start: '4', transl_table: '99' } };
+  const trackProps = props(seq, feature);
+  const view = render(<SequenceTrack {...trackProps} />);
+  const warning = view.getByRole('button', { name: '⚠ /codon_start=4 is invalid; codons are not translated' });
+  expect([warning.style.top, warning.style.height, warning.style.width]).toEqual([
+    strand === 1 ? '82px' : '122px', '18px', '180px',
+  ]);
+  expect(warning.textContent).toBe('⚠');
+  expect(warning.style.background).not.toBe('transparent');
+  expect(trackProps.translationLanes.laneOf.has(feature)).toBe(false);
+  expect(recorder.texts()).toEqual([...seq]);
+  expect(recorder.fillRects().filter(rect => rect[3] === 18)).toEqual([]);
+  expect(recorder.strokeRects().filter(rect => rect.rect[3] === 18)).toEqual([]);
+  expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
+  view.rerender(<SequenceTrack {...trackProps} showTranslation={false} />);
+  expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
 });

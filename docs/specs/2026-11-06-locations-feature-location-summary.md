@@ -233,10 +233,10 @@ export function formatInsdcLocation(
 
 **Export.** `exportToGenBank` (`serialize.ts:74`) writes `feature.locationString` when present,
 otherwise the formatter's `text`.
-- **Site export depends on #230.** Writing `10^11` is only safe once the parser reads it back as
-  a site. Today `parseCoord` (`locationParser.ts:90-99`) reads it as two bases. So **this PR
-  merges only after #230**, and its tests check the full export-then-import round trip. There is
-  no fallback mode.
+- **#230 has landed.** Its parser reads between-base sites as zero-length intervals. Export
+  writes interior sites as `n^n+1` and circular-origin sites as `L^1`, including site parts
+  inside joins. Tests check the full export-then-import round trip. Linear-edge sites remain
+  skipped and reported because INSDC has no form for them.
 - **A `no-insdc-form` result is not written.** The feature is skipped, and the export report
   counts it in a new `ExportReport` field, `featuresWithoutInsdcLocation: { linearEdgeSite:
   number; invalidGeometry: number }` (`src/core/exportReport.ts:24`). Today such a feature would

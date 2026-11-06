@@ -66,11 +66,11 @@ it.each([
   ['W2', 'join(complement(1..5),115..120)', 'TAACAATAACG'],
   ['W1', 'join(115..120,1..5)', 'ATAACGTGTTA'],
 ])('matches the independent conformance oracle for %s', (name, text, bases) => {
-  const [source] = parseGenBank(readFileSync('docs/standards/conformance/fixture.gb', 'utf8'));
+  const [source] = parseGenBank(readFileSync('docs/standards/conformance/fixture.gb', 'utf8')).records;
   const feature = source.features.find(feature => feature.name === name)!;
   expect(feature).toBeDefined();
   expect(formatInsdcLocation(feature, { length: 120, isCircular: true })).toEqual({ kind: 'insdc', text });
-  const [reparsed] = parseGenBank(`LOCUS       TEST 120 bp DNA circular\nFEATURES             Location/Qualifiers\n     misc_feature    ${text}\nORIGIN\n        1 ${source.sequence}\n//`);
+  const [reparsed] = parseGenBank(`LOCUS       TEST 120 bp DNA circular\nFEATURES             Location/Qualifiers\n     misc_feature    ${text}\nORIGIN\n        1 ${source.sequence}\n//`).records;
   expect(extractFeatureSequence(reparsed.features[0], source.sequence).featureSeq.toUpperCase()).toBe(bases);
 });
 it('keeps arbitrary written order and places partial ends in evaluation order', () => {

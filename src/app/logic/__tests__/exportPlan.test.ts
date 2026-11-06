@@ -149,7 +149,7 @@ it('preserves origin-crossing GenBank joins through export filtering and re-impo
   expect(result.text).toContain('join(2427..3308,1..1758)');
   expect(result.text).toContain('join(2992..3308,1..964)');
   expect(result.report.writtenDetails.organism).toBe(1);
-  const parsed = parseGenBank(result.text)[0];
+  const parsed = parseGenBank(result.text).records[0];
   expect(parsed.isCircular).toBe(true);
   expect(parsed.features.filter(feature => feature.type === 'CDS').map(feature => feature.locationString)).toEqual(['join(2427..3308,1..1758)', 'join(2992..3308,1..964)', '2021..2587']);
   expect(parsed.features.some(feature => feature.type === 'mat_peptide')).toBe(false);
@@ -187,4 +187,16 @@ it('previews the damaged GenBank omission and separate unaligned FASTA file', ()
   expect(describeExport(rows, 'genbank').summary).toContain('bad not exported: its sequence contains gap characters');
   expect(describeExport([{ ...rows[0], sequence: 'ACGT' }], 'fasta', { residues: 'aligned', fileName: 'picked.fasta' }).summary)
     .toContain("1 sequences aren't in the alignment and will be saved separately in picked_unaligned.fasta");
+});
+
+it('uses the same damaged-record reasons in preview and export even when annotations are filtered', () => {
+  const bad: SeqRecord = { id: 'bad', name: 'bad', sequence: 'ACGT', features: [{ type: 'CDS', name: 'invalid', start: 0, end: 4, strand: 1, metadata: { codon_start: '' } }] };
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACGT', features: [] };
+  const options = { types: new Set(['gene']) };
+  const preview = describeExport([bad, good], 'genbank', options);
+  const output = serializeExport([bad, good], 'genbank', options);
+  expect(preview.report).toEqual(output.report);
+  expect(preview.summary).toContain('bad not exported: CDS invalid has an invalid /codon_start');
+  expect(output.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+4 bp/)]);
+  expect(serializeExport([bad], 'genbank', options).text).toBe('');
 });

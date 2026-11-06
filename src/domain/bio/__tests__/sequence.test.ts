@@ -19,6 +19,7 @@
  */
 
 import { processTransposition } from '../coordinate';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, it, expect } from 'vitest';
 import {
   reverseComplement,
@@ -365,6 +366,15 @@ it.each([
     biological: { start: 3, end: 6, strand: 1 as const } };
   expect(extractCodingSequence(feature, 'ATG---', { isCircular: false, biologicalLength }))
     .toEqual({ codingSeq, alignedIndices });
+});
+
+// #245 (OBS-04): bases of another entry cannot be read from this record. For local ACGT,
+// J00194.1:2..3 must not extract CG.
+describe('extractFeatureSequence – remote parts', () => {
+  it.each(['J00194.1:2..3', 'join(1..2,J00194.1:2..3)'])('extracts nothing for %s', location => {
+    const parsed = parseLocation(location);
+    expect(extractFeatureSequence({ ...parsed }, 'ACGT').featureSeq).toBe('');
+  });
 });
 
 it('never substitutes table 1 for an invalid code, even where table-1 residues are invariant', () => {

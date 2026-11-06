@@ -169,7 +169,7 @@ it('does not revive an imported phase after deleting codon_start in the editor',
   const saved = saveEditedFeature(input, 'r1', 0, { ...feature, metadata });
   const cds = saved[0].features[0];
   expect(extractCodingSequence(cds, saved[0].sequence).codingSeq).toBe('AATGAAACCC');
-  const gb = parseGenBank(exportToGenBank(saved).text)[0];
+  const gb = parseGenBank(exportToGenBank(saved).text).records[0];
   const gbCds = gb.features.find(f => f.type === 'CDS')!;
   expect(extractCodingSequence(gbCds, gb.sequence).codingSeq).toBe('AATGAAACCC');
   expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('0');

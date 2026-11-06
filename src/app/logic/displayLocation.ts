@@ -23,6 +23,6 @@ import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 
 export function displayLocation(feature: BioFeature, record: SeqRecord): string {
   if (feature.locationString) return feature.locationString;
-  const location = formatInsdcLocation(feature.biological ?? feature, { length: record.sequence.length, isCircular: record.isCircular });
+  const location = formatInsdcLocation({ ...feature, ...feature.biological }, { length: record.sequence.length, isCircular: record.isCircular });
   return location.kind === 'insdc' ? location.text : location.display;
 }

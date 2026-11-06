@@ -19,6 +19,7 @@
  */
 
 import { assumedInitiationContext, assumedTranslation } from '@/src/domain/bio/assumedTranslation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { matchLineSymbol } from '@/src/core/search/hitColumns';
 import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
@@ -30,7 +31,7 @@ import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
+import { isTranslatedFeature, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
@@ -123,10 +124,10 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     const strand = getFeatureStrand(f);
     if (typeof strand !== 'number' || !geneticCodeWarning(f)) return [];
     const warning = geneticCodeWarning(f, extractCodingSequence(f, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }).codingSeq)!;
-    return [{ feature: f, strand, warning }];
+    return [{ feature: f, strand, warning, suppressed: !validCodonStart(f.metadata?.codon_start) }];
   }), [features, seq, record]);
   const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
-    if (!translationVisible || !CDS_ORF_TYPES.includes(feature.type) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature))) return [];
+    if (!translationVisible || !isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature))) return [];
     const coding = extractCodingSequence(feature, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
     const assumed = assumedTranslation(feature, coding.codingSeq);
     return assumed ? [[feature, { ...coding, assumed }] as const] : [];
@@ -393,7 +394,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
-      features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
+      features.filter(f => isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
@@ -488,14 +489,17 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
       data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
-    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning }) =>
+    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning, suppressed }) =>
       // A feature crossing the origin of a circular record has two spans, end of record and start.
       (feature.start > feature.end ? [[feature.start, seq.length], [0, feature.end]] : [[feature.start, feature.end]])
         .map(([start, end]) => <button key={`code-${start}-${end}-${strand}-${feature.name}`} type="button"
           data-genetic-code-warning="" aria-label={warning} data-tip={warning}
+          className={suppressed ? 'border border-dashed border-amber-500 text-amber-600' : undefined}
           style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
             top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
-            background: 'transparent', zIndex: 1 }} />))}
+            background: suppressed ? 'rgba(245, 158, 11, 0.1)' : 'transparent', zIndex: 1 }}>
+          {suppressed && <span aria-hidden="true">⚠</span>}
+        </button>))}
     {translationVisible && assumedHoverSpans.map(span => {
       const lanes = translationLanes.laneOf.get(span.feature);
       if (!lanes) return null;

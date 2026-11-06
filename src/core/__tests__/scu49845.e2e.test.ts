@@ -65,12 +65,12 @@ describe('SCU49845.gb – record structure', () => {
   let record: SeqRecord;
 
   beforeAll(() => {
-    const records = parseGenBank(SCU49845_CONTENT);
+    const records = parseGenBank(SCU49845_CONTENT).records;
     record = records[0];
   });
 
   it('parses exactly one record', () => {
-    expect(parseGenBank(SCU49845_CONTENT)).toHaveLength(1);
+    expect(parseGenBank(SCU49845_CONTENT).records).toHaveLength(1);
   });
 
   it('sets the locus id to SCU49845', () => {
@@ -109,7 +109,7 @@ describe('SCU49845.gb – feature coordinates', () => {
   let record: SeqRecord;
 
   beforeAll(() => {
-    [record] = parseGenBank(SCU49845_CONTENT);
+    [record] = parseGenBank(SCU49845_CONTENT).records;
   });
 
   it('source feature spans the whole record [0, 5028)', () => {
@@ -172,7 +172,7 @@ describe('SCU49845.gb – /translation qualifiers', () => {
   let record: SeqRecord;
 
   beforeAll(() => {
-    [record] = parseGenBank(SCU49845_CONTENT);
+    [record] = parseGenBank(SCU49845_CONTENT).records;
   });
 
   it('TCP1-beta CDS has a translation starting with SSIYN', () => {
@@ -211,7 +211,7 @@ describe('SCU49845.gb – computed translation honours /codon_start', () => {
   let record: SeqRecord;
 
   beforeAll(() => {
-    [record] = parseGenBank(SCU49845_CONTENT);
+    [record] = parseGenBank(SCU49845_CONTENT).records;
   });
 
   it('TCP1-beta CDS is annotated with the codon_start=3 trigger', () => {
@@ -239,7 +239,7 @@ describe('SCU49845.gb – parse → processTransposition pipeline', () => {
   let transposed: SeqRecord;
 
   beforeAll(() => {
-    [original] = parseGenBank(SCU49845_CONTENT);
+    [original] = parseGenBank(SCU49845_CONTENT).records;
     // Use an identity alignment (alignedSequence = sequence, no gaps introduced)
     const aligned = { ...original, alignedSequence: original.sequence };
     [transposed] = processTransposition([aligned]);
@@ -280,7 +280,7 @@ describe('SCU49845.gb – sequence search', () => {
   let record: SeqRecord;
 
   beforeAll(() => {
-    [record] = parseGenBank(SCU49845_CONTENT);
+    [record] = parseGenBank(SCU49845_CONTENT).records;
   });
 
   it('finds the first 10 bases of the sequence at position 0', () => {
@@ -303,9 +303,9 @@ describe('SCU49845.gb – sequence search', () => {
 
 describe('SCU49845.gb – GenBank round-trip', () => {
   it('preserves core record/feature data after export and re-import', () => {
-    const [original] = parseGenBank(SCU49845_CONTENT);
+    const [original] = parseGenBank(SCU49845_CONTENT).records;
     const exported = exportToGenBank([original]).text;
-    const [roundTripped] = parseGenBank(exported);
+    const [roundTripped] = parseGenBank(exported).records;
 
     // Core record fields
     expect(roundTripped.id).toBe(original.id);
@@ -348,7 +348,7 @@ describe('SCU49845.gb – export after user modifications', () => {
   let original: SeqRecord;
 
   beforeAll(() => {
-    [original] = parseGenBank(SCU49845_CONTENT);
+    [original] = parseGenBank(SCU49845_CONTENT).records;
   });
 
   it('reflects a sequence substitution in the exported ORIGIN section', () => {
@@ -357,7 +357,7 @@ describe('SCU49845.gb – export after user modifications', () => {
       ...original,
       sequence: TEN_T_SEQUENCE + original.sequence.slice(10),
     };
-    const [result] = parseGenBank(exportToGenBank([modified]).text);
+    const [result] = parseGenBank(exportToGenBank([modified]).text).records;
     expect(result.sequence.length).toBe(original.sequence.length);
     expect(result.sequence.slice(0, 10)).toBe(TEN_T_SEQUENCE);
     // Remainder is unchanged
@@ -377,7 +377,7 @@ describe('SCU49845.gb – export after user modifications', () => {
       ...original,
       features: [...original.features, newFeature],
     };
-    const [result] = parseGenBank(exportToGenBank([modified]).text);
+    const [result] = parseGenBank(exportToGenBank([modified]).text).records;
     expect(result.features).toHaveLength(original.features.length + 1);
     const found = result.features.find(f => f.type === 'misc_feature' && f.start === 100);
     expect(found).toBeDefined();
@@ -398,7 +398,7 @@ describe('SCU49845.gb – export after user modifications', () => {
       ...original,
       features: [...original.features, newFeature],
     };
-    const [result] = parseGenBank(exportToGenBank([modified]).text);
+    const [result] = parseGenBank(exportToGenBank([modified]).text).records;
     const found = result.features.find(f => f.type === 'regulatory' && f.start === 500);
     expect(found).toBeDefined();
     expect(found!.metadata?.['note']).toBe('TATA-box proximal region');
@@ -414,7 +414,7 @@ describe('SCU49845.gb – export after user modifications', () => {
           : f
       ),
     };
-    const [result] = parseGenBank(exportToGenBank([modified]).text);
+    const [result] = parseGenBank(exportToGenBank([modified]).text).records;
     const found = result.features.find(f => f.type === 'gene' && f.start === axl2Gene.start);
     expect(found).toBeDefined();
     expect(found!.metadata?.['note']).toBe('modified by user');
@@ -424,7 +424,7 @@ describe('SCU49845.gb – export after user modifications', () => {
     const modified: SeqRecord = { ...original, isCircular: true };
     const exported = exportToGenBank([modified]).text;
     expect(exported).toContain('circular');
-    const [result] = parseGenBank(exported);
+    const [result] = parseGenBank(exported).records;
     expect(result.isCircular).toBe(true);
   });
 
@@ -433,14 +433,14 @@ describe('SCU49845.gb – export after user modifications', () => {
       ...original,
       definition: 'Custom user description.',
     };
-    const [result] = parseGenBank(exportToGenBank([modified]).text);
+    const [result] = parseGenBank(exportToGenBank([modified]).text).records;
     expect(result.definition).toContain('Custom user description.');
     expect(result.definition).toContain('Exported by Dunceious');
   });
 
   it('does not accumulate the Dunceious marker on repeated exports', () => {
-    const [once] = parseGenBank(exportToGenBank([original]).text);
-    const [twice] = parseGenBank(exportToGenBank([once]).text);
+    const [once] = parseGenBank(exportToGenBank([original]).text).records;
+    const [twice] = parseGenBank(exportToGenBank([once]).text).records;
     const markerCount = (twice.definition ?? '').split('Exported by Dunceious').length - 1;
     expect(markerCount).toBe(1);
   });

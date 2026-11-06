@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import expectedImportNotes from './sampleImportNotes.expected.json';
 import { loadSampleRecords } from '../sampleWorkspace';
 
 const readExample = (file: string) => readFileSync(resolve(__dirname, '../../../../examples/', file), 'utf-8');
@@ -70,4 +71,13 @@ describe('loadSampleRecords', () => {
   it('parses once and returns the same array afterwards', () => {
     expect(loadSampleRecords()).toBe(loadSampleRecords());
   });
+});
+
+it('pins every curated sample import note without showing notes in the showroom', () => {
+  const notes = ['phage-t7-NC_001604.gb', 'phage-13a-NC_011045.gb', 'phage-t3-NC_003298.gb'].flatMap(filename => {
+    const response = handleBioMessage({ type: 'PARSE_GENBANK', filename, content: readExample(`nucleotide/t7-phages/${filename}`) });
+    expect(response.type).toBe('PARSE_SUCCESS');
+    return response.type === 'PARSE_SUCCESS' ? (response.findings ?? []).map(f => [filename, f.code, f.record.name, f.feature?.key, f.message]) : [];
+  });
+  expect(notes).toEqual(expectedImportNotes);
 });

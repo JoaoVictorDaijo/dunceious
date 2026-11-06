@@ -243,9 +243,35 @@ describe.each([
   });
 });
 
+// LOC-2/LOC-7: an order() location defines no single sequence, so a CDS written with it has no
+// coding sequence to translate or check for stops; the same intervals under join do.
+describe('order() CDS', () => {
+  const segments = [{ start: 0, end: 3 }, { start: 6, end: 9 }];
+  const cds = (operator: 'join' | 'order'): BioFeature => ({ type: 'CDS', name: operator, start: 0, end: 9, strand: 1, operator, segments });
+  it('is neither translated nor flagged for an early stop', () => {
+    const order = cds('order');
+    expect(computeBrokenFeatureMap([order], 'ATGGGGTAG').has(order)).toBe(false);
+    expect(assignTranslationLanes([order], 'ATGGGGTAG').laneOf.has(order)).toBe(false);
+  });
+
+  it('is translated under join', () => {
+    const join = cds('join');
+    expect(computeBrokenFeatureMap([join], 'ATGGGGTAG').has(join)).toBe(true);
+    expect(assignTranslationLanes([join], 'ATGGGGTAG').laneOf.has(join)).toBe(true);
+  });
+});
+
 it('keeps assumed whole and tail stops out of broken status while retaining stored internal stops', () => {
   for (const translation of [undefined, 'M', 'MK*G']) {
     const f = cds({ start: 0, end: 18, translation, metadata: { transl_table: '99' } });
     expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').get(f)).toBe(translation === 'MK*G');
   }
+});
+
+
+it.each(['1', '99'])('lets an invalid frame suppress translation and broken status under table %s', transl_table => {
+  const feature = cds({ start: 0, end: 9, translation: 'M*K', metadata: { codon_start: '0', transl_table } });
+  expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
+  expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
+  expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
 });

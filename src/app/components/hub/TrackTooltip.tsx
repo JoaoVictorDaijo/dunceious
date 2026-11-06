@@ -19,13 +19,14 @@
  */
 
 import { displayLocation } from '@/src/app/logic/displayLocation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { extractCodingSequence, featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
-import { CDS_ORF_TYPES, geneticCodeWarning } from '@/src/app/viewer/cds';
+import { CDS_ORF_TYPES, geneticCodeWarning, isTranslatedFeature } from '@/src/app/viewer/cds';
 import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { featureLength } from '@/src/app/logic/viewModel';
+import { featureLength, featureLengthText } from '@/src/app/logic/viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 export type TrackHover = { record: SeqRecord; feature: BioFeature; color: string; x: number; y: number };
@@ -55,14 +56,18 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   const { feature, record, color } = hover;
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
   const strand = getFeatureStrand(feature);
+  const frameWarning = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
+    ? geneticCodeWarning(feature) : null;
   const aminoAcids = feature.metadata?.translation?.replace(/\s/g, '').length ?? Math.floor(Math.max(0, length - (Number(feature.metadata?.codon_start || 1) - 1)) / 3);
   const location = displayLocation(feature, record);
-  const invalidCode = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature));
-  const assumed = invalidCode && (strand === 1 || strand === -1) && !feature.translation ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
-  const count = invalidCode && (strand === 1 || strand === -1)
+  // An order() CDS or one with remote parts defines no single sequence, so no protein count (LOC-7).
+  const translated = record.moleculeType !== 'protein' && isTranslatedFeature(feature);
+  const invalidCode = translated && !isNcbiGeneticCode(featureTranslTable(feature));
+  const assumed = !frameWarning && invalidCode && (strand === 1 || strand === -1) && !feature.translation ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
+  const count = !frameWarning && invalidCode && (strand === 1 || strand === -1)
     ? unverifiedCount(feature.translation || assumed?.residues || '') : null;
   const invalidReason = `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`;
-  const countReason = !invalidCode ? null : count === null ? geneticCodeWarning(feature)
+  const countReason = frameWarning || !invalidCode ? null : count === null ? geneticCodeWarning(feature)
     : feature.translation
       ? `Count not verified: ${invalidReason}; the count is the annotation's /translation and can't be checked against the DNA.`
       : `Count not verified: ${invalidReason}; table 1 assumed.`;
@@ -77,9 +82,11 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   }, [hover]);
   return <div ref={ref} role="tooltip" className="pointer-events-none fixed z-[100] max-w-xs rounded-xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-200 shadow-xl">
     <div className="mb-1 flex items-center gap-2"><span className="rounded-sm px-1.5 font-mono text-[11px]" style={{ background: color }}>{feature.type}</span><strong data-tooltip-feature>{feature.name}</strong></div>
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3"><dt>Location</dt><dd className="break-all font-mono">{location}</dd><dt>Length</dt><dd className="font-mono">{length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}{invalidCode
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3"><dt>Location</dt><dd className="break-all font-mono">{location}</dd><dt>Length</dt><dd className="font-mono">{featureLengthText(record, feature)}{frameWarning
+      ? ` · ${frameWarning}`
+      : invalidCode
       ? count !== null && <> · <span data-unverified-count="" className="italic underline decoration-dotted underline-offset-2" aria-describedby={reasonId}>{count}</span></>
-      : feature.type === 'CDS' && record.moleculeType !== 'protein' && ` · ${aminoAcids.toLocaleString('en-US')} aa`}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
+      : feature.type === 'CDS' && translated && ` · ${aminoAcids.toLocaleString('en-US')} aa`}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
     <p className="mt-2 text-slate-400">Click to jump to the row</p>
     {countReason && <p id={reasonId} data-count-reason="" className="mt-2 text-[10px] text-slate-400">{countReason}</p>}
   </div>;

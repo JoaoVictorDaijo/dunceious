@@ -706,3 +706,35 @@ it('picks only the interval in the pointed packed lane', () => {
   fireEvent.doubleClick(view.container.querySelector('[data-quantitative-track]')!,{clientX: 1*ZOOM,clientY:22});
   expect(onSelectionChange).toHaveBeenCalledWith({start:1,end:6,recordIds:['r']});
 });
+
+// LOC-2: order() intervals are placed, not joined, so no connector or frameshift mark is drawn
+// between them, though each interval is still a bar. Locations parsed from their INSDC text.
+describe('Row – order() and between-base sites', () => {
+  const fromLocation = (name: string, location: string): BioFeature => {
+    const parsed = parseLocation(location);
+    return { type: 'misc_feature', name, strand: parsed.strand, start: parsed.start, end: parsed.end,
+      segments: parsed.segments, operator: parsed.operator, betweenBases: parsed.betweenBases };
+  };
+
+  it('draws an order() feature as separate bars with no connectors or frameshift marks', () => {
+    const { container } = renderRow(rec([fromLocation('pocket', 'order(10..15,17..22,40..45)')]));
+    expect(container.querySelectorAll('[data-annotation-part]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-annotation-connector]')).toHaveLength(0);
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+    expect(container.querySelector('.annot-order')).not.toBeNull();
+  });
+
+  it('still connects and marks the same intervals under join', () => {
+    const { container } = renderRow(rec([fromLocation('cds', 'join(10..15,17..22,40..45)')]));
+    expect(container.querySelectorAll('[data-annotation-connector]').length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-frameshift]')?.getAttribute('data-frameshift')).toBe('1');
+    expect(container.querySelector('.annot-order')).toBeNull();
+  });
+
+  it('draws a between-base site as a mark at the boundary, not a bar', () => {
+    const { container } = renderRow(rec([fromLocation('cut', '10^11')]));
+    const site = container.querySelector('[data-annotation-site]');
+    expect(site?.getAttribute('data-x')).toBe(String(10 * ZOOM));
+    expect(container.querySelectorAll('path[data-annotation-part]')).toHaveLength(0);
+  });
+});
