@@ -37,7 +37,7 @@ async function fuzzySearch(page: Page, query: string) {
   await page.getByPlaceholder('Enter query sequence...').fill(query);
   const started = Date.now();
   await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.getByText(/^\d+ matches$/)).toBeVisible();
+  await expect(page.getByText(/^\d+ matches in \d+ records?$/)).toBeVisible();
   return Date.now() - started;
 }
 

@@ -203,7 +203,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
         {/* Query identity uses edit distance over the whole query. */}
         {searchMode === 'fuzzy' && !local && (
-          <div className="stack-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="stack-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center justify-between gap-2">
               <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-300"><Term tip={QUERY_IDENTITY_TIP}>Min query identity</Term></label>
               <span className="shrink-0 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-500 tabular-nums">
@@ -224,8 +224,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
         <div className={`grid gap-3 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="search-strand" className="px-0.5 text-[11px] font-semibold text-slate-400">Strand</label>
+            <div className="stack-y-2">
+              <label htmlFor="search-strand" className="text-[11px] font-semibold text-slate-400 px-1">Strand</label>
               <div className={`relative ${CONTROL}`}>
                 <select
                   id="search-strand"
@@ -241,8 +241,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               </div>
             </div>
           )}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="search-result-limit" className="px-0.5 text-[11px] font-semibold text-slate-400">Result limit</label>
+          <div className="stack-y-2">
+            <label htmlFor="search-result-limit" className="text-[11px] font-semibold text-slate-400 px-1">Result limit</label>
             <NumberField id="search-result-limit" label="Result limit" min={1} step={10}
               value={Number.isNaN(searchOptions.maxResults) ? null : searchOptions.maxResults}
               onChange={value => onSearchOptionsChange({ ...searchOptions, maxResults: value === null ? NaN : Math.trunc(value) })} />
@@ -255,8 +255,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           <div className="pt-6 border-t border-slate-800/50 flex flex-col min-h-0">
             <div className="mb-5 rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <div className="flex items-baseline gap-2 min-w-0">
-                  <span className="text-lg font-bold leading-none text-slate-100 tabular-nums">{searchResults.length}</span>
+                <div data-search-summary="" className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-lg font-bold leading-none text-slate-100 tabular-nums">{searchResults.length}</span>{' '}
                   <span className="text-[11px] font-semibold leading-tight text-slate-400">
                     {searchResults.length === 1 ? 'match' : 'matches'} in {Object.keys(groupedSearchResults).length} {Object.keys(groupedSearchResults).length === 1 ? 'record' : 'records'}
                   </span>

@@ -122,7 +122,7 @@ for (const scenario of scenarios) {
           name: `Annotate match ${expectedRange[0]}–${expectedRange[1]} in ${recordId}`, exact: true,
         }).first()).toBeVisible();
       } else {
-        await expect(page.getByText('100 matches', { exact: true })).toBeVisible();
+        await expect(page.getByText(/^100 matches in \d+ records?$/)).toBeVisible();
         await expect(page.getByRole('button', { name: /^Annotate match / })).toHaveCount(100);
       }
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
