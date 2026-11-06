@@ -28,6 +28,7 @@
  * export is a pure function over strings/number arrays.
  */
 
+import { checkedTranslation, storedTranslation } from './translation';
 import { validCodonStart } from './codonStart';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { splitWrapAround } from './intervals';
@@ -283,7 +284,7 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
 }
 
 /** A feature as {@link translateFeature} reads it: the stored protein and its location's 3′ end. */
-type TranslatedFeature = { translation?: string } & Partial<Pick<BioFeature, 'strand' | 'segments'>>;
+type TranslatedFeature = { metadata?: Record<string, unknown> } & Partial<Pick<BioFeature, 'strand' | 'segments'>>;
 
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
@@ -328,7 +329,7 @@ export function translateFeature(
   translTable = 1,
 ): string {
   const computed = terminateLastCodon(feature, codingSeq, translTable, translateSequence(codingSeq, translTable));
-  const stored = feature.translation;
+  const stored = storedTranslation(feature);
   if (!stored) return computed;
   let protein = '';
   for (let i = 0; i < computed.length; i++) {
@@ -337,29 +338,22 @@ export function translateFeature(
   return protein;
 }
 
-/**
- * Whether a feature's protein carries an internal (early) stop — a "broken" CDS.
- *
- * Prefers the authoritative `/translation`: an annotated protein with no internal
- * stop is not broken, which avoids the false positive recomputation raises for a
- * `transl_except` recoding (e.g. a selenocysteine TGA read as a stop under the
- * base code). A trailing stop is tolerated as normal termination. Falls back to
- * {@link detectEarlyStop} on `codingSeq` when `/translation` is absent.
- *
- * The stored translation is trusted as-is: a stale/edited one that truncates
- * before a real internal stop is not flagged. Standard GenBank stays covered —
- * a real internal stop is written `*` (caught here) and pseudogenes omit
- * `/translation` (recomputed via the fallback).
- */
+/** CDS stop status from the shared model; unavailable translation makes no stop claim. */
+export function isFeatureBroken(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): boolean | undefined;
+/** Coding-string primitive for callers that already own eligibility, such as ORF display. */
+export function isFeatureBroken(feature: { metadata?: Record<string, unknown> }, codingSeq: string, translTable?: number): boolean;
 export function isFeatureBroken(
-  feature: { translation?: string; metadata?: Record<string, unknown> },
-  codingSeq: string,
+  feature: { metadata?: Record<string, unknown> },
+  input: string | Pick<SeqRecord, 'sequence' | 'moleculeType'>,
   translTable = 1,
-): boolean {
+): boolean | undefined {
+  if (typeof input !== 'string') {
+    const result = checkedTranslation(feature as BioFeature, input);
+    return result.status === 'ok' ? result.internalStops.length > 0 : undefined;
+  }
   if (!validCodonStart(feature.metadata?.codon_start) || !isNcbiGeneticCode(translTable)) return false;
-  const stored = feature.translation;
-  if (stored) return /[_*]/.test(stored.slice(0, -1));
-  return detectEarlyStop(codingSeq, translTable);
+  if (feature.metadata?.transl_except !== undefined) return false;
+  return detectEarlyStop(input, translTable);
 }
 
 // ---------------------------------------------------------------------------

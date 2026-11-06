@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkedTranslation, isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
 import { assumedInitiationContext, assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
@@ -123,7 +124,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const codeWarnings = useMemo(() => features.flatMap(f => {
     const strand = getFeatureStrand(f);
     if (typeof strand !== 'number' || !geneticCodeWarning(f)) return [];
-    const warning = geneticCodeWarning(f, extractCodingSequence(f, seq).codingSeq)!;
+    const warning = geneticCodeWarning(f, extractCodingSequence(resolvedTranslationFeature(f), seq).codingSeq)!;
     return [{ feature: f, strand, warning, suppressed: !validCodonStart(f.metadata?.codon_start) }];
   }), [features, seq]);
   const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
@@ -151,7 +152,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     const spans: AssumedHoverSpan[] = [];
     [...assumedViews].forEach(([feature, { codingSeq, alignedIndices, assumed }], featureIndex) => {
       const initiation = assumedInitiationContext(feature);
-      for (let i = feature.translation?.length ?? 0; i < assumed.residues.length; i++) {
+      for (let i = storedTranslation(feature)?.length ?? 0; i < assumed.residues.length; i++) {
         const indices = alignedIndices.slice(i * 3, i * 3 + 3);
         const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
         const frame = codonFrame(firstBase, feature.strand);
@@ -395,7 +396,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
       features.filter(f => isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq);
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
 
@@ -407,9 +408,13 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
-        const protein = translateFeature(f, codingSeq, translTable);
+        const conceptual = isCds(f) ? checkedTranslation(f, { sequence: seq, moleculeType }) : undefined;
+        if (conceptual?.status === 'unavailable' && ['protein-record', 'unknown-strand', 'nonlocal-location', 'unknown-completeness', 'empty'].includes(conceptual.reason)) return;
+        const fallback = translateFeature(f, codingSeq, translTable);
+        const stored = storedTranslation(f);
+        const protein = conceptual?.status === 'ok' ? [...fallback].map((r, i) => stored?.[i] ?? conceptual.residues[i]?.replace('*', '_') ?? r).join('') : fallback;
         const assumed = assumedViews.get(f)?.assumed;
-        const storedLength = f.translation?.length ?? 0;
+        const storedLength = storedTranslation(f)?.length ?? 0;
 
         ctx.font = `600 9px ${MONO_STACK}`;
         ctx.textAlign = 'center';

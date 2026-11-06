@@ -219,7 +219,7 @@ export function useFeatureManager(
   const saveEditedFeature = () => {
     if (!editing || editing.feature.type === 'source' || records.find(record => record.id === editing.recordId)?.features[editing.featureIndex]?.type === 'source') return;
     const { recordId, featureIndex, feature } = editing;
-    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature));
+    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature, addLog));
     addLog(
       featureIndex === -1
         ? `New feature '${feature.name}' created.`

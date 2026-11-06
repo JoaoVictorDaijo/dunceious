@@ -64,7 +64,7 @@ describe('project format 2', () => {
 
 it.each([
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, locationString: {} }] },
-  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, translation: 42 }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, metadata: { translation: 42 } }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, color: {} }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, segments: [{ start: 0, end: 4, strand: 'reverse' }] }] },
   { tracks: [{ id: 't', name: 't', kind: 'invalid', data: [] }] },
@@ -250,4 +250,16 @@ it('loads a project whose saved location text cannot be parsed, keeping the feat
     features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
   const result = parseProject(serializeProject({ ...state, records: [legacy] }));
   expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+});
+
+it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
+  const r: SeqRecord = { id: 'p', name: 'p', moleculeType: 'protein', sequence: 'GCTAAAGCT', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: source === 'computed' ? 'AKA' : 'QQQ', _translationSource: source, _translationCheck: '{"status":"ok","residues":"AKA"}' } }] };
+  const restored = parseProject(serializeProject({ ...state, records: [r] }));
+  if (!restored.ok) throw new Error(restored.message);
+  const f = restored.project.records[0].features[0];
+  expect(JSON.parse(f.metadata!._translationCheck)).toEqual({ status: 'unavailable', reason: 'protein-record' });
+  expect(f.metadata?.translation).toBe(source === 'computed' ? undefined : 'QQQ');
+  expect(f.metadata?._translationSource).toBe(source === 'computed' ? 'removed' : 'imported');
+  expect(JSON.parse(serializeProject(restored.project)).format).toBe(2);
+  expect(f).not.toHaveProperty('translation');
 });

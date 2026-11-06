@@ -93,6 +93,7 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
   const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];
+  notes.push(...report.translationWarnings);
   for (const omitted of report.genBankRecordsOmitted) notes.push(omitted.reason);
   if (report.unalignedRows.length) notes.push(`${report.unalignedRows.length} sequences aren't in the alignment and will be saved separately in ${(options.fileName ?? 'sequences.fasta').replace(/(\.[^.]*)?$/, '_unaligned$1')}`);
   if (written) notes.push(`${written} detail ${written === 1 ? 'value' : 'values'} written.`);

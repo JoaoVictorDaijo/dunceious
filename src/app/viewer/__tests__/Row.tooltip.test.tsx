@@ -152,7 +152,7 @@ it.each([
 it.each([undefined, 'MVA', 'M'])('explains displayed sources for invalid code with stored %s', translation => {
   const sequence = 'ATGTGGGCT';
   const record: SeqRecord = { id: 'c', name: 'c', sequence,
-    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, translation, metadata: { transl_table: '99' } }] };
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, metadata: { ...(translation ? { translation } : {}), transl_table: '99' } }] };
   const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
     records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
     showConservation={false} dragMode="select" activeSelection={null}
@@ -168,7 +168,7 @@ it.each([undefined, 'MVA', 'M'])('explains displayed sources for invalid code wi
 it.each([undefined, 'M'])('does not claim displayed translation on a protein record with stored %s', translation => {
   const sequence = 'ATGTGGGCT';
   const record: SeqRecord = { id: 'protein', name: 'protein', sequence, moleculeType: 'protein',
-    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, translation, metadata: { transl_table: '99' } }] };
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, metadata: { ...(translation ? { translation } : {}), transl_table: '99' } }] };
   const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
     records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
     showConservation={false} dragMode="select" activeSelection={null}

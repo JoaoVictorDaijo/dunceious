@@ -346,16 +346,16 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
   it('recomputes the selected protein instead of retaining the full annotation', () => {
     const feature: BioFeature = {
       type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1,
-      translation: 'MKP', metadata: { translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' },
+       metadata: { ...{ translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' }, translation: 'MKP' },
     };
     const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9);
     const selected = result.features[0];
-    expect(selected.translation).toBeUndefined();
+    expect(selected?.metadata?.translation).toBeUndefined();
     expect(selected.metadata?.translation).toBeUndefined();
     expect(selected.metadata?._gffPhases).toBeUndefined();
     expect(selected.metadata?.phase).toBeUndefined();
     expect(translateFeature(selected, extractCodingSequence(selected, result.sequence).codingSeq)).toBe('KP');
-    expect(feature.translation).toBe('MKP');
+    expect(feature?.metadata?.translation).toBe('MKP');
     expect(feature.metadata?.translation).toBe('MKP');
   });
 

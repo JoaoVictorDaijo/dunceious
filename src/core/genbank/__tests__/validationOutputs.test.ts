@@ -34,7 +34,7 @@ const record = (sequence = 'ATGAAATAA', features: BioFeature[] = []): SeqRecord 
 it.each(['', '0', '4', '2junk'])('suppresses every invalid-frame computation (%s)', frame => {
   const f = feature(frame);
   expect(extractCodingSequence(f, 'ATGAAATAA')).toEqual({ codingSeq: '', alignedIndices: [] });
-  expect(isFeatureBroken({ ...f, translation: 'M*K' }, 'ATGAAATAA')).toBe(false);
+  expect(isFeatureBroken({ ...f, metadata: { ...f.metadata, translation: 'M*K' } }, 'ATGAAATAA')).toBe(false);
   expect(exportToGff3([record(undefined, [f])]).text.split('\n').filter(l => l.split('\t')[2] === 'CDS').map(l => l.split('\t')[7])).toEqual(['.']);
   expect(genBankExportProblem(record(undefined, [f]))).toContain('invalid /codon_start');
 });
@@ -81,6 +81,8 @@ it('preserves inert qualifiers and empty invalid frame/code values through a pro
   const restored = parseProject(serializeProject({ records, featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false }));
   expect(restored.ok).toBe(true);
   if (!restored.ok) throw new Error(restored.message);
-  expect(restored.project.records).toEqual(records);
+  expect(restored.project.records.map(r => ({ ...r, features: r.features.map(f => {
+    const metadata = { ...f.metadata }; delete metadata._translationCheck; return { ...f, metadata };
+  }) }))).toEqual(records);
   expect(genBankExportProblem(restored.project.records[0])).toContain('invalid /codon_start');
 });

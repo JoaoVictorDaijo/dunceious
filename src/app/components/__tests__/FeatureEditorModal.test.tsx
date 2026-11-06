@@ -93,3 +93,12 @@ it('offers the export note only on new hits, off by default', () => {
   fireEvent.click(box);
   expect(JSON.parse(change.mock.calls[0][0].feature.metadata._searchHit).exportNote).toBe(true);
 });
+
+it('exposes the imported protein read-only and previews its replacement', () => {
+  show({ ...editing, feature: { ...editing.feature, type: 'CDS', metadata: { translation: 'MK', _translationSource: 'imported' } } });
+  expect((screen.getByLabelText('Value of translation') as HTMLTextAreaElement).readOnly).toBe(true);
+  expect((screen.getByDisplayValue('translation') as HTMLInputElement).readOnly).toBe(true);
+  expect((screen.getByRole('button', { name: 'Remove qualifier translation' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText('Imported · Read-only')).toBeTruthy();
+  expect(screen.getByRole('status').textContent).toContain('Translation computed at creation');
+});

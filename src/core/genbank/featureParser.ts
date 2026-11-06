@@ -100,7 +100,7 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
         feature.name = value;
       }
       if (key === 'translation') {
-        feature.translation = value;
+        feature.metadata!._translationSource = 'imported';
       }
       const recognised: readonly string[] = protein ? FEATURE_TABLE.proteinQualifiers : FEATURE_TABLE.nucleotideQualifiers;
       if (key.startsWith('_') || !recognised.includes(key)) (feature.unknownQualifiers ??= Object.create(null))[key] = value;
