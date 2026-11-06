@@ -132,6 +132,16 @@ and the line.
 | Malformed location | The location text must parse fully under LOC-1–LOC-7. Today's digit salvage is removed. Valid fuzzy (`<`, `>`) and `join`/`complement` forms pass | "CDS location 12..2x10 can't be read." |
 | Missing location | A feature key line (key at column 6) with no location. Today `featureParser.ts:56` recognises a feature only when its location is on the same line, so such a feature is skipped silently, with its qualifiers. Feature key lines are now detected on their own | "A gene feature has no location." |
 | Unsupported location form | `order()` until #225, `n^n+1` until #230, `n.m` (one-of) and remote `ACC:n..m` until supported. They are legal INSDC, but today's parser reads them as different bases | "gene1 uses a remote location (AB123:1..20), which Dunceious can't place." |
+
+**Per-style guards (owner, 2026-11-06).** Another session fixes the reading of these location styles (#225, #230), and that work ships in the same integration branch. So each style has its own named guard, and the PR that teaches the parser a style removes that style's guard and its test case in the same change:
+
+| Guard | Style | Removed by |
+|---|---|---|
+| `guardOrderLocation` | `order(…)` | #225's fix |
+| `guardBetweenBaseSite` | `n^n+1`, and `n^1` on a circular record | #230's fix |
+| `guardOneOfPosition` | `n.m` | the one-of location fix |
+| `guardRemoteLocation` | `ACC:n..m`, `ACC.v:n..m` | the remote location fix |
+
 | Location out of range | Every position satisfies 1 ≤ position ≤ the sequence length. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
 | Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it. Recovery: parsing resynchronises at the next unambiguous boundary, a feature key line (key at column 6), `ORIGIN`, `CONTIG` or `//`. The lines in between aren't read as qualifiers, and the finding says so. Later features and records are still checked, so the "everything at once" promise holds outside the broken feature | "/note on CDS gene1 has no closing quote; the rest of that feature wasn't checked." |
 | Molecule mixture | Each record's category comes from its LOCUS unit token: `bp` is nucleotide and `aa` is protein. It is not found by searching the whole line, which today reads a locus named `AA` as protein (`sequence.ts:389-393`). Within one file all records must share one category | "This file mixes protein and nucleotide records." |
