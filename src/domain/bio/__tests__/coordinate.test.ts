@@ -21,7 +21,7 @@
 import { pickTrackData, trackPosition, trackValueRange } from '../quantitativeTracks';
 import { describe, it, expect } from 'vitest';
 import { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from '../coordinate';
-import type { SeqRecord } from '../types';
+import type { BioFeature, SeqRecord } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -138,6 +138,7 @@ describe('processTransposition coordinate boundaries', () => {
 
   it('preserves wrap order and mixed segment strands through gaps', () => {
     const record = makeRecord('circular', 'ACGT', '--AC--GT--');
+    record.isCircular = true;
     record.features = [{
       type: 'CDS', name: 'mixed', start: 3, end: 1, strand: -1,
       segments: [{ start: 3, end: 1, strand: -1 }, { start: 1, end: 2, strand: 1 }],
@@ -145,8 +146,8 @@ describe('processTransposition coordinate boundaries', () => {
     expect(processTransposition([record])[0].features[0]).toMatchObject({
       start: 7, end: 3,
       segments: [
-        { start: 7, end: 8, strand: -1 },
         { start: 2, end: 3, strand: -1 },
+        { start: 7, end: 8, strand: -1 },
         { start: 3, end: 4, strand: 1 },
       ],
     });
@@ -217,6 +218,7 @@ describe('processTransposition', () => {
     // Sequence of length 6, wrap-around feature: [4, 2)
     // Gapless alignment: start stays 4, end stays 2
     const record = makeRecord('r1', 'ACGTAC', 'ACGTAC');
+    record.isCircular = true;
     record.features = [{ type: 'gene', name: 'wrap', start: 4, end: 2, strand: 1 }];
     const [result] = processTransposition([record]);
     // Overall start/end in aligned coords
@@ -278,6 +280,7 @@ describe('continuous aligned parts', () => {
 
   it('splits only at the circular origin despite internal gaps in both parts', () => {
     const record = makeRecord('r', 'ACGTAC', '--A-CGT-A-C--');
+    record.isCircular = true;
     record.features = [{ type: 'gene', name: 'wrap', start: 4, end: 2, strand: 1 }];
     expect(processTransposition([record])[0].features[0]).toMatchObject({
       start: 8, end: 5, segments: [{ start: 8, end: 11 }, { start: 2, end: 5 }],
@@ -320,6 +323,17 @@ describe('transposeInterval', () => {
       });
     }
   });
+});
+
+it('keeps source geometry, sites and reverse wrap evaluation order', () => {
+  const feature: BioFeature = { name: 'wrap', type: 'gene', start: 8, end: 2, strand: -1, segments: [{ start: 8, end: 2, strand: -1 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', alignedSequence: 'AC-GTACGTGA', isCircular: true, features: [feature] };
+  const [aligned] = processTransposition([record]);
+  expect(aligned.features[0].segments).toEqual([{ start: 0, end: 2, strand: -1 }, { start: 9, end: 11, strand: -1 }]);
+  expect(aligned.features[0].biological).toEqual({ start: 8, end: 2, strand: -1, segments: feature.segments });
+  const sites = { ...feature, start: 3, end: 6, segments: [{ start: 3, end: 3 }, { start: 6, end: 6 }] };
+  expect(processTransposition([{ ...record, features: [sites] }])[0].features[0].segments).toEqual([{ start: 4, end: 4 }, { start: 7, end: 7 }]);
+  expect(processTransposition([{ ...record, alignedSequence: undefined, features: [{ ...feature, biological: { start: 0, end: 1, strand: 1 } }] }])[0].features[0]).not.toHaveProperty('biological');
 });
 
 

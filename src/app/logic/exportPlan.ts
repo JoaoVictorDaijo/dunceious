@@ -19,6 +19,7 @@
  */
 
 import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
+import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
 import { exportToFasta, type FastaExportOptions } from '@/src/core/formats/fasta';
@@ -68,7 +69,8 @@ export function initialExportSelection(state: ExportSelectionState): { preset: '
 /** Filtering uses original feature indices; source information is independent of annotation choices. */
 export function exportRecordsForOptions(records: SeqRecord[], format: HubExportFormat, options: ExportOptions): SeqRecord[] {
   if (format !== 'genbank' && format !== 'gff3') return records;
-  return records.map(record => ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
+  // Filtering must not hide the invalid CDS that makes a whole record ineligible.
+  return records.map(record => format === 'genbank' && genBankExportProblem(record) ? record : ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
     || (options.types === undefined || options.types.has(feature.type)) && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`))) }));
 }
 
@@ -78,7 +80,11 @@ export function serializeExport(records: SeqRecord[], format: HubExportFormat, o
   if (format === 'genbank') return exportToGenBank(chosen);
   if (format === 'gff3') return exportToGff3(chosen);
   if (format === 'fasta') return exportToFasta(chosen, { residues: options.residues ?? 'original', header: options.header ?? 'id' });
-  return { text: serializeProject({ featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false, ...options.projectState, records: chosen }), report: emptyReport() };
+  const report = emptyReport();
+  report.translationWarnings = chosen.flatMap(record => record.features
+    .filter(feature => feature.metadata?._translationSource === 'removed')
+    .map(feature => `${feature.name}: ${feature.metadata!._translationMessage ?? 'Translation removed'}`));
+  return { text: serializeProject({ featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false, ...options.projectState, records: chosen }), report };
 }
 
 export function missingOrganismWarning(count: number): string {
@@ -87,17 +93,25 @@ export function missingOrganismWarning(count: number): string {
 
 export function describeExport(records: SeqRecord[], format: HubExportFormat, options: ExportOptions = {}): { report: ExportReport; summary: string } {
   const { report } = serializeExport(records, format, options);
-  if (format === 'project') return { report, summary: 'Every value, original file detail, edit state, display name, modifier and colour is kept.' };
+  if (format === 'project') return { report, summary: ['Every value, original file detail, edit state, display name, modifier and colour is kept.', ...report.translationWarnings].join(' ') };
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
   const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];
-  for (const id of report.gapRecordsOmitted) notes.push(`${id} not exported: its sequence contains gap characters`);
+  notes.push(...report.translationWarnings);
+  for (const omitted of report.genBankRecordsOmitted) notes.push(omitted.reason);
   if (report.unalignedRows.length) notes.push(`${report.unalignedRows.length} sequences aren't in the alignment and will be saved separately in ${(options.fileName ?? 'sequences.fasta').replace(/(\.[^.]*)?$/, '_unaligned$1')}`);
   if (written) notes.push(`${written} detail ${written === 1 ? 'value' : 'values'} written.`);
   if (omitted) notes.push(`${omitted} invalid edited ${omitted === 1 ? 'detail' : 'details'} left out.`);
   if (report.droppedAttributes) notes.push(`${report.droppedAttributes} non-GenBank attributes left out.`);
   if (report.deprecatedModifiersOmitted) notes.push(`${report.deprecatedModifiersOmitted} deprecated modifiers left out.`);
+  if (report.remotePartsCarried) notes.push(`${report.remotePartsCarried} ${report.remotePartsCarried === 1 ? 'annotation keeps its' : 'annotations keep their'} intervals in other records only as the insdc_remote attribute.`);
+  if (report.remoteOnlyOmitted) notes.push(`${report.remoteOnlyOmitted} ${report.remoteOnlyOmitted === 1 ? 'annotation lies' : 'annotations lie'} entirely in other records and ${report.remoteOnlyOmitted === 1 ? 'was' : 'were'} left out.`);
   if (report.adjustedIds.length) notes.push(`${report.adjustedIds.length} IDs adjusted.`);
   notes.push('Display names stay in Dunceious.');
-  return { report, summary: notes.join(' ') + (report.missingOrganism ? `\n${missingOrganismWarning(report.missingOrganism)}` : '') };
+  const warnings: string[] = [];
+  if (report.missingOrganism) warnings.push(missingOrganismWarning(report.missingOrganism));
+  const { linearEdgeSite, invalidGeometry } = report.featuresWithoutInsdcLocation;
+  if (linearEdgeSite) warnings.push(`${linearEdgeSite} ${linearEdgeSite === 1 ? 'feature' : 'features'} not written: ${linearEdgeSite === 1 ? 'a site' : 'sites'} at a linear sequence's edge ${linearEdgeSite === 1 ? 'has' : 'have'} no GenBank location`);
+  if (invalidGeometry) warnings.push(`${invalidGeometry} ${invalidGeometry === 1 ? 'feature' : 'features'} not written: ${invalidGeometry === 1 ? 'its location is' : 'their location is'} invalid (outside the sequence or reversed)`);
+  return { report, summary: [notes.join(' '), ...warnings].join('\n') };
 }

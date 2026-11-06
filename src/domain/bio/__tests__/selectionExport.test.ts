@@ -191,10 +191,10 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
     // Parent bounds clipped to [10,20) → rebased [0, 10)
     expect(f.start).toBe(0);
     expect(f.end).toBe(10);
-    // segments must be rebased (not absolute)
+    // segments must be rebased (not absolute), and each cut end gains a marker (LOC-4)
     expect(f.segments).toEqual([
-      { start: 0, end: 2 }, // [5,12) ∩ [10,20) → [10,12) → rebased [0,2)
-      { start: 8, end: 10 }, // [18,25) ∩ [10,20) → [18,20) → rebased [8,10)
+      { start: 0, end: 2, partialStart: true }, // [5,12) ∩ [10,20) → [10,12) → rebased [0,2)
+      { start: 8, end: 10, partialEnd: true }, // [18,25) ∩ [10,20) → [18,20) → rebased [8,10)
     ]);
   });
 
@@ -213,7 +213,8 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
     };
     const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
     expect(result.features).toHaveLength(1);
-    expect(result.features[0].segments).toEqual([{ start: 2, end: 8 }]);
+    // The kept interval faced a dropped interval on each side, so both its ends are marked.
+    expect(result.features[0].segments).toEqual([{ start: 2, end: 8, partialStart: true, partialEnd: true }]);
   });
 
   it('discards a feature when the selection intersects only its intron', () => {
@@ -345,16 +346,16 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
   it('recomputes the selected protein instead of retaining the full annotation', () => {
     const feature: BioFeature = {
       type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1,
-      translation: 'MKP', metadata: { translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' },
+       metadata: { ...{ translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' }, translation: 'MKP' },
     };
     const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9);
     const selected = result.features[0];
-    expect(selected.translation).toBeUndefined();
+    expect(selected?.metadata?.translation).toBeUndefined();
     expect(selected.metadata?.translation).toBeUndefined();
     expect(selected.metadata?._gffPhases).toBeUndefined();
     expect(selected.metadata?.phase).toBeUndefined();
     expect(translateFeature(selected, extractCodingSequence(selected, result.sequence).codingSeq)).toBe('KP');
-    expect(feature.translation).toBe('MKP');
+    expect(feature?.metadata?.translation).toBe('MKP');
     expect(feature.metadata?.translation).toBe('MKP');
   });
 
@@ -389,4 +390,86 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
     const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'A--TNNNNNNGAAAC', features: [feature] })], 10, 15);
     expect(result.features[0].metadata?.codon_start).toBe('2');
   });
+});
+
+// A selection export rebuilds locations without their text, so the operator must travel on the
+// feature (LOC-2), and a site (LOC-5) is kept only when both bases it lies between are selected.
+describe('sliceRecordsBySelection – operators and sites', () => {
+  const slice = (feature: Partial<BioFeature>, start: number, end: number) => sliceRecordsBySelection([{
+    id: 'r', name: 'r', sequence: 'A'.repeat(40),
+    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
+  }], start, end)[0].features;
+
+  it('keeps the order() operator on the clipped feature', () => {
+    const [clipped] = slice({ operator: 'order', start: 2, end: 30, segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }, { start: 25, end: 30 }] }, 0, 20);
+    expect(clipped).toMatchObject({ operator: 'order', segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }] });
+  });
+
+  it.each([
+    [5, 20, [{ start: 5, end: 5 }]],
+    [10, 20, []],
+    [0, 10, []],
+  ])('selecting [%i, %i) around the site 10^11 keeps %o', (start, end, segments) => {
+    const kept = slice({ betweenBases: true, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, start, end);
+    expect(kept.map(feature => feature.segments?.[0] ?? null).filter(Boolean)).toEqual(segments);
+    kept.forEach(feature => expect(feature.betweenBases).toBe(true));
+  });
+});
+
+// LOC-4: a feature cut by a selection gains a marker on the cut end, and keeps its own markers.
+// A selection that drops a whole interval marks the kept end that faced it (owner decision 13).
+describe('sliceRecordsBySelection – partial ends', () => {
+  const clip = (feature: Partial<BioFeature>, sequence: string, start: number, end: number) => sliceRecordsBySelection([{
+    id: 'r', name: 'r', sequence,
+    features: [{ type: 'CDS', name: 'c', start: 0, end: 0, strand: 1, ...feature }],
+  }], start, end)[0].features[0];
+
+  it('keeps the > of 4..>12 and its residue reading when the selection starts inside it (#226 repro)', () => {
+    const cds = clip({ start: 3, end: 12, segments: [{ start: 3, end: 12, partialEnd: true }], locationString: '4..>12', metadata: { transl_table: '27' } }, 'AAAATGCCCTGA', 3, 12);
+    expect(cds.segments).toEqual([{ start: 0, end: 9, partialEnd: true }]);
+    expect(translateFeature(cds, extractCodingSequence(cds, 'ATGCCCTGA').codingSeq, 27)).toBe('MPW');
+  });
+
+  it('marks both cut ends of 1..20 selected at [5, 15)', () => {
+    expect(clip({ start: 0, end: 20, segments: [{ start: 0, end: 20 }] }, 'A'.repeat(30), 5, 15).segments)
+      .toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
+  });
+
+  it('marks the end that faced a dropped interval', () => {
+    expect(clip({ operator: 'join', start: 0, end: 30, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] }, 'A'.repeat(30), 15, 30).segments)
+      .toEqual([{ start: 5, end: 15, partialStart: true }]);
+  });
+});
+
+// #241: a selection that drops an interval keeps the written order of the rest.
+describe('sliceRecordsBySelection – written order', () => {
+  it('re-ranks the written order of the kept intervals', () => {
+    const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(40), features: [{
+      type: 'misc_feature', name: 'n', start: 0, end: 40, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 5, strand: 1 }, { start: 29, end: 40, strand: -1 }, { start: 9, end: 20, strand: -1 }],
+      writtenOrder: [0, 2, 1],
+    }] }], 8, 40)[0].features;
+    expect(clipped.segments!.map(({ start, end }) => [start, end])).toEqual([[21, 32], [1, 12]]);
+    expect(clipped.writtenOrder).toEqual([1, 0]);
+  });
+});
+
+// #245: remote parts keep their own coordinates; their place among the kept intervals is re-ranked.
+describe('sliceRecordsBySelection – remote parts', () => {
+  it('keeps the remote part after the kept local interval', () => {
+    const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(40), features: [{
+      type: 'misc_feature', name: 'n', start: 0, end: 30, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 5 }, { start: 20, end: 30 }],
+      remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 2 }],
+    }] }], 10, 40)[0].features;
+    expect(clipped.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
+  });
+});
+
+// LOC-4 for a feature stored without segments (Codex review of #306): the cut ends' markers must
+// not be dropped with the segment array.
+it('keeps the cut-end markers of a feature without segments', () => {
+  const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(30),
+    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 20, strand: 1 }] }], 5, 15)[0].features;
+  expect(clipped.segments).toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
 });

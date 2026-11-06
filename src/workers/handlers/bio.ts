@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation } from '@/src/domain/bio/translation';
 import { processTransposition, calculateConsensus } from '@/src/domain/bio';
 import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '@/src/domain/bio/types';
@@ -28,7 +29,9 @@ import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/
 /** Pure router for bio-worker messages: maps a request to its response. */
 export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
   const response = routeBioMessage(msg);
-  return msg.requestId === undefined ? response : { ...response, requestId: msg.requestId };
+  return { ...response, requestId: msg.requestId, workspaceRevision: msg.workspaceRevision, incomingCategory: msg.type === 'PARSE_GENBANK'
+    ? response.type === 'PARSE_SUCCESS' && response.records.length ? (response.records[0].moleculeType === 'protein' ? 'protein' : 'nucleotide') : undefined
+    : msg.incomingCategory };
 }
 
 function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
@@ -42,7 +45,13 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
     }
   } else if (msg.type === 'PARSE_GENBANK') {
     try {
-      return { type: 'PARSE_SUCCESS', filename: msg.filename, workspaceRevision: msg.workspaceRevision, incomingCategory: msg.incomingCategory, records: parseGenBank(msg.content) };
+      const parsed = parseGenBank(msg.content);
+      if (parsed.findings.some(f => f.tier === 'refuse')) {
+        const categories = [...msg.content.matchAll(/^LOCUS\s+.*?\s\d+\s+(bp|aa)(?=\s|$)/gmi)].map(m => m[1].toLowerCase() === 'aa' ? 'protein' as const : 'nucleotide' as const);
+        return { type: 'PARSE_REFUSED', filename: msg.filename, ...parsed, categories };
+      }
+      parsed.records = parsed.records.map(record => ({ ...record, features: record.features.map(f => checkTranslation(f, record)) }));
+      return { type: 'PARSE_SUCCESS', filename: msg.filename, ...parsed };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

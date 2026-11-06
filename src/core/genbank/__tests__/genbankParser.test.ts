@@ -45,39 +45,40 @@ ORIGIN
 
 describe('parseGenBank – smoke tests', () => {
   it('parses a single record and returns an array', () => {
-    const records = parseGenBank(MINIMAL_GB);
+    const records = parseGenBank(MINIMAL_GB).records;
     expect(records).toHaveLength(1);
   });
 
   it('extracts the locus id', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     expect(record.id).toBe('TEST001');
   });
 
   it('ingests accession metadata', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     expect(record.accession).toBe('TEST001');
   });
 
   it('extracts the definition as name', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     // definition is > 30 chars so name is truncated to 27 + '...'
     expect(record.definition).toContain('Test record');
   });
 
   it('extracts the nucleotide sequence (uppercase, digits/spaces stripped)', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     expect(record.sequence).toBe('ATGCATGCATGCATGCATGCATGCATGCAT');
   });
 
-  it('ignores non-sequence symbols in ORIGIN lines', () => {
+  it('reports non-sequence symbols without discarding their positions', () => {
     const noisyGb = `LOCUS       NOISY001      12 bp    DNA\nORIGIN\n        1 atgc..nnnn**\n//\n`;
-    const [record] = parseGenBank(noisyGb);
-    expect(record.sequence).toBe('ATGCNNNN**');
+    const result = parseGenBank(noisyGb);
+    expect(result.records[0].sequence).toBe('ATGC..NNNN**');
+    expect(result.findings).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'invalid-residue', tier: 'refuse' })]));
   });
 
   it('parses features with correct coordinates (0-based half-open)', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     // gene feature: location 1..20 → 0-based [0, 20)
     const gene = record.features.find(f => f.type === 'gene');
     expect(gene).toBeDefined();
@@ -86,26 +87,26 @@ describe('parseGenBank – smoke tests', () => {
   });
 
   it('assigns /gene qualifier as feature name', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     const gene = record.features.find(f => f.type === 'gene');
     expect(gene!.name).toBe('testGene');
   });
 
   it('stores /product qualifier in metadata', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     const cds = record.features.find(f => f.type === 'CDS');
     expect(cds!.metadata!['product']).toBe('test protein');
   });
 
   it('stores /translation qualifier on the feature', () => {
-    const [record] = parseGenBank(MINIMAL_GB);
+    const [record] = parseGenBank(MINIMAL_GB).records;
     const cds = record.features.find(f => f.type === 'CDS');
-    expect(cds!.translation).toBe('MTEST');
+    expect(cds!.metadata?.translation).toBe('MTEST');
   });
 
   it('returns empty array for empty input', () => {
-    expect(parseGenBank('')).toHaveLength(0);
-    expect(parseGenBank('   \n  ')).toHaveLength(0);
+    expect(parseGenBank('').records).toHaveLength(0);
+    expect(parseGenBank('   \n  ').records).toHaveLength(0);
   });
 });
 
@@ -125,14 +126,14 @@ ORIGIN
 `;
 
   it('parses two records from a multi-record file', () => {
-    const records = parseGenBank(TWO_RECORDS);
+    const records = parseGenBank(TWO_RECORDS).records;
     expect(records).toHaveLength(2);
     expect(records[0].id).toBe('REC1');
     expect(records[1].id).toBe('REC2');
   });
 
   it('parses sequence for each record independently', () => {
-    const records = parseGenBank(TWO_RECORDS);
+    const records = parseGenBank(TWO_RECORDS).records;
     expect(records[0].sequence).toBe('AAAAAAAAAA');
     expect(records[1].sequence).toBe('TTTTTTTTTT');
   });
@@ -153,7 +154,7 @@ ORIGIN
 `;
 
   it('creates multiple segments for a join() location', () => {
-    const [record] = parseGenBank(JOIN_GB);
+    const [record] = parseGenBank(JOIN_GB).records;
     const gene = record.features.find(f => f.type === 'gene');
     expect(gene).toBeDefined();
     expect(gene!.segments).toBeDefined();
@@ -161,7 +162,7 @@ ORIGIN
   });
 
   it('assigns the envelope start/end to the join feature', () => {
-    const [record] = parseGenBank(JOIN_GB);
+    const [record] = parseGenBank(JOIN_GB).records;
     const gene = record.features.find(f => f.type === 'gene');
     // join(1..10, 21..30) → 0-based envelope start=0, end=30
     expect(gene!.start).toBe(0);
@@ -181,7 +182,7 @@ ORIGIN
 `;
 
   it('sets isCircular = true for circular records', () => {
-    const [record] = parseGenBank(CIRC_GB);
+    const [record] = parseGenBank(CIRC_GB).records;
     expect(record.isCircular).toBe(true);
   });
 });
@@ -203,14 +204,14 @@ ORIGIN
 `;
 
   it('assigns strand -1 to a complement() feature', () => {
-    const [record] = parseGenBank(COMP_GB);
+    const [record] = parseGenBank(COMP_GB).records;
     const gene = record.features.find(f => f.name === 'revGene');
     expect(gene).toBeDefined();
     expect(gene!.strand).toBe(-1);
   });
 
   it('assigns correct 0-based coordinates for a complement() feature', () => {
-    const [record] = parseGenBank(COMP_GB);
+    const [record] = parseGenBank(COMP_GB).records;
     const gene = record.features.find(f => f.name === 'revGene');
     // complement(10..20) → 0-based [9, 20)
     expect(gene!.start).toBe(9);
@@ -218,7 +219,7 @@ ORIGIN
   });
 
   it('assigns strand +1 to a non-complement feature in the same record', () => {
-    const [record] = parseGenBank(COMP_GB);
+    const [record] = parseGenBank(COMP_GB).records;
     const cds = record.features.find(f => f.name === 'fwdCds');
     expect(cds!.strand).toBe(1);
   });
@@ -234,7 +235,7 @@ FEATURES             Location/Qualifiers
                      /country="Oman"
 ORIGIN
         1 acgt
-//`);
+//`).records;
   expect(record).toMatchObject({ accession: 'U49845', version: 'U49845.2', locationQualifier: 'country' });
 });
 
@@ -246,6 +247,30 @@ FEATURES             Location/Qualifiers
                      /geo_loc_name="Saudi Arabia"
 ORIGIN
         1 acgt
-//`);
+//`).records;
   expect(record.locationQualifier).not.toBe('country');
+});
+
+// INSDC FT 11.4 §3.4.2.1: n^n+1, and length^1 on a circular molecule of that length, are sites of
+// zero length. Sites that do not fit the record never reach the parser: #298 refuses them.
+describe('parseGenBank – between-base sites and operators', () => {
+  const record = (location: string, topology: 'linear' | 'circular') => parseGenBank(`LOCUS       SITE001       30 bp    DNA     ${topology}   01-JAN-2024
+FEATURES             Location/Qualifiers
+     misc_feature    ${location}
+ORIGIN
+        1 atgcatgcat gcatgcatgc atgcatgcat
+//
+`).records[0].features[0];
+
+  it.each([
+    ['10^11', 'linear', 10],
+    ['29^30', 'linear', 29],
+    ['30^1', 'circular', 30],
+  ] as const)('reads %s on a %s 30 bp record as a site at boundary %i', (location, topology, boundary) => {
+    expect(record(location, topology)).toMatchObject({ betweenBases: true, start: boundary, end: boundary, locationString: location });
+  });
+
+  it('carries the operator of an order() location onto the feature', () => {
+    expect(record('order(1..3,11..13)', 'linear').operator).toBe('order');
+  });
 });

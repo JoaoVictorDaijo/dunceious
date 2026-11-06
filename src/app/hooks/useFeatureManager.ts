@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { loadScoring, scoringFor } from '@/src/core/search/local/scoring';
 import { useState, useCallback, useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { SeqRecord, SelectionArea, BioFeature, SequenceDetails } from '@/src/domain/bio/types';
@@ -219,7 +220,11 @@ export function useFeatureManager(
   const saveEditedFeature = () => {
     if (!editing || editing.feature.type === 'source' || records.find(record => record.id === editing.recordId)?.features[editing.featureIndex]?.type === 'source') return;
     const { recordId, featureIndex, feature } = editing;
-    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature));
+    const record = records.find(record => record.id === recordId);
+    if (!record) return;
+    const location = formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular });
+    if (location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry') return;
+    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature, addLog));
     addLog(
       featureIndex === -1
         ? `New feature '${feature.name}' created.`

@@ -22,7 +22,7 @@ import { alignedEnvelope, displayTracks } from '@/src/domain/bio/quantitativeTra
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { transposeInterval } from '@/src/domain/bio/coordinate';
 import type { BioFeature, SelectionArea, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
-import { featureLength } from './viewModel';
+import { featureLength, featureLengthText } from './viewModel';
 
 /** An annotation the viewport should frame: aligned columns, plus its name and biological length for the label. */
 export interface FocusTarget {
@@ -32,6 +32,8 @@ export interface FocusTarget {
   end: number;
   label: string;
   length: number;
+  /** The feature's length as `featureLengthText` words it, in the record's unit. */
+  lengthText?: string;
 }
 
 /** Frames the feature's whole envelope, so every part of a joined feature is in view. */
@@ -47,6 +49,7 @@ export function featureFocusTarget(record: SeqRecord, feature: BioFeature): Focu
     end,
     label: feature.name,
     length: featureLength(record.sequence.length, feature.start, feature.end, feature.segments),
+    lengthText: featureLengthText(record, feature),
   };
 }
 

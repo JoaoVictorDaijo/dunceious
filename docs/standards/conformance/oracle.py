@@ -34,6 +34,7 @@ exp = {
  'O1': 'NOT JOINED: intervals 1..3 and 11..13 only',
  'P1': r(5, 25) + '  (partial both ends)',
  'W1': r(115, 120) + r(1, 5),
+ 'RNA1': 'ACGU'.translate(str.maketrans('ACGU', 'UGCA'))[::-1],
  'S1': 'zero-length site between 10 and 11',
  'C1': 'MKF (table 11, GTG start read as M)',
  'C2': 'MAC (frame from base 52: ATG GCC TGT TAA; 5-prime partial)',

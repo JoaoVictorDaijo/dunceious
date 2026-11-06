@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP } from './constants';
 
 const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
@@ -265,10 +265,42 @@ describe('annotation packing compatibility', () => {
 });
 
 
+it('avoids whole-sequence length recovery for many aligned CDS features', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  const record = rec({ id: 'scan', sequence: 'ATGTAGGAG', alignedSequence: seq, features });
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    const [layout] = computeRecordLayouts([record], ALL);
+    expect(layout.translationLanes.laneOf.size).toBe(features.length);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq)).toHaveLength(0);
+  } finally {
+    replacement.mockRestore();
+  }
+});
+
 it('packs touching half-open intervals together and gap-split identities in separate lanes', () => {
   const data = [{ start: 0, end: 10, value: 2 }, { start: 10, end: 20, value: 5 }];
   const record = rec({ id: 'r', sequence: 'A'.repeat(20), tracks: [{ id: 'q', name: 'q', kind: 'interval', data }] });
   expect(computeRecordLayouts([record], ALL)[0].trackLayouts[0].packedRows).toEqual([[0, 1]]);
   const gapped = rec({ id: 'g', sequence: 'ACGT', alignedSequence: 'AC--GT', tracks: [{ id: 'q', name: 'q', kind: 'interval', data: [{ start: 0, end: 4, value: 2 }, { start: 1, end: 4, value: 5 }] }] });
   expect(computeRecordLayouts([gapped], ALL)[0].trackLayouts[0].packedRows).toEqual([[0], [1]]);
+});
+
+
+it.each([1, -1] as const)('reserves warning-only space inside the record on strand %s', strand => {
+  const record = rec({ id: 'invalid-frame', sequence: 'ATGTGAAAA', features: [
+    { type: 'CDS', name: 'invalid', start: 0, end: 9, strand, metadata: { codon_start: '4' } },
+  ] });
+  const opts = { showAnnotations: false, translationVisible: true, showTracks: false };
+  const [visible] = computeRecordLayouts([record], opts);
+  expect(visible.seqBaseY).toBe(strand === 1 ? 18 : 0);
+  expect(visible.height).toBe(18 + 22 + 20);
+  expect(visible.translationLanes.laneOf.size).toBe(0);
+  const [hidden] = computeRecordLayouts([record], { ...opts, translationVisible: false });
+  expect(hidden).toMatchObject({ seqBaseY: 0, height: 22 + 20 });
 });

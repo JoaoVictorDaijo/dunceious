@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { useUiEffects } from '@/src/app/components/uiEffects';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -88,7 +89,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
   }, [chosen, format, options, fileName]);
   const report = preview.report;
   const writtenRecords = useMemo(() => format === 'genbank'
-    ? chosen.filter(record => !report?.gapRecordsOmitted.includes(record.id)) : chosen, [chosen, format, report]);
+    ? chosen.filter(record => !report?.genBankRecordsOmitted.some(omitted => omitted.id === record.id)) : chosen, [chosen, format, report]);
   const writtenCount = writtenRecords.length;
   const hasOmissions = writtenCount !== chosen.length;
   const missingIds = useMemo(() => new Set(exportRecordsForOptions(writtenRecords, format, options).filter(record => record.moleculeType !== 'protein' && !detailsForExport(record, emptyReport()).organism).map(record => record.id)), [writtenRecords, format, options]);
@@ -134,7 +135,7 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     const values = pickIds(label);
     return { label, values, active: quickPick === label };
   });
-  const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(writtenRecords, format, options).reduce((count, record) => count + annotationFeatures(record).length, 0), [writtenRecords, format, options]);
+  const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(writtenRecords, format, options).reduce((count, record) => count + annotationFeatures(record).filter(feature => format !== 'genbank' || feature.locationString || formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }).kind === 'insdc').length, 0), [writtenRecords, format, options]);
   const exportedEditCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(writtenRecords, format, options).reduce((count, record) => count + hubEditCounts(record.features).total, 0), [writtenRecords, format, options]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded-sm" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
@@ -172,9 +173,9 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
             <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={onlyMatching} onChange={e => setOnlyMatching(e.target.checked)} />Only annotations matching hub search and filters</label>
           </div>}
           <div className="mt-2 rounded-xl border border-slate-200 border-l-[3px] border-l-env bg-white p-2.5">
-            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2">{hasOmissions ? <><CountPill>{chosen.length} chosen</CountPill><CountPill>{writtenCount} written</CountPill></> : <CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill>}<CountPill>{exportedAnnotationCount} annotations</CountPill><CountPill>{exportedEditCount} edited or added</CountPill></p>
+            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2">{hasOmissions ? <><CountPill>{chosen.length} chosen</CountPill><CountPill>{writtenCount} written</CountPill></> : <CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill>}<span title={report && Object.values(report.featuresWithoutInsdcLocation).some(Boolean) ? `${Object.values(report.featuresWithoutInsdcLocation).reduce((a, b) => a + b, 0)} features skipped` : undefined}><CountPill>{exportedAnnotationCount} annotations</CountPill></span><CountPill>{exportedEditCount} edited or added</CountPill></p>
             {preview.error ? <p role="alert" className="text-rose-700">{preview.error}</p> : <>
-              {format === 'genbank' && report?.gapRecordsOmitted.map(id => <p key={id} data-export-gap-omission className="mb-2 text-amber-800">{id} not exported: its sequence contains gap characters</p>)}
+              {format === 'genbank' && report?.genBankRecordsOmitted.map(omitted => <p key={omitted.id} data-export-gap-omission={report.gapRecordsOmitted.includes(omitted.id) ? '' : undefined} className="mb-2 text-amber-800">{omitted.reason}</p>)}
               {(format === 'genbank' ? preview.summary.split('\n').slice(1) : preview.summary.split('\n')).map((line, index) => <p key={line} data-export-warning className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
               {Boolean(report?.missingOrganism) && <button className="mt-1 text-amber-800 underline" onClick={() => { onClose(); onEditDetails(missingIds); }}>Edit details</button>}
               {report && format === 'genbank' && <table aria-label="Detail qualifiers" className="w-full text-[11px]"><tbody>{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <tr key={key}><th scope="row" className="py-0.5 text-left font-medium">{EXPORT_DETAIL_LABELS[key]}</th><td className="font-mono text-slate-500">/{key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]}</td><td className="py-0.5 text-right font-mono">{report.writtenDetails[key]} written · {Math.max(0, writtenCount - report.writtenDetails[key] - report.invalidDetailsOmitted[key])} empty · <span className={report.invalidDetailsOmitted[key] ? 'text-amber-800' : undefined}>{report.invalidDetailsOmitted[key]} invalid, left out</span></td></tr>)}</tbody></table>}
