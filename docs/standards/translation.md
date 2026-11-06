@@ -102,6 +102,27 @@ The general computed-feature initiation gap remains; this greeter fix does not c
 which does not conform to genetic code defined by /organism or /transl_table", written
 `(pos:<location>,aa:<amino_acid>)` with the abbreviations of ALPHA-2.
 
+**Code-break details (Documented, not runtime-tested; PR 2 design evidence).** INSDC 11.4
+§7.3.1 also permits a terminal T or TA completed to TAA by mRNA polyadenylation, represented
+by a point or two-base TERM range. Sec maps to U, Pyl to O, and OTHER to X with an explanatory
+note. Locations use entry bases, including complement and accession-qualified syntax; this
+syntax does not authorize implicit remote sequence fetching.
+NCBI C++ Toolkit `912b751`
+[`CSeqTranslator::Translate`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L4209)
+substitutes normalized code breaks after ordinary translation and initiation: LocationOffset
+minus frame identifies the protein position; TERM may append at protein length. With
+`include_stop=false` it truncates at the first stop. This permissive loop is not a validator:
+[`ValidErrItem.cpp`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objects/valerr/ValidErrItem.cpp#L1367)
+names unparsed, off-codon, out-of-CDS and conflicting-break diagnostics.
+[`CCleanup::ParseCodeBreak`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/cleanup.cpp#L4520)
+checks length/containment of simple locations and takes strand from the CDS;
+[`CdregionFeatBC`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6582)
+sorts and deduplicates equal normalized breaks. Raw translator overwrite order is not a
+standard conflict-resolution rule. Interactive edit maintenance, ambiguous mappings and
+invalid-entry policies are not settled by these sources; the proposed
+[PR 2 design](../specs/2026-11-06-translation-transl-except.md#open-decisions) records the choices
+without claiming current application support. NCBI parser/validator execution remains unverified.
+
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
 in-frame TGA).
 
