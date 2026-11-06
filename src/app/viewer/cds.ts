@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
@@ -25,14 +26,47 @@ import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
 
-/**
- * The warning for a CDS/ORF whose `/transl_table` is not an NCBI genetic code, or null. Its
- * codons are not translated (see `translateSequence`), and the warning says why.
- */
-export const geneticCodeWarning = (feature: BioFeature): string | null =>
-  CDS_ORF_TYPES.includes(feature.type) && !isNcbiGeneticCode(featureTranslTable(feature))
-    ? `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code; codons are not translated`
-    : null;
+/** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
+export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
+  if (!CDS_ORF_TYPES.includes(feature.type) || isNcbiGeneticCode(featureTranslTable(feature))) return null;
+  const prefix = `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code.`;
+  if (moleculeType === 'protein' || typeof getFeatureStrand(feature) !== 'number') return prefix;
+  const stored = feature.translation;
+  if (!stored) return `${prefix} Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.`;
+  if (codingSeq !== undefined && stored.length < Math.floor(codingSeq.length / 3)) {
+    return `${prefix} The first ${stored.length} residues are the annotation's /translation and can't be checked; the rest assume table 1.`;
+  }
+  return `${prefix} The residues shown are the annotation's /translation and can't be checked against the DNA.`;
+}
+
+/** Every assumed cell, including invariant ones, must disclose the unknown genetic code. */
+export function assumedCodonDescription(codon: string, residue: string, codeSensitive: boolean, initiation = false): string {
+  const normalized = codon.toUpperCase().replace(/U/g, 'T');
+  const readings = tableOneReadings(normalized);
+  const starts = initiation ? startTables(normalized) : [];
+  if (starts.length) {
+    const others = otherReadings(normalized, true).filter(r => r.residue !== 'M')
+      .map(({ residue, tables }) => `${residue === '*' ? 'stop' : residue} in tables ${tables.join(', ')}`);
+    return `${normalized}: ${residue}, assuming table 1. M as a start in tables ${starts.join(', ')}.${others.length ? ` ${others.join('; ')}.` : ''}`;
+  }
+  if (residue === '?') {
+    const choices = readings.filter(r => r !== '*').concat(readings.includes('*') ? ['a stop'] : []);
+    const alternatives = choices.length > 1 ? `${choices.slice(0, -1).join(', ')} or ${choices.at(-1)}` : choices[0];
+    const prefix = `${normalized}: ambiguous, assuming table 1.`;
+    if (!alternatives) return `${prefix} This codon cannot be resolved.`;
+    return codeSensitive
+      ? `${prefix} In table 1 it can be ${alternatives}; other codes read some of these differently.`
+      : `${prefix} ${alternatives}, in every NCBI code.`;
+  }
+  if (codeSensitive) {
+    const alternatives = otherReadings(normalized).map(({ residue: other, tables }, i) =>
+      `${other === '*' ? 'stop' : other} in ${i === 0 && tables.length > 1 ? 'tables ' : ''}${tables.join(', ')}`);
+    return `${normalized}: ${residue === '*' ? 'stop' : residue}, assuming table 1. ${alternatives.length ? alternatives.join('; ') : 'Other codes read some expansions differently'}.`;
+  }
+  return /^[ACGT]{3}$/.test(normalized)
+    ? `${residue}, assuming table 1. ${normalized} reads ${residue} in every NCBI code.`
+    : `${residue}, assuming table 1. Every reading of ${normalized} is ${residue} in every NCBI code.`;
+}
 
 /**
  * Maps each CDS/ORF feature to whether its protein has an internal (early) stop

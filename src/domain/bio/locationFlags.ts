@@ -103,3 +103,16 @@ export function isThreePrimePartialLocation(feature: Pick<BioFeature, 'locationS
   if (!terminal) return false;
   return terminal.strand === 1 ? terminal.endPartial : terminal.startPartial;
 }
+
+/**
+ * The 5′ marker belongs to the interval translated first: `<` when read forward, `>` when
+ * complemented (INSDC FT 11.4 §3.4.2.1–2). False without raw text does not establish completeness;
+ * initiation callers must separately require location text.
+ */
+export function isFivePrimePartialLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
+  const text = (feature.locationString ?? '').replace(/\s/g, '');
+  if (!text) return false;
+  const initial = evaluateIntervals(text, 1)[0];
+  if (!initial) return false;
+  return initial.strand === 1 ? initial.startPartial : initial.endPartial;
+}
