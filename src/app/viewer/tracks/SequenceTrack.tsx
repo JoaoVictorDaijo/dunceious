@@ -327,7 +327,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
       features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, record ?? { isCircular: true });
+        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
 

@@ -64,7 +64,7 @@ export interface SegmentFrameshift {
  * segment's start is the same shift read forward or in reverse.
  */
 export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string }): SegmentFrameshift[] {
-  const segments = writtenOrderSegments(feature) ?? [];
+  const segments = (writtenOrderSegments(feature) ?? []).filter(segment => segment.start !== segment.end);
   const junctions: SegmentFrameshift[] = [];
   for (let i = 0; i + 1 < segments.length; i++) {
     const shift = frameShift(segments[i].end - 1, segments[i + 1].start, 1);

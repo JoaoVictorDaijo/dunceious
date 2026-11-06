@@ -20,6 +20,7 @@
 
 // @vitest-environment jsdom
 import * as d3 from 'd3';
+import * as bio from '@/src/domain/bio';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
@@ -407,4 +408,22 @@ it('keeps even a subpixel hit visible when its base is not the pixel sample', ()
   render(<SequenceTrack {...props('A'.repeat(100), [])} showTranslation={false} zoomLevel={0.25}
     xScale={d3.scaleLinear().domain([0, 100]).range([0, 25])} searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
   expect(recorder.fillRects().filter(([x, , width]) => x === 0 && width === 1.2)).toEqual([]);
+});
+
+
+it('passes the known biological length to feature extraction on translation redraw', () => {
+  installCanvasRecorder();
+  const feature: BioFeature = { type: 'CDS', name: 'aligned', start: 0, end: 5, strand: 1,
+    biological: { start: 0, end: 3, strand: 1 } };
+  const input = props('AT--G', [feature]);
+  const record = { id: 'r', name: 'r', sequence: 'ATG', alignedSequence: 'AT--G', features: [feature] };
+  const extraction = vi.spyOn(bio, 'extractCodingSequence');
+  try {
+    const { rerender } = render(<SequenceTrack {...input} record={record} />);
+    extraction.mockClear();
+    rerender(<SequenceTrack {...input} record={record} scrollX={1} />);
+    expect(extraction).toHaveBeenCalledWith(feature, 'AT--G', { isCircular: undefined, biologicalLength: 3 });
+  } finally {
+    extraction.mockRestore();
+  }
 });

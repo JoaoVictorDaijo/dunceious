@@ -145,17 +145,18 @@ type LocatedFeature = {
  *
  * @param feature  A BioFeature-like object with strand, start, end and optional segments.
  * @param seq      Raw or aligned record sequence, in the feature's coordinate space.
+ * @param topology Source topology and known biological length, avoiding a full aligned-sequence scan.
  * @returns        `{ featureSeq, alignedIndices }`.
  */
 export function extractFeatureSequence(
   feature: LocatedFeature,
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
-  topology: { isCircular?: boolean } = { isCircular: true },
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { featureSeq: string; alignedIndices: number[] } {
   const record = { length: seq.length, isCircular: topology.isCircular };
   const source = feature.biological ?? feature;
-  const sourceRecord = { ...record, length: feature.biological ? seq.replace(/-/g, '').length : seq.length };
+  const sourceRecord = { ...record, length: feature.biological ? topology.biologicalLength ?? seq.replace(/-/g, '').length : seq.length };
   const stored = source.segments?.length ? source.segments : [source];
   if (hasPartialStrands(source) || stored.some(part => invalidLocationPart(part, sourceRecord))) {
     return { featureSeq: '', alignedIndices: [] };
@@ -224,7 +225,7 @@ export function extractFeatureSequence(
 export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
   seq: string,
-  topology: { isCircular?: boolean } = { isCircular: true },
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { codingSeq: string; alignedIndices: number[] } {
   const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq, 'dna', topology);
   let codingSeq = featureSeq;

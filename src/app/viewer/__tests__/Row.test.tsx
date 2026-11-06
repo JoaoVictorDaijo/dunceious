@@ -614,5 +614,28 @@ describe('reference badge', () => {
 it.each([false, true])('draws no glyph for a zero-width join part (aligned=%s)', aligned => {
   const source = rec([{ type: 'gene', name: 'site join', start: 0, end: 5, strand: 1, segments: [{ start: 0, end: 3 }, { start: 5, end: 5 }] }]);
   const record = aligned ? processTransposition([{ ...source, alignedSequence: source.sequence }])[0] : source;
-  expect(glyphs(renderRow(record).container)).toHaveLength(1);
+  const setTooltip = vi.fn();
+  const { container } = renderRow(record, { setTooltip });
+  expect(glyphs(container)).toHaveLength(1);
+  expect(container.querySelector('[data-frameshift]')).toBeNull();
+  fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
+  expect(setTooltip.mock.calls.at(-1)?.[0].content).not.toContain('Ribosomal frameshift');
+});
+
+
+it.each([
+  { strand: 1, siteFirst: true },
+  { strand: 1, siteFirst: false },
+  { strand: -1, siteFirst: true },
+  { strand: -1, siteFirst: false },
+] as const)('keeps the drawable label and arrow with sites: %j', ({ strand, siteFirst }) => {
+  const bar = { start: 6, end: 26 };
+  const site = { start: siteFirst ? 3 : 30, end: siteFirst ? 3 : 30 };
+  const source = rec([{ type: 'gene', name: 'real bar', start: 3, end: 30, strand,
+    segments: siteFirst ? [site, bar] : [bar, site] }]);
+  const record = processTransposition([{ ...source, alignedSequence: source.sequence }])[0];
+  const { container } = renderRow(record);
+  expect(glyphs(container)).toHaveLength(1);
+  expect(container.querySelector('[data-annotation-name]')?.textContent).toContain('real bar');
+  expect(glyphs(container)[0].getAttribute('d')).toMatch(strand === 1 ? /L208,/ : /L48,/);
 });

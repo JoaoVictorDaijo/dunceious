@@ -108,6 +108,8 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 (`locationParser.ts:90`). Display formats stored zero-length sites with `formatInsdcLocation`;
 linear-edge sites are named in words and skipped with a warning on GenBank export. Interior
 and circular-origin site export keeps its legacy range text until #230 fixes parsing.
+Sites remain in stored and aligned geometry and location text, but contribute no bases to
+frameshift junctions. Labels and terminal arrowheads belong to nonempty drawable intervals.
 
 ## LOC-6. Features crossing the origin
 

@@ -353,5 +353,16 @@ it('does not extract an invalid source part after alignment clamps its endpoints
     { name: 'invalid', type: 'CDS', start: 0, end: 15, strand: 1 as const },
   ] };
   const aligned = processTransposition([source])[0];
-  expect(extractCodingSequence(aligned.features[0], aligned.alignedSequence!, aligned)).toEqual({ codingSeq: '', alignedIndices: [] });
+  expect(extractCodingSequence(aligned.features[0], aligned.alignedSequence!, { ...aligned, biologicalLength: source.sequence.length })).toEqual({ codingSeq: '', alignedIndices: [] });
+});
+
+
+it.each([
+  { biologicalLength: 6, codingSeq: 'ATG', alignedIndices: [0, 1, 2] },
+  { biologicalLength: 5, codingSeq: '', alignedIndices: [] },
+])('validates aligned source geometry using supplied length $biologicalLength', ({ biologicalLength, codingSeq, alignedIndices }) => {
+  const feature = { start: 0, end: 3, strand: 1 as const,
+    biological: { start: 3, end: 6, strand: 1 as const } };
+  expect(extractCodingSequence(feature, 'ATG---', { isCircular: false, biologicalLength }))
+    .toEqual({ codingSeq, alignedIndices });
 });

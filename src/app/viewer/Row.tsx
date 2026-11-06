@@ -445,7 +445,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                const labelIdx = f.segments.findIndex(seg => seg.start !== seg.end && partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
                 const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);
