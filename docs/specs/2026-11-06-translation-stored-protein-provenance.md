@@ -85,7 +85,9 @@ Murilo, on #253:
 3. **What triggers a recompute.** A change to any of these: `start`, `end`, `segments`, `strand`,
    `/codon_start`, `/transl_table`, a partial end (`<`, `>`), or any `/transl_except` value
    (added, removed or changed). Label, colour, note and other qualifier edits keep the stored
-   protein.
+   protein. Strand changes mean `getFeatureStrand(previous) !== getFeatureStrand(next)`
+   (`src/domain/bio/strand.ts`), including unknown-to-known transitions when numeric strand
+   is unchanged. The legacy numeric fallback is not biological orientation.
 4. **Export after an edit** writes the recomputed `/translation`. **When the edited CDS has an
    internal stop, export omits `/translation` and warns** that the CDS needs fixing or
    `/pseudo`. The same applies when the edited CDS has no valid genetic code, or carries a
@@ -188,7 +190,15 @@ export function isCds(feature: BioFeature): boolean;
    each interval's resolved orientation in evaluation order. Require `definesOneSequence`
    from the location dependency (contract below); false gives `unavailable: 'nonlocal-location'`.
    Require established completeness at both biological ends; unknown gives
-   `unavailable: 'unknown-completeness'`. Only then call `extractCodingSequence`, which applies
+   `unavailable: 'unknown-completeness'`. Before extraction, resolve orientation on a temporary
+   input: when any segment has an explicit strand, retain evaluation order and fill each
+   omitted strand from the known feature strand. Use that same resolved input for end
+   accessors and real-base indices; do not mutate persisted intervals just to translate.
+   When no segment has an explicit strand, preserve the whole-feature orientation path,
+   including reversed interval order on minus. The current extractor's per-segment branch
+   treats omitted strand as forward; passing that unresolved input is forbidden. This
+   implements the existing [LOC-3](../standards/locations.md#loc-3-complement-whole-feature-or-per-interval)
+   contract, not a new biological default. Only then call `extractCodingSequence`, which applies
    segments, strand and `/codon_start`. An empty result is `unavailable: 'empty'`.
    These eligibility checks also guard counts, early-stop claims, display and edit replacement;
    none may substitute a forward strand or concatenate an unsupported location.
@@ -212,31 +222,46 @@ export function isCds(feature: BioFeature): boolean;
    `x_Translate` does (`sequence.cpp:3696`). The padded codon is kept only when step 4 gives a
    single residue. For example, `ATGGC` gives `MA`, because GC plus any base is A. Otherwise it
    is dropped. Either way, the result is never a stop.
-7. **Terminal stop.** For a 3′-complete CDS, look at the last codon's expansions under the
-   table's stop rows. This includes the context-dependent stops of tables 27, 28 and 31 (NCBI
+7. **Terminal context, then terminal-stop removal.** For a 3′-complete CDS only, look at
+   the final codon's expansions under the table's stop rows, only when there are no leftover
+   bases. This includes the context-dependent stops of tables 27, 28 and 31 (NCBI
    `sequence.cpp:3724-3729`, which checks the codon state):
    First rebuild this position's `possible` set expansion by expansion: a terminal stop
    reading replaces that expansion's ordinary residue reading, including for dual-coding tables.
-   - every expansion is a stop: drop both the terminal residue and its `possible` entry;
+   - every expansion is a stop: represent it as a definite stop before removal below;
    - none is: retain the ordinary residue and set;
    - mixed: retain X with the final set containing `*` and the remaining residues, and set
      `threePrimeIndeterminate`. The display says the end is uncertain.
 
-   Thus complete table-28 `ATGTAN` has final sets `{M}`, `{*,Y}`, never `{M}`, `{Q,Y}`:
+   For a 3′-partial CDS retain the ordinary readings. Independently of completeness,
+   remove a final definite stop (set `{*}`) and its `possible` entry. Remove only the final
+   position, never preceding stops. This follows `TranslateToProtein`'s unconditional
+   trailing-star removal ([Toolkit `912b751`, `sequence.cpp:4024`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L4024));
+   completeness gates dual-coding reinterpretation, not removal. Any retained final mixed
+   stop/residue set is X with `threePrimeIndeterminate`; all-residue sets keep their ordinary
+   representation. Source inspected, not executed.
+
+   Thus table-1 `ATGAAATAA` at `1..>9` gives `MK`, no internal stop, count "2 aa".
+   Table-27 `ATGAAATGA` at `1..>9` gives `MKW` (ordinary TGA=W); exact `1..9` gives `MK`.
+
+   Complete table-28 `ATGTAN` has final sets `{M}`, `{*,Y}`, never `{M}`, `{Q,Y}`:
    TAA/TAG terminate, TAT/TAC give Y. Stored `MQ` differs at index 1; `MY` is compatible.
    `possible.length === residues.length`; comparison never consumes the pre-context set.
 
    This replaces `terminateLastCodon`'s ACGT-only check for this function. That helper stays for
    its current callers.
-8. **Internal stops.** A codon whose only possible readings are stops is `*`, and its index goes
-   in `internalStops`. These are never exported (decision 4).
+8. **Internal stops.** After terminal-stop removal, a retained codon whose only possible
+   readings are stops is `*`, and its index goes in `internalStops`. These are never exported
+   (decision 4).
 
 **Partial ends and local-sequence consumption contract.** The prerequisite is the SARS-CoV
 location work on `fix/order-operator`, inspected at
 [`22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042`](https://github.com/JoaoVictorDaijo/dunceious/blob/22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042/src/domain/bio/locationFlags.ts#L96)
 and its [location spec](https://github.com/JoaoVictorDaijo/dunceious/blob/22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042/docs/specs/2026-11-06-locations-operator-sites-remote.md).
-No location PR was open at inspection; the read-only diff against
-`origin/integration/murilo-review` is the dependency, not a claim that it has merged.
+The dependency is now [PR #306](https://github.com/JoaoVictorDaijo/dunceious/pull/306),
+branch `fix/order-operator`; the API was also inspected at
+[`453fdf12e4c3cd142d69e4f2d6d9068e7567a938`](https://github.com/JoaoVictorDaijo/dunceious/blob/453fdf12e4c3cd142d69e4f2d6d9068e7567a938/src/domain/bio/locationFlags.ts).
+This is a prerequisite, not a claim that it has merged.
 It owns [#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226) persistence, import
 normalization, edits, clipping and serialization. It lands
 before PR 1; reconcile this contract and tests with its final API before PR 1 merges.
@@ -246,7 +271,7 @@ Do not create a competing location model.
   `partialEnd?: true` means `>` after the higher base. These are coordinate ends, not 5′/3′.
 - Call **`isFivePrimePartialLocation(feature)`** and
   **`isThreePrimePartialLocation(feature)`**, each taking
-  `Partial<Pick<BioFeature, 'strand' | 'segments'>>`. They return booleans, not a three-state
+  `Partial<Pick<BioFeature, 'strand' | 'segments' | 'remoteParts'>>`. They return booleans, not a three-state
   answer. `isPartialLocation(feature)` detects any marker, including interior markers; it
   cannot decide initiation or termination.
 - With no per-segment strand, a minus feature reverses the stored interval order. With
@@ -315,12 +340,22 @@ follows the cited NCBI validator.
 - Stored residues past the last codon go to `storedExtra`. Conceptual residues past the end of
   the stored protein are counted in `storedShortBy`. Both lengths use translation positions,
   including internal `*`, never an unconditional amino-acid unit. Neither is shown as a codon.
+- A verified comparison is discrepant iff `differing.length > 0`, `storedExtra.length > 0`,
+  or `storedShortBy > 0`. Each discrepant CDS counts once in the per-file warning, including
+  length-only differences, subject to decision 6's `/exception` suppression. This implements
+  the owner's "differs from DNA" warning without calling unmatched tails codon disagreements.
+  NCBI also distinguishes length and residue mismatch diagnostics
+  ([Toolkit diagnostic definitions, TransLen](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objects/valerr/ValidErrItem.cpp#L1358));
+  the once-per-file count remains Dunceious's policy.
 - The conceptual protein has its terminal stop removed already, so an ordinary stored protein
   with no `*` lines up.
 
 ## Edit boundary (`saveEditedFeature`)
 
 - **If the save changes a field from decision 3:**
+  Use biological-strand equality, not numeric equality. Choosing Forward clears
+  `_gffStrand='.'` or `'?'` and must replace the stored protein even if numeric strand stays
+  +1. Refreshing only `_translationCheck` does not satisfy replacement.
   - `conceptualTranslation` gives `ok` with no internal stops: set `metadata.translation` to
     its residues and `metadata._translationSource = 'computed'`.
   - It gives `ok` with internal stops, or `unavailable`: remove `metadata.translation`, set
@@ -369,7 +404,8 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
   - All paths call the same function and add to the same per-file warning.
 - The result is kept as internal `_translationCheck` metadata. It is recomputed whenever the
   feature or its record's sequence changes, not on every redraw.
-- Differing CDSs without `/exception` add to one warning per file, e.g. "3 CDS have a
+- Discrepant CDSs (codon disagreements or either unmatched tail) without `/exception` add
+  once each to one warning per file, e.g. "3 CDS have a
   /translation that differs from their DNA".
 - An `unavailable` result is recorded as "can't verify", with its reason.
 
@@ -393,7 +429,13 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
   positions without the terminal stop, internal stops and X/U/O included.
 - **Both stop** (stored `*` over a DNA stop): no difference, drawn as today's red `!` cell.
 - **Tooltips:**
-  - for a CDS whose stored protein differs: "Annotation differs from DNA at N codons";
+  - for codon disagreements: "Annotation differs from DNA at N codons", N=`differing.length`;
+    omit this clause when N=0;
+  - for an unmatched tail: "Annotated protein is N translation positions longer/shorter
+    than the DNA-derived protein", N=`storedExtra.length` / `storedShortBy`. Include this
+    clause for length-only differences and append it when codon disagreements also exist.
+    Never explain a length-only difference as "differs at 0 codons". `/exception` suppresses
+    the file warning, not the explanation;
   - for a CDS recomputed after an edit: "Translation recomputed after edit";
   - for one removed after an edit: "Translation removed after edit", with the reason.
 - **Editor:** `/translation` is read-only, with its source label. The edit's outcome
@@ -417,6 +459,16 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
 | 1 (#291) | One protein field; read-only `/translation`; `conceptualTranslation` with steps 1, 3–8 and step 2 returning `unavailable`; edit boundary; export omission; import check on both paths and the warning; early-stop and count from the DNA; `isCds`; format-2 save/load without migration; project check recomputation; TRANS-1/3 doc updates | #226 (structured partial ends, merged first) |
 | 2 | `/transl_except`: lossless repeated qualifiers through parse, metadata, editor, project and serializer; NCBI code-break mapping through segment order, strand and `/codon_start`; partial TERM; diagnostics for unparsed, off-codon, remote and conflicting entries; rebasing on selection export; TRANS-4 update | PR 1; its own validation table, written and reviewed before implementation |
 | 3 | Codon marks, chips, hover targets, mockup tooltips; padded-codon drawing and hover contract | PR 1; its own drawing and hover assertions, written and reviewed before implementation |
+
+**PR 3 integration contract.** PR 1 owns comparison and model semantics. PR 3 must update
+its stored-X wildcard prose, hidden-stop predicate, unknown-X stop-edge description and MXA
+fixture: X over a definite DNA stop contributes one `differing` index, retaining X and the
+stop edge. Ordinary-residue X remains compatible. All codon-disagreement counts use
+`differing.length`, independently of lighter-cell counts. Every discrepancy chip uses
+"position(s)", including residue-only differences; only the CDS total count uses decision 11's
+conditional "aa" label. PR 3 must adopt the length-aware tooltip clauses above and its
+acceptance fixtures must include length-only differences. Its aa-chip and zero-mismatch-X-stop
+assertions are superseded by this contract, not alternative policies.
 
 ## Validation
 
@@ -450,6 +502,10 @@ the stored protein; the prerequisite owns location normalization and PR 3 owns d
 | GFF3 strand-relative phase and unrelated-edit fidelity | `gff3.test.ts`, “computes reverse CDS phases in transcription order” asserts row phases; “retains different imported phases per part through re-export” preserves distinct values | Reuse; strengthen with edited-frame invalidation through save |
 | Current protein across save, import/attachment, project load, count, details-copy and GenBank/GFF3 export | None found for this new shared conceptual-result contract; existing extraction tests do not prove these entry points | Add cases at the named boundaries below, including unavailable and preserved curated paths |
 | Single protein field and no format bump | `projectFile.test.ts` refuses malformed format 2; no protection found for the new single-store contract | Strengthen format-2 save/load and check-discard coverage |
+| Partial terminal stop / NCBI terminal-only removal | None found for partial-end handling in the new conceptual result | Add domain + save/export case below; reject false internal stop/removal |
+| Biological-strand invalidation / accessor + decision 3 | `featureManager.test.ts` invalidates phase caches on numeric strand edits; no unknown-to-known protein replacement assertion found | Strengthen editor→save→export for both unknown states and unrelated-edit preservation |
+| Mixed explicit/omitted orientation / LOC-3 | `sequence.test.ts` orientation/frame case uses all-explicit strands; `gff3.test.ts` mixed-strand case asserts per-part directions but not omitted fallback | Strengthen extraction and conceptual/save/export coverage; reject MF instead of ME |
+| Stop-X, chip units and length-warning membership / comparison contract | None found for these new comparison/mark contracts | Add comparison→both import paths and project load; PR 3 owns chip/tooltip assertions |
 | Padded-residue visibility and marks | None found for two-index residue drawing/hover | PR 3 acceptance dependency; no claim that PR 1 verifies drawing |
 
 The cases below are proposed acceptance evidence, not executed tests. The implementer records
@@ -482,6 +538,11 @@ record makes each warning-count assertion exclude unrelated features.
 | Finding 6: discrepancy units | comparison unit; PR 3 chip assertion | DNA `ATGTAAGGGTAA`, stored `M` → `storedShortBy=2`, chip “−2 positions” (one stop, one G). DNA `ATGAAAGGGTAA`, stored `M` → same count/chip (K,G). DNA `ATGTAA`, stored `MK` → `storedExtra="K"`, “+1 position”; no chip unconditionally says aa. |
 | Finding 7: local single-sequence gate | import → invalidating save → counts and GenBank/GFF3/project export | DNA `ATGCCCAAATAA`, location `order(1..3,7..12)` with stored `MK`: `definesOneSequence=false`, `nonlocal-location`, kept imported, no comparison/count/early-stop or codon lane. Same for `join(1..3,J00194.1:7..12)` with explicit remote part. Move the local `[0,3)` part to `[1,4)`: still unavailable; remove protein, one reason warning, all exports omit translation (remote location handling remains dependency-owned). Positive control `join(1..3,7..12)` → `MK`, count “2 aa”, and a successful recompute/export. No implicit remote fetch. |
 | Finding 8: phase authority, editor decision pending | editor → save → conceptual result → GFF3 export/reimport | DNA `AATGCCCTAA`, imported row `r\tx\tCDS\t1\t10\t.\t+\t1\tID=c;translation=MP`: phase 1 / codon_start 2 skips A, `ATG CCC TAA` → `MP`. Change effective phase to 2 through the chosen control: codon_start 3 skips AA, `TGC CCT AA` → `CP` (AAN ambiguous tail dropped), source computed, export phase 2 and translation CP. Multipart DNA `AATGCNNNCCTAA`, same-ID rows 1..5 phase 1 and 9..13 phase 2: old MP; edit initial phase to 2 → CP and row phases `[2,0]`, because `(2−5) mod 3=0`. Retained `[1,2]` cannot be reused; reimport gives codon_start 3 / CP. Under option B a direct phase-row edit is blocked and this change uses codon_start 2→3; under A it uses phase 1→2 and conflicting simultaneous frame edits are refused. Unrelated name edit keeps original `[1,2]`. |
+| Partial terminal stop (round-4 finding 1) | conceptual → invalidating save → count/export | Table 1 DNA `ATGAAATAA`, normalized exact `1..9`, stored MV imported; edit end marker to `1..>9`: ATG=M, AAA=K, TAA=*; drop final *, `residues="MK"`, `possible=["M","K"]`, `internalStops=[]`, count “2 aa”, early-stop false, stored MK computed, GenBank `/translation="MK"`, no removal warning. Table-27 same edit over `ATGAAATGA`: MK→MKW (ordinary TGA=W); exact control→MK. Partial table-1 `ATGTAATAA`→`M*`, stops `[1]`: preceding stop remains and causes removal/warning. |
+| Biological-strand save (round-4 finding 2) | editor → save → source/details and GenBank/GFF3 export | DNA `ATGAAATAA`; GFF3 row `r\tx\tCDS\t1\t9\t.\t.\t0\tID=c;translation=MV`, repeated with strand `?`: import keeps MV imported, unknown-strand. Choose Forward, clearing `_gffStrand` with numeric +1 unchanged: effective strand changes to +1; save stores MK computed, label “Computed from the DNA”, both exports contain MK, no stale MV. Control: rename while unresolved retains MV imported/unavailable. Known +1→+1 rename retains curated MV imported (original verified import warns once). |
+| Resolved interval extraction (round-4 finding 3) | extraction → conceptual → save → GenBank export/reimport | DNA `CATTTC`, feature −1, exact evaluation-order segments `[{start:0,end:3,strand:-1},{start:3,end:6}]`: effective strands [−1,−1]; rc(CAT)=ATG then rc(TTC)=GAA, indices `[2,1,0,5,4,3]`, coding ATGGAA, protein ME. Change second strand from +1 to omitted: old MF becomes ME computed; export a location evaluating as `join(complement(1..3),complement(4..6))` (equivalent canonical spelling allowed) and `/translation="ME"`; reimport computes ME. No implicit forward TTC or whole-join reversal. Control with both strands omitted retains whole-feature reverse order: coding GAAATG→EM; GAA is not an initiator. |
+| Shared PR 3 comparison (round-4 finding 4) | comparison/import; PR 3 projection/chip/tooltip | DNA `ATGTAAGGGTAA`, stored MXG: conceptual M*G, differing `[1]`, exactly one warned CDS; tooltip “Annotation differs from DNA at 1 codon”; X drawn with stop edge. Stored M*G: differing `[]`, no mismatch warning, early-stop still true. DNA `ATGAAAGGGTAA`, stored M: short by 2, chip “−2 positions”. DNA `ATGTAA`, stored MK: extra K, chip “+1 position”, despite no internal stop. PR 3 implements visual assertions. |
+| Length-only warning (round-4 finding 5) | GenBank import and FASTA+GFF3 attachment, repeated on project load; PR 3 tooltip | DNA `ATGAAATAA`→MK. Stored M: `differing=[]`, shortBy 1, extra empty; one warned CDS, tooltip “Annotated protein is 1 translation position shorter than the DNA-derived protein”. Stored MKV: differing empty, shortBy 0, extra V; one warned CDS, corresponding “1 translation position longer” tooltip. Both retain imported value/source. Stored MK: no warning or length clause. Repeat shorter/longer with `/exception="RNA editing"`: zero file mismatch warnings, explanation retained. Combined stored MVV: differing `[1]`, extra V, one warned CDS, both “1 codon” and “1 translation position longer” clauses. Literal GenBank qualifiers are `/translation="M"` or `"MKV"`; attachment rows are `r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=M` or `translation=MKV`. |
 | Project check trust question | project load → counts/warning/details | Format 2, DNA `ATGTAAGGGTAA`, normalized CDS `[0,12)+`, stored `MKG`, source imported, forged `_translationCheck` saying no differences/no stops: discard check, recompute `M*G`, difference `[1]`, one mismatch warning, early-stop true, “3 positions, 1 internal stop”; stored `MKG` and source unchanged. Repeat with no cache: identical result. |
 | Padded-codon integration question | conceptual result; PR 3 drawing/hover acceptance | Exact `1..5` over `ATGGC`: `MA`, sets `{M},{A}`, A's real indices `[3,4]`, count “2 aa”; GC plus any base gives A. PR 3 must assert A is visible and hoverable with the documented span/target and no invented index 5. `ATGNN` → `M`, no second residue/target. |
 
