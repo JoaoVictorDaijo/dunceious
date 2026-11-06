@@ -19,7 +19,7 @@
  */
 
 
-import type { BioFeature, SeqRecord, ConceptualTranslation } from './types';
+import type { BioFeature, SeqRecord, ConceptualTranslation, CodonProvenance } from './types';
 export type { ConceptualTranslation } from './types';
 import { codeBreakEvidence, codeBreakMessage, SENSE_RESIDUES } from './translationExceptions';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
@@ -67,6 +67,8 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   const code = NCBI_GENETIC_CODES[table];
   const possible: string[] = [];
   const residues: string[] = [];
+  const ordinary: string[] = [];
+  const contextual: string[] = [];
   const full = Math.floor(seq.length / 3);
   const index = (codon: string) => [...codon].reduce((n, b) => n * 4 + 'TCAG'.indexOf(b), 0);
   const readings = (codon: string, terminal: boolean) => [...new Set(expansions(codon).map(c => {
@@ -75,12 +77,15 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   }))].sort().join('');
   for (let i = 0; i < full; i++) {
     const codon = seq.slice(i * 3, i * 3 + 3);
+    ordinary.push(readings(codon, false));
     let set = readings(codon, i === full - 1 && seq.length % 3 === 0 && !isThreePrimePartialLocation(resolved));
     if (i === 0 && !isFivePrimePartialLocation(resolved) && Number(feature.metadata?.codon_start ?? 1) === 1 && initiatorResidue(codon, table)) set = 'M';
+    contextual.push(set);
     possible.push(set); residues.push(reading(set));
   }
   if (seq.length % 3) {
     const set = readings(seq.slice(full * 3).padEnd(3, 'N'), false);
+    ordinary.push(set); contextual.push(set);
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
   let entry = -1;
@@ -100,9 +105,17 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     possible[slot] = evidence.possible!;
     residues[slot] = reading(evidence.possible!);
   }
+  const codons: CodonProvenance[] = possible.map((effective, codonIndex) => ({
+    codonIndex, proteinIndex: codonIndex, fragment: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3),
+    triplet: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3).padEnd(3, 'N'),
+    alignedIndices: alignedIndices.slice(codonIndex * 3, codonIndex * 3 + 3),
+    ordinary: ordinary[codonIndex], contextual: contextual[codonIndex], effective,
+    terminalRemoved: effective === '*' && codonIndex === possible.length - 1,
+  }));
+  if (codons.at(-1)?.terminalRemoved) codons[codons.length - 1].proteinIndex = undefined;
   if (possible.at(-1) === '*') { possible.pop(); residues.pop(); }
   const threePrimeIndeterminate = !!possible.at(-1)?.includes('*') && possible.at(-1) !== '*';
-  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
+  return { status: 'ok', codons, residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
 }
 
 export function compareTranslation(stored: string, conceptual: Extract<ConceptualTranslation, { status: 'ok' }>) {
