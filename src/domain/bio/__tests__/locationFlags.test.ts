@@ -19,6 +19,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import * as locationFlags from '../locationFlags';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import type { BioFeature } from '../types';
 import { definesOneSequence, isBetweenBasesSite, isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
 
@@ -78,4 +80,28 @@ describe('definesOneSequence and isJoinedLocation – remote parts', () => {
     expect(definesOneSequence({ segments: [{ start: 0, end: 100 }], ...remote })).toBe(false);
     expect(isJoinedLocation({ operator: 'join', segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }], ...remote })).toBe(false);
   });
+});
+
+it.each([
+  ['<1..9', true, false],
+  ['1..>9', false, true],
+  ['complement(1..>9)', true, false],
+  ['complement(<1..9)', false, true],
+  ['join(<1..3,7..9)', true, false],
+  ['join(1..3,<7..9)', false, false],
+  ['join(<1..3,7..>9)', true, true],
+  ['join(complement(7..>9),1..3)', true, false],
+  ['join(complement(<7..9),1..3)', false, false],
+  ['complement(join(1..3,7..>9))', true, false],
+  ['complement(join(<1..3,7..9))', false, true],
+  ['complement(join(complement(<1..3),7..9))', false, false],
+  ['complement(join(1..3,complement(<7..9)))', true, false],
+  ['complement(complement(<1..9))', true, false],
+  [' join( AB1:<1..3, complement(7..9) ) ', true, false],
+  [undefined, false, false],
+] as const)('reads the biological terminal markers for %s', (locationString, five, three) => {
+  // The markers are read from the parsed per-end flags, so they hold after an edit clears the text.
+  const feature = locationString === undefined ? {} : parseLocation(locationString);
+  expect(locationFlags.isFivePrimePartialLocation(feature)).toBe(five);
+  expect(locationFlags.isThreePrimePartialLocation(feature)).toBe(three);
 });

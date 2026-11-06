@@ -330,3 +330,8 @@ describe('extractFeatureSequence – remote parts', () => {
     expect(extractFeatureSequence({ ...parsed }, 'ACGT').featureSeq).toBe('');
   });
 });
+
+it('never substitutes table 1 for an invalid code, even where table-1 residues are invariant', () => {
+  expect(translateSequence('ATGTGGTGAGCT', 99)).toBe('????');
+  expect(translateSequence('augugguga', NaN)).toBe('???');
+});

@@ -9,10 +9,17 @@ Feature Table 11.4**. Code references are to `develop` at f5a6ad2.
 **Rule.** INSDC `/transl_table`: "definition of genetic code table used if other than universal
 genetic code table." The value is an NCBI genetic code id. gc.prt 4.6 defines 27 tables
 (1–6, 9–16, 21–33), each with amino-acid and start-codon rows. Every table must be supported
-exactly; an id outside the list is reported, never replaced by table 1.
+exactly; computed translation reports an id outside the list and never replaces it by table 1.
+The viewer may show a separate table-1 view, labelled as assumed and never exported.
 
 **Reference tools.** Biopython 1.88 `Bio.Data.CodonTable` carries all NCBI tables; Tested: C1
-with table 11 gives `MKF`. EMBOSS 6.6.0 `transeq` (Documented) numbers tables itself: its
+with table 11 gives `MKF`. An unknown integer table raises `KeyError` in
+[`Bio/Seq.py`](https://github.com/biopython/biopython/blob/biopython-188/Bio/Seq.py#L2824)
+when looking up `CodonTable.ambiguous_generic_by_id`, without fallback. NCBI C++ Toolkit
+`d0d7af1` reports `GenCodeInvalid`, "A coding region contains invalid genetic code"
+([definition](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/d0d7af1/src/objects/valerr/ValidErrItem.cpp#L2075),
+[validator](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/d0d7af1/src/objtools/validator/cdregion_validator.cpp#L977)).
+Whether NCBI translation paths fall back was not checked. EMBOSS 6.6.0 `transeq` (Documented) numbers tables itself: its
 default 0 is the standard code, 1 is the standard code with alternative initiation codons. It
 does not read `/transl_table`.
 
@@ -24,9 +31,31 @@ is unknown.
 **Dunceious.** Conforms. Computed translation uses all 27 NCBI tables, generated from gc.prt 4.6
 (`src/domain/bio/geneticCodes.ts`, by `pnpm standards:genetic-codes` from the pinned copy) and
 tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
-that is not an NCBI code is never replaced by table 1: no residue or stop is claimed (`?`), and
-the feature's tooltip and its translation band say the code is not an NCBI genetic code. An empty
-`/transl_table=` counts as invalid, not absent. Fixed in #229.
+that is not an NCBI code is never replaced in computed translation: no residue or stop is
+claimed (`?`). The viewer separately shows a literal table-1 reading where no stored
+`/translation` residue exists. In the assumed view only, codon 1 uses table 1's Starts row when
+location text establishes a complete 5′ end and `/codon_start` is 1 (absent means 1), following
+NCBI `x_Translate` at `912b751` (`check_start = is_5prime_complete && frame == 0`). ATG, TTG and
+CTG then read M; ambiguous first codons are never rewritten. Missing location text means unknown
+completeness, so edited features stay literal. Start-status differences across codes contribute
+to codon-1 sensitivity only in that same initiation context. Invariant residues (including resolved IUPAC codons whose
+expansions are all invariant) use normal solid cells; code-sensitive and unresolved codons use
+dashed outlines. Every assumed codon's hover says "assuming table 1". Table-1 stops are dashed red `*`, never computed early-stop cells. The feature and
+band warnings identify stored, assumed or mixed sources. For protein records and features
+with unknown or unstranded direction, feature warnings report only the invalid code, since no
+translation is displayed. For nucleotide records with an explicit forward or reverse strand,
+the hub shows one unverified count in italics with a dotted underline, described by a small
+reason footnote in the same hover card. Without stored protein, each assumed codon counts once
+(`?` included), a definite final stop is dropped, and internal stops give "N positions, k stops"
+instead of "N aa". With stored protein it counts that annotation's residues, dropping a trailing
+`*` and using the same stop wording, without mixing in any assumed tail. The footnote names the
+invalid code and either the table-1 assumption or the annotation's `/translation` that cannot
+be checked against DNA. Unknown and unstranded features show only the generic invalid-code
+warning and no protein count. These assumed
+residues never enter computation, comparison, early-stop status, `/translation`, interchange
+exports or project files. This provisional view is a Dunceious presentation choice, not a
+reference-tool fallback. An empty `/transl_table=` counts as invalid, not absent. See the
+[assumed-view design](../specs/2026-11-06-translation-assumed-genetic-code.md).
 
 Tables 27, 28 and 31 let some codons be a residue or a stop depending on context (gc.prt gives
 the residue in `ncbieaa` and `*` in `sncbieaa`). Inside a CDS they read as the residue; the last
