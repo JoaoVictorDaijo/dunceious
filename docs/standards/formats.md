@@ -57,10 +57,11 @@ length discrepancies, non-residues and mixed nucleotide/protein categories. The 
 the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology retain the known
 [#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
 ORIGIN retains characters for validation, removing only the leading count and whitespace.
-The worker returns `PARSE_REFUSED` for any refusal; commit-time diagnostics integration is
-reserved for the shared PR #296 guard. Display naming and SOURCE fallback remain local policies.
-The GenBank writer omits any record whose `sequence` contains `-` or `.`, names it in the
-export report/log and Hub preview, and never strips gaps to repair feature coordinates.
+The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
+revision, alignment lock and validated molecule category before committing records or findings. Display naming and SOURCE fallback remain local policies.
+The GenBank writer uses `genBankExportProblem` to omit records with any non-residue
+(including `-`, `.` and `*`), names each omission in the export report/log and Hub preview,
+and never strips characters to repair feature coordinates.
 LOCUS length and ORIGIN use the residue-only `sequence`.
 
 ## FMT-3. INSDC feature-table and qualifier fidelity
@@ -100,8 +101,10 @@ computational metadata. Project files preserve them, the details view shows them
 export counts their omission. Name selection remains local policy: gene/product/label/locus_tag
 in input insertion order, with standard_name fallback. `/label` still names a feature even
 though it is inert metadata. The writer retains its documented wrapping/empty-value limitations.
-The standalone `genBankExportProblem` supplies omission reasons for invalid residues, frames
-and genetic codes; wiring it into the shared PR #296 writer backstop remains integration work.
+`genBankExportProblem` supplies the writer omission reasons for invalid residues, frames
+and genetic codes (empty values included). Preview and download share the same serializer
+report. Annotation filtering cannot hide the invalid CDS that makes a record ineligible;
+the whole record is left out, and the Hub preview counts only written records and details.
 
 ## FMT-4. Ordinary FASTA syntax and wrapping
 

@@ -191,7 +191,7 @@ export function useFileHandlers(
             return null;
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision,  };
+        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision };
       }, workerDeps),
     );
   };
@@ -344,7 +344,7 @@ export function useFileHandlers(
       const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
       addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
     }
-    for (const id of result.report.gapRecordsOmitted) addLog(`${id} not exported: its sequence contains gap characters`);
+    for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
     if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
     if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
   };
@@ -435,7 +435,7 @@ export function useFileHandlers(
         projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
       });
       downloadExport(result, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
-      addLog(`Exported ${subset.length - result.report.gapRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
+      addLog(`Exported ${subset.length - result.report.genBankRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
     } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
   };
 

@@ -19,6 +19,7 @@
  */
 
 import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
+import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
 import { exportToFasta, type FastaExportOptions } from '@/src/core/formats/fasta';
@@ -68,7 +69,8 @@ export function initialExportSelection(state: ExportSelectionState): { preset: '
 /** Filtering uses original feature indices; source information is independent of annotation choices. */
 export function exportRecordsForOptions(records: SeqRecord[], format: HubExportFormat, options: ExportOptions): SeqRecord[] {
   if (format !== 'genbank' && format !== 'gff3') return records;
-  return records.map(record => ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
+  // Filtering must not hide the invalid CDS that makes a whole record ineligible.
+  return records.map(record => format === 'genbank' && genBankExportProblem(record) ? record : ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
     || (options.types === undefined || options.types.has(feature.type)) && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`))) }));
 }
 
@@ -91,7 +93,7 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
   const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];
-  for (const id of report.gapRecordsOmitted) notes.push(`${id} not exported: its sequence contains gap characters`);
+  for (const omitted of report.genBankRecordsOmitted) notes.push(omitted.reason);
   if (report.unalignedRows.length) notes.push(`${report.unalignedRows.length} sequences aren't in the alignment and will be saved separately in ${(options.fileName ?? 'sequences.fasta').replace(/(\.[^.]*)?$/, '_unaligned$1')}`);
   if (written) notes.push(`${written} detail ${written === 1 ? 'value' : 'values'} written.`);
   if (omitted) notes.push(`${omitted} invalid edited ${omitted === 1 ? 'detail' : 'details'} left out.`);

@@ -168,3 +168,10 @@ it.each([
   expect(output.report.genBankRecordsOmitted).toEqual([{ id, reason: `${id} not exported: ${reason}` }]);
   expect(exportToGenBank([bad]).text).toBe('');
 });
+
+it('applies the protein alphabet in the real GenPept writer without dropping valid ambiguity codes', () => {
+  const result = exportToGenBank([record({ id: 'stop', moleculeType: 'protein', sequence: 'MKV*' }), record({ id: 'protein', moleculeType: 'protein', sequence: 'MKUXBZJO' })]);
+  expect(result.report.genBankRecordsOmitted).toEqual([{ id: 'stop', reason: 'stop not exported: its sequence contains non-residue characters' }]);
+  expect(result.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+protein\s+8 aa/)]);
+  expect(result.text).toContain('mkuxbzjo');
+});
