@@ -56,8 +56,31 @@ intervals instead of interpolating". Drawing and hit-testing use strict half-ope
   across internal gaps, as today: a feature is a region, while a track value is a measurement of
   bases.
 - **The biological interval is kept** on every piece, so tooltips can report it.
+- **A split interval is still one interval.** The owner raised the risk that pieces could read as
+  several annotations (2026-11-06). So an interval keeps one row, one tooltip and one selection,
+  and hovering any piece highlights all of its pieces. Only the fill stops at gap columns.
 - **Adjacent half-open intervals pack into one row.** This fixes the `end + 1` packing test
   (`layout.ts:181`, duplicated at `QuantitativeTrack.tsx:51`).
+
+## How other viewers do it
+
+From a documentation and source survey (2026-11-06; nothing was run):
+- **Jalview** colours a sequence feature cell by cell and skips gap cells, so a feature crossing
+  inserted gaps shows as coloured pieces with no connector. It is still one feature.
+  - Source: `FeatureRenderer.java`, snapshot `8d9b61bf`.
+- **Jalview's graph renderer** draws a line only between neighbouring columns that have values,
+  and breaks it at a missing value.
+  - Source: `AnnotationRenderer.java`, same snapshot.
+- **Apollo** and **ACT** keep one identity for a multi-part feature: double-click selects the
+  whole model.
+- **Geneious Prime**: neither its manual nor its figures show whether an annotation is drawn
+  continuous across inserted gap columns. Its coverage and identity graphs are column
+  statistics, a different quantity from a supplied bedGraph value.
+- **JBrowse 2** joins midpoints only in an explicit line-plot mode. Its layout pads rectangles,
+  so touching ranges may take separate rows; that is a visual choice, not a biological rule.
+
+Taken together: keep one identity across gaps, and stop the fill where there is no value. That
+is this design. Whether Geneious matches it is unknown.
 
 ## Goals
 
@@ -218,9 +241,9 @@ export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
   2. Return every placed interval whose biological `[start, end)` contains that residue. The
      scan is linear over the placed intervals: O(n) worst case, measured in the bench. No
      overlap index is claimed.
-- **Returned bounds:** each returned piece is the **whole** intersection of its interval with
-  the residue run holding `p`. It is not clipped to the pointer's column. Unaligned `[0,100)`
-  picked at 15 returns `[0,100)`.
+- **Returned bounds:** each match carries its piece, which is the whole intersection of its
+  interval with the residue run holding `p`, not clipped to the pointer's column. It also carries
+  the interval's aligned envelope. Unaligned `[0,100)` picked at 15 returns `[0,100)` for both.
 - Nested intervals such as `[0,100)` and `[10,20)` are both found at 15, and `[0,100)` alone at
   50.
 - **Hover tooltip:**
@@ -233,7 +256,12 @@ export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
     separate overlaps;
   - line tracks: select the first match in pick order, and the log names the others when there
     are several;
+  - the selection is the interval's whole aligned envelope, gaps included, not just the piece
+    under the pointer. This matches the one-identity rule above, and Apollo's whole-model
+    selection. Export maps it back to the biological interval;
   - the selection is in aligned columns, which the export path already expects.
+- **Hover** highlights every piece of the hovered interval with a 1 px outline in the track
+  colour, so a gap-split interval reads as one.
 
 ## Hub focus
 
@@ -274,7 +302,7 @@ consecutive columns from that oracle, not from production helpers.
 | Empty track | same | `data: []` gives no pieces and the existing "No track data available" message |
 | Geometry | `trackGeometry` unit test | On `AC--GT`, the mask has rectangles `[0,2)` and `[4,6)` only. `0 10 2` and `90 100 8`, domain `[0,100]`, width 100: no shape has any x in `(10, 90)`. Adjacent `[0,10)=2` and `[10,20)=5`: two rectangles meeting at x = 10, each top stroke clipped to its own piece, no vertical connector. At 0.1 px per column, `[0,1)` and `[2,3)` give non-overlapping shapes 0.1 px wide |
 | Overlaps | `pickTrackData` unit test | Unsorted `[10,20)`, `[0,100)`: p = 15 returns both and p = 50 returns `[0,100)`. Shared boundary: with `[0,10)` and `[10,20)`, p = 10 returns `[10,20)` only. p = 20 and a gap column return nothing |
-| Picking in the viewer | `Row` test | Double-click on unaligned `[0,100)` at 15 selects `[0,100)`. On `AC--GT` with `[0,4)`, a click at column 1 selects `[0,2)`, the whole piece. The tooltip shows the biological position and interval |
+| Picking in the viewer | `Row` test | Double-click on unaligned `[0,100)` at 15 selects `[0,100)`. On `AC--GT` with `[0,4)`, a double-click at column 1 selects the envelope `[0,6)`, and hovering highlights both pieces `[0,2)` and `[4,6)`. The tooltip shows the biological position and interval |
 | Hub focus | `HubList` / `focusTarget` test, then export | `ACGT` / `--ACGT`, track `[0,1)`: focus selects aligned `[2,3)`, and JSON selection export then contains the interval. Unaligned: focus selects the stored bounds. A track with every row unplaced is not focusable |
 | Packing | `layout.test.ts` | `[0,10)` and `[10,20)` share row 0. On a gapped alignment, two long overlapping intervals each split by gaps use two rows, and a click in row 1 picks only the row-1 interval |
 | Region export | hook test calling `exportSelectionJson` | Distinct source and display records. The serialized JSON is checked against an independently written expected document: biological, rebased track intervals and no display fields |
@@ -294,8 +322,10 @@ tracks is the separate existing limit noted under Drawing.
 
 ## Rejected alternatives
 
-- **One continuous interval across gaps, like features.** Hover over a gap column would report a
-  value for a column that has no base.
+- **One continuous fill across gaps, like features.** It would draw a value over columns that
+  have no base, and hover there would report it. The interval keeps one identity instead (row,
+  tooltip, selection, hover outline), which addresses the "looks like several annotations"
+  concern without drawing a value where there is none.
 - **Interpolating between midpoints with a gap threshold.** It still invents values inside the
   threshold, and no standard defines one.
 - **Storing aligned coordinates in the source record.** That breaks export and project files,
