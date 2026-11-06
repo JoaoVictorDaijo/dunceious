@@ -125,6 +125,7 @@ interface TrackPiece {
   end: number;
   value: number;
   source: { start: number; end: number; index: number };  // biological, as stored; index in track.data
+  envelope: { start: number; end: number };              // the interval's whole aligned envelope, gaps included
 }
 
 /** Display state for one stored track, kept beside it, never in place of it. */
