@@ -139,7 +139,12 @@ export function formatInsdcLocation(
 ```
 
 **Rules, in order:**
-1. **Parts.** `feature.segments` when it has at least one element. Otherwise (absent or `[]`, which
+1. **Parts.** One domain helper, `featureParts(feature, record)`, yields the parts with their
+   effective strands, wrapped parts split as in rule 2. **Extraction (`extractFeatureSequence`,
+   `extractCodingSequence`, `sequence.ts:150-200`) uses the same helper.** Today it reads
+   explicit segments as given, and visits no bases for a wrapped `[8,2)`. So the formatted
+   location and the feature's sequence always agree. Parts come from `feature.segments` when it
+   has at least one element. Otherwise (absent or `[]`, which
    project import accepts at `projectFile.ts:75`) the feature's own `start`/`end`. Parts keep
    their stored order (LOC-1).
    - **Effective strand of each part.** If no part has a strand, every part takes the feature's
@@ -151,7 +156,8 @@ export function formatInsdcLocation(
      unspecified parts the parent strand (`serialize.ts:38`). That disagrees with extraction, so
      the formatter follows extraction, and export changes for that shape only.
    - Project import and the editor's save fill a missing per-part strand with `+1` explicitly,
-     so the stored contract holds from then on.
+     so the stored contract holds from then on. Stored wrapped segments are left as they are:
+     `featureParts` splits them for every consumer.
 2. **Wrapped parts.** A part with `start > end`, which crosses the origin of a circular record,
    is split with `splitWrapAround` into `[start, length)` and `[0, end)`. This applies whether it
    came from the envelope or from `segments` (the segment editor and project import can produce
@@ -198,10 +204,9 @@ export function formatInsdcLocation(
 **Export.** `exportToGenBank` (`serialize.ts:74`) writes `feature.locationString` when present,
 otherwise the formatter's `text`.
 - **Site export depends on #230.** Writing `10^11` is only safe once the parser reads it back as
-  a site. Today `parseCoord` (`locationParser.ts:90-99`) reads it as two bases. So this PR merges
-  after #230. If it has to merge first, every zero-length part gives `no-insdc-form` for export
-  until #230 lands: the feature is skipped and reported, never written as a site that would
-  re-import as bases. Display is unaffected either way.
+  a site. Today `parseCoord` (`locationParser.ts:90-99`) reads it as two bases. So **this PR
+  merges only after #230**, and its tests check the full export-then-import round trip. There is
+  no fallback mode.
 - **A `no-insdc-form` result is not written.** The feature is skipped, and the export report
   counts it as a new `ExportReport` field, `featuresWithoutInsdcLocation`
   (`src/core/exportReport.ts:24`). Today such a feature would be written as an invalid `1..0`.
@@ -210,16 +215,15 @@ otherwise the formatter's `text`.
     `describeExport` puts ordinary notes there (`exportPlan.ts:88-100`). So `describeExport`
     adds the skip on its own warning line, the way it adds `missingOrganismWarning`: "1 feature
     not written: a site at a linear sequence's edge has no GenBank location".
-  - The dialog's annotation count pill shows written annotations, subtracting skipped features,
-    and its title says so when they differ from the selection.
+  - The dialog's annotation count pill counts written non-`source` annotations directly
+    (today it counts selected ones, `ExportDialog.tsx:133`), so it can never go negative. When
+    some were skipped, its title says how many.
 - **What changes in export output:**
   - Every existing fixture (`serialize.test.ts`), and every shape already exported correctly,
     stays byte-identical.
   - Three shapes change from invalid to valid: interior sites (today `11..10`, now `10^11`),
     circular origin sites (today `121..120`, now `120^1`), and wrapped explicit segments (today
     `9..2`, now a join).
-  - Re-importing an exported `^` site still parses as two bases until #230 lands. That is #230's
-    defect, and this PR's tests check export text only.
 
 **Display.** One app helper, `displayLocation(feature, record)`, returns `feature.locationString`
 when present, otherwise the formatter's `text` or, for `no-insdc-form`, its `display` words. It
@@ -236,12 +240,18 @@ is used by all five places in the table.
 **Viewer tooltip.** It formats the source geometry, not a reconstruction.
 - Transposition drops zero-length parts (`coordinate.ts:172`), so a site inside a join can't be
   recovered from aligned columns.
-- `processTransposition` therefore copies each feature's biological `start`, `end`, `strand` and
-  `segments` onto its aligned copy as `biological`, unchanged.
-- Unaligned records are returned unchanged today (`coordinate.ts:155`) and carry no copy. Their
-  features are already biological, so the tooltip uses `feature.biological ?? feature`.
-- `Row.tsx`'s tooltip calls `displayLocation` on that, with `locationString` still winning when
-  present.
+- **`biological` is derived display state, never stored.** `processTransposition` sets it on
+  every feature of every record:
+  - an aligned record gets a copy of the feature's own `start`, `end`, `strand` and `segments`;
+  - an unaligned record's features are already biological, so any incoming `biological` field
+    is removed and nothing replaces it.
+
+  Project import drops a `biological` field on load (`projectFile.ts:75` accepts unknown
+  properties today), and project export never writes one. An imported value can therefore never
+  disagree with the real geometry.
+- **The tooltip's text.** It shows `feature.locationString` when the feature has one. That text
+  is the same on the aligned copy, so retained `order()` and partial markers show exactly.
+  Otherwise it formats `feature.biological ?? feature`.
 - The existing `biologicalFeature` mapping (`Row.tsx:310-317`) stays for `frameshiftSummary`,
   which needs aligned-derived parts.
 
@@ -272,8 +282,10 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTGA` (flanks `AC` at 1..2 and `GA` at 9..10 differ), re-parses and extracts to the hand-derived `GTTCTA`: rc(`AC`)=`GT`, then rc(`GA`)=`TC`, then 4..5 `TA`. Swapped pieces would give `TCGTTA`. Partly specified strands: parent −1, parts `[8,2)` with no strand and `[3,5)` with `+1` give `join(9..10,1..2,4..5)` (unspecified is forward), and extraction of that output equals extraction of the stored feature |
 | Sites | same | `[4,5)` gives `5..5` (unchanged). `[10,10)` gives `10^11`. Circular `[120,120)` on 120 bases gives `120^1`. Linear `[0,0)` and `[L,L)`, alone and inside a join with `[3,6)`: `no-insdc-form` with words "before base 1" or "after base L" |
 | Partial ends | same, with `ends` given | Forward join with 5′ partial: `join(<1..3,7..9)`. Reverse `[9,40)` with 5′ partial: `complement(10..>40)`. Reverse circular `complement(join(9..10,1..2))` with 5′: `complement(join(9..10,1..>2))`, and with 3′: `complement(join(<9..10,1..2))`. Out-of-order reverse join `[6,9)`, `[0,3)` with 5′: `complement(join(7..9,1..>3))`. J3 shape `[(21..30, −), (1..10, +)]` with 5′ and 3′: `join(complement(21..>30),1..>10)`. Without `ends`: no markers |
-| Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line, and the annotation pill counts written annotations |
-| Site round trip | `serialize.test.ts` plus parser, once #230 is in | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry. Without #230: zero-length parts are skipped and reported, and nothing is written as `^` |
+| Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line. A source-only record plus one edge site shows 0 annotations, not −1 |
+| Site round trip | `serialize.test.ts` plus the parser from #230 | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry |
+| Extraction agrees | `sequence.test.ts` | On circular `ACGTACGTGA`, a stored explicit `[8,2)` extracts `GAAC`, both from the stored feature and from its re-imported `join(9..10,1..2)`. The reverse per-part case extracts `GTTC`. The partly specified case extracts `GAACTA` both ways |
+| Derived snapshot | `coordinate.test.ts`, `projectFile.test.ts` | A project feature with a conflicting `biological` field loads without it. An unaligned record's features have no `biological` after transposition. An aligned feature with retained `order(1..3,7..9)` or `<5..>25` text shows that text in the tooltip |
 | Viewer tooltip, unaligned | `Row` test | An unaligned record's join reads `join(1..3,7..9)` from the feature itself |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
 | Display parity | `RecordDetailsModal`, `AnnotationRow`, `TrackTooltip`, `GenomeStrip` tests | A feature without `locationString`, segments `[0,3)`, `[6,9)`: each shows `join(1..3,7..9)`. A feature with `locationString` shows that text unchanged |
