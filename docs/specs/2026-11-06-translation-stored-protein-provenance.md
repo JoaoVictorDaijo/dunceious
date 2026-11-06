@@ -65,6 +65,12 @@ Murilo, on #253:
   - [TRANS-2](../standards/translation.md#trans-2-codon_start), `/codon_start`;
   - [TRANS-3](../standards/translation.md#trans-3-alternative-initiation-codons), alternative initiators;
   - [TRANS-4](../standards/translation.md#trans-4-transl_except), `/transl_except`.
+- **Existing molecule-type contract:** [`SeqRecord.moleculeType`](../../src/domain/bio/types.ts#L107)
+  governs translation availability. [`assignTranslationLanes`](../../src/app/viewer/cds.ts#L118)
+  and [`SequenceTrack`](../../src/app/viewer/tracks/SequenceTrack.tsx#L74) exclude declared
+  protein records. The shared conceptual function must enforce the same boundary, including
+  when amino-acid letters happen to be valid nucleotide letters. This is an existing code
+  contract, not a new biological interpretation or an alphabet-detection heuristic.
 - **How other tools treat a stored translation** (documentation and source survey, 2026-11-06;
   nothing was run):
   - Geneious separates a computed "Automatic Translation", which is not exported, from a stored
@@ -155,7 +161,7 @@ type ConceptualTranslation =
       internalStops: number[];
       threePrimeIndeterminate: boolean;  // last codon's expansions mix stops and residues
     }
-  | { status: 'unavailable'; reason: 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };
+  | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };
 
 /** The CDS's conceptual translation under NCBI rules. Never reads the stored protein. */
 export function conceptualTranslation(feature: BioFeature, record: SeqRecord): ConceptualTranslation;
@@ -179,6 +185,14 @@ export function isCds(feature: BioFeature): boolean;
 
 **Conceptual translation, in order.** Each step names the reference behaviour it follows.
 
+0. **Record eligibility, before all nucleotide work.** If `record.moleculeType === 'protein'`,
+   return `unavailable: 'protein-record'` before genetic-code lookup, exception application,
+   coding extraction, codon expansion or comparison. Never redetect the alphabet from
+   `record.sequence` to override its declared type. DNA and RNA remain eligible (including
+   RNA U normalization); an absent type retains the existing nucleotide-default behavior
+   of the callers cited above. The gate is per record, including in mixed sessions.
+   PR 2 cannot bypass it when applying exceptions; the #288 assumed-table view cannot
+   supply a nucleotide translation on a protein record either.
 1. **Genetic code.** If `/transl_table` is not an NCBI code (TRANS-1), the result is
    `unavailable: 'invalid-code'`. The #288 assumed-table display is a separate view, and its
    residues never feed this function.
@@ -365,13 +379,27 @@ follows the cited NCBI validator.
     - "/transl_except can't be applied yet";
     - "biological strand is unknown";
     - "location does not define one locally available sequence";
-    - "CDS end completeness cannot be established".
+    - "CDS end completeness cannot be established";
+    - "nucleotide translation is not applicable to a protein record".
   Do not call an unavailable result an intact CDS: early-stop state and position count are
   unset, and display names the reason. Imported stored protein remains preserved as data
   until an invalidating edit, but unknown-strand/nonlocal locations draw no codon translation.
   GFF3/project export keeps an untouched curated value without claiming it was verified;
   after an invalidating edit all exports omit the removed value and carry the warning.
   GenBank's existing refusal of unresolved strands remains in force.
+- **Protein-record CDSs follow the same save boundary.** An untouched imported
+  `metadata.translation` stays read-only and labelled Imported, without verification.
+  An invalidating edit removes it, sets source `removed`, and warns with `protein-record`;
+  never set source `computed` or label it "Computed from the DNA". An unrelated edit keeps
+  the imported value/source. A newly created CDS on a protein record has no computed
+  translation. This spec does not add a prohibition on attaching or editing such annotations.
+  GFF3/project export preserves the untouched imported qualifier as data; after invalidation
+  it omits it and carries the removal warning. GenBank uses its existing protein qualifier
+  allowlist ([`serializeRecord`](../../src/core/genbank/serialize.ts#L113),
+  [`PROTEIN_QUALIFIERS`](../../src/core/genbank/qualifierRules.ts#L135)): `/translation` is
+  absent from that list, so it is omitted and reported as a dropped attribute even before
+  invalidation. This spec does not change protein feature validation or convert the record
+  to DNA to export it.
 - **Otherwise**, keep `metadata.translation` and `_translationSource` as they are.
   `_translationSource` starts as `'imported'` for a parsed `/translation`.
 - **Type changes away from CDS** (by `isCds`) remove `/translation` and `_translationSource`,
@@ -394,7 +422,7 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
 ## Import
 
 - Parsing sets `metadata.translation` only, with `_translationSource = 'imported'`.
-- **The check runs where a CDS first meets its DNA, for every import path:**
+- **The check runs where a CDS first meets its record, for every import path:**
   - GenBank records arrive with both, so they are checked in the worker after parsing.
   - GFF3 annotations reach their sequences only when `bioResponse` attaches them
     (`bioResponse.ts:100-154`; the annotation worker request carries no DNA). So they are
@@ -408,6 +436,10 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
   once each to one warning per file, e.g. "3 CDS have a
   /translation that differs from their DNA".
 - An `unavailable` result is recorded as "can't verify", with its reason.
+  For `protein-record`, explain "nucleotide translation is not applicable to a protein
+  record". Keep imported data/source, but do not compare it or increment the DNA-mismatch
+  warning count, even if the letters would form valid codons under a nucleotide interpretation.
+  This applies to GenBank, annotation attachment and project load equally.
 
 ## Display
 
@@ -440,6 +472,11 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
   - for one removed after an edit: "Translation removed after edit", with the reason.
 - **Editor:** `/translation` is read-only, with its source label. The edit's outcome
   (recomputed, or removed and why) shows before Save.
+- **Protein records:** no conceptual position/aa count, early-stop assertion, mismatch,
+  assumed-table residues, codon lane, cells, chips or codon hover/focus targets. Details
+  and the copy button may expose the preserved imported qualifier, labelled Imported with
+  the not-applicable reason, never as verified or computed. Existing protein sequence and
+  annotation lengths in aa remain valid; they are not CDS translation-position counts.
 
 ## Project file
 
@@ -451,24 +488,35 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
   the loaded DNA and qualifiers before publishing the restored records. Rechecking does not
   overwrite a stored curated protein or change its source label. This follows the same
   current-DNA invariant as import and edit invalidation.
+  The check's inputs include `record.moleculeType`: reloading a declared protein record
+  must discard even an apparently successful cached nucleotide result before publication.
 
 ## PR breakdown
 
 | PR | Contents | Depends on |
 |---|---|---|
-| 1 (#291) | One protein field; read-only `/translation`; `conceptualTranslation` with steps 1, 3–8 and step 2 returning `unavailable`; edit boundary; export omission; import check on both paths and the warning; early-stop and count from the DNA; `isCds`; format-2 save/load without migration; project check recomputation; TRANS-1/3 doc updates | #226 (structured partial ends, merged first) |
+| 1 (#291) | One protein field; read-only `/translation`; `conceptualTranslation` with steps 0–1, 3–8 and step 2 returning `unavailable`; edit boundary; export omission; import check on both paths and the warning; early-stop and count from the DNA; `isCds`; format-2 save/load without migration; project check recomputation; TRANS-1/3 doc updates | #226 (structured partial ends, merged first) |
 | 2 | `/transl_except`: lossless repeated qualifiers through parse, metadata, editor, project and serializer; NCBI code-break mapping through segment order, strand and `/codon_start`; partial TERM; diagnostics for unparsed, off-codon, remote and conflicting entries; rebasing on selection export; TRANS-4 update | PR 1; its own validation table, written and reviewed before implementation |
 | 3 | Codon marks, chips, hover targets, mockup tooltips; padded-codon drawing and hover contract | PR 1; its own drawing and hover assertions, written and reviewed before implementation |
 
-**PR 3 integration contract.** PR 1 owns comparison and model semantics. PR 3 must update
-its stored-X wildcard prose, hidden-stop predicate, unknown-X stop-edge description and MXA
-fixture: X over a definite DNA stop contributes one `differing` index, retaining X and the
-stop edge. Ordinary-residue X remains compatible. All codon-disagreement counts use
-`differing.length`, independently of lighter-cell counts. Every discrepancy chip uses
-"position(s)", including residue-only differences; only the CDS total count uses decision 11's
-conditional "aa" label. PR 3 must adopt the length-aware tooltip clauses above and its
-acceptance fixtures must include length-only differences. Its aa-chip and zero-mismatch-X-stop
-assertions are superseded by this contract, not alternative policies.
+**PR 3 integration contract.** PR 1 owns comparison and model semantics. The sibling at
+[`a3f2aea`](https://github.com/JoaoVictorDaijo/dunceious/blob/a3f2aea83f3b47679f3fdc3e3ab9d20865ce85c6/docs/specs/2026-11-06-translation-codon-marks.md)
+now agrees with the earlier corrections: X over a definite DNA stop contributes one
+`differing` index, retaining X and the stop edge; ordinary-residue X remains compatible.
+Codon-disagreement counts use `differing.length`, independently of lighter-cell counts.
+Every discrepancy chip uses "position(s)"; only the CDS total uses decision 11's conditional
+"aa" label. Its length-only/combined tooltip fixtures now agree too. Those earlier conflicts
+are resolved, not outstanding PR 3 changes.
+
+PR 3 must still extend its pre-projection eligibility gate to exclude `protein-record`,
+even when strand and local geometry are known: its current "other unavailable reasons"
+permission for unverified cells must not include this reason. Neither stored cells nor
+#288's assumed-table fallback may produce a codon lane, chip or codon target on protein
+records. Add the literal protein-record fixture below at projection/details boundaries,
+including a stored qualifier and a forged successful project cache. Its existing general
+protein-mode rendering checks alone do not establish the new shared-result contract.
+PR 2 must preserve step 0 before code-break processing. These are integration obligations;
+the sibling specs remain read-only in this revision.
 
 ## Validation
 
@@ -492,12 +540,13 @@ Oracles are literal codons from gc.prt 4.6 and hand-written expected proteins, n
 own output.
 
 The subject is PR 1's conceptual translation and its import, save and project-load wiring:
-it receives local DNA plus normalized CDS geometry/qualifiers, and either supplies the current
+it receives a typed record plus normalized CDS geometry/qualifiers, and either supplies the current
 conceptual result or explicitly declines to verify. The save boundary alone replaces/removes
 the stored protein; the prerequisite owns location normalization and PR 3 owns drawing.
 
 | Guarantee/source | Existing protection inspected | Decision |
 |---|---|---|
+| Declared molecule type governs translation availability / SeqRecord and viewer contract | `SequenceTrack.test.tsx`, “does not translate protein records even when the toggle is on” asserts canvas text is exactly A,T,G for protein ATG (no translated M); no protection found for the new shared computation/import/save/load contract | Reuse rendering exclusion; add domain allowed/denied controls and real attachment→save/export and project→details/copy checks below. PR 3 extends projection exclusion; no source tests executed in this spec revision |
 | Effective frame and aligned extraction preserved | `sequence.test.ts`, “applies codon_start=$codon_start after interval orientation and gap removal” asserts literal coding sequence and indices | Reuse extraction cases; add save-to-export phase case below |
 | GFF3 strand-relative phase and unrelated-edit fidelity | `gff3.test.ts`, “computes reverse CDS phases in transcription order” asserts row phases; “retains different imported phases per part through re-export” preserves distinct values | Reuse; strengthen with edited-frame invalidation through save |
 | Current protein across save, import/attachment, project load, count, details-copy and GenBank/GFF3 export | None found for this new shared conceptual-result contract; existing extraction tests do not prove these entry points | Add cases at the named boundaries below, including unavailable and preserved curated paths |
@@ -530,6 +579,8 @@ record makes each warning-count assertion exclude unrelated features.
 
 | Review guarantee | Verification boundary | Literal inputs and hand-derived expected outputs |
 |---|---|---|
+| Protein-record eligibility (round-5 Important finding) | shared conceptual result → attachment → invalidating save → details/copy and GFF3/project export; PR 3 projection | Declared protein record `{id:'p', sequence:'GCTAAAGCT', moleculeType:'protein'}`; normalized exact CDS 1..9, +, frame 1, table 1. Attach row `p\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=QQQ`. Return `unavailable: 'protein-record'`, retain QQQ/imported, zero DNA-mismatch warnings; details/copy expose QQQ with Imported and not-applicable reason. No conceptual count/early-stop claim, lane/cells/chips/targets or assumed translation. Rename c: same data/source. Edit end 9→6: remove translation, source removed, one not-applicable warning and preview; GFF3/project omit translation. GenBank export before the edit already omits /translation under the protein allowlist and reports it in droppedAttributes; afterward no removed translation can reappear. Never store AKA (GCT=A, AAA=K, GCT=A) or AK after shortening: those are nucleotide readings, forbidden on this record. Repeat with no imported qualifier and with newly created CDS: no translation/computed label. Repeat with table 99 and `/transl_except=(pos:4..6,aa:Sec)`: protein-record still wins before lookup/application; no assumed-table fallback. |
+| Protein project trust and allowed nucleotide controls (same round-5 finding) | format-2 load → check → details/copy/count; conceptual positive controls | Format 2 saves the same declared protein record, exact CDS, QQQ/imported and forged `_translationCheck` claiming successful AKA, zero differences and 3 aa. Reload discards cache, returns protein-record before publication; QQQ/source survive and copy returns QQQ, no computed label/count/stop/mismatch claim. Repeat without cache: identical. Raw protein/annotation length remains 9 aa (9 input residues), not 3 CDS aa. Control with `moleculeType:'dna'`, sequence GCTAAAGCT, same location and stored QQQ: conceptual AKA, sets {A},{K},{A}, differing [0,1,2], one warned CDS, count 3 aa; invalidating end edit 9→6 stores AK/computed. RNA control GCUAAAGCU gives AKA by U→T; absent-type control GCTAAAGCT retains existing nucleotide default. Mixed protein/DNA records: only DNA contributes the mismatch/count; do not gate the domain function by session. |
 | Finding 1: biological strand gate | GFF3 attachment → save → tooltip and GFF3/project export | FASTA `>r` / `ATGAAATAA`; GFF3 row (each `\t` denotes a literal tab) `r\tx\tCDS\t1\t9\t.\t.\t0\tID=c;translation=MK`, repeated with strand `?`. Attachment keeps `MK` imported, yields `unknown-strand`, no mismatch count, no aa count or early-stop assertion and no codon lane. Move end from 9 to 6: protein removed, source `removed`, one reason warning; GFF3/project export has no translation and retains `.`/`?`; GenBank refuses unresolved strand. A numeric +1 must not produce `MK` as verified. |
 | Finding 2: no migration | project save/load | DNA `ATGAAATAA`, CDS `[0,9)+`, `metadata.translation="MK"`, source `imported`: serialized `format=2`, one protein field, reload retains `MK`; no format-3 output or top-level fallback. |
 | Finding 3: final contextual set | conceptual/comparison unit | Complete table-28 `ATGTAN`: `residues="MX"`, `possible=["M","*Y"]` as sets, end uncertain, no definite internal stop. Stored `MQ` → `differing=[1]`; stored `MY` → `[]`. Ordinary Q from TAA/TAG must not survive terminal processing. |
