@@ -130,9 +130,9 @@ function SearchResultCard(props: CardProps) {
 export function SearchResultGroup({ recordId, group, onToggleRecordSelection, onJoinAllInRecord, ...props }: GroupProps) {
   return (
     <div className="stack-y-4">
-      <div className="flex items-center justify-between sticky top-0 bg-slate-950 z-10 py-2 border-b border-slate-800/50">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-env"></div>
+      <div className="flex items-center justify-between gap-2 sticky top-0 z-10 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 shadow-[0_6px_8px_-6px_rgb(2_6_23)]">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-env"></div>
           <span className="text-[11px] font-semibold text-slate-300 truncate max-w-[140px]">{recordId}</span>
         </div>
         <div className="flex gap-3">

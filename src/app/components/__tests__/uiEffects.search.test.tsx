@@ -48,7 +48,7 @@ function panelProps(): SearchPanelProps {
 
 it('without a provider, disclosures persist in sessionStorage', () => {
   const setItem = vi.spyOn(Storage.prototype, 'setItem');
-  const { container } = render(<SearchDetails mode="whole" recordCount={1} />);
+  const { container } = render(<SearchDetails mode="whole" />);
   const details = container.querySelector('details')!;
   expect(details.open).toBe(false);
   details.open = true;
@@ -62,7 +62,7 @@ it('with persistOpenState false, no storage is touched', () => {
   const getItem = vi.spyOn(Storage.prototype, 'getItem');
   const setItem = vi.spyOn(Storage.prototype, 'setItem');
   const { container } = render(<UiEffectsContext.Provider value={{ ...DEFAULT_UI_EFFECTS, persistOpenState: false }}>
-    <SearchDetails mode="whole" recordCount={1} />
+    <SearchDetails mode="whole" />
   </UiEffectsContext.Provider>);
   const details = container.querySelector('details')!;
   expect(details.open).toBe(false);

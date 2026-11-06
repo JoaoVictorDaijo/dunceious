@@ -49,7 +49,7 @@ it('renders counts, collapsed sections, query identity help and copies alignment
   const { container, unmount } = render(<SearchPanel {...props}
     completedSearch={{ query: 'TAC', mode: 'whole', alphabet: 'nucleotide', options: props.searchOptions }} />);
   expect(screen.getByLabelText('Min query identity')).toBeTruthy();
-  expect(screen.getByText(/100 × \(query length − edits\) \/ query length/)).toBeTruthy();
+  expect(screen.getByLabelText('Min query identity').getAttribute('data-tip')).toMatch(/100 × \(query length − edits\) \/ query length/);
   expect(screen.getAllByText('3 identical').length).toBeGreaterThan(0);
   const alignment = container.querySelector<HTMLDetailsElement>('[data-hit-alignment]')!;
   const details = container.querySelector<HTMLDetailsElement>('[data-search-details]')!;
@@ -69,21 +69,21 @@ it('labels a protein barcode in query N→C orientation on both strands', () => 
   expect(screen.getByTitle('N→C (query orientation)')).toBeTruthy();
 });
 
-it('pluralizes the results header by record count', () => {
+it('pluralizes the results summary by record count', () => {
   const props = panelProps();
   const { rerender } = render(<SearchPanel {...props} />);
-  expect(screen.getByText('Across 1 record')).toBeTruthy();
+  expect(screen.getByText('match in 1 record')).toBeTruthy();
 
   const secondHit = { ...hit, recordId: 'second' };
   rerender(<SearchPanel {...props} searchResults={[hit, secondHit]}
     records={[...props.records, { ...props.records[0], id: 'second' }]}
     groupedSearchResults={{ ...props.groupedSearchResults, second: { results: [secondHit], indices: [1] } }} />);
-  expect(screen.getByText('Across 2 records')).toBeTruthy();
+  expect(screen.getByText('matches in 2 records')).toBeTruthy();
 });
 
 it('keeps the IUPAC legend limited to its available column classes', () => {
   const props = panelProps();
   render(<SearchPanel {...props} searchMode="exact" completedSearch={{ query: 'TAC', mode: 'iupac', alphabet: 'nucleotide', options: props.searchOptions }} />);
-  expect(screen.queryByText('− Record base absent from the query: slate cell')).toBeNull();
-  expect(screen.queryByText('▼ Extra query bases: violet caret between record bases')).toBeNull();
+  expect(screen.queryByText('Not in query')).toBeNull();
+  expect(screen.queryByText('Extra query bases')).toBeNull();
 });

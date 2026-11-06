@@ -27,10 +27,27 @@ import { MIN_FUZZY_IDENTITY, maxEditsForIdentity } from '@/src/core/search/fuzzy
 import type { SearchOptions } from '@/src/workers/protocol';
 import SectionTitle from './SectionTitle';
 import LocalOptions from './search/LocalOptions';
+import { CONTROL, NumberField, Term } from './search/fields';
 import LocalSearchMonitor from './search/LocalSearchMonitor';
 import type { LocalSearchJob } from '../hooks/useSearchWorker';
 import type { LocalSearchCounts } from '@/src/core/search/local/selection';
 import { localSearchOptions } from '@/src/workers/protocol';
+
+const QUERY_IDENTITY_TIP = 'Query identity = 100 × (query length − edits) / query length. Edits are substitutions, insertions and deletions.';
+
+const STATUS_TONES = {
+  error: { dot: 'bg-rose-500', text: 'text-rose-300' },
+  idle: { dot: 'bg-slate-500', text: 'text-slate-400' },
+  done: { dot: 'bg-emerald-500', text: 'text-slate-300' },
+} as const;
+
+/** One status line style for every Local job outcome, matching the module-loading line. */
+function JobStatus({ tone, role = 'status', children }: { tone: keyof typeof STATUS_TONES; role?: 'status' | 'alert'; children: React.ReactNode }) {
+  return <p role={role} className={`flex items-center gap-2 px-1 text-[11px] font-semibold ${STATUS_TONES[tone].text}`}>
+    <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_TONES[tone].dot}`} />
+    <span>{children}</span>
+  </p>;
+}
 
 export interface GroupedSearchResults {
   [recordId: string]: { results: SearchResult[]; indices: number[] };
@@ -130,22 +147,26 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
       <div className="stack-y-6 bg-slate-900/40 p-4 rounded-3xl border border-slate-800/50 shadow-2xl flex flex-col min-h-0">
         {searchMode === 'fuzzy' && <div className="stack-y-2">
-          <div role="group" aria-label="Fuzzy mode" className="inline-flex rounded-xl border border-slate-700 bg-slate-950 p-1">
+          <div role="group" aria-label="Fuzzy mode" className="grid grid-cols-2 rounded-xl border border-slate-700 bg-slate-950 p-1">
             {(['whole', 'local'] as const).map(method => <button key={method} type="button" aria-pressed={fuzzyMethod === method}
               disabled={method === 'local' && !localReady && !localOverride} title={method === 'local' && !localReady && !localOverride ? localError ?? 'Loading Local search module' : undefined}
               onClick={() => {
                 if (method === 'local' && localOverride) localOverride.onSelect();
                 else onSearchOptionsChange({ ...searchOptions, fuzzyMethod: method });
               }}
-              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold disabled:opacity-40 ${fuzzyMethod === method ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>{method === 'whole' ? 'Whole query' : 'Local'}</button>)}
+              className={`rounded-lg px-3 py-1.5 text-center text-[11px] font-semibold disabled:opacity-40 ${fuzzyMethod === method ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>{method === 'whole' ? 'Whole query' : 'Local'}</button>)}
           </div>
-          <p role="status" className="text-[11px] text-slate-400">{localOverride ? localOverride.status : localError ?? (localReady ? 'Local search ready' : 'Loading Local search module…')}</p>
+          {/* Silent once Local is usable; only a pending load, a failure or a demo override needs words. */}
+          {(localOverride || localError || !localReady) && <p role="status" className={`flex items-center gap-2 px-1 text-[11px] font-semibold ${localError && !localOverride ? 'text-rose-300' : 'text-slate-400'}`}>
+            <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${localError && !localOverride ? 'bg-rose-500' : localOverride ? 'bg-slate-500' : 'animate-pulse bg-amber-500 motion-reduce:animate-none'}`} />
+            {localOverride ? localOverride.status : localError ?? 'Loading Local search module…'}
+          </p>}
         </div>}
         {localJob && onCancelLocalSearch && <LocalSearchMonitor job={localJob} onCancel={onCancelLocalSearch} />}
         {local && <LocalOptions filters={localFilters} isProtein={isProteinSession} onChange={filters => onSearchOptionsChange({ ...searchOptions, localFilters: filters })} />}
-        {localJob?.phase === 'failed' && <p role="alert" className="text-xs text-rose-300">Search failed: {localJob.error}</p>}
-        {localJob?.phase === 'cancelled' && <p role="status" className="text-xs text-slate-300">Search cancelled</p>}
-        {localJob?.phase === 'done' && <p role="status" className="text-xs text-slate-300">Search done{searchResults.length === 0 ? ' · No hits' : ''}</p>}
+        {localJob?.phase === 'failed' && <JobStatus tone="error" role="alert">Search failed: {localJob.error}</JobStatus>}
+        {localJob?.phase === 'cancelled' && <JobStatus tone="idle">Search cancelled</JobStatus>}
+        {localJob?.phase === 'done' && <JobStatus tone="done">Search done{searchResults.length === 0 ? ' · No hits' : ''}</JobStatus>}
         {/* Search input */}
         <div className="stack-y-3">
           <div className="relative group">
@@ -182,17 +203,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
         {/* Query identity uses edit distance over the whole query. */}
         {searchMode === 'fuzzy' && !local && (
-          <div className="stack-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex justify-between items-center px-1">
-              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-400">Min query identity</label>
-              <span className="px-2 py-0.5 rounded-sm bg-amber-500/10 text-amber-500 text-[10px] font-bold">
+          <div className="stack-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="fuzzy-min-identity" className="text-[11px] font-semibold text-slate-300"><Term tip={QUERY_IDENTITY_TIP}>Min query identity</Term></label>
+              <span className="shrink-0 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-500 tabular-nums">
                 {searchOptions.minIdentity}%
                 {queryLength > 0 && ` · ≤ ${maxEditsForIdentity(queryLength, searchOptions.minIdentity)} edits`}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">Query identity = 100 × (query length − edits) / query length. Edits include substitutions, insertions and deletions.</p>
             <input
               id="fuzzy-min-identity"
+              data-tip={QUERY_IDENTITY_TIP}
               type="range" min={MIN_FUZZY_IDENTITY} max="100" step="5"
               value={searchOptions.minIdentity}
               onChange={e => onSearchOptionsChange({ ...searchOptions, minIdentity: parseInt(e.target.value) })}
@@ -201,55 +222,56 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
         )}
 
-        {/* Search options */}
-        <div className={`grid gap-4 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <div className={`grid gap-3 ${isProteinSession ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {!isProteinSession && (
-            <div className="stack-y-2">
-              <label className="text-[11px] font-semibold text-slate-400 px-1">Strand</label>
-              <div className="relative">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="search-strand" className="px-0.5 text-[11px] font-semibold text-slate-400">Strand</label>
+              <div className={`relative ${CONTROL}`}>
                 <select
+                  id="search-strand"
                   value={searchOptions.strand}
                   onChange={e => onSearchOptionsChange({ ...searchOptions, strand: e.target.value as 'fwd' | 'rev' | 'both' })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-hidden focus:border-env appearance-none cursor-pointer"
+                  className="h-full w-full cursor-pointer appearance-none bg-transparent pl-2.5 pr-7 text-[12px] font-semibold text-slate-100 outline-hidden"
                 >
-                  <option value="both">Both Strands</option>
-                  <option value="fwd">Forward Only</option>
-                  <option value="rev">Reverse Only</option>
+                  <option value="both">Both</option>
+                  <option value="fwd">Forward</option>
+                  <option value="rev">Reverse</option>
                 </select>
-                <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[8px] text-slate-500 pointer-events-none"></i>
+                <i aria-hidden="true" className="fas fa-chevron-down pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[8px] text-slate-500"></i>
               </div>
             </div>
           )}
-          <div className="stack-y-2">
-            <label className="text-[11px] font-semibold text-slate-400 px-1">Result limit</label>
-            <input
-              type="number"
-              value={Number.isNaN(searchOptions.maxResults) ? '' : searchOptions.maxResults}
-              onChange={e => onSearchOptionsChange({ ...searchOptions, maxResults: parseInt(e.target.value) })}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-[10px] font-bold text-slate-400 outline-hidden focus:border-env"
-            />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="search-result-limit" className="px-0.5 text-[11px] font-semibold text-slate-400">Result limit</label>
+            <NumberField id="search-result-limit" label="Result limit" min={1} step={10}
+              value={Number.isNaN(searchOptions.maxResults) ? null : searchOptions.maxResults}
+              onChange={value => onSearchOptionsChange({ ...searchOptions, maxResults: value === null ? NaN : Math.trunc(value) })} />
           </div>
         </div>
 
-        {localCounts && searchResults.length === 0 && <SearchDetails mode="local" counts={localCounts} recordCount={0} />}
+        {localCounts && searchResults.length === 0 && <SearchDetails mode="local" counts={localCounts} />}
         {/* Results list */}
         {searchResults.length > 0 && (
           <div className="pt-6 border-t border-slate-800/50 flex flex-col min-h-0">
-            <div className="flex items-center justify-between mb-6 px-1">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-200">{localCounts && localCounts.cutoff !== null
-                    ? `Top ${searchResults.length} shown; lower-scoring alignments aren't counted`
-                    : `${searchResults.length} matches`}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                    {searchMode}
+            <div className="mb-5 rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-lg font-bold leading-none text-slate-100 tabular-nums">{searchResults.length}</span>
+                  <span className="text-[11px] font-semibold leading-tight text-slate-400">
+                    {searchResults.length === 1 ? 'match' : 'matches'} in {Object.keys(groupedSearchResults).length} {Object.keys(groupedSearchResults).length === 1 ? 'record' : 'records'}
                   </span>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-400">
-                  Across {Object.keys(groupedSearchResults).length} {Object.keys(groupedSearchResults).length === 1 ? 'record' : 'records'}
+                <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter border ${searchMode === 'exact' ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                  {searchMode}
                 </span>
               </div>
-              <div className="flex gap-2">
+              {localCounts && localCounts.cutoff !== null && (
+                <div className="flex items-start gap-2 px-3 py-2 border-t border-amber-500/15 bg-amber-500/5">
+                  <i className="fas fa-filter text-[10px] text-amber-500 mt-0.5" aria-hidden="true"></i>
+                  <span className="text-[11px] font-semibold text-amber-200/90">{`Top ${searchResults.length} shown; lower-scoring alignments aren't counted`}</span>
+                </div>
+              )}
+              {(selectedSearchIndices.size > 0) && <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-slate-800">
                 {selectedSearchIndices.size > 0 && (
                   <button
                     onClick={() => onSetSelectedIndices(new Set())}
@@ -268,7 +290,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     Join selected
                   </button>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar-pro stack-y-8 pr-2 max-h-[500px]">
@@ -280,7 +302,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 onAnnotateMatch={onAnnotateMatch} onToggleRecordSelection={onToggleRecordSelection}
                 onJoinAllInRecord={onJoinAllInRecord} />)}
             </div>
-            <SearchDetails counts={localCounts} mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} recordCount={Object.keys(groupedSearchResults).length} />
+            <SearchDetails counts={localCounts} mode={completedSearch?.mode ?? (searchMode === 'exact' ? 'iupac' : 'whole')} />
           </div>
         )}
       </div>
