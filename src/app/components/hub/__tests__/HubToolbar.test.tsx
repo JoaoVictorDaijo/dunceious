@@ -101,12 +101,13 @@ it('offers described imports with the original file pickers and empty-workspace 
   }
   rerender(<Imports empty />);
   fireEvent.click(trigger);
-  for (const name of ['Annotations', 'Alignment']) {
+  for (const name of ['Annotations']) {
     const item = screen.getByRole('menuitem', { name });
     expect(item).toHaveProperty('disabled', true);
     expect(within(item).getByText('Load sequences first')).toBeTruthy();
   }
-  for (const name of ['Sequences', 'Dunceious project']) expect(screen.getByRole('menuitem', { name })).toHaveProperty('disabled', false);
+  expect(within(screen.getByRole('menuitem', { name: 'Alignment' })).getByText('A pre-aligned FASTA: loads its sequences and alignment')).toBeTruthy();
+  for (const name of ['Sequences', 'Alignment', 'Dunceious project']) expect(screen.getByRole('menuitem', { name })).toHaveProperty('disabled', false);
   expect(screen.getByText('Or drop files anywhere on the hub.')).toBeTruthy();
   expect(screen.getAllByRole('separator')).toHaveLength(1);
   expect(screen.queryByRole('menuitem', { name: /Save project|Clear workspace/ })).toBeNull();

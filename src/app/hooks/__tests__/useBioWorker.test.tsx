@@ -153,33 +153,151 @@ describe('deferred bio processing across record identity and teardown', () => {
   });
 });
 
-describe('gap removal notices for FASTA loaded as sequences (#267)', () => {
-  const load = async (h: ReturnType<typeof setup>, filename: string, content: string) => {
-    const pending = h.result.current.requestBio({ type: 'PARSE_FASTA', filename, content, asAlignment: false });
-    const index = h.worker.requests.length - 1;
-    act(() => h.worker.release(index));
-    return pending;
-  };
-
-  it('collects one notice per file that lost "-" characters until dismissed', async () => {
+describe('gap confirmation ownership', () => {
+  it('holds a response, commits to current records once, and settles its ID map', async () => {
     const h = setup();
-    await load(h, 'first.fa', '>a\nAC-GT\n');
-    await load(h, 'clean.fa', '>c\nACGT\n');
-    await load(h, 'second.fa', '>b\nA--C\n');
-    expect(h.result.current.gapNotices).toEqual([
-      { fileName: 'first.fa', records: [{ id: 'a', removed: 1 }] },
-      { fileName: 'second.fa', records: [{ id: 'b', removed: 2 }] },
-    ]);
-    act(() => h.result.current.dismissGapNotices());
-    expect(h.result.current.gapNotices).toEqual([]);
-  });
-
-  it.each([['gap-only', '>a\nACGT\n>b\n---\n'], ['header-only', '>a\nAC-GT\n>b\n']])('rejects a file with a %s record so a dropped batch attaches nothing, and keeps the workspace', async (_case, content) => {
-    const h = setup();
-    await expect(load(h, 'only.fa', content)).rejects.toThrow('only.fa was not loaded.');
+    const promise = h.result.current.requestBio({ type: 'PARSE_FASTA', filename: 'a.fa', content: '>a\nAC..GT' });
+    act(() => h.worker.release(1));
     expect(h.result.current.records.map(r => r.id)).toEqual(['original']);
-    expect(h.result.current.gapNotices).toEqual([]);
+    expect(h.result.current.pendingConfirmations).toEqual([{ token: 1, fileName: 'a.fa', records: [{ id: 'a', removed: 2 }] }]);
+    act(() => h.result.current.setRecords(previous => [...previous, replacement]));
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    await expect(promise).resolves.toMatchObject({ idMap: { a: 'a' } });
+    expect(h.result.current.records.map(r => [r.id, r.sequence])).toEqual([['original', 'AAAA'], ['replacement', 'CCCC'], ['a', 'ACGT']]);
+    expect(h.result.current.pendingConfirmations).toEqual([]);
   });
+  it('queues in arrival order and declines every ID without rejecting', async () => {
+    const h = setup();
+    const first = h.result.current.requestBio({ type: 'PARSE_FASTA', filename: 'a.fa', content: '>a\nAC-GT\n>b\nA--C' });
+    const second = h.result.current.requestBio({ type: 'PARSE_FASTA', filename: 'c.fa', content: '>c\nAC-GT' });
+    act(() => { h.worker.release(1); h.worker.release(2); });
+    expect(h.result.current.pendingConfirmations.map(e => e.fileName)).toEqual(['a.fa', 'c.fa']);
+    act(() => h.result.current.confirmGapRemoval(1, false));
+    await expect(first).resolves.toMatchObject({ idMap: { a: null, b: null } });
+    expect(h.log).toHaveBeenCalledWith('a.fa was not loaded: gap removal declined');
+    act(() => h.result.current.confirmGapRemoval(2, false));
+    await second;
+    expect(h.result.current.records).toEqual([original]);
+  });
+  it.each(['>a\nACGT\n>b\n---', '>a\nAC-GT\n>b\n'])('settles no-residue refusals as handled', async content => {
+    const h = setup();
+    const promise = h.result.current.requestBio({ type: 'PARSE_FASTA', filename: 'bad.fa', content });
+    act(() => h.worker.release(1));
+    await expect(promise).resolves.toMatchObject({ idMap: { a: null, b: null } });
+    expect(h.result.current.records).toEqual([original]);
+    expect(h.result.current.pendingConfirmations).toEqual([]);
+  });
+});
+
+  function gated() {
+    let revision = 0;
+    let locked = false;
+    const log = vi.fn();
+    const mismatch = vi.fn();
+    const hook = renderHook(() => useBioWorker(log, { getWorkspaceRevision: () => revision, isAlignmentLocked: () => locked, onMismatch: mismatch }));
+    const worker = DeferredWorker.instances.at(-1)!;
+    const send = (content: string, filename = 'file.fa', genbank = false) => {
+      const promise = hook.result.current.requestBio({ type: genbank ? 'PARSE_GENBANK' : 'PARSE_FASTA', filename, content, workspaceRevision: revision,
+        incomingCategory: content.includes('MEFW') ? 'protein' : 'nucleotide' });
+      return { promise, index: worker.requests.length - 1 };
+    };
+    return { ...hook, worker, send, log, mismatch, replace: () => { revision++; }, lock: () => { locked = true; } };
+  }
+
+describe('import commit gates', () => {
+  it.each([false, true])('accepts protein FASTA into empty workspace, gaps=%s', async gaps => {
+    const h = gated();
+    const { promise, index } = h.send(gaps ? '>p\nMEFW--' : '>p\nMEFW');
+    act(() => h.worker.release(index));
+    if (gaps) act(() => h.result.current.confirmGapRemoval(1, true));
+    await expect(promise).resolves.toMatchObject({ idMap: { p: 'p' } });
+    expect(h.result.current.records[0].sequence).toBe('MEFW');
+  });
+  it('accepts a protein GenBank into an empty workspace', async () => {
+    const h = gated();
+    const { promise, index } = h.send('LOCUS       p 4 aa linear\nORIGIN\n        1 MEFW\n//', 'p.gb', true);
+    act(() => h.worker.release(index));
+    await expect(promise).resolves.toMatchObject({ idMap: { p: 'p' } });
+    expect(h.result.current.records[0].sequence).toBe('MEFW');
+  });
+  it('refuses a gap-free late response when alignment locks', async () => {
+    const h = gated();
+    const { promise, index } = h.send('>a\nACGT');
+    h.lock();
+    act(() => h.worker.release(index));
+    await expect(promise).resolves.toMatchObject({ idMap: { a: null } });
+    expect(h.result.current.records).toEqual([]);
+    expect(h.log).toHaveBeenCalledWith('file.fa was not loaded: the workspace is locked');
+  });
+  it.each([false, true])('checks the current molecule category on every commit, GenBank=%s', async genbank => {
+    const h = gated();
+    const protein = h.send('>p\nMEFW--', 'p.fa');
+    const dna = h.send(genbank ? 'LOCUS       a 4 bp DNA linear\nORIGIN\n        1 acgt\n//' : '>a\nACGT', 'a.file', genbank);
+    act(() => h.worker.release(protein.index));
+    act(() => h.worker.release(dna.index));
+    await dna.promise;
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    await expect(protein.promise).resolves.toMatchObject({ idMap: { p: null } });
+    expect(h.result.current.records.map(r => r.id)).toEqual(['a']);
+    expect(h.mismatch).toHaveBeenCalledWith({ incoming: 'protein', loaded: 'nucleotide', fileName: 'p.fa' });
+  });
+  it.each([false, true])('refuses the later DNA response after protein confirmation, GenBank=%s', async genbank => {
+    const h = gated();
+    const protein = h.send('>p\nMEFW--', 'p.fa');
+    const dna = h.send(genbank ? 'LOCUS       a 4 bp DNA linear\nORIGIN\n        1 acgt\n//' : '>a\nACGT', 'a.file', genbank);
+    act(() => { h.worker.release(protein.index); });
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    await protein.promise;
+    act(() => h.worker.release(dna.index));
+    await expect(dna.promise).resolves.toMatchObject({ idMap: { a: null } });
+    expect(h.result.current.records.map(r => r.id)).toEqual(['p']);
+  });
+  it.each(['before response', 'while queued'] as const)('rejects replacement %s and never queues or commits stale records', async timing => {
+    const h = gated();
+    const { promise, index } = h.send('>a\nAC--GT');
+    const rejected = expect(promise).rejects.toThrow('the workspace was replaced');
+    if (timing === 'while queued') act(() => h.worker.release(index));
+    h.replace();
+    if (timing === 'before response') act(() => h.worker.release(index));
+    else h.rerender();
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    await rejected;
+    expect(h.result.current.records).toEqual([]);
+    expect(h.result.current.pendingConfirmations).toEqual([]);
+    expect(h.log).toHaveBeenCalledWith('file.fa was not loaded: the workspace was replaced');
+  });
+  it('clears and logs queued files on worker failure', async () => {
+    const h = gated();
+    const a = h.send('>a\nAC-GT', 'a.fa');
+    const b = h.send('>b\nAC-GT', 'b.fa');
+    const errors = [expect(a.promise).rejects.toThrow('failed'), expect(b.promise).rejects.toThrow('failed')];
+    act(() => { h.worker.release(a.index); h.worker.release(b.index); });
+    act(() => h.worker.onerror?.({ message: 'failed' } as ErrorEvent));
+    await Promise.all(errors);
+    expect(h.result.current.pendingConfirmations).toEqual([]);
+    expect(h.log).toHaveBeenCalledWith('a.fa was not loaded: failed');
+    expect(h.log).toHaveBeenCalledWith('b.fa was not loaded: failed');
+    act(() => h.result.current.confirmGapRemoval(1, true));
+    expect(h.result.current.records).toEqual([]);
+  });
+});
+
+it('settles an annotation lock refusal as handled with no annotations or details', async () => {
+  const h = gated();
+  act(() => h.result.current.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  const promise = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'a.gff3',
+    content: 'a\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;host=human\na\ts\tgene\t1\t2\t.\t+\t.\tID=forbidden', idMap: { a: 'a' } });
+  const index = h.worker.requests.length - 1;
+  h.lock();
+  act(() => h.worker.release(index));
+  const response = await promise;
+  expect(response).toMatchObject({ type: 'ANNOTATIONS_SUCCESS', idMap: { a: 'a' } });
+  if (response === 'stale' || response.type !== 'ANNOTATIONS_SUCCESS') throw new Error('Expected handled annotation refusal');
+  expect(response.annotations).toEqual({});
+  expect(response.details).toEqual({});
+  expect(h.result.current.records).toEqual([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]);
+  expect(h.log).toHaveBeenCalledWith('Annotations were not loaded: the workspace is locked');
 });
 
 

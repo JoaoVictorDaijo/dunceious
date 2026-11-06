@@ -106,7 +106,7 @@ it('record details Export explains', () => {
   const [record] = loadSampleRecords();
   const view = { details: { record, feature: null }, closeDetails: vi.fn(), focusOn: vi.fn() } as unknown as ShowroomView;
   render(<ShowroomDetails view={view} explain={explain} />);
-  fireEvent.click(screen.getByRole('button', { name: /Export FASTA/ }));
+  fireEvent.click(screen.getByRole('button', { name: /FASTA \(no gaps\)/ }));
   expect(explain).toHaveBeenCalledExactlyOnceWith('export');
   expect(view.closeDetails).toHaveBeenCalledOnce();
 });

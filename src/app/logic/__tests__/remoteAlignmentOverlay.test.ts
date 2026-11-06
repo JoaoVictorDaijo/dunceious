@@ -70,8 +70,8 @@ describe('remote alignment through the existing worker pipe', () => {
 
 describe('shared FASTA outcome logs', () => {
   it.each([
-    ['>seq1\nAC\n', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: []'],
-    ['>seq1\nAC\n>seq1-other\nACG', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: [seq1-other]'],
+    ['>seq1\nAC\n', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: []. Unaligned missing IDs: [seq1 (1)]'],
+    ['>seq1\nAC\n>seq1-other\nACG', true, 'ERROR: Sequence mismatch. Missing: [seq1 (1)], Extra: [seq1-other]. Unaligned missing IDs: [seq1 (1)]'],
     ['>a\nAC', false, 'Batch ingestion complete: 1 records added.'],
     ['>seq1\nA-G\n>seq1 (1)\nAGC', true, 'ERROR: Aligned residues differ from the loaded sequence ("-" removed from both, case ignored): [seq1]'],
     ['>seq1\nA.C\n>seq1 (1)\nAGC', true, 'ERROR: Alignment gaps must be written as "-"; "." found in: [seq1]'],

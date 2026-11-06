@@ -106,6 +106,52 @@ describe('exports with aligned annotations', () => {
   });
 });
 
+it('downloads both mixed files from viewer/Sidebar selection and Hub export paths', () => {
+  const aligned: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const raw: SeqRecord = { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] };
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [aligned, raw], { start: 1, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nC--G', 'selection_export.fasta', 'text/plain'],
+    ['>u [Slice: 1-5]\nTTTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportRecords(['a', 'u'], 'fasta', { residues: 'aligned', fileName: 'mixed.fasta' });
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a\nAC--GT', 'mixed.fasta', 'text/plain'], ['>u\nTTTTTTTT', 'mixed_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportSelection('original');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nCG\n\n>u [Slice: 1-5]\nTTTT', 'selection_export.fasta', 'text/plain'],
+  ]);
+  result.current.handleExportRecord('a', 'aligned');
+  expect(vi.mocked(downloadBlob).mock.calls[1]).toEqual(['>a\nAC--GT', 'a.fasta', 'text/plain']);
+});
+
+it('counts only unaligned rows actually saved inside the selection window', () => {
+  const rows: SeqRecord[] = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'long', name: 'long', sequence: 'TTTTTTTT', features: [] },
+    { id: 'short', name: 'short', sequence: 'AA', features: [] },
+  ];
+  const log = vi.fn();
+  const { result } = renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 3-5]\n-G', 'selection_export.fasta', 'text/plain'],
+    ['>long [Slice: 3-5]\nTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  expect(log).toHaveBeenCalledWith("1 sequences aren't in the alignment, so they have no alignment columns and were saved separately in selection_export_unaligned.fasta");
+  expect(log).toHaveBeenCalledWith('No residues in the exported window; left out: short');
+});
+
 
 it('exports hub-focused aligned track support from source records without display fields', () => {
   vi.useFakeTimers();
