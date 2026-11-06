@@ -293,3 +293,24 @@ it('mounts a 200,000-interval track and focuses its full bounds', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Open in viewport' }));
   expect(focused).toHaveBeenCalledWith({ recordId: 'one', start: 1, end: 400001, label: 'large signal', length: 400000 }, { key: 'one:track:large', label: 'large signal' });
 });
+
+
+it('opens a placed track in aligned columns and disables a wholly unplaced track', () => {
+  const onFocusItem = vi.fn();
+  const record: SeqRecord = {id:'r',name:'r',sequence:'ACGT',alignedSequence:'--ACGT',features:[],tracks:[
+    {id:'q',name:'Placed',data:[{start:0,end:1,value:7}]},
+    {id:'bad',name:'Unplaced',data:[{start:9,end:10,value:7}]},
+  ]};
+  function Tracks() {
+    const state = useHubState();
+    return <HubList state={state} kind="sequences" height={500} items={buildSequenceSections([record],state.filters,{grouped:false},'load')} onFocusItem={onFocusItem} />;
+  }
+  const view = render(<Tracks />);
+  const buttons = view.getAllByRole('button',{name:'Open in viewport'});
+  fireEvent.click(buttons[0]);
+  expect(onFocusItem.mock.calls[0][0]).toEqual({recordId:'r',start:2,end:3,label:'Placed',length:1});
+  expect((buttons[1] as HTMLButtonElement).disabled).toBe(true);
+  expect(buttons[1].getAttribute('data-tip')).toContain('1 of 1 intervals not drawn');
+  fireEvent.click(buttons[1]);
+  expect(onFocusItem).toHaveBeenCalledTimes(1);
+});

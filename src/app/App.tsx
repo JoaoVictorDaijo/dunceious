@@ -538,7 +538,7 @@ const App: React.FC = () => {
               {/* Keyed by mode so each switch replays a short fade instead of a hard cut. */}
               <div key={activeTab} className="flex-1 flex flex-col min-h-0 min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
                 {activeTab === 'alignment' ? (
-                  <GenomeViewer
+                  <GenomeViewer addLog={addLog}
                     records={transposedRecords}
                     consensus={consensus}
                     showAnnotations={showAnnotations}

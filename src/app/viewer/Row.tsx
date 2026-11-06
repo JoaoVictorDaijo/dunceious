@@ -18,9 +18,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { pickTrackData, trackPosition, unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -34,7 +35,7 @@ import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
-import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
+import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -66,6 +67,7 @@ export interface RowData {
   conservationScores: number[];
   quantValueRanges: Record<string, { min: number, max: number }>;
   showTracks: boolean;
+  addLog?: (message: string) => void;
   /** 0..1: how far opted-in annotation bars have opened to show their bases. */
   basesOpenness: number;
   /** The focused annotation, while the selection is still exactly that region. */
@@ -111,6 +113,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   // Only aligned rows share the reference's columns; an unaligned row is never compared.
   const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
+  const [hoveredTrack, setHoveredTrack] = useState<{ id: string; indices: number[] } | null>(null);
   const tracks = l.record.tracks || [];
 
   const effectiveTranslation = l.translationVisible;
@@ -164,7 +167,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               {l.trackLayouts.map((t: TrackLayout) => {
                 const range = quantValueRanges[t.id] || { min: 0, max: 1 };
                 return (
-                  <div key={t.id} className="flex flex-col justify-center items-end" style={{ height: t.height, marginBottom: 12 }}>
+                  <div key={t.id} className="flex flex-col justify-center items-end" data-tip="Value range uses placed, finite intervals only" style={{ height: t.height, marginBottom: 12 }}>
                     <span className="text-[11px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
                     {t.kind === 'interval' ? (
                       <div 
@@ -501,7 +504,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             const trackTop = l.annotHeight + l.topPadding + track.top;
             return (
               <div 
-                key={track.id} 
+                key={track.id}
+                data-quantitative-track={track.id}
                 className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-xs shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5"
                 style={{ height: track.height, top: trackTop }}
                 onPointerMove={(e) => {
@@ -509,27 +513,37 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
-                  const nearest = track.data.find((d: TrackDatum) => bp >= d.start && bp <= d.end);
+                  const matches = pickTrackData(track.display, bp);
+                  const lane = Math.floor((e.clientY - rect.top - 5) / 16);
+                  const picked = track.kind === 'interval' ? matches.filter(piece => track.packedRows[lane]?.includes(piece.source.index)) : matches;
+                  const nearest = picked[0];
+                  setHoveredTrack(nearest ? { id: track.id, indices: [nearest.source.index] } : null);
                   if (nearest) {
                     setTooltip({ 
                       x: e.pageX, 
                       y: e.pageY, 
-                      content: `${track.name}\nPos: ${Math.floor(bp) + 1}\nValue: ${nearest.value}` 
+                      content: `${track.name}${matches.length > 1 ? `\n${matches.length} overlapping intervals` : ''}\nPos: ${trackPosition(track.display, bp)! + 1}\n${matches.map(piece => `Interval ${piece.source.start + 1}..${piece.source.end}\nValue: ${piece.value}`).join('\n')}`
                     });
                   } else {
                     setTooltip(null);
                   }
                 }}
-                onPointerLeave={() => setTooltip(null)}
+                onPointerLeave={() => { setTooltip(null); setHoveredTrack(null); }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
-                  const nearest = track.data.find((d: TrackDatum) => bp >= d.start && bp <= d.end);
+                  const lane = Math.floor((e.clientY - rect.top - 5) / 16);
+                  const candidates = track.kind === 'interval'
+                    ? { ...track.display, placed: track.packedRows[lane] ?? [] }
+                    : track.display;
+                  const matches = pickTrackData(candidates, bp);
+                  const nearest = matches[0];
                   if (nearest) {
-                    onSelectionChange({ start: nearest.start, end: nearest.end, recordIds: [l.id] });
+                    onSelectionChange({ ...nearest.envelope, recordIds: [l.id] });
+                    if (track.kind !== 'interval' && matches.length > 1) data.addLog?.(`Selected interval ${nearest.source.start + 1}..${nearest.source.end}; other overlapping intervals: ${matches.slice(1).map(piece => `${piece.source.start + 1}..${piece.source.end} (value ${piece.value})`).join(', ')}`);
                   }
                 }}
               >
@@ -543,16 +557,18 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     }}
                   >
                     {track.name}
+                    {track.display.unplaced.length > 0 && <span data-tip={track.display.unplaced.map(row => `${row.index + 1}: ${row.reason}`).join('\n')}> · {unplacedSummary(track.display)}</span>}
                   </span>
                 </div>
                 <QuantitativeTrack 
-                  data={track.data}
+                  display={track.display}
+                  highlighted={hoveredTrack?.id === track.id ? hoveredTrack.indices : []}
                   viewportWidth={viewportWidth}
                   height={track.height}
                   xScale={xScale}
                   scrollX={scrollX}
-                  minVal={quantValueRanges[track.id]?.min || 0}
-                  maxVal={quantValueRanges[track.id]?.max || 1}
+                  minVal={quantValueRanges[track.id]?.min ?? 0}
+                  maxVal={quantValueRanges[track.id]?.max ?? 1}
                   color={trackColor}
                   kind={track.kind}
                   packedRows={track.packedRows}

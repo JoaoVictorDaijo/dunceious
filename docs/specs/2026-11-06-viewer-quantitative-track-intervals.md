@@ -1,6 +1,6 @@
 ---
 title: "Quantitative tracks: half-open support, aligned coordinates and gap-aware drawing"
-status: proposed
+status: implemented
 date: 2026-11-06
 areas: ["viewer", "quantitative-tracks", "coordinates"]
 prs: [290]
@@ -232,7 +232,7 @@ export function trackGeometry(display: DisplayTrack, scale: (x: number) => numbe
 ## Picking
 
 ```ts
-/** Every piece whose half-open support contains `p`, in (start, end, source.index) order. */
+/** Every piece whose half-open support contains `p`, in (source.start, source.end, source.index) order. */
 export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
 ```
 
@@ -240,8 +240,8 @@ export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
   1. Map column `floor(p)` to its residue through the runs. A gap column has no residue, so
      nothing is picked.
   2. Return every placed interval whose biological `[start, end)` contains that residue. The
-     scan is linear over the placed intervals: O(n) worst case, measured in the bench. No
-     overlap index is claimed.
+     scan is linear over the placed intervals: O(n) worst case, measured in the bench. Matches keep source interval order, `(source.start, source.end, source.index)`, even
+     when a gap makes their pieces share the same start. No overlap index is claimed.
 - **Returned bounds:** each match carries its piece, which is the whole intersection of its
   interval with the residue run holding `p`, not clipped to the pointer's column. It also carries
   the interval's aligned envelope. Unaligned `[0,100)` picked at 15 returns `[0,100)` for both.
@@ -255,7 +255,7 @@ export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
 - **Double-click:**
   - interval tracks: select the piece in the packed row under the pointer's y, since rows
     separate overlaps;
-  - line tracks: select the first match in pick order, and the log names the others when there
+  - line tracks: select the first match in source interval order, and the log names the others when there
     are several;
   - the selection is the interval's whole aligned envelope, gaps included, not just the piece
     under the pointer. This matches the one-identity rule above, and Apollo's whole-model

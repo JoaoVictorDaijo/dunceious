@@ -19,6 +19,7 @@
  */
 
 
+import { displayTracks } from './quantitativeTracks';
 import type { BioFeature, FeatureSegment, SeqRecord } from "./types";
 import { splitWrapAround } from "./intervals";
 
@@ -152,8 +153,8 @@ export const buildAlignedSegments = (
  */
 export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
   return records.map((record) => {
-    if (!record.alignedSequence) return record;
-    if (record.features.length === 0) return { ...record, features: [] };
+    const tracks = displayTracks({ ...record, displayTracks: undefined });
+    if (!record.alignedSequence) return { ...record, displayTracks: tracks };
 
     const alignedSeq = record.alignedSequence;
     const transpose = createCoordinateLookup(alignedSeq);
@@ -179,6 +180,6 @@ export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
       return { ...feat, ...transpose(feat.start, feat.end), segments: newSegments };
     });
 
-    return { ...record, features: transposedFeatures };
+    return { ...record, features: transposedFeatures, displayTracks: tracks };
   });
 };

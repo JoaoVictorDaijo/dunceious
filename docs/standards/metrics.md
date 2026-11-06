@@ -271,21 +271,21 @@ interpolation. [UCSC bedGraph, Data Values](https://genome.ucsc.edu/goldenPath/h
 (unversioned, observed 2026-10-23) graphs specified positions; a line connecting interval
 midpoints must not silently imply additional observed values. Half-open membership uses
 FMT-7/FMT-8; residue-to-alignment transposition uses OP-4; displayed numbering uses COORD-1.
-**Owner decision open:** interval bars/points or a declared interpolation can express different
-presentation contracts; no replacement interpolation method is selected here.
+**Project display policy:** supplied interval values use independent rectangles and top edges,
+without interpolation, clipped to residue columns as defined in the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md).
 
 **Reference tools.** Documented: UCSC offers bar/points and optional smoothing/windowing;
 these choices do not turn missing spans into supplied observations.
 
 **Applications.** No universal plotting aesthetic inferred from the bedGraph contract.
 
-**Dunceious.** Deviates in interval presentation —
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
-`src/app/viewer/tracks/QuantitativeTrack.tsx:117` connects midpoint values through missing spans.
-`src/app/viewer/Row.tsx:511` and :529 include exclusive ends in hit testing. Features are
-transposed at `src/domain/bio/coordinate.ts:178`, but quantitative tracks retain source coordinates
-through the record spread at :181 even when drawn on an aligned x-axis. These coordinate defects
-belong to FMT-7/FMT-8/OP-4 rather than a new metric coordinate rule.
+**Dunceious.** Quantitative values are drawn as independent half-open envelope rectangles,
+clipped to shared residue runs, without interpolation or values on alignment gaps.
+`src/domain/bio/quantitativeTracks.ts` preserves source intervals and lists every half-open
+pick match; `src/app/viewer/tracks/trackGeometry.ts` supplies exact support geometry.
+The [quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+defines placement refusal, source identity, selection and finite-value ranges.
 
 ## METRIC-7b. BED score meaning
 

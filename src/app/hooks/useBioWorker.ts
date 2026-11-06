@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
@@ -138,6 +139,9 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       if (msg.type === 'SUCCESS') {
         setTransposedRecords(msg.records);
+        for (const record of msg.records) for (const display of record.displayTracks ?? []) {
+          if (display.unplaced.length) addLog(`Track ${display.track.name}: ${unplacedSummary(display)} (${display.unplaced.map(row => `${row.index + 1}: ${row.reason}`).join(', ')}).`);
+        }
         setConsensus(msg.consensus);
         setIsProcessing(false);
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
