@@ -141,15 +141,25 @@ export function formatInsdcLocation(
 **Rules, in order:**
 1. **Parts.** `feature.segments` when it has at least one element. Otherwise (absent or `[]`, which
    project import accepts at `projectFile.ts:75`) the feature's own `start`/`end`. Parts keep
-   their stored order (LOC-1). Each part keeps its own strand when it has one.
+   their stored order (LOC-1).
+   - **Effective strand of each part.** If no part has a strand, every part takes the feature's
+     strand (the uniform shape, `types.ts:22-35`). If any part has one, the feature is in
+     per-part mode. Then a part without a strand is forward, the same rule extraction uses
+     (`sequence.ts:172, 184`).
+   - The parser always sets every part's strand in per-part mode, so only project files and the
+     segment editor can produce a partly specified shape. Today the serializer gives that shape's
+     unspecified parts the parent strand (`serialize.ts:38`). That disagrees with extraction, so
+     the formatter follows extraction, and export changes for that shape only.
+   - Project import and the editor's save fill a missing per-part strand with `+1` explicitly,
+     so the stored contract holds from then on.
 2. **Wrapped parts.** A part with `start > end`, which crosses the origin of a circular record,
    is split with `splitWrapAround` into `[start, length)` and `[0, end)`. This applies whether it
    came from the envelope or from `segments` (the segment editor and project import can produce
    one, and today's serializer writes it as an invalid `9..2`).
-   - The pieces stay in that order for a forward part, and for any part under a whole-feature
-     `complement()`.
-   - For a part with its own reverse strand, the pieces are swapped. Its bases read
-     `rc([0,end)) + rc([start,length))`, so it becomes
+   - The pieces stay in that order for a part whose effective strand is forward, and for any part
+     under a whole-feature `complement()`.
+   - For a part whose effective strand is reverse in per-part mode, the pieces are swapped. Its
+     bases read `rc([0,end)) + rc([start,length))`, so it becomes
      `complement(1..end),complement(start+1..length)`.
 3. **Each part:**
    - `start < end`: `start+1..end`, as the serializer writes today (a one-base part stays `n..n`);
@@ -187,11 +197,21 @@ export function formatInsdcLocation(
 
 **Export.** `exportToGenBank` (`serialize.ts:74`) writes `feature.locationString` when present,
 otherwise the formatter's `text`.
+- **Site export depends on #230.** Writing `10^11` is only safe once the parser reads it back as
+  a site. Today `parseCoord` (`locationParser.ts:90-99`) reads it as two bases. So this PR merges
+  after #230. If it has to merge first, every zero-length part gives `no-insdc-form` for export
+  until #230 lands: the feature is skipped and reported, never written as a site that would
+  re-import as bases. Display is unaffected either way.
 - **A `no-insdc-form` result is not written.** The feature is skipped, and the export report
   counts it as a new `ExportReport` field, `featuresWithoutInsdcLocation`
-  (`src/core/exportReport.ts:24`). The export summary names it: "1 feature not written: a site at
-  a linear sequence's edge has no GenBank location". Today such a feature would be written as an
-  invalid `1..0`.
+  (`src/core/exportReport.ts:24`). Today such a feature would be written as an invalid `1..0`.
+- **The skip is shown as a warning line,** not an ordinary note.
+  - The GenBank export dialog drops the summary's first line (`ExportDialog.tsx:170`), and
+    `describeExport` puts ordinary notes there (`exportPlan.ts:88-100`). So `describeExport`
+    adds the skip on its own warning line, the way it adds `missingOrganismWarning`: "1 feature
+    not written: a site at a linear sequence's edge has no GenBank location".
+  - The dialog's annotation count pill shows written annotations, subtracting skipped features,
+    and its title says so when they differ from the selection.
 - **What changes in export output:**
   - Every existing fixture (`serialize.test.ts`), and every shape already exported correctly,
     stays byte-identical.
@@ -209,7 +229,8 @@ is used by all five places in the table.
   `siteLabel`.
 - **Long joins:**
   - the hub row keeps `truncate` and already carries the full text in `data-tip`;
-  - the hover card and details window keep `break-all`;
+  - the hover card keeps `break-all`, and the details window's Locus gains it
+    (`RecordDetailsModal.tsx:205-208` has none today, so a long join would overflow);
   - the screen-reader status reads the full text.
 
 **Viewer tooltip.** It formats the source geometry, not a reconstruction.
@@ -217,6 +238,8 @@ is used by all five places in the table.
   recovered from aligned columns.
 - `processTransposition` therefore copies each feature's biological `start`, `end`, `strand` and
   `segments` onto its aligned copy as `biological`, unchanged.
+- Unaligned records are returned unchanged today (`coordinate.ts:155`) and carry no copy. Their
+  features are already biological, so the tooltip uses `feature.biological ?? feature`.
 - `Row.tsx`'s tooltip calls `displayLocation` on that, with `locationString` still winning when
   present.
 - The existing `biologicalFeature` mapping (`Row.tsx:310-317`) stays for `frameshiftSummary`,
@@ -246,10 +269,12 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Joins | `insdcLocation.test.ts` | Segments `[0,3)`, `[6,9)` give `join(1..3,7..9)`. Out-of-order trans-splice `[69610,70000)`, `[1000,1200)` gives `join(69611..70000,1001..1200)` (written order kept) |
 | Origin crossing | same | `start 8, end 2`, no segments, length 10, circular: `join(9..10,1..2)`. Conformance fixture W1 (`join(115..120,1..5)` on 120 bases), parsed, then its text dropped and formatted: `join(115..120,1..5)` |
 | Complement | same, on the parsed conformance fixtures (`docs/standards/conformance/fixture.gb`) with text dropped | J1 gives `join(1..10,21..30)`; J2 gives `complement(join(1..10,21..30))`; J3 gives `join(complement(21..30),1..10)`. J4, J5 and W2 (nested outer complements) give their per-part equivalents, and re-parsing each output then extracting gives the oracle bases in `expected-oracle.txt` (J4 `GTTG`, J5 `ACTG`, W2 `TAACAATAACG`) |
-| Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTAC`, re-parses and extracts to the hand-derived `GTGTTA` (rc of `AC`+`AC`, then `TA`) |
+| Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTGA` (flanks `AC` at 1..2 and `GA` at 9..10 differ), re-parses and extracts to the hand-derived `GTTCTA`: rc(`AC`)=`GT`, then rc(`GA`)=`TC`, then 4..5 `TA`. Swapped pieces would give `TCGTTA`. Partly specified strands: parent −1, parts `[8,2)` with no strand and `[3,5)` with `+1` give `join(9..10,1..2,4..5)` (unspecified is forward), and extraction of that output equals extraction of the stored feature |
 | Sites | same | `[4,5)` gives `5..5` (unchanged). `[10,10)` gives `10^11`. Circular `[120,120)` on 120 bases gives `120^1`. Linear `[0,0)` and `[L,L)`, alone and inside a join with `[3,6)`: `no-insdc-form` with words "before base 1" or "after base L" |
 | Partial ends | same, with `ends` given | Forward join with 5′ partial: `join(<1..3,7..9)`. Reverse `[9,40)` with 5′ partial: `complement(10..>40)`. Reverse circular `complement(join(9..10,1..2))` with 5′: `complement(join(9..10,1..>2))`, and with 3′: `complement(join(<9..10,1..2))`. Out-of-order reverse join `[6,9)`, `[0,3)` with 5′: `complement(join(7..9,1..>3))`. J3 shape `[(21..30, −), (1..10, +)]` with 5′ and 3′: `join(complement(21..>30),1..>10)`. Without `ends`: no markers |
-| Export of edge sites | `serialize.test.ts` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation` |
+| Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line, and the annotation pill counts written annotations |
+| Site round trip | `serialize.test.ts` plus parser, once #230 is in | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry. Without #230: zero-length parts are skipped and reported, and nothing is written as `^` |
+| Viewer tooltip, unaligned | `Row` test | An unaligned record's join reads `join(1..3,7..9)` from the feature itself |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
 | Display parity | `RecordDetailsModal`, `AnnotationRow`, `TrackTooltip`, `GenomeStrip` tests | A feature without `locationString`, segments `[0,3)`, `[6,9)`: each shows `join(1..3,7..9)`. A feature with `locationString` shows that text unchanged |
 | Viewer tooltip | `Row` test | Record `ACGTACGTAC` aligned with internal gaps, join `[0,3)`, `[6,9)`: Locus reads `join(1..3,7..9)`. A join `[0,3)`, `[5,5)` on a gapped record reads `join(1..3,5^6)`, the same as the details window. Circular origin crossing on an aligned record: the LOC-6 join |
