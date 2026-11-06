@@ -164,8 +164,13 @@ confirm step only adds a wait in the middle. The checks, in order, right before 
   - **Where the drop path refuses.** Today the drop path refuses a mismatch before sending the
     request (`useFileHandlers.ts:306`), when no IDs are known yet. That early refusal moves to
     commit time: the request is sent, the worker parses the file, and the commit-time check
-    refuses it with the parsed IDs. The picker's early check (`useFileHandlers.ts:186-197`) stays
-    as it is, since picker files carry no annotation mapping.
+    refuses it with the parsed IDs.
+  - **The picker's early check** (`useFileHandlers.ts:186-197`):
+    - FASTA files keep it as it is, since picker files carry no annotation mapping;
+    - GenBank files are no longer refused or stopped by the early sniff. They always reach the
+      worker, and their category is settled only by the commit-time check. This lets the GenBank
+      import-validation spec (#298) show a mismatch together with the file's other findings in
+      one dialog.
 
 **The pending queue.** Instead of committing, a gapped response becomes a queue entry. Each entry holds:
 - the response, plus a preview: the file name, and each record's ID with the number of gap
