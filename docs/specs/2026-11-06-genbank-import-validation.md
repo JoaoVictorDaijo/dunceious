@@ -201,7 +201,8 @@ A protein record gets:
 - **Recognised protein qualifiers**, for the inert-qualifier rule, are two sets combined:
   - every qualifier name in the toolkit's qualifier-name table (`SeqFeatData.cpp`);
   - the flat-file-only qualifiers: those `feature_item.cpp` writes for protein records that
-    appear in **no** subtype map at all, such as `/coded_by` and `/peptide`.
+    appear in **no** subtype map at all, such as `/peptide`. `/coded_by` is not one of them: it
+    is in the CDS (cdregion) map (`SeqFeatData.cpp:816`).
 
   The combined set replaces the hand-written `PROTEIN_QUALIFIERS` list.
 
@@ -211,7 +212,7 @@ A protein record gets:
      about elsewhere.
   2. A flat-file-only qualifier is never warned about, on any key.
 
-  So `/coded_by` round-trips with no finding.
+  So `/coded_by` on a protein record's CDS round-trips with no finding, by rule 1.
 - **Protein unknowns, as for DNA:** an unrecognised protein qualifier is accepted silently and
   stored inert. A key the toolkit doesn't emit gets one unknown-key warning, never one per
   qualifier.
