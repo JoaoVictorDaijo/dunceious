@@ -76,14 +76,14 @@ export interface LocationData {
 }
 
 /**
- * The boundary of a whole-location `n^m` site: n^n+1, or the circular `length^1`. Whether `n^1`
+ * The boundary of an `n^m` site: n^n+1, or the circular `length^1`. Whether `n^1`
  * fits the record is checked on import (#298), which refuses every site that does not.
  */
 function siteBoundary(location: string): number | null {
   const site = location.match(/^(\d+)\^(\d+)$/);
   if (!site) return null;
   const [n, m] = [parseInt(site[1]), parseInt(site[2])];
-  return m === n + 1 || (m === 1 && n > 1) ? n : null;
+  return m === n + 1 || (m === 1 && n >= 1) ? n : null;
 }
 
 /** Splits a join/order element list on commas that are not inside nested parens. */
@@ -130,6 +130,8 @@ function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
     ...(before === '<' && { partialStart: true as const }),
     ...(after === '>' && { partialEnd: true as const }),
   });
+  const boundary = siteBoundary(el);
+  if (boundary !== null) return { start: boundary, end: boundary };
   const pair = el.match(/^([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)$/);
   if (pair) return { start: Number(pair[2]) - 1, end: Number(pair[4]), ...marks(pair[1], pair[3]) };
   const single = el.match(/^([<>]?)(\d+)$/);

@@ -23,15 +23,12 @@
  * operate on raw residue strings: reverse-complement, codon translation,
  * molecule-type detection, and gap↔ungapped coordinate mapping.
  *
- * This module imports only sibling `domain` modules (`./intervals`, for
- * `splitWrapAround` — a legal `domain`→`domain` import per spec §4.1); every
- * export is a pure function over strings/number arrays.
  */
 
 import { checkedTranslation, storedTranslation } from './translation';
 import { validCodonStart } from './codonStart';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
-import { splitWrapAround } from './intervals';
+import { featureParts, hasPartialStrands, invalidLocationPart } from './featureParts';
 import { isThreePrimePartialLocation } from './locationFlags';
 import type { BioFeature, SeqRecord } from './types';
 
@@ -145,7 +142,8 @@ type LocatedFeature = {
   start: number;
   end: number;
   segments?: { start: number; end: number; strand?: 1 | -1 }[];
-  remoteParts?: unknown[];
+  biological?: LocatedFeature;
+  remoteParts?: BioFeature['remoteParts'];
 };
 
 /**
@@ -162,24 +160,24 @@ type LocatedFeature = {
  *
  * @param feature  A BioFeature-like object with strand, start, end and optional segments.
  * @param seq      Raw or aligned record sequence, in the feature's coordinate space.
+ * @param topology Source topology and known biological length, avoiding a full aligned-sequence scan.
  * @returns        `{ featureSeq, alignedIndices }`.
  */
 export function extractFeatureSequence(
   feature: LocatedFeature,
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { featureSeq: string; alignedIndices: number[] } {
-  // INSDC FT 11.4 §3.4.2.1(e): a remote part's bases belong to another entry, so the location
-  // defines no sequence of this record (#245). Biopython 1.88 likewise needs the referenced record.
   if (feature.remoteParts?.length) return { featureSeq: '', alignedIndices: [] };
-  const seqLen = seq.length;
-  let segments: { start: number; end: number; strand?: 1 | -1 }[];
-
-  if (feature.segments && feature.segments.length > 0) {
-    segments = feature.segments;
-  } else {
-    segments = splitWrapAround(feature.start, feature.end, seqLen);
+  const record = { length: seq.length, isCircular: topology.isCircular };
+  const source = feature.biological ?? feature;
+  const sourceRecord = { ...record, length: feature.biological ? topology.biologicalLength ?? seq.replace(/-/g, '').length : seq.length };
+  const stored = source.segments?.length ? source.segments : [source];
+  if (hasPartialStrands(source) || stored.some(part => invalidLocationPart(part, sourceRecord))) {
+    return { featureSeq: '', alignedIndices: [] };
   }
+  const segments = featureParts(feature, record);
 
   const oriented = alphabet !== 'protein';
   let featureSeq = '';
@@ -241,10 +239,11 @@ export function extractFeatureSequence(
  */
 export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
-  seq: string
+  seq: string,
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { codingSeq: string; alignedIndices: number[] } {
   if (!validCodonStart(feature.metadata?.codon_start)) return { codingSeq: '', alignedIndices: [] };
-  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq);
+  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq, 'dna', topology);
   let codingSeq = featureSeq;
 
   const codonStart = Number(feature.metadata?.codon_start ?? '1');
@@ -339,12 +338,12 @@ export function translateFeature(
 }
 
 /** CDS stop status from the shared model; unavailable translation makes no stop claim. */
-export function isFeatureBroken(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): boolean | undefined;
+export function isFeatureBroken(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number }): boolean | undefined;
 /** Coding-string primitive for callers that already own eligibility, such as ORF display. */
 export function isFeatureBroken(feature: { metadata?: Record<string, unknown> }, codingSeq: string, translTable?: number): boolean;
 export function isFeatureBroken(
   feature: { metadata?: Record<string, unknown> },
-  input: string | Pick<SeqRecord, 'sequence' | 'moleculeType'>,
+  input: string | Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number },
   translTable = 1,
 ): boolean | undefined {
   if (typeof input !== 'string') {

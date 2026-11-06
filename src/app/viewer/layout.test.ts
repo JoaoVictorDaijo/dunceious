@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP } from './constants';
 
 const LANE = ANNOT_BAR_HEIGHT + ANNOT_LANE_GAP;
@@ -264,6 +264,24 @@ describe('annotation packing compatibility', () => {
   });
 });
 
+
+it('avoids whole-sequence length recovery for many aligned CDS features', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  const record = rec({ id: 'scan', sequence: 'ATGTAGGAG', alignedSequence: seq, features });
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    const [layout] = computeRecordLayouts([record], ALL);
+    expect(layout.translationLanes.laneOf.size).toBe(features.length);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq)).toHaveLength(0);
+  } finally {
+    replacement.mockRestore();
+  }
+});
 
 it('packs touching half-open intervals together and gap-split identities in separate lanes', () => {
   const data = [{ start: 0, end: 10, value: 2 }, { start: 10, end: 20, value: 5 }];

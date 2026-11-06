@@ -19,6 +19,7 @@
  */
 
 import type { BioFeature, RemotePart, SeqRecord } from '@/src/domain/bio/types';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { isBetweenBasesSite, isFivePrimePartialLocation, isOrderLocation, isPartialLocation, isThreePrimePartialLocation } from '@/src/domain/bio/locationFlags';
@@ -116,18 +117,20 @@ export function partialEndsLabel(feature: Pick<BioFeature, 'strand' | 'segments'
 }
 
 export function featureSequenceViews(
-  record: Pick<SeqRecord, 'sequence' | 'moleculeType'>,
+  record: Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'>,
   feature: BioFeature,
 ): FeatureSequenceViews {
   const { sequence } = record;
   const alphabet = record.moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, record.moleculeType);
   const envelope = featureEnvelope(feature);
+  const location = formatInsdcLocation(feature, { length: sequence.length, isCircular: record.isCircular });
+  const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
   return {
-    feature: isOrderLocation(feature) || feature.remoteParts?.length ? null : extractFeatureSequence(feature, sequence, alphabet).featureSeq,
-    featureLength: featureLength(sequence.length, feature.start, feature.end, feature.segments),
+    feature: invalid ? '' : isOrderLocation(feature) || feature.remoteParts?.length ? null : extractFeatureSequence(feature, sequence, alphabet, record).featureSeq,
+    featureLength: invalid ? 0 : featureLength(sequence.length, feature.start, feature.end, feature.segments),
     intervals: feature.segments?.length || 1,
-    region: getDisplaySeq(sequence, envelope),
-    regionLength: featureLength(sequence.length, envelope.start, envelope.end),
+    region: invalid ? '' : getDisplaySeq(sequence, envelope),
+    regionLength: invalid ? 0 : featureLength(sequence.length, envelope.start, envelope.end),
     regionStart: envelope.start,
     regionEnd: envelope.end,
     partial: isPartialLocation(feature),

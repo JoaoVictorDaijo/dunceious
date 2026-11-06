@@ -49,7 +49,7 @@ describe('GenBank validation boundary (INSDC 11.4)', () => {
     expect(result.findings.filter(f => f.code === 'invalid-frame')).toHaveLength(0);
   });
   // order() (LOC-2), n^n+1 (LOC-5) and versioned remote intervals (LOC-8) are read since #306.
-  it.each(['order(1..2,3..4)', '2^3', 'AB123.1:1..4', 'join(1..2,AB123.1:5..9)'])('reads %s without a refusal', loc => {
+  it.each(['join(1^2,3..4)', 'order(1..2,3..4)', '2^3', 'AB123.1:1..4', 'join(1..2,AB123.1:5..9)'])('reads %s without a refusal', loc => {
     expect(parseGenBank(gb('acgt', `     gene            ${loc}
 `)).findings.filter(f => f.tier === 'refuse')).toEqual([]);
   });
@@ -59,11 +59,11 @@ describe('GenBank validation boundary (INSDC 11.4)', () => {
     expect(site('circular')).toEqual([]);
     expect(site('linear')).toEqual([expect.objectContaining({ code: 'malformed-location' })]);
   });
-  it.each(['2.3', 'AB123.1:2.3', 'join(1^2,3..4)', 'AB123.1:2^3', 'AB123.1:10^11'])('refuses unsupported %s', loc => {
+  it.each(['2.3', 'AB123.1:2.3', 'AB123.1:2^3', 'AB123.1:10^11'])('refuses unsupported %s', loc => {
     expect(parseGenBank(gb('acgt', `     gene            ${loc}
 `)).findings).toEqual(expect.arrayContaining([expect.objectContaining({ tier: 'refuse', code: 'unsupported-location' })]));
   });
-  it.each(['1..2x0', '0..4', '1..5', '>1..4', '1..<4', 'join(1..2,order(3,4))', '2^4', 'AB123:1..4', 'AB123.1:0..4', 'AB123.1:4..2', 'join(1..2,AB123.1:9..5)'])('refuses incorrect %s', loc => {
+  it.each(['1..2x0', '0..4', '1..5', '>1..4', '1..<4', 'join(1..2,order(3,4))', '2^4', 'join(2^3,3..2)', 'AB123:1..4', 'AB123.1:0..4', 'AB123.1:4..2', 'join(1..2,AB123.1:9..5)'])('refuses incorrect %s', loc => {
     expect(parseGenBank(gb('acgt', `     gene            ${loc}
 `)).findings.some(f => f.tier === 'refuse' && f.code !== 'unsupported-location')).toBe(true);
   });

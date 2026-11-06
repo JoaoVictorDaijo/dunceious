@@ -198,3 +198,14 @@ it('computes conservation over visible aligned rows only, and needs two', async 
   expect(alignedConservation([rows[0], { ...rows[1], visible: false }, rows[2]])).toEqual([]);
   expect(alignedConservation(rows)).toEqual([1, 1, 0.5, 0.5, 1, 1]);
 });
+
+it('keeps location operators and remote parts on an aligned biological snapshot', async () => {
+  const { displayLocation } = await import('../displayLocation');
+  const record = { id: 'r', name: 'r', sequence: 'A'.repeat(20), features: [] };
+  const biological = { start: 0, end: 10, strand: 1 as const, segments: [{ start: 0, end: 3 }, { start: 7, end: 10 }] };
+  const feature = { ...biological, type: 'gene', name: 'f', operator: 'order' as const, biological,
+    start: 0, end: 12, segments: [{ start: 0, end: 3 }, { start: 9, end: 12 }] };
+  expect(displayLocation(feature, record)).toBe('order(1..3,8..10)');
+  expect(displayLocation({ ...feature, remoteParts: [{ accession: 'AB123.1', start: 20, end: 30, strand: 1, index: 1 }] }, record))
+    .toBe('order(1..3,AB123.1:21..30,8..10)');
+});

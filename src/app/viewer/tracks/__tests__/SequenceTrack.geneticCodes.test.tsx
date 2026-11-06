@@ -238,6 +238,22 @@ it.each([
   } else expect(tip).not.toContain('as a start');
 });
 
+it.each([
+  { isCircular: true, biological: { start: 6, end: 3, strand: 1 as const }, hovers: 2 },
+  { isCircular: false, biological: { start: 6, end: 3, strand: 1 as const }, hovers: 0 },
+  { isCircular: true, biological: { start: 0, end: 10, strand: 1 as const }, hovers: 0 },
+])('validates assumed hover source geometry ($isCircular, $biological)', ({ isCircular, biological, hovers }) => {
+  const seq = 'ATGTGGGCT';
+  const feature: BioFeature = { type: 'CDS', name: 'source', start: 6, end: 3, strand: 1,
+    biological, metadata: { transl_table: '99' } };
+  const record = { id: 'source', name: 'source', sequence: seq, features: [feature], isCircular };
+  const topology = { isCircular, biologicalLength: seq.length };
+  const view = render(<SequenceTrack {...props(seq, feature)} record={record}
+    translationLanes={assignTranslationLanes([feature], seq, 'dna', topology)} />);
+  expect(view.container.querySelectorAll('[data-assumed-codon]')).toHaveLength(hovers);
+  if (hovers) expect(recorder.texts().slice(-2)).toEqual(['A', 'M']);
+  else expect(recorder.fillRects().filter(rect => rect[3] === 18)).toHaveLength(0);
+});
 
 it.each([1, -1] as const)('shows the suppressed-frame warning without translated cells on strand %s', strand => {
   const seq = 'ATGTGAAAA';

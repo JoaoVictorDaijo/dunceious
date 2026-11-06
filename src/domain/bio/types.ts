@@ -65,6 +65,8 @@ export interface BioFeature {
   segments?: FeatureSegment[];
   /** Original source location text (e.g. GenBank join/complement), preserved for round-trip export. */
   locationString?: string;
+  /** Source geometry for aligned display; never persisted in project files. */
+  biological?: Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'>;
   /** INSDC FT 11.4 §3.4.2.2 operator of a multi-interval location (LOC-1, LOC-2). */
   operator?: LocationOperator;
   /**

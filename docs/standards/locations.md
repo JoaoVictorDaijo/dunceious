@@ -23,8 +23,8 @@ Benchling translation groups skip introns
 Neither documents literal `join` parsing or arbitrary interval order.
 
 **Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), which
-the CDS track and the details window share, including out-of-order trans-spliced joins. See
-LOC-7.
+the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
+`featureParts`, preserving stored order and splitting explicit circular wraps. See LOC-7.
 
 ## LOC-2. `order()` is not `join()`
 
@@ -80,6 +80,9 @@ and GenBank export rebuilds the nested written form from it. GFF3 rows cannot te
 `join(complement(a),complement(b))` from `complement(join(a,b))`, so export marks per-interval
 strands with `insdc_interval_strands=true` and import reads each row on its own strand. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
+Display and export share `formatInsdcLocation`. Without retained text, display uses equivalent
+per-part complements in evaluation order; GenBank export rebuilds the nested written form when
+re-parsing it recovers the stored intervals and strands.
 
 ## LOC-4. Uncertain bounds
 
@@ -120,15 +123,17 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 **Applications.** Unknown.
 
 **Dunceious.** Conforms ([#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230)) for a
-site that is the whole location or its `complement()`. `parseLocation` reads `n^n+1`, and `n^1` at
-the end of a circular record, as the empty interval at boundary n (`BioFeature.betweenBases`, with
-`start === end`); `isBetweenBasesSite` is what readers ask. The site has length 0, no feature
+site that is the whole location, its `complement()`, or a local part inside a compound location.
+`parseLocation` reads `n^n+1`, and `n^1` at the end of a circular record, as the empty interval at
+boundary n (`start === end`). Whole-site features carry `BioFeature.betweenBases` and readers ask
+`isBetweenBasesSite`; a site inside a compound remains a zero-length segment. The site has length 0, no feature
 sequence, and is drawn as a rule on the boundary with a caret under it. GenBank export writes it
 back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) with
 `insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
 both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
-adjoin or lie outside the record. A site inside `join`/`order` or as a span end is valid INSDC but
-not supported; #298 refuses it as unsupported. Tested against S1 (Biopython 1.88: `[10:10]`,
+adjoin or lie outside the record. Local site parts inside `join`/`order` export and re-import as zero-length intervals.
+Linear-edge sites are skipped and counted in `featuresWithoutInsdcLocation.linearEdgeSite`.
+A site used as a span end remains unsupported and is refused on import. Tested against S1 (Biopython 1.88: `[10:10]`,
 written back as `10^11`).
 
 ## LOC-6. Features crossing the origin
@@ -143,7 +148,12 @@ whose end is the wrapped end plus the landmark length, with `Is_circular=true` o
 GFF3 rows beyond the end only for circular references
 ([GFF3 format, 25.0.3](https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/2503/index.php?manual=GFF3_format.html)).
 
-**Dunceious.** Partial. Extraction is correct (W1). A wrap is inferred only when the first
+**Dunceious.** Partial. Extraction is correct (W1). Display and export share
+`formatInsdcLocation`, including explicit wrapped segments. Invalid geometry has no INSDC
+form: the editor blocks Save, project import keeps it, and GenBank export skips it with a
+warning. Invalid geometry yields no derived feature or region sequence and no translation
+lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
+piece once any piece has one. A wrap is inferred only when the first
 interval starts after the last ends **and** one interval starts at base 1
 (`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
 in written order, including when a nested outer complement reverses sequence evaluation order.

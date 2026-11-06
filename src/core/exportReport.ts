@@ -22,6 +22,7 @@ import type { DetailKey, SequenceDetails, SeqRecord } from '@/src/domain/bio/typ
 import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@/src/domain/bio/details';
 
 export interface ExportReport {
+  featuresWithoutInsdcLocation: { linearEdgeSite: number; invalidGeometry: number };
   translationWarnings: string[];
   gapRecordsOmitted: string[];
   genBankRecordsOmitted: { id: string; reason: string }[];
@@ -44,6 +45,7 @@ export interface ExportResult { text: string; unalignedText?: string; report: Ex
 
 export function emptyReport(): ExportReport {
   return {
+    featuresWithoutInsdcLocation: { linearEdgeSite: 0, invalidGeometry: 0 },
     translationWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },

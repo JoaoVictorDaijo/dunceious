@@ -20,6 +20,7 @@
 
 // @vitest-environment jsdom
 import * as d3 from 'd3';
+import * as bio from '@/src/domain/bio';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
@@ -33,7 +34,7 @@ import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
-function props(seq: string, features: BioFeature[] = [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1 }]): SequenceTrackProps {
+function props(seq: string, features: BioFeature[] = [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1, segments: [{ start: 0, end: seq.length }] }]): SequenceTrackProps {
   return {
     seq,
     moleculeType: 'dna',
@@ -172,9 +173,9 @@ describe('translation lanes', () => {
     const recorder = installCanvasRecorder();
     const seq = 'ATGAAATAAATGAAATAA';
     const features: BioFeature[] = [
-      { type: 'CDS', name: 'f0', start: 0, end: 9, strand: 1 },
-      { type: 'CDS', name: 'f1', start: 4, end: 13, strand: 1 },
-      { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1 },
+      { type: 'CDS', name: 'f0', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }] },
+      { type: 'CDS', name: 'f1', start: 4, end: 13, strand: 1, segments: [{ start: 4, end: 13 }] },
+      { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1, segments: [{ start: 0, end: 9 }] },
     ];
     const { container } = render(<SequenceTrack {...props(seq, features)} />);
     const forward = container.querySelector<HTMLCanvasElement>('[data-translation-band="forward"]')!;
@@ -407,4 +408,42 @@ it('keeps even a subpixel hit visible when its base is not the pixel sample', ()
   render(<SequenceTrack {...props('A'.repeat(100), [])} showTranslation={false} zoomLevel={0.25}
     xScale={d3.scaleLinear().domain([0, 100]).range([0, 25])} searchResults={[hit]} allSearchResults={[hit]} currentSearchIdx={0} />);
   expect(recorder.fillRects().filter(([x, , width]) => x === 0 && width === 1.2)).toEqual([]);
+});
+
+
+it('passes the known biological length to feature extraction on translation redraw', () => {
+  installCanvasRecorder();
+  const feature: BioFeature = { type: 'CDS', name: 'aligned', start: 0, end: 5, strand: 1,
+    biological: { start: 0, end: 3, strand: 1 } };
+  const input = props('AT--G', [feature]);
+  const record = { id: 'r', name: 'r', sequence: 'ATG', alignedSequence: 'AT--G', features: [feature] };
+  const extraction = vi.spyOn(bio, 'extractCodingSequence');
+  try {
+    const { rerender } = render(<SequenceTrack {...input} record={record} />);
+    extraction.mockClear();
+    rerender(<SequenceTrack {...input} record={record} scrollX={1} />);
+    expect(extraction).toHaveBeenCalledWith(feature, 'AT--G', { isCircular: undefined, biologicalLength: 3 });
+  } finally {
+    extraction.mockRestore();
+  }
+});
+
+
+it('bounds whole-sequence length recovery independently of aligned CDS count', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  installCanvasRecorder();
+  const record = { id: 'scan', name: 'scan', sequence: 'ATGTAGGAG', alignedSequence: seq, features };
+  const input = props(seq, features);
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    render(<SequenceTrack {...input} record={record} />);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq).length).toBeLessThanOrEqual(1);
+  } finally {
+    replacement.mockRestore();
+  }
 });

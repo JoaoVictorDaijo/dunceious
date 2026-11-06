@@ -84,6 +84,7 @@ export const computeBrokenFeatureMap = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): Map<BioFeature, boolean> => {
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
@@ -91,11 +92,11 @@ export const computeBrokenFeatureMap = (
     .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       if (isCds(f)) {
-        const broken = isFeatureBroken(f, { sequence: seq, moleculeType });
+        const broken = isFeatureBroken(f, { sequence: seq, moleculeType, ...topology });
         if (broken !== undefined) map.set(f, broken);
         return;
       }
-      const { codingSeq } = extractCodingSequence(resolvedTranslationFeature(f), seq);
+      const { codingSeq } = extractCodingSequence(resolvedTranslationFeature(f), seq, topology);
       const translTable = featureTranslTable(f);
       // Stored stops remain annotation claims; assumed residues never establish broken status.
       const storedBroken = storedTranslation(f)
@@ -160,6 +161,7 @@ export const assignTranslationLanes = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): TranslationLanes => {
   if (moleculeType === 'protein') return NO_TRANSLATION_LANES;
   const positions = seq.includes('-') ? alignedToOriginalPositions(seq) : null;
@@ -169,7 +171,7 @@ export const assignTranslationLanes = (
     features
       .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
       .forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, topology);
         const spans = new Map<Frame, { start: number; end: number }[]>();
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const startIdx = alignedIndices[j];

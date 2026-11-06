@@ -22,6 +22,7 @@ import { checkTranslation, isCds, translationReason, translationWarning } from '
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
+import { hasPartialStrands } from '@/src/domain/bio/featureParts';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
@@ -44,7 +45,11 @@ export interface ProjectState {
 export interface ProjectFile extends ProjectState { format: 2 }
 
 export function serializeProject(state: ProjectState): string {
-  return JSON.stringify({ ...state, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
+  const records = state.records.map(record => ({ ...record, features: record.features.map(feature => {
+    const { biological: _biological, ...stored } = feature;
+    return stored;
+  }) }));
+  return JSON.stringify({ ...state, records, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -153,6 +158,10 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   if (widths.size > 1) return { ok: false, message: "This project file contains an alignment whose rows have different lengths" };
   const ids = new Set<string>();
   for (const record of value.records as SeqRecord[]) {
+    for (const feature of record.features) {
+      if (hasPartialStrands(feature)) return { ok: false, message: `Feature ${feature.name} has a strand on some of its pieces but not others.` };
+      delete feature.biological;
+    }
     if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();
     if (ids.has(id)) return { ok: false, message: `This project file contains a duplicate record ID: ${record.id}.` };

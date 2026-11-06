@@ -124,15 +124,15 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const codeWarnings = useMemo(() => features.flatMap(f => {
     const strand = getFeatureStrand(f);
     if (typeof strand !== 'number' || !geneticCodeWarning(f)) return [];
-    const warning = geneticCodeWarning(f, extractCodingSequence(resolvedTranslationFeature(f), seq).codingSeq)!;
+    const warning = geneticCodeWarning(f, extractCodingSequence(resolvedTranslationFeature(f), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }).codingSeq)!;
     return [{ feature: f, strand, warning, suppressed: !validCodonStart(f.metadata?.codon_start) }];
-  }), [features, seq]);
+  }), [features, seq, record]);
   const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
     if (!translationVisible || !isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature))) return [];
-    const coding = extractCodingSequence(feature, seq);
+    const coding = extractCodingSequence(feature, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
     const assumed = assumedTranslation(feature, coding.codingSeq);
     return assumed ? [[feature, { ...coding, assumed }] as const] : [];
-  })), [features, seq, translationVisible]);
+  })), [features, seq, translationVisible, record]);
   const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
   const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
@@ -172,8 +172,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
-    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
-    [features, seq, moleculeType, translationVisible],
+    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType, record ? { isCircular: record.isCircular, biologicalLength: record.sequence.length } : { isCircular: true }) : new Map<BioFeature, boolean>()),
+    [features, seq, moleculeType, translationVisible, record],
   );
 
   useEffect(() => {
@@ -396,7 +396,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
       features.filter(f => isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
 
@@ -408,7 +408,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
-        const conceptual = isCds(f) ? checkedTranslation(f, { sequence: seq, moleculeType }) : undefined;
+        const conceptual = isCds(f) ? checkedTranslation(f, { sequence: seq, moleculeType, isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }) : undefined;
         if (conceptual?.status === 'unavailable' && ['protein-record', 'unknown-strand', 'nonlocal-location', 'unknown-completeness', 'empty'].includes(conceptual.reason)) return;
         const fallback = translateFeature(f, codingSeq, translTable);
         const stored = storedTranslation(f);
@@ -471,7 +471,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, assumedViews, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, assumedViews, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow, record]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',

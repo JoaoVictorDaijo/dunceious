@@ -22,20 +22,13 @@ import { isCds } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
-import { splitWrapAround } from '@/src/domain/bio/intervals';
+import { featureParts } from '@/src/domain/bio/featureParts';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { isBetweenBasesSite } from '@/src/domain/bio/locationFlags';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
-
-/** An interval, local or in another entry (`accession`, INSDC FT 11.4 §3.4.2.1(e)). */
-type Written = FeatureSegment & { accession?: string };
-
-const span = (segment: Written) =>
-  `${segment.accession ? `${segment.accession}:` : ''}${segment.partialStart ? '<' : ''}${segment.start + 1}..${segment.partialEnd ? '>' : ''}${segment.end}`;
-const oriented = (segment: Written, strand: 1 | -1) => (strand === -1 ? `complement(${span(segment)})` : span(segment));
 
 /**
  * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
@@ -43,7 +36,11 @@ const oriented = (segment: Written, strand: 1 | -1) => (strand === -1 ? `complem
  * so each such run is written back that way, its strands flipped. The result is re-parsed and used
  * only when it gives the stored segments back; otherwise the evaluated form is written.
  */
-function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[]): string | null {
+function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[], record: SeqRecord): string | null {
+  const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
+    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, { length: record.sequence.length, isCircular: record.isCircular });
+    return location.kind === 'insdc' ? location.text : location.display;
+  };
   const order = feature.writtenOrder;
   // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
   if (order?.length !== segments.length || feature.remoteParts?.length) return null;
@@ -71,27 +68,17 @@ function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[]):
   return same ? location : null;
 }
 
-/** Rebuild an edited/custom location from its existing segments, preserving
- * their order. This serializes coordinates; it does not extract a spliced product.
- */
-function featureLocation(feature: BioFeature, sequenceLength: number): string {
+function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportReport): string | null {
   if (feature.locationString) return feature.locationString;
-  if (isBetweenBasesSite(feature)) {
-    // INSDC FT 11.4 §3.4.2.1: n^n+1, or length^1 for the site at a circular molecule's origin.
-    const site = `${feature.start}^${feature.start === sequenceLength ? 1 : feature.start + 1}`;
-    return feature.strand === -1 ? `complement(${site})` : site;
+  const length = record.sequence.length;
+  const location = formatInsdcLocation(feature, { length, isCircular: record.isCircular });
+  if (location.kind === 'no-insdc-form') {
+    report.featuresWithoutInsdcLocation[location.reason === 'linear-edge-site' ? 'linearEdgeSite' : 'invalidGeometry']++;
+    return null;
   }
-  const remote = feature.remoteParts ?? [];
-  const segments = feature.segments?.length || remote.length ? feature.segments ?? [] : splitWrapAround(feature.start, feature.end, sequenceLength);
-  const mixed = segments.some(segment => segment.strand !== undefined) || remote.some(part => part.strand !== feature.strand);
-  const nested = mixed ? writtenNestedLocation(feature, segments) : null;
-  if (nested) return nested;
-  // Remote parts go back to their place in the stored order (#245).
-  const stored: Written[] = [...segments];
-  for (const part of [...remote].sort((a, b) => a.index - b.index)) stored.splice(Math.min(part.index, stored.length), 0, part);
-  const locations = stored.map(segment => (mixed ? oriented(segment, segment.strand ?? feature.strand) : span(segment)));
-  const location = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
-  return !mixed && feature.strand === -1 ? `complement(${location})` : location;
+  const parts = featureParts(feature, { length, isCircular: record.isCircular });
+  const nested = parts.some(part => part.strand !== undefined) ? writtenNestedLocation(feature, parts, record) : null;
+  return nested ?? location.text;
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
@@ -137,7 +124,9 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
   for (const feature of features) {
       if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
-    gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
+    const text = featureLocation(feature, r, report);
+    if (text === null) continue;
+    gb += `     ${feature.type.padEnd(15)} ${text}\n`;
     const metadata = { ...feature.metadata };
     if (!isCds(feature)) delete metadata.translation;
     if (feature.type === 'source') {
@@ -188,5 +177,4 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
   return gb + '//\n';
-
 }

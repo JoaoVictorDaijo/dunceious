@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
@@ -56,7 +57,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
   const detail = kind === 'features'
     ? [feature.name, product !== feature.name ? product : undefined, isolateOf(record)].filter(Boolean).join(' · ')
     : product !== feature.name ? product : undefined;
-  const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
+  const location = displayLocation(feature, record);
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
   const lengthText = featureLengthText(record, feature);
   return <div data-row-key={rowKey} data-state={current ? 'current' : lastFocused ? 'last-focused' : selected ? 'selected' : 'idle'} aria-current={current} tabIndex={0} onClick={event => { if (!(event.target as HTMLElement).closest('button, input')) onCurrent(); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onCurrent(); } }}

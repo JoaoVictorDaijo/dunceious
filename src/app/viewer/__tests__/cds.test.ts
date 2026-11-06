@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { assignTranslationLanes, computeBrokenFeatureMap, codonFrame, geneticCodeWarning } from '../cds';
 import type { BioFeature } from '@/src/domain/bio/types';
 
@@ -205,6 +205,49 @@ describe('geneticCodeWarning', () => {
       expect(geneticCodeWarning(cds({ type, metadata: { transl_table: '27' } }))).toBeNull();
     }
     expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
+  });
+});
+
+it('assigns no translation lane to a descending linear feature', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1 };
+  const lanes = assignTranslationLanes([feature], 'ACGTACGTGA', 'dna', { isCircular: false });
+  expect(lanes.forward).toBe(0);
+  expect(lanes.reverse).toBe(0);
+  expect(lanes.laneOf.size).toBe(0);
+});
+
+
+describe.each([
+  ['broken map', computeBrokenFeatureMap],
+  ['translation lanes', assignTranslationLanes],
+] as const)('%s source validation', (_name, compute) => {
+  it('uses the known source length across many aligned features without recovering it', () => {
+    const seq = 'ATG--TAGGAG';
+    const features = Array.from({ length: 24 }, () => cds({ start: 0, end: seq.length,
+      biological: { start: 0, end: 9, strand: 1 } }));
+    const replacement = vi.spyOn(String.prototype, 'replace');
+    try {
+      compute(features, seq, 'dna', { isCircular: false, biologicalLength: 9 });
+      expect(replacement.mock.calls.filter(([pattern], i) =>
+        String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq)).toHaveLength(0);
+    } finally {
+      replacement.mockRestore();
+    }
+  });
+
+  it.each([
+    ['valid', { start: 0, end: 9, strand: 1 as const }, false, true],
+    ['out of bounds', { start: 0, end: 10, strand: 1 as const }, false, false],
+    ['linear wrap', { start: 6, end: 3, strand: 1 as const }, false, false],
+    ['circular wrap', { start: 6, end: 3, strand: 1 as const }, true, true],
+  ])('preserves %s source validation', (_label, biological, isCircular, allowed) => {
+    const feature = cds({ start: 0, end: 11, biological });
+    const result = compute([feature], 'ATG--TAGGAG', 'dna', { isCircular, biologicalLength: 9 });
+    if (result instanceof Map) {
+      expect(result.get(feature)).toBe(allowed ? true : undefined);
+      expect(result.has(feature)).toBe(allowed);
+    }
+    else expect(result.laneOf.has(feature)).toBe(allowed);
   });
 });
 

@@ -78,7 +78,7 @@ function open(record: SeqRecord, feature: BioFeature) {
     <RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
       onExportRecord={vi.fn()} onCopyLog={onCopyLog} />
   </UiEffectsContext.Provider>);
-  const sequence = () => document.querySelector('[data-record-details-body] p.break-all')?.textContent?.toUpperCase();
+  const sequence = () => document.querySelector('[data-feature-sequence]')?.textContent?.toUpperCase();
   return { copyText, onCopyLog, sequence };
 }
 
@@ -160,7 +160,7 @@ describe('RecordDetailsModal sequence views', () => {
     render(<RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
       onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} onRemoveSearchDetails={vi.fn()} />);
     // Record bases 3..6 are GCCC; on the reverse strand they read GGGC, the query.
-    expect(document.querySelector('[data-record-details-body] p.break-all')?.textContent).toBe('GGGC');
+    expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('GGGC');
     expect(screen.getByRole('option', { name: 'Query aligned to record' }).hasAttribute('disabled')).toBe(false);
     expect(screen.getByRole('button', { name: 'Remove search details' })).toBeTruthy();
   });
@@ -242,6 +242,25 @@ describe('RecordDetailsModal nested complement sequence views', () => {
     open(fixture, labelled(label));
     expect(caption()).toBe(`Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`);
   });
+});
+
+it.each([undefined, 'order(1..3,7..9)'])('shows actual feature locus with retained text taking precedence %s', locationString => {
+  const feature: BioFeature = { name: 'joined', type: 'gene', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], locationString };
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACGTACGTAC', features: [feature] }} feature={feature} onFocusFeature={() => {}} onClose={() => {}} onExportRecord={() => {}} onCopyLog={() => {}} />);
+  expect(screen.getByText(locationString ?? 'join(1..3,7..9)').className).toContain('break-all');
+});
+
+it('shows invalid location without derived sequence or lengths and labels stored translation', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1, metadata: { translation: 'STORED' } };
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACGTACGTGA', features: [feature] }} feature={feature} onFocusFeature={() => {}} onClose={() => {}} onExportRecord={() => {}} onCopyLog={() => {}} />);
+  expect(screen.getByText('9..2 (invalid location)')).toBeTruthy();
+  expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
+  expect(document.querySelector('[data-feature-lengths]')?.textContent).toBe('Invalid location');
+  expect(screen.getByText("Stored translation. The location is invalid, so it isn't checked against the sequence.")).toBeTruthy();
+  expect(screen.getByText('STORED', { selector: 'p' })).toBeTruthy();
+  const region = screen.queryByRole('radio', { name: 'Region spanned' });
+  if (region) fireEvent.click(region);
+  expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
 });
 
 it('offers both record FASTA modes for aligned records and only no gaps otherwise', () => {

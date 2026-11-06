@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { processTransposition } from '../coordinate';
 import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, it, expect } from 'vitest';
 import {
@@ -320,6 +321,51 @@ describe('feature extraction and CDS frame', () => {
     expect(extractFeatureSequence({ start: 2, end: 2, strand: -1 }, 'ACGT'))
       .toEqual({ featureSeq: '', alignedIndices: [] });
   });
+});
+
+it('extracts explicit circular wraps in per-part evaluation order and keeps site joins empty', () => {
+  const wrap = { start: 8, end: 2, strand: 1 as const, segments: [{ start: 8, end: 2 }] };
+  expect(extractFeatureSequence(wrap, 'ACGTACGTGA').featureSeq).toBe('GAAC');
+  expect(extractFeatureSequence({ ...wrap, segments: [{ start: 8, end: 2, strand: -1 }] }, 'ACGTACGTGA').featureSeq).toBe('GTTC');
+  expect(extractCodingSequence({ start: 3, end: 6, strand: 1, segments: [{ start: 3, end: 3 }, { start: 6, end: 6 }] }, 'AC-GTACGTGA')).toEqual({ codingSeq: '', alignedIndices: [] });
+});
+
+it('extracts the same reverse wrap bases and empty site joins after transposition', () => {
+  const feature = { name: 'wrap', type: 'CDS', start: 8, end: 2, strand: -1 as const, segments: [{ start: 8, end: 2, strand: -1 as const }] };
+  const record = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', alignedSequence: 'AC-GTACGTGA', isCircular: true, features: [feature] };
+  const aligned = processTransposition([record])[0];
+  expect(extractFeatureSequence(aligned.features[0], aligned.alignedSequence!).featureSeq).toBe('GTTC');
+  const sites = { ...feature, start: 3, end: 6, segments: [{ start: 3, end: 3, strand: -1 as const }, { start: 6, end: 6, strand: -1 as const }] };
+  const siteRecord = processTransposition([{ ...record, features: [sites] }])[0];
+  const { codingSeq, alignedIndices } = extractCodingSequence(siteRecord.features[0], siteRecord.alignedSequence!);
+  expect(codingSeq).toBe('');
+  expect(alignedIndices).toEqual([]);
+  expect(translateSequence(codingSeq)).toBe('');
+});
+
+it('returns no derived bases or indices for invalid linear geometry', () => {
+  const invalid = { start: 8, end: 2, strand: 1 as const, segments: [{ start: 8, end: 2 }] };
+  expect(extractFeatureSequence(invalid, 'ACGTACGTGA', 'dna', { isCircular: false })).toEqual({ featureSeq: '', alignedIndices: [] });
+  expect(extractCodingSequence(invalid, 'ACGTACGTGA', { isCircular: false })).toEqual({ codingSeq: '', alignedIndices: [] });
+});
+
+it('does not extract an invalid source part after alignment clamps its endpoints', () => {
+  const source = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', alignedSequence: 'AC-GTACGTGA', features: [
+    { name: 'invalid', type: 'CDS', start: 0, end: 15, strand: 1 as const },
+  ] };
+  const aligned = processTransposition([source])[0];
+  expect(extractCodingSequence(aligned.features[0], aligned.alignedSequence!, { ...aligned, biologicalLength: source.sequence.length })).toEqual({ codingSeq: '', alignedIndices: [] });
+});
+
+
+it.each([
+  { biologicalLength: 6, codingSeq: 'ATG', alignedIndices: [0, 1, 2] },
+  { biologicalLength: 5, codingSeq: '', alignedIndices: [] },
+])('validates aligned source geometry using supplied length $biologicalLength', ({ biologicalLength, codingSeq, alignedIndices }) => {
+  const feature = { start: 0, end: 3, strand: 1 as const,
+    biological: { start: 3, end: 6, strand: 1 as const } };
+  expect(extractCodingSequence(feature, 'ATG---', { isCircular: false, biologicalLength }))
+    .toEqual({ codingSeq, alignedIndices });
 });
 
 // #245 (OBS-04): bases of another entry cannot be read from this record. For local ACGT,

@@ -335,6 +335,17 @@ it('previews the circular record annotation count and each source qualifier inde
   expect(within(table).getByRole('row', { name: /^Organism / }).textContent).toContain('1 written');
 });
 
+it('warns about skipped sites even with organism set and counts written annotations', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', fileDetails: { organism: 'synthetic construct' }, features: [
+    { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'synthetic construct' } },
+    { type: 'gene', name: 'edge', start: 0, end: 0, strand: 1 },
+  ] };
+  render(<Subject value={[record]} selected={['r']} />); open(); format('GenBank');
+  expect(exportWarning()).toBe("1 feature not written: a site at a linear sequence's edge has no GenBank location");
+  expect(exportSummary()).toContain('0 annotations');
+  expect(screen.getByTitle('1 features skipped').textContent).toBe('0 annotations');
+});
+
 it('names GenBank gap omissions and distinguishes chosen records from written content', () => {
   const value: SeqRecord[] = [
     { id: 'clean', name: 'clean', sequence: 'ACGT', features: [{ type: 'gene', name: 'kept', start: 0, end: 2, strand: 1 }] },

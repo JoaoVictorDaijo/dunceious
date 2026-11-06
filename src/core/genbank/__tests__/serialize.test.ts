@@ -146,6 +146,29 @@ ORIGIN
   });
 });
 
+it('skips invalid geometry and linear edge sites but exports interior sites', () => {
+  const result = exportToGenBank([record({ features: [
+    { type: 'gene', name: 'edge', start: 0, end: 0, strand: 1 },
+    { type: 'gene', name: 'invalid', start: 8, end: 2, strand: 1 },
+    { type: 'gene', name: 'site', start: 5, end: 5, strand: 1 },
+  ] })]);
+  expect(result.text).not.toContain('standard_name="edge"');
+  expect(result.text).not.toContain('standard_name="invalid"');
+  expect(result.text).toContain('gene            5^6');
+  expect(result.report.featuresWithoutInsdcLocation).toEqual({ linearEdgeSite: 1, invalidGeometry: 1 });
+});
+
+it('exports circular origin sites and exports wrapped explicit pieces as joins', () => {
+  const result = exportToGenBank([record({ isCircular: true, features: [
+    { name: 'site', type: 'gene', start: 10, end: 10, strand: 1 },
+    { name: 'wrap', type: 'gene', start: 8, end: 2, strand: 1, segments: [{ start: 8, end: 2 }] },
+  ] })]);
+  expect(result.text).toContain('gene            10^1');
+  expect(result.text).toContain('gene            join(9..10,1..2)');
+  expect(result.report.featuresWithoutInsdcLocation).toEqual({ linearEdgeSite: 0, invalidGeometry: 0 });
+
+});
+
 // Rebuilding a location without its source text (after an edit or a selection export) must write
 // the INSDC form that was read. Oracles: Biopython 1.88 writes O1 back as order(1..3,11..13) and S1
 // as 10^11 (docs/standards/conformance); §3.4.2.1 permits length^1 on a circular molecule.
@@ -263,4 +286,20 @@ it('applies the protein alphabet in the real GenPept writer without dropping val
   expect(result.report.genBankRecordsOmitted).toEqual([{ id: 'stop', reason: 'stop not exported: its sequence contains non-residue characters' }]);
   expect(result.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+protein\s+8 aa/)]);
   expect(result.text).toContain('mkuxbzjo');
+});
+
+it.each([
+  { start: 10, end: 10, segments: [{ start: 10, end: 10 }], isCircular: false, betweenBases: true as const, location: '10^11' },
+  { start: 120, end: 120, segments: [{ start: 120, end: 120 }], isCircular: true, betweenBases: true as const, location: '120^1' },
+  { start: 1, end: 1, segments: [{ start: 1, end: 1 }], isCircular: true, length: 1, betweenBases: true as const, location: '1^1' },
+  { start: 0, end: 20, segments: [{ start: 0, end: 3 }, { start: 10, end: 10 }, { start: 15, end: 20 }], isCircular: false, location: 'join(1..3,10^11,16..20)' },
+])('round-trips site geometry through GenBank: $location', ({ start, end, segments, isCircular, length = 120, betweenBases, location }) => {
+  const result = exportToGenBank([record({ sequence: 'A'.repeat(length), isCircular,
+    features: [{ type: 'source', name: 'source', start: 0, end: length, strand: 1, metadata: { organism: 'Test organism', mol_type: 'genomic DNA' } }, { type: 'misc_feature', name: 'roundtrip', start, end, strand: 1, segments, betweenBases }] })]);
+  expect(result.text).toContain(`misc_feature    ${location}`);
+  const parsed = parseGenBank(result.text);
+  expect(parsed.findings.filter(f => f.tier === 'refuse')).toEqual([]);
+  const roundtrip = parsed.records[0].features.find(f => f.name === 'roundtrip');
+  expect(roundtrip).toMatchObject({ start, end, segments });
+  expect(roundtrip?.betweenBases).toBe(betweenBases);
 });

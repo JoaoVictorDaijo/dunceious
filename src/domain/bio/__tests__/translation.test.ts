@@ -154,3 +154,10 @@ it.each([
   expect(result.possible).toEqual(['M', readings]);
   expect(compareTranslation('MT', result)).toEqual({ differing, storedExtra: '', storedShortBy: 0 });
 });
+
+it('uses source biological geometry when extracting an aligned circular CDS', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'wrap', start: 3, end: 2, strand: 1, segments: [{ start: 3, end: 2 }], biological: { start: 3, end: 2, strand: 1, segments: [{ start: 3, end: 2 }] } };
+  const record = { sequence: 'TAAATG--', isCircular: true, biologicalLength: 6 };
+  expect(conceptualTranslation(feature, record)).toMatchObject({ status: 'ok', residues: 'M', internalStops: [] });
+  expect(conceptualTranslation(feature, { ...record, isCircular: false }).status).toBe('unavailable');
+});

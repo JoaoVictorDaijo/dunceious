@@ -24,7 +24,10 @@ export type { ConceptualTranslation } from './types';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { extractCodingSequence, featureTranslTable, initiatorResidue, isNcbiGeneticCode } from './sequence';
 import { definesOneSequence, isFivePrimePartialLocation, isThreePrimePartialLocation } from './locationFlags';
+import { invalidLocationPart } from './featureParts';
 import { getFeatureStrand } from './strand';
+
+type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number };
 
 
 export const isCds = (feature: Pick<BioFeature, 'type'>): boolean => ['CDS', 'cds', 'SO:0000316'].includes(feature.type);
@@ -43,7 +46,7 @@ function reading(set: string): string {
 }
 
 /** Contextual NCBI CDS product, independent of every stored protein assertion. */
-export function conceptualTranslation(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): ConceptualTranslation {
+export function conceptualTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
   const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason });
   if (record.moleculeType === 'protein') return unavailable('protein-record');
   const table = featureTranslTable(feature);
@@ -52,9 +55,11 @@ export function conceptualTranslation(feature: BioFeature, record: Pick<SeqRecor
   const strand = getFeatureStrand(feature);
   if (strand !== 1 && strand !== -1) return unavailable('unknown-strand');
   if (!definesOneSequence(feature)) return unavailable('nonlocal-location');
-  if (!feature.segments?.length || feature.segments.some(s => !Number.isInteger(s.start) || !Number.isInteger(s.end) || s.start < 0 || s.end < s.start || s.end > record.sequence.length)) return unavailable('unknown-completeness');
+  const source = feature.biological ?? feature;
+  const length = feature.biological ? record.biologicalLength ?? record.sequence.replace(/-/g, '').length : record.sequence.length;
+  if (!feature.segments?.length || (source.segments?.length ? source.segments : [source]).some(part => invalidLocationPart(part, { length, isCircular: record.isCircular }))) return unavailable('unknown-completeness');
   const resolved = resolvedTranslationFeature(feature);
-  const { codingSeq, alignedIndices } = extractCodingSequence(resolved, record.sequence);
+  const { codingSeq, alignedIndices } = extractCodingSequence(resolved, record.sequence, { isCircular: record.isCircular, biologicalLength: record.biologicalLength });
   if (!codingSeq) return unavailable('empty');
   const seq = codingSeq.toUpperCase().replace(/U/g, 'T');
   const code = NCBI_GENETIC_CODES[table];
@@ -93,7 +98,7 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 }
 
 /** Disposable JSON cache fits the string-valued qualifier metadata contract. */
-export function checkTranslation(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): BioFeature {
+export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
   if (!isCds(feature)) return feature;
   const conceptual = conceptualTranslation(feature, record);
   const stored = storedTranslation(feature);
@@ -123,7 +128,7 @@ export function resolvedTranslationFeature(feature: BioFeature): BioFeature {
 }
 
 /** Import/save/load own cache invalidation; redraws consume that disposable result. */
-export function checkedTranslation(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): ConceptualTranslation {
+export function checkedTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
   if (feature.metadata?._translationCheck) {
     try {
       return JSON.parse(feature.metadata._translationCheck) as ConceptualTranslation;
@@ -134,7 +139,7 @@ export function checkedTranslation(feature: BioFeature, record: Pick<SeqRecord, 
   return conceptualTranslation(feature, record);
 }
 
-export function translationDescription(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): string {
+export function translationDescription(feature: BioFeature, record: TranslationRecord): string {
   const result = checkedTranslation(feature, record);
   const clauses = [feature.metadata?._translationMessage ?? ''];
   if (result.status === 'unavailable') clauses.push(`Can't verify: ${translationReason(result, feature)}`);

@@ -31,9 +31,10 @@ import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
 import { isBetweenBasesSite, isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
-import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence, getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
@@ -147,8 +148,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
-    [l.record.features, seq, l.record.moleculeType],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }),
+    [l.record.features, seq, l.record.moleculeType, l.record],
   );
 
   return (
@@ -338,13 +339,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 geneticCodeWarning(f)
                   ? geneticCodeWarning(f,
-                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq).codingSeq,
+                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
                     l.record.moleculeType)
                   : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || (isBetweenBasesSite(f)
-                  ? `${getOriginalPos(seq, f.start)}^${getOriginalPos(seq, f.start) + 1}`
-                  : `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`)}`,
+                `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),
                 unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
                 f.remoteParts?.length ? `${remoteIntervalsText(f.remoteParts)}, not in this record` : null,
@@ -383,6 +382,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // The name is painted once, on the first piece in view, so a long join
               // keeps its name on screen without repeating it at every segment.
               const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true, labelled = true) => {
+                if (s === e) return null;
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (!partVisible(s, e)) return null;
 
@@ -493,7 +493,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                const labelIdx = f.segments.findIndex(seg => seg.start !== seg.end && partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
                 const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);

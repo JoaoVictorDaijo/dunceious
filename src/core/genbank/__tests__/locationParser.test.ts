@@ -64,12 +64,12 @@ describe('parseLocation – single position and site', () => {
     expect(parseLocation('complement(123^124)')).toMatchObject({ start: 123, end: 123, betweenBases: true, strand: -1 });
   });
 
-  it('keeps n^1 as a candidate circular site at the boundary after base n', () => {
-    expect(parseLocation('1000^1')).toMatchObject({ start: 1000, end: 1000, betweenBases: true });
+  it.each([1, 1000])('keeps %i^1 as a candidate circular site at the boundary after base n', n => {
+    expect(parseLocation(`${n}^1`)).toMatchObject({ start: n, end: n, betweenBases: true });
   });
 
   // §3.4.2.1 permits only n^n+1 and the circular length^1; #298 refuses the rest on import.
-  it.each(['10^12', '11^10', '1^1'])('never reads %s, whose bases are not adjoining, as a site', loc => {
+  it.each(['10^12', '11^10'])('never reads %s, whose bases are not adjoining, as a site', loc => {
     expect(parseLocation(loc).betweenBases).toBeUndefined();
   });
 });

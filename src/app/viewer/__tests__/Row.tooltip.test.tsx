@@ -22,6 +22,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, render, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { processTransposition } from '@/src/domain/bio/coordinate';
 import GenomeViewer from '../GenomeViewer';
 
 beforeEach(() => {
@@ -147,6 +148,28 @@ it.each([
   const warning = view.queryByText(/is not an NCBI genetic code/);
   if (warned) expect(warning?.textContent).toContain(`/transl_table=${table} is not an NCBI genetic code`);
   else expect(warning).toBeNull();
+});
+
+it.each([
+  [false, [{ start: 0, end: 3 }, { start: 6, end: 9 }], undefined, 'join(1..3,7..9)'],
+  [true, [{ start: 0, end: 3 }, { start: 6, end: 9 }], undefined, 'join(1..3,7..9)'],
+  [true, [{ start: 0, end: 3 }, { start: 5, end: 5 }], undefined, 'join(1..3,5^6)'],
+  [true, [{ start: 8, end: 2 }], undefined, 'join(9..10,1..2)'],
+  [true, [{ start: 0, end: 3 }, { start: 6, end: 9 }], 'order(1..3,7..9)', 'order(1..3,7..9)'],
+  [true, [{ start: 0, end: 3 }, { start: 6, end: 9 }], '<5..>25', '<5..>25'],
+] as const)('shows source location in tooltip (aligned=%s, parts=%j, retained=%s)', (aligned, segments, locationString, text) => {
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTAC', isCircular: true,
+    alignedSequence: aligned ? 'AC--GTAC-GTAC' : undefined,
+    features: [{ type: 'gene', name: 'joined', start: segments[0].start, end: segments[segments.length - 1].end, strand: 1,
+      segments: segments.map(part => ({ ...part })), locationString }] };
+  const records = processTransposition([source]);
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+    records={records} consensus={records[0].alignedSequence ?? records[0].sequence} showAnnotations showTracks={false}
+    showTranslation={false} showConservation={false} dragMode="select" activeSelection={null}
+    onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+    searchResults={[]} currentSearchIdx={-1} />);
+  pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+  expect(view.getByText(content => content.includes(`Locus: ${text}`))).toBeTruthy();
 });
 
 it.each([undefined, 'MVA', 'M'])('explains displayed sources for invalid code with stored %s', translation => {
