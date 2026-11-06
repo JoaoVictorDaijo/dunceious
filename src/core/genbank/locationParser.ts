@@ -101,7 +101,7 @@ function splitTopLevelCommas(list: string): string[] {
       cur += ch;
     }
   }
-  if (cur) out.push(cur);
+  out.push(cur);
   return out;
 }
 
@@ -130,14 +130,15 @@ function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
     ...(before === '<' && { partialStart: true as const }),
     ...(after === '>' && { partialEnd: true as const }),
   });
-  const pair = el.match(/([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)/);
-  if (pair) return { start: parseInt(pair[2]) - 1, end: parseInt(pair[4]), ...marks(pair[1], pair[3]) };
-  const single = el.match(/([<>]?)(\d+)/);
+  const pair = el.match(/^([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)$/);
+  if (pair) return { start: Number(pair[2]) - 1, end: Number(pair[4]), ...marks(pair[1], pair[3]) };
+  const single = el.match(/^([<>]?)(\d+)$/);
   if (single) {
-    const val = parseInt(single[2]);
+    const val = Number(single[2]);
     return { start: val - 1, end: val, ...marks(single[1], single[1]) };
   }
-  return { start: 0, end: 0 };
+  // Import validation (#298) refuses unreadable text; nothing here invents an interval for it.
+  throw new Error(`Unreadable location: ${el}`);
 }
 
 export function parseLocation(loc: string): LocationData {

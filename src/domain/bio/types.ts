@@ -54,6 +54,7 @@ export interface BioFeature {
   /** Workspace provenance survives projects but stays out of interchange files. */
   hubEdit?: 'edited' | 'added';
   color?: string;
+  unknownQualifiers?: Record<string, string>;
   metadata?: Record<string, string>;
   translation?: string;
   /**
@@ -219,4 +220,15 @@ export interface SearchHitProvenance {
   appVersion: string;
   createdAt: string;
   exportNote: boolean;
+}
+
+
+
+export interface GenBankFinding {
+  tier: 'refuse' | 'warning';
+  code: string;
+  record: { name: string; index: number };
+  feature?: { key: string; name: string };
+  line?: number;
+  message: string;
 }

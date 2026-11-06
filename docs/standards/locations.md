@@ -230,3 +230,13 @@ features, also in the browser console. GenBank export writes the parts back; GFF
 remote reference, carries them as `insdc_remote` and its export report counts them, leaving out a
 feature with no interval in this record.
 
+## GenBank import enforcement
+
+`src/core/genbank/locationValidation.ts` refuses unreadable or partially parsed locations,
+out-of-range local coordinates, mixed join/order syntax, non-adjoining between-base sites,
+and reversed fuzzy markers. Nested joins and nested complements are evaluated recursively.
+`guardOrderLocation`, `guardBetweenBaseSite`, `guardRemoteLocation`, `guardOneOfPosition` and
+`guardSiteInCompound` named legal but unsupported forms separately. #306 removed the first three:
+`order()` (LOC-2), between-base sites (LOC-5) and remote locations (LOC-8) are read. The one-of
+and compound-site guards remain until their semantics are supported. Remote intervals are not
+local segments, so they are never tested against local sequence bounds. Existing saved project handling is unchanged.

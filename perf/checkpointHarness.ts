@@ -87,7 +87,7 @@ function recordsFrom(file: string, cache: Map<string, SeqRecord[]>): SeqRecord[]
   const content = readFileSync(file, 'utf8').trimStart();
   let records: SeqRecord[];
   if (content.startsWith('>')) records = parseFasta(content);
-  else if (content.startsWith('LOCUS')) records = parseGenBank(content);
+  else if (content.startsWith('LOCUS')) records = parseGenBank(content).records;
   else throw new Error('Unsupported format');
   if (!records.length) throw new Error('No parsed records');
   cache.set(file, records);

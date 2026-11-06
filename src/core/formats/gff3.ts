@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { parseLocation } from '../genbank/locationParser';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
@@ -79,6 +80,7 @@ function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
 
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') return segments.map(() => '.');
+  if (!validCodonStart(feature.metadata?.codon_start)) return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
   const legacy = !feature.metadata?._gffPhaseState && feature.metadata?.codon_start === undefined;
   if (imported && (legacy || feature.metadata?._gffPhaseState === phaseState(feature, segments))) {

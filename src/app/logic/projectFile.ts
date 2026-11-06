@@ -84,6 +84,7 @@ function validRecord(value: unknown): boolean {
     && (feature.remoteParts === undefined || (Array.isArray(feature.remoteParts) && feature.remoteParts.every(part => isObject(part)
       && coordinates(part) && typeof part.accession === 'string' && (part.strand === 1 || part.strand === -1) && Number.isInteger(part.index))))
     && (feature.metadata === undefined || stringMap(feature.metadata))
+    && (feature.unknownQualifiers === undefined || stringMap(feature.unknownQualifiers))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
   return value.tracks === undefined || (Array.isArray(value.tracks) && value.tracks.every(track => isObject(track)

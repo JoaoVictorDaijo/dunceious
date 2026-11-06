@@ -65,7 +65,7 @@ const baselineRss = memBaseline.rss;
 tryGC();
 
 const t0 = performance.now();
-const records = parseGenBank(content);
+const records = parseGenBank(content).records;
 const durationMs = performance.now() - t0;
 
 const memAfter = process.memoryUsage();

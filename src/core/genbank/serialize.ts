@@ -20,6 +20,7 @@
 
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
+import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite } from '@/src/domain/bio/locationFlags';
@@ -94,8 +95,14 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
-  report.gapRecordsOmitted = records.filter(record => /[-.]/.test(record.sequence)).map(record => record.id);
-  records = records.filter(record => !/[-.]/.test(record.sequence));
+  records = records.filter(record => {
+    const reason = genBankExportProblem(record);
+    if (!reason) return true;
+    const gaps = /[-.]/.test(record.sequence);
+    if (gaps) report.gapRecordsOmitted.push(record.id);
+    report.genBankRecordsOmitted.push({ id: record.id, reason: gaps ? `${record.id} not exported: its sequence contains gap characters` : reason });
+    return false;
+  });
   if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
     throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
   }
@@ -127,6 +134,7 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
   }
   for (const feature of features) {
+    report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
     const metadata = { ...feature.metadata };
     if (feature.translation && metadata.translation === undefined) metadata.translation = feature.translation;

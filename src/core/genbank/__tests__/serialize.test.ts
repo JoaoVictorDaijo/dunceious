@@ -64,7 +64,7 @@ describe('exportToGenBank', () => {
   it('round-trips the /ribosomal_slippage flag through parse and export', () => {
     const gb = exportToGenBank([record({ features: [{ type: 'CDS', name: 'pp1ab', start: 0, end: 10, strand: 1,
       metadata: { ribosomal_slippage: '' } }] })]).text;
-    const [rec] = parseGenBank(gb);
+    const [rec] = parseGenBank(gb).records;
     expect(rec.features.find(f => f.type === 'CDS')?.metadata?.ribosomal_slippage).toBe('');
   });
 
@@ -99,7 +99,7 @@ describe('custom annotation roundtrip', () => {
   it.each([1, -1] as const)('retains a custom primer name, region and strand %s', strand => {
     const source = record({ features: [{ type: 'primer', name: 'Synthetic primer', start: 1, end: 8, strand }] });
     const snapshot = structuredClone(source);
-    const parsed = parseGenBank(exportToGenBank([source]).text);
+    const parsed = parseGenBank(exportToGenBank([source]).text).records;
     expect(parsed[0].features.find(f => f.type === 'primer')).toMatchObject(source.features[0]);
     expect(parsed[0].sequence).toBe(source.sequence);
     expect(source).toEqual(snapshot);
@@ -116,7 +116,7 @@ it('roundtrips a newly created reverse annotation with separate segments', () =>
   const source = record({ features: [{ type: 'misc_feature', name: 'Joined synthetic', start: 1, end: 9, strand: -1, segments: [{ start: 1, end: 3 }, { start: 6, end: 9 }] }] });
   const exported = exportToGenBank([source]).text;
   expect(exported).toContain('complement(join(2..3,7..9))');
-  expect(parseGenBank(exported)[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
+  expect(parseGenBank(exported).records[0].features.find(f => f.type === 'misc_feature')).toMatchObject(source.features[0]);
 });
 
 
@@ -132,7 +132,7 @@ FEATURES             Location/Qualifiers
                      /label=nested
 ORIGIN
         1 aaccggtt
-//`);
+//`).records;
     expect(source.sequence).toBe('AACCGGTT');
     const exported = exportToGenBank([source]).text;
     expect(exported.split('\n').filter(line => line.startsWith('     misc_feature')))
@@ -179,7 +179,7 @@ describe('exportToGenBank – rebuilt operators and sites', () => {
     const [parsed] = parseGenBank(exportToGenBank([record({ sequence: 'A'.repeat(30), features: [{
       type: 'Site', name: 's', operator: 'order', start: 31, end: 108, strand: 1,
       segments: [{ start: 1, end: 3 }, { start: 9, end: 12 }],
-    }] })]).text);
+    }] })]).text).records;
     expect(parsed.features.find(f => f.type === 'Site')).toMatchObject({ operator: 'order', locationString: 'order(2..3,10..12)' });
   });
 });
@@ -188,7 +188,7 @@ describe('exportToGenBank – rebuilt operators and sites', () => {
 // SCU49845's TCP1-beta CDS is <1..206.
 describe('exportToGenBank – partial ends after an edit', () => {
   it('writes <1..180 after the end of <1..206 is edited to 180', () => {
-    const [parsed] = parseGenBank(readFileSync('src/core/__tests__/fixtures/SCU49845.gb', 'utf8'));
+    const [parsed] = parseGenBank(readFileSync('src/core/__tests__/fixtures/SCU49845.gb', 'utf8')).records;
     const cds = parsed.features.find(f => f.type === 'CDS' && f.locationString === '<1..206')!;
     const edited = { ...cds, ...featureCoordPatch(cds, 'end', '180'), locationString: undefined };
     const text = exportToGenBank([{ ...parsed, features: [edited] }]).text;
@@ -239,4 +239,28 @@ it('omits damaged gap residues without shifting features and keeps a clean LOCUS
   expect(output.text).not.toContain('dot');
   expect(output.text).toMatch(/^LOCUS\s+clean\s+4 bp/m);
   expect(output.text).toContain('        1 acgt\n');
+});
+
+it.each([
+  ['symbol', 'AC*GT', {}, 'its sequence contains non-residue characters'],
+  ['punctuation', 'ACRGT?', {}, 'its sequence contains non-residue characters'],
+  ['frame', 'ACRGT', { codon_start: '4' }, 'CDS bad has an invalid /codon_start'],
+  ['emptyframe', 'ACRGT', { codon_start: '' }, 'CDS bad has an invalid /codon_start'],
+  ['code', 'ACRGT', { transl_table: '99' }, 'CDS bad has an invalid /transl_table'],
+  ['emptycode', 'ACRGT', { transl_table: '' }, 'CDS bad has an invalid /transl_table'],
+])('omits and reports %s with clean LOCUS and ORIGIN untouched', (id, sequence, metadata, reason) => {
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACRGT', features: [] };
+  const bad: SeqRecord = { id, name: id, sequence, features: [{ type: 'CDS', name: 'bad', start: 0, end: sequence.length, strand: 1, metadata }] };
+  const output = exportToGenBank([bad, good]);
+  expect(output.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+5 bp/)]);
+  expect(output.text).toContain('acrgt');
+  expect(output.report.genBankRecordsOmitted).toEqual([{ id, reason: `${id} not exported: ${reason}` }]);
+  expect(exportToGenBank([bad]).text).toBe('');
+});
+
+it('applies the protein alphabet in the real GenPept writer without dropping valid ambiguity codes', () => {
+  const result = exportToGenBank([record({ id: 'stop', moleculeType: 'protein', sequence: 'MKV*' }), record({ id: 'protein', moleculeType: 'protein', sequence: 'MKUXBZJO' })]);
+  expect(result.report.genBankRecordsOmitted).toEqual([{ id: 'stop', reason: 'stop not exported: its sequence contains non-residue characters' }]);
+  expect(result.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+protein\s+8 aa/)]);
+  expect(result.text).toContain('mkuxbzjo');
 });

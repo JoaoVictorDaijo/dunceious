@@ -227,3 +227,11 @@ it('keeps assumed whole and tail stops out of broken status while retaining stor
     expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').get(f)).toBe(translation === 'MK*G');
   }
 });
+
+
+it.each(['1', '99'])('lets an invalid frame suppress translation and broken status under table %s', transl_table => {
+  const feature = cds({ start: 0, end: 9, translation: 'M*K', metadata: { codon_start: '0', transl_table } });
+  expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
+  expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
+  expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
+});
