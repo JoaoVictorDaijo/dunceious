@@ -149,17 +149,28 @@ export function formatInsdcLocation(
    has at least one element. Otherwise (absent or `[]`, which
    project import accepts at `projectFile.ts:75`) the feature's own `start`/`end`. Parts keep
    their stored order (LOC-1).
-   - **Effective strand of each part.** If no part has a strand, every part takes the feature's
-     strand (the uniform shape, `types.ts:22-35`). If any part has one, the feature is in
-     per-part mode. Then a part without a strand is forward, the same rule extraction uses
-     (`sequence.ts:172, 184`).
-   - The parser always sets every part's strand in per-part mode, so only project files and the
-     segment editor can produce a partly specified shape. Today the serializer gives that shape's
-     unspecified parts the parent strand (`serialize.ts:38`). That disagrees with extraction, so
-     the formatter follows extraction, and export changes for that shape only.
-   - Project import and the editor's save fill a missing per-part strand with `+1` explicitly,
-     so the stored contract holds from then on. Stored wrapped segments are left as they are:
-     `featureParts` splits them for every consumer.
+   - **Strand of each part.** If no part has a strand, every part takes the feature's strand
+     (the uniform shape, `types.ts:22-35`). Otherwise every part must carry its own strand.
+   - **A partly stranded feature is refused** (owner decision, 2026-11-06). In INSDC Feature
+     Table 11.4 §3.4.2.2, every interval is either read as presented or complemented. No
+     location gives an interval an unknown strand, while opposite-strand parts such as
+     `join(complement(69611..69724),139856..140087)` are valid. The GenBank parser, GFF3 import
+     and search annotations never produce the partly stranded shape. Only two places can:
+     - **Project load** (`projectFile.ts:75-81, 89-105`, which checks each optional strand on
+       its own) refuses the file, naming the feature: "Feature X has a strand on some of its
+       pieces but not others." This matches the refusal of other damaged project files
+       (#286).
+     - **The editor** (`FeatureEditorModal.tsx:249-250, 267-286`, where a new piece is added
+       without a strand) shows a strand choice on every piece once any piece has one. It keeps
+       Save disabled (`useFeatureManager.ts:219-222`) until every piece has one, so the user
+       picks each strand.
+   - The formatter, extraction and selection export can then rely on the shape. If one
+     still arrives, the formatter returns `invalid-geometry`, never a guessed strand.
+   - Stored wrapped segments are left as they are: `featureParts` splits them for every
+     consumer.
+   - GFF3's `.` (unstranded) and `?` (unknown) strand rows are mapped to `+1` today, and
+     per-row symbols can be lost when parts merge (`gff3.ts:295-299, 363-379`). Keeping them is
+     separate work, outside this spec.
 2. **Invalid geometry first.** A part (or the envelope when there are no parts) is invalid
    when:
    - a coordinate is not an integer, or is negative;
@@ -315,12 +326,13 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Joins | `insdcLocation.test.ts` | Segments `[0,3)`, `[6,9)` give `join(1..3,7..9)`. Out-of-order trans-splice `[69610,70000)`, `[1000,1200)` gives `join(69611..70000,1001..1200)` (written order kept) |
 | Origin crossing | same | `start 8, end 2`, no segments, length 10, circular: `join(9..10,1..2)`. Conformance fixture W1 (`join(115..120,1..5)` on 120 bases), parsed, then its text dropped and formatted: `join(115..120,1..5)` |
 | Complement | same, on the parsed conformance fixtures (`docs/standards/conformance/fixture.gb`) with text dropped | J1 gives `join(1..10,21..30)`; J2 gives `complement(join(1..10,21..30))`; J3 gives `join(complement(21..30),1..10)`. J4, J5 and W2 (nested outer complements) give their per-part equivalents, and re-parsing each output then extracting gives the oracle bases in `expected-oracle.txt` (J4 `GTTG`, J5 `ACTG`, W2 `TAACAATAACG`) |
-| Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTGA` (flanks `AC` at 1..2 and `GA` at 9..10 differ), re-parses and extracts to the hand-derived `GTTCTA`: rc(`AC`)=`GT`, then rc(`GA`)=`TC`, then 4..5 `TA`. Swapped pieces would give `TCGTTA`. Partly specified strands: parent −1, parts `[8,2)` with no strand and `[3,5)` with `+1` give `join(9..10,1..2,4..5)` (unspecified is forward), and extraction of that output equals extraction of the stored feature |
+| Parts and wraps | same | `segments: []` with `start 0, end 3`: `1..3`. Explicit segment `[8,2)` on circular length 10: `join(9..10,1..2)`. The same part with its own reverse strand next to a forward part `[3,5)`: `join(complement(1..2),complement(9..10),4..5)`, which, on the circular record `ACGTACGTGA` (flanks `AC` at 1..2 and `GA` at 9..10 differ), re-parses and extracts to the hand-derived `GTTCTA`: rc(`AC`)=`GT`, then rc(`GA`)=`TC`, then 4..5 `TA`. Swapped pieces would give `TCGTTA`. |
+| Partly stranded refused | `projectFile.test.ts`, `FeatureEditorModal` test, `insdcLocation.test.ts` | A project with parts `[8,2)` (no strand) and `[3,5)` (`+1`) is refused, naming the feature. In the editor, adding a piece to a per-part feature shows its strand choice and keeps Save disabled until set. The formatter given that shape returns `invalid-geometry` |
 | Sites | same | `[4,5)` gives `5..5` (unchanged). `[10,10)` gives `10^11`. Circular `[120,120)` on 120 bases gives `120^1`. Linear `[0,0)` and `[L,L)`, alone and inside a join with `[3,6)`: `no-insdc-form` with words "before base 1" or "after base L" |
 | Partial ends | same, with `ends` given | Forward join with 5′ partial: `join(<1..3,7..9)`. Reverse `[9,40)` with 5′ partial: `complement(10..>40)`. Reverse circular `complement(join(9..10,1..2))` with 5′: `complement(join(9..10,1..>2))`, and with 3′: `complement(join(<9..10,1..2))`. Out-of-order reverse join `[6,9)`, `[0,3)` with 5′: `complement(join(7..9,1..>3))`. J3 shape `[(21..30, −), (1..10, +)]` with 5′ and 3′: `join(complement(21..>30),1..>10)`. Without `ends`: no markers |
 | Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line. A source-only record plus one edge site shows 0 annotations, not −1 |
 | Site round trip | `serialize.test.ts` plus the parser from #230 | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry |
-| Extraction agrees | `sequence.test.ts` | On circular `ACGTACGTGA`, a stored explicit `[8,2)` extracts `GAAC`, both from the stored feature and from its re-imported `join(9..10,1..2)`. The reverse per-part case extracts `GTTC`. The partly specified case extracts `GAACTA` both ways |
+| Extraction agrees | `sequence.test.ts` | On circular `ACGTACGTGA`, a stored explicit `[8,2)` extracts `GAAC`, both from the stored feature and from its re-imported `join(9..10,1..2)`. The reverse per-part case extracts `GTTC`. |
 | Aligned sites | `coordinate.test.ts`, `sequence.test.ts` | Envelope `[3,6)` with parts `[3,3)`, `[6,6)` on a gapped record: the aligned copy keeps two zero-length parts, and extraction gives an empty sequence, no indices and no translation |
 | Aligned order | `coordinate.test.ts`, `sequence.test.ts` | On circular `ACGTACGTGA` aligned with a gap, a reverse per-part `[8,2)` extracts `GTTC` from the aligned copy, the same as the source (the current split would give `TCGT`) |
 | Invalid geometry | `insdcLocation.test.ts`, `FeatureEditorModal` test, `projectFile.test.ts`, `serialize.test.ts`, `exportPlan.test.ts` | Linear 10-base record: `[8,2)` gives `9..2 (invalid location)`, never a join; `[0,15)` and `[-1,3)` are invalid too. Circular `[10,0)` as envelope and as an explicit segment is invalid. An export with one invalid feature and one edge site shows both warning lines with their own counts. The editor disables Save on such a part. Project import keeps the feature. Export skips it and reports it |
