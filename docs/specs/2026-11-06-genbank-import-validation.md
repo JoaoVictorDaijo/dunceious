@@ -16,9 +16,9 @@ The GenBank reader turns malformed files into records that look valid.
 
 | What happens | Where |
 |---|---|
-| ORIGIN keeps every letter plus `-` and `*`, and silently drops everything else, including digits inside residue lines and punctuation | `toSeqRecord.ts:41` (`[^A-Za-z\-*]` removed) |
+| ORIGIN keeps every letter plus `-` and `*`, and silently drops everything else, including digits inside residue lines and punctuation | `toSeqRecord.ts:42` (`[^A-Za-z\-*]` removed) |
 | The LOCUS sequence length is never read, so a length mismatch passes unnoticed | `headerParser.ts:58-65` keeps only the name, topology and molecule |
-| A missing LOCUS becomes `Unknown`; a missing ORIGIN becomes an empty sequence | `headerParser.ts:46`, `toSeqRecord.ts:30-45` |
+| A missing LOCUS becomes `Unknown`; a missing ORIGIN becomes an empty sequence | `headerParser.ts:48`, `toSeqRecord.ts:30-45` |
 | A final record without `//` is accepted, so a truncated file loads | `recordSplitter.ts:25`, `index.ts:43` |
 | A malformed location salvages any digits it can find, and one with none becomes `[0,0)`. Nothing checks locations against the sequence length | `locationParser.ts:90-103` |
 | Unknown keys and qualifiers are accepted without vocabulary checks. Repeated qualifiers keep only the last value | `featureParser.ts:58-97`, `qualifierParser.ts:61` |
@@ -52,7 +52,7 @@ point C asks that GenBank stay ungapped.
 - **INSDC Feature Table 11.4 (April 2026):**
   - §7.4.1: nucleotide codes A C G T/U R Y M K S W B D H V N;
   - §7.4.3: amino-acid codes;
-  - §§3.4–3.5: the location grammar;
+  - §3.4: the location grammar, with examples in §3.4.3;
   - Appendix II and III: feature keys, their mandatory and optional qualifiers, and qualifier
     value formats.
 
@@ -128,7 +128,17 @@ and the line.
 | Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it | "/note on CDS gene1 has no closing quote." |
 | Molecule mixture | Each record's category comes from its LOCUS unit token: `bp` is nucleotide and `aa` is protein. It is not found by searching the whole line, which today reads a locus named `AA` as protein (`sequence.ts:389-393`). Within one file all records must share one category | "This file mixes protein and nucleotide records." |
 
-The category from the unit token replaces `classifyLocusMoleculeType`'s whole-line search, for both this check and the session gate's sniff (`useFileHandlers.ts:38-42`). RNA versus DNA, and the other LOCUS fields, stay with #243.
+**Category and subtype are separate.**
+- The unit token decides the session category, for this check and for the session gate's sniff
+  (`useFileHandlers.ts:38-42`):
+  - `aa` makes the record `protein`;
+  - `bp` makes it nucleotide.
+- For a `bp` record, the DNA/RNA subtype still comes from today's `classifyLocusMoleculeType`
+  (`headerParser.ts:65`). The subtype drives the complement (`sequence.ts:46`) and the exported
+  LOCUS (`serialize.ts:55`). Its known limit stays deferred to #243: a locus name containing
+  `rna` can mark a DNA record as RNA.
+- So a `bp` record is never protein, an `aa` record is always protein, and nothing else
+  changes.
 
 T in an RNA record is valid (ALPHA-1: INSDC writes `t` for uracil in RNA), and `n` and the other
 ambiguity codes are valid residues. Neither is ever a finding.
@@ -185,15 +195,18 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
      with the other files in the batch. Today the drop path settles only on success
      (`useFileHandlers.ts:316-319`, `dropRouting.ts:58-66`), so a refusal must resolve its
      entry, not reject it.
-   - The refused file's record IDs are returned as refused, so annotations dropped with it stay
-     unmatched. They never fall back to an existing record that happens to share an ID
-     (`bioResponse.ts:109-115`).
    - Cancellation and genuine worker errors keep their current handling.
-   - **Batch rule shared with PR #296:** every per-file refusal settles its entry as handled,
-     and the batch continues. That covers validation findings here, and the category, lock and
-     stale-workspace refusals in #296. Only workspace invalidation (replacement, worker
-     failure, unmount) and cancellation reject. #296's §B currently stops the batch on a
-     refusal; the two specs are being aligned on this rule.
+   - **Batch rule, agreed with PR #296** (its §B, "Refusals and invalidation in a dropped
+     batch", `cc77b96`):
+     - **Handled, and the batch continues:** a per-file refusal. That means this spec's
+       validation findings, and #296's no-residues, category, lock and gap-removal-declined
+       refusals.
+     - **The ID map:** a handled refusal settles with an ID map that sets every ID in the
+       refused file to `null`, not with an empty map. A null entry skips the name, accession
+       and sanitized-ID fallbacks and reports the ID as unmatched (`bioResponse.ts:111-116`).
+       The batch merge keeps an ID null even when an accepted file in the same batch uses it.
+     - **Rejects, and stops the batch:** invalidation only. That is the workspace being replaced
+       (a stale workspace revision counts as replacement), a worker failure, or unmount.
    - **Category on refusal too.** `PARSE_REFUSED` carries each record's validated category
      where its unit token is readable. Before showing the dialog, the main thread compares it
      with the **current** workspace, like the commit-time guard. A mismatch is added to the
@@ -215,12 +228,21 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
      sniff. So the gate and the parsed result agree (#244's clear part).
    - If this PR lands first, it adds the guard as #296 specifies it, and #296 reuses it.
 
+**Showroom.** The showroom (`sampleWorkspace.ts:48-56`) parses bundled samples straight through
+the worker handler, with no import UI. A refuse finding there already fails loudly, because the
+loader throws on anything but success. The showroom shows no import notes, since its samples
+are curated. A test pins the samples' exact warning list instead, so any new finding in a bundled
+sample fails the build. This is a scope choice for the owner to confirm.
+
 ## Presentation
 
 The mockup is `.code/docs/genbank-import-validation/import-validation.html` in this worktree
 (untracked).
 
 - **Refusal dialog:**
+  - one dialog collects every refused file of the batch, one section per file in arrival order;
+  - a refusal arriving while the dialog is open adds its file to it and never replaces another
+    file's findings;
   - the existing dark modal pattern (`GapRemovalNotice`, `MoleculeTypeMismatchModal`), with the
     rose accent the app uses for removal;
   - title "Can't open this GenBank file";
@@ -261,7 +283,8 @@ Expected results never come from the parser under test.
   finding. Their expected record IDs, lengths and molecule categories are checked against
   values read independently from each file's LOCUS line and base count, by a separate test
   helper.
-- **Biopython parity, the reference-tool oracle.** A pinned script beside the existing
+- **Biopython parity, the reference-tool oracle, for the forms Biopython supports.** A pinned
+  script beside the existing
   conformance runs (`docs/standards/conformance/run_biopython.py`, Biopython 1.88) parses every
   accepted fixture and every bundled example. For each record it writes:
   - the sequence;
@@ -269,8 +292,13 @@ Expected results never come from the parser under test.
   - the extracted feature sequence.
 
   The output is checked in. Dunceious's parsed records and extracted sequences must match it
-  for every accepted case: fuzzy ends, complement, joins, circular origin crossings, boundary
-  positions, lowercase, RNA with T, and protein records. For the defects Biopython warns about
+  for every accepted case Biopython supports: fuzzy ends, complement, joins, circular origin
+  crossings, boundary positions, lowercase, RNA with T, and protein records.
+- **The standard-derived oracle, where Biopython disagrees.** Biopython 1.88 rejects nested
+  outer complements (conformance cases J4, J5 and W2, `docs/standards/conformance/README.md`).
+  Those cases, and any other form the conformance README records as a Biopython disagreement,
+  are checked against the existing independent `docs/standards/conformance/oracle.py`. For
+  example, J4 `complement(join(complement(1..2),5..6))` must extract `GTCA`. For the defects Biopython warns about
   (length mismatch, unparseable location), its warning is the independent sign of the defect.
 - **Literal flat files** in `src/core/genbank/__tests__/` cover the rest, each with its expected
   outcome written from the GenBank and INSDC rule it tests.
@@ -290,6 +318,10 @@ Expected results never come from the parser under test.
 | Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. A category-mismatched GenBank file followed by a valid file: the valid file loads. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
 | Combined dialog | A protein file with a length mismatch, dropped into a nucleotide workspace: one dialog listing the mismatch and the category refusal. A file with an unreadable LOCUS unit: the LOCUS finding only |
 | Notes access | Seven invalid-frame CDSs: the group shows five, "Show all 7" lists all seven, and "Copy details" includes all seven |
+| Concurrent refusals | Two refused files whose responses arrive before the dialog is closed, in both orders: one dialog with both files' complete findings |
+| Category and subtype | `LOCUS X 4 bp RNA` with `ACGT`: `rna`, complement and export as today. `LOCUS rnaseq1 4 bp DNA`: nucleotide category, subtype as today (the #243 limit). `LOCUS AA 4 aa`: protein |
+| Nested complements | J4, J5 and W2 from the conformance fixture: accepted, locations and extraction equal to `oracle.py` |
+| Showroom | The bundled showroom samples load with no refuse finding, and their warning list equals a pinned expected list (today: repeated `/db_xref` on the T7 record, until #242) |
 | Duplicate names | Two `LOCUS X`: both load with unique IDs and one warning |
 | Writer | A record whose `sequence` is `AC*GT` or `ACRGT?`: left out and reported; `ACRGT`: written with LOCUS 5 bp |
 | Presentation | Refusal dialog lists every finding, "Copy details" copies them, nothing is added to the workspace. Notes chip appears only with notes, and the popover groups them |
