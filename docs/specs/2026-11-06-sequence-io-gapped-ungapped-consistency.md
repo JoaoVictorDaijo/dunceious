@@ -68,8 +68,9 @@ already skips unaligned rows (`consensus.ts:30`).
   with the user told which and why.
 - Gap characters are never stored as residues, never written into GenBank, and never counted as
   sequence length.
-- Every FASTA export lets the user choose gapped or ungapped. A gapped export contains only rows
-  that are actually aligned.
+- Every FASTA export lets the user choose gapped or ungapped. In a gapped export, the requested
+  aligned file contains only rows that are actually aligned, and any unaligned rows go to a
+  second `_unaligned` file.
 - Mixed aligned and unaligned rows are visibly marked and kept out of column statistics.
 
 ## Non-goals
@@ -302,9 +303,10 @@ selection.
   - The unaligned rows go into a second file beside it, named with `_unaligned` before the
     extension, e.g. `selection_export_unaligned.fasta`. They are written as plain sequences,
     since they have no alignment columns.
-  - The log and the Hub dialog's preview say why, briefly: "2 sequences aren't in the
-    alignment, so they have no alignment columns and were saved separately in
-    <name>_unaligned.fasta".
+  - The log says why, briefly, after saving: "2 sequences aren't in the alignment, so they have
+    no alignment columns and were saved separately in <name>_unaligned.fasta". The Hub
+    dialog's preview says it before saving: "2 sequences aren't in the alignment and will be
+    saved separately in <name>_unaligned.fasta".
   - With a selection, the unaligned rows are sliced over their own positions, as the viewer
     shows them.
   - An ungapped export writes every chosen row into one file.
@@ -351,8 +353,8 @@ mode. Every caller downloads both files when there are two, so no path keeps its
 - **Toolbar chip:**
   - "N of M aligned", shown only when at least one row is aligned and at least one isn't;
   - it uses the ghost style of the viewer toolbar from the mockup;
-  - its tooltip names the unaligned rows and says they are left out of conservation and of
-    gapped exports.
+  - its tooltip names the unaligned rows and says they are left out of conservation, and saved
+    to a separate file in gapped exports.
 - **Row label:** an unaligned row in a mixed workspace gets a dashed outline. Its tooltip reads
   "Not in the alignment. Positions are this sequence's own, so its row doesn't line up with the
   aligned rows."
