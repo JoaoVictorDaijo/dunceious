@@ -122,7 +122,7 @@ describe('remote alignment application integration', () => {
     await start(); vi.useFakeTimers();
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
     expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
-    expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 bp).'))).toBe(true);
+    expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 columns).'))).toBe(true);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
     expect(screen.getByRole('button', { name: /Aligned/ })).toBeTruthy();
     await act(async () => vi.advanceTimersByTimeAsync(4000));

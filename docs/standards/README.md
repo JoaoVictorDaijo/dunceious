@@ -96,9 +96,9 @@ Every claim about a tool carries one of these:
 | OP-19 | Biological joining of search hits | INSDC misc_feature and join/complement | Partial; Owner decision open | [operations](operations.md#op-19-biological-joining-of-search-hits) |
 | OP-20 | Anchored edit traceback and CIGAR | Edlib 1.1.2 NW/path; SAM 1.6 | Partial; tie/equality Owner decision open | [operations](operations.md#op-20-anchored-edit-traceback-and-cigar) |
 | OP-21 | Ordinary translation and biological recoding | INSDC transl_except/Sec/Pyl; NCBI gc.prt 4.6 | Partial (expression unknown) | [operations](operations.md#op-21-ordinary-translation-and-biological-recoding) |
-| METRIC-1 | Sequence length and alignment width | NCBI residue length; EMBOSS alignment length | Deviates: #259 | [metrics](metrics.md#metric-1-sequence-length-and-alignment-width) |
+| METRIC-1 | Sequence length and alignment width | NCBI residue length; EMBOSS alignment length | Details conform; alignment log deviates | [metrics](metrics.md#metric-1-sequence-length-and-alignment-width) |
 | METRIC-2 | Feature length | Biopython 1.88 SeqFeature length | Conforms (valid locations); input contract Owner decision open | [metrics](metrics.md#metric-2-feature-length) |
-| METRIC-3a | Accession label | GenBank 274.0 §3.4.6 | Deviates: #259 | [metrics](metrics.md#metric-3a-accession-label) |
+| METRIC-3a | Accession label | GenBank 274.0 §3.4.6 | Conforms (record details) | [metrics](metrics.md#metric-3a-accession-label) |
 | METRIC-3b | Detail-warning provenance | INSDC qualifier semantics; no exact UI contract | Owner decision open | [metrics](metrics.md#metric-3b-detail-warning-provenance) |
 | METRIC-4 | Alignment identity naming | EMBOSS Identity/Length; BLAST report 2013 | Owner decision open: #257, #258 | [metrics](metrics.md#metric-4-alignment-identity-naming) |
 | METRIC-5a | Consensus method | EMBOSS cons 6.6; Jalview consensus | Owner decision open: #254 | [metrics](metrics.md#metric-5a-consensus-method) |

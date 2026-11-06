@@ -500,6 +500,11 @@ describe('record selection and focus label', () => {
     expect(getByText('spike · 20 bp').style.left).toBe('80px');
   });
 
+  it('labels a focused protein region in amino acids', () => {
+    const { getByText } = renderRow({ ...rec([]), moleculeType: 'protein' }, { persistentSelection: selected, focusedRegion: focused });
+    expect(getByText('spike · 20 aa')).toBeTruthy();
+  });
+
   it('holds the label at the view edge while the region start is scrolled away', () => {
     const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 160 });
     // Clamping keeps the region label visible when its biological start is off screen.
