@@ -39,7 +39,9 @@ GenBank export already writes these correctly. The private `featureLocation` in
 `src/core/genbank/serialize.ts:32-43` builds:
 - `join(...)` from the segments;
 - `complement(...)` for a reverse feature, or per part when strands are mixed;
-- the two parts of an origin crossing, through `splitWrapAround`.
+- the two parts of an origin crossing stored as `start > end`, through `splitWrapAround`. An
+  explicit wrapped segment is the exception: it is written as an invalid `9..2` (see Model,
+  rule 3).
 
 Display and export therefore disagree for the same feature.
 
@@ -125,7 +127,7 @@ export interface LocationEnds { fivePrimePartial?: boolean; threePrimePartial?: 
 
 export type InsdcLocation =
   | { kind: 'insdc'; text: string }
-  | { kind: 'no-insdc-form'; display: string; reason: 'linear-edge-site' };
+  | { kind: 'no-insdc-form'; display: string; reason: 'linear-edge-site' | 'invalid-geometry' };
 
 /**
  * INSDC location for a feature, from its stored geometry. Never reads `locationString`;
@@ -140,7 +142,7 @@ export function formatInsdcLocation(
 
 **Rules, in order:**
 1. **Parts.** One domain helper, `featureParts(feature, record)`, yields the parts with their
-   effective strands, wrapped parts split as in rule 2. **Extraction (`extractFeatureSequence`,
+   effective strands, wrapped parts split as in rule 3. **Extraction (`extractFeatureSequence`,
    `extractCodingSequence`, `sequence.ts:150-200`) uses the same helper.** Today it reads
    explicit segments as given, and visits no bases for a wrapped `[8,2)`. So the formatted
    location and the feature's sequence always agree. Parts come from `feature.segments` when it
@@ -158,7 +160,22 @@ export function formatInsdcLocation(
    - Project import and the editor's save fill a missing per-part strand with `+1` explicitly,
      so the stored contract holds from then on. Stored wrapped segments are left as they are:
      `featureParts` splits them for every consumer.
-2. **Wrapped parts.** A part with `start > end`, which crosses the origin of a circular record,
+2. **Invalid geometry first.** A part (or the envelope when there are no parts) is invalid
+   when:
+   - a coordinate is not an integer, or is negative;
+   - a coordinate is beyond the record length;
+   - it is descending (`start > end`) on a linear record.
+
+   Project import accepts any finite numbers (`projectFile.ts:55`), and the segment editor allows
+   inverted or out-of-range parts (`FeatureEditorModal.tsx:262`). An invalid part makes the
+   whole result `no-insdc-form` with reason `invalid-geometry`, whose display text is the raw
+   numbers plus "invalid location", e.g. `9..2 (invalid location)`. No circular wrap or clipped
+   range is ever invented.
+   - Export skips the feature and reports it, like an edge site.
+   - The editor shows the error on the part and disables Save until it is fixed.
+   - Project import keeps the feature unchanged. Its data is not discarded, and its hub row
+     carries the same "invalid location" text.
+3. **Wrapped parts.** A part with `start > end`, which crosses the origin of a circular record,
    is split with `splitWrapAround` into `[start, length)` and `[0, end)`. This applies whether it
    came from the envelope or from `segments` (the segment editor and project import can produce
    one, and today's serializer writes it as an invalid `9..2`).
@@ -167,7 +184,7 @@ export function formatInsdcLocation(
    - For a part whose effective strand is reverse in per-part mode, the pieces are swapped. Its
      bases read `rc([0,end)) + rc([start,length))`, so it becomes
      `complement(1..end),complement(start+1..length)`.
-3. **Each part:**
+4. **Each part:**
    - `start < end`: `start+1..end`, as the serializer writes today (a one-base part stays `n..n`);
    - `start = end` inside the record: a between-base site, `start^start+1`;
    - `start = end = length` on a circular record, or `start = end = 0` on a circular record:
@@ -175,7 +192,7 @@ export function formatInsdcLocation(
    - `start = end = 0` or `= length` on a linear record: there is no INSDC form, so the whole
      result is `no-insdc-form`. Its display text names the site in words ("before base 1" or
      "after base L"), inside the same join and complement as any other parts.
-4. **Strand.**
+5. **Strand.**
    - If any part carries its own strand (the parser's per-part shape for inner or mixed
      complements), each reverse part is wrapped in `complement()`.
    - Otherwise a reverse feature wraps the whole location once: `complement(join(...))` or
@@ -187,8 +204,8 @@ export function formatInsdcLocation(
    `[(5..6, −), (1..2, +)]` and formats as `join(complement(5..6),1..2)`. That reads the same
    bases as the original but not the same text, and is used only when `locationString` is gone,
    as today.
-5. **More than one part** gives `join(...)` (see the `order()` decision).
-6. **Partial ends** (when `ends` is given) go on the biological ends, found in evaluation order
+6. **More than one part** gives `join(...)` (see the `order()` decision).
+7. **Partial ends** (when `ends` is given) go on the biological ends, found in evaluation order
    (LOC-3), not by coordinate:
    - Build the oriented parts in evaluation order:
      - with per-part strands, the stored order (the parser stores evaluation order);
@@ -240,6 +257,11 @@ is used by all five places in the table.
 **Viewer tooltip.** It formats the source geometry, not a reconstruction.
 - Transposition drops zero-length parts (`coordinate.ts:172`), so a site inside a join can't be
   recovered from aligned columns.
+- **Aligned parts keep evaluation order.** `processTransposition` maps the parts that
+  `featureParts` yields, already split and ordered by rule 3, instead of splitting each stored
+  segment itself (`coordinate.ts:169-174`). So a reverse per-part wrap stays `[0,end)` then
+  `[start,length)` in the aligned copy. The translation track (`SequenceTrack.tsx:330`) and CDS
+  lanes (`cds.ts:123`), which read the aligned copy, then translate the same bases as the source.
 - **`biological` is derived display state, never stored.** `processTransposition` sets it on
   every feature of every record:
   - an aligned record gets a copy of the feature's own `start`, `end`, `strand` and `segments`;
@@ -285,6 +307,8 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Export of edge sites | `serialize.test.ts`, `exportPlan.test.ts`, `ExportDialog.test.tsx` | A linear-edge site feature is absent from the output, and the report counts 1 in `featuresWithoutInsdcLocation`. With no other warnings, the dialog still shows the skip line. A source-only record plus one edge site shows 0 annotations, not −1 |
 | Site round trip | `serialize.test.ts` plus the parser from #230 | Interior `[10,10)`, circular-origin `[120,120)`, and a site inside a join export and re-import to the same geometry |
 | Extraction agrees | `sequence.test.ts` | On circular `ACGTACGTGA`, a stored explicit `[8,2)` extracts `GAAC`, both from the stored feature and from its re-imported `join(9..10,1..2)`. The reverse per-part case extracts `GTTC`. The partly specified case extracts `GAACTA` both ways |
+| Aligned order | `coordinate.test.ts`, `sequence.test.ts` | On circular `ACGTACGTGA` aligned with a gap, a reverse per-part `[8,2)` extracts `GTTC` from the aligned copy, the same as the source (the current split would give `TCGT`) |
+| Invalid geometry | `insdcLocation.test.ts`, `FeatureEditorModal` test, `projectFile.test.ts`, `serialize.test.ts` | Linear 10-base record: `[8,2)` gives `9..2 (invalid location)`, never a join; `[0,15)` and `[-1,3)` are invalid too. The editor disables Save on such a part. Project import keeps the feature. Export skips it and reports it |
 | Derived snapshot | `coordinate.test.ts`, `projectFile.test.ts` | A project feature with a conflicting `biological` field loads without it. An unaligned record's features have no `biological` after transposition. An aligned feature with retained `order(1..3,7..9)` or `<5..>25` text shows that text in the tooltip |
 | Viewer tooltip, unaligned | `Row` test | An unaligned record's join reads `join(1..3,7..9)` from the feature itself |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
