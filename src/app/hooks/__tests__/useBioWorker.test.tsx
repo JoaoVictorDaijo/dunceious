@@ -299,3 +299,14 @@ it('settles an annotation lock refusal as handled with no annotations or details
   expect(h.result.current.records).toEqual([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]);
   expect(h.log).toHaveBeenCalledWith('Annotations were not loaded: the workspace is locked');
 });
+
+
+it('logs unplaced track rows once per accepted processing result without mutating the source', () => {
+  const h=setup();
+  const source={...original,tracks:[{id:'q',name:'Coverage',data:[{start:0,end:1,value:2},{start:1,end:99,value:7}]}]};
+  act(()=>h.result.current.setRecords([source]));
+  act(()=>h.worker.release(1));
+  expect(h.log.mock.calls.filter(([message])=>message.startsWith('Track Coverage:'))).toEqual([['Track Coverage: 1 of 2 intervals not drawn (2: out-of-range).']]);
+  expect(h.result.current.records[0]).toBe(source);
+  expect(h.result.current.records[0].displayTracks).toBeUndefined();
+});

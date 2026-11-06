@@ -259,7 +259,7 @@ export function applyFastaAndLog(
       break;
     }
     case 'reject-no-residues': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records with no residues: [${result.ids.join(', ')}].`); break;
-    case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
+    case 'overlay': addLog(`External alignment applied successfully (${result.length} columns).`); break;
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]. Unaligned missing IDs: [${records.filter(r => !r.alignedSequence && result.missing.includes(r.id)).map(r => r.id).join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
     case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;

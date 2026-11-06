@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, installCanvasRecorder, within } from '@/src/app/testing/renderHarness';
+import { render, installCanvasRecorder, within, act } from '@/src/app/testing/renderHarness';
 import { fireEvent } from '@testing-library/react';
 import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
@@ -500,6 +500,11 @@ describe('record selection and focus label', () => {
     expect(getByText('spike · 20 bp').style.left).toBe('80px');
   });
 
+  it('labels a focused protein region in amino acids', () => {
+    const { getByText } = renderRow({ ...rec([]), moleculeType: 'protein' }, { persistentSelection: selected, focusedRegion: focused });
+    expect(getByText('spike · 20 aa')).toBeTruthy();
+  });
+
   it('holds the label at the view edge while the region start is scrolled away', () => {
     const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused, scrollX: 160 });
     // Clamping keeps the region label visible when its biological start is off screen.
@@ -621,4 +626,33 @@ it.each(['dna', 'protein'] as const)('marks the own-position end of a mixed unal
   const tick = view.container.querySelector<HTMLElement>('[data-unaligned-end]')!;
   expect(tick.style.left).toBe('32px');
   expect(tick.getAttribute('data-tip')).toBe(`u ends here: 4 ${moleculeType === 'protein' ? 'aa' : 'bp'}, not aligned`);
+});
+
+
+it.each([undefined, 'AC--GT'])('selects the whole interval envelope and reports biological tooltip coordinates: %s', alignedSequence => {
+  const recorder = installCanvasRecorder();
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: alignedSequence ? 'ACGT' : 'A'.repeat(100), alignedSequence, features: [], tracks: [{ id: 'q', name: 'Coverage', data: [{ start: 0, end: alignedSequence ? 4 : 100, value: 7 }] }] };
+  const record = processTransposition([source])[0];
+  const onSelectionChange = vi.fn(), setTooltip = vi.fn();
+  const layout = computeRecordLayouts([record], { showAnnotations: false, translationVisible: false, showTracks: true })[0];
+  const view = renderRow(record, { showTracks: true, recordLayouts: [layout], onSelectionChange, setTooltip });
+  const track = view.container.querySelector('[data-quantitative-track]')!;
+  fireEvent.doubleClick(track, { clientX: (alignedSequence ? 1 : 15) * ZOOM, clientY: 8 });
+  expect(onSelectionChange).toHaveBeenCalledWith({ start: 0, end: alignedSequence ? 6 : 100, recordIds: ['r'] });
+  act(() => track.dispatchEvent(new MouseEvent('pointermove', {bubbles:true,clientX:(alignedSequence ? 4 : 15)*ZOOM,clientY:8})));
+  expect(setTooltip.mock.lastCall?.[0].content).toContain(`Pos: ${alignedSequence ? 3 : 16}`);
+  expect(setTooltip.mock.lastCall?.[0].content).toContain(`Interval 1..${alignedSequence ? 4 : 100}`);
+  if (alignedSequence) {
+    const outlines = recorder.strokeRects().filter(stroke => stroke.color === '#6366f1');
+    expect(outlines.map(stroke => [stroke.rect[0], stroke.rect[2]])).toEqual([[0.5, 15], [32.5, 15]]);
+  }
+});
+
+it('picks only the interval in the pointed packed lane', () => {
+  const record = processTransposition([{ id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [], tracks: [{ id: 'q', name: 'q', kind: 'interval' as const, data: [{start:0,end:4,value:2},{start:1,end:4,value:5}] }] }])[0];
+  const onSelectionChange=vi.fn();
+  const layout=computeRecordLayouts([record],{showAnnotations:false,translationVisible:false,showTracks:true})[0];
+  const view=renderRow(record,{showTracks:true,recordLayouts:[layout],onSelectionChange});
+  fireEvent.doubleClick(view.container.querySelector('[data-quantitative-track]')!,{clientX: 1*ZOOM,clientY:22});
+  expect(onSelectionChange).toHaveBeenCalledWith({start:1,end:6,recordIds:['r']});
 });

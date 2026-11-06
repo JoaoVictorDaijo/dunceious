@@ -18,22 +18,21 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
+import { displayTracks, packTrackRows } from '@/src/domain/bio/quantitativeTracks';
+import type { SeqRecord, BioFeature, QuantitativeTrack, DisplayTrack } from '@/src/domain/bio/types';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import type { SearchResult } from '@/src/domain/bio/types';
 import { showsAnnotationBases } from './annotationPresentation';
 import { assignTranslationLanes, NO_TRANSLATION_LANES, type TranslationLanes } from './cds';
 
-/** A quantitative-track data point: a value over the half-open bp interval [start, end). */
-export type TrackDatum = { start: number; end: number; value: number };
-
 /** A track plus its computed vertical geometry. `packedRows` groups non-overlapping
  *  interval data into lanes (empty for `line` tracks). */
 export interface TrackLayout extends QuantitativeTrack {
   height: number;
   top: number;
-  packedRows: TrackDatum[][];
+  display: DisplayTrack;
+  packedRows: number[][];
 }
 
 /** A feature assigned to a packing lane (`row`). Wrap-around features (start > end)
@@ -163,43 +162,21 @@ export function computeRecordLayouts(records: SeqRecord[], opts: LayoutOptions):
       const annotHeight = featRowsCount > 0 ? laneCursor : 0;
 
       // 2. Track Packing & Height Calculation
-      const tracks = record.tracks || [];
+      const tracks = displayTracks(record);
       const trackSpacing = 12;
       let totalQuantHeight = 0;
 
-      const trackLayouts = tracks.map(track => {
-        let height = 80; // Default height for line tracks
-        let packedRows: TrackDatum[][] = [];
-
-        if (track.kind === 'interval') {
-          // Pack intervals to determine required height
-          const sortedData = [...track.data].sort((a, b) => a.start - b.start);
-          sortedData.forEach(interval => {
-            let placed = false;
-            for (let i = 0; i < packedRows.length; i++) {
-              const lastInRow = packedRows[i][packedRows[i].length - 1];
-              if (interval.start >= lastInRow.end + 1) {
-                packedRows[i].push(interval);
-                placed = true;
-                break;
-              }
-            }
-            if (!placed) {
-              packedRows.push([interval]);
-            }
-          });
-
-          // Calculate height based on rows (min 12px per row + padding)
-          const rowHeight = 16;
-          height = Math.max(80, packedRows.length * rowHeight + 10);
-        }
+      const trackLayouts = tracks.map(display => {
+        const track = display.track;
+        const packedRows = track.kind === 'interval' ? packTrackRows(display) : [];
+        const height = Math.max(80, packedRows.length * 16 + 10);
 
         const top = totalQuantHeight;
         if (showTracks) {
           totalQuantHeight += height + trackSpacing;
         }
 
-        return { ...track, height, top, packedRows };
+        return { ...track, display, height, top, packedRows };
       });
 
       const quantHeight = showTracks ? totalQuantHeight : 0;

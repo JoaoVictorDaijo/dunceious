@@ -36,7 +36,7 @@ describe('remote alignment through the existing worker pipe', () => {
     if (!result.ok) throw new Error(result.reason);
     const logs: string[] = [];
     const applied = applyFastaAndLog(records, result.records, true, message => logs.push(message));
-    expect(logs).toEqual(['External alignment applied successfully (3 bp).']);
+    expect(logs).toEqual(['External alignment applied successfully (3 columns).']);
     expect(applied.kind).toBe('overlay');
     expect(applied.next.map(r => [r.id, r.sequence, r.alignedSequence])).toEqual([
       ['seq1', 'AC', 'A-C'], ['seq1 (1)', 'AGC', 'AGC'],

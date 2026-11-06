@@ -19,6 +19,7 @@
  */
 
 
+import { displayTracks, trackValueRange } from '@/src/domain/bio/quantitativeTracks';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -101,6 +102,7 @@ interface Props {
   focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
+  addLog?: (message: string) => void;
   /** Reference comparison to draw in the sequence rows; null draws every residue in its own colour. */
   comparison?: ActiveComparison | null;
   /** Offered in the record menu, on aligned records only, while a comparison is possible. */
@@ -134,6 +136,7 @@ const GenomeViewer: React.FC<Props> = ({
   focusedRegion = null,
   showConservation,
   showTracks,
+  addLog,
   comparison = null,
   onSetComparisonReference,
 }) => {
@@ -146,31 +149,9 @@ const GenomeViewer: React.FC<Props> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, recordId: string, feature?: BioFeature } | null>(null);
   const quantValueRanges = useMemo(() => {
     const ranges: Record<string, { min: number, max: number }> = {};
-    records.forEach(r => {
-      if (r.tracks) {
-        r.tracks.forEach(t => {
-          if (t.data.length === 0) {
-            ranges[t.id] = { min: 0, max: 1 };
-            return;
-          }
-          const min = t.data.reduce((min, d) => d.value < min ? d.value : min, t.data[0].value);
-          const max = t.data.reduce((max, d) => d.value > max ? d.value : max, t.data[0].value);
-          
-          if (t.kind === 'interval') {
-            ranges[t.id] = { min, max };
-          } else {
-            ranges[t.id] = { 
-              min: Math.min(0, min),
-              max: Math.max(0, max) 
-            };
-          }
-          
-          if (ranges[t.id].min === ranges[t.id].max) {
-            ranges[t.id].max += 1;
-          }
-        });
-      }
-    });
+    records.forEach(record => displayTracks(record).forEach(display => {
+      ranges[display.track.id] = trackValueRange(display);
+    }));
     return ranges;
   }, [records]);
 
@@ -268,6 +249,7 @@ const GenomeViewer: React.FC<Props> = ({
     conservationScores,
     quantValueRanges,
     showTracks,
+    addLog,
     basesOpenness,
     focusedRegion: focusLabel,
     comparison,
@@ -276,7 +258,7 @@ const GenomeViewer: React.FC<Props> = ({
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel, comparison
+    showConservation, conservationScores, quantValueRanges, showTracks, addLog, basesOpenness, focusLabel, comparison
   ]);
 
   return (
