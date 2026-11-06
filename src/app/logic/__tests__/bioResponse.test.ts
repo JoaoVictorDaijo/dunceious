@@ -22,6 +22,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveAccession,
   applyParseSuccess,
+  logAttachedTranslationWarning,
   applyAnnotations,
   applyFastaResponse,
   applyFastaAndLog,
@@ -602,4 +603,46 @@ describe('remotePartsWarning', () => {
     expect(result.next[0].sequence).toBe('ACGT');
     expect(result).toMatchObject({ gapsRemoved: [{ id: 'a', removed: 2 }] });
   });
+});
+
+it.each(['M', 'MKV', 'MVV', 'MK'])('checks GFF3 protein %s only after DNA attachment', translation => {
+  const parsed = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const result = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], parsed.features);
+  const f = result.next[0].features[0];
+  expect(f.metadata?.translation).toBe(translation);
+  expect(f.metadata?._translationSource).toBe('imported');
+  const checked = JSON.parse(f.metadata!._translationCheck);
+  expect(checked.residues).toBe('MK');
+  expect(checked.comparison).toEqual({ differing: translation === 'MVV' ? [1] : [], storedExtra: translation.slice(2), storedShortBy: translation === 'M' ? 1 : 0 });
+});
+
+it.each(['M', 'MKV', 'MK'])('counts imported discrepancies once on both paths for %s', async translation => {
+  const { translationWarning } = await import('@/src/domain/bio/translation');
+  const content = `LOCUS       r       9 bp    DNA             linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /translation="${translation}"
+ORIGIN
+        1 atgaaataa
+//`;
+  const message = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'literal.gb', content });
+  if (message.type !== 'PARSE_SUCCESS') throw new Error(`unexpected ${message.type}`);
+  const expected = translation === 'MK' ? null : 'WARNING: 1 CDS have a /translation that differs from their DNA';
+  expect(translationWarning(message.records)).toBe(expected);
+  expect(message.records[0].features[0]).not.toHaveProperty('translation');
+  const annotations = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const attached = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], annotations.features).next;
+  expect(translationWarning(attached)).toBe(expected);
+  attached[0].features[0].metadata!.exception = 'RNA editing';
+  expect(translationWarning(attached)).toBeNull();
+});
+
+it('warns for this attachment once, excluding preexisting discrepant CDSs', () => {
+  const original = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=old;translation=MV');
+  const previous = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], original.features).next;
+  const incoming = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=new;translation=M');
+  const next = applyAnnotations(previous, incoming.features).next;
+  const logs: string[] = [];
+  logAttachedTranslationWarning(previous, next, message => logs.push(message));
+  expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
 });

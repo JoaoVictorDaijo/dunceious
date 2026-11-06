@@ -34,7 +34,7 @@ import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 
 const ZOOM = 20; // > 12 so both translation and nucleotide glyphs draw
 
-function props(seq: string, features: BioFeature[] = [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1 }]): SequenceTrackProps {
+function props(seq: string, features: BioFeature[] = [{ type: 'CDS', name: 'cds', start: 0, end: seq.length, strand: 1, segments: [{ start: 0, end: seq.length }] }]): SequenceTrackProps {
   return {
     seq,
     moleculeType: 'dna',
@@ -173,9 +173,9 @@ describe('translation lanes', () => {
     const recorder = installCanvasRecorder();
     const seq = 'ATGAAATAAATGAAATAA';
     const features: BioFeature[] = [
-      { type: 'CDS', name: 'f0', start: 0, end: 9, strand: 1 },
-      { type: 'CDS', name: 'f1', start: 4, end: 13, strand: 1 },
-      { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1 },
+      { type: 'CDS', name: 'f0', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }] },
+      { type: 'CDS', name: 'f1', start: 4, end: 13, strand: 1, segments: [{ start: 4, end: 13 }] },
+      { type: 'CDS', name: 'r0', start: 0, end: 9, strand: -1, segments: [{ start: 0, end: 9 }] },
     ];
     const { container } = render(<SequenceTrack {...props(seq, features)} />);
     const forward = container.querySelector<HTMLCanvasElement>('[data-translation-band="forward"]')!;

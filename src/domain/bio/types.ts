@@ -56,7 +56,6 @@ export interface BioFeature {
   color?: string;
   unknownQualifiers?: Record<string, string>;
   metadata?: Record<string, string>;
-  translation?: string;
   /**
    * Sub-ranges for multi-part (spliced / GenBank join) features; each half-open
    * `[start, end)`. Authoritative pieces when present; `start`/`end` above is
@@ -234,3 +233,7 @@ export interface GenBankFinding {
   line?: number;
   message: string;
 }
+
+export type ConceptualTranslation =
+  | { status: 'ok'; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[] }
+  | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };

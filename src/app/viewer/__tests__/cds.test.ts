@@ -29,6 +29,7 @@ const cds = (over: Partial<BioFeature>): BioFeature => ({
   end: 0,
   strand: 1,
   ...over,
+  segments: over.segments ?? [{ start: over.start ?? 0, end: over.end ?? 0 }],
 });
 
 describe('computeBrokenFeatureMap', () => {
@@ -55,7 +56,7 @@ describe('computeBrokenFeatureMap', () => {
   it('claims no early stop under unknown, empty or malformed table qualifiers', () => {
     for (const value of ['7', '', '11x']) {
       const f = cds({ start: 0, end: 9, metadata: { transl_table: value } });
-      expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').get(f), value).toBe(false);
+      expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').has(f), value).toBe(false);
     }
   });
 
@@ -98,15 +99,19 @@ describe('computeBrokenFeatureMap', () => {
     expect(computeBrokenFeatureMap([f], 'MFVTAGFLV', 'protein').size).toBe(0);
   });
 
-  it('trusts the stored /translation over recomputation for broken detection', () => {
-    // ATG TGA CCC recomputes to M _ P — an internal stop — but /transl_except
-    // recodes the TGA to selenocysteine, so the annotated protein is not broken.
+  it('uses the DNA despite a curated stored protein', () => {
+    // A supplied U does not apply /transl_except or suppress the DNA's definite stop.
     const seq = 'ATGTGACCC';
     const recomputed = cds({ start: 0, end: 9 });
     expect(computeBrokenFeatureMap([recomputed], seq).get(recomputed)).toBe(true);
-    const annotated = cds({ start: 0, end: 9, translation: 'MUP' });
-    expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(false);
+    const annotated = cds({ start: 0, end: 9, metadata: { translation: 'MUP' } });
+    expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(true);
   });
+  it('leaves stop status unset when an actual transl_except is not applied', () => {
+    const feature = cds({ start: 0, end: 9, metadata: { translation: 'MUP', transl_except: '(pos:4..6,aa:Sec)' } });
+    expect(computeBrokenFeatureMap([feature], 'ATGTGACCC').has(feature)).toBe(false);
+  });
+
 });
 
 describe('codonFrame', () => {
@@ -238,7 +243,10 @@ describe.each([
   ])('preserves %s source validation', (_label, biological, isCircular, allowed) => {
     const feature = cds({ start: 0, end: 11, biological });
     const result = compute([feature], 'ATG--TAGGAG', 'dna', { isCircular, biologicalLength: 9 });
-    if (result instanceof Map) expect(result.get(feature)).toBe(allowed);
+    if (result instanceof Map) {
+      expect(result.get(feature)).toBe(allowed ? true : undefined);
+      expect(result.has(feature)).toBe(allowed);
+    }
     else expect(result.laneOf.has(feature)).toBe(allowed);
   });
 });
@@ -263,14 +271,14 @@ describe('order() CDS', () => {
 
 it('keeps assumed whole and tail stops out of broken status while retaining stored internal stops', () => {
   for (const translation of [undefined, 'M', 'MK*G']) {
-    const f = cds({ start: 0, end: 18, translation, metadata: { transl_table: '99' } });
-    expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').get(f)).toBe(translation === 'MK*G');
+    const f = cds({ start: 0, end: 18, metadata: { ...(translation ? { translation } : {}), transl_table: '99' } });
+    expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').has(f)).toBe(false);
   }
 });
 
 
 it.each(['1', '99'])('lets an invalid frame suppress translation and broken status under table %s', transl_table => {
-  const feature = cds({ start: 0, end: 9, translation: 'M*K', metadata: { codon_start: '0', transl_table } });
+  const feature = cds({ start: 0, end: 9,  metadata: { ...{ codon_start: '0', transl_table }, translation: 'M*K' } });
   expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
   expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
   expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);

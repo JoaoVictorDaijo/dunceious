@@ -177,26 +177,26 @@ describe('SCU49845.gb – /translation qualifiers', () => {
 
   it('TCP1-beta CDS has a translation starting with SSIYN', () => {
     const cds = record.features.find(f => f.name === 'TCP1-beta');
-    expect(cds!.translation).toBeDefined();
-    expect(cds!.translation).toMatch(/^SSIYN/);
+    expect(cds!.metadata?.translation).toBeDefined();
+    expect(cds!.metadata?.translation).toMatch(/^SSIYN/);
   });
 
   it('AXL2 CDS has a translation starting with MTQLQ (methionine start codon)', () => {
     const cds = record.features.find(f => f.type === 'CDS' && f.start === 686);
-    expect(cds!.translation).toBeDefined();
-    expect(cds!.translation).toMatch(/^MTQLQ/);
+    expect(cds!.metadata?.translation).toBeDefined();
+    expect(cds!.metadata?.translation).toMatch(/^MTQLQ/);
   });
 
   it('REV7 CDS has a translation starting with MNRWV', () => {
     const cds = record.features.find(f => f.type === 'CDS' && f.start === 3299);
-    expect(cds!.translation).toBeDefined();
-    expect(cds!.translation).toMatch(/^MNRWV/);
+    expect(cds!.metadata?.translation).toBeDefined();
+    expect(cds!.metadata?.translation).toMatch(/^MNRWV/);
   });
 
   it('multi-line /translation values are joined without whitespace', () => {
     const cds = record.features.find(f => f.type === 'CDS' && f.start === 686);
     // If line-joining left spaces the translation would contain ' '
-    expect(cds!.translation).not.toMatch(/\s/);
+    expect(cds!.metadata?.translation).not.toMatch(/\s/);
   });
 });
 
@@ -220,12 +220,12 @@ describe('SCU49845.gb – computed translation honours /codon_start', () => {
   });
 
   it('recomputes every CDS from the genome to match its stored /translation', () => {
-    const cdsFeatures = record.features.filter(f => f.type === 'CDS' && f.translation);
+    const cdsFeatures = record.features.filter(f => f.type === 'CDS' && f?.metadata?.translation);
     expect(cdsFeatures).toHaveLength(3);
     for (const cds of cdsFeatures) {
       const { codingSeq } = extractCodingSequence(cds, record.sequence);
       const computed = translateSequence(codingSeq).replace(/_+$/, '');
-      expect(computed, cds.name).toBe(cds.translation);
+      expect(computed, cds.name).toBe(cds?.metadata?.translation);
     }
   });
 });
@@ -329,8 +329,8 @@ describe('SCU49845.gb – GenBank round-trip', () => {
     // Translations are preserved (most complex multi-line qualifier)
     const translations = (record: SeqRecord) =>
       record.features
-        .filter(f => f.translation)
-        .map(f => f.translation)
+        .filter(f => f?.metadata?.translation)
+        .map(f => f?.metadata?.translation)
         .sort();
 
     expect(translations(roundTripped)).toEqual(translations(original));

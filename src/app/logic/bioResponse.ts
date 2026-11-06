@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation, translationWarning } from '@/src/domain/bio/translation';
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
@@ -161,7 +162,7 @@ export function applyAnnotations(
       };
       totalAdded += items.length;
     }
-    next[index] = record;
+    next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
   return { next, totalAdded, unmatched };
 }
@@ -285,4 +286,11 @@ export function applyFastaAndLog(
     }
   }
   return result;
+}
+
+/** One file warning counts only the annotations introduced by this attachment. */
+export function logAttachedTranslationWarning(previous: SeqRecord[], next: SeqRecord[], addLog: (message: string) => void): void {
+  const attached = next.map(r => ({ ...r, features: r.features.filter(f => !previous.find(p => p.id === r.id)?.features.includes(f)) }));
+  const warning = translationWarning(attached);
+  if (warning) addLog(warning);
 }

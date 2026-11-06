@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isCds } from './translation';
 import type { BioFeature } from './types';
 import { isFivePrimePartialLocation } from './locationFlags';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
@@ -97,7 +98,7 @@ for (const a of 'TCAG') for (const b of 'TCAG') for (const c of 'TCAG') {
  * Literal gc.prt 4.6 rows and exhaustive IUPAC expansion are checked against Biopython 1.88.
  */
 export function assumedTranslation(feature: BioFeature, codingSeq: string): AssumedTranslation | undefined {
-  if (!['CDS', 'cds', 'ORF', 'orf'].includes(feature.type) || isNcbiGeneticCode(featureTranslTable(feature))) return undefined;
+  if ((!isCds(feature) && !['ORF', 'orf'].includes(feature.type)) || isNcbiGeneticCode(featureTranslTable(feature))) return undefined;
   const initiation = assumedInitiationContext(feature);
   const view: AssumedTranslation = { assumedTable: 1, residues: '', codeSensitive: [], possibleStop: [] };
   for (let i = 0; i + 2 < codingSeq.length; i += 3) {

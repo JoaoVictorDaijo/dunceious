@@ -224,7 +224,7 @@ export function useFeatureManager(
     if (!record) return;
     const location = formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular });
     if (location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry') return;
-    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature));
+    setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature, addLog));
     addLog(
       featureIndex === -1
         ? `New feature '${feature.name}' created.`

@@ -75,3 +75,5 @@ export { definesOneSequence, isBetweenBasesSite, isJoinedLocation, isOrderLocati
 
 export { parseCigar, formatCigar, cigarSpans, expandCigar } from './cigar';
 export type { CigarOp } from './cigar';
+
+export * from './translation';

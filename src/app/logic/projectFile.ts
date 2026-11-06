@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
@@ -121,6 +122,7 @@ function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature 
       ...(operator && { operator }), ...(writtenOrder && { writtenOrder }) };
   }
   let next = feature;
+  if (!feature.segments?.length && feature.start === parsed.start && feature.end === parsed.end && feature.strand === parsed.strand) next = { ...feature, segments: parsed.segments };
   if (!next.operator && parsed.operator && (next.segments?.length ?? 0) > 1) next = { ...next, operator: parsed.operator };
   if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
     next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
@@ -134,7 +136,7 @@ function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature 
   return next;
 }
 
-export function parseProject(text: string): { ok: true; project: ProjectFile } | { ok: false; message: string } {
+export function parseProject(text: string, addLog: (message: string) => void = console.warn): { ok: true; project: ProjectFile } | { ok: false; message: string } {
   let value: unknown;
   try { value = JSON.parse(text); }
   catch { return { ok: false, message: 'This project file is not valid JSON.' }; }
@@ -172,7 +174,21 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
   }
   const project = value as unknown as ProjectFile;
   project.records = project.records.map(record => ({
-    ...record, features: record.features.map(feature => withLegacyLocation(feature, record)),
+    ...record, features: record.features.map(feature => {
+      let normalized = withLegacyLocation(feature, record);
+      if (!isCds(normalized)) return normalized;
+      normalized = { ...normalized, metadata: { ...normalized.metadata } };
+      delete normalized.metadata!._translationCheck;
+      if (isCds(normalized) && record.moleculeType === 'protein' && normalized.metadata!._translationSource === 'computed') {
+        delete normalized.metadata!.translation;
+        normalized.metadata!._translationSource = 'removed';
+        normalized.metadata!._translationMessage = `Translation discarded on load: ${translationReason({ status: 'unavailable', reason: 'protein-record' }, normalized)}`;
+        addLog(`${normalized.name}: ${normalized.metadata!._translationMessage}`);
+      }
+      return checkTranslation(normalized, record);
+    }),
   }));
+  const warning = translationWarning(project.records);
+  if (warning) addLog(warning);
   return { ok: true, project };
 }

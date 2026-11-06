@@ -1,6 +1,6 @@
 ---
 title: "Feature location summaries: one INSDC formatter for display and export"
-status: partial
+status: implemented
 date: 2026-11-06
 areas: ["locations", "record-feature-presentation", "genbank"]
 prs: [299]
@@ -307,13 +307,12 @@ is used by all five places in the table.
 - #253's design (PR #291, decision 11) defines it: translation positions without the terminal
   stop, from the DNA. It reads "aa" only when there is no internal stop, and otherwise, for
   example, "3 positions, 1 internal stop".
-- PR #291 already changes the only place that shows a protein count, the hub hover card
-  (`TrackTooltip.tsx:46`). No other count is displayed today:
-  - the details window shows the stored protein text with no count;
-  - `AnnotationRow.tsx:85` shows the feature length.
-- **This design adds no count and redefines nothing.** If PR #291 has not merged when this is
-  implemented, the hover-card count line is left as it is for #291 to change. This PR touches
-  only the location line of `TrackTooltip.tsx`, so the two don't conflict.
+- The hub hover card (`TrackTooltip.tsx`) wires PR #291's `conceptualTranslation` to the
+  record topology and biological length. Stored protein does not determine this count.
+  Unavailable translation shows “can't verify” with its reason; invalid geometry shows no
+  count. The inherited invalid-code provisional count remains explicitly unverified.
+- The details window shows stored protein text without a count; annotation rows show feature
+  length. The metric is unchanged from decision 11.
 - #259 closes when this PR, PR #291 and part 1 (PR #297) have all merged.
 
 ## Validation

@@ -122,3 +122,12 @@ it('requires an explicit strand for a piece appended to a per-part feature', () 
   fireEvent.change(screen.getByLabelText('Segment 3 strand'), { target: { value: '-1' } });
   expect(save.disabled).toBe(false);
 });
+
+it('exposes the imported protein read-only and previews its replacement', () => {
+  show({ ...editing, feature: { ...editing.feature, type: 'CDS', metadata: { translation: 'MK', _translationSource: 'imported' } } });
+  expect((screen.getByLabelText('Value of translation') as HTMLTextAreaElement).readOnly).toBe(true);
+  expect((screen.getByDisplayValue('translation') as HTMLInputElement).readOnly).toBe(true);
+  expect((screen.getByRole('button', { name: 'Remove qualifier translation' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText('Imported · Read-only')).toBeTruthy();
+  expect(screen.getByRole('status').textContent).toContain('Translation computed at creation');
+});

@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { storedTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { readDetails } from '@/src/domain/bio/details';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
@@ -76,7 +77,7 @@ function lengthOf(row: FeatureRow): number {
 
 function featureSortKey(feature: BioFeature): string {
   return JSON.stringify([feature.type, feature.name, feature.start, feature.end, feature.strand,
-    feature.segments, feature.locationString, feature.translation, feature.color,
+    feature.segments, feature.locationString, storedTranslation(feature), feature.color,
     Object.entries(feature.metadata ?? {}).sort(([a], [b]) => a.localeCompare(b))]);
 }
 

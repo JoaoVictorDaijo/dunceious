@@ -19,6 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { isFeatureBroken } from '@/src/domain/bio/sequence';
 import { serializeProject, parseProject } from '../projectFile';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
@@ -64,7 +65,7 @@ describe('project format 2', () => {
 
 it.each([
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, locationString: {} }] },
-  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, translation: 42 }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, metadata: { translation: 42 } }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, color: {} }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, segments: [{ start: 0, end: 4, strand: 'reverse' }] }] },
   { tracks: [{ id: 't', name: 't', kind: 'invalid', data: [] }] },
@@ -265,4 +266,31 @@ it('loads a project whose saved location text cannot be parsed, keeping the feat
     features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
   const result = parseProject(serializeProject({ ...state, records: [legacy] }));
   expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+});
+
+it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
+  const r: SeqRecord = { id: 'p', name: 'p', moleculeType: 'protein', sequence: 'GCTAAAGCT', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: source === 'computed' ? 'AKA' : 'QQQ', _translationSource: source, _translationCheck: '{"status":"ok","residues":"AKA"}' } }] };
+  const restored = parseProject(serializeProject({ ...state, records: [r] }));
+  if (!restored.ok) throw new Error(restored.message);
+  const f = restored.project.records[0].features[0];
+  expect(JSON.parse(f.metadata!._translationCheck)).toEqual({ status: 'unavailable', reason: 'protein-record' });
+  expect(f.metadata?.translation).toBe(source === 'computed' ? undefined : 'QQQ');
+  expect(f.metadata?._translationSource).toBe(source === 'computed' ? 'removed' : 'imported');
+  expect(JSON.parse(serializeProject(restored.project)).format).toBe(2);
+  expect(f).not.toHaveProperty('translation');
+});
+
+it('discards a forged nucleotide cache hiding a definite internal stop before publication', () => {
+  const nucleotide: SeqRecord = { id: 'r', name: 'r', moleculeType: 'dna', sequence: 'ATGTAAGGGTAA', features: [{
+    type: 'CDS', name: 'c', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }],
+    metadata: { translation: 'MKG', _translationSource: 'imported', _translationCheck: JSON.stringify({ status: 'ok', residues: 'MKG', possible: ['M', 'K', 'G'], internalStops: [], threePrimeIndeterminate: false, comparison: { differing: [], storedExtra: '', storedShortBy: 0 } }) },
+  }] };
+  const logs: string[] = [];
+  const loaded = parseProject(serializeProject({ ...state, records: [nucleotide] }), message => logs.push(message));
+  if (!loaded.ok) throw new Error(loaded.message);
+  const feature = loaded.project.records[0].features[0];
+  expect(feature.metadata).toMatchObject({ translation: 'MKG', _translationSource: 'imported' });
+  expect(JSON.parse(feature.metadata!._translationCheck)).toMatchObject({ status: 'ok', residues: 'M*G', possible: ['M', '*', 'G'], internalStops: [1], comparison: { differing: [1], storedExtra: '', storedShortBy: 0 } });
+  expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
+  expect(isFeatureBroken(feature, loaded.project.records[0])).toBe(true);
 });

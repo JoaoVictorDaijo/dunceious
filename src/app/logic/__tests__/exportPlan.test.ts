@@ -26,6 +26,7 @@ import { parseGenBank } from '@/src/core/genbank';
 import { parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
+import { saveEditedFeature } from '../featureManager';
 import { initialExportSelection, describeExport, serializeExport } from '../exportPlan';
 
 const records: SeqRecord[] = ['a', 'b', 'c'].map(id => ({ id, name: id, sequence: 'ACGT', features: [
@@ -199,4 +200,25 @@ it('uses the same damaged-record reasons in preview and export even when annotat
   expect(preview.summary).toContain('bad not exported: CDS invalid has an invalid /codon_start');
   expect(output.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+4 bp/)]);
   expect(serializeExport([bad], 'genbank', options).text).toBe('');
+});
+
+it('carries the saved internal-stop removal warning in project export and preview', () => {
+  const original: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAAATGTGATAA', features: [{
+    type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+    metadata: { translation: 'MK', _translationSource: 'imported' },
+  }] };
+  const feature = original.features[0];
+  const changed = saveEditedFeature([original], 'r', 0, { ...feature, start: 9, end: 18, segments: [{ start: 9, end: 18 }] });
+  const output = serializeExport(changed, 'project');
+  const preview = describeExport(changed, 'project');
+  expect(output.report.translationWarnings).toHaveLength(1);
+  expect(output.report.translationWarnings[0]).toContain('c: Translation removed after edit: internal stop at codon 2; fix the CDS or mark it /pseudo');
+  expect(preview.report).toEqual(output.report);
+  expect(preview.summary).toContain('internal stop at codon 2; fix the CDS or mark it /pseudo');
+  const saved = JSON.parse(output.text);
+  expect(saved.format).toBe(2);
+  expect(saved.records[0].features[0].metadata.translation).toBeUndefined();
+  expect(saved.records[0].features[0].metadata._translationSource).toBe('removed');
+  expect(serializeExport([original], 'project').report.translationWarnings).toEqual([]);
+  expect(describeExport([original], 'project').summary).not.toContain('Translation removed');
 });

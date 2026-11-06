@@ -23,11 +23,11 @@ import { expect, it } from 'vitest';
 import { render, fireEvent } from '@/src/app/testing/renderHarness';
 import { TrackTooltipProvider, useTrackTooltip } from '../TrackTooltip';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
-import type { BioFeature } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
 function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1, codonStart }: { sequence: string; codonStart?: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
   const update = useTrackTooltip();
-  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, translation, metadata: { transl_table: table, ...(codonStart !== undefined ? { codon_start: codonStart } : {}), ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
+  const feature: BioFeature = { segments: [{ start: 0, end: sequence.length }], type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, metadata: { ...(translation ? { translation } : {}), transl_table: table, ...(codonStart !== undefined ? { codon_start: codonStart } : {}), ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
   return <button onClick={() => update({ record: { id: 'r', name: 'r', sequence, moleculeType, features: [feature] }, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
 }
 
@@ -174,4 +174,38 @@ it.each([
   expect(tip.textContent).not.toMatch(/\d+ (?:aa|positions)/);
   expect(tip.textContent).not.toContain('table 1 assumed');
   expect(tip.querySelector('[data-unverified-count]')).toBeNull();
+});
+
+it.each([
+  ['ATGTAA', undefined, '1 aa'], ['ATGTAA', 'M', '1 aa'],
+  ['ATGTAAGGGTAA', 'MXG', '3 positions, 1 internal stop'],
+])('counts current conceptual positions for %s with stored %s', (sequence, translation, count) => {
+  const view = render(<TrackTooltipProvider><Subject sequence={sequence!} table="1" translation={translation} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  expect(view.getByRole('tooltip').textContent).toContain(count);
+});
+
+function ContextSubject({ record, feature }: { record: SeqRecord; feature: BioFeature }) {
+  const update = useTrackTooltip();
+  return <button onClick={() => update({ record, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
+}
+
+it.each([
+  { sequence: 'ATGTAA', translation: undefined, expected: '1 aa' },
+  { sequence: 'ATGTAA', translation: 'M', expected: '1 aa' },
+  { sequence: 'ATGTAAGGGTAA', translation: undefined, expected: '3 positions, 1 internal stop' },
+])('counts DNA-derived positions for $sequence with stored $translation', ({ sequence, translation, expected }) => {
+  const view = render(<TrackTooltipProvider><Subject sequence={sequence} translation={translation} table="1" /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  const length = view.getByText('Length').nextElementSibling!;
+  expect(length.textContent).toBe(`${sequence.length} bp · ${expected}`);
+});
+
+it.each([false, true])('uses record topology for a reversed interval (circular=%s)', isCircular => {
+  const feature: BioFeature = { type: 'CDS', name: 'wrap', start: 3, end: 2, strand: 1, segments: [{ start: 3, end: 2 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'TAAATG', isCircular, features: [feature] };
+  const view = render(<TrackTooltipProvider><ContextSubject record={record} feature={feature} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  const length = view.getByText('Length').nextElementSibling!;
+  expect(length.textContent).toBe(isCircular ? '5 bp · 1 aa' : '5 bp');
 });

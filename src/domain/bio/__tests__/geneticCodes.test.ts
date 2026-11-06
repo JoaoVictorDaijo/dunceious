@@ -89,7 +89,7 @@ describe('translateFeature at the end of a complete CDS', () => {
     [1, 'ATGAAATAA', 'MK_'],
   ])('reads the last codon of a complete table-%i CDS as the stop', (table, seq, protein) => {
     expect(translateFeature({}, seq, table)).toBe(protein);
-    expect(translateFeature({ translation: 'MK' }, seq, table)).toBe(protein);
+    expect(translateFeature({ metadata: { translation: 'MK' } }, seq, table)).toBe(protein);
   });
 
   it('keeps internal dual-coding codons as residues', () => {
@@ -143,6 +143,6 @@ describe('translateFeature at the end of a complete CDS', () => {
 
   it('keeps alternative initiation literal unless a stored translation supplies Met', () => {
     expect(translateFeature({}, 'GTGAAATAA', 11)).toBe('VK_');
-    expect(translateFeature({ translation: 'MK' }, 'GTGAAATAA', 11)).toBe('MK_');
+    expect(translateFeature({ metadata: { translation: 'MK' } }, 'GTGAAATAA', 11)).toBe('MK_');
   });
 });

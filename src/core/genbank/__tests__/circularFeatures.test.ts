@@ -65,7 +65,7 @@ describe('circular GenBank import', () => {
   it('imports a forward wrapping CDS with its annotated translation', () => {
     const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.features.find(f => f.type === 'CDS' && f.name === 'WrapProtein')).toMatchObject({
-      start: 5499, end: 300, strand: 1, translation: 'MWRAP',
+      start: 5499, end: 300, strand: 1, metadata: { translation: 'MWRAP' },
     });
   });
 

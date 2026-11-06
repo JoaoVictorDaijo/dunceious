@@ -130,7 +130,7 @@ describe('examples/nucleotide/coronaviruses', () => {
 
   it('translates every CDS, frameshifted ORF1ab included, to its stored /translation', () => {
     for (const r of records) {
-      for (const f of cdsOf(r).filter(f => f.translation)) expect(translate(f, r), `${r.id} ${f.name}`).toBe(f.translation);
+      for (const f of cdsOf(r).filter(f => f?.metadata?.translation)) expect(translate(f, r), `${r.id} ${f.name}`).toBe(f?.metadata?.translation);
     }
   });
 
@@ -241,7 +241,7 @@ describe('examples/nucleotide/t4-phages', () => {
   it('translates every reverse-strand split CDS to its stored /translation', () => {
     const split = cdsOf(t4).filter(f => (f.segments?.length ?? 0) > 1);
     expect(split).toHaveLength(4);
-    for (const f of split) expect(translate(f, t4), f.name).toBe(f.translation);
+    for (const f of split) expect(translate(f, t4), f.name).toBe(f?.metadata?.translation);
   });
 
   it('flags no CDS as broken across all three genomes', () => {

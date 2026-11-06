@@ -77,7 +77,7 @@ it('gates the view on invalid codes and coding feature types, without changing c
   expect(assumedTranslation(feature('99', 'gene'), 'ATG')).toBeUndefined();
   expect(translateSequence('ATGTGGTGA', 99)).toBe('???');
   expect(translateFeature(feature('99'), 'ATGTGGTGA', 99)).toBe('???');
-  expect(translateFeature({ ...feature('99'), translation: 'M' }, 'ATGTGGTGA', 99)).toBe('M??');
+  expect(translateFeature({ ...feature('99'), metadata: { ...feature('99').metadata, translation: 'M' } }, 'ATGTGGTGA', 99)).toBe('M??');
   expect(assumedTranslation(feature('99'), 'ATGA')?.residues).toBe('M');
   expect(assumedTranslation(feature('99'), '')?.residues).toBe('');
 });

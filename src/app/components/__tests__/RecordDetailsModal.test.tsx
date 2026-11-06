@@ -251,13 +251,13 @@ it.each([undefined, 'order(1..3,7..9)'])('shows actual feature locus with retain
 });
 
 it('shows invalid location without derived sequence or lengths and labels stored translation', () => {
-  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1, translation: 'STORED' };
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1, metadata: { translation: 'STORED' } };
   render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACGTACGTGA', features: [feature] }} feature={feature} onFocusFeature={() => {}} onClose={() => {}} onExportRecord={() => {}} onCopyLog={() => {}} />);
   expect(screen.getByText('9..2 (invalid location)')).toBeTruthy();
   expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
   expect(document.querySelector('[data-feature-lengths]')?.textContent).toBe('Invalid location');
   expect(screen.getByText("Stored translation. The location is invalid, so it isn't checked against the sequence.")).toBeTruthy();
-  expect(screen.getByText('STORED')).toBeTruthy();
+  expect(screen.getByText('STORED', { selector: 'p' })).toBeTruthy();
   const region = screen.queryByRole('radio', { name: 'Region spanned' });
   if (region) fireEvent.click(region);
   expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');

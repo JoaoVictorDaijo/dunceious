@@ -19,12 +19,14 @@
  */
 
 // @vitest-environment jsdom
-import { parseLocation } from '@/src/core/genbank/locationParser';
 import * as d3 from 'd3';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as cdsHelpers from '../../cds';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '../SequenceTrack';
+import { parseGFF3 } from '@/src/core/formats/gff3';
+import { applyAnnotations } from '@/src/app/logic/bioResponse';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { assignTranslationLanes } from '../../cds';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
 import type { BioFeature } from '@/src/domain/bio/types';
@@ -34,6 +36,7 @@ beforeEach(() => { recorder = installCanvasRecorder(); });
 afterEach(() => { vi.restoreAllMocks(); });
 
 function props(seq: string, feature: BioFeature): SequenceTrackProps {
+  if (feature.metadata?.transl_table !== '99' || feature.locationString) feature.segments ??= feature.locationString ? parseLocation(feature.locationString).segments : [{ start: feature.start, end: feature.end }];
   return {
     seq, moleculeType: 'dna',
     xScale: d3.scaleLinear().domain([0, seq.length]).range([0, seq.length * 20]),
@@ -73,7 +76,7 @@ it('draws assumed residues and explains the unavailable code without claiming an
 it('preserves the stored translation while merging the selected-code terminal stop in the band', () => {
   const seq = 'GTGTGATAA';
   const feature: BioFeature = { type: 'CDS', name: 'annotated', start: 0, end: 9,
-    strand: 1, metadata: { transl_table: '4' }, translation: 'MU' };
+    strand: 1, metadata: { ...{ transl_table: '4' }, translation: 'MU' },  };
   render(<SequenceTrack {...props(seq, feature)} />);
   expect(recorder.texts().slice(-3)).toEqual(['M', 'U', '_']);
 });
@@ -107,11 +110,11 @@ const assumedCases = [
   { translation: undefined, seq: 'ATGTGATGG', glyphs: ['M', '*', 'W'], assumed: 3, dashed: 1, red: 1, early: false },
   { translation: 'MVA', seq: 'ATGTGGGCT', glyphs: ['M', 'V', 'A'], assumed: 0, dashed: 0, red: 0, early: false },
   { translation: 'M', seq: 'ATGTGGGCT', glyphs: ['M', 'W', 'A'], assumed: 2, dashed: 0, red: 0, early: false },
-  { translation: 'MK*G', seq: 'ATGAAATGAGGATAATGG', glyphs: ['M', 'K', '!', 'G', '*', 'W'], assumed: 2, dashed: 1, red: 1, early: true },
+  { translation: 'MK*G', seq: 'ATGAAATGAGGATAATGG', glyphs: ['M', 'K', '*', 'G', '*', 'W'], assumed: 2, dashed: 1, red: 1, early: false },
 ];
 it.each(assumedCases)('distinguishes stored and assumed cells for $translation', ({ translation, seq, glyphs, assumed, dashed, red, early }) => {
   const feature: BioFeature = { type: 'CDS', name: 'mixed', start: 0, end: seq.length, strand: 1,
-    translation, metadata: { transl_table: '99' } };
+    metadata: { ...(translation ? { translation } : {}), transl_table: '99' } };
   const view = render(<SequenceTrack {...props(seq, feature)} />);
   expect(recorder.texts().slice(-glyphs.length)).toEqual(glyphs);
   const outlines = recorder.strokeRects().filter(r => r.dash.length > 0);
@@ -255,7 +258,7 @@ it.each([
 it.each([1, -1] as const)('shows the suppressed-frame warning without translated cells on strand %s', strand => {
   const seq = 'ATGTGAAAA';
   const feature: BioFeature = { type: 'CDS', name: 'invalid-frame', start: 0, end: 9, strand,
-    translation: 'M*K', metadata: { codon_start: '4', transl_table: '99' } };
+     metadata: { ...{ codon_start: '4', transl_table: '99' }, translation: 'M*K' } };
   const trackProps = props(seq, feature);
   const view = render(<SequenceTrack {...trackProps} />);
   const warning = view.getByRole('button', { name: '⚠ /codon_start=4 is invalid; codons are not translated' });
@@ -271,4 +274,26 @@ it.each([1, -1] as const)('shows the suppressed-frame warning without translated
   expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
   view.rerender(<SequenceTrack {...trackProps} showTranslation={false} />);
   expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
+});
+
+it.each([undefined, 'M'])('draws and explains an SO CDS assumed view with stored %s', translation => {
+  const seq = 'ATGTGATGG';
+  const parsed = parseGFF3(`r\tx\tSO:0000316\t1\t9\t.\t+\t0\tID=c;transl_table=99${translation ? `;translation=${translation}` : ''}`);
+  const record = applyAnnotations([{ id: 'r', name: 'r', sequence: seq, moleculeType: 'dna', features: [] }], parsed.features).next[0];
+  const feature = record.features[0];
+  const view = render(<SequenceTrack {...props(seq, feature)} record={record} />);
+  expect(recorder.texts().slice(-3)).toEqual(['M', '*', 'W']);
+  expect(recorder.texts()).not.toContain('!');
+  const dashed = recorder.strokeRects().filter(r => r.dash.length > 0);
+  expect(dashed).toHaveLength(1);
+  expect(dashed[0].color).toBe('#ef4444');
+  const tips = [...view.container.querySelectorAll('[data-assumed-codon]')].map(e => e.getAttribute('data-tip')!);
+  expect(tips).toHaveLength(translation ? 2 : 3);
+  expect(tips.every(t => t.includes('assuming table 1'))).toBe(true);
+  expect(tips.at(-2)).toContain('TGA: stop');
+  expect(tips.at(-1)).toContain('TGG');
+  const warning = view.container.querySelector('[data-genetic-code-warning]')!.getAttribute('data-tip');
+  expect(warning).toContain(translation ? 'first 1 residues' : 'Residues assume table 1');
+  expect(feature.metadata?.translation).toBe(translation);
+  expect(feature.metadata?.transl_table).toBe('99');
 });
