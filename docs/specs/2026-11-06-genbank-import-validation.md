@@ -152,7 +152,7 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Mandatory qualifier missing | e.g. `source` without `/organism` or `/mol_type`; `regulatory` without `/regulatory_class` | REJECT in legacy Sequin for a missing organism. Dunceious keeps the record and warns, because its sequence and coordinates are intact |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
-| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, the CDS's translation is suppressed with the reason shown (as for an unknown code), and the note names it | Error-level in NCBI's validator |
+| Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value | Error-level in NCBI's validator |
 | Unknown genetic code | `/transl_table` not an NCBI code. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
 | `/translation` differs from the DNA | Computed and counted by #253's spec; this summary displays it | Error (mismatch) |
 
@@ -196,13 +196,18 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
      (`useFileHandlers.ts:316-319`, `dropRouting.ts:58-66`), so a refusal must resolve its
      entry, not reject it.
    - Cancellation and genuine worker errors keep their current handling.
+   - **No stale diagnostics.** Before a refusal dialog or import notes are shown, the response's
+     import-start workspace revision is checked, using #296's revision capture. A response from
+     a replaced workspace is discarded with its log line, and is never shown as describing the
+     new workspace.
    - **Batch rule, agreed with PR #296** (its §B, "Refusals and invalidation in a dropped
      batch", `cc77b96`):
      - **Handled, and the batch continues:** a per-file refusal. That means this spec's
        validation findings, and #296's no-residues, category, lock and gap-removal-declined
        refusals.
-     - **The ID map:** a handled refusal settles with an ID map that sets every ID in the
-       refused file to `null`, not with an empty map. A null entry skips the name, accession
+     - **The ID map:** a handled refusal settles with an ID map that sets every identifier of
+       every record in the refused file to `null`: its LOCUS name, ACCESSION and VERSION. It
+       does not settle with an empty map. A null entry skips the name, accession
        and sanitized-ID fallbacks and reports the ID as unmatched (`bioResponse.ts:111-116`).
        The batch merge keeps an ID null even when an accepted file in the same batch uses it.
      - **Rejects, and stops the batch:** invalidation only. That is the workspace being replaced
@@ -216,11 +221,10 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
 3. **Only warnings:** records load as today, and the warnings travel with `PARSE_SUCCESS`.
    `useBioWorker` writes one log line per file and adds the file's notes to the import summary.
 4. **The session molecule gate moves to commit time.**
-   - The dispatch-time sniff (`useFileHandlers.ts:186-196`, and the drop path near `:306-318`)
-     no longer refuses on its own. It only stops obviously hopeless work early, when the sniffed
-     category disagrees with the session.
-   - Even then the worker still parses the file. The refusal dialog then shows the mismatch
-     together with every other finding, not one problem per attempt.
+   - For GenBank files, the dispatch-time sniff (`useFileHandlers.ts:186-196`, and the drop path
+     near `:306-318`) no longer refuses or stops anything. The worker always parses the file, so
+     the refusal dialog can show a mismatch together with every other finding.
+   - FASTA keeps #296's handling.
    - The authoritative check is PR #296's commit-time guard. Right before records are added, it
      compares the file's category with the **current** workspace, which covers concurrent picks
      and workspace replacement.
@@ -298,7 +302,12 @@ Expected results never come from the parser under test.
   outer complements (conformance cases J4, J5 and W2, `docs/standards/conformance/README.md`).
   Those cases, and any other form the conformance README records as a Biopython disagreement,
   are checked against the existing independent `docs/standards/conformance/oracle.py`. For
-  example, J4 `complement(join(complement(1..2),5..6))` must extract `GTCA`. For the defects Biopython warns about
+  example, J4 `complement(join(complement(1..2),5..6))` on the conformance fixture sequence
+  must extract `GTTG`, `oracle.py`'s result. EMBOSS's differing `GTCA` is not the target.
+- **RNA records.** Biopython extracts minus-strand features with a DNA complement, while
+  Dunceious complements U to A for RNA (`sequence.ts:46`). For RNA records, Biopython's output
+  is compared after reading T and U as the same base, which ALPHA-1 allows. A minus-strand
+  `ACGU` case checks this explicitly against `oracle.py`. For the defects Biopython warns about
   (length mismatch, unparseable location), its warning is the independent sign of the defect.
 - **Literal flat files** in `src/core/genbank/__tests__/` cover the rest, each with its expected
   outcome written from the GenBank and INSDC rule it tests.
@@ -315,6 +324,9 @@ Expected results never come from the parser under test.
 | Molecule | `LOCUS AA 4 bp DNA linear` is nucleotide; `LOCUS rnaseP 300 aa` is protein. A nucleotide and a protein record in one file: refused. A protein file picked together with a nucleotide file into an empty session: whichever commits second is refused, in both response orders. A protein-first file with a later malformed record, in a nucleotide session: one dialog listing the mismatch and the malformed record |
 | Frame | `/codon_start=0`, `4`, `2junk`: note, translation suppressed, value kept. `/codon_start=2`: no note |
 | Inert qualifiers | GenBank `/phase=1` on a CDS without `/codon_start`: stored in `unknownQualifiers`, the frame stays 1, export writes no `/codon_start=2`, and reimport gives the same CDS. `/_gffStrand="."`: the strand stays as parsed |
+| Aliases | A refused file with `LOCUS X` and `ACCESSION AB123`, dropped with a GFF3 naming `AB123`, into a workspace that already has a record with accession `AB123`: the GFF3 rows stay unmatched |
+| Stale responses | The workspace is replaced while a malformed file and a file with notes are parsing: neither the dialog nor the notes appear, and the log says why |
+| Frame-dependent outputs | `/codon_start=4` and `2junk` on a 9-base CDS with no stored translation: the Hub shows the reason, not `2 aa` or `NaN aa`; no GFF3 phase is exported from them. `/codon_start=2`: count and phase as today |
 | Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. A category-mismatched GenBank file followed by a valid file: the valid file loads. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
 | Combined dialog | A protein file with a length mismatch, dropped into a nucleotide workspace: one dialog listing the mismatch and the category refusal. A file with an unreadable LOCUS unit: the LOCUS finding only |
 | Notes access | Seven invalid-frame CDSs: the group shows five, "Show all 7" lists all seven, and "Copy details" includes all seven |
