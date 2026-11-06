@@ -296,15 +296,22 @@ selection.
   - an aligned record offers "FASTA (no gaps)" and "FASTA (aligned)";
   - an unaligned record offers only the first.
 - **Hub export dialog:** keeps "Keep alignment gaps", with the mixed-rows rule below.
-- **Mixed rows in a gapped export:**
-  - only aligned rows are written, since a gapped FASTA must be equal-width rows (FMT-6);
-  - unaligned rows are left out, and the log, plus the Hub dialog's preview, names them:
-    "2 sequences not in the alignment were left out of the aligned FASTA";
-  - an ungapped export writes every chosen row.
+- **Mixed rows in a gapped export (owner, 2026-11-06): two files.**
+  - The aligned rows go into the requested file. A gapped FASTA must be equal-width rows
+    (FMT-6).
+  - The unaligned rows go into a second file beside it, named with `_unaligned` before the
+    extension, e.g. `selection_export_unaligned.fasta`. They are written as plain sequences,
+    since they have no alignment columns.
+  - The log and the Hub dialog's preview say why, briefly: "2 sequences aren't in the
+    alignment, so they have no alignment columns and were saved separately in
+    <name>_unaligned.fasta".
+  - With a selection, the unaligned rows are sliced over their own positions, as the viewer
+    shows them.
+  - An ungapped export writes every chosen row into one file.
 
-`exportToFasta` (`fasta.ts:69`) gets this rule once: a `residues: 'aligned'` option that skips
-rows without `alignedSequence` and reports them, plus an ungapped slice mode. Every caller then
-uses it, so no path keeps its own variant.
+`exportToFasta` (`fasta.ts:69`) gets this rule once. A `residues: 'aligned'` export returns the
+aligned text plus the unaligned rows as a second text, reported, and there is an ungapped slice
+mode. Every caller downloads both files when there are two, so no path keeps its own variant.
 
 ## Project files
 
@@ -385,7 +392,7 @@ gaps by character. They never come from the code under test.
 | B: `.` | `bioResponse.test.ts` | Batch `AC..GT` loads as `ACGT`, counting 2 removed |
 | B: stale state | `useBioWorker.test.tsx` | A file confirmed after another load committed is applied to the current records, and no records are lost |
 | C: writer backstop | `serialize.test.ts`, `exportPlan.test.ts` | A record whose `sequence` is `AC-GT` is left out and reported. The preview shows it. A clean record's LOCUS is `4 bp` for `ACGT` |
-| D: one rule | `fasta.test.ts` | Aligned `AC--GT` with selection `[1,5)`: gapped `C--G`, ungapped `CG`. Mixed set: gapped writes only aligned rows and reports the others; ungapped writes all. Selection `[2,4)` on `AC--GT`: gapped writes `--` and names the row; ungapped leaves it out and names it. Aligned width 4 with an unaligned row of 8, selection `[5,7)`: gapped item disabled |
+| D: one rule | `fasta.test.ts` | Aligned `AC--GT` with selection `[1,5)`: gapped `C--G`, ungapped `CG`. Mixed set: gapped returns the aligned rows as one text and the unaligned rows as a second `_unaligned` text, with the message; ungapped writes all rows in one text. Every export path downloads both files when there are two. Selection `[2,4)` on `AC--GT`: gapped writes `--` and names the row; ungapped leaves it out and names it. Aligned width 4 with an unaligned row of 8, selection `[5,7)`: gapped item disabled |
 | D: every path | `useFileHandlers`, context-menu and `RecordDetailsModal` tests | The toolbar menu, the Sidebar export, the record context menu and the details dialog each offer both modes. The aligned item is disabled when no row is aligned. An unaligned record offers one item |
 | Project refusal | `projectFile.test.ts` | `sequence: "AC-GT"` refuses with the damaged-file message. Rows `AC--GT` (6 columns) and `ACTTGT--` (8 columns) refuse with the unequal-width message. A valid aligned project still loads |
 | Conservation | `GenomeViewer` / pure helper and `TopNav` tests | Two aligned rows of width 6 plus one unaligned row of length 8: the toggle is enabled, and scores use the two aligned rows only, against hand-computed values. One aligned row: the toggle is disabled with its tooltip, and there are no scores. Hiding one of two aligned rows disables the toggle and updates the chip; showing it again restores both |
@@ -394,7 +401,8 @@ gaps by character. They never come from the code under test.
 ## Living documents
 
 - **FMT-4:** the confirm before removal, and `.` removed on the batch path.
-- **FMT-6:** loading on an empty workspace, and gapped exports containing only aligned rows.
+- **FMT-6:** loading on an empty workspace, and gapped exports splitting unaligned rows into a
+  second file.
 - **FMT-14:** the project-file refusal.
 - **FMT-2:** the GenBank writer backstop, coordinated with the sibling import-validation spec.
 
@@ -405,6 +413,8 @@ gaps by character. They never come from the code under test.
   annotations from a dropped batch are already attached. The owner asked for permission first.
 - **Write unaligned rows into a gapped FASTA, padded with `-`.** That invents an alignment the
   data does not have.
+- **Leave unaligned rows out of a gapped export.** The first draft did this. The owner chose a
+  second file instead, so no chosen sequence is silently missing from the export.
 - **Show conservation over all rows in a mixed workspace.** Raw positions are not alignment
   columns, so the score would mean nothing.
 
