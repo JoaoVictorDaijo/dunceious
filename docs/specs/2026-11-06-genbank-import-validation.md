@@ -164,6 +164,8 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
     - any `_`-prefixed key is treated as internal state.
   - A GenBank qualifier that isn't in INSDC 11.4 Appendix III, or whose name starts with `_`, is
     stored in a separate `feature.unknownQualifiers` map. No computation reads it.
+  - Display-name selection may still read a name-like qualifier from that map, such as `/label`
+    (`featureParser.ts` NAME_QUALIFIERS). Naming is display only.
   - It is kept in project files and shown in the feature details. The GenBank writer leaves it
     out and counts it, as it already does for unknown attributes (`report.droppedAttributes`,
     `serialize.ts:107-110`).
