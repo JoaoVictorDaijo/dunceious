@@ -81,6 +81,15 @@ Murilo, on #253:
   protein records. The shared conceptual function must enforce the same boundary, including
   when amino-acid letters happen to be valid nucleotide letters. This is an existing code
   contract, not a new biological interpretation or an alphabet-detection heuristic.
+- **New nucleotide CDS products:** [NCBI table2asn, input annotation table and optional
+  protein sequence sections](https://www.ncbi.nlm.nih.gov/genbank/table2asn/) (rolling official
+  manual, accessed 2026-11-06) documents deriving proteins from supplied CDS intervals; a
+  separate `.pep` file substitutes supplied proteins for those automatic products. Thus a
+  newly defined CDS needs no pre-existing protein to be translated. Applying decision 3's
+  geometry-change rule to creation (no previous geometry → a CDS location) means computing
+  and storing its product on the first save, under the same eligibility and omission rules
+  as an edited CDS. This is the creation case of the existing contract, not a new translation
+  method. Evidence: documentation inspected, not table2asn execution.
 - **How other tools treat a stored translation** (documentation and source survey, 2026-11-06;
   nothing was run):
   - Geneious separates a computed "Automatic Translation", which is not exported, from a stored
@@ -376,7 +385,15 @@ follows the cited NCBI validator.
 
 ## Edit boundary (`saveEditedFeature`)
 
-- **If the save changes a field from decision 3:**
+- **Creating a CDS is a geometry change from nothing.** The insert path
+  (`featureIndex === -1`, [`saveEditedFeature`](../../src/app/logic/featureManager.ts#L25))
+  must run the same computation before appending the feature; today's direct append is not
+  an exemption. For an eligible nucleotide CDS, store the stop-free conceptual protein and
+  source `computed` at creation, without requiring a later edit. Internal stops or an
+  unavailable result instead leave no stored protein, set source `removed` and show the same
+  reason warning as an invalidating edit. Step 0 still excludes protein records. Parsing or
+  attaching an imported CDS remains the import path below and preserves supplied proteins.
+- **If the save creates a CDS or changes a field from decision 3:**
   Use biological-strand equality, not numeric equality. Choosing Forward clears
   `_gffStrand='.'` or `'?'` and must replace the stored protein even if numeric strand stays
   +1. Refreshing only `_translationCheck` does not satisfy replacement.
@@ -483,7 +500,12 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
     Never explain a length-only difference as "differs at 0 codons". `/exception` suppresses
     the file warning, not the explanation;
   - for a CDS recomputed after an edit: "Translation recomputed after edit";
-  - for one removed after an edit: "Translation removed after edit", with the reason.
+  - for a newly created CDS: "Translation computed at creation", or the reason no protein
+    could be stored;
+  - for one removed after an edit: "Translation removed after edit", with the reason;
+  - for invalid computed protein-record data discarded on project load: explain that the
+    translation was discarded on load and give the not-applicable reason, without claiming
+    an edit occurred.
 - **Editor:** `/translation` is read-only, with its source label. The edit's outcome
   (recomputed, or removed and why) shows before Save.
 - **Protein records:** no conceptual position/aa count, early-stop assertion, mismatch,
@@ -500,10 +522,27 @@ PR 1 must resolve it before implementation, not silently keep the existing gener
 - `_translationCheck` is disposable derived state, never trusted on load, even when its shape
   looks valid. Discard it, normalize locations through the dependency, then recompute against
   the loaded DNA and qualifiers before publishing the restored records. Rechecking does not
-  overwrite a stored curated protein or change its source label. This follows the same
+  overwrite a stored curated protein or change its source label. The invalid computed
+  protein-record state below is derived state, not a curated import. This follows the same
   current-DNA invariant as import and edit invalidation.
   The check's inputs include `record.moleculeType`: reloading a declared protein record
   must discard even an apparently successful cached nucleotide result before publication.
+- **Impossible computed provenance on a protein record:** when a loaded CDS has
+  `record.moleculeType === 'protein'` and `_translationSource === 'computed'`, discard its
+  `metadata.translation` as a forged or stale derived value, as well as the restored check.
+  Normalize and recheck through step 0 before publication: the result is
+  `unavailable: 'protein-record'`; set `_translationSource = 'removed'` and log one warning
+  naming the feature and the not-applicable reason. Details/editor show the removal reason,
+  no stored protein or copyable translation, and neither Imported nor Computed from the DNA.
+  Do not relabel the invalid computed value as an imported assertion. This holds with or
+  without a restored check and never attempts a nucleotide calculation on the protein.
+  Re-save persists no `metadata.translation` and source `removed` in format 2; a subsequent
+  load remains removed/unavailable. A check serialized by the existing metadata machinery
+  is still disposable and cannot restore the discarded protein. An unrelated edit preserves
+  this removed state. The supplied `imported` protein/source remains unchanged on load and
+  re-save, with the not-applicable reason; valid nucleotide computed provenance is unchanged.
+  This is load-time enforcement of the existing eligibility/derived-state invariant, not a
+  format migration or a decision about untouched imported protein GenBank export.
 
 ## PR breakdown
 
@@ -565,6 +604,8 @@ the stored protein; the prerequisite owns location normalization and PR 3 owns d
 | GFF3 strand-relative phase and unrelated-edit fidelity | `gff3.test.ts`, “computes reverse CDS phases in transcription order” asserts row phases; “retains different imported phases per part through re-export” preserves distinct values | Reuse; strengthen with edited-frame invalidation through save |
 | Current protein across save, import/attachment, project load, count, details-copy and GenBank/GFF3 export | None found for this new shared conceptual-result contract; existing extraction tests do not prove these entry points | Add cases at the named boundaries below, including unavailable and preserved curated paths |
 | Single protein field and no format bump | `projectFile.test.ts` refuses malformed format 2; no protection found for the new single-store contract | Strengthen format-2 save/load and check-discard coverage |
+| Impossible computed protein-record provenance / step 0 and disposable project checks | None found for load and re-save of this invalid derived state | Add real project load → details/copy → re-save/reload assertions below; preserve imported and eligible nucleotide controls |
+| New CDS product / decision 3 geometry change and table2asn automatic products | None found for creation computing and storing a product; the current insert appends directly | Add creation through the real save boundary → details/copy → export/project persistence; reject a product that appears only after a later edit |
 | Partial terminal stop / NCBI terminal-only removal | None found for partial-end handling in the new conceptual result | Add domain + save/export case below; reject false internal stop/removal |
 | Biological-strand invalidation / accessor + decision 3 | `featureManager.test.ts` invalidates phase caches on numeric strand edits; no unknown-to-known protein replacement assertion found | Strengthen editor→save→export for both unknown states and unrelated-edit preservation |
 | Mixed explicit/omitted orientation / LOC-3 | `sequence.test.ts` orientation/frame case uses all-explicit strands; `gff3.test.ts` mixed-strand case asserts per-part directions but not omitted fallback | Strengthen extraction and conceptual/save/export coverage; reject MF instead of ME |
@@ -579,6 +620,7 @@ record makes each warning-count assertion exclude unrelated features.
 | Guarantee | Test | Cases |
 |---|---|---|
 | Recompute on move | `featureManager.test.ts` at the save boundary | A CDS moved so it encodes `ATG AAA TAA`: `/translation="MK"`, source `computed` |
+| Compute on creation | same creation entry point, then details/copy and serializers | Literal record `{id:'r', moleculeType:'dna', sequence:'ATGAAATAA', features:[]}`; create `{id:'c', name:'c', type:'CDS', start:0, end:9, strand:1, metadata:{codon_start:'1', transl_table:'1'}}`, normalized exact `1..9` ends, no previous feature or translation; save with `featureIndex=-1`. Independent hand derivation from [NCBI Standard Code table 1](https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi#SG1) (updated 2024-09-23): ATG=M, AAA=K, TAA=terminal stop, omitted → MK. First save stores only `metadata.translation='MK'`, source `computed`; details/copy immediately return MK with Computed from the DNA, count 2 aa, no internal stop or removal warning. GenBank emits `/translation="MK"`; GFF3 emits `translation=MK`; format-2 save/reload retains MK/computed. No second edit is needed. Denied controls at the same creation boundary: DNA `ATGTAAGGGTAA`, exact `[0,12)+`, gives M*G with internal stop at index 1, stores no translation/source removed and warns at codon 2; the original ATGAAATAA with table 99 stores no translation/source removed and warns invalid-code. The protein creation control below remains unavailable with no computed label. |
 | Omit on internal stop | same, then `serialize.test.ts` | Issue fixture moved to `[9,18)`: no `/translation` in output, one warning naming codon 2; early-stop flag true |
 | Omit on invalid code or exception | same | `/transl_table=99` edit: removed, reason named. Adding, changing or removing a `/transl_except`: removed with the PR 1 reason; removing the last one recomputes; a removal that exposes an internal stop omits and warns |
 | Kept on unrelated edits | same | A name or colour change keeps `MK` and `imported`. Recompute, then a label edit: stays `computed` |
@@ -609,6 +651,7 @@ record makes each warning-count assertion exclude unrelated features.
 | Shared PR 3 comparison (round-4 finding 4) | comparison/import; PR 3 projection/chip/tooltip | DNA `ATGTAAGGGTAA`, stored MXG: conceptual M*G, differing `[1]`, exactly one warned CDS; tooltip “Annotation differs from DNA at 1 codon”; X drawn with stop edge. Stored M*G: differing `[]`, no mismatch warning, early-stop still true. DNA `ATGAAAGGGTAA`, stored M: short by 2, chip “−2 positions”. DNA `ATGTAA`, stored MK: extra K, chip “+1 position”, despite no internal stop. PR 3 implements visual assertions. |
 | Length-only warning (round-4 finding 5) | GenBank import and FASTA+GFF3 attachment, repeated on project load; PR 3 tooltip | DNA `ATGAAATAA`→MK. Stored M: `differing=[]`, shortBy 1, extra empty; one warned CDS, tooltip “Annotated protein is 1 translation position shorter than the DNA-derived protein”. Stored MKV: differing empty, shortBy 0, extra V; one warned CDS, corresponding “1 translation position longer” tooltip. Both retain imported value/source. Stored MK: no warning or length clause. Repeat shorter/longer with `/exception="RNA editing"`: zero file mismatch warnings, explanation retained. Combined stored MVV: differing `[1]`, extra V, one warned CDS, both “1 codon” and “1 translation position longer” clauses. Literal GenBank qualifiers are `/translation="M"` or `"MKV"`; attachment rows are `r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=M` or `translation=MKV`. |
 | Project check trust question | project load → counts/warning/details | Format 2, DNA `ATGTAAGGGTAA`, normalized CDS `[0,12)+`, stored `MKG`, source imported, forged `_translationCheck` saying no differences/no stops: discard check, recompute `M*G`, difference `[1]`, one mismatch warning, early-stop true, “3 positions, 1 internal stop”; stored `MKG` and source unchanged. Repeat with no cache: identical result. |
+| Impossible computed protein provenance (round-7 load question) | format-2 load → details/copy/count → unrelated edit → project re-save/reload | Literal record `{id:'p', moleculeType:'protein', sequence:'GCTAAAGCT'}`; exact CDS `{id:'c', name:'c', type:'CDS', start:0, end:9, strand:1, metadata:{translation:'AKA', _translationSource:'computed', codon_start:'1', transl_table:'1'}}`. Supply a forged successful `_translationCheck` claiming AKA, 3 aa, no differences/stops; repeat with that key absent. Before publication both yield `unavailable:'protein-record'`, no metadata.translation, source removed, one warning naming c and the not-applicable reason; details/editor show that reason and no Imported/Computed label, copy exposes no stored translation. No nucleotide mismatch warning, conceptual count, stop claim or codon lane; raw protein length remains 9 aa. Rename c and re-save: format remains 2, metadata.translation absent, source removed, no top-level translation; reload is still removed/unavailable and never resurrects AKA or a computed label. Repeat with source imported and stored QQQ: load, unrelated edit, re-save and reload preserve QQQ/imported as supplied data, with no comparison or DNA-derived count. Eligible DNA control with GCTAAAGCT, stored AKA/computed remains AKA/computed on load and re-save (GCT=A, AAA=K, GCT=A under table 1); the molecule-type gate must distinguish these inputs even though their letters coincide. |
 | Padded-codon integration question | conceptual result; PR 3 drawing/hover acceptance | Exact `1..5` over `ATGGC`: `MA`, sets `{M},{A}`, A's real indices `[3,4]`, count “2 aa”; GC plus any base gives A. PR 3 must assert A is visible and hoverable with the documented span/target and no invented index 5. `ATGNN` → `M`, no second residue/target. |
 
 ## Living documents
