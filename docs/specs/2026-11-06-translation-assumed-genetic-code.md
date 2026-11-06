@@ -3,7 +3,7 @@ title: "Invalid /transl_table: a provisional table-1 view, labelled as assumed"
 status: proposed
 date: 2026-11-06
 areas: ["translation", "viewer", "annotations"]
-prs: []
+prs: [295]
 issues: [288]
 superseded_by: null
 summary: "When a CDS's /transl_table is not an NCBI genetic code, the viewer shows a provisional table-1 translation drawn as dashed outlines and labelled 'assumed table 1' everywhere it appears, while computed translation, comparison, early-stop status and export still claim nothing for that CDS."
@@ -46,14 +46,16 @@ shows the look. Every mark explains itself on hover.
 
 - **INSDC Feature Table 11.4,** `/transl_table`: the value is an NCBI genetic code id. NCBI
   gc.prt 4.6 defines 27 of them: 1–6, 9–16 and 21–33.
-- **NCBI validator** (C++ Toolkit, `src/objects/valerr/ValidErrItem.cpp:2075` at `d0d7af1`):
-  `GenCodeInvalid`, "A coding region contains invalid genetic code." It reports the CDS. It
-  does not translate it with another code.
+- **NCBI validator** (C++ Toolkit at `d0d7af1`): `GenCodeInvalid`, "A coding region contains
+  invalid genetic code." It is defined in `src/objects/valerr/ValidErrItem.cpp:2075` and raised
+  from `src/objtools/validator/cdregion_validator.cpp:964`. That establishes that NCBI reports
+  the CDS. Whether any NCBI translation path falls back to another code was not checked.
 - **Biopython 1.88** (`Bio/Seq.py:2824`, tag `biopython-188`): an integer table is looked up
   with `CodonTable.ambiguous_generic_by_id[table_id]`. An unknown id raises `KeyError`, with no
   fallback.
-- **So no reference tool substitutes table 1.** The provisional view is Dunceious's own
-  presentation choice, not a translation method. That is why it must never be mistaken for a
+- **Neither reference treats table 1 as the answer.** NCBI flags the CDS, and Biopython refuses
+  to translate. The provisional view is Dunceious's own presentation choice, not a translation
+  method. That is why it must never be mistaken for a
   computed result (CLAUDE.md: no silent approximation).
 
 ## Which codons depend on the code
@@ -77,8 +79,10 @@ amino-acid row differs from table 1 in at least one NCBI code:
 
 The other 51 codons read the same in all 27 codes.
 
-The table is generated in a test from `NCBI_GENETIC_CODES` and checked against this literal
-list, so a gc.prt update that changes it fails loudly.
+A test derives this table from the repo's independent Biopython 1.88 fixture
+(`src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json`), not from
+`NCBI_GENETIC_CODES`. It compares the result with both this literal list and the production
+helper, so a gc.prt update that changes the table fails loudly.
 
 ## Design
 
@@ -92,7 +96,10 @@ export interface AssumedTranslation {
   codeSensitive: boolean[];      // per codon: true when some NCBI code reads it differently
 }
 
-/** Only for a CDS whose /transl_table is present and not an NCBI code; otherwise undefined. */
+/**
+ * Only for a feature the translation band already translates (`CDS_ORF_TYPES` in cds.ts: CDS,
+ * cds, ORF, orf) whose /transl_table is present and not an NCBI code; otherwise undefined.
+ */
 export function assumedTranslation(feature: BioFeature, codingSeq: string): AssumedTranslation | undefined;
 
 /** For one codon: the other NCBI readings, from the table above, for the tooltip. */
@@ -102,7 +109,9 @@ export function otherReadings(codon: string): { residue: string; tables: number[
 - **Codon by codon, literally,** using table 1's amino-acid row.
   - No initiator rewrite: start codons are code-specific, so codon 1 is never turned into M.
   - No terminal-context rule.
-  - An ambiguous codon is `?`, as today.
+  - Bases are uppercased and U becomes T first.
+  - An ambiguous codon is `?`, as today. It counts as code-sensitive when any of its expansions
+    is.
 - **It is never an input** to computed translation, comparison, the early-stop flag, the
   amino-acid count's DNA metric, `/translation` or any export. #253's spec on PR #291
   (`docs/specs/2026-11-06-translation-stored-protein-provenance.md`) defines those, and under
@@ -110,7 +119,8 @@ export function otherReadings(codon: string): { residue: string; tables: number[
   doesn't change that contract.
 - **A stored `/translation` wins.** If the CDS has one, the band shows the stored residues as
   today. They are the annotation's own claim, marked "can't verify against the DNA" under
-  #253. The assumed view appears only when there is no stored protein.
+  #253. The assumed view appears only when there is no stored protein. Every label below
+  depends on which source is shown.
 - `featureTranslTable` and `translateSequence` keep their contracts.
 
 ### Where the assumption shows, and how
@@ -127,18 +137,29 @@ Every surface that shows these residues, or a number derived from them, says "as
    - Code-sensitive codon: "TGA: stop in table 1, assumed. W in tables 2, 3, 4, …; C in 10; G in
      25."
    - Other codons: "W, assuming table 1. TGG reads W in every NCBI code."
-3. **Band warning target and feature tooltip:** `geneticCodeWarning` is reworded to
-   "/transl_table=99 is not an NCBI genetic code. Residues assume table 1 (Standard) and may be
-   wrong at code-sensitive codons such as TGA." An empty value reads `/transl_table=` (empty).
-4. **Hub count** (`TrackTooltip.tsx`):
-   - For example, "103 aa, assumed table 1": the assumed residues without a final table-1 stop.
-     Internal table-1 stops follow #253 decision 11's wording, e.g. "103 positions, 1 stop,
-     assumed table 1".
-   - When the CDS has a stored `/translation`, the count follows #253 and says
-     "can't verify against the DNA".
-5. **Early-stop flag:** never raised from assumed residues. The feature tooltip's
-   "⚠ Early stop codon" line is suppressed for an invalid code, and the warning above explains
-   why.
+   - Ambiguous codon: "TGN: ambiguous. In table 1 it can be C, W or a stop; other codes read
+     some of these differently."
+3. **Band warning target and feature tooltip:** `geneticCodeWarning` takes the displayed source.
+   An empty value reads `/transl_table=` (empty).
+   - Assumed view: "/transl_table=99 is not an NCBI genetic code. Residues assume table 1
+     (Standard) and may be wrong at code-sensitive codons such as TGA."
+   - Stored protein shown: "/transl_table=99 is not an NCBI genetic code. The residues shown are
+     the annotation's /translation and can't be checked against the DNA."
+4. **Hub count** (`TrackTooltip.tsx`). Two separate numbers, never merged:
+   - The DNA metric of #253's spec (decision 11) is unavailable for an invalid code, so it reads
+     "can't verify", exactly as #253 specifies.
+   - With the assumed view, a second, separately labelled provisional count follows:
+     "103 aa if table 1". It counts the assumed residues without a final table-1 stop. Internal
+     table-1 stops use decision 11's wording, e.g. "103 positions, 1 stop, if table 1".
+   - With a stored protein, there is no provisional count. The stored length is not a DNA metric.
+   - Before #253 lands, the "can't verify" part replaces today's code-blind count.
+5. **Early-stop flag** (`computeBrokenFeatureMap`, which also drives the band's red cells): it
+   is never derived from assumed residues.
+   - With a stored protein, it follows whichever contract is current. Today `isFeatureBroken`
+     reads a stored internal `*` (`sequence.ts:342`). After #253 it is unavailable for an
+     invalid code, so there is no flag.
+   - With the assumed view, there is never a flag. The feature tooltip's "⚠ Early stop codon"
+     line is absent, and the warning above explains why.
 
 ### What stays exactly as it is
 
@@ -152,8 +173,8 @@ Every surface that shows these residues, or a number derived from them, says "as
 The two PRs may land in either order:
 
 - **Before #253:** the assumed view replaces only the `?` residues of `translateFeature` for an
-  invalid code with no stored protein. The early-stop flag keeps today's behaviour, which never
-  flags `?`.
+  invalid code with no stored protein. The early-stop flag keeps today's behaviour: a stored
+  internal `*` still flags, and assumed residues never do.
 - **After #253:** the assumed view sits beside `conceptualTranslation`'s
   `unavailable: 'invalid-code'`, and the count switches to decision 11's wording.
 
@@ -163,12 +184,14 @@ The oracle is literal gc.prt 4.6 rows, not the code's own output.
 
 | Guarantee | Test | Cases |
 |---|---|---|
-| Code-sensitive codons | `assumedTranslation.test.ts` | Generated set equals the literal table above. `otherReadings('TGA')` equals the literal TGA row |
-| Assumed residues | same | `/transl_table=99`, `ATGTGGTGAGCT` gives `MW*A`, with TGA code-sensitive. Codon 1 GTG under 99 stays V. `/transl_table=` (empty) and `abc` behave as 99. Absent, `1` and `11` give `undefined` |
-| Never computed | same and `sequence.test.ts` | `translateSequence(seq, 99)` still gives `?` per codon; `conceptualTranslation` (once #253 lands) still `unavailable`; serializer output for that CDS has no `/translation` added |
-| Stored wins | `SequenceTrack` test | Invalid code with stored `/translation`: band shows the stored residues, no dashed cells |
-| Drawing | `SequenceTrack` canvas spy | Invalid code: every codon drawn as `setLineDash` outline, no `fillRect` for residue cells; a table-1 stop drawn red dashed with `*`, never `!` |
-| Labels | `Row`, `TrackTooltip` tests | Feature tooltip shows the reworded warning and no early-stop line. Hub count reads "… aa, assumed table 1". Hover text on TGA lists its other readings |
+| Code-sensitive codons | `assumedTranslation.test.ts` | Derived from the Biopython 1.88 fixture: equals the literal table above and the production set. `otherReadings` equals the fixture-derived readings for all 13 codons |
+| Assumed residues | same | `/transl_table=99`, `ATGTGGTGAGCT` gives `MW*A`, with TGA code-sensitive. RNA lowercase `augugguga` gives `MW*`. Codon 1 GTG under 99 stays V. `TGN` gives `?` and is code-sensitive; `GCN` gives `?` and is not. `/transl_table=` (empty) and `abc` behave as 99. Absent, `1` and `11` give `undefined` |
+| Eligible types | same and `SequenceTrack` test | CDS, cds, ORF and orf with an invalid code get the assumed view; a `gene` does not |
+| Never computed | same and `sequence.test.ts` | `translateSequence(seq, 99)` still gives `?` per codon; `conceptualTranslation` (once #253 lands) still `unavailable`; GenBank and GFF3 output for that CDS has no `/translation` added; project serialization contains no assumed residue |
+| Stored wins | `SequenceTrack` and `Row` tests | Invalid code with stored `/translation`: band shows the stored residues with no dashed cells, the tooltip shows the stored-protein warning, and no provisional count appears |
+| Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no red cell |
+| Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein: every codon drawn as a `setLineDash` outline, no `fillRect` for residue cells; a table-1 stop drawn red dashed with `*`, never `!` |
+| Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows "can't verify" plus "… aa if table 1". Hover text on TGA lists its other readings, and on TGN the ambiguity text |
 
 ## Living documents
 
