@@ -27,7 +27,7 @@ import type { BioFeature } from '@/src/domain/bio/types';
 
 function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1, codonStart }: { sequence: string; codonStart?: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
   const update = useTrackTooltip();
-  const feature: BioFeature = { type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, translation, metadata: { transl_table: table, ...(codonStart !== undefined ? { codon_start: codonStart } : {}), ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
+  const feature: BioFeature = { segments: [{ start: 0, end: sequence.length }], type, name: 'test', start: 0, end: sequence.length, strand: typeof orientation === 'number' ? orientation : 1, metadata: { ...(translation ? { translation } : {}), transl_table: table, ...(codonStart !== undefined ? { codon_start: codonStart } : {}), ...(typeof orientation === 'string' ? { _gffStrand: orientation } : {}) } };
   return <button onClick={() => update({ record: { id: 'r', name: 'r', sequence, moleculeType, features: [feature] }, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
 }
 
@@ -174,4 +174,13 @@ it.each([
   expect(tip.textContent).not.toMatch(/\d+ (?:aa|positions)/);
   expect(tip.textContent).not.toContain('table 1 assumed');
   expect(tip.querySelector('[data-unverified-count]')).toBeNull();
+});
+
+it.each([
+  ['ATGTAA', undefined, '1 aa'], ['ATGTAA', 'M', '1 aa'],
+  ['ATGTAAGGGTAA', 'MXG', '3 positions, 1 internal stop'],
+])('counts current conceptual positions for %s with stored %s', (sequence, translation, count) => {
+  const view = render(<TrackTooltipProvider><Subject sequence={sequence!} table="1" translation={translation} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  expect(view.getByRole('tooltip').textContent).toContain(count);
 });

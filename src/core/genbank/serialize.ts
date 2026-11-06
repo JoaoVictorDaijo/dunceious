@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isCds } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
@@ -134,10 +135,11 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
   }
   for (const feature of features) {
+      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
     const metadata = { ...feature.metadata };
-    if (feature.translation && metadata.translation === undefined) metadata.translation = feature.translation;
+    if (!isCds(feature)) delete metadata.translation;
     if (feature.type === 'source') {
       for (const [key, qualifier] of Object.entries(DETAIL_QUALIFIER)) {
         const value = details[key as keyof typeof details];

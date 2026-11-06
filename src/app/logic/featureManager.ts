@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation, conceptualTranslation, isCds, translationReason } from '@/src/domain/bio/translation';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { getOriginalPos } from '@/src/domain/bio';
@@ -28,6 +30,7 @@ export function saveEditedFeature(
   recordId: string,
   featureIndex: number,
   feature: BioFeature,
+  addLog: (message: string) => void = () => {},
 ): SeqRecord[] {
   return records.map(r => {
     if (r.id !== recordId) return r;
@@ -35,6 +38,7 @@ export function saveEditedFeature(
     const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
     const marked: BioFeature = { ...feature, ...featureEnvelope(feature), hubEdit };
     const previous = r.features[featureIndex];
+    if (!previous && !marked.segments?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
     if (previous && (previous.start !== feature.start || previous.end !== feature.end
       || previous.strand !== feature.strand || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments)
       || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
@@ -43,8 +47,37 @@ export function saveEditedFeature(
       delete marked.metadata._gffPhases;
       delete marked.metadata._gffPhaseState;
     }
-    if (featureIndex === -1) newFeatures.push(marked);
-    else newFeatures[featureIndex] = marked;
+    const changed = !previous || !isCds(previous) || previous.start !== marked.start || previous.end !== marked.end
+      || getFeatureStrand(previous) !== getFeatureStrand(marked)
+      || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
+      || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
+      || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
+    marked.metadata = { ...marked.metadata };
+    if (!isCds(marked)) {
+      if (marked.metadata.translation !== undefined) addLog(`Translation removed from ${marked.name}: feature is not a CDS`);
+      delete marked.metadata.translation; delete marked.metadata._translationSource; delete marked.metadata._translationCheck;
+    } else if (changed) {
+      const result = conceptualTranslation(marked, r);
+      const reason = translationReason(result, marked);
+      if (result.status === 'ok' && !result.internalStops.length) {
+        marked.metadata.translation = result.residues;
+        marked.metadata._translationSource = 'computed';
+        marked.metadata._translationMessage = previous ? 'Translation recomputed after edit' : 'Translation computed at creation';
+      } else {
+        delete marked.metadata.translation;
+        marked.metadata._translationSource = 'removed';
+        marked.metadata._translationMessage = `${previous ? 'Translation removed after edit' : 'No translation stored at creation'}: ${reason}`;
+        addLog(`WARNING: ${marked.name}: ${reason}`);
+      }
+    } else {
+      for (const key of ['translation', '_translationSource', '_translationMessage']) {
+        delete marked.metadata[key];
+        if (previous.metadata?.[key] !== undefined) marked.metadata[key] = previous.metadata[key];
+      }
+    }
+    const checked = checkTranslation(marked, r);
+    if (featureIndex === -1) newFeatures.push(checked);
+    else newFeatures[featureIndex] = checked;
     return { ...r, features: newFeatures, annotationsEdited: true };
   });
 }

@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { translationDescription } from '@/src/domain/bio/translation';
+import { saveEditedFeature } from '@/src/app/logic/featureManager';
 import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
@@ -92,6 +94,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 
   if (feature.type === 'source' || records.find(record => record.id === recordId)?.features[featureIndex]?.type === 'source') return null;
 
+  const preview = saveEditedFeature(records, recordId, featureIndex, feature).find(r => r.id === recordId)?.features[featureIndex === -1 ? records.find(r => r.id === recordId)!.features.length : featureIndex];
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out my-auto">
@@ -329,7 +332,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           )}
 
-          {/* Qualifiers — every /key="value" pair is editable */}
+          {preview && <p role="status" className="text-xs text-amber-400">{translationDescription(preview, records.find(r => r.id === recordId)!)}</p>}
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -358,6 +361,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         <input
                           type="text"
                           value={row.key}
+                          readOnly={row.key === 'translation'}
                           placeholder="qualifier"
                           aria-label="Qualifier name"
                           spellCheck={false}
@@ -366,6 +370,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         />
                         <button
                           onClick={() => commitRows(rows.filter(r => r.id !== row.id))}
+                          disabled={row.key === 'translation'}
                           aria-label={`Remove qualifier ${row.key || 'draft'}`}
                           data-tip="Remove this qualifier"
                           className="w-6 h-6 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
@@ -375,11 +380,13 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                       </div>
                       <textarea
                         value={row.value}
+                        readOnly={row.key === 'translation'}
                         rows={Math.min(4, Math.max(1, Math.ceil(row.value.length / 48)))}
                         aria-label={`Value of ${row.key || 'qualifier'}`}
                         onChange={e => updateRow(row.id, { value: e.target.value })}
                         className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-hidden break-words"
                       />
+                      {row.key === 'translation' && <p className="text-[11px] text-slate-400">{feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported'} · Read-only</p>}
                       {issue && <p className="text-[11px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
                     </div>
                   );

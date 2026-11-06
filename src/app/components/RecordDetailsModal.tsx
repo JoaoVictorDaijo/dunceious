@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isCds, storedTranslation, translationDescription } from '@/src/domain/bio/translation';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -148,9 +149,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleCopyTranslation = async () => {
     const translated = feature;
-    if (!translated?.translation) return;
+    if (!(translated && storedTranslation(translated))) return;
     try {
-      if (await copyText(translated.translation)) onCopyLog(`Translation for ${translated.name} copied.`);
+      if (await copyText(storedTranslation(translated)!)) onCopyLog(`Translation for ${translated.name} copied.`);
     } catch {
       onCopyLog(`Copy failed for the translation of ${translated.name}.`);
     }
@@ -352,8 +353,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
             </div>
           </div>
 
+          {feature && isCds(feature) && <p className="text-xs text-slate-500">{storedTranslation(feature) ? feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported' : ''} · {translationDescription(feature, record)}</p>}
           {/* Translation (feature only) */}
-          {feature?.translation && (
+          {(feature && storedTranslation(feature)) && (
             <div className="stack-y-3 pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
@@ -367,7 +369,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </div>
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-inner">
                 <p className="text-[11px] font-mono text-emerald-400 break-all leading-relaxed">
-                  {feature.translation}
+                  {storedTranslation(feature)}
                 </p>
               </div>
             </div>

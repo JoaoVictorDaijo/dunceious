@@ -171,7 +171,6 @@ function clipFeature(
 
   const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
   if (!clipped) return result;
-  delete result.translation;
   if (feature.metadata) {
     result.metadata = { ...feature.metadata };
     delete result.metadata.translation;

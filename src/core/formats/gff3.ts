@@ -164,6 +164,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
     for (const [featureIndex, feature] of record.features.entries()) {
+      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
       if (feature.type === 'source') continue;
       const remote = feature.remoteParts ?? [];
       // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
@@ -402,6 +403,7 @@ export function parseGFF3(content: string): {
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }
     metadata._gffPhases ??= JSON.stringify([metadata.phase]);
+    if (metadata.translation !== undefined) metadata._translationSource = 'imported';
     const id = metadata.ID;
     const key = id ? JSON.stringify([seqid, id]) : undefined;
     const previous = key ? byId.get(key) : undefined;

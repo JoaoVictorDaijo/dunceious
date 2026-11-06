@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -26,11 +27,11 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
-export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
+export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds', 'SO:0000316'];
 
 /** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
 export const isTranslatedFeature = (feature: BioFeature): boolean =>
-  CDS_ORF_TYPES.includes(feature.type) && definesOneSequence(feature);
+  (isCds(feature) || ['ORF', 'orf'].includes(feature.type)) && definesOneSequence(feature);
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
@@ -41,7 +42,7 @@ export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, mole
   if (isNcbiGeneticCode(featureTranslTable(feature))) return null;
   const prefix = `⚠ /transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code.`;
   if (moleculeType === 'protein' || typeof getFeatureStrand(feature) !== 'number') return prefix;
-  const stored = feature.translation;
+  const stored = storedTranslation(feature);
   if (!stored) return `${prefix} Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.`;
   if (codingSeq !== undefined && stored.length < Math.floor(codingSeq.length / 3)) {
     return `${prefix} The first ${stored.length} residues are the annotation's /translation and can't be checked; the rest assume table 1.`;
@@ -78,15 +79,7 @@ export function assumedCodonDescription(codon: string, residue: string, codeSens
     : `${residue}, assuming table 1. Every reading of ${normalized} is ${residue} in every NCBI code.`;
 }
 
-/**
- * Maps each CDS/ORF feature to whether its protein has an internal (early) stop
- * codon — a "broken" protein. Prefers the stored `/translation` over
- * recomputation (see {@link isFeatureBroken}).
- *
- * Keyed by the feature object, not its interval: a source or gene sharing a
- * broken CDS's span must not inherit the mark. A peptide record has no codons
- * to read, so it never has broken features.
- */
+/** DNA determines CDS stop status; unavailable CDSs have no stop claim. ORFs retain their display policy. */
 export const computeBrokenFeatureMap = (
   features: BioFeature[],
   seq: string,
@@ -97,11 +90,16 @@ export const computeBrokenFeatureMap = (
   features
     .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
-      const { codingSeq } = extractCodingSequence(f, seq);
+      if (isCds(f)) {
+        const broken = isFeatureBroken(f, { sequence: seq, moleculeType });
+        if (broken !== undefined) map.set(f, broken);
+        return;
+      }
+      const { codingSeq } = extractCodingSequence(resolvedTranslationFeature(f), seq);
       const translTable = featureTranslTable(f);
       // Stored stops remain annotation claims; assumed residues never establish broken status.
-      const storedBroken = !isNcbiGeneticCode(translTable) && f.translation
-        ? /[_*]/.test(f.translation.slice(0, -1)) : undefined;
+      const storedBroken = storedTranslation(f)
+        ? /[_*]/.test(storedTranslation(f)!.slice(0, -1)) : undefined;
       map.set(f, storedBroken ?? isFeatureBroken(f, codingSeq, translTable));
     });
   return map;
@@ -171,7 +169,7 @@ export const assignTranslationLanes = (
     features
       .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
       .forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq);
         const spans = new Map<Frame, { start: number; end: number }[]>();
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
           const startIdx = alignedIndices[j];

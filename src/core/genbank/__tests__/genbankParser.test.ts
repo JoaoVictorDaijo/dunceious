@@ -101,7 +101,7 @@ describe('parseGenBank – smoke tests', () => {
   it('stores /translation qualifier on the feature', () => {
     const [record] = parseGenBank(MINIMAL_GB).records;
     const cds = record.features.find(f => f.type === 'CDS');
-    expect(cds!.translation).toBe('MTEST');
+    expect(cds!.metadata?.translation).toBe('MTEST');
   });
 
   it('returns empty array for empty input', () => {

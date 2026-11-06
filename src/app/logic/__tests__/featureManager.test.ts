@@ -195,3 +195,64 @@ it('retains an untouched legacy project phase when saving an unrelated feature n
   expect(exportToGenBank(saved).text).toContain('/codon_start=2');
   expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('1');
 });
+
+describe('stored CDS product at save (spec oracle)', () => {
+  const coding = (metadata: Record<string, string> = {}): BioFeature => ({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata });
+  it('stores MK at first save and exports it from the one field', () => {
+    const [r] = saveEditedFeature([rec({ id: 'r', sequence: 'ATGAAATAA' })], 'r', -1, coding());
+    expect(r.features[0].metadata).toMatchObject({ translation: 'MK', _translationSource: 'computed' });
+    expect(r.features[0]).not.toHaveProperty('translation');
+    expect(exportToGenBank([r]).text).toContain('/translation="MK"');
+    expect(exportToGff3([r]).text).toContain('translation=MK');
+  });
+  it('removes an internal-stop product after moving, warning at codon 2', () => {
+    const f = coding({ translation: 'MK', _translationSource: 'imported' }); const logs: string[] = [];
+    const [r] = saveEditedFeature([rec({ id: 'r', sequence: 'ATGAAATAAATGTGATAA', features: [f] })], 'r', 0,
+      { ...f, start: 9, end: 18, segments: [{ start: 9, end: 18 }] }, m => logs.push(m));
+    expect(r.features[0].metadata?.translation).toBeUndefined();
+    expect(r.features[0].metadata?._translationSource).toBe('removed');
+    expect(logs).toHaveLength(1); expect(logs[0]).toContain('codon 2');
+    expect(exportToGenBank([r]).text).not.toContain('/translation=');
+    expect(exportToGenBank([r]).report.translationWarnings).toHaveLength(1);
+    expect(exportToGff3([r]).report.translationWarnings[0]).toContain('codon 2');
+  });
+  it.each(['.', '?'])('known biological orientation invalidates %s even with numeric +1 unchanged', _gffStrand => {
+    const f = coding({ translation: 'MV', _translationSource: 'imported', _gffStrand });
+    const r = rec({ id: 'r', sequence: 'ATGAAATAA', features: [f] });
+    expect(saveEditedFeature([r], 'r', 0, { ...f, name: 'rename' })[0].features[0].metadata?.translation).toBe('MV');
+    const metadata = { ...f.metadata }; delete metadata._gffStrand;
+    expect(saveEditedFeature([r], 'r', 0, { ...f, metadata })[0].features[0].metadata).toMatchObject({ translation: 'MK', _translationSource: 'computed' });
+  });
+  it('keeps imported protein data until invalidation and never computes nucleotide residues on protein', () => {
+    const f = coding({ translation: 'QQQ', _translationSource: 'imported' });
+    const r = rec({ id: 'p', moleculeType: 'protein', sequence: 'GCTAAAGCT', features: [f] });
+    expect(saveEditedFeature([r], 'p', 0, { ...f, name: 'rename' })[0].features[0].metadata?.translation).toBe('QQQ');
+    const [changed] = saveEditedFeature([r], 'p', 0, { ...f, end: 6, segments: [{ start: 0, end: 6 }] });
+    expect(changed.features[0].metadata).toMatchObject({ _translationSource: 'removed' });
+    expect(changed.features[0].metadata?.translation).toBeUndefined();
+    expect(exportToGff3([changed]).text).not.toContain('translation=');
+  });
+});
+
+it('recomputes an effective frame and regenerates multipart GFF3 phases', () => {
+  const parsed = parseGFF3('r\tx\tCDS\t1\t5\t.\t+\t1\tID=c;translation=MP\nr\tx\tCDS\t9\t13\t.\t+\t2\tID=c;translation=MP');
+  const f = parsed.features.r[0];
+  const r = rec({ id: 'r', sequence: 'AATGCNNNCCTAA', features: [f] });
+  const [changed] = saveEditedFeature([r], 'r', 0, { ...f, metadata: { ...f.metadata, codon_start: '3' } });
+  expect(changed.features[0].metadata).toMatchObject({ translation: 'CP', _translationSource: 'computed' });
+  const text = exportToGff3([changed]).text;
+  expect(text.split('\n').filter(l => l.split('\t')[2] === 'CDS').map(l => l.split('\t')[7])).toEqual(['2', '0']);
+});
+
+it.each([
+  ['ATGTAAGGGTAA', {}, 'codon 2'],
+  ['ATGAAATAA', { transl_table: '99' }, 'not an NCBI genetic code'],
+  ['ATGAAATAA', { transl_except: '(pos:4..6,aa:Sec)' }, "can't be applied yet"],
+] as const)('denies invalid new CDS products for %s with %j', (sequence, metadata, reason) => {
+  const logs: string[] = [];
+  const [r] = saveEditedFeature([rec({ id: 'r', sequence })], 'r', -1,
+    { type: 'CDS', name: 'c', start: 0, end: sequence.length, strand: 1, metadata }, m => logs.push(m));
+  expect(r.features[0].metadata?.translation).toBeUndefined();
+  expect(r.features[0].metadata?._translationSource).toBe('removed');
+  expect(logs).toHaveLength(1); expect(logs[0]).toContain(reason);
+});

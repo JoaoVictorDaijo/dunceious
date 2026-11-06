@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkedTranslation, translationDescription, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { extractCodingSequence, featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
@@ -25,7 +26,7 @@ import { CDS_ORF_TYPES, geneticCodeWarning, isTranslatedFeature } from '@/src/ap
 import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { featureLength, featureLengthText } from '@/src/app/logic/viewModel';
+import { featureLengthText } from '@/src/app/logic/viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 export type TrackHover = { record: SeqRecord; feature: BioFeature; color: string; x: number; y: number };
@@ -53,20 +54,22 @@ function unverifiedCount(protein: string): string {
 
 function TrackTooltip({ hover }: { hover: TrackHover }) {
   const { feature, record, color } = hover;
-  const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
   const strand = getFeatureStrand(feature);
   const frameWarning = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
     ? geneticCodeWarning(feature) : null;
-  const aminoAcids = feature.metadata?.translation?.replace(/\s/g, '').length ?? Math.floor(Math.max(0, length - (Number(feature.metadata?.codon_start || 1) - 1)) / 3);
+  const conceptual = checkedTranslation(feature, record);
+  const metric = conceptual.status === 'ok'
+    ? conceptual.internalStops.length ? `${conceptual.residues.length} positions, ${conceptual.internalStops.length} internal stop${conceptual.internalStops.length === 1 ? '' : 's'}` : `${conceptual.residues.length} aa`
+    : `can't verify: ${translationReason(conceptual, feature)}`;
   // An order() CDS or one with remote parts defines no single sequence, so no protein count (LOC-7).
   const translated = record.moleculeType !== 'protein' && isTranslatedFeature(feature);
   const invalidCode = translated && !isNcbiGeneticCode(featureTranslTable(feature));
-  const assumed = !frameWarning && invalidCode && (strand === 1 || strand === -1) && !feature.translation ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
+  const assumed = !frameWarning && invalidCode && (strand === 1 || strand === -1) && !storedTranslation(feature) ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence).codingSeq) : undefined;
   const count = !frameWarning && invalidCode && (strand === 1 || strand === -1)
-    ? unverifiedCount(feature.translation || assumed?.residues || '') : null;
+    ? unverifiedCount(storedTranslation(feature) || assumed?.residues || '') : null;
   const invalidReason = `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`;
   const countReason = frameWarning || !invalidCode ? null : count === null ? geneticCodeWarning(feature)
-    : feature.translation
+    : storedTranslation(feature)
       ? `Count not verified: ${invalidReason}; the count is the annotation's /translation and can't be checked against the DNA.`
       : `Count not verified: ${invalidReason}; table 1 assumed.`;
   const reasonId = useId();
@@ -85,8 +88,10 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
       ? ` · ${frameWarning}`
       : invalidCode
       ? count !== null && <> · <span data-unverified-count="" className="italic underline decoration-dotted underline-offset-2" aria-describedby={reasonId}>{count}</span></>
-      : feature.type === 'CDS' && translated && ` · ${aminoAcids.toLocaleString('en-US')} aa`}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
-    <p className="mt-2 text-slate-400">Click to jump to the row</p>
+      : isCds(feature) && record.moleculeType !== 'protein' && ` · ${metric}${conceptual.status === 'ok' && conceptual.threePrimeIndeterminate ? ' · end uncertain' : ''}`}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
+    <p className="mt-2 text-slate-400" title="Translation positions without the terminal stop; internal stops and X/U/O included.">Click to jump to the row</p>
+    {isCds(feature) && conceptual.status === 'ok' && <p className="mt-2 text-[10px] text-slate-400">Translation positions without the terminal stop; internal stops and X/U/O included.</p>}
+    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationDescription(feature, record)}</p>}
     {countReason && <p id={reasonId} data-count-reason="" className="mt-2 text-[10px] text-slate-400">{countReason}</p>}
   </div>;
 }
