@@ -50,13 +50,18 @@ export function parseGenBank(content: string): { records: SeqRecord[]; findings:
     offset = position + piece.length;
     const name = piece.match(/^LOCUS\s+(\S+)/m)?.[1] ?? `Record ${index + 1}`;
     const finding: import('./findings').FindingSink = (tier, code, message, line, feature) => findings.push({ tier, code, message, record: { name, index: index + 1 }, feature, line: line === undefined ? undefined : line + lineOffset });
+    if (!/^\s*\/\/[ \t]*(?:\r?\n|$)/.test(content.slice(offset))) {
+      const message = index < pieces.length - 1
+        ? `Record ${name} has no // before the next LOCUS.`
+        : `The file ends inside record ${index + 1} without //; it may be cut short.`;
+      finding('refuse', 'missing-terminator', message);
+    }
     const record = toSeqRecord(piece, finding);
     validateRecord(record, piece.split(/\r?\n/), finding);
     if (names.has(name)) finding('warning', 'duplicate-locus', `${name} is repeated; its internal ID will be renamed on import.`);
     names.add(name);
     return record;
   });
-  if (records.length && !/(?:^|\r?\n)\/\/[ \t]*\s*$/.test(content)) findings.push({ tier: 'refuse', code: 'missing-terminator', record: { name: records.at(-1)!.id, index: records.length }, message: `The file ends inside record ${records.length} without //; it may be cut short.` });
   if (new Set(records.filter((_, i) => /\s\d+\s+(bp|aa)(?=\s|$)/i.test(pieces[i])).map(r => r.moleculeType === 'protein' ? 'protein' : 'nucleotide')).size > 1) findings.push({ tier: 'refuse', code: 'molecule-mixture', record: { name: records[0].id, index: 1 }, message: 'This file mixes protein and nucleotide records.' });
   return { records, findings };
 }

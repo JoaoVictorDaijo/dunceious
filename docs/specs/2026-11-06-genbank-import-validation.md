@@ -128,7 +128,7 @@ and the line.
 | Missing LOCUS | Each entry starts with LOCUS (GenBank §3.4.4) | "Record 2 has no LOCUS line." |
 | No sequence data | An entry with no sequence lines, whether or not an ORIGIN header is present, and no CONTIG | "NC_X has no sequence." |
 | Sequence only as CONTIG | The entry has a CONTIG line (§3.4.15) and no sequence lines, with or without an ORIGIN header. The sequence must be assembled from other entries | "NC_X gives its sequence as CONTIG (assembled from other records), which Dunceious can't read yet." |
-| Missing final `//` | Each entry ends with `//`. A file that ends inside an entry may be cut short | "The file ends inside record 4 without //; it may be cut short." |
+| Missing final `//` | Each entry ends with `//`. This applies to every entry, including one followed by another LOCUS. A file that ends inside an entry may be cut short | "The file ends inside record 4 without //; it may be cut short." |
 | Residue characters | Sequence lines are a base count, then residues (§3.4.14 writes them in groups of 10 separated by spaces). Grouping is layout and is not enforced: a line of 60 residues without spaces is accepted. After removing the leading count and all whitespace, every character must be a residue: ALPHA-1 for DNA/RNA, ALPHA-2 for protein, either case. `-`, `.`, `*`, digits inside the residues and any other symbol are refused, with the first position | "The sequence contains "-" at base 1,204." |
 | Length mismatch | The LOCUS length, the integer token followed by the unit token `bp` or `aa`, equals the residue count (§3.4.4) | "LOCUS says 39,937 bp, but ORIGIN has 39,935 bases." |
 | LOCUS length or unit unreadable | No integer token followed by `bp` or `aa` | "NC_X's LOCUS line has no sequence length." |

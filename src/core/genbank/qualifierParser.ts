@@ -55,7 +55,7 @@ export function parseQualifiers(
     while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) {
       const next = lines[i + 1].trim();
       const openQuote = quoted && !quotedValueIsClosed(value);
-      if (openQuote && /^\/\w+="/.test(next)) {
+      if (openQuote && /^\/\w+="(?!")/.test(next)) {
         interrupted = true;
         while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) i++;
         break;

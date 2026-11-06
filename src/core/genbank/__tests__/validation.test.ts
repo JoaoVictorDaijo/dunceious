@@ -19,6 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { parseGenBank } from '../index';
 
 const gb = (sequence = 'acgt', feature = '', locus = 'X 4 bp DNA') => `LOCUS       ${locus}
@@ -149,4 +150,34 @@ it('accepts the UniProt POMC slash-text continuation inside an open note', () =>
 `));
   expect(result.findings).toEqual([]);
   expect(result.records[0].features[0].metadata?.note).toBe('O-linked (HexNAc...) threonine. /evidence=ECO:0000269|PubMed:6267033; propagated from UniProtKB/Swiss-Prot (P01189.2)');
+});
+
+it('accepts escaped quoted qualifier text within a multiline note (INSDC §3.3.3.1)', () => {
+  const result = parseGenBank(`LOCUS       Q 4 bp DNA
+FEATURES             Location/Qualifiers
+     gene            1..4
+                     /note="example qualifier
+                     /gene=""foo""
+                     is literal text"
+ORIGIN
+        1 acgt
+//
+`);
+  expect(result.findings).toEqual([]);
+  expect(result.records[0].features[0].metadata?.note).toBe('example qualifier /gene="foo" is literal text');
+});
+
+it.each([
+  'LOCUS A 4 bp DNA\nORIGIN\n 1 acgt\nCONTIG join(AB:1..4)\nLOCUS B 4 bp DNA\nORIGIN\n 1 ttt\n//\n',
+  'LOCUS A 4 bp DNA\nLOCUS B 4 bp DNA\nORIGIN\n 1 ttt\n//\n',
+])('refuses an unterminated entry and validates the next LOCUS independently: %s', content => {
+  const response = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'broken.gb', content });
+  expect(response.type).toBe('PARSE_REFUSED');
+  if (response.type !== 'PARSE_REFUSED') throw new Error('Expected a whole-file refusal');
+  expect(response.records.map(r => r.id)).toEqual(['A', 'B']);
+  expect(response.records[1].sequence).toBe('TTT');
+  expect(response.findings).toEqual(expect.arrayContaining([
+    expect.objectContaining({ tier: 'refuse', code: 'missing-terminator', record: { name: 'A', index: 1 }, message: 'Record A has no // before the next LOCUS.' }),
+    expect.objectContaining({ tier: 'refuse', code: 'length-mismatch', record: { name: 'B', index: 2 } }),
+  ]));
 });
