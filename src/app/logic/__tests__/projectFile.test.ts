@@ -19,6 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { isFeatureBroken } from '@/src/domain/bio/sequence';
 import { serializeProject, parseProject } from '../projectFile';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
@@ -64,7 +65,7 @@ describe('project format 2', () => {
 
 it.each([
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, locationString: {} }] },
-  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, translation: 42 }] },
+  { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, metadata: { translation: 42 } }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, color: {} }] },
   { features: [{ type: 'gene', name: 'g', start: 0, end: 4, strand: 1, segments: [{ start: 0, end: 4, strand: 'reverse' }] }] },
   { tracks: [{ id: 't', name: 't', kind: 'invalid', data: [] }] },
@@ -127,6 +128,128 @@ it.each([
   if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
 
+it('refuses partly stranded pieces naming the feature, retains invalid geometry, and strips derived geometry', () => {
+  const feature = { type: 'gene', name: 'damaged', start: 8, end: 2, strand: 1 as const,
+    segments: [{ start: 8, end: 2 }, { start: 3, end: 5, strand: 1 as const }], biological: { start: 0, end: 1, strand: 1 as const } };
+  expect(parseProject(serializeProject({ ...state, records: [{ ...record, features: [feature] }] })))
+    .toEqual({ ok: false, message: 'Feature damaged has a strand on some of its pieces but not others.' });
+  const invalid = { ...feature, segments: [] };
+  const loaded = parseProject(JSON.stringify({ ...state, format: 2, records: [{ ...record, features: [invalid] }] }));
+  expect(loaded.ok).toBe(true);
+  if (loaded.ok) {
+    expect(loaded.project.records[0].features[0]).toMatchObject({ start: 8, end: 2 });
+    expect(loaded.project.records[0].features[0]).not.toHaveProperty('biological');
+  }
+  expect(JSON.parse(serializeProject({ ...state, records: [{ ...record, features: [invalid] }] })).records[0].features[0]).not.toHaveProperty('biological');
+});
+
+// Projects saved before features carried `operator` and `betweenBases` hold order() and n^n+1 only
+// in locationString, which the first edit clears. Loading reads both from that text (INSDC FT 11.4
+// §3.4.2.1-2), so an edit cannot turn order() into join() or keep a site two bases wide.
+describe('project locations saved before operators and sites', () => {
+  const load = (feature: Record<string, unknown>, extra: Partial<SeqRecord> = {}) => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, ...extra,
+      features: [{ type: 'misc_feature', name: 'f', strand: 1, ...feature } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    return result.project.records[0].features[0];
+  };
+
+  it('reads the operator of an order() feature from its location text', () => {
+    expect(load({ start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(1..3,11..13)' }).operator).toBe('order');
+  });
+
+  it('re-reads a site saved with the two-base geometry as zero bases', () => {
+    expect(load({ start: 9, end: 11, segments: [{ start: 9, end: 11 }], locationString: '10^11' }))
+      .toMatchObject({ start: 10, end: 10, segments: [{ start: 10, end: 10 }], betweenBases: true });
+  });
+
+  it('leaves a site that does not fit its record as saved', () => {
+    expect(load({ start: 29, end: 1, locationString: '30^1' })).toMatchObject({ start: 29, end: 1 });
+  });
+
+  it.each([{ operator: 'splice' }, { betweenBases: 'yes' }])('refuses the invalid location field %o', field => {
+    const result = parseProject(serializeProject({ ...state, records: [{ ...record,
+      features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 0, end: 1, ...field } as never] }] }));
+    expect(result.ok).toBe(false);
+  });
+});
+
+// LOC-4 for projects saved before the partial flags existed: the text still holds < and >, and the
+// stored segments are the ones that text was read as, so the flags are copied onto them.
+describe('project partial ends saved before the flags', () => {
+  const load = (feature: Record<string, unknown>) => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined,
+      features: [{ type: 'CDS', name: 'c', strand: 1, ...feature } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    return result.project.records[0].features[0];
+  };
+
+  it('reads the markers of <1..20 from its text', () => {
+    expect(load({ start: 0, end: 20, segments: [{ start: 0, end: 20 }], locationString: '<1..20' }).segments)
+      .toEqual([{ start: 0, end: 20, partialStart: true }]);
+  });
+
+  it('leaves segments alone when they no longer match the text', () => {
+    expect(load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }).segments)
+      .toEqual([{ start: 0, end: 15 }]);
+  });
+});
+
+// #241 for projects saved before writtenOrder: the nested text gives the written order of the
+// stored (evaluation-order) segments, so a later edit keeps the linear envelope.
+describe('project written order saved before the field', () => {
+  it('reads the written order of a nested complement from its text', () => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, features: [{ type: 'misc_feature', name: 'n', strand: 1,
+      start: 0, end: 12, segments: [{ start: 9, end: 12, strand: -1 }, { start: 0, end: 3, strand: 1 }],
+      locationString: 'complement(join(complement(1..3),10..12))' } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.project.records[0].features[0].writtenOrder).toEqual([1, 0]);
+  });
+});
+
+// #245 for projects saved before remoteParts: the remote interval was stored as local bases, so the
+// feature is re-read from its text and the other entry's coordinates leave the local segments.
+describe('project remote parts saved before the field', () => {
+  it('moves J00194.1:100..202 out of the local segments', () => {
+    const legacy = { ...record, sequence: 'A'.repeat(300), alignedSequence: undefined, features: [{ type: 'CDS', name: 'r', strand: 1,
+      start: 0, end: 202, segments: [{ start: 0, end: 100 }, { start: 99, end: 202 }],
+      locationString: 'join(1..100,J00194.1:100..202)' } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.project.records[0].features[0]).toMatchObject({ segments: [{ start: 0, end: 100 }], start: 0, end: 100,
+      remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }] });
+  });
+});
+
+it.each([
+  { private_note: { toString: 'not callable' } },
+  { private_note: [] },
+  { private_note: 42 },
+  { private_note: false },
+  { private_note: null },
+  [],
+  'not a map',
+  null,
+])('refuses malformed inert qualifier data at the project boundary: %j', unknownQualifiers => {
+  const project = { ...state, records: [{ ...record, features: [{ ...record.features[0], unknownQualifiers }] }] };
+  expect(parseProject(JSON.stringify({ ...project, format: 2 }))).toEqual({ ok: false, message: 'This project file contains invalid workspace data.' });
+});
+
+it('preserves own inert string keys including prototype-shaped names through a project round trip', () => {
+  const unknownQualifiers = JSON.parse('{"__proto__":"literal prototype","constructor":"literal constructor","phase":"1"}');
+  const project = { ...state, records: [{ ...record, features: [{ ...record.features[0], unknownQualifiers }] }] };
+  const restored = parseProject(serializeProject(project));
+  expect(restored).toEqual({ ok: true, project: { ...project, format: 2 } });
+  if (!restored.ok) throw new Error(restored.message);
+  const inert = restored.project.records[0].features[0].unknownQualifiers!;
+  expect(Object.keys(inert).sort()).toEqual(['__proto__', 'constructor', 'phase']);
+  expect(inert.__proto__).toBe('literal prototype');
+  expect(inert.constructor).toBe('literal constructor');
+});
+
 it('refuses damaged residues and unequal alignment widths, and accepts valid alignment', () => {
   expect(parseProject(serializeProject({ ...state, records: [{ ...record, sequence: 'AC-GT' }] }))).toEqual({ ok: false,
     message: 'This project file contains gap characters in the sequence of local_1; the file is damaged' });
@@ -134,4 +257,40 @@ it('refuses damaged residues and unequal alignment widths, and accepts valid ali
     { ...record, id: 'b', sequence: 'ACTTGT', alignedSequence: 'ACTTGT--' }] }))).toEqual({ ok: false,
     message: 'This project file contains an alignment whose rows have different lengths' });
   expect(parseProject(serializeProject(state)).ok).toBe(true);
+});
+
+// Codex review of #306, round 3: a saved location the parser cannot read (here the obsolete 2.3)
+// leaves the feature as saved instead of failing the whole project load.
+it('loads a project whose saved location text cannot be parsed, keeping the feature as saved', () => {
+  const legacy = { ...record, sequence: 'ACGT', alignedSequence: undefined,
+    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
+  const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+  expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+});
+
+it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
+  const r: SeqRecord = { id: 'p', name: 'p', moleculeType: 'protein', sequence: 'GCTAAAGCT', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: source === 'computed' ? 'AKA' : 'QQQ', _translationSource: source, _translationCheck: '{"status":"ok","residues":"AKA"}' } }] };
+  const restored = parseProject(serializeProject({ ...state, records: [r] }));
+  if (!restored.ok) throw new Error(restored.message);
+  const f = restored.project.records[0].features[0];
+  expect(JSON.parse(f.metadata!._translationCheck)).toEqual({ status: 'unavailable', reason: 'protein-record' });
+  expect(f.metadata?.translation).toBe(source === 'computed' ? undefined : 'QQQ');
+  expect(f.metadata?._translationSource).toBe(source === 'computed' ? 'removed' : 'imported');
+  expect(JSON.parse(serializeProject(restored.project)).format).toBe(2);
+  expect(f).not.toHaveProperty('translation');
+});
+
+it('discards a forged nucleotide cache hiding a definite internal stop before publication', () => {
+  const nucleotide: SeqRecord = { id: 'r', name: 'r', moleculeType: 'dna', sequence: 'ATGTAAGGGTAA', features: [{
+    type: 'CDS', name: 'c', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }],
+    metadata: { translation: 'MKG', _translationSource: 'imported', _translationCheck: JSON.stringify({ status: 'ok', residues: 'MKG', possible: ['M', 'K', 'G'], internalStops: [], threePrimeIndeterminate: false, comparison: { differing: [], storedExtra: '', storedShortBy: 0 } }) },
+  }] };
+  const logs: string[] = [];
+  const loaded = parseProject(serializeProject({ ...state, records: [nucleotide] }), message => logs.push(message));
+  if (!loaded.ok) throw new Error(loaded.message);
+  const feature = loaded.project.records[0].features[0];
+  expect(feature.metadata).toMatchObject({ translation: 'MKG', _translationSource: 'imported' });
+  expect(JSON.parse(feature.metadata!._translationCheck)).toMatchObject({ status: 'ok', residues: 'M*G', possible: ['M', '*', 'G'], internalStops: [1], comparison: { differing: [1], storedExtra: '', storedShortBy: 0 } });
+  expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
+  expect(isFeatureBroken(feature, loaded.project.records[0])).toBe(true);
 });

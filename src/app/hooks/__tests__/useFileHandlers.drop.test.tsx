@@ -236,12 +236,12 @@ it.each(['protein', 'nucleotide'] as const)('settles dropped protein GenBank aga
   const worker = LocalWorker.instance;
   const request = worker.requests.find(request => request.type === 'PARSE_GENBANK')!;
   await act(async () => { worker.respond(request); await done; });
-  expect(request).toMatchObject({ incomingCategory: 'protein' });
+  expect(request).toMatchObject({ incomingCategory: undefined });
   expect(result.current.bio.records.map(record => [record.id, record.sequence])).toEqual(category === 'protein'
     ? [['existing', 'MEFW'], ['p', 'MEFW']] : [['existing', 'ACGT']]);
-  expect(result.current.handlers.moleculeTypeMismatch).toEqual(category === 'protein' ? null
-    : { incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.gb' });
-  if (category === 'nucleotide') expect(log).toHaveBeenCalledWith('protein.gb was not loaded: the session now holds nucleotide sequences');
+  expect(result.current.handlers.moleculeTypeMismatch).toBeNull();
+  expect(result.current.bio.genBankRefusals).toEqual(category === 'protein' ? [] : [expect.objectContaining({ filename: 'protein.gb', findings: [expect.objectContaining({ code: 'category-mismatch' })] })]);
+  if (category === 'nucleotide') expect(log).toHaveBeenCalledWith(expect.stringContaining('protein.gb not opened: 1 problems in 1 records (category-mismatch)'));
 });
 
 it('refuses a dropped annotation whose read completes after processing clears and alignment locks', async () => {
@@ -292,4 +292,54 @@ it('refuses a picker annotation read completed after alignment locks', async () 
   expect(LocalWorker.instance.requests.filter(request => request.type === 'PARSE_ANNOTATIONS')).toEqual([]);
   expect(result.current.bio.records[0].features).toEqual([]);
   expect(log).toHaveBeenCalledWith('picker.gff3 was not loaded: the workspace is locked');
+});
+
+it.each([
+  ['validation', ['bad.gb', 'good.gb'], false],
+  ['validation', ['good.gb', 'bad.gb'], false],
+  ['validation', ['bad.gb', 'good.gb'], true],
+  ['validation', ['good.gb', 'bad.gb'], true],
+  ['category', ['bad.gb', 'good.gb'], false],
+] as const)('continues a GenBank %s refusal in order %j, duplicate=%s, without attaching refused aliases', async (kind, order, duplicate) => {
+  const bad = `LOCUS foo;bar 4 ${kind === 'category' ? 'aa' : 'bp'}\nACCESSION   AB123\nVERSION     AB123.1\nORIGIN\n 1 ${kind === 'category' ? 'MEFW' : 'acg'}\n//`;
+  const good = (duplicate ? 'LOCUS foo_bar 4 bp DNA\nORIGIN\n 1 acgt\n//\n' : '') + 'LOCUS B 4 bp DNA\nORIGIN\n 1 acgt\n//';
+  const annotations = ['foo;bar', 'foo_bar', 'AB123', 'AB123.1'].map(id => `${id}\ts\tgene\t1\t2\t.\t+\t.\tName=wrong`).join('\n') + '\nB\ts\tgene\t2\t3\t.\t+\t.\tName=right';
+  const { result, log } = setup(async file => file.name === 'bad.gb' ? bad : file.name === 'good.gb' ? good : annotations);
+  act(() => result.current.bio.setRecords([{ id: 'foo_bar', name: 'existing', accession: 'AB123', version: 'AB123.1', sequence: 'ACGT', features: [] }]));
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([...order.map(name => new File([], name)), new File([], 'annotations.gff3')]); });
+  const worker = LocalWorker.instance;
+  for (const filename of order) await act(async () => worker.respond(worker.requests.find(r => r.type === 'PARSE_GENBANK' && r.filename === filename)!));
+  const annotation = worker.requests.find(r => r.type === 'PARSE_ANNOTATIONS')!;
+  expect(annotation).toMatchObject({ idMap: { 'foo;bar': null, foo_bar: null, AB123: null, 'AB123.1': null, B: 'B' } });
+  await act(async () => { worker.respond(annotation); await done; });
+  expect(result.current.bio.records.map(r => [r.id, r.features.map(f => f.name)])).toEqual(duplicate ? [['foo_bar', []], ['foo_bar_1', []], ['B', ['right']]] : [['foo_bar', []], ['B', ['right']]]);
+  expect(result.current.bio.genBankRefusals[0].findings.map(f => f.code)).toContain(kind === 'category' ? 'category-mismatch' : 'length-mismatch');
+  expect(result.current.handlers.moleculeTypeMismatch).toBeNull();
+  expect(log).toHaveBeenCalledWith(expect.stringContaining('did not match active records: [foo;bar, foo_bar, AB123, AB123.1]'));
+});
+
+it('rejects a stale refused GenBank response and stops the drop without diagnostics', async () => {
+  const { result, log } = setup(async file => file.name === 'bad.gb' ? 'LOCUS A 4 bp DNA\nORIGIN\n 1 acg\n//' : 'LOCUS B 4 bp DNA\nORIGIN\n 1 acgt\n//');
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([new File([], 'bad.gb'), new File([], 'later.gb')]); });
+  act(() => result.current.hub.resetWorkspace());
+  await act(async () => { LocalWorker.instance.respond(LocalWorker.instance.requests[0]); await done; });
+  expect(LocalWorker.instance.requests.map(r => r.type)).toEqual(['PARSE_GENBANK']);
+  expect(result.current.bio.records).toEqual([]);
+  expect(result.current.bio.genBankRefusals).toEqual([]);
+  expect(log.mock.calls.filter(([message]) => message === 'bad.gb was not loaded: the workspace was replaced')).toHaveLength(1);
+});
+
+it('lets the parser decide the category of a picker file named AA from its bp unit', async () => {
+  const { result } = setup(async () => 'LOCUS AA 4 bp DNA\nORIGIN\n 1 acgt\n//');
+  act(() => result.current.bio.setRecords([{ id: 'existing', name: 'existing', sequence: 'ACGT', features: [] }]));
+  await act(async () => result.current.handlers.handleFileUpload({ target: { files: [new File([], 'AA.gb')], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>));
+  const worker = LocalWorker.instance;
+  const request = worker.requests.find(r => r.type === 'PARSE_GENBANK')!;
+  expect(request).toMatchObject({ filename: 'AA.gb' });
+  expect(request.incomingCategory).toBeUndefined();
+  await act(async () => worker.respond(request));
+  expect(result.current.bio.records.map(r => r.id)).toEqual(['existing', 'AA']);
+  expect(result.current.bio.genBankRefusals).toEqual([]);
 });

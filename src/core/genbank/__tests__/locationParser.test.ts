@@ -52,11 +52,25 @@ describe('parseLocation – single position and site', () => {
     expect(r.end).toBe(42);
   });
 
-  it('characterises the known LOC-5 two-base deviation for n^m', () => {
-    // FIXME(#230): an INSDC between-base site must cover zero bases.
-    const r = parseLocation('100^101');
-    expect(r.start).toBe(99);
-    expect(r.end).toBe(101);
+  // INSDC FT 11.4 §3.4.2.1: n^n+1 is the site between two adjoining bases; Biopython 1.88 reads
+  // 10^11 as the empty interval [10:10] (conformance case S1).
+  it('reads n^n+1 as a zero-length site at the boundary after base n', () => {
+    const r = parseLocation('10^11');
+    expect(r).toMatchObject({ start: 10, end: 10, betweenBases: true, strand: 1 });
+    expect(r.segments).toEqual([{ start: 10, end: 10 }]);
+  });
+
+  it('reads complement(n^n+1) as a reverse-strand site', () => {
+    expect(parseLocation('complement(123^124)')).toMatchObject({ start: 123, end: 123, betweenBases: true, strand: -1 });
+  });
+
+  it.each([1, 1000])('keeps %i^1 as a candidate circular site at the boundary after base n', n => {
+    expect(parseLocation(`${n}^1`)).toMatchObject({ start: n, end: n, betweenBases: true });
+  });
+
+  // §3.4.2.1 permits only n^n+1 and the circular length^1; #298 refuses the rest on import.
+  it.each(['10^12', '11^10'])('never reads %s, whose bases are not adjoining, as a site', loc => {
+    expect(parseLocation(loc).betweenBases).toBeUndefined();
   });
 });
 
@@ -79,7 +93,7 @@ describe('parseLocation – complement', () => {
 describe('parseLocation – linear join', () => {
   it('creates multiple segments for join()', () => {
     const r = parseLocation('join(1..10,21..30)');
-    expect(r).toEqual({ start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] });
+    expect(r).toEqual({ start: 0, end: 30, strand: 1, operator: 'join', segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] });
   });
 
   it('handles three-segment join', () => {
@@ -192,5 +206,95 @@ describe('nested complement evaluation (INSDC 11.4)', () => {
     const location = parseLocation(`complement(${operator}(${elements}))`);
     expect(extractFeatureSequence(location, 'AACCGGTT')).toEqual({ featureSeq: sequence, alignedIndices: indices });
     expect({ start: location.start, end: location.end }).toEqual({ start: 0, end });
+  });
+});
+
+// INSDC FT 11.4 §3.4.2.2: join and order are distinct operators, and complement may wrap either.
+// Biopython 1.88 keeps operator="order" (O1).
+describe('parseLocation – operator', () => {
+  it.each([
+    ['join(1..10,21..30)', 'join'],
+    ['order(1..3,11..13)', 'order'],
+    ['complement(order(1..3,11..13))', 'order'],
+    ['complement(join(complement(1..2),5..6))', 'join'],
+    ['order(32,35,37,108)', 'order'],
+  ] as const)('records the operator of %s', (loc, operator) => {
+    const r = parseLocation(loc);
+    expect(r.operator).toBe(operator);
+  });
+
+  it.each(['5..9', 'complement(5..9)', '42'])('records no operator for the single interval %s', loc => {
+    expect(parseLocation(loc).operator).toBeUndefined();
+  });
+
+});
+
+// INSDC FT 11.4 §3.4.2.1: '<' and '>' belong to the base number they are written with (LOC-4);
+// Biopython 1.88 keeps <5..>25 as BeforePosition/AfterPosition (conformance case P1).
+describe('parseLocation – partial ends', () => {
+  it('flags both ends of <5..>25 on its one interval', () => {
+    expect(parseLocation('<5..>25').segments).toEqual([{ start: 4, end: 25, partialStart: true, partialEnd: true }]);
+  });
+
+  it('flags exactly the marked ends of a mixed-strand join', () => {
+    expect(parseLocation('join(<1..6,complement(10..>12))').segments).toEqual([
+      { start: 0, end: 6, strand: 1, partialStart: true },
+      { start: 9, end: 12, strand: -1, partialEnd: true },
+    ]);
+  });
+
+  it('keeps the markers inside a whole-feature complement on the numbers they mark', () => {
+    expect(parseLocation('complement(<1..9)').segments).toEqual([{ start: 0, end: 9, partialStart: true }]);
+  });
+});
+
+// INSDC FT 11.4 §3.4.2.2 at any depth: complement() reverses and flips what it encloses, join() keeps
+// its elements in written order; only join mixed with order is illegal. Expected sequence applied
+// by hand: bases 1–5, then the reverse complement of bases 10–20 joined to 30–40. No reference tool
+// checks it (Biopython 1.88 rejects the related J4/J5 forms).
+describe('parseLocation – nested locations and written order', () => {
+  const seq = 'ACGTTGCAAGCTTCAGGATCCTTAAGGCCATGCATGCTAG';
+
+  it('reads join(1..5,complement(join(10..20,30..40))) in full', () => {
+    const r = parseLocation('join(1..5,complement(join(10..20,30..40)))');
+    expect(r.segments).toEqual([
+      { start: 0, end: 5, strand: 1 },
+      { start: 29, end: 40, strand: -1 },
+      { start: 9, end: 20, strand: -1 },
+    ]);
+    expect(r.writtenOrder).toEqual([0, 2, 1]);
+    expect(extractFeatureSequence(r, seq).featureSeq).toBe('ACGTTCTAGCATGCATGATCCTGAAGC');
+  });
+
+  it('records the written order of a nested outer complement (J4)', () => {
+    expect(parseLocation('complement(join(complement(1..2),5..6))').writtenOrder).toEqual([1, 0]);
+  });
+
+  it.each(['join(1..10,21..30)', 'complement(join(1..10,21..30))', 'join(complement(21..30),1..10)'])(
+    'records no written order when it equals the stored order: %s', loc => {
+      expect(parseLocation(loc).writtenOrder).toBeUndefined();
+    });
+});
+
+// INSDC FT 11.4 §3.4.2.1(e): an accession.version prefix makes the descriptor apply to that entry's
+// sequence, so its interval is kept as a remote part and never becomes local bases (#245). The
+// §3.4.3 example join(1..100,J00194.1:100..202) is the oracle.
+describe('parseLocation – remote parts', () => {
+  it('keeps J00194.1:100..202 as a remote part next to the local interval', () => {
+    const r = parseLocation('join(1..100,J00194.1:100..202)');
+    expect(r.segments).toEqual([{ start: 0, end: 100 }]);
+    expect(r.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
+    expect(r).toMatchObject({ start: 0, end: 100, operator: 'join' });
+  });
+
+  it('reads a remote part on the reverse strand of a whole-feature complement', () => {
+    expect(parseLocation('complement(join(1..100,J00194.1:100..>202))').remoteParts)
+      .toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: -1, partialEnd: true, index: 1 }]);
+  });
+
+  it('keeps a location entirely in another entry with no local interval', () => {
+    const r = parseLocation('J00194.1:2..3');
+    expect(r.segments).toEqual([]);
+    expect(r.remoteParts).toEqual([{ accession: 'J00194.1', start: 1, end: 3, strand: 1, index: 0 }]);
   });
 });

@@ -18,7 +18,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { FeatureSegment, BioFeature, SeqRecord } from './types';
+import { validCodonStart } from './codonStart';
+import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
+import { isBetweenBasesSite } from './locationFlags';
+import { keptWrittenOrder } from './featureEnvelope';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -122,28 +125,52 @@ function clipFeature(
   selStart: number,
   selEnd: number
 ): BioFeature | null {
+  if (isBetweenBasesSite(feature)) {
+    // A site lies between two bases (LOC-5); it stays only when both of them are selected.
+    if (!(feature.start > selStart && feature.start < selEnd)) return null;
+    const boundary = feature.start - selStart;
+    return { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
+  }
   const segments = feature.segments?.length
     ? feature.segments
     : splitWrapAround(feature.start, feature.end, seq.length);
-  const newSegments = segments.flatMap(segment => {
+  const kept: number[] = [];
+  const newSegments = segments.flatMap((segment, i) => {
     const clipped = clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
+    if (clipped) kept.push(i);
     return clipped ? [{ ...segment, ...clipped }] : [];
   });
   if (!newSegments.length) return null;
+  // LOC-4: a cut end gains a marker. A selection is one window, so whatever it drops of the
+  // feature, a cut interval or a whole one, lies below its start or above its end; the kept
+  // interval at that side now continues beyond its base.
+  if (segments.some(segment => segment.start < selStart)) {
+    const lowest = newSegments.reduce((a, b) => (b.start < a.start ? b : a));
+    lowest.partialStart = true;
+  }
+  if (segments.some(segment => segment.end > selEnd)) {
+    const highest = newSegments.reduce((a, b) => (b.end > a.end ? b : a));
+    highest.partialEnd = true;
+  }
 
   const result: BioFeature = {
     ...feature,
     start: Math.min(...newSegments.map(segment => segment.start)),
     end: Math.max(...newSegments.map(segment => segment.end)),
-    segments: feature.segments?.length || feature.start > feature.end ? newSegments : undefined,
+    // A segment that gained a cut-end marker must be kept, or the marker is lost with it (LOC-4).
+    segments: feature.segments?.length || feature.start > feature.end || newSegments.some(s => s.partialStart || s.partialEnd)
+      ? newSegments : undefined,
   };
+  const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
+  if (writtenOrder) result.writtenOrder = writtenOrder;
+  else delete result.writtenOrder;
+  if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
   if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
     delete result.locationString;
   }
 
   const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
   if (!clipped) return result;
-  delete result.translation;
   if (feature.metadata) {
     result.metadata = { ...feature.metadata };
     delete result.metadata.translation;
@@ -155,9 +182,20 @@ function clipFeature(
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
-    result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
+    if (validCodonStart(feature.metadata?.codon_start)) result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
   }
   return result;
+}
+
+/**
+ * Remote parts keep their own coordinates (another entry's), and their place among the stored
+ * intervals moves up past each local interval the selection dropped before them.
+ */
+export function keptRemoteParts(parts: RemotePart[], localCount: number, kept: number[]): RemotePart[] {
+  const stored: (number | RemotePart)[] = Array.from({ length: localCount }, (_, i) => i);
+  for (const part of [...parts].sort((a, b) => a.index - b.index)) stored.splice(Math.min(part.index, stored.length), 0, part);
+  const remaining = stored.filter(item => typeof item !== 'number' || kept.includes(item));
+  return remaining.flatMap((item, index) => (typeof item === 'number' ? [] : [{ ...item, index }]));
 }
 
 /** Counts only biological bases preceding the first selected part in transcription order. */

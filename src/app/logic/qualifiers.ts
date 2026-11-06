@@ -49,11 +49,11 @@ export function metadataFromRows(
 ): Record<string, string> {
   const metadata: Record<string, string> = {};
   for (const [key, value] of Object.entries(previous ?? {})) {
-    if (isInternalKey(key)) metadata[key] = value;
+    if (isInternalKey(key) || key === 'translation') metadata[key] = value;
   }
   for (const row of rows) {
     const key = normalizeQualifierKey(row.key);
-    if (key && !isInternalKey(key)) metadata[key] = row.value;
+    if (key && key !== 'translation' && !isInternalKey(key)) metadata[key] = row.value;
   }
   return metadata;
 }

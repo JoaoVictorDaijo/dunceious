@@ -18,6 +18,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkedTranslation, isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
+import { assumedInitiationContext, assumedTranslation } from '@/src/domain/bio/assumedTranslation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { matchLineSymbol } from '@/src/core/search/hitColumns';
 import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
@@ -26,10 +29,10 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, type TranslationLanes } from '../cds';
+import { isTranslatedFeature, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
@@ -63,6 +66,44 @@ const INDEL_FILL = '#475569';
 const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined) =>
   comparisonStyle(char, comparison?.referenceSeq[column], comparison);
 
+interface AssumedHoverSpan {
+  key: string;
+  order: number;
+  start: number;
+  end: number;
+  feature: BioFeature;
+  frame: 0 | 1 | 2;
+  codon: string;
+  residue: string;
+  codeSensitive: boolean;
+  initiation: boolean;
+}
+
+interface AssumedHoverNode {
+  span: AssumedHoverSpan;
+  maxEnd: number;
+  left: AssumedHoverNode | null;
+  right: AssumedHoverNode | null;
+}
+
+function indexAssumedHovers(spans: AssumedHoverSpan[], from = 0, to = spans.length): AssumedHoverNode | null {
+  if (from >= to) return null;
+  const middle = Math.floor((from + to) / 2);
+  const span = spans[middle];
+  const left = indexAssumedHovers(spans, from, middle);
+  const right = indexAssumedHovers(spans, middle + 1, to);
+  return { span, left, right, maxEnd: Math.max(span.end, left?.maxEnd ?? 0, right?.maxEnd ?? 0) };
+}
+
+// Max-end pruning retains split/joined codons without scanning offscreen pieces on every pan.
+function visibleAssumedHovers(node: AssumedHoverNode | null, start: number, end: number, result: AssumedHoverSpan[] = []): AssumedHoverSpan[] {
+  if (!node || node.maxEnd <= start || end <= start) return result;
+  visibleAssumedHovers(node.left, start, end, result);
+  if (node.span.start >= end) return result;
+  if (node.span.end > start) result.push(node.span);
+  return visibleAssumedHovers(node.right, start, end, result);
+}
+
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
   seq, record, completedSearch, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx, comparison
@@ -79,13 +120,19 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
 
   const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
-  // Shown on the translation band itself, so the reason for the `?` residues is there even
-  // when annotations are hidden.
+  // Keep the source warning accessible even when annotations are hidden.
   const codeWarnings = useMemo(() => features.flatMap(f => {
-    const warning = geneticCodeWarning(f);
     const strand = getFeatureStrand(f);
-    return warning && typeof strand === 'number' ? [{ feature: f, strand, warning }] : [];
-  }), [features]);
+    if (typeof strand !== 'number' || !geneticCodeWarning(f)) return [];
+    const warning = geneticCodeWarning(f, extractCodingSequence(resolvedTranslationFeature(f), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }).codingSeq)!;
+    return [{ feature: f, strand, warning, suppressed: !validCodonStart(f.metadata?.codon_start) }];
+  }), [features, seq, record]);
+  const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
+    if (!translationVisible || !isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature))) return [];
+    const coding = extractCodingSequence(feature, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
+    const assumed = assumedTranslation(feature, coding.codingSeq);
+    return assumed ? [[feature, { ...coding, assumed }] as const] : [];
+  })), [features, seq, translationVisible, record]);
   const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
   const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
@@ -101,10 +148,32 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   // between two codons is neither a frame change nor a skipped base.
   const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
 
+  const assumedHoverIndex = useMemo(() => {
+    const spans: AssumedHoverSpan[] = [];
+    [...assumedViews].forEach(([feature, { codingSeq, alignedIndices, assumed }], featureIndex) => {
+      const initiation = assumedInitiationContext(feature);
+      for (let i = storedTranslation(feature)?.length ?? 0; i < assumed.residues.length; i++) {
+        const indices = alignedIndices.slice(i * 3, i * 3 + 3);
+        const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
+        const frame = codonFrame(firstBase, feature.strand);
+        const codon = codingSeq.slice(i * 3, i * 3 + 3);
+        codonSpans(indices, originalPositions).forEach((piece, pieceIndex) => spans.push({
+          ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, order: spans.length, feature, frame, codon,
+          residue: assumed.residues[i], codeSensitive: assumed.codeSensitive[i], initiation: i === 0 && initiation,
+        }));
+      }
+    });
+    spans.sort((a, b) => a.start - b.start || a.end - b.end);
+    return indexAssumedHovers(spans);
+  }, [assumedViews, originalPositions]);
+  // Keep biological tab order while querying geometry in genomic order.
+  const assumedHoverSpans = useMemo(() => visibleAssumedHovers(assumedHoverIndex, vStart, vEnd)
+    .sort((a, b) => a.order - b.order), [assumedHoverIndex, vStart, vEnd]);
+
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
-    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
-    [features, seq, moleculeType, translationVisible],
+    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType, record ? { isCircular: record.isCircular, biologicalLength: record.sequence.length } : { isCircular: true }) : new Map<BioFeature, boolean>()),
+    [features, seq, moleculeType, translationVisible, record],
   );
 
   useEffect(() => {
@@ -326,8 +395,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
-      features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
+      features.filter(f => isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number').forEach(f => {
+        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
 
@@ -339,16 +408,22 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
         const baseColor = f.strand === 1 ? '#475569' : '#be185d';
 
-        // Prefer the annotated /translation (alt-start Met, transl_except recoding)
-        // over recomputation; one residue per codon, aligned to `alignedIndices`.
-        const protein = translateFeature(f, codingSeq, translTable);
+        const conceptual = isCds(f) ? checkedTranslation(f, { sequence: seq, moleculeType, isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }) : undefined;
+        if (conceptual?.status === 'unavailable' && ['protein-record', 'unknown-strand', 'nonlocal-location', 'unknown-completeness', 'empty'].includes(conceptual.reason)) return;
+        const fallback = translateFeature(f, codingSeq, translTable);
+        const stored = storedTranslation(f);
+        const protein = conceptual?.status === 'ok' ? [...fallback].map((r, i) => stored?.[i] ?? conceptual.residues[i]?.replace('*', '_') ?? r).join('') : fallback;
+        const assumed = assumedViews.get(f)?.assumed;
+        const storedLength = storedTranslation(f)?.length ?? 0;
 
         ctx.font = `600 9px ${MONO_STACK}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         for (let j = 0; j < codingSeq.length - 2; j += 3) {
-          const aa = protein[j / 3] ?? '?';
+          const isAssumed = !!assumed && j / 3 >= storedLength;
+          const aa = (isAssumed ? assumed.residues[j / 3] : protein[j / 3]) ?? '?';
+          const dashed = isAssumed && (assumed.codeSensitive[j / 3] || aa === '?');
           const startIdx = alignedIndices[j];
           const endIdx = alignedIndices[j + 2];
 
@@ -361,14 +436,24 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           // inside a join steps rows exactly where translation changes frame.
           const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
 
-          // An early stop is a stop codon that is NOT the last codon in the sequence
-          const isEarlyStop = isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
+          const isEarlyStop = !isAssumed && isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
 
           for (const piece of pieces) {
             const aX = xScale(piece.start) - scrollX;
             const aW = xScale(piece.end) - xScale(piece.start);
             if (aX + aW < 0 || aX > viewportWidth) continue;
 
+            if (dashed) {
+              const color = aa === '*' ? '#ef4444' : baseColor;
+              ctx.globalAlpha = 1;
+              ctx.strokeStyle = ctx.fillStyle = color;
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 2]);
+              ctx.strokeRect(aX + 0.5, aaY + 0.5, Math.max(1, aW) - 1, AA_ROW_HEIGHT - 1);
+              ctx.setLineDash([]);
+              if (piece === labelPiece) ctx.fillText(aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+              continue;
+            }
             ctx.globalAlpha = 0.9;
             ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
             ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
@@ -386,7 +471,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         }
       });
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow]);
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, assumedViews, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow, record]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
@@ -409,14 +494,29 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
       data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
-    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning }) =>
+    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning, suppressed }) =>
       // A feature crossing the origin of a circular record has two spans, end of record and start.
       (feature.start > feature.end ? [[feature.start, seq.length], [0, feature.end]] : [[feature.start, feature.end]])
         .map(([start, end]) => <button key={`code-${start}-${end}-${strand}-${feature.name}`} type="button"
           data-genetic-code-warning="" aria-label={warning} data-tip={warning}
+          className={suppressed ? 'border border-dashed border-amber-500 text-amber-600' : undefined}
           style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
             top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
-            background: 'transparent', zIndex: 1 }} />))}
+            background: suppressed ? 'rgba(245, 158, 11, 0.1)' : 'transparent', zIndex: 1 }}>
+          {suppressed && <span aria-hidden="true">⚠</span>}
+        </button>))}
+    {translationVisible && assumedHoverSpans.map(span => {
+      const lanes = translationLanes.laneOf.get(span.feature);
+      if (!lanes) return null;
+      const lane = lanes.get(span.frame) ?? 0;
+      const top = span.feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
+      const description = assumedCodonDescription(span.codon, span.residue, span.codeSensitive, span.initiation);
+      return <button key={`assumed-${span.key}`} type="button" data-assumed-codon=""
+        aria-label={description} data-tip={description}
+        style={{ position: 'absolute', left: xScale(span.start) - scrollX, top,
+          width: Math.max(3, xScale(span.end) - xScale(span.start)), height: AA_ROW_HEIGHT,
+          background: 'transparent', zIndex: 2 }} />;
+    })}
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,

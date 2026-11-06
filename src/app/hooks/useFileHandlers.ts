@@ -20,7 +20,7 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import { detectMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { downloadBlob } from '@/src/app/lib/download';
@@ -33,13 +33,6 @@ import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;
 const FASTA_SAMPLE_MAX_LENGTH = 1200;
-
-/** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
-function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
-  const match = content.match(/^LOCUS\s+.+$/m);
-  if (match && classifyLocusMoleculeType(match[0]) === 'protein') return 'protein';
-  return 'nucleotide';
-}
 
 /**
  * Samples the first few records of a FASTA string and classifies the sample
@@ -198,7 +191,7 @@ export function useFileHandlers(
             return null;
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffGenBankCategory(content) };
+        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision };
       }, workerDeps),
     );
   };
@@ -256,7 +249,7 @@ export function useFileHandlers(
     return (dropImport?.readText ?? readFileAsText)(file)
       .then(text => {
         if (isAlignmentLocked()) { setIsProcessing(false); return; }
-        const parsed = parseProject(text);
+        const parsed = parseProject(text, addLog);
         if (!parsed.ok) { addLog(parsed.message); return; }
         const project = parsed.project;
         workspaceRevision.current++;
@@ -321,9 +314,9 @@ export function useFileHandlers(
           importSequence: async (file, content) => {
             checkWorkspace();
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
+            const incoming = isFasta ? sniffFastaCategory(content) : undefined;
             const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: incoming, ...(isFasta ? { asAlignment: false } : {}) });
-            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
             if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
             return response.idMap;
           },
@@ -351,7 +344,8 @@ export function useFileHandlers(
       const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
       addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
     }
-    for (const id of result.report.gapRecordsOmitted) addLog(`${id} not exported: its sequence contains gap characters`);
+    for (const warning of result.report.translationWarnings) addLog(`WARNING: ${warning}`);
+    for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
     if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
     if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
   };
@@ -442,7 +436,7 @@ export function useFileHandlers(
         projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
       });
       downloadExport(result, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
-      addLog(`Exported ${subset.length - result.report.gapRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
+      addLog(`Exported ${subset.length - result.report.genBankRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
     } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
   };
 

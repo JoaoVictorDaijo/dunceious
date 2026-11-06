@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { FindingSink } from './findings';
+
 const INDENT21 = ' '.repeat(21);
 
 function quotedValueIsClosed(value: string): boolean {
@@ -33,26 +35,40 @@ function quotedValueIsClosed(value: string): boolean {
 export function parseQualifiers(
   lines: string[],
   fromIdx: number,
+  finding?: FindingSink,
 ): { qualifiers: Record<string, string>; lastIdx: number } {
-  const qualifiers: Record<string, string> = {};
+  const qualifiers: Record<string, string> = Object.create(null);
   let i = fromIdx;
   while (i < lines.length && lines[i].startsWith(INDENT21)) {
     const match = lines[i].trim().match(/^\/(\w+)(?:=(.*))?$/);
     if (!match) {
-      i++;
-      continue;
+      finding?.('refuse', 'malformed-qualifier', 'Qualifier cannot be read; the rest of this feature was not checked.', i + 1);
+      while (i < lines.length && lines[i].startsWith(INDENT21)) i++;
+      break;
     }
 
+    const qualifierLine = i + 1;
     const [, key, rawValue = ''] = match;
     let value = rawValue;
     const quoted = value.startsWith('"');
+    let interrupted = false;
     while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) {
       const next = lines[i + 1].trim();
       const openQuote = quoted && !quotedValueIsClosed(value);
+      if (openQuote && /^\/\w+="(?!")/.test(next)) {
+        interrupted = true;
+        while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) i++;
+        break;
+      }
       if (!openQuote && next.startsWith('/')) break;
       value += (key === 'translation' ? '' : ' ') + next;
       i++;
     }
+    if (interrupted || (quoted && !quotedValueIsClosed(value))) {
+      finding?.('refuse', 'malformed-qualifier', `/${key} has no closing quote; the rest of this feature was not checked.`, qualifierLine);
+      break;
+    }
+    if (Object.hasOwn(qualifiers, key)) finding?.('warning', 'repeated-qualifier', `/${key} is repeated; the last value is kept.`, i + 1);
     if (quoted) {
       value = value.slice(1);
       if (value.endsWith('"')) value = value.slice(0, -1);

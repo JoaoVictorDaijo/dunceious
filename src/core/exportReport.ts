@@ -22,7 +22,10 @@ import type { DetailKey, SequenceDetails, SeqRecord } from '@/src/domain/bio/typ
 import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@/src/domain/bio/details';
 
 export interface ExportReport {
+  featuresWithoutInsdcLocation: { linearEdgeSite: number; invalidGeometry: number };
+  translationWarnings: string[];
   gapRecordsOmitted: string[];
+  genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
   emptyRowsOmitted: string[];
   unalignedRows: string[];
@@ -32,16 +35,22 @@ export interface ExportReport {
   missingOrganism: number;
   adjustedIds: { from: string; to: string }[];
   deprecatedModifiersOmitted: number;
+  /** GFF3: features whose intervals in other entries travel only as the `insdc_remote` attribute. */
+  remotePartsCarried: number;
+  /** GFF3: features with no interval in this record, which GFF3 has no row for. */
+  remoteOnlyOmitted: number;
 }
 
 export interface ExportResult { text: string; unalignedText?: string; report: ExportReport }
 
 export function emptyReport(): ExportReport {
   return {
-    gapRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
+    featuresWithoutInsdcLocation: { linearEdgeSite: 0, invalidGeometry: 0 },
+    translationWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,
+    remotePartsCarried: 0, remoteOnlyOmitted: 0,
   };
 }
 

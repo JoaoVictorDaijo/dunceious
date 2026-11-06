@@ -53,7 +53,7 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
   let records: SeqRecord[];
   let record: SeqRecord;
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
     record = records[0];
   });
 
@@ -94,10 +94,10 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
     const cds = record.features.filter(f => f.type === 'CDS');
     let matched = 0;
     for (const f of cds) {
-      if (!f.translation) continue;
+      if (!f?.metadata?.translation) continue;
       const { codingSeq } = extractCodingSequence(f, record.sequence);
       const computed = translateSequence(codingSeq).replace(/_+$/, '');
-      if (computed === f.translation) matched++;
+      if (computed === f?.metadata?.translation) matched++;
     }
     expect(matched).toBeGreaterThanOrEqual(75);
   });
@@ -136,9 +136,9 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
       const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
       const { codingSeq } = extractCodingSequence(f, record.sequence);
       expect(detectEarlyStop(codingSeq, table), f.name).toBe(false);
-      if (f.translation) {
+      if (f?.metadata?.translation) {
         const computed = translateSequence(codingSeq, table).replace(/_+$/, '');
-        expect(computed, f.name).toBe(f.translation);
+        expect(computed, f.name).toBe(f?.metadata?.translation);
       }
     }
   });
@@ -151,7 +151,7 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
     const mixed = transposed.features.filter(
       f =>
         f.type === 'CDS' &&
-        f.translation &&
+        f?.metadata?.translation &&
         (f.segments ?? []).some(s => s.strand === -1) &&
         (f.segments ?? []).some(s => s.strand === 1),
     );
@@ -159,7 +159,7 @@ describe(`examples/${EXAMPLES.arabidopsisChloroplast}`, () => {
     for (const f of mixed) {
       const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
       const computed = translateSequence(extractCodingSequence(f, seq).codingSeq, table).replace(/_+$/, '');
-      expect(computed, f.name).toBe(f.translation);
+      expect(computed, f.name).toBe(f?.metadata?.translation);
     }
   });
 
@@ -190,7 +190,7 @@ describe(`examples/${EXAMPLES.influenzaPr8}`, () => {
   const content = loadExample(EXAMPLES.influenzaPr8);
   let records: SeqRecord[];
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
   });
 
   it('parses eight records, each carrying features', () => {
@@ -221,7 +221,7 @@ describe(`examples/${EXAMPLES.humanMitochondrion}`, () => {
   const content = loadExample(EXAMPLES.humanMitochondrion);
   let record: SeqRecord;
   beforeAll(() => {
-    record = parseGenBank(content)[0];
+    record = parseGenBank(content).records[0];
   });
 
   it('annotates all 13 CDS with the vertebrate mitochondrial code (transl_table=2)', () => {
@@ -247,19 +247,19 @@ describe(`examples/${EXAMPLES.humanMitochondrion}`, () => {
   });
 
   it('recomputes CDS proteins with table 2 to match the stored /translation (bar alternative starts)', () => {
-    const cds = record.features.filter(f => f.type === 'CDS' && f.translation);
+    const cds = record.features.filter(f => f.type === 'CDS' && f?.metadata?.translation);
     let matched = 0;
     for (const f of cds) {
       const table = parseInt(String(f.metadata?.transl_table ?? '1'), 10);
       const { codingSeq } = extractCodingSequence(f, record.sequence);
       const computed = translateSequence(codingSeq, table).replace(/_+$/, '');
-      if (computed === f.translation) {
+      if (computed === f?.metadata?.translation) {
         matched++;
         continue;
       }
       // The only tolerated difference is the initiator residue: an alternative
       // start codon (e.g. ATT) is annotated as Met but translates literally.
-      expect(computed.slice(1), f.name).toBe(f.translation!.slice(1));
+      expect(computed.slice(1), f.name).toBe(f?.metadata?.translation!.slice(1));
     }
     expect(matched).toBeGreaterThanOrEqual(12);
   });

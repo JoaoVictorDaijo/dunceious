@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation, translationWarning } from '@/src/domain/bio/translation';
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
@@ -76,6 +77,18 @@ function resolveHeaderId(record: FastaAlignedRecord, currentIds: ReadonlySet<str
 /** Local identifiers are not database accessions. */
 export function resolveAccession(incomingAccession: string | undefined): string | undefined {
   return incomingAccession?.trim() || undefined;
+}
+
+/**
+ * One warning per file naming the annotations with intervals in other records (INSDC FT 11.4
+ * §3.4.2.1(e)), whose sequence Dunceious doesn't load or show (#245).
+ */
+export function remotePartsWarning(records: SeqRecord[]): string | null {
+  const remote = records.flatMap(record => record.features).filter(feature => feature.remoteParts?.length);
+  if (remote.length === 0) return null;
+  const names = remote.map(feature => `${feature.name}: ${[...new Set(feature.remoteParts!.map(part => part.accession))].join(', ')}`).join('; ');
+  const count = remote.length === 1 ? '1 annotation has intervals' : `${remote.length} annotations have intervals`;
+  return `WARNING: ${count} in other records, which Dunceious doesn't load (${names}). Their sequence and translation aren't shown.`;
 }
 
 export function applyParseSuccess(
@@ -149,7 +162,7 @@ export function applyAnnotations(
       };
       totalAdded += items.length;
     }
-    next[index] = record;
+    next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
   return { next, totalAdded, unmatched };
 }
@@ -273,4 +286,11 @@ export function applyFastaAndLog(
     }
   }
   return result;
+}
+
+/** One file warning counts only the annotations introduced by this attachment. */
+export function logAttachedTranslationWarning(previous: SeqRecord[], next: SeqRecord[], addLog: (message: string) => void): void {
+  const attached = next.map(r => ({ ...r, features: r.features.filter(f => !previous.find(p => p.id === r.id)?.features.includes(f)) }));
+  const warning = translationWarning(attached);
+  if (warning) addLog(warning);
 }

@@ -44,13 +44,13 @@ describe('RNA ingestion and export', () => {
   it.each(['RNA', 'mRNA', 'ss-RNA'])('round-trips a GenBank %s LOCUS and uracil', (molecule) => {
     const [record] = parseGenBank(
       'LOCUS       RNA1       9 bp    ' + molecule + '    linear\nORIGIN\n        1 augcccuag\n//\n',
-    );
+    ).records;
     expect(record.moleculeType).toBe('rna');
     expect(record.sequence).toBe('AUGCCCUAG');
     const exported = exportToGenBank([record]).text;
     expect(exported).toContain('bp    RNA');
     expect(exported).toContain('augcccuag');
-    expect(parseGenBank(exported)[0]).toMatchObject({ moleculeType: 'rna', sequence: record.sequence });
+    expect(parseGenBank(exported).records[0]).toMatchObject({ moleculeType: 'rna', sequence: record.sequence });
   });
 
   it('preserves RNA and protein molecule types through the bio worker', () => {
@@ -71,7 +71,7 @@ describe('RNA ingestion and export', () => {
     expect(protein).toMatchObject({ moleculeType: 'protein', sequence: 'MUOP' });
     const exported = exportToGenBank([protein]).text;
     expect(exported).toContain(' aa ');
-    expect(parseGenBank(exported)[0]).toMatchObject({ moleculeType: 'protein', sequence: 'MUOP' });
+    expect(parseGenBank(exported).records[0]).toMatchObject({ moleculeType: 'protein', sequence: 'MUOP' });
   });
 
   it('preserves RNA and rebases annotations through aligned search, selection and reimport', () => {
@@ -89,7 +89,7 @@ describe('RNA ingestion and export', () => {
     const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end);
     expect(selected).toMatchObject({ moleculeType: 'rna', sequence: 'AUG', alignedSequence: undefined });
     expect(selected.features[0]).toMatchObject({ start: 0, end: 3, segments: [{ start: 0, end: 3 }] });
-    for (const reimported of [parseFasta(exportToFasta([selected]).text)[0], parseGenBank(exportToGenBank([selected]).text)[0]]) {
+    for (const reimported of [parseFasta(exportToFasta([selected]).text)[0], parseGenBank(exportToGenBank([selected]).text).records[0]]) {
       expect(reimported).toMatchObject({ moleculeType: 'rna', sequence: 'AUG' });
     }
     expect(record).toMatchObject({ sequence: 'CCAUGG', alignedSequence: 'CC-AUGG' });
@@ -206,7 +206,7 @@ describe('RNA IUPAC search', () => {
 
 // GenBank writes RNA genomes with T while the LOCUS line declares RNA.
 describe('reverse search on a T-written RNA genome', () => {
-  const [genome] = parseGenBank(readFileSync('examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'utf8'));
+  const [genome] = parseGenBank(readFileSync('examples/nucleotide/coronaviruses/sars-cov-2-NC_045512.gb', 'utf8')).records;
   const record = { id: genome.id, sequence: genome.sequence, moleculeType: genome.moleculeType };
   const source = genome.sequence.substring(28_500, 28_560);
   const query = reverseComplement(source, 'dna');

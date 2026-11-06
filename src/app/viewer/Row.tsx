@@ -25,14 +25,16 @@ import React, { memo, useMemo, useState } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
+import { remoteIntervalsText } from '@/src/app/logic/viewModel';
 import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
-import { segmentFrameshifts } from '@/src/domain/bio';
+import { isBetweenBasesSite, isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
-import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
@@ -146,8 +148,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
-    [l.record.features, seq, l.record.moleculeType],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }),
+    [l.record.features, seq, l.record.moleculeType, l.record],
   );
 
   return (
@@ -312,8 +314,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const openness = showsAnnotationBases(f) ? basesOpenness : 0;
               const expanded = openness > 0;
               const barHeight = ANNOT_BAR_HEIGHT + openness * ANNOT_BASES_HEIGHT;
+              const unjoined = (f.segments?.length ?? 0) > 1 && isOrderLocation(f);
               const place = (node: React.ReactNode) => (
-                <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
+                <g key={i} className={unjoined ? 'annot-feature annot-order' : 'annot-feature'} style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
               const isSelected = focusedRegion?.featureIndex !== undefined && isFocusedSelection(focusedRegion, persistentSelection)
                 ? l.id === focusedRegion.recordId && l.record.features[focusedRegion.featureIndex] === f
@@ -334,15 +337,43 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
-                geneticCodeWarning(f),
+                geneticCodeWarning(f)
+                  ? geneticCodeWarning(f,
+                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
+                    l.record.moleculeType)
+                  : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
+                `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),
+                unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
+                f.remoteParts?.length ? `${remoteIntervalsText(f.remoteParts)}, not in this record` : null,
+                isBetweenBasesSite(f) ? 'Between-base site: covers no bases' : null,
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
+
+              const interactions = {
+                style: { cursor: 'pointer' },
+                onPointerOver: (ev: React.PointerEvent) => {
+                  if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
+                },
+                onPointerOut: () => setTooltip(null),
+                onClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onViewDetails?.(l.id, f);
+                },
+                onContextMenu: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onContextMenu(ev, l.id, f);
+                },
+                onDoubleClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  ev.preventDefault();
+                  onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
+                },
+              };
 
               const partVisible = (s: number, e: number) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
@@ -351,6 +382,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // The name is painted once, on the first piece in view, so a long join
               // keeps its name on screen without repeating it at every segment.
               const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true, labelled = true) => {
+                if (s === e) return null;
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (!partVisible(s, e)) return null;
 
@@ -374,24 +406,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                      onPointerOver={(ev) => {
-                        if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
-                      }}
-                      onPointerOut={() => setTooltip(null)}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        onViewDetails?.(l.id, f);
-                      }}
-                      onContextMenu={(ev) => {
-                        ev.stopPropagation();
-                        onContextMenu(ev, l.id, f);
-                      }}
-                      onDoubleClick={(ev) => {
-                        ev.stopPropagation();
-                        ev.preventDefault();
-                        onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
-                      }}
+                      opacity={isSelected ? 1 : 0.85}
+                      {...interactions}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType} alphabet={annotationAlphabet}
                       start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
@@ -400,13 +416,32 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 );
               };
 
+              if (isBetweenBasesSite(f)) {
+                // A site covers no bases (INSDC FT 11.4 §3.4.2.1), so it is a boundary, not a bar:
+                // a rule between the two bases with a caret under it, as `^` writes it.
+                const x = xScale(f.start) - scrollX;
+                if (x < -60 || x > viewportWidth + 4) return null;
+                const color = isSelected ? '#000' : f.color || getFeatureColor(f.type, customColors);
+                const base = y + barHeight;
+                return place(
+                  <g data-annotation-site="" data-annotation-feature={f.name} data-state={isSelected ? 'selected' : 'unselected'} data-x={x}>
+                    <line x1={x} x2={x} y1={y - 1} y2={base} stroke={color} strokeWidth={isSelected ? 2 : 1.5} />
+                    <path d={`M${x - 4},${base + 1}L${x},${base - 4}L${x + 4},${base + 1}Z`} fill={color} />
+                    <text x={x + 6} y={y + ANNOT_BAR_HEIGHT / 2} fontSize={9} fontWeight={600} dominantBaseline="central"
+                      style={{ fill: `color-mix(in srgb, ${color} 62%, #0f172a)` }} pointerEvents="none">{f.name}</text>
+                    <rect data-annotation-part="" x={x - 5} y={y - 2} width={10} height={barHeight + 4} fill="transparent" {...interactions} />
+                  </g>
+                );
+              }
+
               if (f.segments && f.segments.length > 0) {
                 const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
                 // Connectors pair intervals as the location writes them, the order the origin test reads.
                 const written = writtenOrderSegments(f) ?? f.segments;
                 const connectingLines: React.ReactElement[] = [];
-                for (let idx = 0; idx < written.length - 1; idx++) {
+                // order() places its intervals without joining them (LOC-2), so nothing connects them.
+                for (let idx = 0; isJoinedLocation(f) && idx < written.length - 1; idx++) {
                   const s1 = written[idx];
                   const s2 = written[idx + 1];
 
@@ -458,7 +493,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                const labelIdx = f.segments.findIndex(seg => seg.start !== seg.end && partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
                 const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);
@@ -506,7 +541,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
-              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}
+              {`${focusedRegion.label} · ${focusedRegion.lengthText ?? `${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}`}
             </div>
           )}
 

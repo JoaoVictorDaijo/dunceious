@@ -18,7 +18,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
+import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { isPartialLocation } from '@/src/domain/bio/locationFlags';
+import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
+import { hasPartialStrands } from '@/src/domain/bio/featureParts';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
@@ -41,7 +45,11 @@ export interface ProjectState {
 export interface ProjectFile extends ProjectState { format: 2 }
 
 export function serializeProject(state: ProjectState): string {
-  return JSON.stringify({ ...state, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
+  const records = state.records.map(record => ({ ...record, features: record.features.map(feature => {
+    const { biological: _biological, ...stored } = feature;
+    return stored;
+  }) }));
+  return JSON.stringify({ ...state, records, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -76,7 +84,13 @@ function validRecord(value: unknown): boolean {
     && typeof feature.type === 'string' && typeof feature.name === 'string'
     && (feature.strand === 1 || feature.strand === -1)
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
+    && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
+    && (feature.betweenBases === undefined || feature.betweenBases === true)
+    && (feature.writtenOrder === undefined || (Array.isArray(feature.writtenOrder) && feature.writtenOrder.every(Number.isInteger)))
+    && (feature.remoteParts === undefined || (Array.isArray(feature.remoteParts) && feature.remoteParts.every(part => isObject(part)
+      && coordinates(part) && typeof part.accession === 'string' && (part.strand === 1 || part.strand === -1) && Number.isInteger(part.index))))
     && (feature.metadata === undefined || stringMap(feature.metadata))
+    && (feature.unknownQualifiers === undefined || stringMap(feature.unknownQualifiers))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
   return value.tracks === undefined || (Array.isArray(value.tracks) && value.tracks.every(track => isObject(track)
@@ -86,7 +100,43 @@ function validRecord(value: unknown): boolean {
     && track.data.every(item => isObject(item) && coordinates(item) && typeof item.value === 'number' && Number.isFinite(item.value))));
 }
 
-export function parseProject(text: string): { ok: true; project: ProjectFile } | { ok: false; message: string } {
+/** Same intervals, in the same order: the stored geometry is still the one the text was read as. */
+function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): boolean {
+  return a?.length === b.length && a.every((part, i) => part.start === b[i].start && part.end === b[i].end);
+}
+
+/**
+ * Projects saved before features carried `operator`, `betweenBases`, per-end partial flags,
+ * `writtenOrder` and `remoteParts` hold them only in `locationString`, which the first edit clears;
+ * read them from that text while it is still there. Remote intervals were stored as local
+ * segments then, so a feature that has them is re-read from its text whole (#245).
+ */
+function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
+  if (!feature.locationString) return feature;
+  let parsed: ReturnType<typeof parseLocation>;
+  // Text saved before import validation may not parse; the feature then stays as it was saved.
+  try { parsed = parseLocation(feature.locationString); } catch { return feature; }
+  if (parsed.remoteParts && !feature.remoteParts) {
+    const { segments, strand, start, end, operator, writtenOrder, remoteParts } = parsed;
+    return { ...feature, segments, strand, start, end, remoteParts,
+      ...(operator && { operator }), ...(writtenOrder && { writtenOrder }) };
+  }
+  let next = feature;
+  if (!feature.segments?.length && feature.start === parsed.start && feature.end === parsed.end && feature.strand === parsed.strand) next = { ...feature, segments: parsed.segments };
+  if (!next.operator && parsed.operator && (next.segments?.length ?? 0) > 1) next = { ...next, operator: parsed.operator };
+  if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
+    next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
+  }
+  if (!next.writtenOrder && parsed.writtenOrder && sameIntervals(next.segments, parsed.segments)) next = { ...next, writtenOrder: parsed.writtenOrder };
+  if (!isPartialLocation(next) && isPartialLocation(parsed) && sameIntervals(next.segments, parsed.segments)) {
+    next = { ...next, segments: next.segments!.map((part, i) => ({ ...part,
+      ...(parsed.segments[i].partialStart && { partialStart: true as const }),
+      ...(parsed.segments[i].partialEnd && { partialEnd: true as const }) })) };
+  }
+  return next;
+}
+
+export function parseProject(text: string, addLog: (message: string) => void = console.warn): { ok: true; project: ProjectFile } | { ok: false; message: string } {
   let value: unknown;
   try { value = JSON.parse(text); }
   catch { return { ok: false, message: 'This project file is not valid JSON.' }; }
@@ -108,6 +158,10 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
   if (widths.size > 1) return { ok: false, message: "This project file contains an alignment whose rows have different lengths" };
   const ids = new Set<string>();
   for (const record of value.records as SeqRecord[]) {
+    for (const feature of record.features) {
+      if (hasPartialStrands(feature)) return { ok: false, message: `Feature ${feature.name} has a strand on some of its pieces but not others.` };
+      delete feature.biological;
+    }
     if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();
     if (ids.has(id)) return { ok: false, message: `This project file contains a duplicate record ID: ${record.id}.` };
@@ -118,5 +172,23 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
       return { ok: false, message: `This project file contains an alignment whose residues differ from sequence ${record.id}.` };
     }
   }
-  return { ok: true, project: value as unknown as ProjectFile };
+  const project = value as unknown as ProjectFile;
+  project.records = project.records.map(record => ({
+    ...record, features: record.features.map(feature => {
+      let normalized = withLegacyLocation(feature, record);
+      if (!isCds(normalized)) return normalized;
+      normalized = { ...normalized, metadata: { ...normalized.metadata } };
+      delete normalized.metadata!._translationCheck;
+      if (isCds(normalized) && record.moleculeType === 'protein' && normalized.metadata!._translationSource === 'computed') {
+        delete normalized.metadata!.translation;
+        normalized.metadata!._translationSource = 'removed';
+        normalized.metadata!._translationMessage = `Translation discarded on load: ${translationReason({ status: 'unavailable', reason: 'protein-record' }, normalized)}`;
+        addLog(`${normalized.name}: ${normalized.metadata!._translationMessage}`);
+      }
+      return checkTranslation(normalized, record);
+    }),
+  }));
+  const warning = translationWarning(project.records);
+  if (warning) addLog(warning);
+  return { ok: true, project };
 }

@@ -18,34 +18,79 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { splitWrapAround } from '@/src/domain/bio/intervals';
+import { isCds } from '@/src/domain/bio/translation';
+import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
+import { parseLocation } from './locationParser';
+import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
+import { featureParts } from '@/src/domain/bio/featureParts';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
 
-/** Rebuild an edited/custom location from its existing segments, preserving
- * their order. This serializes coordinates; it does not extract a spliced product.
+/**
+ * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
+ * that evaluation reads in reverse sat inside one `complement(join(...))` (INSDC FT 11.4 §3.4.2.2),
+ * so each such run is written back that way, its strands flipped. The result is re-parsed and used
+ * only when it gives the stored segments back; otherwise the evaluated form is written.
  */
-function featureLocation(feature: BioFeature, sequenceLength: number): string {
+function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[], record: SeqRecord): string | null {
+  const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
+    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, { length: record.sequence.length, isCircular: record.isCircular });
+    return location.kind === 'insdc' ? location.text : location.display;
+  };
+  const order = feature.writtenOrder;
+  // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
+  if (order?.length !== segments.length || feature.remoteParts?.length) return null;
+  const operator = feature.operator ?? 'join';
+  const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
+  const evaluationAt: number[] = [];
+  order.forEach((position, i) => { evaluationAt[position] = i; });
+  const parts: string[] = [];
+  for (let first = 0; first < segments.length;) {
+    let last = first;
+    while (last + 1 < segments.length && evaluationAt[last + 1] === evaluationAt[last] - 1) last++;
+    if (last === first) {
+      const segment = segments[evaluationAt[first]];
+      parts.push(oriented(segment, strandOf(segment)));
+    } else {
+      const inner = evaluationAt.slice(first, last + 1).map(i => oriented(segments[i], strandOf(segments[i]) === 1 ? -1 : 1));
+      parts.push(`complement(${operator}(${inner.join(',')}))`);
+    }
+    first = last + 1;
+  }
+  const location = parts.length === 1 ? parts[0] : `${operator}(${parts.join(',')})`;
+  const reread = parseLocation(location);
+  const same = reread.segments.length === segments.length && reread.segments.every((part, i) =>
+    part.start === segments[i].start && part.end === segments[i].end && (part.strand ?? reread.strand) === strandOf(segments[i]));
+  return same ? location : null;
+}
+
+function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportReport): string | null {
   if (feature.locationString) return feature.locationString;
-  const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, sequenceLength);
-  const mixed = segments.some(segment => 'strand' in segment && segment.strand !== undefined);
-  const locations = segments.map(segment => {
-    const location = `${segment.start + 1}..${segment.end}`;
-    const strand = 'strand' in segment ? segment.strand : undefined;
-    return mixed && (strand ?? feature.strand) === -1 ? `complement(${location})` : location;
-  });
-  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
-  return !mixed && feature.strand === -1 ? `complement(${location})` : location;
+  const length = record.sequence.length;
+  const location = formatInsdcLocation(feature, { length, isCircular: record.isCircular });
+  if (location.kind === 'no-insdc-form') {
+    report.featuresWithoutInsdcLocation[location.reason === 'linear-edge-site' ? 'linearEdgeSite' : 'invalidGeometry']++;
+    return null;
+  }
+  const parts = featureParts(feature, { length, isCircular: record.isCircular });
+  const nested = parts.some(part => part.strand !== undefined) ? writtenNestedLocation(feature, parts, record) : null;
+  return nested ?? location.text;
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
-  report.gapRecordsOmitted = records.filter(record => /[-.]/.test(record.sequence)).map(record => record.id);
-  records = records.filter(record => !/[-.]/.test(record.sequence));
+  records = records.filter(record => {
+    const reason = genBankExportProblem(record);
+    if (!reason) return true;
+    const gaps = /[-.]/.test(record.sequence);
+    if (gaps) report.gapRecordsOmitted.push(record.id);
+    report.genBankRecordsOmitted.push({ id: record.id, reason: gaps ? `${record.id} not exported: its sequence contains gap characters` : reason });
+    return false;
+  });
   if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
     throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
   }
@@ -77,9 +122,13 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
   }
   for (const feature of features) {
-    gb += `     ${feature.type.padEnd(15)} ${featureLocation(feature, length)}\n`;
+      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
+    report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
+    const text = featureLocation(feature, r, report);
+    if (text === null) continue;
+    gb += `     ${feature.type.padEnd(15)} ${text}\n`;
     const metadata = { ...feature.metadata };
-    if (feature.translation && metadata.translation === undefined) metadata.translation = feature.translation;
+    if (!isCds(feature)) delete metadata.translation;
     if (feature.type === 'source') {
       for (const [key, qualifier] of Object.entries(DETAIL_QUALIFIER)) {
         const value = details[key as keyof typeof details];
@@ -128,5 +177,4 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
   return gb + '//\n';
-
 }

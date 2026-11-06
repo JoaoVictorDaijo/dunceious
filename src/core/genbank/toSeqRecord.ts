@@ -25,6 +25,7 @@
 
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseHeader } from './headerParser';
+import type { FindingSink } from './findings';
 import { parseFeatures } from './featureParser';
 
 /** Extracts the nucleotide sequence from the ORIGIN section */
@@ -38,20 +39,20 @@ function parseSequence(lines: string[]): string {
       continue;
     }
     if (inOrigin) {
-      if (line.trim().startsWith('//')) break;
-      sequence += line.replace(/[^A-Za-z\-*]/g, '').toUpperCase();
+      if (line.trim().startsWith('//') || line.startsWith('CONTIG')) break;
+      sequence += line.replace(/^\s*\d+\s+/, '').replace(/\s/g, '').toUpperCase();
     }
   }
 
   return sequence;
 }
 
-export function toSeqRecord(recordStr: string): SeqRecord {
+export function toSeqRecord(recordStr: string, finding?: FindingSink): SeqRecord {
   const lines = recordStr.split(/\r?\n/);
 
   const header = parseHeader(lines);
-  const features = parseFeatures(lines);
   const sequence = parseSequence(lines);
+  const features = parseFeatures(lines, finding, header.moleculeType === 'protein', sequence.length, header.isCircular);
 
   return {
     id: header.id,

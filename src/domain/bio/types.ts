@@ -32,6 +32,10 @@ export interface FeatureSegment {
    * which carry a single strand on the parent feature.
    */
   strand?: 1 | -1;
+  /** `<` before the start number: the interval begins somewhere before `start` (INSDC FT 11.4 §3.4.2.1). */
+  partialStart?: true;
+  /** `>` after the end number: the interval ends somewhere after `end`. */
+  partialEnd?: true;
 }
 
 /**
@@ -50,8 +54,8 @@ export interface BioFeature {
   /** Workspace provenance survives projects but stays out of interchange files. */
   hubEdit?: 'edited' | 'added';
   color?: string;
+  unknownQualifiers?: Record<string, string>;
   metadata?: Record<string, string>;
-  translation?: string;
   /**
    * Sub-ranges for multi-part (spliced / GenBank join) features; each half-open
    * `[start, end)`. Authoritative pieces when present; `start`/`end` above is
@@ -61,7 +65,40 @@ export interface BioFeature {
   segments?: FeatureSegment[];
   /** Original source location text (e.g. GenBank join/complement), preserved for round-trip export. */
   locationString?: string;
+  /** Source geometry for aligned display; never persisted in project files. */
+  biological?: Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'>;
+  /** INSDC FT 11.4 §3.4.2.2 operator of a multi-interval location (LOC-1, LOC-2). */
+  operator?: LocationOperator;
+  /**
+   * An INSDC `n^n+1` site (§3.4.2.1, LOC-5): zero bases at the boundary `start === end`, after
+   * base `start` (1-based). Read it through `isBetweenBasesSite`, which also requires `start === end`.
+   */
+  betweenBases?: true;
+  /**
+   * Written position of each segment, when `segments` (evaluation order) differs from the order the
+   * location writes its intervals, as in a nested `complement(join(complement(a),b))` (#241).
+   */
+  writtenOrder?: number[];
+  /**
+   * Intervals in other INSDC entries (§3.4.2.1(e)), never local bases (#245). `segments` holds only
+   * this record's intervals, so a reader that ignores these cannot mistake them for local ones.
+   */
+  remoteParts?: RemotePart[];
 }
+
+/** An interval in another entry, in that entry's 0-based half-open coordinates. */
+export interface RemotePart extends FeatureSegment {
+  /** Accession.version as written, e.g. `J00194.1`. */
+  accession: string;
+  /** The strand it is read on. */
+  strand: 1 | -1;
+  /** Its position among all the location's intervals in the order `segments` stores them. */
+  index: number;
+}
+
+/** `join` concatenates its elements; `order` only places them (INSDC FT 11.4 §3.4.2.2). */
+export type LocationOperator = 'join' | 'order';
+
 
 /** Quantitative track. `data` intervals are `[start, end)` 0-based half-open; `kind` = 'line' (bedGraph) or 'interval' (BED). */
 export interface QuantitativeTrack {
@@ -185,3 +222,18 @@ export interface SearchHitProvenance {
   createdAt: string;
   exportNote: boolean;
 }
+
+
+
+export interface GenBankFinding {
+  tier: 'refuse' | 'warning';
+  code: string;
+  record: { name: string; index: number };
+  feature?: { key: string; name: string };
+  line?: number;
+  message: string;
+}
+
+export type ConceptualTranslation =
+  | { status: 'ok'; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[] }
+  | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };
