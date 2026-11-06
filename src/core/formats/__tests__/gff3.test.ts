@@ -22,6 +22,7 @@ import { it, expect } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGff3, parseGFF3 } from '../gff3';
 import { exportToGenBank } from '../../genbank/serialize';
+import { parseGenBank } from '../../genbank';
 import { soTypeFor } from '../soTypes';
 import { extractCodingSequence, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
@@ -235,6 +236,32 @@ it('writes a between-base site as one row with start equal to end, after the bas
   const [, row] = lines(exportToGff3([record({ features: [siteFeature] })]).text);
   expect(row.slice(3, 5)).toEqual(['10', '10']);
   expect(row[8]).toContain('insdc_site=true');
+});
+
+it.each([
+  { location: 'join(1..3,10^11,16..20)', segments: [{ start: 0, end: 3 }, { start: 10, end: 10 }, { start: 15, end: 20 }], coordinates: [['1', '3'], ['10', '10'], ['16', '20']], siteIndex: 1 },
+  { location: 'join(10^11,16..20)', segments: [{ start: 10, end: 10 }, { start: 15, end: 20 }], coordinates: [['10', '10'], ['16', '20']], siteIndex: 0 },
+])('preserves compound sites through GenBank import and GFF3 export/import: $location', ({ location, segments, coordinates, siteIndex }) => {
+  const imported = parseGenBank(`LOCUS       compound         120 bp    DNA     linear   UNK 01-JAN-2026
+FEATURES             Location/Qualifiers
+     source          1..120
+                     /organism="Test organism"
+                     /mol_type="genomic DNA"
+     misc_feature    ${location}
+ORIGIN
+        1 ${'a'.repeat(120)}
+//
+`);
+  expect(imported.findings).toEqual([]);
+  const { text } = exportToGff3(imported.records);
+  const rows = lines(text).slice(1);
+  expect(rows.map(row => row.slice(3, 5))).toEqual(coordinates);
+  expect(rows.map(row => row[8].includes('insdc_site=true'))).toEqual(rows.map((_, index) => index === siteIndex));
+  const features = Object.values(parseGFF3(text).features).flat();
+  expect(features).toHaveLength(1);
+  expect(features[0].segments).toEqual(segments);
+  expect(features[0].operator).toBe('join');
+  expect(features[0].betweenBases).toBeUndefined();
 });
 
 it('writes the operator of an order() feature on each of its rows', () => {

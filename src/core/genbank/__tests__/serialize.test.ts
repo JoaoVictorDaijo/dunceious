@@ -289,14 +289,17 @@ it('applies the protein alphabet in the real GenPept writer without dropping val
 });
 
 it.each([
-  { start: 10, end: 10, segments: [{ start: 10, end: 10 }], isCircular: false, location: '10^11' },
-  { start: 120, end: 120, segments: [{ start: 120, end: 120 }], isCircular: true, location: '120^1' },
+  { start: 10, end: 10, segments: [{ start: 10, end: 10 }], isCircular: false, betweenBases: true as const, location: '10^11' },
+  { start: 120, end: 120, segments: [{ start: 120, end: 120 }], isCircular: true, betweenBases: true as const, location: '120^1' },
+  { start: 1, end: 1, segments: [{ start: 1, end: 1 }], isCircular: true, length: 1, betweenBases: true as const, location: '1^1' },
   { start: 0, end: 20, segments: [{ start: 0, end: 3 }, { start: 10, end: 10 }, { start: 15, end: 20 }], isCircular: false, location: 'join(1..3,10^11,16..20)' },
-])('round-trips site geometry through GenBank: $location', ({ start, end, segments, isCircular, location }) => {
-  const result = exportToGenBank([record({ sequence: 'A'.repeat(120), isCircular,
-    features: [{ type: 'source', name: 'source', start: 0, end: 120, strand: 1, metadata: { organism: 'Test organism', mol_type: 'genomic DNA' } }, { type: 'misc_feature', name: 'roundtrip', start, end, strand: 1, segments }] })]);
+])('round-trips site geometry through GenBank: $location', ({ start, end, segments, isCircular, length = 120, betweenBases, location }) => {
+  const result = exportToGenBank([record({ sequence: 'A'.repeat(length), isCircular,
+    features: [{ type: 'source', name: 'source', start: 0, end: length, strand: 1, metadata: { organism: 'Test organism', mol_type: 'genomic DNA' } }, { type: 'misc_feature', name: 'roundtrip', start, end, strand: 1, segments, betweenBases }] })]);
   expect(result.text).toContain(`misc_feature    ${location}`);
   const parsed = parseGenBank(result.text);
   expect(parsed.findings.filter(f => f.tier === 'refuse')).toEqual([]);
-  expect(parsed.records[0].features.find(f => f.name === 'roundtrip')).toMatchObject({ start, end, segments });
+  const roundtrip = parsed.records[0].features.find(f => f.name === 'roundtrip');
+  expect(roundtrip).toMatchObject({ start, end, segments });
+  expect(roundtrip?.betweenBases).toBe(betweenBases);
 });

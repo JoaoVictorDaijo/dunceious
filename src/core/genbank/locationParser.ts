@@ -83,7 +83,7 @@ function siteBoundary(location: string): number | null {
   const site = location.match(/^(\d+)\^(\d+)$/);
   if (!site) return null;
   const [n, m] = [parseInt(site[1]), parseInt(site[2])];
-  return m === n + 1 || (m === 1 && n > 1) ? n : null;
+  return m === n + 1 || (m === 1 && n >= 1) ? n : null;
 }
 
 /** Splits a join/order element list on commas that are not inside nested parens. */

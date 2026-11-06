@@ -203,11 +203,13 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
+        const site = segment.start === segment.end;
+        if (site) partAttrs.insdc_site = 'true';
         if (segment.partialStart) partAttrs.insdc_partial_start = '<';
         if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
         const direction = segment.strand ?? getFeatureStrand(feature);
         const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
+        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
       });
     }
   }
@@ -427,7 +429,10 @@ export function parseGFF3(content: string): {
       const remoteParts = takeRemoteParts(feature);
       if (remoteParts) feature.remoteParts = remoteParts;
       const intervals = feature.segments!.length + (remoteParts?.length ?? 0);
-      if (intervals > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
+      if (intervals > 1) {
+        delete feature.betweenBases;
+        feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
+      }
       delete feature.metadata!.insdc_operator;
       const perInterval = feature.metadata!.insdc_interval_strands === 'true';
       delete feature.metadata!.insdc_interval_strands;
