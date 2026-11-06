@@ -282,3 +282,20 @@ describe('import commit gates', () => {
     expect(h.result.current.records).toEqual([]);
   });
 });
+
+it('settles an annotation lock refusal as handled with no annotations or details', async () => {
+  const h = gated();
+  act(() => h.result.current.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  const promise = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'a.gff3',
+    content: 'a\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;host=human\na\ts\tgene\t1\t2\t.\t+\t.\tID=forbidden', idMap: { a: 'a' } });
+  const index = h.worker.requests.length - 1;
+  h.lock();
+  act(() => h.worker.release(index));
+  const response = await promise;
+  expect(response).toMatchObject({ type: 'ANNOTATIONS_SUCCESS', idMap: { a: 'a' } });
+  if (response === 'stale' || response.type !== 'ANNOTATIONS_SUCCESS') throw new Error('Expected handled annotation refusal');
+  expect(response.annotations).toEqual({});
+  expect(response.details).toEqual({});
+  expect(h.result.current.records).toEqual([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]);
+  expect(h.log).toHaveBeenCalledWith('Annotations were not loaded: the workspace is locked');
+});

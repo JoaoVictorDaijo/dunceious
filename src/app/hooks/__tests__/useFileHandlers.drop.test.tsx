@@ -226,3 +226,70 @@ it.each([['decline', false], ['decline', true], ['category', false], ['category'
   expect(result.current.bio.records.map(r => [r.id, r.features.map(f => f.name)])).toEqual(duplicate ? [['a', []], ['a_1', []], ['b', ['right']]] : [['a', []], ['b', ['right']]]);
   expect(log).toHaveBeenCalledWith('WARNING: Some IDs in file did not match active records: [a]');
 });
+
+it.each(['protein', 'nucleotide'] as const)('settles dropped protein GenBank against a %s workspace', async category => {
+  const { result, log } = setup(async () => 'LOCUS       p 4 aa linear\nORIGIN\n        1 MEFW\n//');
+  act(() => result.current.bio.setRecords([{ id: 'existing', name: 'existing', sequence: category === 'protein' ? 'MEFW' : 'ACGT',
+    moleculeType: category === 'protein' ? 'protein' : 'dna', features: [] }]));
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([new File([], 'protein.gb')]); });
+  const worker = LocalWorker.instance;
+  const request = worker.requests.find(request => request.type === 'PARSE_GENBANK')!;
+  await act(async () => { worker.respond(request); await done; });
+  expect(request).toMatchObject({ incomingCategory: 'protein' });
+  expect(result.current.bio.records.map(record => [record.id, record.sequence])).toEqual(category === 'protein'
+    ? [['existing', 'MEFW'], ['p', 'MEFW']] : [['existing', 'ACGT']]);
+  expect(result.current.handlers.moleculeTypeMismatch).toEqual(category === 'protein' ? null
+    : { incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.gb' });
+  if (category === 'nucleotide') expect(log).toHaveBeenCalledWith('protein.gb was not loaded: the session now holds nucleotide sequences');
+});
+
+it('refuses a dropped annotation whose read completes after processing clears and alignment locks', async () => {
+  let locked = false;
+  let finish!: (text: string) => void;
+  const text = new Promise<string>(resolve => { finish = resolve; });
+  const { result, log } = setup(() => text, () => locked);
+  act(() => result.current.bio.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([new File([], 'a.gff3')]); });
+  const worker = LocalWorker.instance;
+  act(() => worker.respond(worker.requests.find(request => request.type === 'PROCESS_RECORDS')!));
+  expect(result.current.bio.isProcessing).toBe(false);
+  locked = true;
+  await act(async () => finish('a\ts\tgene\t1\t2\t.\t+\t.\tID=forbidden'));
+  const annotation = worker.requests.find(request => request.type === 'PARSE_ANNOTATIONS');
+  await act(async () => { if (annotation) worker.respond(annotation); await done; });
+  expect(annotation).toBeUndefined();
+  expect(result.current.bio.records[0].features).toEqual([]);
+  expect(log).toHaveBeenCalledWith('a.gff3 was not loaded: the workspace is locked');
+});
+
+it('handles an annotation response arriving after alignment locks without committing it', async () => {
+  let locked = false;
+  const { result, log } = setup(async () => 'a\ts\tgene\t1\t2\t.\t+\t.\tID=forbidden', () => locked);
+  act(() => result.current.bio.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  let done!: Promise<void>;
+  await act(async () => { done = result.current.handlers.handleDroppedFiles([new File([], 'a.gff3')]); });
+  const worker = LocalWorker.instance;
+  const annotation = worker.requests.find(request => request.type === 'PARSE_ANNOTATIONS')!;
+  expect(annotation).toMatchObject({ filename: 'a.gff3' });
+  locked = true;
+  await act(async () => { worker.respond(annotation); await done; });
+  expect(result.current.bio.records[0].features).toEqual([]);
+  expect(log).toHaveBeenCalledWith('Annotations were not loaded: the workspace is locked');
+  expect(log).not.toHaveBeenCalledWith(expect.stringContaining('Annotation import complete:'));
+});
+
+it('refuses a picker annotation read completed after alignment locks', async () => {
+  let locked = false;
+  let finish!: (text: string) => void;
+  const text = new Promise<string>(resolve => { finish = resolve; });
+  const { result, log } = setup(() => text, () => locked);
+  act(() => result.current.bio.setRecords([{ id: 'a', name: 'a', sequence: 'ACGT', features: [] }]));
+  act(() => result.current.handlers.handleAnnotationUpload({ target: { files: [new File([], 'picker.gff3')], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>));
+  locked = true;
+  await act(async () => finish('a\ts\tgene\t1\t2\t.\t+\t.\tID=forbidden'));
+  expect(LocalWorker.instance.requests.filter(request => request.type === 'PARSE_ANNOTATIONS')).toEqual([]);
+  expect(result.current.bio.records[0].features).toEqual([]);
+  expect(log).toHaveBeenCalledWith('picker.gff3 was not loaded: the workspace is locked');
+});

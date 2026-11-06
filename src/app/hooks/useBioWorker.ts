@@ -218,6 +218,12 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
         return;
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
+        if (optionsRef.current.isAlignmentLocked?.()) {
+          addLog('Annotations were not loaded: the workspace is locked');
+          setIsProcessing(false);
+          settle({ ...msg, annotations: {}, details: {} });
+          return;
+        }
         const annotationResponse = msg;
         const annotations = msg.annotations;
         setRecords(prev => {

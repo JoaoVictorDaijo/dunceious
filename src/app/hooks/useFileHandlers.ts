@@ -236,7 +236,14 @@ export function useFileHandlers(
     files.forEach(file =>
       dispatchFile(
         file,
-        content => ({ type: 'PARSE_ANNOTATIONS', filename: file.name, content }),
+        content => {
+          if (isAlignmentLocked()) {
+            addLog(`${file.name} was not loaded: the workspace is locked`);
+            setIsProcessing(false);
+            return null;
+          }
+          return { type: 'PARSE_ANNOTATIONS', filename: file.name, content };
+        },
         workerDeps,
       ),
     );
@@ -298,6 +305,10 @@ export function useFileHandlers(
       setIsProcessing(true);
       const request = async (message: BioWorkerRequest) => {
         checkWorkspace();
+        if (message.type === 'PARSE_ANNOTATIONS' && isAlignmentLocked()) {
+          addLog(`${message.filename} was not loaded: the workspace is locked`);
+          return { type: 'ANNOTATIONS_SUCCESS' as const, annotations: {}, details: {}, idMap: message.idMap };
+        }
         if (!dropImport) throw new Error('The processing worker is unavailable.');
         const response = await dropImport.requestBio(message, shouldCommit);
         if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
@@ -310,7 +321,7 @@ export function useFileHandlers(
           importSequence: async (file, content) => {
             checkWorkspace();
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = sniffFastaCategory(content);
+            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
             const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: incoming, ...(isFasta ? { asAlignment: false } : {}) });
             if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
             if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
