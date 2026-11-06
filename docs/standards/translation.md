@@ -118,10 +118,41 @@ names unparsed, off-codon, out-of-CDS and conflicting-break diagnostics.
 checks length/containment of simple locations and takes strand from the CDS;
 [`CdregionFeatBC`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6582)
 sorts and deduplicates equal normalized breaks. Raw translator overwrite order is not a
-standard conflict-resolution rule. Interactive edit maintenance, ambiguous mappings and
-invalid-entry policies are not settled by these sources; the proposed
-[PR 2 design](../specs/2026-11-06-translation-transl-except.md#open-decisions) records the choices
-without claiming current application support. NCBI parser/validator execution remains unverified.
+standard conflict-resolution rule. The source trace additionally establishes these defaults (Documented, not executed):
+
+- **Backed by: `src/objtools/cleanup/cleanup.cpp:CCleanup::ParseCodeBreak` at commit `912b751`:**
+  skip whitespace after `pos:`/`aa:`, trim position text, assign known CDS strand to simple
+  parsed locations even when omitted/contrary in text; preserve raw values separately.
+- **Backed by: `src/objtools/cleanup/cleanup_utils.cpp:x_ValidAminoAcid` at commit `912b751`**
+  ([source](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/cleanup_utils.cpp#L640)):
+  listed multi-letter names compare case-insensitively, single letters case-sensitively;
+  unknown names (including full names) map to X, not to the intended amino acid. Xxx is a
+  tool alias; INSDC Xaa remains standard. No silent fallback claim is authorized for the app.
+- **Backed by: `src/objtools/cleanup/newcleanupp.cpp:CCodeBreakCompare`, `CCodeBreakEqual`,
+  `CNewCleanup_imp::CdregionFeatBC`; `src/objmgr/util/sequence.cpp:CSeqTranslator::Translate`
+  at commit `912b751`:** sort by offset, collapse equal adjacent normalized location/residue
+  pairs, preserve same-offset order, then overwrite; differing same-location breaks use the
+  last residue. App preserves raw occurrences and applies equal assertions once.
+- **Backed by: `src/objtools/validator/cdregion_validator.cpp:CCdregionValidator::x_ValidateCodebreak`,
+  `x_ReportTranslExceptProblems`; `src/objtools/validator/translation_problems.cpp:CCDSTranslationProblems::x_GetTranslExceptProblems`
+  at commit `912b751`**
+  ([checks](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/cdregion_validator.cpp#L647)):
+  duplicate locations are Error; partial flags on the break itself are Error TranslExceptIsPartial,
+  not a test of parent-CDS completeness. Phase warnings test full triplets and short breaks at
+  the CDS end; not all internal short breaks are rejected. Product mapping checks are conditional
+  on product presence and skip terminal breaks. Neither parser nor these checks requires T/TA
+  letters for short TERM; the permissive translator can substitute or append it. This tolerance
+  is not evidence of biological TAA completion outside INSDC's specified suffix.
+- **Backed by: `src/objmgr/util/sequence.cpp:CSeqTranslator::Translate`, `TranslateToProtein`
+  at commit `912b751`:** explicit terminal TERM is not gated on parent-CDS completeness;
+  final definite-stop removal is unconditional. Keep parent partialness distinct from a
+  break's own partial flags.
+
+Interactive edit maintenance, ambiguous occurrence mapping and whole-CDS verification are app
+policies. The proposed [PR 2 design](../specs/2026-11-06-translation-transl-except.md#open-decisions)
+records the remaining questions, including one scientifically justified stricter verification
+proposal for unsupported short forms and unknown residue fallback; it is not an adopted default.
+NCBI parser/validator execution remains unverified.
 
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
 in-frame TGA).
