@@ -32,7 +32,7 @@ import { featureCoordPatch, remoteIntervalsText } from '@/src/app/logic/viewMode
 import { keptRemoteParts } from '@/src/domain/bio/intervals';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
-  metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
+  normalizeQualifierKey, metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
 } from '@/src/app/logic/qualifiers';
 
 const ISSUE_TEXT: Record<QualifierIssue, string> = {
@@ -90,18 +90,21 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   // drop it or the exported file would silently keep the old interval.
   const setGeometry = (patch: Partial<BioFeature>) => setFeature({ ...patch, locationString: undefined });
 
-  const [rows, setRows] = useState<QualifierRow[]>(() => qualifierRows(feature.metadata));
+  const [rows, setRows] = useState<QualifierRow[]>(() => qualifierRows(feature.metadata).concat((feature.translationExceptions ?? []).map((value, i) => ({ id: qualifierRows(feature.metadata).length + i, key: 'transl_except', value }))));
   const nextRowId = useRef(rows.length);
   const commitRows = (next: QualifierRow[]) => {
     setRows(next);
-    setFeature({ metadata: metadataFromRows(feature.metadata, next) });
+    setFeature({ metadata: metadataFromRows(feature.metadata, next), translationExceptions: next.filter(row => normalizeQualifierKey(row.key) === 'transl_except').map(row => row.value) });
   };
-  const updateRow = (id: number, patch: Partial<QualifierRow>) =>
-    commitRows(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  const updateRow = (id: number, patch: Partial<QualifierRow>) => {
+    if (patch.key !== undefined && ['translation', 'phase'].includes(normalizeQualifierKey(patch.key))) return;
+    commitRows(rows.map(r => (r.id === id && !['translation', 'phase'].includes(r.key) ? { ...r, ...patch } : r)));
+  };
 
   if (feature.type === 'source' || records.find(record => record.id === recordId)?.features[featureIndex]?.type === 'source') return null;
 
-  const preview = saveEditedFeature(records, recordId, featureIndex, feature).find(r => r.id === recordId)?.features[featureIndex === -1 ? records.find(r => r.id === recordId)!.features.length : featureIndex];
+  const previewNotices: string[] = [];
+  const preview = saveEditedFeature(records, recordId, featureIndex, feature, message => previewNotices.push(message)).find(r => r.id === recordId)?.features[featureIndex === -1 ? records.find(r => r.id === recordId)!.features.length : featureIndex];
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out my-auto">
@@ -347,6 +350,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           )}
 
+          {previewNotices.map((notice, i) => <p key={i} role="status" className="text-xs text-amber-400">{notice}</p>)}
           {preview && <p role="status" className="text-xs text-amber-400">{translationDescription(preview, records.find(r => r.id === recordId)!)}</p>}
           <div>
             <div className="flex justify-between items-center mb-2">
@@ -376,7 +380,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         <input
                           type="text"
                           value={row.key}
-                          readOnly={row.key === 'translation'}
+                          readOnly={['translation', 'phase'].includes(row.key)}
                           placeholder="qualifier"
                           aria-label="Qualifier name"
                           spellCheck={false}
@@ -385,7 +389,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         />
                         <button
                           onClick={() => commitRows(rows.filter(r => r.id !== row.id))}
-                          disabled={row.key === 'translation'}
+                          disabled={['translation', 'phase'].includes(row.key)}
                           aria-label={`Remove qualifier ${row.key || 'draft'}`}
                           data-tip="Remove this qualifier"
                           className="w-6 h-6 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
@@ -394,13 +398,14 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         </button>
                       </div>
                       <textarea
-                        value={row.value}
-                        readOnly={row.key === 'translation'}
+                        value={row.key === 'phase' && /^[123]$/.test(feature.metadata?.codon_start ?? '') ? String(Number(feature.metadata!.codon_start) - 1) : row.value}
+                        readOnly={['translation', 'phase'].includes(row.key)}
                         rows={Math.min(4, Math.max(1, Math.ceil(row.value.length / 48)))}
                         aria-label={`Value of ${row.key || 'qualifier'}`}
                         onChange={e => updateRow(row.id, { value: e.target.value })}
                         className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-hidden break-words"
                       />
+                      {row.key === 'phase' && <p className="text-[11px] text-slate-400">Read-only · Edit frame through /codon_start</p>}
                       {row.key === 'translation' && <p className="text-[11px] text-slate-400">{feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported'} · Read-only</p>}
                       {issue && <p className="text-[11px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
                     </div>
@@ -421,7 +426,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             Discard
           </button>
           <button
-            disabled={invalid}
+            disabled={invalid || previewNotices.some(notice => notice.includes('Save refused'))}
             onClick={onSave}
             data-tip={isNew ? 'Add this annotation to the record' : 'Save the changes to this annotation'}
             className="flex-1 py-4 rounded-2xl bg-env-strong hover:bg-env-strong/90 text-white text-xs font-bold uppercase transition-all shadow-xl tracking-widest"

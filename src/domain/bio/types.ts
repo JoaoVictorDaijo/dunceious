@@ -54,6 +54,7 @@ export interface BioFeature {
   /** Workspace provenance survives projects but stays out of interchange files. */
   hubEdit?: 'edited' | 'added';
   color?: string;
+  translationExceptions?: string[];
   unknownQualifiers?: Record<string, string>;
   metadata?: Record<string, string>;
   /**
@@ -234,6 +235,26 @@ export interface GenBankFinding {
   message: string;
 }
 
+export interface SelectionLoss {
+  record: string;
+  feature: string;
+  reason: string;
+  occurrence?: number;
+  raw?: string;
+}
+
+export interface TranslationExceptionEvidence {
+  feature: string;
+  occurrence: number;
+  raw: string;
+  status: 'malformed' | 'deferred' | 'dropped' | 'applied';
+  reason?: string;
+  bases?: number[];
+  codonIndex?: number;
+  possible?: string;
+  warnings?: string[];
+}
+
 export type ConceptualTranslation =
-  | { status: 'ok'; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[] }
-  | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };
+  | { status: 'ok'; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[]; exceptions?: TranslationExceptionEvidence[] }
+  | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty'; exceptions?: TranslationExceptionEvidence[] };

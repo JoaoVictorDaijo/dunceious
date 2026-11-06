@@ -190,7 +190,7 @@ the valid entries. OTHER/Xaa compares as any sense residue including U/O, never 
 No silent rounding, X fallback or automatic correction is allowed. Plain-move handling,
 GFF3/project refusal scope, other-accession disposition, conflict survivors and clipped
 translation/frame policy remain [awaiting owner](../specs/2026-11-06-translation-transl-except.md#open-decisions).
-This records approved design, not completed PR 2 implementation. NCBI parser/validator execution
+The implementation follows these approved rules with the held seams below. NCBI parser/validator execution
 remains unverified.
 
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
@@ -198,14 +198,22 @@ in-frame TGA).
 
 **Applications.** Unknown.
 
-**Dunceious.** Partial. The qualifier is kept but not applied; the conceptual model returns
-unsupported-exception and removes the stored product on invalidating edits;
-the stored `/translation` is preferred (`src/app/viewer/tracks/SequenceTrack.tsx:343`).
+**Dunceious.** `translationExceptions` preserves ordered raw occurrences. The conceptual model
+maps exact entry bases through biological extraction, applies recognized residues after initiation
+and before terminal-stop removal, and returns per-occurrence evidence, including removed-terminal
+slots. GenBank refuses malformed syntax/shape with the CDS, occurrence, literal and rule.
+Otherwise-valid outside/repeated-visit assertions are removed with visible notices; computation uses
+the retained assertions. Stored imported proteins remain supplied data. Exact qualified identifiers
+match only the record's accession or version fields; no display-name alias or remote fetching occurs.
+OTHER/Xaa permits every sense residue including U/O, while definite stops remain incompatible.
+Identical assertions preserve multiplicity and apply once; conflicts remain unavailable pending owner.
+The independent runtime NCBI conformance gate remains pending; literal hand-derived tests are executed
+separately and do not claim NCBI parser execution.
 
 Preferring a stored `/translation` does not establish that it remains valid after an edit;
 [#253](https://github.com/JoaoVictorDaijo/dunceious/issues/253) tracks that separate fidelity issue.
 Use [OP-8](operations.md#op-8-biological-codons-and-display-frames) for codon construction and
-[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase) for exported phase. The initiation rule is enforced by the shared conceptual model; exception application remains deferred.
+[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase) for exported phase. The initiation rule is enforced by the shared conceptual model; exception application uses the shared conceptual model.
 
 ### Conceptual CDS products and comparison
 
@@ -223,8 +231,10 @@ A retained terminal stop/residue mixture is X and marks the end uncertain.
 Counts are translation positions without the terminal stop, including internal stops and
 X/U/O. They use “aa” only without internal stops. Declared protein records, unresolved
 biological strands, nonlocal/multipart order locations and unknown completeness cannot
-establish a CDS count or early-stop claim. `/transl_except` remains unsupported in the
-conceptual model: no computed product is claimed or exported after an invalidating edit.
+establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed assertions retained through
+GFF3/project files and nonmatching accession identities make computation unavailable pending owner
+policy. Plain moves carrying code breaks temporarily refuse Save; reverse/reframe removes newly
+unusable inherited breaks with notices before Save completes. Malformed new authoring refuses Save.
 
 Comparison preserves supplied proteins. Stored X is compatible with an ordinary residue,
 but not a definite DNA stop; ambiguous codons accept members of their contextual possible
@@ -239,5 +249,18 @@ recomputed at import attachment, save and format-2 project load. Loading never t
 On a protein record, computed provenance is invalid derived data and is removed on load;
 an imported protein qualifier remains supplied data. Protein GenBank export and the GFF3
 phase editor have owner decisions dated 2026-11-06: keep supplied `/translation` on
-protein CDS export; make phase read-only and edit frame via `/codon_start`. The phase editor
-follow-up belongs to PR 2, not merged PR #291.
+protein CDS export; make phase read-only and edit frame via `/codon_start`. The phase editor displays a read-only derived phase; frame edits use `/codon_start`.
+
+### Exception interchange and held policies
+
+GenBank and GFF3 preserve repeated exception values in the canonical ordered array. GFF3 splits
+raw comma lists before decoding and emits the list once on the first multipart row. Project
+format 2 preserves the array, strips derived translation checks on save, and recomputes them on load.
+Selection JSON rebases retained codons on copies, drops cut-destroyed codons, marks cut ends and
+reports every loss before download. Clipped protein omission and the existing frame formula remain
+unchanged pending owner policy. There is no reversed or GenBank/GFF3 selection-export action.
+
+Non-printable GenBank text remains held: existing newline folding remains lossy; other control
+characters refuse export with the logical value. General free-text wrapping limits remain #308.
+Malformed code breaks reaching the writer refuse export defensively. Another accession and
+conflicting residues retain assertions with unavailable computation; neither is silently dropped.

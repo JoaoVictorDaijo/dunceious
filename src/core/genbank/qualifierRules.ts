@@ -141,7 +141,9 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   if (syntax === 'flag') return [indent + '/' + key];
   if (!value) return [];
 
+  // TODO(#253): owner must choose disposition for non-printable text; line breaks retain existing folding.
   value = value.replace(/\s*[\r\n]+\s*/g, ' ');
+  if ([...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error(`/${key}=${JSON.stringify(value)}: non-printable logical text cannot be encoded losslessly in GenBank`);
   const quoted = syntax === 'quoted';
   const escaped = quoted ? value.replace(/"/g, '""') : value;
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
@@ -150,7 +152,7 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
     let boundary = key === 'translation' ? 58 : -1;
     if (key !== 'translation') {
       for (let i = 58; i > 0; i--) {
-        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ') {
+        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ' && remaining[i + 1] !== '/') {
           boundary = i;
           break;
         }

@@ -229,12 +229,12 @@ A file starts with `##gff-version 3` and includes `##sequence-region` per record
 | Export → re-import | Sequences | Annotations | Details |
 | --- | --- | --- | --- |
 | Project | ✓ | ✓ | ✓ every value, its original and edit state |
-| GenBank / GenPept | ✓ | ✓ valid qualifiers only, one value per key | ✓ valid edited and unchanged file values |
+| GenBank / GenPept | ✓ | ✓ valid qualifiers; repeated transl_except preserved | ✓ valid edited and unchanged file values |
 | GFF3 (sequences already loaded) | ✗ | ✓ geometry, strand, phase, type, multipart identity, gene, product, note | ✓ through the `gbkey=Src` region line |
 | FASTA, modifiers off | ✓ | ✗ | ✗ |
 | FASTA, modifiers on | ✓ | ✗ | ✓ non-deprecated modifiers |
 
-Known limitations: feature metadata stores one string per qualifier key; repeated GenBank qualifiers keep only the last value, so preservation refers to workspace values, not every occurrence in the original file. GFF3 cannot distinguish an unusual all-inner-complement join (`join(complement(...),complement(...))`) from a whole-feature complement with the same strand columns. Geometry, strand and phases survive, but exact extracted residue order is not guaranteed for that case; use project JSON for full fidelity.
+Known limitations: feature metadata stores one string per qualifier key; repeated GenBank qualifiers except transl_except keep only the last value, so preservation refers to workspace values, not every occurrence in the original file. GFF3 cannot distinguish an unusual all-inner-complement join (`join(complement(...),complement(...))`) from a whole-feature complement with the same strand columns. Geometry, strand and phases survive, but exact extracted residue order is not guaranteed for that case; use project JSON for full fidelity.
 
 ### Remote alignment (EMBL-EBI)
 
@@ -336,7 +336,7 @@ State and logic extracted from `App.tsx` into purpose-built hooks, each with a s
 - `AlignmentSection`, `AlignRemoteModal`, `AlignmentJobMonitor`, `AlignmentJobPill` – remote alignment trigger, dialog, job monitor and minimized pill
 - `SearchPanel` – sequence search UI with grouped results; strand selector hidden for protein sessions
 - `RecordDetailsModal` – record or annotation details: metadata, Focus, copy/export, *Show sequence in viewer*
-- `FeatureEditorModal` – *Create Feature* / *Metadata Inspector*: location, strand, segments (including circular wrap) and freely editable qualifiers
+- `FeatureEditorModal` – *Create Feature* / *Metadata Inspector*: location, strand, segments (including circular wrap) and editable qualifiers; translation and derived GFF3 phase are read-only, with frame edited through codon_start
 - `AnnotationHubPanel` – composes `components/hub/`: sequence and feature tabs, toolbar, filters, bulk actions, undo, imports and export dialog. `HubList` uses one `VariableSizeList` and a pinned header overlay derived from its current offset; `OverviewRail` and `HubIndex` jump and track the active section. All lengths use source coordinates, including circular wraps and segments. Hub eyes change session visibility; viewport visibility belongs to the Record Navigator. Feature comparison is organism-scoped and excludes hub-hidden records from baselines and counts while retaining their hidden presence cells; single-copy complete rows provide each type's median, partial features and duplicates do not.
 - `HubReturnPill` – *Back to Annotation Hub* after a Focus from the Hub
 - `OptionsPanel` – Project actions (Save/Open/Clear workspace, with global shortcuts) and feature colours
