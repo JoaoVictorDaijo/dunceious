@@ -76,6 +76,7 @@ export interface RowData {
   comparison: ActiveComparison | null;
 }
 
+const NO_HIGHLIGHTED_INTERVALS: number[] = [];
 const SELECTION_FILL = '#38bdf8';
 const SELECTION_EDGE = '#0ea5e9';
 /** Where the "Annotations" heading ends; a focus label starting before it takes the heading's place. */
@@ -94,7 +95,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   const l = recordLayouts[index];
   const chartWidth = alignmentLength * zoomLevel;
-  const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
+  const xScale = useMemo(() => d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]),
+    [alignmentLength, chartWidth]);
   
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel) - 30);
   const vEnd = Math.min(alignmentLength, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 30);
@@ -114,6 +116,13 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
   const [hoveredTrack, setHoveredTrack] = useState<{ id: string; indices: number[] } | null>(null);
+  const highlightTrackInterval = (id: string, sourceIndex: number | undefined) => {
+    setHoveredTrack(current => {
+      if (sourceIndex === undefined) return null;
+      if (current?.id === id && current.indices[0] === sourceIndex) return current;
+      return { id, indices: [sourceIndex] };
+    });
+  };
   const tracks = l.record.tracks || [];
 
   const effectiveTranslation = l.translationVisible;
@@ -515,9 +524,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   const bp = xScale.invert(x + scrollX);
                   const matches = pickTrackData(track.display, bp);
                   const lane = Math.floor((e.clientY - rect.top - 5) / 16);
-                  const picked = track.kind === 'interval' ? matches.filter(piece => track.packedRows[lane]?.includes(piece.source.index)) : matches;
-                  const nearest = picked[0];
-                  setHoveredTrack(nearest ? { id: track.id, indices: [nearest.source.index] } : null);
+                  const nearest = track.kind === 'interval'
+                    ? pickTrackData({ ...track.display, placed: track.packedRows[lane] ?? [] }, bp)[0]
+                    : matches[0];
+                  highlightTrackInterval(track.id, nearest?.source.index);
                   if (nearest) {
                     setTooltip({ 
                       x: e.pageX, 
@@ -562,7 +572,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 </div>
                 <QuantitativeTrack 
                   display={track.display}
-                  highlighted={hoveredTrack?.id === track.id ? hoveredTrack.indices : []}
+                  highlighted={hoveredTrack?.id === track.id ? hoveredTrack.indices : NO_HIGHLIGHTED_INTERVALS}
                   viewportWidth={viewportWidth}
                   height={track.height}
                   xScale={xScale}

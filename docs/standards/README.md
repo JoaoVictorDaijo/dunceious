@@ -78,7 +78,7 @@ Every claim about a tool carries one of these:
 | OP-1 | Molecule type inferred from composition | Geneious composition inference/correction | Owner decision open | [operations](operations.md#op-1-molecule-type-inferred-from-composition) |
 | OP-2 | Declared GenBank molecule type | GenBank 274.0 §3.4.4.1–2 | Deviates: #243; fallback Owner decision open | [operations](operations.md#op-2-declared-genbank-molecule-type) |
 | OP-3 | Mixed molecule types in a workspace | Bounded gate search; contrary Geneious list-container practice | No standard found; Owner decision open | [operations](operations.md#op-3-mixed-molecule-types-in-a-workspace) |
-| OP-4 | Residues, alignment columns and boundaries | Biopython 1.88 indices/inverse_indices | Deviates: #260; boundaries Owner decision open | [operations](operations.md#op-4-residues-alignment-columns-and-boundaries) |
+| OP-4 | Residues, alignment columns and boundaries | Biopython 1.88 indices/inverse_indices | Quantitative mapping conforms; feature-boundary policy Owner decision open | [operations](operations.md#op-4-residues-alignment-columns-and-boundaries) |
 | OP-5 | Linear interval clipping | bedtools 2.31.0 intersect | Conforms (nonempty linear intervals) | [operations](operations.md#op-5-linear-interval-clipping) |
 | OP-6 | Four strand states | GFF3 1.26 column 7 | Conforms (accessor scope) | [operations](operations.md#op-6-four-strand-states) |
 | OP-7 | Ribosomal slippage and inferred junctions | INSDC FT 11.4 ribosomal_slippage | Deviates: #255; inference Owner decision open | [operations](operations.md#op-7-ribosomal-slippage-and-inferred-junctions) |
@@ -107,7 +107,7 @@ Every claim about a tool carries one of these:
 | METRIC-6a | Pair glyph meanings | EMBOSS format-dependent markup; AJAX rev. 1.132 | Conforms (basic mapping) | [metrics](metrics.md#metric-6a-pair-glyph-meanings) |
 | METRIC-6b | Positive-score and exclusive-substitution counts | EMBOSS manual/source discrepancy; AJAX rev. 1.132 | Partial; reference choice Owner decision open | [metrics](metrics.md#metric-6b-positive-score-and-exclusive-substitution-counts) |
 | METRIC-6c | Reference comparison policy | EMBOSS showalign 6.6 presentation precedent | Owner decision open | [metrics](metrics.md#metric-6c-reference-comparison-policy) |
-| METRIC-7a | Observed interval values and interpolation | UCSC bedGraph Data Values | Deviates: #260; interpolation Owner decision open | [metrics](metrics.md#metric-7a-observed-interval-values-and-interpolation) |
+| METRIC-7a | Observed interval values and interpolation | UCSC bedGraph Data Values | Conforms (half-open, gap-masked interval values; no interpolation) | [metrics](metrics.md#metric-7a-observed-interval-values-and-interpolation) |
 | METRIC-7b | BED score meaning | GA4GH BED v1 §1.7 | Partial: #260 | [metrics](metrics.md#metric-7b-bed-score-meaning) |
 | METRIC-7c | Numeric display precision | BED/bedGraph source values; no precision default | Owner decision open | [metrics](metrics.md#metric-7c-numeric-display-precision) |
 | METRIC-8a | Service limits | EBI FAQ, observed 2026-10-23 | Conforms (cap magnitudes); margin Owner decision open | [metrics](metrics.md#metric-8a-service-limits) |
