@@ -33,7 +33,7 @@ import { segmentFrameshifts } from '@/src/domain/bio';
 import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
-import { alignedToOriginalPositions, complementAlphabet } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
@@ -335,7 +335,11 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
-                geneticCodeWarning(f),
+                geneticCodeWarning(f)
+                  ? geneticCodeWarning(f,
+                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
+                    l.record.moleculeType)
+                  : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),

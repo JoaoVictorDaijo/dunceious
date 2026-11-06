@@ -171,3 +171,52 @@ it.each([
   pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
   expect(view.getByText(content => content.includes(`Locus: ${text}`))).toBeTruthy();
 });
+
+it.each([undefined, 'MVA', 'M'])('explains displayed sources for invalid code with stored %s', translation => {
+  const sequence = 'ATGTGGGCT';
+  const record: SeqRecord = { id: 'c', name: 'c', sequence,
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, translation, metadata: { transl_table: '99' } }] };
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+    records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
+    showConservation={false} dragMode="select" activeSelection={null}
+    onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+    searchResults={[]} currentSearchIdx={-1} />);
+  pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+  const warning = view.getByText(/is not an NCBI genetic code/).textContent;
+  expect(warning).toContain(translation ? "annotation's /translation" : 'Residues assume table 1');
+  if (translation === 'M') expect(warning).toContain('first 1 residues');
+  expect(view.queryByText(/Early stop codon/)).toBeNull();
+});
+
+it.each([undefined, 'M'])('does not claim displayed translation on a protein record with stored %s', translation => {
+  const sequence = 'ATGTGGGCT';
+  const record: SeqRecord = { id: 'protein', name: 'protein', sequence, moleculeType: 'protein',
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1, translation, metadata: { transl_table: '99' } }] };
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+    records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
+    showConservation={false} dragMode="select" activeSelection={null}
+    onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+    searchResults={[]} currentSearchIdx={-1} />);
+  pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+  const tooltip = view.getByText(/is not an NCBI genetic code/).textContent!;
+  const warning = tooltip.split('\n').find(line => line.includes('is not an NCBI genetic code'));
+  expect(warning).toBe('⚠ /transl_table=99 is not an NCBI genetic code.');
+  expect(view.container.querySelector('[data-translation-band]')).toBeNull();
+});
+
+it.each(['?', '.'] as const)('does not claim displayed residues for nucleotide orientation %s', strand => {
+  const sequence = 'ATGTGGGCT';
+  const record: SeqRecord = { id: 'unknown', name: 'unknown', sequence, moleculeType: 'dna',
+    features: [{ type: 'CDS', name: 'Odd', start: 0, end: 9, strand: 1,
+      metadata: { transl_table: '99', _gffStrand: strand } }] };
+  const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+    records={[record]} consensus={sequence} showAnnotations showTracks showTranslation
+    showConservation={false} dragMode="select" activeSelection={null}
+    onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+    searchResults={[]} currentSearchIdx={-1} />);
+  pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+  const warning = view.getByText(/is not an NCBI genetic code/).textContent!.split('\n')
+    .find(line => line.includes('is not an NCBI genetic code'));
+  expect(warning).toBe('⚠ /transl_table=99 is not an NCBI genetic code.');
+  expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
+});
