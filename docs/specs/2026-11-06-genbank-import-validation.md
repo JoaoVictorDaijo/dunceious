@@ -162,8 +162,12 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
     - `/phase` becomes an exported `/codon_start` (`serialize.ts:91-104`);
     - `/_gffStrand` overrides the strand (`strand.ts:27-30`);
     - any `_`-prefixed key is treated as internal state.
-  - A GenBank qualifier that isn't in INSDC 11.4 Appendix III, or whose name starts with `_`, is
-    stored in a separate `feature.unknownQualifiers` map. No computation reads it.
+  - A qualifier counts as recognised when it is in INSDC 11.4 Appendix III, for nucleotide
+    entries, or in the existing protein qualifier map (`PROTEIN_QUALIFIERS`,
+    `qualifierRules.ts:135`), for protein entries. GenPept `/coded_by` and
+    `/calculated_mol_wt`, for example, stay recognised and keep being exported.
+  - Any other qualifier, and any whose name starts with `_`, is stored in a separate
+    `feature.unknownQualifiers` map. No computation reads it.
   - Display-name selection may still read a name-like qualifier from that map, such as `/label`
     (`featureParser.ts` NAME_QUALIFIERS). Naming is display only.
   - It is kept in project files and shown in the feature details. The GenBank writer leaves it
@@ -185,6 +189,17 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
      unmatched. They never fall back to an existing record that happens to share an ID
      (`bioResponse.ts:109-115`).
    - Cancellation and genuine worker errors keep their current handling.
+   - **Batch rule shared with PR #296:** every per-file refusal settles its entry as handled,
+     and the batch continues. That covers validation findings here, and the category, lock and
+     stale-workspace refusals in #296. Only workspace invalidation (replacement, worker
+     failure, unmount) and cancellation reject. #296's §B currently stops the batch on a
+     refusal; the two specs are being aligned on this rule.
+   - **Category on refusal too.** `PARSE_REFUSED` carries each record's validated category
+     where its unit token is readable. Before showing the dialog, the main thread compares it
+     with the **current** workspace, like the commit-time guard. A mismatch is added to the
+     same dialog, so a malformed protein file in a nucleotide workspace lists both problems at
+     once. When no unit is readable, the dialog shows the unreadable-LOCUS finding and makes no
+     category claim.
 3. **Only warnings:** records load as today, and the warnings travel with `PARSE_SUCCESS`.
    `useBioWorker` writes one log line per file and adds the file's notes to the import summary.
 4. **The session molecule gate moves to commit time.**
@@ -222,6 +237,8 @@ The mockup is `.code/docs/genbank-import-validation/import-validation.html` in t
   - while notes exist, the status bar shows an amber chip, "5 import notes";
   - it opens a popover listing each file's notes, grouped by check, with counts and the first
     five names per group;
+  - each group with more than five has "Show all N", which expands it in place, and the popover
+    has "Copy details" for the full text, so every affected feature can be found;
   - notes stay until the user clears them or the records are removed;
   - with no notes, nothing is shown.
 
@@ -244,16 +261,23 @@ Expected results never come from the parser under test.
   finding. Their expected record IDs, lengths and molecule categories are checked against
   values read independently from each file's LOCUS line and base count, by a separate test
   helper.
-- **Biopython parity.** For the defects Biopython 1.88 warns about (length mismatch,
-  unparseable location), the fixtures record Biopython's warning as the independent sign of
-  the defect. They come from a pinned script beside the existing conformance runs
-  (`docs/standards/conformance/`), with its output checked in.
+- **Biopython parity, the reference-tool oracle.** A pinned script beside the existing
+  conformance runs (`docs/standards/conformance/run_biopython.py`, Biopython 1.88) parses every
+  accepted fixture and every bundled example. For each record it writes:
+  - the sequence;
+  - each feature's key and its location parts as 0-based start, end and strand;
+  - the extracted feature sequence.
+
+  The output is checked in. Dunceious's parsed records and extracted sequences must match it
+  for every accepted case: fuzzy ends, complement, joins, circular origin crossings, boundary
+  positions, lowercase, RNA with T, and protein records. For the defects Biopython warns about
+  (length mismatch, unparseable location), its warning is the independent sign of the defect.
 - **Literal flat files** in `src/core/genbank/__tests__/` cover the rest, each with its expected
   outcome written from the GenBank and INSDC rule it tests.
 
 | Guarantee | Cases |
 |---|---|
-| Real records | Every `examples/**/*.gb` loads with no refuse finding, including the protein `human-pomc-NP_000930.gb` with no vocabulary warnings |
+| Real records | Every `examples/**/*.gb` loads with no refuse finding, including the protein `human-pomc-NP_000930.gb` with no vocabulary warnings. Its `/coded_by` survives import and GenBank export. Sequences, location parts and extracted sequences match the checked-in Biopython 1.88 output |
 | Residues | `acgtn` and `ACGU` with RNA LOCUS, and `ACGT` with RNA LOCUS (T in RNA): accepted. `ac-gt`, `ac.gt`, `ac*gt`, `ac1gt` inside a residue group, `ac?gt`: refused, each naming the position. Protein `MKV*`: refused at `*`; protein `MKUXBZJO`: accepted |
 | Layout | Standard ORIGIN lines with counts and spaces: accepted, sequence unchanged |
 | Length | LOCUS 10 bp with 10 bases: accepted; with 9 bases: refused with both numbers; LOCUS without a length: refused. A 120,000 bp record with long count columns: accepted |
@@ -263,7 +287,9 @@ Expected results never come from the parser under test.
 | Molecule | `LOCUS AA 4 bp DNA linear` is nucleotide; `LOCUS rnaseP 300 aa` is protein. A nucleotide and a protein record in one file: refused. A protein file picked together with a nucleotide file into an empty session: whichever commits second is refused, in both response orders. A protein-first file with a later malformed record, in a nucleotide session: one dialog listing the mismatch and the malformed record |
 | Frame | `/codon_start=0`, `4`, `2junk`: note, translation suppressed, value kept. `/codon_start=2`: no note |
 | Inert qualifiers | GenBank `/phase=1` on a CDS without `/codon_start`: stored in `unknownQualifiers`, the frame stays 1, export writes no `/codon_start=2`, and reimport gives the same CDS. `/_gffStrand="."`: the strand stays as parsed |
-| Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
+| Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. A category-mismatched GenBank file followed by a valid file: the valid file loads. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
+| Combined dialog | A protein file with a length mismatch, dropped into a nucleotide workspace: one dialog listing the mismatch and the category refusal. A file with an unreadable LOCUS unit: the LOCUS finding only |
+| Notes access | Seven invalid-frame CDSs: the group shows five, "Show all 7" lists all seven, and "Copy details" includes all seven |
 | Duplicate names | Two `LOCUS X`: both load with unique IDs and one warning |
 | Writer | A record whose `sequence` is `AC*GT` or `ACRGT?`: left out and reported; `ACRGT`: written with LOCUS 5 bp |
 | Presentation | Refusal dialog lists every finding, "Copy details" copies them, nothing is added to the workspace. Notes chip appears only with notes, and the popover groups them |
