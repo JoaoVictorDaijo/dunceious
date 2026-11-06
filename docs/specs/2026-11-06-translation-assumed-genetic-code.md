@@ -139,7 +139,7 @@ Every surface that shows these residues, or a number derived from them, says "as
      since the code itself is unknown;
    - search highlights stay beneath and show through the empty cell.
 2. **Codon hover.** Each assumed codon gets a hover target, like the existing warning targets.
-   - Code-sensitive codon: "TGA: stop in table 1, assumed. W in tables 2, 3, 4, …; C in 10; G in
+   - Code-sensitive codon: "TGA: stop, assuming table 1. W in tables 2, 3, 4, …; C in 10; G in
      25."
    - Other codons: "W, assuming table 1. TGG reads W in every NCBI code."
    - Ambiguous codon, code-sensitive: "TGN: ambiguous, assuming table 1. In table 1 it can be C, W or a stop;
@@ -165,7 +165,8 @@ Every surface that shows these residues, or a number derived from them, says "as
 4. **Hub count** (`TrackTooltip.tsx`). Two separate numbers, never merged:
    - The DNA metric of #253's spec (decision 11) is unavailable for an invalid code, so it reads
      "can't verify", exactly as #253 specifies.
-   - With the assumed view, a second, separately labelled provisional count follows. It counts
+   - With no stored protein (every codon assumed), a second, separately labelled provisional
+     count follows. It counts
      codons of the assumed reading:
      - A final codon that is a definite table-1 stop (`*`) is dropped.
      - A final codon that only *may* be a stop (`possibleStop` with `?`) is kept, and the label
@@ -173,15 +174,20 @@ Every surface that shows these residues, or a number derived from them, says "as
      - "aa" is used only when every counted codon is a resolved residue: "103 aa if table 1".
      - Otherwise the label says "positions" and names what is uncertain, e.g. "103 positions,
        1 stop, 2 ambiguous, if table 1".
-   - With a stored protein, there is no provisional count. The stored length is not a DNA metric.
+   - With any stored protein, including a short one with an assumed tail, there is no
+     provisional count. This rule takes precedence, in both landing orders. A count mixing stored
+     and assumed residues would measure neither. The stored length is not a DNA metric either.
    - Before #253 lands, the "can't verify" part replaces today's code-blind count.
 5. **Early-stop flag** (`computeBrokenFeatureMap`, which also drives the band's red cells): it
    is never derived from assumed residues.
-   - With a stored protein, it follows whichever contract is current. Today `isFeatureBroken`
-     reads a stored internal `*` (`sequence.ts:342`). After #253 it is unavailable for an
-     invalid code, so there is no flag.
-   - With the assumed view, there is never a flag. The feature tooltip's "⚠ Early stop codon"
-     line is absent, and the warning above explains why.
+   - **Stored residues** follow whichever contract is current. Today `isFeatureBroken` reads a
+     stored internal `*` (`sequence.ts:342`), and the band draws that codon red. After #253 the
+     flag is unavailable for an invalid code, so there is none.
+   - **Assumed residues,** whether the whole CDS or the tail past a short stored protein, never
+     contribute to the flag and are never drawn as a solid red early-stop cell. A table-1 stop
+     among them is always the dashed red `*`.
+   - With no stored protein, the feature tooltip's "⚠ Early stop codon" line is therefore
+     absent, and the warning above explains why.
 
 ### What stays exactly as it is
 
@@ -214,7 +220,7 @@ The oracle is literal gc.prt 4.6 rows, not the code's own output.
 | Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no red cell |
 | Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein: every codon drawn as a `setLineDash` outline, no `fillRect` for residue cells; a table-1 stop drawn red dashed with `*`, never `!` |
 | Count | `TrackTooltip` test, oracle: a test-local loop expanding IUPAC codons over the Biopython fixture's table 1 | `ATGTGGTAA` gives "2 aa if table 1". `ATGTGATGG` gives "3 positions, 1 stop, if table 1". `ATGTGNTGG` gives "3 positions, 1 ambiguous, if table 1". `ATGTGGTGN` gives "3 positions, 1 ambiguous, if table 1, end uncertain". `ATGGCNTAA` gives "2 aa if table 1" |
-| Short stored protein | `SequenceTrack` and `Row` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M, codons 2–3 dashed `W`, `A`; the tooltip names both sources |
+| Short stored protein | `SequenceTrack`, `Row`, `TrackTooltip` and `cds` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M, codons 2–3 dashed `W`, `A`; the tooltip names both sources; the hub shows "can't verify" and no provisional count. Stored `MK*G` over a six-codon CDS whose assumed tail is `TAA TGG`: before #253 the stored `*` flags and is drawn red, the tail's `TAA` is a dashed red `*` and does not add to the flag; after #253 there is no flag |
 | Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows "can't verify" plus the provisional count. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text. Every assumed-codon hover, including both ambiguity texts, contains "assuming table 1" |
 
 ## Living documents
