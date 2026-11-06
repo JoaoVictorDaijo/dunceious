@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { TOOLTIP_INVALIDATE } from '../TooltipLayer';
 import { displayLocation } from '@/src/app/logic/displayLocation';
 import { conceptualTranslation, translationDescription, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
@@ -25,7 +26,7 @@ import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { extractCodingSequence, featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
 import { CDS_ORF_TYPES, geneticCodeWarning, isTranslatedFeature } from '@/src/app/viewer/cds';
-import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { featureLengthText } from '@/src/app/logic/viewModel';
@@ -43,6 +44,20 @@ export function TrackTooltipProvider({ children }: { children: ReactNode }) {
     owner.current = next ? source : null;
     if (current.current?.feature === next?.feature && current.current?.record === next?.record) return;
     current.current = next; setHover(next);
+  }, []);
+  useLayoutEffect(() => {
+    const close = () => { current.current = null; owner.current = null; setHover(null); };
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener(TOOLTIP_INVALIDATE, close);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener(TOOLTIP_INVALIDATE, close);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, []);
   return <TrackTooltipContext.Provider value={update}>{children}{hover && createPortal(<TrackTooltip hover={hover} />, document.body)}</TrackTooltipContext.Provider>;
 }

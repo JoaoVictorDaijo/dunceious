@@ -21,7 +21,7 @@
 import { pickTrackData, trackPosition, unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
-import React, { memo, useMemo, useState } from 'react';
+import React, { memo, useLayoutEffect, useMemo, useState } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -35,6 +35,8 @@ import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
+import { invalidateTooltips } from '@/src/app/components/TooltipLayer';
+import { isCds, translationDescription } from '@/src/domain/bio/translation';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
@@ -96,6 +98,10 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   } = data;
 
   const l = recordLayouts[index];
+  useLayoutEffect(() => {
+    invalidateTooltips(); setTooltip(null);
+    return () => { invalidateTooltips(); setTooltip(null); };
+  }, [l.record, l.seqBaseY, l.height, scrollX, zoomLevel, viewportWidth, showTranslation, showAnnotations, setTooltip]);
   const unalignedInMixed = !l.record.alignedSequence && recordLayouts.some(layout => layout.record.alignedSequence !== undefined);
   const unit = recordLayouts.some(layout => layout.record.moleculeType === 'protein') ? 'aa' : 'bp';
   const chartWidth = alignmentLength * zoomLevel;
@@ -236,6 +242,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
           {unalignedInMixed && <div data-unaligned-end={l.id} data-tip={`${l.id} ends here: ${l.record.sequence.length} ${unit}, not aligned`} className="absolute border-l border-dashed border-slate-500 z-20" style={{ left: xScale(l.record.sequence.length) - scrollX, top: l.seqBaseY, height: NT_ROW_HEIGHT }} />}
           <SequenceTrack 
+            onViewDetails={feature => onViewDetails(l.id, feature)}
             seq={seq}
             record={l.record}
             completedSearch={completedSearch}
@@ -342,6 +349,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
                     l.record.moleculeType)
                   : null,
+                isCds(f) ? translationDescription(f, l.record) : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),

@@ -141,7 +141,7 @@ describe('genome strips', () => {
 });
 
 it('shows CDS hover details once per feature and exposes the same keyboard details', () => {
-  const cds = { ...record.features[0], type: 'CDS', name: 'enzyme', end: 30, metadata: { codon_start: '2' } };
+  const cds = { ...record.features[0], type: 'CDS', name: 'enzyme', end: 30, segments: [{ start: 0, end: 30 }], metadata: { codon_start: '2' } };
   render(<TrackTooltipProvider><GenomeStrip record={{ ...record, features: [cds] }} large onPick={noop} /></TrackTooltipProvider>);
   const strip = screen.getByRole('button', { name: /Genome strip/ });
   mockBounds(strip, 25);

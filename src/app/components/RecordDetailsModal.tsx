@@ -20,12 +20,13 @@
 
 import { formatInsdcLocation, siteLabel } from '@/src/domain/bio/insdcLocation';
 import { displayLocation } from '@/src/app/logic/displayLocation';
-import { isCds, storedTranslation, translationDescription } from '@/src/domain/bio/translation';
+import { checkedTranslation, compareTranslation, isCds, storedTranslation, translationDescription } from '@/src/domain/bio/translation';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isNestedComplementLocation } from '@/src/domain/bio/locationFlags';
-import React, { useId, useState } from 'react';
+import { TranslationExtras } from './TranslationExtras';
+import React, { useId, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUiEffects } from './uiEffects';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -120,6 +121,18 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onRemoveSearchDetails,
 }) => {
   const { copyText, hoverTips, portalTarget } = useUiEffects();
+  const conceptual = feature && isCds(feature) ? checkedTranslation(feature, record) : undefined;
+  const stored = feature ? storedTranslation(feature) : undefined;
+  const comparison = stored && conceptual?.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
+  useLayoutEffect(() => {
+    const invoking = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => {
+      if (invoking?.isConnected) { invoking.focus(); return; }
+      const label = feature ? `Inspect ${feature.name} on ${record.id}` : undefined;
+      const fallback = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find(button => button.getAttribute('aria-label') === label);
+      fallback?.focus();
+    };
+  }, []);
   const searchHit = feature ? readSearchHit(feature) : null;
   const current = feature ? isSearchHitCurrent(feature) : false;
   const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
@@ -354,6 +367,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
             </div>
           </div>
 
+          {comparison?.storedExtra && conceptual?.status === 'ok' && <TranslationExtras extra={comparison.storedExtra} offset={conceptual.residues.length} autoFocus />}
           {feature && isCds(feature) && <p className="text-xs text-slate-500">{storedTranslation(feature) ? feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported' : ''} · {translationDescription(feature, record)}</p>}
           {/* Translation (feature only) */}
           {(feature && storedTranslation(feature)) && (

@@ -148,10 +148,10 @@ describe('assignTranslationLanes', () => {
     expect([lanes.laneOf.get(a)?.get(0), lanes.laneOf.get(b)?.get(1)]).toEqual([0, 0]);
   });
 
-  it('shares a lane for overlapping features in the same frame', () => {
+  it('keeps independent lanes for overlapping features in the same frame', () => {
     const ab = cds({ start: 0, end: 30 });
     const a = cds({ start: 0, end: 15 });
-    expect(assignTranslationLanes([ab, a], seq).forward).toBe(1);
+    expect(assignTranslationLanes([ab, a], seq).forward).toBe(2);
   });
 
   it('splits overlapping features in different frames', () => {

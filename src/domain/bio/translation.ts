@@ -183,14 +183,24 @@ export function checkedTranslation(feature: BioFeature, record: TranslationRecor
   return conceptualTranslation(feature, record);
 }
 
-export function translationDescription(feature: BioFeature, record: TranslationRecord): string {
-  const result = checkedTranslation(feature, record);
+export function translationDescription(feature: BioFeature, record: TranslationRecord, result = checkedTranslation(feature, record)): string {
   const clauses = [feature.metadata?._translationMessage ?? ''];
   for (const e of result.exceptions ?? []) {
     if (e.status !== 'applied') clauses.push(codeBreakMessage(e));
     clauses.push(...(e.warnings ?? []));
   }
   if (result.status === 'unavailable') clauses.push(`Can't verify: ${translationReason(result, feature)}`);
+  if (result.status === 'ok') {
+    if (result.internalStops.length) clauses.push(`${result.residues.length} positions, ${result.internalStops.length} internal stop${result.internalStops.length === 1 ? '' : 's'}`);
+    for (const i of result.internalStops) {
+      const c = result.codons[i];
+      clauses.push(`Internal stop at codon ${i + 1}, bases ${c.alignedIndices.map(n => n + 1).join(', ')}, ${c.fragment}; effective stop under table ${featureTranslTable(feature)}${result.exceptions?.filter(e => e.status === 'applied' && e.codonIndex === i).map(e => `; exception ${e.raw}`).join('') ?? ''}`);
+    }
+    if (result.threePrimeIndeterminate) {
+      const c = result.codons[result.residues.length - 1];
+      clauses.push(`End uncertain: ${c.triplet} may read ${[...c.effective].join(', ')}, including a terminal stop; this position is retained`);
+    }
+  }
   const stored = storedTranslation(feature);
   if (stored && result.status === 'ok') {
     const comparison = compareTranslation(stored, result);

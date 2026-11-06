@@ -23,8 +23,9 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { getFeatureColor } from '@/src/app/viewer/colors';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { HubEditChip } from './HubEditMarks';
+import { invalidateTooltips } from '../TooltipLayer';
 import { useTrackTooltip } from './TrackTooltip';
 import { featureLength, featureLengthText } from '@/src/app/logic/viewModel';
 
@@ -50,7 +51,10 @@ interface AnnotationRowProps {
 export default function AnnotationRow({ record, feature, rowKey, kind, selected, current, lastFocused, featureColors, locked, onSelect, onInspect, onEdit, onFocus, onDelete, onCurrent, onHover }: AnnotationRowProps) {
   const tooltip = useTrackTooltip();
   const owner = useRef({});
-  useEffect(() => () => tooltip(null, owner.current), [tooltip]);
+  useLayoutEffect(() => {
+    invalidateTooltips(); tooltip(null, owner.current);
+    return () => { invalidateTooltips(); tooltip(null, owner.current); };
+  }, [tooltip, feature, record, rowKey]);
   const strand = getFeatureStrand(feature);
   const color = feature.color || getFeatureColor(feature.type, featureColors);
   const product = feature.metadata?.product;

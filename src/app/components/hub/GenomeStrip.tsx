@@ -22,6 +22,7 @@ import { displayLocation } from '@/src/app/logic/displayLocation';
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { packTrack, rulerTicks, trackMetrics, type TrackPart } from '@/src/app/logic/trackLayout';
+import { invalidateTooltips } from '../TooltipLayer';
 import { trackFeatureColor, useTrackTooltip } from './TrackTooltip';
 import type { TrackWindow } from './trackWindow';
 type StripPart = TrackPart & { x: number; endX: number; y: number; color: string; path: string };
@@ -145,7 +146,13 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, b
     hoveredRef.current = null;
     setPointer(null);
   }, [record]);
-  useEffect(() => {
+  const tooltipRevision = useRef({ record, geometry });
+  useLayoutEffect(() => {
+    if (tooltipRevision.current.record !== record || tooltipRevision.current.geometry !== geometry) {
+      tooltipRevision.current = { record, geometry };
+      invalidateTooltips(); showTooltip(null, owner.current); setFocused(false); setPointer(null);
+      return;
+    }
     if (!active) { showTooltip(null, owner.current); return; }
     const bounds = svg.current?.getBoundingClientRect();
     const part = geometry.parts.find(part => part.feature === active)!;
