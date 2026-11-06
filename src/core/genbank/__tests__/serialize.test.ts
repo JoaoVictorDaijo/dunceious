@@ -151,3 +151,20 @@ it('omits damaged gap residues without shifting features and keeps a clean LOCUS
   expect(output.text).toMatch(/^LOCUS\s+clean\s+4 bp/m);
   expect(output.text).toContain('        1 acgt\n');
 });
+
+it.each([
+  ['symbol', 'AC*GT', {}, 'its sequence contains non-residue characters'],
+  ['punctuation', 'ACRGT?', {}, 'its sequence contains non-residue characters'],
+  ['frame', 'ACRGT', { codon_start: '4' }, 'CDS bad has an invalid /codon_start'],
+  ['emptyframe', 'ACRGT', { codon_start: '' }, 'CDS bad has an invalid /codon_start'],
+  ['code', 'ACRGT', { transl_table: '99' }, 'CDS bad has an invalid /transl_table'],
+  ['emptycode', 'ACRGT', { transl_table: '' }, 'CDS bad has an invalid /transl_table'],
+])('omits and reports %s with clean LOCUS and ORIGIN untouched', (id, sequence, metadata, reason) => {
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACRGT', features: [] };
+  const bad: SeqRecord = { id, name: id, sequence, features: [{ type: 'CDS', name: 'bad', start: 0, end: sequence.length, strand: 1, metadata }] };
+  const output = exportToGenBank([bad, good]);
+  expect(output.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+5 bp/)]);
+  expect(output.text).toContain('acrgt');
+  expect(output.report.genBankRecordsOmitted).toEqual([{ id, reason: `${id} not exported: ${reason}` }]);
+  expect(exportToGenBank([bad]).text).toBe('');
+});

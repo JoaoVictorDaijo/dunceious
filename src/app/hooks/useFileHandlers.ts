@@ -20,7 +20,7 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import { detectMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { downloadBlob } from '@/src/app/lib/download';
@@ -33,13 +33,6 @@ import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol
 
 const FASTA_SAMPLE_MAX_RECORDS = 3;
 const FASTA_SAMPLE_MAX_LENGTH = 1200;
-
-/** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
-function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
-  const match = content.match(/^LOCUS\s+.+$/m);
-  if (match && classifyLocusMoleculeType(match[0]) === 'protein') return 'protein';
-  return 'nucleotide';
-}
 
 /**
  * Samples the first few records of a FASTA string and classifies the sample
@@ -198,7 +191,7 @@ export function useFileHandlers(
             return null;
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffGenBankCategory(content) };
+        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision,  };
       }, workerDeps),
     );
   };
@@ -321,9 +314,9 @@ export function useFileHandlers(
           importSequence: async (file, content) => {
             checkWorkspace();
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
+            const incoming = isFasta ? sniffFastaCategory(content) : undefined;
             const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: incoming, ...(isFasta ? { asAlignment: false } : {}) });
-            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
             if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
             return response.idMap;
           },
