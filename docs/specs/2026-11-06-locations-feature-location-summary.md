@@ -269,7 +269,11 @@ is used by all five places in the table.
     Today they're dropped (`coordinate.ts:172`).
   - So a feature whose parts are all sites never becomes `segments: []` with a non-empty
     envelope, which extraction would then read as bases.
-  - Renderers draw nothing for a zero-width part, as today. Drawing a site marker is #230's. So a reverse per-part wrap stays `[0,end)` then
+  - Today `Row.tsx`'s part renderer gives every visible part at least 1 px of width and
+    pointer handlers (`Row.tsx:338`, fed by the segment loop at `:470`). Kept zero-length parts
+    would therefore appear as stray 1 px glyphs. So the renderer skips zero-width parts, in
+    aligned and unaligned rows alike. The rest of the feature still draws and stays clickable.
+    Drawing a site marker is #230's. So a reverse per-part wrap stays `[0,end)` then
   `[start,length)` in the aligned copy. The translation track (`SequenceTrack.tsx:330`) and CDS
   lanes (`cds.ts:123`), which read the aligned copy, then translate the same bases as the source.
 - **`biological` is derived display state, never stored.** `processTransposition` sets it on
@@ -299,7 +303,7 @@ is used by all five places in the table.
 - **This design adds no count and redefines nothing.** If PR #291 has not merged when this is
   implemented, the hover-card count line is left as it is for #291 to change. This PR touches
   only the location line of `TrackTooltip.tsx`, so the two don't conflict.
-- #259 closes when both this PR and PR #291 have merged, with part 1 (PR #297) already in.
+- #259 closes when this PR, PR #291 and part 1 (PR #297) have all merged.
 
 ## Validation
 
@@ -321,6 +325,7 @@ Expected strings are hand-written INSDC text from the standard's examples and th
 | Aligned order | `coordinate.test.ts`, `sequence.test.ts` | On circular `ACGTACGTGA` aligned with a gap, a reverse per-part `[8,2)` extracts `GTTC` from the aligned copy, the same as the source (the current split would give `TCGT`) |
 | Invalid geometry | `insdcLocation.test.ts`, `FeatureEditorModal` test, `projectFile.test.ts`, `serialize.test.ts`, `exportPlan.test.ts` | Linear 10-base record: `[8,2)` gives `9..2 (invalid location)`, never a join; `[0,15)` and `[-1,3)` are invalid too. Circular `[10,0)` as envelope and as an explicit segment is invalid. An export with one invalid feature and one edge site shows both warning lines with their own counts. The editor disables Save on such a part. Project import keeps the feature. Export skips it and reports it |
 | Derived snapshot | `coordinate.test.ts`, `projectFile.test.ts` | A project feature with a conflicting `biological` field loads without it. An unaligned record's features have no `biological` after transposition. An aligned feature with retained `order(1..3,7..9)` or `<5..>25` text shows that text in the tooltip |
+| Zero-width parts drawn as nothing | `Row` test | A join `[0,3)`, `[5,5)` draws one bar for `[0,3)` and no glyph at 5, aligned and unaligned |
 | Viewer tooltip, unaligned | `Row` test | An unaligned record's join reads `join(1..3,7..9)` from the feature itself |
 | Export unchanged | `serialize.test.ts` | Existing fixtures byte-identical. An edited joined feature exports the same string the details window shows |
 | Display parity | `RecordDetailsModal`, `AnnotationRow`, `TrackTooltip`, `GenomeStrip` tests | A feature without `locationString`, segments `[0,3)`, `[6,9)`: each shows `join(1..3,7..9)`. A feature with `locationString` shows that text unchanged |
