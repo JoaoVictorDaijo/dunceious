@@ -23,26 +23,27 @@ codons are dashed. The mockup's mixed-alignment section belongs to #286, not thi
 Dependencies, in order:
 
 - **PR 1, “Stored CDS translations — design”**, in
-  `docs/specs/2026-11-06-translation-stored-protein-provenance.md` on
-  `fix/cds-translation-invalidation` at `aa88f37` (PR #291): one protein in `metadata.translation`,
-  read-only import provenance, recomputation after coding edits, conceptual comparison,
-  counts and early-stop diagnostics. Cite that named model, not its changing line numbers.
+  [the stored-protein spec](2026-11-06-translation-stored-protein-provenance.md),
+  implemented by merged [PR #291](https://github.com/JoaoVictorDaijo/dunceious/pull/291)
+  and present through `integration/murilo-review` in this checkout: one protein in
+  `metadata.translation`, read-only import provenance, recomputation after coding edits,
+  conceptual comparison, counts and early-stop diagnostics.
 - **PR 2, “CDS translation exceptions under NCBI code-break rules”**, in
-  `docs/specs/2026-11-06-translation-transl-except.md` on `fix/cds-transl-except` at `3beaef4`:
-  consume its **Exception evidence on every result** interface (ordered occurrence
-  evidence and diagnostics on both `ConceptualTranslation` variants). PR 3 never parses
-  exceptions independently. Until PR 2 supplies it, PR 1's `unavailable` reason is exactly
-  `unsupported-exception`. PR 2's unresolved failure policies remain conditional: owner
-  [question 3](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L487) permits either
-  whole-CDS unavailability with successful local evidence or an explicitly incomplete
-  subset preview. Neither permits verified comparison, counts, early-stop claims or
-  computed `/translation` export from an incomplete result. Bind preview representation
-  and viewer treatment to PR 2's resolved interface before implementation.
-- **PR #295**, `fix/assumed-genetic-code`: the #288 presentation-only assumption and its
-  shared marker, inspected from `origin/fix/assumed-genetic-code`. It has not landed in
-  this checkout. Reuse its drawing branch and hover machinery rather than creating a
-  second assumed-code implementation. #261 supplies `initiatorResidue`, not a separate
-  lighter-fill component.
+  [the exception spec](2026-11-06-translation-transl-except.md) on `fix/cds-transl-except`
+  (being updated in parallel): consume its named **Exception evidence on every result**
+  interface, carrying ordered occurrence evidence and diagnostics on both
+  `ConceptualTranslation` variants. PR 3 never parses exceptions independently.
+  Until PR 2 implements this interface, the merged PR 1 returns exactly
+  `unavailable: 'unsupported-exception'`. Owner answers 4–6 below settle comparison,
+  drop-and-compute and malformed-import refusal; the former incomplete-preview alternatives
+  are superseded. Reconcile concrete status/type names with PR 2's final interface before
+  implementation; dropped occurrences must stay explainable, never appear applied.
+  Foreign-accession disposition and clipped-CDS export dependencies remain conditional
+  as listed under Open decisions; PR 3 chooses neither policy.
+- **PR #295**, `fix/assumed-genetic-code`: its #288 presentation-only assumption,
+  shared marker and hover machinery are already present in this checkout. Reuse them
+  rather than creating a second assumed-code implementation. #261 supplies
+  `initiatorResidue`, not a separate lighter-fill component.
 - Structured strand-relative partial ends from #226, already a PR 1 prerequisite.
 
 Imported curated residues stay visible. Coding edits replace/remove them under PR 1's
@@ -53,8 +54,76 @@ decision supersedes the contrary historical paragraph in PR 1's draft.
 
 No source code, translation algorithm, import/export rule, count formula, qualifier editor,
 or sequence persistence changes are authorized by this spec-writing task. Implementation
-will add presentation provenance, drawing, chips and accessible explanations. Merge all
-three PRs into `integration/murilo-review`, then review correctness together before develop.
+will add presentation provenance, drawing, chips and accessible explanations. PR 1 is
+already merged into `integration/murilo-review`; merge PRs 2/3 there, then review
+correctness together before develop.
+
+## Owner decisions — 2026-11-06
+
+These decisions bind PR 3's presentation and its PR 1/2 dependencies; they do not authorize
+code changes in this documentation task. Item numbers match the owner's answers.
+
+1. “Export genbank with trasnlation.” Keep current GenBank `/translation` on a CDS of a
+   protein record. This does not bypass PR 3's protein-record gate.
+   **Backed by: owner decision 2026-11-06.**
+2. “ok”: GFF3 phase becomes read-only; edit the frame through `/codon_start`. PR 3 consumes
+   the resulting evidence and never edits phase in the track.
+   **Backed by: owner decision 2026-11-06.**
+3. “when moving a cds with codebreak, when saving the modification user must be informed
+   the code breakes makes no longer sense and will be removed”. On Save after move,
+   reverse or reframe, remove breaks no longer naming a CDS codon and tell the user which
+   entries before save completes. PR 3 refreshes evidence and notices atomically afterward.
+   **Backed by: owner decision 2026-11-06.**
+4. “ok”: OTHER/Xaa X matches any sense amino acid, including U/O; DNA stop still wins.
+   The effective comparison set is `ACDEFGHIKLMNPQRSTVWYUO`, excluding stop. Expand stored
+   B→DN, Z→EQ and J→IL and compare by set overlap; stored X retains its wildcard behavior.
+   A definite effective internal stop still differs from stored X. This settles the former
+   literal-X alternative; rendering consumes PR 2's sets/comparison, without a second rule.
+   **Backed by: owner decision 2026-11-06.**
+5. “compute protein and informe invalid codebreak will be removed”. An otherwise-valid
+   but unusable entry (e.g. outside this CDS or conflicting) is dropped with a visible
+   notice identifying the occurrence and reason; compute from the valid remaining entries.
+   PR 3 shows that usable computed result plus the notice, with ordinary verified comparison,
+   counts and marks when eligible. With stored S, the stored-first display still applies;
+   the conceptual result drives comparison. This is not an incomplete preview. Never
+   paint a dropped entry as an applied substitution. PR 2 owns conflict resolution and
+   which occurrences survive; PR 3 consumes the surviving evidence without choosing a winner.
+   **Backed by: owner decision 2026-11-06.**
+6. “Reject import; prohibit silent guesses and automatic corrections, requiring strict
+   compliance.” Malformed syntax/shape refuses the file: off-frame range, part of a codon,
+   short TERM on bases other than T/TA, or unknown residue name. Refusal names CDS, raw
+   value and broken rule. Correct names in any capitalisation pass. This overrides #286's
+   qualifier-warning-only policy for `/transl_except` alone. These inputs never reach PR 3;
+   otherwise-valid unusable entries follow answer 5. Ambiguous classifications require an
+   owner decision, not a guessed correction.
+   **Backed by: owner decision 2026-11-06.**
+7. “ok”: only this record's exact accession is accepted for local mapping. Whether a break
+   naming another accession is dropped with a notice or refuses import remains on hold
+   for the owner (Claude notice n1); no local substitution or foreign fetch is allowed.
+   **Backed by: owner decision 2026-11-06** for exact-accession eligibility only.
+8. “export anyways, but warn informing a annotation is being broke. in the exported the
+   annotation start will have those identifiers to explain annotation continues/annotation
+   is not finished”. Selection export proceeds with a warning and INSDC `<`/`>` markers
+   at clipped CDS ends. Never copy the old full protein into a clipped CDS. The clipped
+   `/translation`, `/codon_start` and newly unusable-break rules remain PR 2 dependencies
+   pending the owner/standards resolution below; do not infer them from answer 5.
+   **Backed by: owner decision 2026-11-06** for warning, partial markers and no stale full protein.
+9. “The text inconsistency must be resolved using data from the original file to ensure
+   validity without breaking line formatting or losing details”. Do not block representable
+   values: losslessly encode GenBank qualifier quotes by doubling them and wrap so no
+   continuation line begins with `/`. PR 2 owns round-trip acceptance proving no loss;
+   PR 3 displays the preserved raw evidence as escaped text. A truly unrepresentable value
+   needs an owner decision with a concrete example, not silent normalization.
+   **Backed by: owner decision 2026-11-06.**
+10. “ok”: draw unverified stored cells normally with hover/focus explanation, not lighter
+    merely because verification is unavailable. This settles the former visual suggestion.
+    **Backed by: owner decision 2026-11-06.**
+11. “ok”: keep terminal `_` with exception/partial explanation and normal terminal styling;
+    do not add the optional lighter terminal fill. This settles the former fill suggestion.
+    **Backed by: owner decision 2026-11-06.**
+12. “ok”: use separate lanes for overlapping CDSs, including equal letters with different
+    provenance. Do not aggregate or silently overpaint feature-specific targets.
+    **Backed by: owner decision 2026-11-06.**
 
 ## Scientific basis and evidence limits
 
@@ -116,8 +185,9 @@ in provenance with no protein index; otherwise its slot could become a false len
 mismatch. PR 2 must supply the applied exception evidence from its own mapper, including
 partial TERM. Consume PR 2's named **Exception evidence on every result** interface: feature identity,
 occurrence index/raw value, mapped bases and pre-removal codon index, replacement,
-applied/failed/deferred status and reason, diagnostics and terminal-removal flag. Keep
-failed/deferred evidence on unavailable results too. Concrete helper names remain PR 2's
+application status and reason (including dropped/unusable evidence under answer 5),
+diagnostics and terminal-removal flag. Keep failed/deferred evidence on unavailable results
+too, and dropped-entry notices on successful results. Concrete helper names remain PR 2's
 implementation choice; do not invent another mapper here.
 
 **`conceptualTranslation`** remains the sole effective translator. **`initiatorResidue`**
@@ -126,10 +196,11 @@ through `index.ts`); it must not be copied into rendering. Only codon 1 of a kno
 5′-complete CDS with `/codon_start=1` is eligible. A literal exact triplet is required by
 PR 1; internal GTG stays V under table 11. Prefer the stored first residue when present.
 
-**`compareTranslation(stored, conceptual)`** retains PR 1's definite-disagreement policy
+**`compareTranslation(stored, conceptual)`** retains PR 1's definite-stop/disagreement policy
 and its `differing`, `storedExtra`, `storedShortBy` outputs; its comparison is against
 effective, not ordinary, readings. Attach the codon provenance to a presentation result
-without changing comparison policy. A definite effective internal stop overrides stored X:
+with PR 2's owner-settled OTHER/Xaa sense-set comparison (answer 4). A definite effective
+internal stop overrides stored X:
 retain X, but include its index in `differing`. Otherwise stored X is a wildcard. An
 ambiguous coding triplet compatible with the stored residue is not a curated difference.
 An applied exception agreeing with the annotation is not added to `differing`.
@@ -155,7 +226,24 @@ strand-coloured text, red `*` for an assumed stop, reset line dash after drawing
 that presentation path for these states; do not duplicate it. The lighter curated fill
 comes from the approved mockup (white base plus strand alpha .28); no named lighter-fill
 helper exists in the inspected code. Factor shared styling within app when implementing.
-#295's stored-length reads must switch to PR 1's accessor during integration.
+The merged `SequenceTrack` already uses `storedTranslation` for stored-length reads; preserve it.
+
+### Extension points checked against the merged PR 1 code
+
+Inspected this checkout at `db5f958` (merge of `integration/murilo-review`), rather than
+assuming the earlier PR 1 draft or unmerged #295 source is still the implementation.
+These are planned extensions, not claims that the new marks already exist:
+
+| Actual function / type | Current behavior and required extension |
+|---|---|
+| `ConceptualTranslation` in `src/domain/bio/types.ts`; `conceptualTranslation` in `src/domain/bio/translation.ts` | The successful type already has `alignedIndices`; preserve it. The translator currently rejects any present `transl_except` before geometry, then computes contextual sets, retained padded fragments and removes a definite terminal stop. PR 2 replaces that exception gate. Add ordinary/contextual/effective provenance during this same traversal, before terminal removal, preserving real bases for removed stops and retained fragments. Never reconstruct them from the shortened `alignedIndices` alone. |
+| `compareTranslation` in `translation.ts` | Currently checks literal equality, stored X and membership in `possible`; definite `*` wins over X. PR 2 must supply OTHER/Xaa sense sets and the owner-approved B/Z/J set-overlap comparison. PR 3 consumes `differing`, `storedExtra`, `storedShortBy`; it does not implement comparison in canvas. |
+| `checkTranslation`, `checkedTranslation` in `translation.ts` | `checkTranslation` serializes conceptual/comparison evidence into `_translationCheck`; `checkedTranslation` reads it, falling back to computation if absent/unparseable. Extend the cached result with provenance and PR 2 occurrence diagnostics, including successful-result drop notices. Preserve import/save/load invalidation ownership; no pan-time retranslation. |
+| `translationReason`, `translationDescription`, `translationWarning` in `translation.ts` | Reuse the primary unavailable reason and shared difference/length wording. Extend description/reason inputs for PR 2 diagnostics and dropped-entry explanations without calling a usable computed result unavailable; retain `/exception` file-warning suppression in `translationWarning`. |
+| `SequenceTrack` in `src/app/viewer/tracks/SequenceTrack.tsx` | Its translation `useEffect` currently combines `translateFeature` fallback, `checkedTranslation` and stored letters, then loops only full triplets. Replace this cell-selection/drawing path with the provenance projection: no valid-code computed tail after short S, no unavailable fallback presented as verified, normal unverified stored cells when the independent geometry gate passes, retained partial/terminal targets and discrepancy chips. The current early return for `unknown-completeness` needs the separate geometry decision described above, rather than suppressing every stored cell automatically. Preserve the ORF path separately. |
+| `indexAssumedHovers`, `visibleAssumedHovers` and `AssumedHoverSpan` in `SequenceTrack.tsx` | Generalize the existing max-end index and visible overlay buttons for marked, normal-unverified, partial and terminal explanations. Reuse `assumedViews`, its `dashed` drawing branch and `assumedHoverIndex` memoization; coordinate tooltip invalidation with evidence/mapping revisions. These are existing helpers/memo values, not a new exception parser. |
+| `codonSpans`, `codonFrame`, `assignTranslationLanes` in `src/app/viewer/cds.ts` | Extend `codonSpans` to split on display gaps as well as biological discontinuity; preserve `codonFrame`'s biological-anchor rule. Extend `assignTranslationLanes` occupancy to retained fragments, terminal targets and chips. Remove its `p.frame === unit.frame` collision exemption for distinct overlapping CDSs: owner answer 12 requires separate lanes even in the same frame and with equal letters. Keep stable whole-record packing and independent strands. |
+| `computeBrokenFeatureMap`, `geneticCodeWarning`, `assumedCodonDescription` in `cds.ts` | `computeBrokenFeatureMap` already delegates CDS stop status to DNA-aware `isFeatureBroken` and preserves ORF policy. Feed effective PR 2 results through that authority; never infer stops from displayed stored letters or dropped entries. Preserve `geneticCodeWarning` and `assumedCodonDescription` for the assumed view, adding the shared unavailable/drop explanations through the projection rather than duplicating genetic-code logic. |
 
 ## Per-residue states and explanations
 
@@ -181,12 +269,13 @@ eligible nucleotide records, which supplies its own explicit assumed D. No unava
 result supplies a verified length, discrepancy chip, terminal glyph or early-stop mark.
 A short stored protein in a non-invalid-code unavailable result shows only its stored
 cells, no computed tail or length chip; feature details explain why the tail cannot be
-checked. PR 2's optional incomplete preview is also unverified: successful local evidence
-may explain an adjusted preview, but cannot supply verified codon/substitution marks,
-comparison, counts, terminal/early-stop claims or discrepancy chips. Keep any preview
-visibly labelled incomplete and separate from verified C; its representation and viewer
-treatment await PR 2's resolved interface. Missing completeness is never inferred from a
-false partial-end accessor.
+checked. A dropped otherwise-valid break does not itself make C unavailable: under answer 5,
+consume the computed result from remaining valid entries and show its drop notice in
+feature details/warning and relevant explanations. The notice names the raw occurrence
+and reason; do not imply that every requested exception was applied. Malformed entries
+are refused at import under answer 6 and never become unverified preview cells. Other
+eligibility failures still retain their primary unavailable reason and occurrence evidence.
+Missing completeness is never inferred from a false partial-end accessor.
 
 For each eligible codon let S be the stored residue if present, O its ordinary code reading,
 I its contextual reading after initiation but before exceptions, and C its effective
@@ -218,10 +307,10 @@ prefix. Marked states never require remembering a legend.
 | Verified early stop | Definite effective internal stop; S is `*`, or no stored protein exists at all (not a missing slot of a short stored protein) | Existing solid red cell with white `!` | “Early stop before the end of the CDS. {effective-stop explanation}” |
 | Compatible stored unknown with contextual substitution | Available C; S=X, no definite mismatch, and initiation changed O→I or an applied exception changed I→C | Shared lighter cell, retain literal X; zero mismatch contribution | “Annotated X (unknown).” Then explain ordinary O, contextual I and effective C with the initiation and/or qualifier text below. Say “The conceptual reading is {C}; the stored residue remains unknown.” Never call X Met/Sec or claim the annotation agrees with a specific residue. |
 | Initiator substitution | Known complete codon 1, `/codon_start=1`, exact Starts-row M and ordinary reading differs from M; D is M and no mismatch | Shared lighter cell, M retained | “Initiator M (Met). {triplet} ordinarily reads {O} under table {table}; a complete CDS starts with M at this codon.” This is valid initiation, not a curated mismatch. |
-| Applied exception substitution | PR 2 reports an applied exception changing I (the contextual pre-exception reading); D agrees with effective result, no mismatch | Shared lighter cell, effective/stored letter retained | “Translation exception: {qualifier}. {triplet} ordinarily reads {O} under table {table}; before the exception the contextual reading is {I}; the annotated exception specifies {C} ({name}).” If initiation changed O→I, say it was overridden. Do not claim experimentally verified recoding. |
+| Applied exception substitution | PR 2 reports an applied exception changing I (the contextual pre-exception reading); D is comparison-compatible with the effective result, no mismatch | Shared lighter cell, effective/stored letter retained | “Translation exception: {qualifier}. {triplet} ordinarily reads {O} under table {table}; before the exception the contextual reading is {I}; the annotated exception specifies {C} ({name}).” If initiation changed O→I, say it was overridden. For OTHER/Xaa, explain “unspecified sense amino acid”; retain the literal stored letter without claiming a specifically confirmed residue. Do not claim experimentally verified recoding. |
 | Assumed invariant | Invalid code, no S at this index; #295 supplies a resolved invariant residue | Reuse #295 normal solid cell | “{D}, assuming table 1. {triplet} reads {D} in every NCBI code. /transl_table={value} is not an NCBI genetic code.” Resolved IUPAC: “Every reading of {triplet} is {D} in every NCBI code.” |
 | Assumed code-sensitive | Invalid code, no S; #295 `codeSensitive` or unresolved `?` | Reuse dashed marker, no new lighter warning fill; strand letter, red `*` for definite assumed stop, never `!` | Use `assumedCodonDescription`: “{triplet}: {D}, assuming table 1”, followed by other readings with table ids; unresolved triplets name their table-1 possibilities and whether codes differ. Include invalid qualifier value. |
-| Unverified stored residue | S exists, geometry gate passes, but conceptual result unavailable | Retain S, feature warning target; no definite curated-difference or early-stop mark | “Annotated {S} ({name}). Cannot check against DNA: {reason}.” Reasons explicitly name invalid code or unapplied exception. S never inherits an assumed-table dashed mark. Additional visual differentiation is an open decision below. |
+| Unverified stored residue | S exists, geometry gate passes, but conceptual result unavailable | Normal stored cell, retain S, feature warning and hover/focus targets; no definite curated-difference or early-stop mark | “Annotated {S} ({name}). Cannot check against DNA: {reason}.” Reasons explicitly name invalid code or unapplied exception. S never inherits an assumed-table dashed mark. Normal styling is settled by owner answer 10; unavailability alone never selects lighter fill. |
 
 The **effective-stop explanation** is shared by hidden-stop, stored-X and verified-stop
 states. Without a stop-producing exception: “{triplet} reads a stop under table {table}”.
@@ -367,8 +456,8 @@ use the existing terminal `_` slot over only those bases, with pointer targets o
 and one keyboard target. Explain the actual fragment, ordinary padded reading, qualifier
 and exception-specified terminal stop; do not claim absent bases exist in the record or
 that the table alone produced the stop. It adds no protein position, mismatch or internal-stop
-edge. Optional lighter terminal styling remains open below; the target and explanation
-are required regardless. A 5′ partial end disables initiator substitution; a 3′ partial end
+edge. Retain normal terminal styling and `_` with the explanation, per owner answer 11;
+no optional lighter terminal fill. A 5′ partial end disables initiator substitution; a 3′ partial end
 disables complete-end dual-stop reinterpretation. Empty CDS/no coding bases has no cells/chip,
 and its feature warning says why comparison is unavailable; never manufacture a `+N`.
 
@@ -436,8 +525,8 @@ in one lane; that cannot expose distinct proteins or exception explanations. Nev
 competing residues at the same pixels with a last-drawn-wins target. Each feature's residue,
 mark and full provenance must remain independently discoverable by pointer and keyboard,
 including agreement versus mismatch and equal letters with different exception provenance.
-The choice (separate lanes or explicit aggregation) is Open decision 4; implementation of
-colliding cases waits for it. Packing includes retained partial pieces, terminal targets
+Owner answer 12 selects separate lanes for overlapping CDSs, including equal letters
+with distinct provenance; no aggregate chooser is used. Packing includes retained partial pieces, terminal targets
 and chips, uses whole-record stable ordering independent of pan, and preserves visible-only
 rendering with no lane cap that hides evidence.
 
@@ -515,9 +604,14 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | `ATGTGGTGA`, table 99, S absent | 1 ATG M; 2 TGG W; 3 TGA table-1 stop | Assumed invariant solid M/W; assumed code-sensitive dashed red `*`, never `!` | G all 27 ATG Starts=M and TGG=W; table 1 TGA stop, table 4 TGA=W |
 | `GTGTGG`, table 99, S absent, complete | 1 GTG table-1 V, starts in table 11 | Assumed code-sensitive dashed V | G table 1 GTG not start; table 11 Starts=M; #295 initiation sensitivity |
 | `ATGGCNRAY`, table 99, S absent | 2 GCN=A invariant; 3 RAY={D,N} unresolved | Solid assumed A; dashed assumed `?` even though readings invariant | G four GC codons A; GAC/GAT D, AAC/AAT N across tables; #295 unresolved marker |
-| `ATGTGGTAA`, table 99, S=`M` | Stored first M; assumed tail W,stop | Unverified stored M; solid assumed W, dashed red `*`; no short chip | G table 1 tail; PR 1 invalid-code unavailable and #295 tail contract |
-| `ATGTGGTAA`, table 99, S=`MW` | Stored M/W cannot be compared under unknown code | Unverified stored cells, no curated/verified stop claims | G has no id 99; no reference translation of an invalid id claimed |
-| `ATGTGATAA`, S=`MU`, exceptions `(pos:4..6,aa:Sec)` and `(pos:5..7,aa:Val)` | First maps TGA→U; second crosses codons; conditional on PR 2 classifying it unusable under its resolved application policy | Conditional: whole-CDS unavailable with successful local evidence, or an explicitly incomplete adjusted preview with per-occurrence evidence. Both retain imported MU and warnings; neither supplies verified substitution/mismatch marks, comparison, counts, terminal/early-stop claims (including “no stop”), length chips or computed /translation export. Any preview stays visibly incomplete; no lighter U may imply a verified result | F single-codon rule; PR 2 question 3 owns the two failure alternatives and [question 4](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L489) owns stricter mapping eligibility. Resolve interface and viewer treatment there; no invalid application or owner policy guessed |
+| `ATGTGGTAA`, table 99, S=`M` | Stored first M; assumed tail W,stop | Normal unverified stored M with cannot-check explanation; solid assumed W, dashed red `*`; no short chip | G table 1 tail; PR 1 invalid-code unavailable and #295 tail contract |
+| `ATGTGGTAA`, table 99, S=`MW` | Stored M/W cannot be compared under unknown code | Normal unverified stored cells with hover/focus cannot-check explanations, no lighter fill or curated/verified stop claims | G has no id 99; no reference translation of an invalid id claimed |
+| `ATGTGATAA`, S=`MU`, exceptions `(pos:4..6,aa:Sec)` and `(pos:5..7,aa:Val)` | Second entry crosses codons and is malformed | Import refuses the file, naming CDS, raw `(pos:5..7,aa:Val)` and off-frame rule; no PR 3 preview or cells from this refused import | F single-codon rule; owner answer 6 strict refusal; PR 2 import boundary owns this check |
+| `ATGTGATAAGGG`, CDS `1..9`, S absent / `MU`; `(pos:4..6,aa:Sec)` plus `(pos:10..12,aa:Gly)` | Both entries have valid full-triplet shape; second is inside record but outside CDS; remaining Sec gives conceptual MU, terminal TAA removed | Computed MU with visible drop notice naming outside-CDS entry; lighter applied U explanation, normal M, terminal `_`, no early stop or mismatch. With S=MU retain stored MU and zero differences; never show a Gly substitution | G ATG=M, TGA ordinarily stop, TAA terminal; F Sec=U; owner answer 5 drop-and-compute |
+| `ATGAAACCCTAA`, `(pos:4..6,aa:OTHER)` / `aa:Xaa`, S=`MWP`, `MUP`, `MOP`, `MBP`, `MZP`, `MJP` | Effective MXP; middle possible set all sense residues, including U/O; stored ambiguity expands by answer 4 | Zero differences and no stop edge; retain each literal stored letter, explain unspecified exception rather than claim a specific confirmed residue. Without S show computed X and exception explanation | G AAA=K; F OTHER/Xaa unknown residue; owner answer 4 supplies comparison set/overlap |
+| Same DNA without the exception, S=`MXP`; separately `(pos:4..6,aa:TERM)`, S=`MXP` | Ordinary MKP: X compatible; TERM gives M*P: definite stop beats X | No difference in first case; lighter X with stop edge and count 1 in TERM case | G AAA=K, CCC=P; F TERM stop; owner answer 4 preserves definite-stop precedence |
+| `ATGTGATAA`, valid-shape break naming a different accession | No local substitution is permitted | Conditional PR 2 dependency: no PR 3 result if import is refused; if dropped, computed result plus visible notice. Do not select a branch until the owner settles it | Owner answer 7 exact-accession eligibility; notice n1 holds disposition |
+| Selection clipping a CDS carrying `/translation` and a code break | Export warns and marks cut ends partial; never copies old full protein | Conditional PR 2 dependency: after reimport PR 3 consumes only the final exported frame, translation and exception evidence; no assumed clipped-protein or code-break outcome | Owner answer 8; notice n1 holds clipped `/translation`, `/codon_start` and unusable-break treatment |
 | `ATGAAAGCTTAA`, `(pos:4..6,aa:TERM)`, S=`M*A`; separately `MKA` and `MXA` | 2: O=I=K, C=stop; conceptual M*A | Verified `!` for `*` (count 0); lighter K/X + stop edge (differing=[1], count 1). All say AAA ordinarily K, exception specifies stop | G AAA=K, GCT=A; F TERM=* overrides codon; terminal TAA removed |
 | `ATGAAACCCTAA`, `(pos:4..6,aa:TERM)`, S=`MXP`; controls S=`M*P` / `MKP` | Ordinary MKP; effective M*P, possible M,*,P, internalStops=[1]; differing=[1] / [] / [1], no tails | X/K lighter with stop edge, stored * verified `!`; shared codon count 1 / 0 / 1, 3 positions and 1 internal stop. X tooltip names AAA→K and TERM→stop. Remove TERM: MKP, X wildcard count 0/no stop; Sec + S=MUP: no mismatch/stop | G AAA=K, CCC=P; F TERM/Sec overrides; exact PR 2 shared MXP fixture |
 | `GTGAAATAA`, `(pos:1..3,aa:Val)`, S=`VK` | 1: O=V, I=M, C=V | Lighter V exception mark, no mismatch; tooltip explains initiated M overridden by Val | G GTG ordinary V/Starts M; F Val=V; PR 2 applies exceptions after initiation |
@@ -527,10 +621,10 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | `ATGAAATAA`, S=`M`, `/exception="RNA editing"` | Conceptual MK; shortBy=1 | `−1 position`, length-only explanation retained; no file mismatch warning | G M,K; PR 1 suppression affects warning only |
 | `ATGAAATAA`, GFF3 strand `.`, separately `?`, phase 0, S=`MK` | Biological orientation unknown despite numeric fallback | No codon lane/cells/chips/targets; details retain MK and unknown-strand reason | PR 1 eligibility; no inferred orientation |
 | `ATGCCCAAATAA`, `order(1..3,7..12)`, S=`MK`; separately `join(1..3,J00194.1:7..12)` | Neither defines one locally available sequence | No codon lane/cells/chips/targets; details retain MK and nonlocal-location reason | F order is not join; remote bases unavailable; PR 1 geometry gate |
-| `ATGAGATAA`, two complete CDSs A/B `1..9`, S(A)=`MR`, S(B)=`MK` | Codon 2 A: agreement R; B: K vs R | Both residues/explanations reachable, no occlusion. Separate-lane option: distinct rows; aggregate option: explicit chooser exposes both | G AGA=R; hand comparison; overlap presentation awaits Open decision 4 |
-| `ATGAGATAA`, A/B `1..9`, both S=`MR`, only B has `(pos:4..6,aa:Arg)` | Same letters; B has a no-op applied exception | Independent A/B explanations; only B names qualifier; same collision choices as above | G AGA=R; F Arg=R no-op, distinct occurrence provenance |
+| `ATGAGATAA`, two complete CDSs A/B `1..9`, S(A)=`MR`, S(B)=`MK` | Codon 2 A: agreement R; B: K vs R | Separate lanes expose both residues/explanations by pointer and keyboard, without occlusion | G AGA=R; hand comparison; owner answer 12 selects separate lanes |
+| `ATGAGATAA`, A/B `1..9`, both S=`MR`, only B has `(pos:4..6,aa:Arg)` | Same letters; B has a no-op applied exception | Separate lanes with independent A/B explanations; only B names qualifier, even though both letters agree | G AGA=R; F Arg=R no-op, distinct occurrence provenance |
 | `ATGG`, `1..>4`, S=`M`; separately `ATGGC`, `1..>5`, S=`MA` | GNN unresolved dropped / GCN→A retained | No final target for G; normal A over bases 4..5 only for GC, one keyboard stop; no chip | G GNN spans V,A,D,E,G; all GC codons A; PR 1 padded-tail contract |
-| `ATGAAATAA`, table 11, known local geometry/strand, unknown completeness; no S / S=`M` | PR 1 unavailable unknown-completeness, no verified C | No S: no cells/targets; S=M: only unverified M, no computed tail. Both: feature reason, no chip, terminal glyph, count or stop claim | PR 1 unavailable model; no inference from missing completeness |
+| `ATGAAATAA`, table 11, known local geometry/strand, unknown completeness; no S / S=`M` | PR 1 unavailable unknown-completeness, no verified C | No S: no cells/targets; S=M: only normal unverified M with hover/focus reason, no computed tail. Both: feature reason, no chip, terminal glyph, count or stop claim | PR 1 unavailable model; no inference from missing completeness |
 | Protein record p: `GCTAAAGCT`, CDS `1..9`, +, frame 1, table 1, S=`QQQ` imported; repeat table 99 + `(pos:4..6,aa:Sec)` | Primary protein-record before nucleotide work; not AKA or AUA | No lane/cells/chips/codon targets/assumption/count/stop/mismatch; details/copy QQQ + Imported + not-applicable reason. Format-2 reload discards forged successful AKA/3-aa cache before publishing; same result without cache. Repeat no stored value: no computed protein | PR 1 step 0 and cache trust contract, PR 2 preservation fixture |
 | DNA `GCTAAAGCT` / RNA `GCUAAAGCU`, same CDS; absent molecule type control | Without exception AKA; with Sec at 4..6 AUA. Absent type keeps nucleotide default | Eligible projection; S=QQQ gives three curated differences; no S draws conceptual AKA/AUA. Mixed protein/DNA session excludes only protein record | G GCT/GCU=A, AAA=K; F Sec=U; PR 1 positive controls |
 | Aligned `--A-TG-AAA-TAA--`, S=`VK`; first codon A,T,G at display columns 2,4,5 (zero-based) | ATG→M; S=V differs; gap 3 is not a base | Lighter V only on [2,3),[4,6), label on [4,6); no gap paint/outline/pointer hit; same explanation on both pieces, one keyboard stop | Hand column enumeration; PR 1 comparison; real-base mapping contract |
@@ -577,61 +671,33 @@ list and a details action that loses the requested feature or final residue.
 
 ## Open decisions and unresolved acceptance gaps
 
-1. **Unverified stored cells' additional visual.** A biologist can read the deposited protein, but we
-   cannot check it against the DNA. Options: retain normal stored cells with explanatory
-   feature/codon targets, or use the shared lighter fill with “cannot check” text; neither
-   may label these as differences. The mockup does not depict this case. INSDC specifies
-   no glyph; NCBI validator reports invalid code and Biopython 1.88 rejects unknown table
-   ids (documented in #295), but neither chooses this presentation.
-   Suggestion: retain normal stored cells with explanatory feature/codon targets, preserving #295's approved stored-wins behavior.
-2. **Exception-terminal fill detail.** An annotation can specify a terminal stop even
-   when only one or two of its bases are present; a biologist needs to see why translation
-   ends there. Options: retain the existing `_` with exception/partial tooltip, or also
-   give that terminal slot the lighter fill. Retained padded-residue paint/targets are
-   settled above; only optional terminal fill is open, with terminal omission unchanged
-   and no invented partial residue. The mockup does not settle this case. INSDC permits
-   partial TERM; NCBI produces translation/stop semantics, not glyphs; EMBOSS/Biopython
-   viewer behavior for this case was not verified.
-   Suggestion: retain the existing `_` with the exception/partial tooltip.
-3. **PR 2 failed-value computation policy (dependency, not a PR 3 default).** Some
-   translation-exception annotations are invalid or cross codon boundaries, so a
-   biologist cannot assume every requested amino-acid replacement is meaningful.
-   Options, owned by PR 2's [question 3](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L487)
-   at `3beaef4`: make whole-CDS computation unavailable while retaining successful local
-   evidence, or expose an explicitly incomplete subset result allowing an adjusted preview
-   and per-occurrence evidence only. Both preserve imported protein, warnings and all
-   occurrence evidence; neither certifies a verified comparison, count, early-stop claim
-   or computed `/translation` export from the incomplete computation. An incomplete
-   preview remains visibly unverified and cannot feed verified codon/substitution marks,
-   discrepancy chips or terminal/stop claims, including a claim of no stop or no mismatch.
-   PR 3 never promotes a failed entry into a substitution or treats successful local
-   evidence as whole-CDS verification. The mixed valid/off-codon fixture above specifies
-   both outcomes conditionally. Resolve this policy in PR 2 before implementation and bind
-   the preview's representation and viewer treatment to its eventual interface; PR 3
-   chooses neither alternative. OTHER/Xaa comparison sets and stricter mapping eligibility
-   also remain PR 2-owned: consume their final availability, possible sets, differing
-   indices and occurrence evidence without a viewer fallback; resolution is required
-   before accepting affected cases. The mockup and cited INSDC text do not settle this
-   app's whole-CDS verification policy. NCBI parses individual values and translates
-   parsed breaks while retaining failures as qualifiers; that behavior does not certify
-   an incomplete app result.
-4. **Overlapping feature presentation.** Two CDSs can cover the same bases yet carry
-   different proteins or explanations, even when their amino-acid letters agree; a
-   biologist must be able to inspect both. Options: extend the existing lane packer to
-   put colliding feature-specific states/targets in separate lanes with whole-record
-   stable packing, or use an explicitly labelled aggregate cell whose pointer/focus
-   chooser lists each feature, literal residue, marks and full explanation. Silent
-   overpainting is forbidden; the overlap fixtures require both features to remain
-   reachable. The mockup and standards choose neither approach, and no major-tool
-   behavior establishing this precise interaction was verified. There is no confirmed
-   default; settle before implementing collisions.
-   Suggestion: use separate lanes for colliding feature-specific states/targets, including equal letters with different provenance, preserving whole-record stable packing.
+There are no remaining PR 3 presentation decisions: owner answers 10–12 settled them.
+The following PR 2 dependencies stay conditional under Claude notice n1; the spec does
+not treat either as settled or choose a default.
+
+1. **Foreign-accession code break — owner question:** when a syntactically valid break
+   names another accession, should import refuse the file, or drop the entry with a visible
+   notice and compute from the remaining valid breaks? Exact-accession-only eligibility
+   is settled; foreign mapping/fetching is not an option. PR 3 either receives no record
+   (refusal) or computed evidence plus the drop notice. **Backed by:** owner answer 7
+   settles eligibility only; disposition is on hold for the owner, per notice n1.
+2. **Clipped-CDS export — owner question:** what `/translation` and `/codon_start` should
+   selection export write, and what happens to a code break the cut makes unusable?
+   Export with warning, partial markers and no stale full protein is settled. PR 2 must
+   resolve the remaining rules against INSDC/NCBI and obtain the owner's answer where
+   no standard settles them; PR 3 consumes that final interface after reimport.
+   **Backed by:** owner answer 8 and notice n1; no export/frame default selected here.
+
+No additional ambiguous malformed-versus-unusable case or truly unrepresentable qualifier
+value was established in this PR 3 review. If PR 2 identifies one, record its concrete
+input, biological consequence, options and scientific basis as an owner question before
+implementation; do not silently classify or normalize it.
 
 The joined boundary fixture is specified exactly in verification below. No benchmark
 or live accessibility/browser validation has yet been run; performance is an acceptance
-requirement, not an achieved measurement. PR 2's named occurrence-evidence interface must be reconciled
-with its final reviewed model before implementation. Questions here leave choices open;
-they do not reopen the binding owner decisions.
+requirement, not an achieved measurement. PR 2's named occurrence-evidence interface must
+be reconciled with its final reviewed model before implementation, especially dropped
+occurrence status and notices on successful results.
 
 ## Verification boundary and coverage decision
 
@@ -644,15 +710,16 @@ Assumed-table policy belongs to #295; this PR protects its integration in the sh
 | Guarantee/source | Existing protection inspected | Decision |
 |---|---|---|
 | Initiation lookup, RNA normalization / #261 | `initiatorResidue.test.ts` matches literal Starts rows for tables 1/11; lowercase `gug`→M while context-free GTG→V | Reuse lookup coverage; add projection-level complete/partial/phase and stored override distinction. Do not retest every codon lookup. |
-| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. Include both conditional mixed-exception outcomes; reject incomplete previews promoted into verified marks, comparison, counts or stop claims. |
+| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. Include OTHER/Xaa sense-set compatibility for U/O and stored B/Z/J without literal-X false mismatches, normal unverified hover/focus explanations, and normal terminal `_` explanations. Include usable computed evidence plus a visible dropped-entry notice; reject applied marks for dropped entries. Malformed mixed-entry import refusal belongs to PR 2, not a PR 3 preview. |
 | Lane, reverse, joined/origin geometry / OP-8 | `SequenceTrack.test.tsx` “splits a splice-crossing codon without painting the intron” asserts exact rectangles; origin case tests both strands. Its aligned-CDS assertion currently paints across a gap and contradicts this contract. | Strengthen the recorder boundary with differing/stop-edge states and hit targets on all pieces. Replace the contrary gap assertion with real-column splits; check gap-only search hits and pointer misses plus real-base hits. Assert one logical keyboard stop; no gaps/intron painting. Include retained padded fragments, dropped fragments and partial TERM targets on actual bases only; no geometry for unknown-strand/order/remote inputs. |
-| Search + stop edge + chip compositing / mockup | Existing active-search priority test draws overlapping active/other search backgrounds; none found for lighter cells/chips | Add canvas-recorder checks for white base, lighter S, base-facing edge on both strands, exact partial hit outline, longer/shorter chips. Add overlap/packing and real target checks after Open decision 4 is settled, including equal letters with distinct provenance. Browser visual check owns legibility and collisions; spy alone cannot prove appearance. |
+| Search + stop edge + chip compositing / mockup | Existing active-search priority test draws overlapping active/other search backgrounds; none found for lighter cells/chips | Add canvas-recorder checks for white base, lighter S, base-facing edge on both strands, exact partial hit outline, longer/shorter chips. Extend `assignTranslationLanes` checks for separate overlapping-CDS lanes and real targets, including equal letters with distinct provenance (owner answer 12). Browser visual check owns legibility and collisions; spy alone cannot prove appearance. |
+| Separate lanes for overlapping CDSs / owner answer 12 | `cds.test.ts` “shares a lane for overlapping features in the same frame” explicitly asserts the contrary policy; non-overlap, different-frame, strand and circular-join-gap packing assertions also exist | Replace the same-frame-sharing expectation with separate feature lanes, preserving non-overlap lane reuse, strand independence and whole-record stability. Exercise differing and equal letters with distinct provenance through the real renderer/targets; a packer-only assertion cannot prove both explanations are reachable. |
 | Zoom and transition preservation | `translationStyles.test.ts` pins shared threshold 5 and reduced-motion CSS; `SequenceTrack.test.tsx` low-zoom test keeps search within nucleotide band | Reuse threshold/transition checks; strengthen observable rendered targets at 5/just above 5, 12/just above 12 and 20, plus translation-off/protein modes. Reject hidden focus targets and stale explanations on zoom/pan. |
-| Assumed vs stored, no false biological claims / #295 | Current `SequenceTrack.geneticCodes.test.tsx` asserts invalid-code `?` and a warning; this is predecessor behavior superseded by #295 | Reconcile with #295 tests at integration; add shared-path solid invariant/dashed sensitive, stored-wins and short assumed-tail checks. Never preserve obsolete `?`-everywhere assertions as scientific truth. |
+| Assumed vs stored, no false biological claims / #295 | `SequenceTrack.geneticCodes.test.tsx` “draws assumed residues…” asserts M,*,E with no ! and a real warning button; “preserves the stored translation…” asserts M,U,_ | Reuse these merged assertions; add shared-path solid invariant/dashed sensitive, stored-wins and short assumed-tail checks. Never preserve obsolete `?`-everywhere assertions as scientific truth. |
 | Per-record eligibility / PR 1 step 0 | PR 1 specifies protein/cache acceptance fixtures; no PR 3 projection protection found | Add real record→projection/details and format-2 reload checks with QQQ/imported and forged AKA cache; deny all nucleotide paint/targets/counts including table 99/exception fallback, preserve QQQ/source/copy. Include allowed DNA/RNA/absent-type controls and mixed records; a session-only gate cannot pass. |
 | Tooltip and accessibility wiring and lifecycle | `TooltipLayer.test.tsx` asserts delayed hover text/shortcut and `aria-describedby`, press dismissal/unlinking and warm switching; existing genetic-code test gets a real warning button by accessible name. None found for revision, removal/replacement or geometry invalidation. | Reuse existing shared-tooltip protections; add the lifecycle fixtures above through real renderer/tooltip wiring for codon and feature/count consumers, including pending timers, no fresh hover/focus and reopening with current text/bounds. Preserve Escape/blur, escaped qualifier content, biological tab order and shared text. Add the long stored-extra fixture through real chip/feature-summary→details wiring: bounded preview, complete ordered list and final W reachable by pointer and keyboard, with focus entry/return and offscreen/overview access. No complete-tail navigation protection found. One browser journey checks actual focus rings, readable hover, pan anchor changes, long-list navigation and search overlap on both strands. |
 | Alignment-only display invalidation / accepted `applyFastaResponse` overlay | `bioResponse.test.ts` “accepts a case-only difference and keeps the loaded residues as the source” asserts raw sequence/features alongside new `alignedSequence`; its overlay test asserts accepted alignment strings. Neither checks renderer caches, targets or lane occupancy. | Add the same-length gap-move fixture through the accepted overlay→real track update, comparing pieces/index/occupancy with a fresh second-mapping projection. Observe exact paint, gap pointer misses, changed codon hits and keyboard bounds/order together; assert biological evidence reuse and no translation/comparison work. Include alignment removal/raw-display restoration to reject a stale mapped cache in the reverse direction. |
-| Atomic refresh after edits; feature tooltip and hub count agree | PR 1's spec proposes invalidation tests; they were not executed/credited here | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop diagnostics in feature/hub/chip but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
+| Atomic refresh after edits; feature tooltip and hub count agree | `translation.test.ts` “stop beats stored X…” asserts differing=[1] for MXG, none for M*G and shortBy=2 for M; renderer refresh/count agreement protection not found | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop diagnostics in feature/hub/chip but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
 | Exact visibility and deep lanes / #300 | #295 source has exact max-end hover lookup; no executed evidence for PR 3 drawing index or vertical clipping | Add indexed-vs-exhaustive synthetic comparison at boundary overlaps, split pieces and deep lanes. Minimal correctness stays in CI; opt-in dense browser benchmark measures redraw/DOM/memory over repeated pans without retranslating. No fixed fps promise without measurement. |
 
 Boundary fixtures additionally include a codon crossing the very first/last viewport pixel,
