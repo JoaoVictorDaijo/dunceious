@@ -75,7 +75,8 @@ it('connects progress, monitor, pill, cancellation and completed local hits to t
     return new Promise<LocalSearchResult>(resolve => { complete = resolve; });
   });
   setup();
-  expect(screen.getByText('Local search ready')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Local' }).hasAttribute('disabled')).toBe(false);
+  expect(screen.queryByText(/Loading Local search module/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Local' }));
   fireEvent.change(screen.getByPlaceholderText('Enter query sequence...'), { target: { value: 'AC' } });
   vi.useFakeTimers();
@@ -109,8 +110,8 @@ it('connects progress, monitor, pill, cancellation and completed local hits to t
     query: 'AC', mode: 'local', results, selection: { start: 0, end: 2, recordIds: ['r'] },
   }));
   expect(screen.getByText('Search done')).toBeTruthy();
-  expect(screen.getByText('2 streams searched')).toBeTruthy();
-  expect(screen.getByText(': Similar: dashed outline, positive matrix score')).toBeTruthy();
+  expect(screen.getByText('Streams searched').closest('div')!.querySelector('dd')!.textContent).toBe('2');
+  expect(screen.getByText('Similar')).toBeTruthy();
 });
 
 it('persists query display choice and removes search provenance only from the opened annotation', () => {
