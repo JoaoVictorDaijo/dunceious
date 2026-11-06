@@ -138,6 +138,7 @@ type Frame = 0 | 1 | 2;
 export interface TranslationLanes {
   /** Lane of each feature's codons per reading frame, counted outward from the nucleotide row. */
   laneOf: Map<BioFeature, Map<Frame, number>>;
+  /** Row counts include space for invalid-frame warnings, which have no codon assignment. */
   forward: number;
   reverse: number;
 }
@@ -196,7 +197,9 @@ export const assignTranslationLanes = (
       const frames = laneOf.get(unit.feature) ?? new Map<Frame, number>();
       laneOf.set(unit.feature, frames.set(unit.frame, lane));
     });
-    return lanes.length;
+    const needsWarning = features.some(f => CDS_ORF_TYPES.includes(f.type)
+      && getFeatureStrand(f) === strand && !validCodonStart(f.metadata?.codon_start));
+    return Math.max(lanes.length, needsWarning ? 1 : 0);
   };
   const forward = pack(1);
   const reverse = pack(-1);

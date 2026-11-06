@@ -430,7 +430,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {genBankRefusals.length > 0 && <GenBankRefusalDialog files={genBankRefusals} onClose={dismissGenBankRefusals} />}
+      {genBankRefusals.length > 0 && pendingConfirmations.length === 0 && <GenBankRefusalDialog files={genBankRefusals} onClose={dismissGenBankRefusals} />}
 
       {pendingConfirmations.length > 0 && <GapRemovalNotice key={pendingConfirmations[0].token} notices={pendingConfirmations} onClose={() => confirmGapRemoval(pendingConfirmations[0].token, false)} onLoad={() => confirmGapRemoval(pendingConfirmations[0].token, true)} />}
 
