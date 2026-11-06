@@ -180,11 +180,18 @@ standard conflict-resolution rule. The source trace additionally establishes the
   final definite-stop removal is unconditional. Keep parent partialness distinct from a
   break's own partial flags.
 
-Interactive edit maintenance, ambiguous occurrence mapping and whole-CDS verification are app
-policies. The proposed [PR 2 design](../specs/2026-11-06-translation-transl-except.md#open-decisions)
-records the remaining questions, including one scientifically justified stricter verification
-proposal for unsupported short forms and unknown residue fallback; it is not an adopted default.
-NCBI parser/validator execution remains unverified.
+Interactive edit maintenance and whole-CDS verification are app policies. **Backed by: owner
+decision 2026-11-06**, the [proposed PR 2 design](../specs/2026-11-06-translation-transl-except.md)
+requires malformed GenBank `/transl_except` to refuse file import (syntax, off-frame/partial
+codon, unsupported short stop or unknown residue), overriding #286's warning-only qualifier
+policy for this qualifier. Recognized INSDC names are case-insensitive, including one-letter
+forms. Otherwise-valid unusable entries are dropped with visible notice and computation uses
+the valid entries. OTHER/Xaa compares as any sense residue including U/O, never a definite stop.
+No silent rounding, X fallback or automatic correction is allowed. Plain-move handling,
+GFF3/project refusal scope, other-accession disposition, conflict survivors and clipped
+translation/frame policy remain [awaiting owner](../specs/2026-11-06-translation-transl-except.md#open-decisions).
+This records approved design, not completed PR 2 implementation. NCBI parser/validator execution
+remains unverified.
 
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
 in-frame TGA).
@@ -231,4 +238,6 @@ computed or removed. The derived `_translationCheck` is disposable string-valued
 recomputed at import attachment, save and format-2 project load. Loading never trusts it.
 On a protein record, computed provenance is invalid derived data and is removed on load;
 an imported protein qualifier remains supplied data. Protein GenBank export and the GFF3
-phase editor retain their existing behavior pending the design's open owner decisions.
+phase editor have owner decisions dated 2026-11-06: keep supplied `/translation` on
+protein CDS export; make phase read-only and edit frame via `/codon_start`. The phase editor
+follow-up belongs to PR 2, not merged PR #291.
