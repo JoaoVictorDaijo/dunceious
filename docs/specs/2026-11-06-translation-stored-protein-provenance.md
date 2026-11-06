@@ -60,6 +60,16 @@ Murilo, on #253:
     Its product-copy path copies an existing product, which can keep an internal `*`.
   - The validator reports a stored protein that differs from the conceptual one, and an internal
     stop, as separate diagnostics (`translation_problems.cpp`, `cdregion_validator.cpp:622`).
+- **Protein flatfile scope:** [INSDC FT 11.4, CDS and `/translation`
+  definitions](https://www.insdc.org/submitting-standards/feature-table/) describe a nucleotide
+  CDS and its derived amino-acid sequence. In the same NCBI Toolkit revision,
+  [`x_AddQualsCdregion`, `feature_item.cpp:3076–3079`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/format/feature_item.cpp#L3076)
+  adds `/coded_by` and returns before adding `/translation` when the protein-context CDS
+  is mapped from cDNA; the indexed path does the same at lines 3031–3034. This is a
+  GenPept convention for mapped nucleotide CDSs, not proof that an arbitrary CDS attached
+  to protein coordinates must lose a supplied qualifier. [FMT-3](../standards/formats.md#fmt-3-insdc-feature-table-and-qualifier-fidelity)
+  likewise records full GenPept vocabulary conformance as unknown. These sources do not
+  settle keep-versus-drop for this spec's attachment fixture; see the open export decision.
 - **Project rules** in `docs/standards/translation.md`:
   - [TRANS-1](../standards/translation.md#trans-1-genetic-code-from-transl_table), genetic code from `/transl_table`; an invalid code yields no residue claim;
   - [TRANS-2](../standards/translation.md#trans-2-codon_start), `/codon_start`;
@@ -394,12 +404,16 @@ follows the cited NCBI validator.
   the imported value/source. A newly created CDS on a protein record has no computed
   translation. This spec does not add a prohibition on attaching or editing such annotations.
   GFF3/project export preserves the untouched imported qualifier as data; after invalidation
-  it omits it and carries the removal warning. GenBank uses its existing protein qualifier
-  allowlist ([`serializeRecord`](../../src/core/genbank/serialize.ts#L113),
-  [`PROTEIN_QUALIFIERS`](../../src/core/genbank/qualifierRules.ts#L135)): `/translation` is
-  absent from that list, so it is omitted and reported as a dropped attribute even before
-  invalidation. This spec does not change protein feature validation or convert the record
-  to DNA to export it.
+  it omits it and carries the removal warning. **Current GenBank behavior differs:**
+  [`NUCLEOTIDE_QUALIFIERS`](../../src/core/genbank/qualifierRules.ts#L125) contains
+  `translation`, and [`PROTEIN_QUALIFIERS`](../../src/core/genbank/qualifierRules.ts#L135)
+  spreads that map. [`serializeRecord`](../../src/core/genbank/serialize.ts#L110) therefore
+  emits a nonempty stored `/translation` on a protein-record CDS without incrementing
+  `report.droppedAttributes` for it. Omission before invalidation requires a deliberate new
+  filter; it is not existing allowlist behavior. The open export decision below specifies
+  the recommended filter and the preservation alternative, including reporting. PR 1 must
+  resolve it before implementing this export boundary. Neither option changes protein
+  feature validation or converts the record to DNA to export it.
 - **Otherwise**, keep `metadata.translation` and `_translationSource` as they are.
   `_translationSource` starts as `'imported'` for a parsed `/translation`.
 - **Type changes away from CDS** (by `isCds`) remove `/translation` and `_translationSource`,
@@ -579,7 +593,7 @@ record makes each warning-count assertion exclude unrelated features.
 
 | Review guarantee | Verification boundary | Literal inputs and hand-derived expected outputs |
 |---|---|---|
-| Protein-record eligibility (round-5 Important finding) | shared conceptual result → attachment → invalidating save → details/copy and GFF3/project export; PR 3 projection | Declared protein record `{id:'p', sequence:'GCTAAAGCT', moleculeType:'protein'}`; normalized exact CDS 1..9, +, frame 1, table 1. Attach row `p\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=QQQ`. Return `unavailable: 'protein-record'`, retain QQQ/imported, zero DNA-mismatch warnings; details/copy expose QQQ with Imported and not-applicable reason. No conceptual count/early-stop claim, lane/cells/chips/targets or assumed translation. Rename c: same data/source. Edit end 9→6: remove translation, source removed, one not-applicable warning and preview; GFF3/project omit translation. GenBank export before the edit already omits /translation under the protein allowlist and reports it in droppedAttributes; afterward no removed translation can reappear. Never store AKA (GCT=A, AAA=K, GCT=A) or AK after shortening: those are nucleotide readings, forbidden on this record. Repeat with no imported qualifier and with newly created CDS: no translation/computed label. Repeat with table 99 and `/transl_except=(pos:4..6,aa:Sec)`: protein-record still wins before lookup/application; no assumed-table fallback. |
+| Protein-record eligibility (round-5 Important finding) | shared conceptual result → attachment → invalidating save → details/copy and GFF3/project export; PR 3 projection | Declared protein record `{id:'p', sequence:'GCTAAAGCT', moleculeType:'protein'}`; normalized exact CDS 1..9, +, frame 1, table 1. Attach row `p\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=QQQ`. Return `unavailable: 'protein-record'`, retain QQQ/imported, zero DNA-mismatch warnings; details/copy expose QQQ with Imported and not-applicable reason. No conceptual count/early-stop claim, lane/cells/chips/targets or assumed translation. Rename c: same data/source. Edit end 9→6: remove translation, source removed, one not-applicable warning and preview; GFF3/project omit translation. GenBank before the edit currently emits /translation="QQQ" with no dropped-attribute increment for translation. Pending the open protein GenBank export decision: option A must omit it and add exactly 1 to droppedAttributes relative to the otherwise identical export without the translation key; option B must emit QQQ with a translation contribution of 0. Export must leave QQQ/imported in memory in both options. After the invalidating edit both options omit /translation, contribute 0 drops for that now-absent key and never resurrect it; the removal warning remains visible. These are conditional acceptance cases, not authorization of either option. Never store AKA (GCT=A, AAA=K, GCT=A) or AK after shortening: those are nucleotide readings, forbidden on this record. Repeat with no imported qualifier and with newly created CDS: no translation/computed label. Repeat with table 99 and `/transl_except=(pos:4..6,aa:Sec)`: protein-record still wins before lookup/application; no assumed-table fallback. |
 | Protein project trust and allowed nucleotide controls (same round-5 finding) | format-2 load → check → details/copy/count; conceptual positive controls | Format 2 saves the same declared protein record, exact CDS, QQQ/imported and forged `_translationCheck` claiming successful AKA, zero differences and 3 aa. Reload discards cache, returns protein-record before publication; QQQ/source survive and copy returns QQQ, no computed label/count/stop/mismatch claim. Repeat without cache: identical. Raw protein/annotation length remains 9 aa (9 input residues), not 3 CDS aa. Control with `moleculeType:'dna'`, sequence GCTAAAGCT, same location and stored QQQ: conceptual AKA, sets {A},{K},{A}, differing [0,1,2], one warned CDS, count 3 aa; invalidating end edit 9→6 stores AK/computed. RNA control GCUAAAGCU gives AKA by U→T; absent-type control GCTAAAGCT retains existing nucleotide default. Mixed protein/DNA records: only DNA contributes the mismatch/count; do not gate the domain function by session. |
 | Finding 1: biological strand gate | GFF3 attachment → save → tooltip and GFF3/project export | FASTA `>r` / `ATGAAATAA`; GFF3 row (each `\t` denotes a literal tab) `r\tx\tCDS\t1\t9\t.\t.\t0\tID=c;translation=MK`, repeated with strand `?`. Attachment keeps `MK` imported, yields `unknown-strand`, no mismatch count, no aa count or early-stop assertion and no codon lane. Move end from 9 to 6: protein removed, source `removed`, one reason warning; GFF3/project export has no translation and retains `.`/`?`; GenBank refuses unresolved strand. A numeric +1 must not produce `MK` as verified. |
 | Finding 2: no migration | project save/load | DNA `ATGAAATAA`, CDS `[0,9)+`, `metadata.translation="MK"`, source `imported`: serialized `format=2`, one protein field, reload retains `MK`; no format-3 output or top-level fallback. |
@@ -625,6 +639,33 @@ record makes each warning-count assertion exclude unrelated features.
   Each of these asserts a wrong protein in some case. Doing it properly is PR 2.
 
 ## Open decisions
+
+- **Protein GenBank export of an untouched CDS `/translation` (round-6 Important finding).**
+  The INSDC and NCBI GenPept sources above establish nucleotide derivation and omission on
+  mapped nucleotide CDSs, but do not settle preservation of a supplied qualifier on an
+  arbitrary protein-coordinate CDS. Options:
+  - **A — deliberate serializer filter (recommended):** in `serializeRecord`'s metadata
+    emission loop, skip `key === 'translation'` when `r.moleculeType === 'protein'` and
+    `isCds(feature)` holds, before emitting an otherwise allowed nonempty value. Count that
+    omitted key exactly once in `report.droppedAttributes`, in addition to unrelated drops;
+    do not delete it from the feature or alter `_translationSource`. Use the existing export
+    report/log and preview to expose the loss. An absent key contributes zero; after an
+    invalidating edit the removal warning reports the earlier loss, without inventing a
+    dropped attribute for absent metadata. Keep the existing empty-value reporting rule.
+    Prefer this narrow filter over changing the whole protein allowlist, so this decision
+    does not silently change other protein-feature qualifiers. Nucleotide CDS export keeps
+    its specified behavior.
+  - **B — preserve:** retain the current allowed nonempty qualifier on an untouched protein
+    CDS as imported data, without claiming nucleotide verification; its contribution to
+    `droppedAttributes` is zero. After invalidation omit the removed key, also contributing
+    zero, and expose the removal warning as specified at the save boundary.
+
+  **Recommendation: A**, following the mapped-CDS GenPept convention conservatively while
+  preserving the original data in GFF3/project export. This extension to arbitrary attached
+  CDSs is an application policy, not a demonstrated standard requirement. Owner choice is
+  required before implementing this boundary; neither option is authorized yet. The protein
+  acceptance fixture above is conditional on that choice and must be fixed to the selected
+  outcome when the decision is recorded.
 
 - **GFF3 phase editor (finding 8).** The standard and existing extraction/export contract
   settle `phase=p ↔ codon_start=p+1` for the first evaluated interval, not which UI field is
