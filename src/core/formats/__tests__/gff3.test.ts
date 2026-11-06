@@ -314,3 +314,31 @@ it('writes a reverse remote part back on its own strand after a GFF3 round trip'
   expect(exportToGenBank([record({ features: [{ ...imported, type: 'misc_feature' }] })]).text)
     .toContain('join(complement(J00194.1:100..202),1..100)');
 });
+
+// Codex review of #306: GFF3 round trips must keep what GenBank keeps.
+it.each([
+  // order() with one local interval: the operator counts the remote part too (LOC-2).
+  ['order(1..3,J00194.1:10..12)', false],
+  // On a circular record, rows that carry a remote part are not rotated (LOC-1).
+  ['join(1..3,J00194.1:10..12,28..30)', true],
+])('keeps %s through GFF3', (location, isCircular) => {
+  const parsed = parseLocation(location);
+  const original = feature({ type: 'misc_feature', name: 'g', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const source = record({ sequence: 'A'.repeat(30), isCircular, features: [original] });
+  const [imported] = parseGFF3(exportToGff3([source]).text).features.seq_1;
+  expect(exportToGenBank([{ ...source, features: [imported] }]).text).toContain(location);
+});
+
+// LOC-3: per-interval complements on one strand are not a whole-feature complement, so their
+// evaluation order survives GFF3 (join(complement(1..3),complement(7..9)) reads TTT then CCC).
+it('keeps the evaluation order of same-strand inner complements through GFF3', () => {
+  const parsed = parseLocation('join(complement(1..3),complement(7..9))');
+  const original = feature({ type: 'misc_feature', name: 'c', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator });
+  const sequence = 'AAACCCGGGTTT';
+  const [imported] = parseGFF3(exportToGff3([record({ sequence, features: [original] })]).text).features.seq_1;
+  expect(extractFeatureSequence(original, sequence).featureSeq).toBe('TTTCCC');
+  expect(extractFeatureSequence(imported, sequence).featureSeq).toBe('TTTCCC');
+  expect(imported.metadata).not.toHaveProperty('insdc_interval_strands');
+});

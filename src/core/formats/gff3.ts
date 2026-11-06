@@ -178,7 +178,9 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const searchNote = searchHitNote(feature);
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
-      if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
+      if (isOrderLocation(feature) && segments.length + remote.length > 1) attrs.insdc_operator = 'order';
+      // GFF3 cannot tell join(complement(a),complement(b)) from complement(join(a,b)) (LOC-3).
+      if (segments.some(segment => segment.strand !== undefined)) attrs.insdc_interval_strands = 'true';
       // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
       if (feature.writtenOrder) attrs.insdc_written_order = feature.writtenOrder.map(String);
       if (remote.length) {
@@ -348,7 +350,6 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
   return rows;
 }
 
-// FIXME(annotation-hub): GFF3 cannot distinguish same-strand inner-complement joins from whole-feature complements.
 /** Candidates retain geometry so the import reducer can verify the loaded sequence's length. */
 export function parseGFF3(content: string): {
   features: Record<string, BioFeature[]>;
@@ -421,16 +422,19 @@ export function parseGFF3(content: string): {
   }
   for (const [seqid, values] of Object.entries(features)) {
     for (const feature of values) {
-      if (feature.segments!.length > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
-      delete feature.metadata!.insdc_operator;
       const remoteParts = takeRemoteParts(feature);
       if (remoteParts) feature.remoteParts = remoteParts;
+      const intervals = feature.segments!.length + (remoteParts?.length ?? 0);
+      if (intervals > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
+      delete feature.metadata!.insdc_operator;
+      const perInterval = feature.metadata!.insdc_interval_strands === 'true';
+      delete feature.metadata!.insdc_interval_strands;
       const writtenOrder = takeWrittenOrder(feature);
-      if (writtenOrder) {
+      if (writtenOrder) feature.writtenOrder = writtenOrder;
+      if (writtenOrder || perInterval) {
         // The rows are in evaluation order, each read on its own strand, as the parser stores them.
-        feature.writtenOrder = writtenOrder;
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
-      } else if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
+      } else if (circular.has(seqid) && !remoteParts) normalizeCircularParts(feature, lengths.get(seqid)!);
       if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

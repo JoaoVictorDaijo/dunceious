@@ -465,3 +465,11 @@ describe('sliceRecordsBySelection – remote parts', () => {
     expect(clipped.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
   });
 });
+
+// LOC-4 for a feature stored without segments (Codex review of #306): the cut ends' markers must
+// not be dropped with the segment array.
+it('keeps the cut-end markers of a feature without segments', () => {
+  const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(30),
+    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 20, strand: 1 }] }], 5, 15)[0].features;
+  expect(clipped.segments).toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
+});

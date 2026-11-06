@@ -156,7 +156,9 @@ function clipFeature(
     ...feature,
     start: Math.min(...newSegments.map(segment => segment.start)),
     end: Math.max(...newSegments.map(segment => segment.end)),
-    segments: feature.segments?.length || feature.start > feature.end ? newSegments : undefined,
+    // A segment that gained a cut-end marker must be kept, or the marker is lost with it (LOC-4).
+    segments: feature.segments?.length || feature.start > feature.end || newSegments.some(s => s.partialStart || s.partialEnd)
+      ? newSegments : undefined,
   };
   const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
   if (writtenOrder) result.writtenOrder = writtenOrder;
