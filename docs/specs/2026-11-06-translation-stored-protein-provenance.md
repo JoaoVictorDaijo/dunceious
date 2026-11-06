@@ -61,10 +61,10 @@ Murilo, on #253:
   - The validator reports a stored protein that differs from the conceptual one, and an internal
     stop, as separate diagnostics (`translation_problems.cpp`, `cdregion_validator.cpp:622`).
 - **Project rules** in `docs/standards/translation.md`:
-  - TRANS-1, genetic code from `/transl_table`; an invalid code yields no residue claim;
-  - TRANS-2, `/codon_start`;
-  - TRANS-3, alternative initiators;
-  - TRANS-4, `/transl_except`.
+  - [TRANS-1](../standards/translation.md#trans-1-genetic-code-from-transl_table), genetic code from `/transl_table`; an invalid code yields no residue claim;
+  - [TRANS-2](../standards/translation.md#trans-2-codon_start), `/codon_start`;
+  - [TRANS-3](../standards/translation.md#trans-3-alternative-initiation-codons), alternative initiators;
+  - [TRANS-4](../standards/translation.md#trans-4-transl_except), `/transl_except`.
 - **How other tools treat a stored translation** (documentation and source survey, 2026-11-06;
   nothing was run):
   - Geneious separates a computed "Automatic Translation", which is not exported, from a stored
@@ -102,10 +102,9 @@ Murilo, on #253:
    - PR 1: one stored protein, read-only, recomputed on edit;
    - PR 2: `/transl_except`;
    - PR 3: the codon marks.
-9. **The project file format goes from 2 to 3.** Versioning exists already
-   (`projectFile.ts:41-44, 93-94`). Format 2 files still load: the loader moves
-   `feature.translation` into `metadata.translation` when that is absent. There is no
-   compatibility work beyond this, since nobody uses project files yet.
+9. **No project-format bump or migration.** Nobody uses project files yet (owner's later
+   #253 decision, superseding the earlier format-3 proposal). Keep format 2 and store only
+   `metadata.translation`; do not migrate `feature.translation` or add compatibility handling.
 10. **One initiator helper,** `initiatorResidue`, is shared with the
     [#261](https://github.com/JoaoVictorDaijo/dunceious/issues/261) greeter fix.
 11. **Counts follow NCBI and Ensembl (#259).** The metric is *translation positions*: the
@@ -127,7 +126,8 @@ Murilo, on #253:
 
 - Edit undo (decision 7).
 - `/transl_except` application in PR 1 (decision 5).
-- Restructuring the editor beyond making `/translation` read-only.
+- Restructuring the editor beyond making `/translation` read-only and resolving the phase/frame
+  authority described under Open decisions.
 
 ## Anti-goals
 
@@ -149,11 +149,11 @@ type ConceptualTranslation =
   | {
       status: 'ok';
       residues: string;           // one per translated codon; terminal stop removed; internal stops '*'
-      possible: string[];         // per codon: every residue its IUPAC expansions allow under the table
+      possible: string[];         // per retained position: final contextual readings, including '*' when possible
       internalStops: number[];
       threePrimeIndeterminate: boolean;  // last codon's expansions mix stops and residues
     }
-  | { status: 'unavailable'; reason: 'invalid-code' | 'unsupported-exception' | 'empty' };
+  | { status: 'unavailable'; reason: 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty' };
 
 /** The CDS's conceptual translation under NCBI rules. Never reads the stored protein. */
 export function conceptualTranslation(feature: BioFeature, record: SeqRecord): ConceptualTranslation;
@@ -182,8 +182,16 @@ export function isCds(feature: BioFeature): boolean;
    residues never feed this function.
 2. **Exceptions.** In PR 1, any `/transl_except` gives `unavailable: 'unsupported-exception'`.
    PR 2 replaces this step with NCBI code-break substitution.
-3. **Coding sequence.** `extractCodingSequence` applies segments, strand and `/codon_start`. An
-   empty result is `unavailable: 'empty'`.
+3. **Location eligibility, before extraction or comparison.** Read `getFeatureStrand` from
+   `src/domain/bio/strand.ts`, never the numeric fallback alone. `.` or `?` gives
+   `unavailable: 'unknown-strand'`, even if `strand === 1`. A valid mixed-strand join uses
+   each interval's resolved orientation in evaluation order. Require `definesOneSequence`
+   from the location dependency (contract below); false gives `unavailable: 'nonlocal-location'`.
+   Require established completeness at both biological ends; unknown gives
+   `unavailable: 'unknown-completeness'`. Only then call `extractCodingSequence`, which applies
+   segments, strand and `/codon_start`. An empty result is `unavailable: 'empty'`.
+   These eligibility checks also guard counts, early-stop claims, display and edit replacement;
+   none may substitute a forward strand or concatenate an unsupported location.
 4. **Codons.** Each codon is expanded over its IUPAC bases, and `possible` records every
    residue the expansions give. The residue is then chosen:
    - one possible residue: that residue, e.g. GCN gives A;
@@ -198,7 +206,8 @@ export function isCds(feature: BioFeature): boolean;
    - `/codon_start` is 1;
    - `initiatorResidue` returns `M` for the literal codon (TRANS-3, NCBI `sequence.cpp:3670`).
 
-   An ambiguous first codon is not rewritten.
+   An ambiguous first codon is not rewritten. When initiation changes the residue, replace
+   its `possible` entry with `{M}` too, so the comparison sees the final interpretation.
 6. **Leftover bases.** One or two bases after the last whole codon are padded with N, as NCBI's
    `x_Translate` does (`sequence.cpp:3696`). The padded codon is kept only when step 4 gives a
    single residue. For example, `ATGGC` gives `MA`, because GC plus any base is A. Otherwise it
@@ -206,36 +215,106 @@ export function isCds(feature: BioFeature): boolean;
 7. **Terminal stop.** For a 3′-complete CDS, look at the last codon's expansions under the
    table's stop rows. This includes the context-dependent stops of tables 27, 28 and 31 (NCBI
    `sequence.cpp:3724-3729`, which checks the codon state):
-   - every expansion is a stop: the codon is the terminal stop and is dropped;
-   - none is: it stays a residue;
-   - mixed, e.g. a codon that may or may not end the protein: it stays X and
-     `threePrimeIndeterminate` is set. The display says the end is uncertain.
+   First rebuild this position's `possible` set expansion by expansion: a terminal stop
+   reading replaces that expansion's ordinary residue reading, including for dual-coding tables.
+   - every expansion is a stop: drop both the terminal residue and its `possible` entry;
+   - none is: retain the ordinary residue and set;
+   - mixed: retain X with the final set containing `*` and the remaining residues, and set
+     `threePrimeIndeterminate`. The display says the end is uncertain.
+
+   Thus complete table-28 `ATGTAN` has final sets `{M}`, `{*,Y}`, never `{M}`, `{Q,Y}`:
+   TAA/TAG terminate, TAT/TAC give Y. Stored `MQ` differs at index 1; `MY` is compatible.
+   `possible.length === residues.length`; comparison never consumes the pre-context set.
 
    This replaces `terminateLastCodon`'s ACGT-only check for this function. That helper stays for
    its current callers.
 8. **Internal stops.** A codon whose only possible readings are stops is `*`, and its index goes
    in `internalStops`. These are never exported (decision 4).
 
-**Partial ends.** Steps 5 and 7 need to know whether each end is complete. Today that comes from
-`locationString`, which the editor clears on any geometry change (`FeatureEditorModal.tsx:79,
-168`). Selection export clears it too (`intervals.ts:134-142`).
-[#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226) owns structured partial ends:
-storing them, keeping them through edits and clipping, and writing them back into GenBank and
-GFF3 locations at the right strand-relative end. **#226 lands before PR 1.** PR 1 reads its
-5′/3′ state and never infers completeness from a missing marker.
+**Partial ends and local-sequence consumption contract.** The prerequisite is the SARS-CoV
+location work on `fix/order-operator`, inspected at
+[`22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042`](https://github.com/JoaoVictorDaijo/dunceious/blob/22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042/src/domain/bio/locationFlags.ts#L96)
+and its [location spec](https://github.com/JoaoVictorDaijo/dunceious/blob/22235c17f9ac5e7f4b02a9f09ff8ff1d6d3b0042/docs/specs/2026-11-06-locations-operator-sites-remote.md).
+No location PR was open at inspection; the read-only diff against
+`origin/integration/murilo-review` is the dependency, not a claim that it has merged.
+It owns [#226](https://github.com/JoaoVictorDaijo/dunceious/issues/226) persistence, import
+normalization, edits, clipping and serialization. It lands
+before PR 1; reconcile this contract and tests with its final API before PR 1 merges.
+Do not create a competing location model.
+
+- `FeatureSegment.partialStart?: true` means `<` before the lower base;
+  `partialEnd?: true` means `>` after the higher base. These are coordinate ends, not 5′/3′.
+- Call **`isFivePrimePartialLocation(feature)`** and
+  **`isThreePrimePartialLocation(feature)`**, each taking
+  `Partial<Pick<BioFeature, 'strand' | 'segments'>>`. They return booleans, not a three-state
+  answer. `isPartialLocation(feature)` detects any marker, including interior markers; it
+  cannot decide initiation or termination.
+- With no per-segment strand, a minus feature reverses the stored interval order. With
+  per-segment strands, intervals are already in evaluation order; use each segment's strand
+  (or the known feature strand). The first interval's forward `partialStart` or reverse
+  `partialEnd` is 5′ partial; the last interval's forward `partialEnd` or reverse
+  `partialStart` is 3′ partial. Interior markers do not change these answers.
+- PR 1 logically consumes `{fivePrime, threePrime}`, each `complete | partial | unknown`.
+  This is an eligibility result, not a new persisted location representation. The two boolean
+  accessors may be negated to mean complete **only for validated, normalized intervals**.
+  Their false return on missing `segments` must never establish completeness. Missing,
+  conflicting or unresolvable geometry/orientation yields unknown and makes translation
+  unavailable. No start-M or dual-coding terminal rule is guessed in that state.
+- GenBank parsing establishes exact versus marked ends. GFF3 parsing establishes normalized
+  row bounds and reads `insdc_partial_start=<` / `insdc_partial_end=>`; under the dependency's
+  existing import/export convention a validated row with neither attribute has exact ends.
+  This is the annotation's declared completeness, not proof that the organism's gene is whole.
+  An unnormalized GFF3 feature or unresolved `.`/`?` strand never supplies that evidence.
+- On project load, the dependency derives flags from valid `locationString` when present;
+  PR 1 consumes that result after normalization. A current structured interval with no flags
+  declares exact ends. An old feature with neither recoverable text nor established structured
+  end state is unknown; do not implement a protein migration or infer complete from an empty
+  string. If the final loader cannot distinguish this state, reconcile the prerequisite
+  before merge rather than treating the accessor's default false as evidence.
+- Geometry/strand edits retain the per-coordinate-end flags, including the moved end. Selection
+  clipping sets the cut ends partial and preserves surviving flags; dropping whole intervals
+  also marks the newly exposed end per the dependency. Re-evaluate the accessors after either
+  operation; never read stale `locationString` or stale `_translationCheck`.
+- Call **`definesOneSequence(feature)`**, taking
+  `Pick<BioFeature, 'operator' | 'segments' | 'locationString' | 'remoteParts'>`.
+  Its actual contract accepts one local interval or a local join, excludes multipart `order()`
+  and every location with `remoteParts`. It does not check strand, completeness or emptiness;
+  those remain separate gates. This enforces
+  [LOC-2](../standards/locations.md#loc-2-order-is-not-join) and
+  [LOC-7](../standards/locations.md#loc-7-the-sequence-of-a-multi-interval-feature).
+
+| Literal INSDC location | Evaluation order / flags | Logical (5′, 3′) |
+|---|---|---|
+| `<1..9` | `[0,9)+`, `partialStart` | (partial, complete) |
+| `complement(1..>9)` | `[0,9)−`, `partialEnd` | (partial, complete) |
+| `join(<1..6,10..>12)` | `[0,6)+`, `[9,12)+`; outer flags | (partial, partial) |
+| `complement(join(<1..6,10..>12))` | `[9,12)−` first, `[0,6)−` last | (partial, partial) |
+| `join(<1..6,complement(<10..12))` | `[0,6)+` first, `[9,12)−` last | (partial, partial) |
+| `join(1..>6,10..12)` | interior `partialEnd` only | (complete, complete) |
+| no segments and no recoverable location | boolean defaults are not evidence | (unknown, unknown) |
 
 **Comparison contract.** This is Dunceious's application policy. Like the NCBI validator, it
-checks the stored protein against the conceptual one. The wildcard rules below are Dunceious's
-own.
+checks the stored protein against the conceptual one. The ordinary-residue wildcard rules below are Dunceious's own; stop precedence
+follows the cited NCBI validator.
 - Stored residue equals the conceptual residue, including stop against stop: no difference.
-- Stored `X`: no difference, because the stored protein declares the residue unknown.
+- **DNA internal stop takes precedence over stored `X`.** A conceptual `*` against any
+  non-stop, including X, is a difference. Stored `MXG` against conceptual `M*G` differs at
+  index 1. The early-stop flag is independently true even when stored `M*G` matches exactly.
+  This follows the NCBI validator's literal unequal-residue comparison at non-initial
+  positions and its separate `CountInternalStopCodons` diagnostic
+  ([Toolkit `912b751`, `translation_problems.cpp:589–621`](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/translation_problems.cpp#L589),
+  [internal-stop calculation](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/translation_problems.cpp#L180)).
+  Evidence: source inspected, not validator execution.
+- Otherwise stored `X`: no difference, because the stored protein declares the residue unknown.
+  This ordinary-residue wildcard remains Dunceious's policy, not NCBI's literal comparison.
 - Conceptual residue from an ambiguous codon (X, B, Z, J): no difference when the stored residue
   is in that codon's `possible` set for the CDS's table, and a difference otherwise. For example,
   YTN allows F or L under table 1, and F, L or T under table 3.
-- Conceptual internal stop against a stored residue: a difference. This is the "DNA stops here"
-  case in the mockup.
+- Conceptual internal stop against a stored residue: use the precedence above. This is the
+  "DNA stops here" case in the mockup.
 - Stored residues past the last codon go to `storedExtra`. Conceptual residues past the end of
-  the stored protein are counted in `storedShortBy`. Neither is shown as a codon.
+  the stored protein are counted in `storedShortBy`. Both lengths use translation positions,
+  including internal `*`, never an unconditional amino-acid unit. Neither is shown as a codon.
 - The conceptual protein has its terminal stop removed already, so an ordinary stored protein
   with no `*` lines up.
 
@@ -248,7 +327,16 @@ own.
     `_translationSource = 'removed'`, and log one warning naming the feature and the reason:
     - "internal stop at codon 2; fix the CDS or mark it /pseudo";
     - "/transl_table=99 is not an NCBI genetic code";
-    - "/transl_except can't be applied yet".
+    - "/transl_except can't be applied yet";
+    - "biological strand is unknown";
+    - "location does not define one locally available sequence";
+    - "CDS end completeness cannot be established".
+  Do not call an unavailable result an intact CDS: early-stop state and position count are
+  unset, and display names the reason. Imported stored protein remains preserved as data
+  until an invalidating edit, but unknown-strand/nonlocal locations draw no codon translation.
+  GFF3/project export keeps an untouched curated value without claiming it was verified;
+  after an invalidating edit all exports omit the removed value and carry the warning.
+  GenBank's existing refusal of unresolved strands remains in force.
 - **Otherwise**, keep `metadata.translation` and `_translationSource` as they are.
   `_translationSource` starts as `'imported'` for a parsed `/translation`.
 - **Type changes away from CDS** (by `isCds`) remove `/translation` and `_translationSource`,
@@ -258,6 +346,16 @@ own.
 - **`feature.translation`** is removed from the type, the parser and every reader listed under
   "Why". The details modal copy button reads through `storedTranslation`.
 
+**GFF3 frame edits.** `codon_start` is the effective frame consumed by extraction and by
+`partPhases` (`src/core/formats/gff3.ts:96–125`); a phase p maps to `codon_start=p+1`
+([FMT-11](../standards/formats.md#fmt-11-strand-relative-gff3-cds-phase)).
+No successful save may change visible phase while retaining the old effective frame or
+cached part phases. Every accepted frame change triggers decision 3, invalidates `_gffPhases`
+and `_gffPhaseState`, and regenerates all exported row phases in evaluation order using
+`nextPhase = (phase - partLength) mod 3` (non-negative modulo). Unrelated edits preserve
+imported per-part phases. Which editor control accepts the change is an open decision below;
+PR 1 must resolve it before implementation, not silently keep the existing generic phase row.
+
 ## Import
 
 - Parsing sets `metadata.translation` only, with `_translationSource = 'imported'`.
@@ -266,7 +364,9 @@ own.
   - GFF3 annotations reach their sequences only when `bioResponse` attaches them
     (`bioResponse.ts:100-154`; the annotation worker request carries no DNA). So they are
     checked at attachment.
-  - Both paths call the same function and add to the same per-file warning.
+  - Project load discards restored `_translationCheck` and calls the same check after location
+    normalization and DNA attachment, before display or counts can read it.
+  - All paths call the same function and add to the same per-file warning.
 - The result is kept as internal `_translationCheck` metadata. It is recomputed whenever the
   feature or its record's sequence changes, not on every redraw.
 - Differing CDSs without `/exception` add to one warning per file, e.g. "3 CDS have a
@@ -281,7 +381,7 @@ own.
   - **Differs:** white base, the strand hue at low alpha, and the letter in the strand hue.
   - **DNA stops, annotation doesn't:** the same, plus a red edge on the side facing the bases.
   - **Both stop:** today's red cell with `!`.
-  - **Stored longer or shorter:** a "+n aa" or "−n aa" chip after the last codon.
+  - **Stored longer or shorter:** a "+n positions" or "−n positions" chip after the last codon.
   - **Under a search hit:** the hit is redrawn as an outline on top, so the mark survives.
   - **Hover targets:** every marked codon and chip gets one. The translation canvas has
     `pointerEvents: none` (`SequenceTrack.tsx:391-393`), so the targets are absolutely
@@ -299,20 +399,24 @@ own.
 - **Editor:** `/translation` is read-only, with its source label. The edit's outcome
   (recomputed, or removed and why) shows before Save.
 
-## Project file (format 3)
+## Project file
 
-- `serializeProject` writes `format: 3`.
-- The loader accepts 2 and 3, and migrates format 2 as in decision 9.
-- Today's refusal message assumes an older file ("saved by an earlier version"). It is split so a
-  newer format says "saved by a newer version of Dunceious".
+- Keep `format: 2`. No bump, protein-field migration, compatibility fallback or version-message
+  rewrite is part of this work (decision 9).
+- Save only `metadata.translation` and its provenance. Never recreate `feature.translation`.
+- `_translationCheck` is disposable derived state, never trusted on load, even when its shape
+  looks valid. Discard it, normalize locations through the dependency, then recompute against
+  the loaded DNA and qualifiers before publishing the restored records. Rechecking does not
+  overwrite a stored curated protein or change its source label. This follows the same
+  current-DNA invariant as import and edit invalidation.
 
 ## PR breakdown
 
 | PR | Contents | Depends on |
 |---|---|---|
-| 1 (#291) | One protein field; read-only `/translation`; `conceptualTranslation` with steps 1, 3–8 and step 2 returning `unavailable`; edit boundary; export omission; import check on both paths and the warning; early-stop and count from the DNA; `isCds`; project format 3; TRANS-1/3 doc updates | #226 (structured partial ends, merged first) |
+| 1 (#291) | One protein field; read-only `/translation`; `conceptualTranslation` with steps 1, 3–8 and step 2 returning `unavailable`; edit boundary; export omission; import check on both paths and the warning; early-stop and count from the DNA; `isCds`; format-2 save/load without migration; project check recomputation; TRANS-1/3 doc updates | #226 (structured partial ends, merged first) |
 | 2 | `/transl_except`: lossless repeated qualifiers through parse, metadata, editor, project and serializer; NCBI code-break mapping through segment order, strand and `/codon_start`; partial TERM; diagnostics for unparsed, off-codon, remote and conflicting entries; rebasing on selection export; TRANS-4 update | PR 1; its own validation table, written and reviewed before implementation |
-| 3 | Codon marks, chips, hover targets, mockup tooltips | PR 1; its own drawing and hover assertions, written and reviewed before implementation |
+| 3 | Codon marks, chips, hover targets, mockup tooltips; padded-codon drawing and hover contract | PR 1; its own drawing and hover assertions, written and reviewed before implementation |
 
 ## Validation
 
@@ -325,10 +429,33 @@ implementation. PR 2's must cover hand-enumerated record-base-to-codon mappings 
 PR 3's must cover drawing and hover assertions for:
 - a difference over a DNA stop;
 - a search-hit overlap;
-- the chips.
+- the chips, always labelled in positions;
+- **padded codons (explicitly owned by PR 3):** `ATGGC → MA` retains A with real base indices
+  `[3,4]`; PR 3 must choose and document its visual span and hover target, draw it without a
+  fabricated third base, and assert that hover explains GC+N padding. Existing three-index
+  lane/drawing guards cannot silently drop it. PR 1 delivers the conceptual residue and real
+  indices; its current rendering gap is a declared PR 3 dependency, not a solved display case.
 
 Oracles are literal codons from gc.prt 4.6 and hand-written expected proteins, never the code's
 own output.
+
+The subject is PR 1's conceptual translation and its import, save and project-load wiring:
+it receives local DNA plus normalized CDS geometry/qualifiers, and either supplies the current
+conceptual result or explicitly declines to verify. The save boundary alone replaces/removes
+the stored protein; the prerequisite owns location normalization and PR 3 owns drawing.
+
+| Guarantee/source | Existing protection inspected | Decision |
+|---|---|---|
+| Effective frame and aligned extraction preserved | `sequence.test.ts`, “applies codon_start=$codon_start after interval orientation and gap removal” asserts literal coding sequence and indices | Reuse extraction cases; add save-to-export phase case below |
+| GFF3 strand-relative phase and unrelated-edit fidelity | `gff3.test.ts`, “computes reverse CDS phases in transcription order” asserts row phases; “retains different imported phases per part through re-export” preserves distinct values | Reuse; strengthen with edited-frame invalidation through save |
+| Current protein across save, import/attachment, project load, count, details-copy and GenBank/GFF3 export | None found for this new shared conceptual-result contract; existing extraction tests do not prove these entry points | Add cases at the named boundaries below, including unavailable and preserved curated paths |
+| Single protein field and no format bump | `projectFile.test.ts` refuses malformed format 2; no protection found for the new single-store contract | Strengthen format-2 save/load and check-discard coverage |
+| Padded-residue visibility and marks | None found for two-index residue drawing/hover | PR 3 acceptance dependency; no claim that PR 1 verifies drawing |
+
+The cases below are proposed acceptance evidence, not executed tests. The implementer records
+actual checks against these guarantees at handoff. Each fixture uses table 1, `codon_start=1`
+and normalized exact ends unless explicitly overridden; indices are zero-based. A one-feature
+record makes each warning-count assertion exclude unrelated features.
 
 | Guarantee | Test | Cases |
 |---|---|---|
@@ -338,12 +465,25 @@ own output.
 | Kept on unrelated edits | same | A name or colour change keeps `MK` and `imported`. Recompute, then a label edit: stays `computed` |
 | Read-only | `FeatureEditorModal` test | The `/translation` row can't be edited and shows its source label |
 | Type change | same, then serializer | CDS→misc_feature: no `/translation` in GenBank output; back to CDS recomputes. A GFF3 `SO:0000316` CDS keeps its `/translation` through import and export |
-| One store | parser, serializer, project, details-copy tests | No `feature.translation`. Details copy reads the stored protein. A format 2 file with only `feature.translation` loads it into `metadata.translation`. A format 4 file is refused with the newer-version message |
+| One store | parser, serializer, project, details-copy tests | No `feature.translation`. Details copy reads the stored protein. Save a format-2 project with `metadata.translation="MK"`; reload retains `MK`, with no top-level protein, no version bump and no protein migration |
 | Conceptual translation | `translation.test.ts` | GCN→A; NNN→X; GAN-like {D,N} codon `RAY`→B; RNA `AUG`→M. Complete table-11 GTG start→M; GTG start with `/codon_start=2`→not M. Table 27 complete `ATGAAATGA`→`MK`; 3′-partial same→`MKW`. Table 28 complete ending `TAR`→terminal stop dropped; table 1 ending `TRA` (TAA or TGA, both stops)→dropped; ending `TMA` (TAA stop or TCA Ser)→X with `threePrimeIndeterminate`. `ATGGC`→`MA`; `ATGNN`→`M`. Invalid code→`unavailable` |
 | Partial ends | `featureManager.test.ts`, with #226's state | A 5′-partial CDS starting GTG, moved: codon 1 stays V. Forward and reverse strands |
 | Comparison | `translation.test.ts` | Stored X vs K: no difference. `ATGYTNTAA` with stored `MT`: a difference under table 1, none under table 3. Conceptual `AAN` (K/N) vs stored K: none; vs stored W: difference. Stored K vs internal stop: difference. Stored `M*G` vs conceptual `M*G`: none, and the early-stop flag is still true. Stored `MKV` vs `MK`: `storedExtra="V"`. ATGTAA with stored `M`: none |
 | Import warning | `bioResponse.test.ts` | A GenBank file with one differing CDS logs one warning naming 1 CDS. FASTA plus GFF3 with a mismatching `translation` attribute warns at attachment. A CDS with `/exception` adds none |
 | Count | `TrackTooltip.test.tsx` | ATGTAA: "1 aa" with and without stored `M`. `ATGTAAGGGTAA`: "3 positions, 1 internal stop". Invalid code: "can't verify" |
+
+| Review guarantee | Verification boundary | Literal inputs and hand-derived expected outputs |
+|---|---|---|
+| Finding 1: biological strand gate | GFF3 attachment → save → tooltip and GFF3/project export | FASTA `>r` / `ATGAAATAA`; GFF3 row (each `\t` denotes a literal tab) `r\tx\tCDS\t1\t9\t.\t.\t0\tID=c;translation=MK`, repeated with strand `?`. Attachment keeps `MK` imported, yields `unknown-strand`, no mismatch count, no aa count or early-stop assertion and no codon lane. Move end from 9 to 6: protein removed, source `removed`, one reason warning; GFF3/project export has no translation and retains `.`/`?`; GenBank refuses unresolved strand. A numeric +1 must not produce `MK` as verified. |
+| Finding 2: no migration | project save/load | DNA `ATGAAATAA`, CDS `[0,9)+`, `metadata.translation="MK"`, source `imported`: serialized `format=2`, one protein field, reload retains `MK`; no format-3 output or top-level fallback. |
+| Finding 3: final contextual set | conceptual/comparison unit | Complete table-28 `ATGTAN`: `residues="MX"`, `possible=["M","*Y"]` as sets, end uncertain, no definite internal stop. Stored `MQ` → `differing=[1]`; stored `MY` → `[]`. Ordinary Q from TAA/TAG must not survive terminal processing. |
+| Finding 4: exact end consumption | dependency normalization → conceptual result and save/export | Table-11 `<1..9` over `GTGAAATAA` → `VK`; `complement(1..>9)` over `TTATTTCAC` → `VK`. Exact versions → `MK`. Joined table-27 `join(1..6,10..>12)` over `ATGAAACCCTGA` → `MKW`; exact last end → `MK`. Mixed `join(1..6,complement(<10..12))` over `ATGAAACCCTCA` → `MKW`; remove `<` → `MK`. Clear raw text on an edit: flags/outputs persist. Clip table-27 exact `ATGAAATGACCC` / `1..12` to `[0,9)`: `1..>9` and `MKW`, not `MK`. A CDS `[0,9)+` with no segments, no recoverable text and no established end state yields `unknown-completeness`; import keeps `MK`, invalidating edit removes it with one warning. |
+| Finding 5: stop beats X | comparison → import warning and early-stop display | DNA `ATGTAAGGGTAA` → `M*G`; stored `MXG` → `differing=[1]`, one differing CDS in file warning, early-stop true (codon 2). Stored `M*G` → `[]`, zero mismatch warning, early-stop still true. Stored X vs conceptual K remains compatible. |
+| Finding 6: discrepancy units | comparison unit; PR 3 chip assertion | DNA `ATGTAAGGGTAA`, stored `M` → `storedShortBy=2`, chip “−2 positions” (one stop, one G). DNA `ATGAAAGGGTAA`, stored `M` → same count/chip (K,G). DNA `ATGTAA`, stored `MK` → `storedExtra="K"`, “+1 position”; no chip unconditionally says aa. |
+| Finding 7: local single-sequence gate | import → invalidating save → counts and GenBank/GFF3/project export | DNA `ATGCCCAAATAA`, location `order(1..3,7..12)` with stored `MK`: `definesOneSequence=false`, `nonlocal-location`, kept imported, no comparison/count/early-stop or codon lane. Same for `join(1..3,J00194.1:7..12)` with explicit remote part. Move the local `[0,3)` part to `[1,4)`: still unavailable; remove protein, one reason warning, all exports omit translation (remote location handling remains dependency-owned). Positive control `join(1..3,7..12)` → `MK`, count “2 aa”, and a successful recompute/export. No implicit remote fetch. |
+| Finding 8: phase authority, editor decision pending | editor → save → conceptual result → GFF3 export/reimport | DNA `AATGCCCTAA`, imported row `r\tx\tCDS\t1\t10\t.\t+\t1\tID=c;translation=MP`: phase 1 / codon_start 2 skips A, `ATG CCC TAA` → `MP`. Change effective phase to 2 through the chosen control: codon_start 3 skips AA, `TGC CCT AA` → `CP` (AAN ambiguous tail dropped), source computed, export phase 2 and translation CP. Multipart DNA `AATGCNNNCCTAA`, same-ID rows 1..5 phase 1 and 9..13 phase 2: old MP; edit initial phase to 2 → CP and row phases `[2,0]`, because `(2−5) mod 3=0`. Retained `[1,2]` cannot be reused; reimport gives codon_start 3 / CP. Under option B a direct phase-row edit is blocked and this change uses codon_start 2→3; under A it uses phase 1→2 and conflicting simultaneous frame edits are refused. Unrelated name edit keeps original `[1,2]`. |
+| Project check trust question | project load → counts/warning/details | Format 2, DNA `ATGTAAGGGTAA`, normalized CDS `[0,12)+`, stored `MKG`, source imported, forged `_translationCheck` saying no differences/no stops: discard check, recompute `M*G`, difference `[1]`, one mismatch warning, early-stop true, “3 positions, 1 internal stop”; stored `MKG` and source unchanged. Repeat with no cache: identical result. |
+| Padded-codon integration question | conceptual result; PR 3 drawing/hover acceptance | Exact `1..5` over `ATGGC`: `MA`, sets `{M},{A}`, A's real indices `[3,4]`, count “2 aa”; GC plus any base gives A. PR 3 must assert A is visible and hoverable with the documented span/target and no invented index 5. `ATGNN` → `M`, no second residue/target. |
 
 ## Living documents
 
@@ -372,8 +512,24 @@ own output.
 
   Each of these asserts a wrong protein in some case. Doing it properly is PR 2.
 
+## Open decisions
+
+- **GFF3 phase editor (finding 8).** The standard and existing extraction/export contract
+  settle `phase=p ↔ codon_start=p+1` for the first evaluated interval, not which UI field is
+  editable. NCBI's INSDC/ASN.1 frame machinery (`sequence.cpp:3670`, Toolkit `912b751`)
+  consumes the CDS frame and does not settle a GFF3 qualifier editor. The source surveys
+  above do not document a phase-edit UI policy. Options: (A) accept phase edits, normalize
+  to `codon_start`, and reject conflicting simultaneous phase/frame edits; (B) make the
+  redundant phase row read-only and direct edits through `codon_start`, showing the derived
+  phase there. **Recommendation: B**, since extraction and export already use `codon_start`
+  and one editable authority prevents conflicts. Owner choice required before implementing
+  the editor; neither option is authorized by this spec yet. Both must satisfy the literal
+  save/export acceptance case above. For multipart CDSs the control changes only the first
+  evaluated phase and regenerates downstream phases; arbitrary independent row-phase editing
+  is not implied.
+
 ## Left to the builder
 
 - Where `_translationCheck` is cached, provided it is recomputed when the record or feature
-  changes.
+  changes and always discarded/recomputed on project load.
 - Exact log and tooltip wording, within the meanings above.
