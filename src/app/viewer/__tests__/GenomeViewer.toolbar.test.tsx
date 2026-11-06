@@ -110,3 +110,44 @@ it('dismissing the cog with Escape preserves selection and restores focus before
   fireEvent.keyDown(cog, { key: 'Escape' });
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 });
+
+it('offers both FASTA modes, explains outside windows and marks only mixed rows', () => {
+  const exportFasta = vi.fn();
+  const raw = { id: 'raw', name: 'raw', sequence: 'TTTTTTTT', features: [] };
+  const view = render(<GenomeViewer {...defaults} records={[record, raw]} activeSelection={{ start: 1, end: 3, recordIds: [] }} onExportFasta={exportFasta} />);
+  const toolbar = () => view.container.querySelector('[data-viewer-toolbar]')!;
+  const summary = toolbar().querySelector('summary')!;
+  fireEvent.click(summary);
+  const aligned = toolbar().querySelector('details button') as HTMLButtonElement;
+  expect(aligned.textContent).toBe('Aligned, with gaps');
+  expect(aligned.disabled).toBe(false);
+  fireEvent.click(aligned);
+  expect(exportFasta).toHaveBeenCalledWith('aligned');
+  fireEvent.click(toolbar().querySelectorAll('details button')[1]);
+  expect(exportFasta).toHaveBeenCalledWith('original');
+  expect(toolbar().textContent).toContain('1 of 2 aligned');
+  expect(toolbar().querySelector('[data-tip*="left out of conservation"]')?.getAttribute('data-tip')).toContain('raw');
+  const rawLabel = view.container.querySelector<HTMLElement>('[data-unaligned]')!;
+  expect(rawLabel.style.borderStyle).toBe('dashed');
+  const tick = view.container.querySelector<HTMLElement>('[data-unaligned-end="raw"]')!;
+  expect(tick.getAttribute('data-tip')).toBe('raw ends here: 8 bp, not aligned');
+  expect(tick.style.left).not.toBe('');
+  view.rerender(<GenomeViewer {...defaults} records={[record, raw]} activeSelection={{ start: 5, end: 7, recordIds: [] }} />);
+  expect((toolbar().querySelector('details button') as HTMLButtonElement).disabled).toBe(true);
+  expect(toolbar().querySelector('details button')?.getAttribute('data-tip')).toBe('The selection is outside the alignment');
+  view.rerender(<GenomeViewer {...defaults} records={[raw]} activeSelection={selection} />);
+  expect((toolbar().querySelector('details button') as HTMLButtonElement).disabled).toBe(true);
+  expect(toolbar().textContent).not.toContain('of 1 aligned');
+});
+it('offers aligned FASTA only for aligned record context menus', () => {
+  const exportRecord = vi.fn();
+  const view = render(<GenomeViewer {...defaults} onExportRecord={exportRecord} />);
+  fireEvent.contextMenu(screen.getByText('ref'), { clientX: 10, clientY: 10 });
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (aligned)' }));
+  expect(exportRecord).toHaveBeenCalledWith('ref', 'aligned');
+  view.rerender(<GenomeViewer {...defaults} records={[{ ...record, alignedSequence: undefined }]} onExportRecord={exportRecord} />);
+  fireEvent.contextMenu(screen.getByText('ref'), { clientX: 10, clientY: 10 });
+  expect(screen.queryByRole('button', { name: 'FASTA (aligned)' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (no gaps)' }));
+  expect(exportRecord).toHaveBeenCalledWith('ref');
+});

@@ -22,6 +22,10 @@ import type { DetailKey, SequenceDetails, SeqRecord } from '@/src/domain/bio/typ
 import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@/src/domain/bio/details';
 
 export interface ExportReport {
+  gapRecordsOmitted: string[];
+  gapOnlyRows: string[];
+  emptyRowsOmitted: string[];
+  unalignedRows: string[];
   writtenDetails: Record<DetailKey, number>;
   invalidDetailsOmitted: Record<DetailKey, number>;
   droppedAttributes: number;
@@ -30,10 +34,11 @@ export interface ExportReport {
   deprecatedModifiersOmitted: number;
 }
 
-export interface ExportResult { text: string; report: ExportReport }
+export interface ExportResult { text: string; unalignedText?: string; report: ExportReport }
 
 export function emptyReport(): ExportReport {
   return {
+    gapRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,

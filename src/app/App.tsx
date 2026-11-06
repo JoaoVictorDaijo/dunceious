@@ -132,9 +132,15 @@ const App: React.FC = () => {
     requestBio,
     getRecords,
     applyAlignmentOverlay,
-    gapNotices,
-    dismissGapNotices,
-  } = useBioWorker(addLog);
+    pendingConfirmations,
+    confirmGapRemoval,
+    invalidateImports,
+  } = useBioWorker(addLog, {
+    getWorkspaceRevision: () => hubState.workspaceRevision.current,
+    isAlignmentLocked: () => remoteAlignment.isLocked(),
+    onMismatch: error => showMismatchModal(error),
+  });
+  const busy = isProcessing || pendingConfirmations.length > 0;
 
   const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
 
@@ -212,6 +218,7 @@ const App: React.FC = () => {
 
   const resetHubWorkspace = () => {
     handleClearSearch();
+    invalidateImports('the workspace was replaced');
     hubState.resetWorkspace();
     dismissUndo();
     setHubFocus(null);
@@ -231,6 +238,7 @@ const App: React.FC = () => {
     exportProjectJson,
     moleculeTypeMismatch,
     closeMismatchModal,
+    showMismatchModal,
   } = useFileHandlers(
     bioWorkerRef,
     records,
@@ -249,7 +257,7 @@ const App: React.FC = () => {
       setIsProcessing,
     },
     addLog,
-    remoteAlignment.isLocked,
+    () => remoteAlignment.isLocked() || busy,
     { requestBio, getRecords, getWorkspaceRevision: () => hubState.workspaceRevision.current },
   );
 
@@ -288,7 +296,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveRecord = (recordId: string) => {
-    if (remoteAlignment.isLocked()) return;
+    if (remoteAlignment.isLocked() || busy) return;
     const record = records.find(r => r.id === recordId);
     if (!record) return;
 
@@ -324,7 +332,7 @@ const App: React.FC = () => {
   };
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const { isAlignmentLoaded, alignmentLength, sessionMoleculeType } = useMemo(
+  const { alignmentLength, sessionMoleculeType } = useMemo(
     () => deriveAlignmentState(records, isProteinSession),
     [records, isProteinSession],
   );
@@ -357,7 +365,7 @@ const App: React.FC = () => {
   }, [records.length]);
 
   const handleClearAll = () => {
-    if (remoteAlignment.isLocked()) return;
+    if (remoteAlignment.isLocked() || busy) return;
     if (records.length === 0) return;
     // Clearing is irreversible, so it always asks; there is deliberately no opt-out.
     const choice = window.prompt('Type CLEAR to remove every record and annotation.', '');
@@ -375,7 +383,7 @@ const App: React.FC = () => {
       data-env={envAccent}
       style={themeStyle}
     >
-      <ProcessingOverlay isProcessing={isProcessing && !remoteAlignment.isAlignmentLocked} />
+      <ProcessingOverlay isProcessing={isProcessing && pendingConfirmations.length === 0 && !remoteAlignment.isAlignmentLocked} />
 
       {viewingRecordDetails && (
         <RecordDetailsModal
@@ -417,7 +425,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {gapNotices.length > 0 && <GapRemovalNotice notices={gapNotices} onClose={dismissGapNotices} />}
+      {pendingConfirmations.length > 0 && <GapRemovalNotice key={pendingConfirmations[0].token} notices={pendingConfirmations} onClose={() => confirmGapRemoval(pendingConfirmations[0].token, false)} onLoad={() => confirmGapRemoval(pendingConfirmations[0].token, true)} />}
 
       {remoteAlignment.presentation === 'dialog' && (
         <AlignRemoteModal
@@ -433,9 +441,9 @@ const App: React.FC = () => {
           onMinimize={remoteAlignment.minimize}
           onEngineChange={remoteAlignment.setEngineId}
           onEmailChange={remoteAlignment.setEmail}
-          onSubmit={() => { void remoteAlignment.submit(); }}
+          onSubmit={() => { if (!busy) void remoteAlignment.submit(); }}
           onCancel={remoteAlignment.cancel}
-          onRetry={remoteAlignment.retry}
+          onRetry={() => { if (!busy) remoteAlignment.retry(); }}
         />
       )}
 
@@ -460,13 +468,13 @@ const App: React.FC = () => {
         onToggleTranslation={() => setShowTranslation(!showTranslation)}
         showConservation={showConservation}
         onToggleConservation={() => setShowConservation(!showConservation)}
-        isAlignmentLoaded={isAlignmentLoaded}
+        isAlignmentLoaded={records.filter(record => record.visible !== false && record.alignedSequence !== undefined).length >= 2}
         sessionMoleculeType={sessionMoleculeType}
         onSaveProject={exportProjectJson}
         onOpenProject={handleProjectUpload}
         onClearWorkspace={handleClearAll}
         sequenceCount={records.length}
-        workspaceLocked={remoteAlignment.isAlignmentLocked}
+        workspaceLocked={remoteAlignment.isAlignmentLocked || busy}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -484,8 +492,8 @@ const App: React.FC = () => {
           onSetJumpTo={setJumpTo}
           onFileUpload={handleFileUpload}
           onAlignmentUpload={handleAlignmentUpload}
-          onAlignRemote={remoteAlignment.open} remoteAlignmentState={remoteAlignment.state}
-          isAlignmentLocked={remoteAlignment.isAlignmentLocked}
+          onAlignRemote={() => { if (!busy) remoteAlignment.open(); }} remoteAlignmentState={remoteAlignment.state}
+          isAlignmentLocked={remoteAlignment.isAlignmentLocked || busy}
           onAnnotationUpload={handleAnnotationUpload}
           onProjectUpload={handleProjectUpload}
           onExportSelection={exportSelection}
@@ -538,7 +546,7 @@ const App: React.FC = () => {
               {/* Keyed by mode so each switch replays a short fade instead of a hard cut. */}
               <div key={activeTab} className="flex-1 flex flex-col min-h-0 min-w-0 animate-in fade-in duration-300 motion-reduce:animate-none">
                 {activeTab === 'alignment' ? (
-                  <GenomeViewer
+                  <GenomeViewer addLog={addLog}
                     records={transposedRecords}
                     consensus={consensus}
                     showAnnotations={showAnnotations}
@@ -562,7 +570,7 @@ const App: React.FC = () => {
                     onJumpComplete={() => setJumpTo(null)}
                     onExportRecord={handleExportRecord}
                     onViewDetails={handleViewDetails}
-                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked || busy}
                     onRemoveRecord={handleRemoveRecord}
                     onClearSelection={() => setActiveSelection(null)}
                     comparisonMenu={comparable ? { settings: alignmentComparison, onChange: setAlignmentComparison, reference: comparisonReference, candidates } : null}
@@ -587,10 +595,10 @@ const App: React.FC = () => {
                     onUndoDelete={undoDelete}
                     onSetRecordDetails={setRecordDetails}
                     onSetRecordLabel={setRecordLabel}
-                    onSetDetail={(ids, key, value) => { if (remoteAlignment.isLocked()) return; setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); }}
+                    onSetDetail={(ids, key, value) => { if (remoteAlignment.isLocked() || busy) return; setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); }}
                     featureColors={featureColors}
                     onStartNewFeature={startNewFeature}
-                    isAlignmentLocked={remoteAlignment.isAlignmentLocked}
+                    isAlignmentLocked={remoteAlignment.isAlignmentLocked || busy}
                     onRemoveRecord={handleRemoveRecord}
                     onViewFeatureDetails={handleViewDetails}
                     onEditFeature={editHubFeature}

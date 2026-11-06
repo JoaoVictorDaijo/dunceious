@@ -107,11 +107,27 @@ describe('HubIndex', () => {
   it('offers the sequence sort only where it orders sequences', () => {
     const { unmount } = render(<Subject />);
     const sort = screen.getByLabelText('Sort sequences') as HTMLSelectElement;
-    expect([...sort.options].map(option => option.text)).toEqual(['Load order', 'Accession (A–Z)', 'Fewest annotations first']);
+    expect([...sort.options].map(option => option.text)).toEqual(['Load order', 'Identifier (A–Z)', 'Fewest annotations first']);
     expect(sort.closest('[data-sequence-sort]')?.getAttribute('data-tip')).toBe('Order of the sequences in the index and the list');
     unmount();
     render(<Subject features />);
     expect(screen.queryByLabelText('Sort sequences')).toBeNull();
+  });
+  it('sorts identifiers using accessions when available and local ids otherwise', () => {
+    const mixed: SeqRecord[] = [
+      { id: 'z-local', name: 'first', accession: 'A123', sequence: 'AC', features: [] },
+      { id: 'b-local', name: 'second', sequence: 'AC', features: [] },
+      { id: 'a-local', name: 'third', accession: 'Z123', sequence: 'AC', features: [] },
+    ];
+    function SortSubject() {
+      const state = useHubState();
+      return <HubIndex records={mixed} state={state} />;
+    }
+    render(<SortSubject />);
+    fireEvent.change(screen.getByLabelText('Sort sequences'), { target: { value: 'accession' } });
+    expect(screen.getByRole('option', { name: 'Identifier (A–Z)' })).toHaveProperty('selected', true);
+    expect(screen.getAllByRole('button', { name: /^Jump to sequence/ }).map(button => button.getAttribute('aria-label')))
+      .toEqual(['Jump to sequence z-local', 'Jump to sequence b-local', 'Jump to sequence a-local']);
   });
   it('indexes Features under organism headings with a sequence limit', () => {
     render(<Subject features />);

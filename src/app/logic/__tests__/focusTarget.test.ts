@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { trackFocusTarget } from '../focusTarget';
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { featureFocusTarget, isFocusedSelection } from '../focusTarget';
@@ -88,4 +89,14 @@ it('keeps the circular envelope of edited high and low segment groups', () => {
     segments: [{ start: 70, end: 85 }, { start: 90, end: 100 }, { start: 0, end: 5 }, { start: 10, end: 30 }] };
   expect(targetFor(record({ sequence: 'A'.repeat(100), isCircular: true }), feature))
     .toMatchObject({ start: 70, end: 30 });
+});
+
+
+it('focuses placed track bounds in aligned coordinates and refuses entirely unplaced tracks', () => {
+  const track = { id: 'q', name: 'q', data: [{ start: 0, end: 1, value: 2 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--ACGT', features: [], tracks: [track] };
+  expect(trackFocusTarget(record, track)).toMatchObject({ start: 2, end: 3, length: 1 });
+  expect(trackFocusTarget({ ...record, alignedSequence: undefined }, track)).toMatchObject({ start: 0, end: 1 });
+  const invalid = { ...track, data: [{ start: 9, end: 10, value: 2 }] };
+  expect(trackFocusTarget({ ...record, tracks: [invalid] }, invalid)).toBeNull();
 });

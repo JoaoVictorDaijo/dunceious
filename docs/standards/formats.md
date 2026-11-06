@@ -59,6 +59,9 @@ the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology ret
 ORIGIN retains characters for validation, removing only the leading count and whitespace.
 The worker returns `PARSE_REFUSED` for any refusal; commit-time diagnostics integration is
 reserved for the shared PR #296 guard. Display naming and SOURCE fallback remain local policies.
+The GenBank writer omits any record whose `sequence` contains `-` or `.`, names it in the
+export report/log and Hub preview, and never strips gaps to repair feature coordinates.
+LOCUS length and ORIGIN use the residue-only `sequence`.
 
 ## FMT-3. INSDC feature-table and qualifier fidelity
 
@@ -123,16 +126,21 @@ wrapping (`src/core/formats/fasta.ts:69`), including the original-residue single
 residues or metadata. Molecule inference uses OP-1. The private Slice field and filenames remain
 application policy; aligned slicing uses FMT-6.
 
-A FASTA loaded as sequences (not as an alignment) has `-` removed from each record before it is
-stored, and the change is reported per record in the log and a dialog
-(`src/app/logic/bioResponse.ts:168`); a record left without residues, including a header-only
-record, refuses the whole file. This is an
-owner decision ([#267](https://github.com/JoaoVictorDaijo/dunceious/issues/267)) that follows NCBI's
-rule for sequences outside an alignment: "do not use "?" or "-" characters. These will be
-stripped from the sequence." ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),
-observed 2026-10-23). Biopython 1.88 `FastaIterator` and EMBOSS 6.6.0 `seqret` keep `-` as format
+A FASTA loaded as sequences (not as an alignment) has both `-` and `.` removed only after
+confirmation, before records are stored. The dialog previews per-record removal counts; Load
+without gaps accepts, and Don't load or Escape commits nothing from that file. A record left
+without residues, including a header-only record, refuses the whole file. Files without gaps
+load immediately. Removal is logged per record. Refused dropped files map every incoming ID to
+null so annotations cannot attach through workspace aliases, and the remaining batch continues;
+workspace replacement, worker failure and unmount invalidate it.
+
+This is an owner decision ([#286](https://github.com/JoaoVictorDaijo/dunceious/issues/286),
+2026-11-06), extending the gap-removal decision in #267. It follows NCBI's rule for sequences
+outside an alignment ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),
+updated 2025-06-18). Biopython 1.88 `FastaIterator` and EMBOSS 6.6.0 `seqret` keep `-` as format
 converters; Dunceious differs because its stored sequence is the residue coordinate space of
-features (OP-4). `?` and other characters remain under #244, and saved projects are not rewritten.
+features (OP-4). `?` and other characters remain under #244; damaged saved projects are refused,
+not rewritten.
 
 ## FMT-5. NCBI FASTA definition-line modifiers
 
@@ -177,11 +185,21 @@ refused as an unsupported gap symbol (owner decision,
 [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)). The remote path shares this
 check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
 **Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9). Longest-prefix reconciliation has
-no established reference contract. Selection
-export slices aligned-or-raw strings (`src/app/hooks/useFileHandlers.ts:336`); equal widths are
-conditional on the input and not independently checked there. `[Slice: start-end]` is private
-metadata without externally established endpoints. Remote provider validation is narrower and
-separately described in FMT-12.
+no established reference contract.
+
+A pre-aligned FASTA can also load an empty workspace: equal-width, nonempty rows containing
+no `.` and at least one residue per row become ungapped `sequence` plus `alignedSequence`.
+IDs are deduplicated with batch provenance and an annotation ID map. Import-start workspace
+identity prevents late loads or overlays from entering a replacement workspace.
+
+Every FASTA export offers aligned gaps or ungapped residues. In a gapped export only aligned
+rows enter the requested file; unaligned rows are saved beside it in a second `_unaligned`
+file, with a preview and log explanation. They are never padded into an invented alignment.
+Selection windows use aligned columns for aligned rows and own positions for unaligned rows;
+ungapped mode removes gaps from that same window. Gapped windows clip to alignment width and
+are unavailable wholly outside it. Gap-only aligned slices are retained and named; empty
+ungapped slices are omitted and named. `[Slice: start-end]` uses private zero-based, half-open
+endpoints. Remote provider validation is narrower and separately described in FMT-12.
 
 ## FMT-7. BED fields, coordinates and scores
 
@@ -371,7 +389,10 @@ establish Dunceious migration or retention semantics.
 **Dunceious.** Unknown against external authority: `src/app/logic/projectFile.ts:41` writes
 private state with format 2; `src/app/logic/projectFile.ts:87` validates local shapes and rejects
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
-rejection and shape checks are implementation evidence only. Owner choices remain whether to
+rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
+(2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
+aligned rows with unequal widths. The format remains 2, and each existing aligned-row residue
+check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source
 selects an alternative or a new schema.
 

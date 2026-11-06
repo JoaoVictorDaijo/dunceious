@@ -142,3 +142,12 @@ ORIGIN
     expect(exportToGenBank([source]).text).toContain('     misc_feature    join(complement(5..6),1..2)\n');
   });
 });
+
+it('omits damaged gap residues without shifting features and keeps a clean LOCUS at four bp', () => {
+  const output = exportToGenBank([record({ id: 'bad', sequence: 'AC-GT' }), record({ id: 'dot', sequence: 'AC.GT' }), record({ id: 'clean', sequence: 'ACGT' })]);
+  expect(output.report.gapRecordsOmitted).toEqual(['bad', 'dot']);
+  expect(output.text).not.toContain('bad');
+  expect(output.text).not.toContain('dot');
+  expect(output.text).toMatch(/^LOCUS\s+clean\s+4 bp/m);
+  expect(output.text).toContain('        1 acgt\n');
+});
