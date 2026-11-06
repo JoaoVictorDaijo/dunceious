@@ -19,6 +19,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import * as locationFlags from '../locationFlags';
 import { isNestedComplementLocation } from '../locationFlags';
 
 describe('isNestedComplementLocation', () => {
@@ -40,4 +41,27 @@ describe('isNestedComplementLocation', () => {
   it('is false for a feature without location text', () => {
     expect(isNestedComplementLocation({})).toBe(false);
   });
+});
+
+it.each([
+  ['<1..9', true, false],
+  ['1..>9', false, true],
+  ['complement(1..>9)', true, false],
+  ['complement(<1..9)', false, true],
+  ['join(<1..3,7..9)', true, false],
+  ['join(1..3,<7..9)', false, false],
+  ['join(<1..3,7..>9)', true, true],
+  ['join(complement(7..>9),1..3)', true, false],
+  ['join(complement(<7..9),1..3)', false, false],
+  ['complement(join(1..3,7..>9))', true, false],
+  ['complement(join(<1..3,7..9))', false, true],
+  ['complement(join(complement(<1..3),7..9))', false, false],
+  ['complement(join(1..3,complement(<7..9)))', true, false],
+  ['complement(complement(<1..9))', true, false],
+  [' join( AB1:<1..3, complement(7..9) ) ', true, false],
+  [undefined, false, false],
+] as const)('reads the biological terminal markers for %s', (locationString, five, three) => {
+  expect(locationFlags.isFivePrimePartialLocation).toBeTypeOf('function');
+  expect(locationFlags.isFivePrimePartialLocation({ locationString })).toBe(five);
+  expect(locationFlags.isThreePrimePartialLocation({ locationString })).toBe(three);
 });

@@ -25,6 +25,7 @@ import * as cdsHelpers from '../../cds';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '../SequenceTrack';
 import { assignTranslationLanes } from '../../cds';
+import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 let recorder: CanvasRecorder;
@@ -205,4 +206,27 @@ it.each([
   const targets = [...view.container.querySelectorAll<HTMLElement>('[data-assumed-codon]')];
   expect(targets).toHaveLength(codons.length);
   for (const [i, codon] of codons.entries()) expect(targets[i].dataset.tip).toContain(codon);
+});
+
+it.each([
+  { codon: 'ATG', locationString: '1..9', codon_start: '1', residue: 'M', dashed: false },
+  { codon: 'TTG', locationString: '1..9', codon_start: '1', residue: 'M', dashed: true },
+  { codon: 'CTG', locationString: '1..9', codon_start: '1', residue: 'M', dashed: true },
+  { codon: 'GTG', locationString: '1..9', codon_start: '1', residue: 'V', dashed: true },
+  { codon: 'TTG', locationString: '<1..9', codon_start: '1', residue: 'L', dashed: false },
+  { codon: 'TTG', locationString: undefined, codon_start: '1', residue: 'L', dashed: false },
+  { codon: 'TTG', locationString: '1..10', codon_start: '2', residue: 'L', dashed: false },
+])('draws and explains first $codon at $locationString /codon_start=$codon_start', ({ codon, locationString, codon_start, residue, dashed }) => {
+  const seq = (codon_start === '2' ? 'A' : '') + codon + 'TGGTAA';
+  const feature: BioFeature = { type: 'CDS', name: 'start', start: 0, end: seq.length, strand: 1, locationString,
+    metadata: { transl_table: '99', codon_start } };
+  const view = render(<SequenceTrack {...props(seq, feature)} />);
+  expect(recorder.texts().slice(-3)[0]).toBe(residue);
+  expect(recorder.strokeRects().some(r => r.dash.length > 0 && r.rect[0] < 21)).toBe(dashed);
+  const tip = view.container.querySelector<HTMLElement>('[data-assumed-codon]')!.dataset.tip!;
+  expect(tip).toContain('assuming table 1');
+  if (locationString === '1..9') {
+    const starts = Object.entries(fixture.tables).filter(([, table]) => table.starts[Object.keys(table.codons).indexOf(codon)] === 'M').map(([id]) => id);
+    expect(tip).toContain(`M as a start in tables ${starts.join(', ')}`);
+  } else expect(tip).not.toContain('as a start');
 });

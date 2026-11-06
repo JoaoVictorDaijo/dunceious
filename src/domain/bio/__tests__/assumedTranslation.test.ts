@@ -20,7 +20,7 @@
 
 import { expect, it } from 'vitest';
 import fixture from './fixtures/ncbi-genetic-codes.biopython.json';
-import { assumedTranslation, otherReadings } from '../assumedTranslation';
+import { assumedTranslation, otherReadings, startTables } from '../assumedTranslation';
 import { translateSequence, translateFeature } from '../sequence';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
@@ -75,8 +75,8 @@ it('gates the view on invalid codes and coding feature types, without changing c
 });
 
 it('keeps provisional residues out of annotations, interchange exports and project serialization', () => {
-  const f = feature('99');
-  const record = { id: 'r', name: 'r', sequence: 'ATGTGGTGAGCT', features: [f] };
+  const f = { ...feature('99'), locationString: '1..12' };
+  const record = { id: 'r', name: 'r', sequence: 'TTGTGGTGAGCT', features: [f] };
   const before = JSON.stringify(record);
   expect(assumedTranslation(f, record.sequence)?.residues).toBe('MW*A');
   expect(exportToGenBank([record]).text).not.toContain('/translation');
@@ -102,4 +102,52 @@ it('matches a separate IUPAC expansion loop over the Biopython rows', () => {
       codeSensitive: [sensitive], possibleStop: [readings.has('*')],
     });
   }
+});
+
+it('reads complete first codons and start sensitivity against every Biopython Starts row', () => {
+  for (const codon of Object.keys(fixture.tables['1'].codons)) {
+    const starts = Object.entries(fixture.tables).filter(([, table]) =>
+      table.starts[Object.keys(table.codons).indexOf(codon)] === 'M').map(([id]) => Number(id));
+    const aa = residue(tables['1'].codons[codon]);
+    const ordinarySensitive = Object.values(tables).some(t => t.codons[codon] !== tables['1'].codons[codon]);
+    const f = { ...feature('99'), locationString: '1..6', metadata: { transl_table: '99', codon_start: '1' } };
+    const view = assumedTranslation(f, codon + codon)!;
+    expect(startTables(codon), codon).toEqual(starts);
+    const contextual = new Map<string, number[]>();
+    const standardStart = starts.includes(1) ? 'M' : aa;
+    for (const [id, table] of Object.entries(fixture.tables)) {
+      const reading = starts.includes(Number(id)) ? 'M' : residue(table.codons[codon as keyof typeof table.codons]);
+      if (reading !== standardStart) contextual.set(reading, [...(contextual.get(reading) ?? []), Number(id)]);
+    }
+    expect(otherReadings(codon, true), codon).toEqual([...contextual].map(([residue, tables]) => ({ residue, tables })));
+    expect(view.residues, codon).toBe((starts.includes(1) ? 'M' : aa) + aa);
+    expect(view.codeSensitive, codon).toEqual([ordinarySensitive || (starts.length > 0 && starts.length < 27), ordinarySensitive]);
+    expect(translateFeature(f, codon + codon, 99)).toBe('??');
+  }
+  expect(startTables('ATG')).toHaveLength(27);
+  expect(startTables('TTG')).toHaveLength(9);
+  expect(startTables('CTG')).toHaveLength(8);
+  expect(startTables('GTG')).toHaveLength(13);
+});
+
+it.each([
+  { codon: 'ATG', locationString: '1..9', codon_start: '1', expected: 'M', sensitive: false },
+  { codon: 'TTG', locationString: '1..9', codon_start: '1', expected: 'M', sensitive: true },
+  { codon: 'CTG', locationString: '1..9', codon_start: '1', expected: 'M', sensitive: true },
+  { codon: 'GTG', locationString: '1..9', codon_start: '1', expected: 'V', sensitive: true },
+  { codon: 'uug', locationString: '1..9', codon_start: undefined, expected: 'M', sensitive: true },
+  { codon: 'TTG', locationString: '1..9', codon_start: '2', expected: 'L', sensitive: false },
+  { codon: 'TTG', locationString: '<1..9', codon_start: '1', expected: 'L', sensitive: false },
+  { codon: 'TTG', locationString: undefined, codon_start: '1', expected: 'L', sensitive: false },
+  { codon: 'GTG', locationString: undefined, codon_start: '1', expected: 'V', sensitive: false },
+  { codon: 'TTG', locationString: 'complement(1..>9)', codon_start: '1', expected: 'L', sensitive: false },
+  { codon: 'TTG', locationString: 'complement(<1..9)', codon_start: '1', expected: 'M', sensitive: true },
+  { codon: 'GTN', locationString: '1..9', codon_start: '1', expected: 'V', sensitive: true },
+  { codon: 'ATN', locationString: '1..9', codon_start: '1', expected: '?', sensitive: true },
+  { codon: 'YTG', locationString: '1..9', codon_start: '1', expected: 'L', sensitive: true },
+])('applies initiation context to $codon at $locationString /codon_start=$codon_start', ({ codon, locationString, codon_start, expected, sensitive }) => {
+  const f = { ...feature('99'), locationString, metadata: { transl_table: '99', ...(codon_start ? { codon_start } : {}) } };
+  const view = assumedTranslation(f, codon)!;
+  expect(view.residues).toBe(expected);
+  expect(view.codeSensitive).toEqual([sensitive]);
 });

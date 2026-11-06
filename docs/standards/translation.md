@@ -33,15 +33,25 @@ is unknown.
 tested codon by codon against Biopython 1.88's tables. An absent qualifier means table 1. A value
 that is not an NCBI code is never replaced in computed translation: no residue or stop is
 claimed (`?`). The viewer separately shows a literal table-1 reading where no stored
-`/translation` residue exists. Invariant residues (including resolved IUPAC codons whose
+`/translation` residue exists. In the assumed view only, codon 1 uses table 1's Starts row when
+location text establishes a complete 5′ end and `/codon_start` is 1 (absent means 1), following
+NCBI `x_Translate` at `912b751` (`check_start = is_5prime_complete && frame == 0`). ATG, TTG and
+CTG then read M; ambiguous first codons are never rewritten. Missing location text means unknown
+completeness, so edited features stay literal. Start-status differences across codes contribute
+to codon-1 sensitivity only in that same initiation context. Invariant residues (including resolved IUPAC codons whose
 expansions are all invariant) use normal solid cells; code-sensitive and unresolved codons use
 dashed outlines. Every assumed codon's hover says "assuming table 1". Table-1 stops are dashed red `*`, never computed early-stop cells. The feature and
 band warnings identify stored, assumed or mixed sources. For protein records and features
 with unknown or unstranded direction, feature warnings report only the invalid code, since no
-translation is displayed. For nucleotide records,
-the hub says "can't verify" and shows a separately labelled provisional count only when no
-stored protein exists and the feature has an explicit forward or reverse strand; unknown and
-unstranded features never receive an orientation-dependent provisional count. These assumed
+translation is displayed. For nucleotide records with an explicit forward or reverse strand,
+the hub shows one unverified count in italics with a dotted underline, described by a small
+reason footnote in the same hover card. Without stored protein, each assumed codon counts once
+(`?` included), a definite final stop is dropped, and internal stops give "N positions, k stops"
+instead of "N aa". With stored protein it counts that annotation's residues, dropping a trailing
+`*` and using the same stop wording, without mixing in any assumed tail. The footnote names the
+invalid code and either the table-1 assumption or the annotation's `/translation` that cannot
+be checked against DNA. Unknown and unstranded features show only the generic invalid-code
+warning and no protein count. These assumed
 residues never enter computation, comparison, early-stop status, `/translation`, interchange
 exports or project files. This provisional view is a Dunceious presentation choice, not a
 reference-tool fallback. An empty `/transl_table=` counts as invalid, not absent. See the

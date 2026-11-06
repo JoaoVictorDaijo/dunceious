@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
+import { assumedInitiationContext, assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { matchLineSymbol } from '@/src/core/search/hitColumns';
 import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
@@ -74,6 +74,7 @@ interface AssumedHoverSpan {
   codon: string;
   residue: string;
   codeSensitive: boolean;
+  initiation: boolean;
 }
 
 interface AssumedHoverNode {
@@ -148,6 +149,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const assumedHoverIndex = useMemo(() => {
     const spans: AssumedHoverSpan[] = [];
     [...assumedViews].forEach(([feature, { codingSeq, alignedIndices, assumed }], featureIndex) => {
+      const initiation = assumedInitiationContext(feature);
       for (let i = feature.translation?.length ?? 0; i < assumed.residues.length; i++) {
         const indices = alignedIndices.slice(i * 3, i * 3 + 3);
         const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
@@ -155,7 +157,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const codon = codingSeq.slice(i * 3, i * 3 + 3);
         codonSpans(indices, originalPositions).forEach((piece, pieceIndex) => spans.push({
           ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, order: spans.length, feature, frame, codon,
-          residue: assumed.residues[i], codeSensitive: assumed.codeSensitive[i],
+          residue: assumed.residues[i], codeSensitive: assumed.codeSensitive[i], initiation: i === 0 && initiation,
         }));
       }
     });
@@ -499,7 +501,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       if (!lanes) return null;
       const lane = lanes.get(span.frame) ?? 0;
       const top = span.feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
-      const description = assumedCodonDescription(span.codon, span.residue, span.codeSensitive);
+      const description = assumedCodonDescription(span.codon, span.residue, span.codeSensitive, span.initiation);
       return <button key={`assumed-${span.key}`} type="button" data-assumed-codon=""
         aria-label={description} data-tip={description}
         style={{ position: 'absolute', left: xScale(span.start) - scrollX, top,

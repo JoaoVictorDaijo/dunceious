@@ -126,7 +126,10 @@ export function otherReadings(codon: string): { residue: string; tables: number[
 
     An edited feature whose location text was cleared has an unknown 5′ end, so codon 1 stays
     literal until #226 lands. An ambiguous first codon is never rewritten.
-  - **Code sensitivity of codon 1.** Codon 1 is code-sensitive when its start status or its
+  - **Code sensitivity of codon 1.** Starts-row sensitivity applies only in that same known-complete,
+    `/codon_start=1` initiation context. A 5′-partial, edited/no-location or frame-offset first
+    codon uses only its literal amino-acid rows for sensitivity (GTG then stays solid V).
+    In initiation context, codon 1 is code-sensitive when its start status or its
     residue differs between NCBI codes. ATG is a start in all 27 codes, so a complete ATG start
     is a solid M. TTG and CTG are starts in only 9 and 8 codes, so their M is dashed. GTG is not
     a table-1 start, so it stays V, but it is a start in 13 codes, so it is dashed. Its hover says
@@ -192,8 +195,10 @@ Every surface that shows these residues, or a number derived from them, says "as
 4. **Hub count** (`TrackTooltip.tsx`). One number, styled as unverified (owner, 2026-11-06):
    - **The number** is drawn in italics with a dotted underline, the hub's cue for a number
      that can't be verified. There is no separate "can't verify" text and no extra row.
-   - **Its hover explains why,** e.g. "Not verified: /transl_table=99 is not an NCBI genetic
-     code, so this count assumes table 1 (Standard)."
+   - **The reason is a footnote in the same hover card,** in small muted text at the bottom,
+     e.g. "Count not verified: /transl_table=99 is not an NCBI genetic code; table 1 assumed."
+     The number's `aria-describedby` points to that line. The card remains noninteractive;
+     no second hover target or separate popover is required.
    - **What is counted,** following UniProt, Artemis, Ensembl and NCBI:
      - one position per translated codon;
      - an unresolved codon (`?`) counts as one residue, as X does in those tools;
@@ -201,8 +206,9 @@ Every surface that shows these residues, or a number derived from them, says "as
      - internal table-1 stops are positions. When there are any, the label follows #253
        decision 11: "103 positions, 1 stop" instead of "103 aa".
    - **With a stored protein** (full length, or short with an assumed tail), the number is the
-     stored protein's length, with the same unverified style. Its hover says it is the
+     stored protein's length, with the same unverified style. Its footnote says it is the
      annotation's `/translation` and can't be checked against the DNA, and why.
+     A trailing stored `*` is dropped first; internal stored stops use the same positions/stop wording (`MK*G` → "4 positions, 1 stop").
    - Before #253 lands, this replaces today's code-blind count for an invalid code. After #253,
      #253's DNA metric is unavailable for an invalid code, and this styled number is what the
      hub shows.
@@ -249,9 +255,9 @@ The oracle is literal gc.prt 4.6 rows, not the code's own output.
 | Stored wins | `SequenceTrack` and `Row` tests | Invalid code with a full-length stored `/translation`: band shows the stored residues with no dashed cells, the tooltip shows the stored-protein warning, and no provisional count appears |
 | Early stop | `cds` test | Invalid code with stored `MK*G`: flagged today, not after #253. Invalid code with no stored protein whose table-1 reading has an internal stop: never flagged, no solid red early-stop cell (the codon is the dashed red `*`) |
 | Drawing | `SequenceTrack` canvas spy | Invalid code, no stored protein, `ATGTGAGCNTGN`: ATG and GCN (A) drawn as solid `fillRect` cells with no line dash; TGA drawn as a red `setLineDash` outline with `*`, never `!`; TGN (`?`) drawn as a dashed outline with no fill. Every one of the four hovers says "assuming table 1" |
-| Count | `TrackTooltip` test, oracle: a test-local loop expanding IUPAC codons over the Biopython fixture's table 1 | `ATGTGGTAA` gives "2 aa". `ATGTGATGG` gives "3 positions, 1 stop". `ATGTGNTGG` gives "3 aa" (`?` counts as one). `ATGTGGTGN` gives "3 aa". `ATGGCNTAA` gives "2 aa". Every number is italic with a dotted underline, and its hover names the invalid code and table 1. Full stored `MVA`: "3 aa", same style, hover names the annotation's protein. Unknown or unstranded strand: no number, generic warning |
-| Short stored protein | `SequenceTrack`, `Row`, `TrackTooltip` and `cds` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M; codons 2–3 show `W` and `A` from the assumed view, solid because both are invariant, with assumed hovers; the tooltip names both sources; the hub shows the stored length `1 aa` in the unverified style, with a hover naming the annotation's protein. Stored `MK*G` over a six-codon CDS whose assumed tail is `TAA TGG`: before #253 the stored `*` flags and is drawn red, the tail's `TAA` is a dashed red `*` and does not add to the flag; after #253 there is no flag |
-| Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows the count in the unverified style with its reason on hover. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text. Every assumed-codon hover, including both ambiguity texts, contains "assuming table 1" |
+| Count | `TrackTooltip` test, oracle: a test-local loop expanding IUPAC codons over the Biopython fixture's table 1 | `ATGTGGTAA` gives "2 aa". `ATGTGATGG` gives "3 positions, 1 stop". `ATGTGNTGG` gives "3 aa" (`?` counts as one). `ATGTGGTGN` gives "3 aa". `ATGGCNTAA` gives "2 aa". Every number is italic with a dotted underline, and its hover-card footnote names the invalid code and table 1. Full stored `MVA`: "3 aa", same style, footnote names the annotation's protein. Unknown or unstranded strand: no number, generic warning |
+| Short stored protein | `SequenceTrack`, `Row`, `TrackTooltip` and `cds` tests, before and after #253 | Invalid code, stored `M` over `ATGTGGGCT`: codon 1 shows stored M; codons 2–3 show `W` and `A` from the assumed view, solid because both are invariant, with assumed hovers; the tooltip names both sources; the hub shows the stored length `1 aa` in the unverified style, with a footnote naming the annotation's protein. Stored `MK*G` over a six-codon CDS whose assumed tail is `TAA TGG`: before #253 the stored `*` flags and is drawn red, the tail's `TAA` is a dashed red `*` and does not add to the flag; after #253 there is no flag |
+| Labels | `Row`, `TrackTooltip` tests | Assumed view: tooltip shows the assumed warning, hub shows the count in the unverified style with its reason in the same hover-card footnote. Hover on TGA lists its other readings; on TGN the sensitive ambiguity text; on RAY the insensitive one; on GCN the resolved text. Every assumed-codon hover, including both ambiguity texts, contains "assuming table 1" |
 
 ## Living documents
 

@@ -19,6 +19,7 @@
  */
 
 import type { BioFeature } from './types';
+import { isFivePrimePartialLocation } from './locationFlags';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { featureTranslTable, isNcbiGeneticCode } from './sequence';
 
@@ -45,28 +46,47 @@ function expansions(codon: string): string[] {
   return result;
 }
 
-/** Literal gc.prt 4.6 amino-acid rows: initiation and terminal context cannot justify an assumption. */
+/** Literal gc.prt 4.6 readings before CDS-specific initiation context is considered. */
 export function tableOneReadings(codon: string): string[] {
   return [...new Set(expansions(codon).map(c => NCBI_GENETIC_CODES[1].aminoAcids[indexOf(c)]))].sort();
 }
 
-/** Alternative literal NCBI readings, excluding table 1's reading of the same exact codon. */
-export function otherReadings(codon: string): { residue: string; tables: number[] }[] {
+/** Other NCBI readings relative to table 1, with Starts rows used only in complete initiation context. */
+export function otherReadings(codon: string, initiation = false): { residue: string; tables: number[] }[] {
   const normalized = normalize(codon);
   if (!/^[ACGT]{3}$/.test(normalized)) return [];
   const index = indexOf(normalized);
-  const standard = NCBI_GENETIC_CODES[1].aminoAcids[index];
+  const standard = initiation && NCBI_GENETIC_CODES[1].starts[index] === 'M' ? 'M' : NCBI_GENETIC_CODES[1].aminoAcids[index];
   const groups = new Map<string, number[]>();
   for (const [id, code] of Object.entries(NCBI_GENETIC_CODES)) {
-    const residue = code.aminoAcids[index];
+    const residue = initiation && code.starts[index] === 'M' ? 'M' : code.aminoAcids[index];
     if (residue !== standard) groups.set(residue, [...(groups.get(residue) ?? []), Number(id)]);
   }
   return [...groups].map(([residue, tables]) => ({ residue, tables }));
 }
 
+/** NCBI gc.prt 4.6 Starts rows; only exact codons establish an initiator. */
+export function startTables(codon: string): number[] {
+  const normalized = normalize(codon);
+  if (!/^[ACGT]{3}$/.test(normalized)) return [];
+  const index = indexOf(normalized);
+  return Object.entries(NCBI_GENETIC_CODES).filter(([, code]) => code.starts[index] === 'M').map(([id]) => Number(id));
+}
+
+/** NCBI x_Translate (912b751) checks starts only for complete frame 1; absent location text is unknown. */
+export function assumedInitiationContext(feature: Pick<BioFeature, 'locationString' | 'metadata'>): boolean {
+  return !!feature.locationString?.trim()
+    && (feature.metadata?.codon_start ?? '1').trim() === '1'
+    && !isFivePrimePartialLocation(feature);
+}
+
 const sensitiveCodons = new Set<string>();
+const startSensitiveCodons = new Set<string>();
 for (const a of 'TCAG') for (const b of 'TCAG') for (const c of 'TCAG') {
-  if (otherReadings(a + b + c).length) sensitiveCodons.add(a + b + c);
+  const codon = a + b + c;
+  if (otherReadings(codon).length) sensitiveCodons.add(codon);
+  const starts = startTables(codon);
+  if (starts.length > 0 && starts.length < Object.keys(NCBI_GENETIC_CODES).length) startSensitiveCodons.add(codon);
 }
 
 /**
@@ -75,12 +95,14 @@ for (const a of 'TCAG') for (const b of 'TCAG') for (const c of 'TCAG') {
  */
 export function assumedTranslation(feature: BioFeature, codingSeq: string): AssumedTranslation | undefined {
   if (!['CDS', 'cds', 'ORF', 'orf'].includes(feature.type) || isNcbiGeneticCode(featureTranslTable(feature))) return undefined;
+  const initiation = assumedInitiationContext(feature);
   const view: AssumedTranslation = { assumedTable: 1, residues: '', codeSensitive: [], possibleStop: [] };
   for (let i = 0; i + 2 < codingSeq.length; i += 3) {
     const codon = codingSeq.slice(i, i + 3);
     const readings = tableOneReadings(codon);
-    view.residues += readings.length === 1 ? readings[0] : '?';
-    view.codeSensitive.push(expansions(codon).some(c => sensitiveCodons.has(c)));
+    const firstStart = i === 0 && initiation;
+    view.residues += firstStart && startTables(codon).includes(1) ? 'M' : readings.length === 1 ? readings[0] : '?';
+    view.codeSensitive.push(expansions(codon).some(c => sensitiveCodons.has(c) || (firstStart && startSensitiveCodons.has(c))));
     view.possibleStop.push(readings.includes('*'));
   }
   return view;

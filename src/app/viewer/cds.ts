@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { otherReadings, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
+import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
@@ -40,9 +40,15 @@ export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, mole
 }
 
 /** Every assumed cell, including invariant ones, must disclose the unknown genetic code. */
-export function assumedCodonDescription(codon: string, residue: string, codeSensitive: boolean): string {
+export function assumedCodonDescription(codon: string, residue: string, codeSensitive: boolean, initiation = false): string {
   const normalized = codon.toUpperCase().replace(/U/g, 'T');
   const readings = tableOneReadings(normalized);
+  const starts = initiation ? startTables(normalized) : [];
+  if (starts.length) {
+    const others = otherReadings(normalized, true).filter(r => r.residue !== 'M')
+      .map(({ residue, tables }) => `${residue === '*' ? 'stop' : residue} in tables ${tables.join(', ')}`);
+    return `${normalized}: ${residue}, assuming table 1. M as a start in tables ${starts.join(', ')}.${others.length ? ` ${others.join('; ')}.` : ''}`;
+  }
   if (residue === '?') {
     const choices = readings.filter(r => r !== '*').concat(readings.includes('*') ? ['a stop'] : []);
     const alternatives = choices.length > 1 ? `${choices.slice(0, -1).join(', ')} or ${choices.at(-1)}` : choices[0];

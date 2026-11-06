@@ -41,32 +41,56 @@ function oracle(sequence: string) {
     positions.push(readings);
   }
   const last = positions.at(-1);
-  const uncertain = last?.has('_') && last.size > 1;
   if (last?.size === 1 && last.has('_')) positions.pop();
   const stops = positions.filter(p => p.size === 1 && p.has('_')).length;
-  const ambiguous = positions.filter(p => p.size > 1).length;
-  return `${positions.length} ${stops || ambiguous ? 'positions' : 'aa'}${stops ? `, ${stops} stop` : ''}${ambiguous ? `, ${ambiguous} ambiguous` : ''} if table 1${uncertain ? ', end uncertain' : ''}`.replace(' ambiguous if', ' ambiguous, if').replace(' stop if', ' stop, if');
+  return stops ? `${positions.length} positions, ${stops} stop${stops === 1 ? '' : 's'}` : `${positions.length} aa`;
 }
 
 it.each([
-  ['ATGTGGTAA', '2 aa if table 1'],
-  ['ATGTGATGG', '3 positions, 1 stop, if table 1'],
-  ['ATGTGNTGG', '3 positions, 1 ambiguous, if table 1'],
-  ['ATGTGGTGN', '3 positions, 1 ambiguous, if table 1, end uncertain'],
-  ['ATGGCNTAA', '2 aa if table 1'],
+  ['ATGTGGTAA', '2 aa'],
+  ['ATGTGATGG', '3 positions, 1 stop'],
+  ['ATGTGNTGG', '3 aa'],
+  ['ATGTGGTGN', '3 aa'],
+  ['ATGGCNTAA', '2 aa'],
+  ['ATGTGATAATGG', '4 positions, 2 stops'],
+  ['ATGTGGTAR', '2 aa'],
 ])('labels the provisional count for %s', (sequence, expected) => {
   expect(oracle(sequence)).toBe(expected);
   const view = render(<TrackTooltipProvider><Subject sequence={sequence} /></TrackTooltipProvider>);
   fireEvent.click(view.getByText('hover'));
-  expect(view.getByRole('tooltip').textContent).toContain("can't verify");
-  expect(view.getByRole('tooltip').textContent).toContain(expected);
+  const tip = view.getByRole('tooltip');
+  const count = tip.querySelector<HTMLElement>('[data-unverified-count]')!;
+  expect(count?.textContent).toBe(expected);
+  for (const token of ['italic', 'underline', 'decoration-dotted']) expect(count.classList.contains(token)).toBe(true);
+  const reason = document.getElementById(count.getAttribute('aria-describedby')!)!;
+  expect(tip.contains(reason)).toBe(true);
+  expect(reason.textContent).toContain('/transl_table=99 is not an NCBI genetic code');
+  expect(reason.textContent).toContain('table 1 assumed');
+  expect(tip.querySelectorAll('[data-unverified-count]')).toHaveLength(1);
+  expect(tip.textContent).not.toContain("can't verify");
+  expect(tip.textContent).not.toContain('Assumed table 1');
+  expect(tip.textContent).not.toContain('ambiguous');
+  expect(tip.textContent).not.toContain('end uncertain');
 });
 
-it.each(['MVA', 'M', 'MK*G'])('never merges stored %s with an assumed count', translation => {
-  const view = render(<TrackTooltipProvider><Subject sequence={translation === 'MK*G' ? 'ATGAAATGAGGATAATGG' : 'ATGTGGGCT'} translation={translation} /></TrackTooltipProvider>);
+it.each([
+  ['MVA', '3 aa'], ['M', '1 aa'], ['MK*G', '4 positions, 1 stop'],
+  ['MVA*', '3 aa'], ['MK*G*', '4 positions, 1 stop'],
+])('shows only the stored protein length for %s', (translation, expected) => {
+  const view = render(<TrackTooltipProvider><Subject sequence={translation === 'MVA' || translation === 'M' ? 'ATGTGGGCT' : 'ATGAAATGAGGATAATGG'} translation={translation} /></TrackTooltipProvider>);
   fireEvent.click(view.getByText('hover'));
-  expect(view.getByRole('tooltip').textContent).toContain("can't verify");
-  expect(view.getByRole('tooltip').textContent).not.toContain('if table 1');
+  const tip = view.getByRole('tooltip');
+  const count = tip.querySelector<HTMLElement>('[data-unverified-count]')!;
+  expect(count?.textContent).toBe(expected);
+  for (const token of ['italic', 'underline', 'decoration-dotted']) expect(count.classList.contains(token)).toBe(true);
+  const reason = document.getElementById(count.getAttribute('aria-describedby')!)!;
+  expect(tip.contains(reason)).toBe(true);
+  expect(reason.textContent).toContain("annotation's /translation");
+  expect(reason.textContent).toContain("can't be checked against the DNA");
+  expect(reason.textContent).toContain('/transl_table=99 is not an NCBI genetic code');
+  expect(tip.querySelectorAll('[data-unverified-count]')).toHaveLength(1);
+  expect(tip.textContent).not.toContain('table 1');
+  expect(tip.textContent).not.toContain("can't verify");
 });
 
 it('preserves the valid-code count', () => {
@@ -74,14 +98,17 @@ it('preserves the valid-code count', () => {
   fireEvent.click(view.getByText('hover'));
   expect(view.getByRole('tooltip').textContent).toContain('3 aa');
   expect(view.getByRole('tooltip').textContent).not.toContain("can't verify");
+  expect(view.getByRole('tooltip').querySelector('[data-unverified-count]')).toBeNull();
+  expect(view.getByRole('tooltip').querySelector('[data-count-reason]')).toBeNull();
 });
 
 it.each(['CDS', 'cds', 'ORF', 'orf', 'gene'])('gates the provisional count by coding type %s', type => {
   const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" type={type} /></TrackTooltipProvider>);
   fireEvent.click(view.getByText('hover'));
   const text = view.getByRole('tooltip').textContent!;
-  expect(text.includes('if table 1')).toBe(type !== 'gene');
-  expect(text.includes("can't verify")).toBe(type !== 'gene');
+  expect(!!view.getByRole('tooltip').querySelector('[data-unverified-count]')).toBe(type !== 'gene');
+  if (type !== 'gene') expect(text).toContain('table 1 assumed');
+  expect(text).not.toContain("can't verify");
 });
 
 it('does not show a provisional nucleotide count on a protein record', () => {
@@ -90,22 +117,31 @@ it('does not show a provisional nucleotide count on a protein record', () => {
   const text = view.getByRole('tooltip').textContent!;
   expect(text).not.toContain('if table 1');
   expect(text).not.toContain("can't verify");
+  expect(view.getByRole('tooltip').querySelector('[data-unverified-count]')).toBeNull();
+  expect(view.getByRole('tooltip').querySelector('[data-count-reason]')).toBeNull();
+  expect(text).toContain('9 aa');
 });
 
-it.each(['?', '.'] as const)('retains the unverifiable metric without assuming orientation %s', orientation => {
-  const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" orientation={orientation} /></TrackTooltipProvider>);
+it.each([
+  { orientation: '?' as const, translation: undefined }, { orientation: '.' as const, translation: undefined },
+  { orientation: '?' as const, translation: 'MVA' }, { orientation: '.' as const, translation: 'MVA' },
+])('shows no count or orientation assumption for $orientation with stored $translation', ({ orientation, translation }) => {
+  const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" orientation={orientation} translation={translation} /></TrackTooltipProvider>);
   fireEvent.click(view.getByText('hover'));
-  const text = view.getByRole('tooltip').textContent!;
-  expect(text).toContain("can't verify");
-  expect(text).not.toContain('if table 1');
-  expect(text).not.toContain('Assumed table 1');
+  const tip = view.getByRole('tooltip');
+  expect(tip.querySelector('[data-unverified-count]')).toBeNull();
+  expect(tip.textContent).toContain('/transl_table=99 is not an NCBI genetic code.');
+  expect(tip.textContent).not.toMatch(/\d+ (?:aa|positions)/);
+  expect(tip.textContent).not.toContain('table 1');
+  expect(tip.textContent).not.toContain("can't verify");
 });
 
 it('uses an explicit reverse strand for its provisional count', () => {
-  expect(oracle('TTACCACAT')).toBe('3 aa if table 1');
+  expect(oracle('TTACCACAT')).toBe('3 aa');
   const view = render(<TrackTooltipProvider><Subject sequence="ATGTGGTAA" orientation={-1} /></TrackTooltipProvider>);
   fireEvent.click(view.getByText('hover'));
   const text = view.getByRole('tooltip').textContent!;
-  expect(text).toContain("can't verify");
-  expect(text).toContain('3 aa if table 1');
+  expect(view.getByRole('tooltip').querySelector('[data-unverified-count]')?.textContent).toBe('3 aa');
+  expect(text).toContain('table 1 assumed');
+  expect(text).not.toContain("can't verify");
 });
