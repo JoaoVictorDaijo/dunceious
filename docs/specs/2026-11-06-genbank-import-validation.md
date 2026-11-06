@@ -155,6 +155,7 @@ and the line.
 | Location out of range | Every position satisfies 1 ≤ position ≤ the sequence length. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
 | Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it. Recovery: parsing resynchronises at the next unambiguous boundary, a feature key line (key at column 6), `ORIGIN`, `CONTIG` or `//`. The lines in between aren't read as qualifiers, and the finding says so. Later features and records are still checked, so the "everything at once" promise holds outside the broken feature | "/note on CDS gene1 has no closing quote; the rest of that feature wasn't checked." |
 | Molecule mixture | Each record's category comes from its LOCUS unit token: `bp` is nucleotide and `aa` is protein. It is not found by searching the whole line, which today reads a locus named `AA` as protein (`sequence.ts:389-393`). Within one file all records must share one category | "This file mixes protein and nucleotide records." |
+| Mandatory qualifier missing (nucleotide records) | A feature lacks a qualifier INSDC 11.4 Appendix II makes mandatory for its key: `source` needs `/organism` and `/mol_type`. Also `gap` `/estimated_length`; `assembly_gap` `/estimated_length` and `/gap_type`, plus `/linkage_evidence` for the gap types that require it; `misc_binding` and `protein_bind` `/bound_moiety`; `mobile_element` `/mobile_element_type`; `modified_base` `/mod_base`; `ncRNA` `/ncRNA_class`; `old_sequence` `/citation` or `/compare`; `operon` `/operon`; `regulatory` `/regulatory_class`. The owner moved this from Warning to Refuse on 2026-11-06, following NCBI, which rejects such submissions | "source in NC_X has no /organism." |
 
 **Category and subtype are separate.**
 - The unit token decides the session category, for this check and for the session gate's sniff
@@ -177,14 +178,21 @@ ambiguity codes are valid residues. Neither is ever a finding.
 |---|---|---|
 | Unknown feature key | Not in INSDC 11.4 Appendix II | Warning (unknown imported feature key) |
 | Qualifier not allowed on the key | A **recognised** qualifier (in Appendix III) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Unrecognised qualifiers never trigger this; they are accepted silently on any key (see below). An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
-| Mandatory qualifier missing | e.g. `source` without `/organism` or `/mol_type`; `regulatory` without `/regulatory_class` | REJECT in legacy Sequin for a missing organism. Dunceious keeps the record and warns, because its sequence and coordinates are intact |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
 | Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame. GenBank export can't carry an invalid frame. Today it drops an empty `/codon_start=""` (`serialize.ts:91,109`), so a reimport would fall back to frame 1. So a record holding a CDS with an invalid frame (empty included) is left out of a GenBank export and named in the report: "<id> not exported: CDS <name> has an invalid /codon_start". This uses the same backstop as invalid residues. The same applies to an invalid `/transl_table` (see the next row). Project files keep the value | Error-level in NCBI's validator |
 | Unknown genetic code | `/transl_table` not an NCBI code, empty included. GenBank export can't carry it either: the writer drops an empty value (`serialize.ts:106-110`), and a reimport would fall back to table 1. So a record holding such a CDS is left out of a GenBank export and reported, as for an invalid frame. Today it is only flagged when drawn (`cds.ts:32-35`). It now also appears in the import summary | Error-level in NCBI's validator; Dunceious keeps its no-translation rule (TRANS-1) |
 | `/translation` differs from the DNA | Computed and counted by #253's spec; this summary displays it | Error (mismatch) |
 
-The key and qualifier checks apply to nucleotide entries only. INSDC 11.4 is a nucleotide feature table, FMT-3 records no GenPept map, and protein records such as `examples/peptide/pomc-orthologs/human-pomc-NP_000930.gb` use protein keys and omit `/mol_type`. Protein entries still get every Refuse check and the frame and code checks where they apply.
+The key and qualifier checks, the mandatory-qualifier refusal included, apply to nucleotide entries only.
+
+**No canonical protein table exists.** A source survey (Sol, 2026-11-06) found no published, versioned table of protein (GenPept) feature keys with allowed and mandatory qualifiers:
+- INSDC 11.4 is a nucleotide table.
+- GenBank release 274.0 has no GenPept table.
+- NCBI's GenPept and table2asn pages describe display and submission, not a vocabulary.
+- The only rules are implementation code in the NCBI C++ Toolkit (commit `2b8ccee`): `seqfeat.asn`, `SeqFeatData.cpp`'s mandatory and allowed maps, which deliberately don't require `/mol_type`, and `feature_item.cpp`.
+
+So protein records get every refusal on sequence, coordinates and molecule, plus the frame and code checks, but no vocabulary or mandatory-qualifier checks. All 5 bundled protein records omit `/mol_type`, and none is refused for it. Adopting the toolkit's maps would be Dunceious's own choice of an implementation as authority. That is left open.
 
 The feature-key and qualifier tables come from INSDC 11.4 Appendix II. They are generated into a
 pinned module (`src/domain/bio/insdcFeatureTable.ts`) by a script that reads the pinned feature
@@ -361,6 +369,7 @@ Expected results never come from the parser under test.
 
 | Guarantee | Cases |
 |---|---|
+| Mandatory qualifiers | Nucleotide `source` without `/organism`; without `/mol_type`; `regulatory` without `/regulatory_class`; `assembly_gap` with gap type "within scaffold" but no `/linkage_evidence`: each refused. `old_sequence` with `/compare` and no `/citation`: accepted. A protein record whose source has no `/mol_type`: accepted |
 | Real records | Every `examples/**/*.gb` loads with no refuse finding, including the protein `human-pomc-NP_000930.gb` with no vocabulary warnings. Its `/coded_by` survives import and GenBank export. Sequences, location parts and extracted sequences match the checked-in Biopython 1.88 output |
 | Residues | `acgtn` and `ACGU` with RNA LOCUS, and `ACGT` with RNA LOCUS (T in RNA): accepted. `ac-gt`, `ac.gt`, `ac*gt`, `ac1gt` inside a residue group, `ac?gt`: refused, each naming the position. Protein `MKV*`: refused at `*`; protein `MKUXBZJO`: accepted |
 | Layout | Standard ORIGIN lines with counts and spaces: accepted, sequence unchanged |
