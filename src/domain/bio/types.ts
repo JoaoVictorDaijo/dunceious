@@ -74,6 +74,21 @@ export interface QuantitativeTrack {
   color?: string;
 }
 
+export interface ResidueRun { column: number; length: number; residue: number }
+export interface TrackPiece {
+  start: number;
+  end: number;
+  value: number;
+  source: { start: number; end: number; index: number };
+  envelope: { start: number; end: number };
+}
+export interface DisplayTrack {
+  track: QuantitativeTrack;
+  placed: number[];
+  runs: ResidueRun[];
+  unplaced: { index: number; reason: 'empty' | 'out-of-range' | 'invalid' }[];
+}
+
 export type DetailKey = 'organism' | 'host' | 'location' | 'collectionDate';
 export type SequenceDetails = Partial<Record<DetailKey, string>>;
 
@@ -94,6 +109,7 @@ export interface SeqRecord {
   moleculeType?: 'dna' | 'rna' | 'protein'; // governs reverse-strand search & translation availability
   features: BioFeature[];
   tracks?: QuantitativeTrack[];
+  displayTracks?: DisplayTrack[];
   /**
    * Gapped multiple-alignment overlay (contains '-'): the same residues in the
    * same order as `sequence` with alignment gaps inserted. `processTransposition`

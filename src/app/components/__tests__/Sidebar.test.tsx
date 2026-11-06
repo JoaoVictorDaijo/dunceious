@@ -85,3 +85,31 @@ describe('sidebar resize', () => {
     fireEvent.mouseUp(document);
   });
 });
+
+it('offers both selection FASTA modes and disables aligned mode for unaligned rows', () => {
+  const exported = vi.fn();
+  const record = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const view = render(<Sidebar {...props} activeTab="alignment" records={[record]} transposedRecords={[record]} activeSelection={{ start: 1, end: 5, recordIds: [] }} onExportSelection={exported} />);
+  const details = view.container.querySelector('details')!;
+  fireEvent.click(details.querySelector('summary')!);
+  const buttons = details.querySelectorAll('button');
+  expect(buttons[0].textContent).toBe('Aligned, with gaps');
+  expect(buttons[0].disabled).toBe(false);
+  fireEvent.click(buttons[0]); fireEvent.click(buttons[1]);
+  expect(exported.mock.calls).toEqual([['aligned'], ['original']]);
+  view.rerender(<Sidebar {...props} activeTab="alignment" records={[{ ...record, alignedSequence: undefined }]} activeSelection={{ start: 1, end: 3, recordIds: [] }} />);
+  expect(view.container.querySelector('details button')?.hasAttribute('disabled')).toBe(true);
+});
+
+it.each([
+  { alignedSequence: 'AC--GT', start: 1, end: 5, disabled: false, tip: null },
+  { alignedSequence: 'AC--GT', start: 6, end: 8, disabled: true, tip: 'The selection is outside the alignment' },
+  { alignedSequence: undefined, start: 1, end: 5, disabled: true, tip: 'No row is aligned' },
+])('explains aligned-export refusal only when needed: $start-$end, $tip', ({ alignedSequence, start, end, disabled, tip }) => {
+  const record = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence, features: [] };
+  const raw = { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] };
+  const view = render(<Sidebar {...props} activeTab="alignment" records={[record, raw]} activeSelection={{ start, end, recordIds: [] }} />);
+  const button = view.container.querySelector<HTMLButtonElement>('details button')!;
+  expect(button.disabled).toBe(disabled);
+  expect(button.getAttribute('data-tip')).toBe(tip);
+});

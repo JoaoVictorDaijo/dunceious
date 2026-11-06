@@ -380,8 +380,8 @@ describe('applyFastaResponse residue integrity (#249)', () => {
 
 
 it('echoes the GenBank filename from the real worker handler', () => {
-  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
-  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb' });
+  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide' });
 });
 
 it('keeps imported provenance and file values intact during an alignment overlay', () => {
@@ -553,5 +553,39 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
       'Removed alignment gaps ("-") from 2 records in gapped.fa: a (1), b (2).',
       'ERROR: only.fa was not loaded: records with no residues: [b].',
     ]);
+  });
+});
+
+ describe('empty workspace pre-aligned import', () => {
+  const rows = (text: string) => {
+    const reply = handleBioMessage({ type: 'PARSE_FASTA', filename: 'aligned.fa', content: text, asAlignment: true });
+    if (reply.type !== 'FASTA_SUCCESS') throw new Error(reply.type);
+    return reply.alignedData;
+  };
+  it('loads residues, alignment, provenance and the batch map', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>b\nACTTGT'), true, 'aligned.fa');
+    expect(result.kind).toBe('aligned-load');
+    expect(result.next.map(r => [r.id, r.sequence, r.alignedSequence, r.importedFrom])).toEqual([
+      ['a', 'ACGT', 'AC--GT', 'aligned.fa'], ['b', 'ACTTGT', 'ACTTGT', 'aligned.fa'],
+    ]);
+    expect(result).toMatchObject({ idMap: { a: 'a', b: 'b' } });
+  });
+  it.each([
+    ['>a\nAC--GT\n>b\nACTGT', 'reject-length'],
+    ['>a\nAC..GT', 'reject-dot-gap'],
+    ['>a\n', 'reject-empty'],
+    ['>a\n------', 'reject-no-residues'],
+  ])('refuses %s without loading anything', (text, kind) => {
+    expect(applyFastaResponse([], rows(text), true)).toMatchObject({ kind, next: [] });
+  });
+  it('deduplicates IDs and reports ambiguity', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>a\nACTTGT'), true);
+    expect(result.next.map(r => r.id)).toEqual(['a', 'a_1']);
+    expect(result).toMatchObject({ idMap: { a: null } });
+  });
+  it('removes and counts dot gaps on batch imports', () => {
+    const result = applyFastaResponse([], rows('>a\nAC..GT'), false);
+    expect(result.next[0].sequence).toBe('ACGT');
+    expect(result).toMatchObject({ gapsRemoved: [{ id: 'a', removed: 2 }] });
   });
 });

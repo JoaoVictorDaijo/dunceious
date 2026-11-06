@@ -262,3 +262,51 @@ it('shows invalid location without derived sequence or lengths and labels stored
   if (region) fireEvent.click(region);
   expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
 });
+
+it('offers both record FASTA modes for aligned records and only no gaps otherwise', () => {
+  const record: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const exported = vi.fn();
+  const props = { record, feature: null, onClose: vi.fn(), onFocusFeature: vi.fn(), onExportRecord: exported, onCopyLog: vi.fn() };
+  const view = render(<RecordDetailsModal {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (aligned)' }));
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (no gaps)' }));
+  expect(exported.mock.calls).toEqual([['a', 'aligned'], ['a', 'original']]);
+  view.rerender(<RecordDetailsModal {...props} record={{ ...record, alignedSequence: undefined }} />);
+  expect(screen.queryByRole('button', { name: 'FASTA (aligned)' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'FASTA (no gaps)' })).toBeTruthy();
+});
+
+
+describe('RecordDetailsModal record summary', () => {
+  const field = (name: string) => screen.getByText(name, { selector: 'label' }).nextElementSibling?.textContent;
+  const show = (record: SeqRecord) => render(<RecordDetailsModal record={record} feature={null}
+    onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+
+  it('separates nucleotide residues from alignment columns and keeps the raw badge on residues', () => {
+    show({ id: 'local-id', name: 'nucleotide', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] });
+    expect(field('Length')).toBe('4 bp');
+    expect(field('Alignment length')).toBe('6 columns');
+    expect(screen.getByText('4 bp', { selector: 'span' })).toBeTruthy();
+  });
+
+  it.each([undefined, 'M--A'])('uses amino-acid units on the protein Length and raw badge (alignment %s)', alignedSequence => {
+    show({ id: 'protein', name: 'protein', moleculeType: 'protein', sequence: 'MA', alignedSequence, features: [] });
+    expect(field('Length')).toBe('2 aa');
+    expect(screen.getByText('2 aa', { selector: 'span' })).toBeTruthy();
+    if (alignedSequence === undefined) expect(screen.queryByText('Alignment length')).toBeNull();
+    else expect(field('Alignment length')).toBe('4 columns');
+  });
+
+  it('shows an existing empty alignment as zero columns', () => {
+    show({ id: 'empty', name: 'empty', sequence: '', alignedSequence: '', features: [] });
+    expect(field('Length')).toBe('0 bp');
+    expect(field('Alignment length')).toBe('0 columns');
+  });
+
+  it.each([undefined, '', '   ', ' AB123456 '])('keeps accession %s distinct from the local identifier', accession => {
+    show({ id: 'local-id', name: 'local', sequence: 'ACGT', accession, features: [] });
+    expect(field('Accession')).toBe(accession === ' AB123456 ' ? 'AB123456' : '—');
+    expect(field('Identifier')).toBe('local-id');
+    expect(screen.queryByText('Alignment length')).toBeNull();
+  });
+});

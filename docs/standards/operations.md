@@ -89,9 +89,13 @@ in the verified application evidence.
 For a nonempty map, the start is clamped and the end forced to at least `safeStart + 1`,
 including empty or reversed input ranges; an empty map returns 0..0. The prefix-count map
 at `sequence.ts:439` counts residues before a boundary, rather than assigning a gap residue.
-`src/domain/bio/coordinate.ts:178` transposes features, while `coordinate.ts:181` preserves
-quantitative tracks in source coordinates, a deviation tracked in
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
+`src/domain/bio/coordinate.ts` transposes features into separate display copies.
+Quantitative tracks retain their source coordinates beside `displayTracks`: shared residue
+runs map their support into aligned columns, with gap-free picking and masked drawing
+(`src/domain/bio/quantitativeTracks.ts`). Invalid, out-of-range and empty quantitative
+intervals are reported as unplaced without clamping; the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+settles this display policy.
 **Owner decision open:** use a gap sentinel for residue lookup and a separate prefix-count
 boundary map, and decide explicitly whether invalid/empty ranges are preserved, refused or
 clamped. The reference does not authorize forcing a site to nonzero width; LOC-5 still applies.

@@ -163,4 +163,14 @@ it('preserves legacy circular origin sites and exports wrapped explicit pieces a
   expect(result.text).toContain('gene            11..10');
   expect(result.text).toContain('gene            join(9..10,1..2)');
   expect(result.report.featuresWithoutInsdcLocation).toEqual({ linearEdgeSite: 0, invalidGeometry: 0 });
+
+});
+
+it('omits damaged gap residues without shifting features and keeps a clean LOCUS at four bp', () => {
+  const output = exportToGenBank([record({ id: 'bad', sequence: 'AC-GT' }), record({ id: 'dot', sequence: 'AC.GT' }), record({ id: 'clean', sequence: 'ACGT' })]);
+  expect(output.report.gapRecordsOmitted).toEqual(['bad', 'dot']);
+  expect(output.text).not.toContain('bad');
+  expect(output.text).not.toContain('dot');
+  expect(output.text).toMatch(/^LOCUS\s+clean\s+4 bp/m);
+  expect(output.text).toContain('        1 acgt\n');
 });

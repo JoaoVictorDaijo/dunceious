@@ -181,3 +181,10 @@ it('warns on separate lines for each location skip reason', () => {
   expect(summary.split('\n')).toContain("1 feature not written: a site at a linear sequence's edge has no GenBank location");
   expect(summary.split('\n')).toContain('1 feature not written: its location is invalid (outside the sequence or reversed)');
 });
+
+it('previews the damaged GenBank omission and separate unaligned FASTA file', () => {
+  const rows = [{ id: 'bad', name: 'bad', sequence: 'AC-GT', features: [] }];
+  expect(describeExport(rows, 'genbank').summary).toContain('bad not exported: its sequence contains gap characters');
+  expect(describeExport([{ ...rows[0], sequence: 'ACGT' }], 'fasta', { residues: 'aligned', fileName: 'picked.fasta' }).summary)
+    .toContain("1 sequences aren't in the alignment and will be saved separately in picked_unaligned.fasta");
+});

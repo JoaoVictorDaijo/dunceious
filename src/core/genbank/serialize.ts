@@ -48,10 +48,12 @@ function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportR
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
+  const report = emptyReport();
+  report.gapRecordsOmitted = records.filter(record => /[-.]/.test(record.sequence)).map(record => record.id);
+  records = records.filter(record => !/[-.]/.test(record.sequence));
   if (records.some(record => record.features.some(feature => typeof getFeatureStrand(feature) !== 'number'))) {
     throw new Error('GenBank cannot preserve annotations with unknown or unstranded direction. Export GFF3 or project JSON to preserve these annotations, or choose an explicit strand.');
   }
-  const report = emptyReport();
   const text = records.map(record => serializeRecord(record, report)).join('\n');
   return { text, report };
 }

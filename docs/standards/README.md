@@ -53,9 +53,9 @@ Every claim about a tool carries one of these:
 | COORD-1 | Positions shown to users | INSDC FT 11.4 §3.4.2.1 | Deviates: #231 | [alphabets and coordinates](alphabets-and-coordinates.md#coord-1-positions-shown-to-users) |
 | ALPHA-1 | Nucleotide ambiguity codes, T and U | NC-IUB 1984; INSDC FT 11.4 §7.4.1 | Conforms | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-1-nucleotide-ambiguity-codes-t-and-u) |
 | ALPHA-2 | Amino-acid codes U O B Z J X | INSDC FT 11.4 §7.4.3 | Conforms, mode-specific | [alphabets and coordinates](alphabets-and-coordinates.md#alpha-2-amino-acid-codes) |
-| TRANS-1 | Genetic code from `/transl_table` | NCBI genetic codes, gc.prt 4.6 | Partial (greeter); computed path conforms (#229) | [translation](translation.md#trans-1-genetic-code-from-transl_table) |
+| TRANS-1 | Genetic code from `/transl_table` | NCBI genetic codes, gc.prt 4.6 | Conforms (#229; greeter uses table 11) | [translation](translation.md#trans-1-genetic-code-from-transl_table) |
 | TRANS-2 | `/codon_start` | INSDC FT 11.4 | Conforms | [translation](translation.md#trans-2-codon_start) |
-| TRANS-3 | Alternative initiation codons | NCBI genetic codes | Partial; greeter deviation: #261 | [translation](translation.md#trans-3-alternative-initiation-codons) |
+| TRANS-3 | Alternative initiation codons | NCBI genetic codes | Partial; greeter conforms; computed-feature initiation gap | [translation](translation.md#trans-3-alternative-initiation-codons) |
 | TRANS-4 | `/transl_except` | INSDC FT 11.4 | Partial | [translation](translation.md#trans-4-transl_except) |
 | FMT-1 | INSDC feature key to SO term in GFF3 | GFF3 1.26; SO 2026-08-07 | Conforms to grammar | [formats](formats.md#fmt-1-insdc-feature-key-to-so-term-in-gff3) |
 | ALN-1 | Local alignment scoring defaults | EMBOSS 6.6.0 `water` | Conforms | [alignment](alignment.md#aln-1-local-alignment-scoring-defaults) |
@@ -78,7 +78,7 @@ Every claim about a tool carries one of these:
 | OP-1 | Molecule type inferred from composition | Geneious composition inference/correction | Owner decision open | [operations](operations.md#op-1-molecule-type-inferred-from-composition) |
 | OP-2 | Declared GenBank molecule type | GenBank 274.0 §3.4.4.1–2 | Deviates: #243; fallback Owner decision open | [operations](operations.md#op-2-declared-genbank-molecule-type) |
 | OP-3 | Mixed molecule types in a workspace | Bounded gate search; contrary Geneious list-container practice | No standard found; Owner decision open | [operations](operations.md#op-3-mixed-molecule-types-in-a-workspace) |
-| OP-4 | Residues, alignment columns and boundaries | Biopython 1.88 indices/inverse_indices | Deviates: #260; boundaries Owner decision open | [operations](operations.md#op-4-residues-alignment-columns-and-boundaries) |
+| OP-4 | Residues, alignment columns and boundaries | Biopython 1.88 indices/inverse_indices | Quantitative mapping conforms; feature-boundary policy Owner decision open | [operations](operations.md#op-4-residues-alignment-columns-and-boundaries) |
 | OP-5 | Linear interval clipping | bedtools 2.31.0 intersect | Conforms (nonempty linear intervals) | [operations](operations.md#op-5-linear-interval-clipping) |
 | OP-6 | Four strand states | GFF3 1.26 column 7 | Conforms (accessor scope) | [operations](operations.md#op-6-four-strand-states) |
 | OP-7 | Ribosomal slippage and inferred junctions | INSDC FT 11.4 ribosomal_slippage | Deviates: #255; inference Owner decision open | [operations](operations.md#op-7-ribosomal-slippage-and-inferred-junctions) |
@@ -96,9 +96,9 @@ Every claim about a tool carries one of these:
 | OP-19 | Biological joining of search hits | INSDC misc_feature and join/complement | Partial; Owner decision open | [operations](operations.md#op-19-biological-joining-of-search-hits) |
 | OP-20 | Anchored edit traceback and CIGAR | Edlib 1.1.2 NW/path; SAM 1.6 | Partial; tie/equality Owner decision open | [operations](operations.md#op-20-anchored-edit-traceback-and-cigar) |
 | OP-21 | Ordinary translation and biological recoding | INSDC transl_except/Sec/Pyl; NCBI gc.prt 4.6 | Partial (expression unknown) | [operations](operations.md#op-21-ordinary-translation-and-biological-recoding) |
-| METRIC-1 | Sequence length and alignment width | NCBI residue length; EMBOSS alignment length | Deviates: #259 | [metrics](metrics.md#metric-1-sequence-length-and-alignment-width) |
+| METRIC-1 | Sequence length and alignment width | NCBI residue length; EMBOSS alignment length | Details conform; alignment log deviates | [metrics](metrics.md#metric-1-sequence-length-and-alignment-width) |
 | METRIC-2 | Feature length | Biopython 1.88 SeqFeature length | Conforms (valid locations); input contract Owner decision open | [metrics](metrics.md#metric-2-feature-length) |
-| METRIC-3a | Accession label | GenBank 274.0 §3.4.6 | Deviates: #259 | [metrics](metrics.md#metric-3a-accession-label) |
+| METRIC-3a | Accession label | GenBank 274.0 §3.4.6 | Conforms (record details) | [metrics](metrics.md#metric-3a-accession-label) |
 | METRIC-3b | Detail-warning provenance | INSDC qualifier semantics; no exact UI contract | Owner decision open | [metrics](metrics.md#metric-3b-detail-warning-provenance) |
 | METRIC-4 | Alignment identity naming | EMBOSS Identity/Length; BLAST report 2013 | Owner decision open: #257, #258 | [metrics](metrics.md#metric-4-alignment-identity-naming) |
 | METRIC-5a | Consensus method | EMBOSS cons 6.6; Jalview consensus | Owner decision open: #254 | [metrics](metrics.md#metric-5a-consensus-method) |
@@ -107,7 +107,7 @@ Every claim about a tool carries one of these:
 | METRIC-6a | Pair glyph meanings | EMBOSS format-dependent markup; AJAX rev. 1.132 | Conforms (basic mapping) | [metrics](metrics.md#metric-6a-pair-glyph-meanings) |
 | METRIC-6b | Positive-score and exclusive-substitution counts | EMBOSS manual/source discrepancy; AJAX rev. 1.132 | Partial; reference choice Owner decision open | [metrics](metrics.md#metric-6b-positive-score-and-exclusive-substitution-counts) |
 | METRIC-6c | Reference comparison policy | EMBOSS showalign 6.6 presentation precedent | Owner decision open | [metrics](metrics.md#metric-6c-reference-comparison-policy) |
-| METRIC-7a | Observed interval values and interpolation | UCSC bedGraph Data Values | Deviates: #260; interpolation Owner decision open | [metrics](metrics.md#metric-7a-observed-interval-values-and-interpolation) |
+| METRIC-7a | Observed interval values and interpolation | UCSC bedGraph Data Values | Conforms (half-open, gap-masked interval values; no interpolation) | [metrics](metrics.md#metric-7a-observed-interval-values-and-interpolation) |
 | METRIC-7b | BED score meaning | GA4GH BED v1 §1.7 | Partial: #260 | [metrics](metrics.md#metric-7b-bed-score-meaning) |
 | METRIC-7c | Numeric display precision | BED/bedGraph source values; no precision default | Owner decision open | [metrics](metrics.md#metric-7c-numeric-display-precision) |
 | METRIC-8a | Service limits | EBI FAQ, observed 2026-10-23 | Conforms (cap magnitudes); margin Owner decision open | [metrics](metrics.md#metric-8a-service-limits) |

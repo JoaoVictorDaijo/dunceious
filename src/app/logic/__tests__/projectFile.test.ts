@@ -141,3 +141,12 @@ it('refuses partly stranded pieces naming the feature, retains invalid geometry,
   }
   expect(JSON.parse(serializeProject({ ...state, records: [{ ...record, features: [invalid] }] })).records[0].features[0]).not.toHaveProperty('biological');
 });
+
+it('refuses damaged residues and unequal alignment widths, and accepts valid alignment', () => {
+  expect(parseProject(serializeProject({ ...state, records: [{ ...record, sequence: 'AC-GT' }] }))).toEqual({ ok: false,
+    message: 'This project file contains gap characters in the sequence of local_1; the file is damaged' });
+  expect(parseProject(serializeProject({ ...state, records: [{ ...record, alignedSequence: 'AC--GT' },
+    { ...record, id: 'b', sequence: 'ACTTGT', alignedSequence: 'ACTTGT--' }] }))).toEqual({ ok: false,
+    message: 'This project file contains an alignment whose rows have different lengths' });
+  expect(parseProject(serializeProject(state)).ok).toBe(true);
+});

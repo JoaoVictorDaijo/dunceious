@@ -19,6 +19,8 @@
  */
 
 // @vitest-environment jsdom
+import { processTransposition } from '@/src/domain/bio/coordinate';
+import { trackFocusTarget } from '@/src/app/logic/focusTarget';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@/src/app/testing/renderHarness';
 import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
@@ -102,4 +104,75 @@ describe('exports with aligned annotations', () => {
     expect(project.format).toBe(2);
     expect(project.records).toEqual([record, { ...record, id: 'other' }]);
   });
+});
+
+it('downloads both mixed files from viewer/Sidebar selection and Hub export paths', () => {
+  const aligned: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const raw: SeqRecord = { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] };
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [aligned, raw], { start: 1, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nC--G', 'selection_export.fasta', 'text/plain'],
+    ['>u [Slice: 1-5]\nTTTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportRecords(['a', 'u'], 'fasta', { residues: 'aligned', fileName: 'mixed.fasta' });
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a\nAC--GT', 'mixed.fasta', 'text/plain'], ['>u\nTTTTTTTT', 'mixed_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportSelection('original');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nCG\n\n>u [Slice: 1-5]\nTTTT', 'selection_export.fasta', 'text/plain'],
+  ]);
+  result.current.handleExportRecord('a', 'aligned');
+  expect(vi.mocked(downloadBlob).mock.calls[1]).toEqual(['>a\nAC--GT', 'a.fasta', 'text/plain']);
+});
+
+it('counts only unaligned rows actually saved inside the selection window', () => {
+  const rows: SeqRecord[] = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'long', name: 'long', sequence: 'TTTTTTTT', features: [] },
+    { id: 'short', name: 'short', sequence: 'AA', features: [] },
+  ];
+  const log = vi.fn();
+  const { result } = renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 3-5]\n-G', 'selection_export.fasta', 'text/plain'],
+    ['>long [Slice: 3-5]\nTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  expect(log).toHaveBeenCalledWith("1 sequences aren't in the alignment, so they have no alignment columns and were saved separately in selection_export_unaligned.fasta");
+  expect(log).toHaveBeenCalledWith('No residues in the exported window; left out: short');
+});
+
+
+it('exports hub-focused aligned track support from source records without display fields', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-06T12:00:00Z'));
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--ACGT', features: [], tracks: [{ id: 'q', name: 'q', data: [{ start: 0, end: 1, value: 7 }] }] };
+  const display = processTransposition([source])[0];
+  expect(display).not.toBe(source);
+  expect(display.displayTracks).toHaveLength(1);
+  // Independently enumerate residue columns; focus must select the first supplied residue.
+  const columns: number[] = [];
+  for (let column = 0; column < source.alignedSequence!.length; column++) {
+    if (source.alignedSequence![column] !== '-') columns.push(column);
+  }
+  const target = trackFocusTarget(source, source.tracks![0])!;
+  expect([target.start, target.end]).toEqual([columns[0], columns[0] + 1]);
+  const state = { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON };
+  const { result } = renderHook(() => useFileHandlers({current:null}, [source], {start:target.start,end:target.end,recordIds:['r']}, {}, state,
+    {setRecords:vi.fn(),setFeatureColors:vi.fn(),setActiveSelection:vi.fn(),setShowAnnotations:vi.fn(),setShowTranslation:vi.fn(),setShowConservation:vi.fn(),setAlignmentComparison:vi.fn(),setIsProcessing:vi.fn()},vi.fn()));
+  result.current.exportSelectionJson();
+  const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[0][0] as string);
+  expect(saved).toEqual({ format:2, version:__APP_VERSION__, exportedAt:'2026-11-06T12:00:00.000Z', featureColors:{}, ...state, activeSelection:null, selectionRange:{start:2,end:3}, records:[{id:'r',name:'r',sequence:'A',alignedSequence:'A',features:[],tracks:[{id:'q',name:'q',data:[{start:0,end:1,value:7}]}]}] });
+  expect(source.tracks![0].data).toEqual([{start:0,end:1,value:7}]);
+  vi.useRealTimers();
 });

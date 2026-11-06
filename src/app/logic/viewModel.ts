@@ -158,3 +158,17 @@ export function featureCoordPatch(
   }
   return patch;
 }
+
+/** Modal residue fraction, over visible alignment columns only; gaps do not vote. */
+export function alignedConservation(records: SeqRecord[]): number[] {
+  const aligned = records.filter(record => record.visible !== false && record.alignedSequence !== undefined);
+  if (aligned.length < 2) return [];
+  return Array.from({ length: aligned[0].alignedSequence!.length }, (_, column) => {
+    const counts: Record<string, number> = {};
+    for (const record of aligned) {
+      const residue = record.alignedSequence![column];
+      if (residue && residue !== '-') counts[residue] = (counts[residue] ?? 0) + 1;
+    }
+    return Math.max(0, ...Object.values(counts)) / aligned.length;
+  });
+}

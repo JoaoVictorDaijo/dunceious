@@ -157,13 +157,16 @@ it('toggles the whole group and picks only sequences shown in the viewport', () 
 });
 
 
-it('does not rerun the export serializer when only the filename changes', () => {
+it('refreshes the filename preview while memoizing unrelated rerenders', () => {
   const describe = vi.spyOn(exportPlan, 'describeExport');
   try {
-    render(<Subject />); open(); format('GenBank');
+    const view = render(<Subject />); open(); format('GenBank');
     const count = describe.mock.calls.length;
-    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
+    view.rerender(<Subject />);
     expect(describe.mock.calls.length).toBe(count);
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
+    expect(describe.mock.calls.length).toBe(count + 1);
+    expect(describe).toHaveBeenLastCalledWith([records[0], records[1]], 'genbank', expect.objectContaining({ fileName: 'new name.gb' }));
     expect(exportSummary()).toBe('2 sequences · 0 annotations → new name.gb');
   } finally { describe.mockRestore(); }
 });
@@ -341,4 +344,43 @@ it('warns about skipped sites even with organism set and counts written annotati
   expect(exportWarning()).toBe("1 feature not written: a site at a linear sequence's edge has no GenBank location");
   expect(exportSummary()).toContain('0 annotations');
   expect(screen.getByTitle('1 features skipped').textContent).toBe('0 annotations');
+});
+
+it('names GenBank gap omissions and distinguishes chosen records from written content', () => {
+  const value: SeqRecord[] = [
+    { id: 'clean', name: 'clean', sequence: 'ACGT', features: [{ type: 'gene', name: 'kept', start: 0, end: 2, strand: 1 }] },
+    { id: 'damaged', name: 'damaged', sequence: 'AC-GT', features: [{ type: 'gene', name: 'omitted', start: 0, end: 2, strand: 1 }] },
+  ];
+  const onExport = vi.fn();
+  render(<Subject value={value} selected={['clean', 'damaged']} onExport={onExport} />); open(); format('GenBank');
+  expect(screen.getByText('damaged not exported: its sequence contains gap characters')).toBeTruthy();
+  expect(screen.queryByText(/Sequences and annotations with valid qualifiers/)).toBeNull();
+  expect(screen.queryByText(/Display names stay in Dunceious/)).toBeNull();
+  expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
+  expect(screen.getByText('2 chosen')).toBeTruthy();
+  expect(screen.getByText('1 written')).toBeTruthy();
+  expect(exportSummary()).toBe('2 chosen · 1 written · 1 annotations → sequences.gb');
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export clean' }));
+  expect((screen.getByRole('button', { name: 'Export 0 sequences' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText('0 written')).toBeTruthy();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export clean' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Export 1 sequence' }));
+  expect(onExport).toHaveBeenCalledWith(['clean', 'damaged'], 'genbank', expect.objectContaining({ fileName: 'sequences.gb' }));
+});
+
+it('previews the renamed companion file and exports the same name', () => {
+  const value: SeqRecord[] = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] },
+  ];
+  const onExport = vi.fn();
+  render(<Subject value={value} selected={['a', 'u']} onExport={onExport} />); open();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Keep alignment gaps' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File name' }), { target: { value: 'chosen' } });
+  expect(exportWarning()).toContain('saved separately in chosen_unaligned.fasta');
+  fireEvent.change(screen.getByRole('textbox', { name: 'File name' }), { target: { value: 'renamed.fasta' } });
+  expect(exportWarning()).toContain('saved separately in renamed_unaligned.fasta');
+  expect(exportWarning()).not.toContain('chosen_unaligned.fasta');
+  fireEvent.click(screen.getByRole('button', { name: 'Export 2 sequences' }));
+  expect(onExport).toHaveBeenCalledWith(['a', 'u'], 'fasta', expect.objectContaining({ residues: 'aligned', fileName: 'renamed.fasta' }));
 });

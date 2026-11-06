@@ -84,11 +84,15 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     ...(format === 'genbank' || format === 'gff3' ? { types, matchingKeys: onlyMatching ? matchingKeys : undefined } : {}),
   }), [keepGaps, hasAlignment, details, format, types, onlyMatching, matchingKeys]);
   const preview = useMemo(() => {
-    try { return { ...describeExport(chosen, format, options), error: '' }; }
+    try { return { ...describeExport(chosen, format, { ...options, fileName }), error: '' }; }
     catch (error) { return { report: null, summary: '', error: error instanceof Error ? error.message : String(error) }; }
-  }, [chosen, format, options]);
+  }, [chosen, format, options, fileName]);
   const report = preview.report;
-  const missingIds = useMemo(() => new Set(exportRecordsForOptions(chosen, format, options).filter(record => record.moleculeType !== 'protein' && !detailsForExport(record, emptyReport()).organism).map(record => record.id)), [chosen, format, options]);
+  const writtenRecords = useMemo(() => format === 'genbank'
+    ? chosen.filter(record => !report?.gapRecordsOmitted.includes(record.id)) : chosen, [chosen, format, report]);
+  const writtenCount = writtenRecords.length;
+  const hasOmissions = writtenCount !== chosen.length;
+  const missingIds = useMemo(() => new Set(exportRecordsForOptions(writtenRecords, format, options).filter(record => record.moleculeType !== 'protein' && !detailsForExport(record, emptyReport()).organism).map(record => record.id)), [writtenRecords, format, options]);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -131,8 +135,8 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     const values = pickIds(label);
     return { label, values, active: quickPick === label };
   });
-  const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(chosen, format, options).reduce((count, record) => count + annotationFeatures(record).filter(feature => format !== 'genbank' || feature.locationString || formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }).kind === 'insdc').length, 0), [chosen, format, options]);
-  const exportedEditCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(chosen, format, options).reduce((count, record) => count + hubEditCounts(record.features).total, 0), [chosen, format, options]);
+  const exportedAnnotationCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(writtenRecords, format, options).reduce((count, record) => count + annotationFeatures(record).filter(feature => format !== 'genbank' || feature.locationString || formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }).kind === 'insdc').length, 0), [writtenRecords, format, options]);
+  const exportedEditCount = useMemo(() => format === 'fasta' ? 0 : exportRecordsForOptions(writtenRecords, format, options).reduce((count, record) => count + hubEditCounts(record.features).total, 0), [writtenRecords, format, options]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded-sm" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
 
@@ -169,11 +173,12 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
             <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={onlyMatching} onChange={e => setOnlyMatching(e.target.checked)} />Only annotations matching hub search and filters</label>
           </div>}
           <div className="mt-2 rounded-xl border border-slate-200 border-l-[3px] border-l-env bg-white p-2.5">
-            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2"><CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill><span title={report && Object.values(report.featuresWithoutInsdcLocation).some(Boolean) ? `${Object.values(report.featuresWithoutInsdcLocation).reduce((a, b) => a + b, 0)} features skipped` : undefined}><CountPill>{exportedAnnotationCount} annotations</CountPill></span><CountPill>{exportedEditCount} edited or added</CountPill></p>
+            <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2">{hasOmissions ? <><CountPill>{chosen.length} chosen</CountPill><CountPill>{writtenCount} written</CountPill></> : <CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill>}<span title={report && Object.values(report.featuresWithoutInsdcLocation).some(Boolean) ? `${Object.values(report.featuresWithoutInsdcLocation).reduce((a, b) => a + b, 0)} features skipped` : undefined}><CountPill>{exportedAnnotationCount} annotations</CountPill></span><CountPill>{exportedEditCount} edited or added</CountPill></p>
             {preview.error ? <p role="alert" className="text-rose-700">{preview.error}</p> : <>
+              {format === 'genbank' && report?.gapRecordsOmitted.map(id => <p key={id} data-export-gap-omission className="mb-2 text-amber-800">{id} not exported: its sequence contains gap characters</p>)}
               {(format === 'genbank' ? preview.summary.split('\n').slice(1) : preview.summary.split('\n')).map((line, index) => <p key={line} data-export-warning className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
               {Boolean(report?.missingOrganism) && <button className="mt-1 text-amber-800 underline" onClick={() => { onClose(); onEditDetails(missingIds); }}>Edit details</button>}
-              {report && format === 'genbank' && <table aria-label="Detail qualifiers" className="w-full text-[11px]"><tbody>{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <tr key={key}><th scope="row" className="py-0.5 text-left font-medium">{EXPORT_DETAIL_LABELS[key]}</th><td className="font-mono text-slate-500">/{key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]}</td><td className="py-0.5 text-right font-mono">{report.writtenDetails[key]} written · {Math.max(0, chosen.length - report.writtenDetails[key] - report.invalidDetailsOmitted[key])} empty · <span className={report.invalidDetailsOmitted[key] ? 'text-amber-800' : undefined}>{report.invalidDetailsOmitted[key]} invalid, left out</span></td></tr>)}</tbody></table>}
+              {report && format === 'genbank' && <table aria-label="Detail qualifiers" className="w-full text-[11px]"><tbody>{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <tr key={key}><th scope="row" className="py-0.5 text-left font-medium">{EXPORT_DETAIL_LABELS[key]}</th><td className="font-mono text-slate-500">/{key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]}</td><td className="py-0.5 text-right font-mono">{report.writtenDetails[key]} written · {Math.max(0, writtenCount - report.writtenDetails[key] - report.invalidDetailsOmitted[key])} empty · <span className={report.invalidDetailsOmitted[key] ? 'text-amber-800' : undefined}>{report.invalidDetailsOmitted[key]} invalid, left out</span></td></tr>)}</tbody></table>}
               {report && format !== 'project' && <details className="mt-2"><summary className="cursor-pointer text-slate-600">Details and omissions{format === 'genbank' && report.droppedAttributes > 0 && ` · ${report.droppedAttributes} non-GenBank attributes left out`}</summary>
                 <ul className="mt-2 stack-y-1 text-[11px] text-slate-600">{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <li key={key} data-export-detail={key}>{EXPORT_DETAIL_LABELS[key]} · {format === 'fasta' ? DETAIL_TO_MODIFIER[key] : key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]} · <CountPill>{report.writtenDetails[key]}</CountPill> written{Boolean(report.invalidDetailsOmitted[key]) && <> · <CountPill>{report.invalidDetailsOmitted[key]}</CountPill> invalid {report.invalidDetailsOmitted[key] === 1 ? 'value' : 'values'} left out</>}</li>)}
                   {report.adjustedIds.map((id, index) => <li key={index}>ID: {id.from} → {id.to}</li>)}
@@ -185,10 +190,10 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
         </section>
       </div>
       <footer className="flex shrink-0 items-center gap-3 border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs">
-        <p data-export-summary aria-live="polite" className="mr-auto">{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'} · {exportedAnnotationCount} annotations → <span className="font-mono">{fileName}</span></p>
+        <p data-export-summary aria-live="polite" className="mr-auto">{hasOmissions ? `${chosen.length} chosen · ${writtenCount} written` : `${chosen.length} ${chosen.length === 1 ? 'sequence' : 'sequences'}`} · {exportedAnnotationCount} annotations → <span className="font-mono">{fileName}</span></p>
 
         <button onClick={onClose} className="rounded-sm px-3 py-2 hover:bg-slate-200">Cancel</button>
-        <button disabled={!chosen.length || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); if (closeExportOnSave) onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</button>
+        <button disabled={!writtenCount || Boolean(preview.error)} onClick={() => { onExport(chosen.map(record => record.id), format, { ...options, fileName }); if (closeExportOnSave) onClose(); }} className="rounded-lg bg-env px-4 py-2 font-semibold text-slate-950 disabled:opacity-40">Export {writtenCount} {writtenCount === 1 ? 'sequence' : 'sequences'}</button>
       </footer>
     </div>
   </div>, portalTarget ?? (document.querySelector('.app-root') ?? document.body));

@@ -165,7 +165,7 @@ const TopNav: React.FC<TopNavProps> = ({
       disabledReason: sessionMoleculeType === 'protein' ? 'Translation does not apply to a peptide session' : undefined },
     { label: 'Conservation', on: showConservation, onToggle: onToggleConservation, dot: 'bg-amber-400 text-amber-400',
       tip: 'the per-column conservation heatmap',
-      disabledReason: isAlignmentLoaded ? undefined : 'Conservation needs an alignment: upload a pre-aligned FASTA first' },
+      disabledReason: isAlignmentLoaded ? undefined : 'Conservation needs at least two aligned sequences' },
   ];
 
   const renderBrand = (showSlogan: boolean, wordmark = true) => (

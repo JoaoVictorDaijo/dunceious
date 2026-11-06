@@ -36,7 +36,7 @@ export interface RecordDetailsModalProps {
   feature: BioFeature | null;
   onClose: () => void;
   onFocusFeature: (target: FocusTarget) => void;
-  onExportRecord: (recordId: string) => void;
+  onExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
   onSetBasesMode?: (mode: 'nothing' | 'record' | 'query') => void;
@@ -159,8 +159,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
     onCopyLog(`Focusing on ${feature.name}`);
   };
 
-  const handleExport = () => {
-    onExportRecord(record.id);
+  const handleExport = (mode: 'original' | 'aligned' = 'original') => {
+    onExportRecord(record.id, mode);
     onClose();
   };
 
@@ -271,15 +271,25 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {record.accession?.trim() || record.id || 'N/A'}
+                  {record.accession?.trim() || '—'}
                 </p>
+              </div>
+              <div className="stack-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identifier</label>
+                <p className="text-sm font-mono font-bold text-slate-700">{record.id}</p>
               </div>
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {(record.alignedSequence || record.sequence).length.toLocaleString()} bp
+                  {fmt(record.sequence.length)} {unit}
                 </p>
               </div>
+              {record.alignedSequence !== undefined && (
+                <div className="stack-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Alignment length</label>
+                  <p className="text-sm font-mono font-bold text-slate-700">{fmt(record.alignedSequence.length)} columns</p>
+                </div>
+              )}
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
                 <p className="text-sm font-bold text-slate-700">{record.features.length} annotations</p>
@@ -332,7 +342,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </div>
               <div className={`absolute top-2 right-2 ${views ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}`}>
                 <span className={`text-[10px] font-bold uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded-sm border ${views ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-800'}`}>
-                  {invalidLocation ? 'Invalid location' : views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${displaySeq.length} bp`}
+                  {invalidLocation ? 'Invalid location' : views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${fmt(displaySeq.length)} ${unit}`}
                 </span>
               </div>
             </div>
@@ -396,15 +406,10 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <i className="fas fa-search-location"></i> Focus
             </button>
           )}
-          {!feature && (
-            <button
-              onClick={handleExport}
-              data-tip="Download this record as FASTA"
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
-            >
-              <i className="fas fa-download"></i> Export FASTA
-            </button>
-          )}
+          {!feature && <div className="flex gap-2">
+            <button onClick={() => handleExport('original')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (no gaps)</button>
+            {record.alignedSequence && <button onClick={() => handleExport('aligned')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (aligned)</button>}
+          </div>}
         </div>
       </div>
     </div>
