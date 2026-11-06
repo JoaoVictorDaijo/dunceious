@@ -88,10 +88,9 @@ intervals instead of interpolating". Drawing and hit-testing use strict half-ope
 
 ## Model
 
-The display model is **lazy**: nothing is split ahead of time. A display track keeps the stored
-intervals and the record's residue runs, and it computes aligned pieces only for the columns
-being drawn or picked. Memory is O(stored intervals + residue runs), however many pieces a wide
-interval would produce.
+**Nothing is split ahead of time.** A display track keeps the stored intervals and the record's
+residue runs. Gap removal is done by clipping when drawing, and by one lookup when picking, so
+neither memory nor redraw time depends on how many pieces the intervals would split into.
 
 ```ts
 /** One residue run: maximal aligned columns without '-', and the biological index of its first residue. */
@@ -109,13 +108,12 @@ interface TrackPiece {
 interface DisplayTrack {
   track: QuantitativeTrack;          // the stored track: id, name, kind, color, data, unchanged
   placed: number[];                  // indices into track.data, sorted by (start, end, index)
-  maxEndPrefix: Float64Array;        // over `placed`, biological ends, for overlap queries
   runs: ResidueRun[];                // shared by every track on the record
   unplaced: { index: number; reason: 'empty' | 'out-of-range' | 'invalid' }[];
 }
 
-/** Pieces of the placed intervals that intersect the aligned window [from, to), in pick order. */
-export function piecesInWindow(display: DisplayTrack, from: number, to: number): TrackPiece[];
+/** The placed interval's full aligned envelope: first residue column to last residue column + 1. */
+export function alignedEnvelope(display: DisplayTrack, index: number): { start: number; end: number };
 ```
 
 1. **Where it is built.** `processTransposition` keeps mapping features as before. It also
@@ -139,13 +137,9 @@ export function piecesInWindow(display: DisplayTrack, from: number, to: number):
      lookup maps an out-of-range end to the alignment length (`coordinate.ts:59-69`), which
      would silently clip `[1,99)` on a 4-base record.
    - Everything else is placed.
-4. **Pieces on demand.**
-   - `piecesInWindow` turns the aligned window into a biological range through the runs.
-   - It finds the placed intervals that overlap that range, by binary search plus a walk back
-     along `maxEndPrefix`.
-   - It intersects each one with the runs inside the window.
-
-   The cost per call is O(log n + intervals in view + runs in view).
+4. **Pieces exist only for picking.** A piece is the intersection of one placed interval with
+   one residue run. It is computed only for a picked column, never for drawing (see Drawing and
+   Picking).
 5. **Unplaced data is visible.**
    - The track header shows a count: "2 of 1,204 intervals not drawn".
    - Its tooltip lists the reasons.
@@ -165,19 +159,28 @@ sub-pixel shapes turn into pixels is left to the canvas's normal antialiasing. T
 no claim about the pixel values where shapes and gaps share a device pixel. At that zoom, a
 pixel cannot show the difference, and the tooltip and picking still report exact intervals.
 
+**Gap mask.** For each redraw, build one clip path from the residue runs in view. Each run is
+one rectangle, so the path is O(runs in view). Everything below is drawn inside that clip, so
+nothing reaches a gap column, whatever the intervals are.
+
 **Line tracks (`kind: 'line'`):**
-- For each piece in view, fill the rectangle from the zero line to `y(v)` over its extent. Then
-  stroke its top edge with `lineCap = 'butt'`, inside a clip rectangle equal to the piece's
-  extent. Each piece is drawn on its own, so no edge spills into a neighbour.
-- Adjacent pieces with different values show their own levels, meeting at the shared boundary.
-  No vertical connector is drawn, because it would sit over values neither piece has.
-- Overlapping pieces, which the parser accepts (#250), are drawn one after another in pick
+- For each placed interval in view, take its aligned envelope. Fill the rectangle from the zero
+  line to `y(v)` over it. Then stroke its top edge with `lineCap = 'butt'`, inside a clip equal
+  to the envelope, intersected with the gap mask. Each interval is drawn on its own, so no edge
+  spills into a neighbour or a gap.
+- Adjacent intervals with different values show their own levels, meeting at the shared
+  boundary. No vertical connector is drawn, because it would sit over values neither interval
+  has.
+- Overlapping intervals, which the parser accepts (#250), are drawn one after another in stored
   order. They are never merged into an invented value.
+- **Cost per redraw:** O(log n + intervals in view + runs in view), with constant extra memory.
+  At full-record zoom that is every interval once plus every run once. It is not intervals times
+  runs.
 
 **Interval tracks (`kind: 'interval'`):**
 - Remove the 1 px minimum width.
 - Remove the rounded corner when a piece is narrower than twice the radius.
-- Clip each rectangle to its piece.
+- Draw each rectangle over its aligned envelope, clipped to the envelope and to the gap mask.
 
 **Lane height (existing limit, unchanged).** Interval tracks give every packed row its own lane,
 and the canvas is as tall as all lanes (`layout.ts:174-194`, `Row.tsx:548-558`). Deeply nested
@@ -187,7 +190,8 @@ this PR to file, not part of it.
 The geometry is built by a pure function, so it can be tested without a canvas:
 
 ```ts
-export function trackGeometry(display: DisplayTrack, scale: (x: number) => number, viewport: [number, number]): TrackShape[];
+/** Shapes for the intervals in view, plus the gap-mask rectangles they are clipped to. */
+export function trackGeometry(display: DisplayTrack, scale: (x: number) => number, viewport: [number, number]): { mask: Rect[]; shapes: TrackShape[] };
 ```
 
 ## Picking
@@ -197,9 +201,17 @@ export function trackGeometry(display: DisplayTrack, scale: (x: number) => numbe
 export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
 ```
 
-- **Predicate:** `d.start <= p && p < d.end`. Implement it as `piecesInWindow(display, floor(p), floor(p) + 1)`
-  filtered by the predicate. Nested intervals such as `[0,100)` and `[10,20)` are both found at
-  15, and `[0,100)` alone at 50.
+- **Method:**
+  1. Map column `floor(p)` to its residue through the runs. A gap column has no residue, so
+     nothing is picked.
+  2. Return every placed interval whose biological `[start, end)` contains that residue. The
+     scan is linear over the placed intervals: O(n) worst case, measured in the bench. No
+     overlap index is claimed.
+- **Returned bounds:** each returned piece is the **whole** intersection of its interval with
+  the residue run holding `p`. It is not clipped to the pointer's column. Unaligned `[0,100)`
+  picked at 15 returns `[0,100)`.
+- Nested intervals such as `[0,100)` and `[10,20)` are both found at 15, and `[0,100)` alone at
+  50.
 - **Hover tooltip:**
   - `Pos` is the biological position plus 1, read from the residue run that holds column
     `floor(p)`. For unaligned records that is `floor(p) + 1`.
@@ -211,6 +223,17 @@ export function pickTrackData(display: DisplayTrack, p: number): TrackPiece[];
   - line tracks: select the first match in pick order, and the log names the others when there
     are several;
   - the selection is in aligned columns, which the export path already expects.
+
+## Hub focus
+
+"Open in viewport" on a track in the hub (`HubList.tsx:333`) sends the source track's bounds to
+`focusOn`. `focusOn` installs them as an aligned selection (`App.tsx:116`). Feature focus already
+maps its bounds into columns (`focusTarget.ts:37`). Track focus must do the same:
+
+- Use the smallest placed start and largest placed end.
+- Map them into columns, from the first residue column to the last residue column plus 1.
+- A track with no placed intervals is not focusable. The hub says why, using the same unplaced
+  count as the track header.
 
 ## Region export (verified, no change)
 
@@ -238,9 +261,10 @@ consecutive columns from that oracle, not from production helpers.
 | No clamping | same | `ACGT` / `ACGT--`: `[1,99)` is unplaced `out-of-range`; `[2,2)` is `empty`; `[3,1)` is `invalid`. A finite row next to an `Infinity` row: the finite one is drawn and the value range ignores the infinite one |
 | Strand and topology | same | Mapping is the same with reverse-strand features on the record and on a circular record. Descending track data is `invalid`, not a wrap |
 | Empty track | same | `data: []` gives no pieces and the existing "No track data available" message |
-| Geometry | `trackGeometry` unit test | `0 10 2` and `90 100 8`, domain `[0,100]`, width 100: no shape has any x in `(10, 90)`. Adjacent `[0,10)=2` and `[10,20)=5`: two rectangles meeting at x = 10, each top stroke clipped to its own piece, no vertical connector. At 0.1 px per column, `[0,1)` and `[2,3)` give non-overlapping shapes 0.1 px wide |
+| Geometry | `trackGeometry` unit test | On `AC--GT`, the mask has rectangles `[0,2)` and `[4,6)` only. `0 10 2` and `90 100 8`, domain `[0,100]`, width 100: no shape has any x in `(10, 90)`. Adjacent `[0,10)=2` and `[10,20)=5`: two rectangles meeting at x = 10, each top stroke clipped to its own piece, no vertical connector. At 0.1 px per column, `[0,1)` and `[2,3)` give non-overlapping shapes 0.1 px wide |
 | Overlaps | `pickTrackData` unit test | Unsorted `[10,20)`, `[0,100)`: p = 15 returns both and p = 50 returns `[0,100)`. Shared boundary: with `[0,10)` and `[10,20)`, p = 10 returns `[10,20)` only. p = 20 and a gap column return nothing |
-| Picking in the viewer | `Row` test | Double-click selects the aligned piece. The tooltip shows the biological position and interval |
+| Picking in the viewer | `Row` test | Double-click on unaligned `[0,100)` at 15 selects `[0,100)`. On `AC--GT` with `[0,4)`, a click at column 1 selects `[0,2)`, the whole piece. The tooltip shows the biological position and interval |
+| Hub focus | `HubList` / `focusTarget` test, then export | `ACGT` / `--ACGT`, track `[0,1)`: focus selects aligned `[2,3)`, and JSON selection export then contains the interval. Unaligned: focus selects the stored bounds. A track with every row unplaced is not focusable |
 | Packing | `layout.test.ts` | `[0,10)` and `[10,20)` share row 0 |
 | Region export | hook test calling `exportSelectionJson` | Distinct source and display records. The serialized JSON is checked against an independently written expected document: biological, rebased track intervals and no display fields |
 | Unplaced is visible | `QuantitativeTrack` test | A track with one out-of-range row shows "1 of 3 intervals not drawn" |
@@ -252,7 +276,8 @@ check shapes, and pixel output is the browser's normal antialiasing (see Drawing
 - 200,000 bedGraph intervals on a 1 Mb record aligned with 5,000 gap runs;
 - 20,000 long overlapping intervals over the same alignment.
 
-Report peak memory, build time, redraw time at three zoom levels, and pick time in the PR.
+Report peak memory, build time, redraw time at full-record zoom and two closer zoom levels, and
+worst-case pick time in the PR.
 Nothing is capped or sampled, so these are measurements, not limits. Lane depth for nested BED
 tracks is the separate existing limit noted under Drawing.
 
@@ -266,8 +291,9 @@ tracks is the separate existing limit noted under Drawing.
   which rely on biological coordinates.
 - **Clamping out-of-range intervals to the sequence.** It changes supplied data silently.
 - **Picking one overlapping interval.** Which one is arbitrary; listing all of them is exact.
-- **Splitting every interval ahead of time.** Long overlapping intervals over a gapped alignment
-  multiply into millions of pieces; computing pieces for the visible window keeps memory linear.
+- **Splitting intervals into pieces, ahead of time or per window.** Long overlapping intervals
+  over a gapped alignment multiply into about 100 million pieces at full zoom. Clipping to a gap
+  mask gives the same exact geometry at O(intervals + runs).
 
 ## Left to the builder
 
