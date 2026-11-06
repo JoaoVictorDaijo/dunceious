@@ -97,3 +97,60 @@ it.each(['dna', 'rna', undefined] as const)('keeps nucleotide eligibility for %s
   const r = record(moleculeType === 'rna' ? 'GCUAAAGCU' : 'GCTAAAGCT'); r.moleculeType = moleculeType;
   expect(conceptualTranslation(feature(9), r)).toMatchObject({ residues: 'AKA' });
 });
+
+it('uses reverse-strand biological partial ends for initiation and termination', () => {
+  const initiation: BioFeature = { ...feature(9, { transl_table: '11' }), strand: -1, segments: [{ start: 0, end: 9, partialEnd: true }] };
+  expect(conceptualTranslation(initiation, record('TTATTTCAC'))).toMatchObject({ residues: 'VK', possible: ['V', 'K'], internalStops: [], alignedIndices: [8, 7, 6, 5, 4, 3] });
+  delete initiation.segments![0].partialEnd;
+  expect(conceptualTranslation(initiation, record('TTATTTCAC'))).toMatchObject({ residues: 'MK' });
+  const termination: BioFeature = { ...feature(9, { transl_table: '27' }), strand: -1, segments: [{ start: 0, end: 9, partialStart: true }] };
+  expect(conceptualTranslation(termination, record('TCATTTCAT'))).toMatchObject({ residues: 'MKW', possible: ['M', 'K', 'W'], internalStops: [] });
+  delete termination.segments![0].partialStart;
+  expect(conceptualTranslation(termination, record('TCATTTCAT'))).toMatchObject({ residues: 'MK' });
+});
+
+it('uses the evaluated last interval for joined and mixed-strand terminal context', () => {
+  const joined: BioFeature = { ...feature(12, { transl_table: '27' }), operator: 'join', segments: [{ start: 0, end: 6 }, { start: 9, end: 12, partialEnd: true }] };
+  expect(conceptualTranslation(joined, record('ATGAAACCCTGA'))).toMatchObject({ residues: 'MKW', internalStops: [] });
+  delete joined.segments![1].partialEnd;
+  joined.segments![0].partialEnd = true;
+  expect(conceptualTranslation(joined, record('ATGAAACCCTGA'))).toMatchObject({ residues: 'MK', internalStops: [] });
+  const mixed: BioFeature = { ...feature(12, { transl_table: '27' }), operator: 'join', segments: [{ start: 0, end: 6, strand: 1 }, { start: 9, end: 12, strand: -1, partialStart: true }] };
+  expect(conceptualTranslation(mixed, record('ATGAAACCCTCA'))).toMatchObject({ residues: 'MKW', possible: ['M', 'K', 'W'] });
+  delete mixed.segments![1].partialStart;
+  expect(conceptualTranslation(mixed, record('ATGAAACCCTCA'))).toMatchObject({ residues: 'MK', possible: ['M', 'K'] });
+});
+
+it.each([
+  ['', 0, 0, '1', 'empty'],
+  ['ATG', 3, 3, '1', 'empty'],
+  ['AT', 0, 2, '3', 'empty'],
+  ['---', 0, 3, '1', 'empty'],
+  ['ATG', 3, 4, '1', 'unknown-completeness'],
+  ['ATG', -1, 3, '1', 'unknown-completeness'],
+] as const)('refuses empty or out-of-bounds coding input %s [%s,%s) frame %s', (sequence, start, end, codon_start, reason) => {
+  const f: BioFeature = { ...feature(end, { codon_start }), start, segments: [{ start, end }] };
+  expect(conceptualTranslation(f, record(sequence))).toEqual({ status: 'unavailable', reason });
+});
+
+it.each([
+  ['G', '', []], ['GC', 'A', ['A']], ['TAA', '', []],
+] as const)('handles the first whole-codon boundary for %s', (sequence, residues, possible) => {
+  expect(conceptualTranslation(feature(sequence.length), record(sequence))).toMatchObject({ status: 'ok', residues, possible, internalStops: [] });
+});
+
+it('retains the preceding stop when a partial CDS has two terminal stops', () => {
+  const f = feature(9); f.segments![0].partialEnd = true;
+  expect(conceptualTranslation(f, record('ATGTAATAA'))).toMatchObject({ residues: 'M*', possible: ['M', '*'], internalStops: [1] });
+});
+
+it.each([
+  ['1', 'FL', [1]], ['3', 'FLT', []],
+] as const)('compares stored MT against the literal YTN readings in table %s', (transl_table, readings, differing) => {
+  // gc.prt 4.6: TTN contributes F/L; CTN contributes L in table 1 and T in table 3.
+  const result = conceptualTranslation(feature(9, { transl_table }), record('ATGYTNTAA'));
+  if (result.status !== 'ok') throw new Error('expected translation');
+  expect(result.residues).toBe('MX');
+  expect(result.possible).toEqual(['M', readings]);
+  expect(compareTranslation('MT', result)).toEqual({ differing, storedExtra: '', storedShortBy: 0 });
+});

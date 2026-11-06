@@ -24,6 +24,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as cdsHelpers from '../../cds';
 import { render, installCanvasRecorder, type CanvasRecorder } from '@/src/app/testing/renderHarness';
 import { SequenceTrack, type SequenceTrackProps } from '../SequenceTrack';
+import { parseGFF3 } from '@/src/core/formats/gff3';
+import { applyAnnotations } from '@/src/app/logic/bioResponse';
 import { parseLocation } from '@/src/core/genbank/locationParser';
 import { assignTranslationLanes } from '../../cds';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
@@ -256,4 +258,26 @@ it.each([1, -1] as const)('shows the suppressed-frame warning without translated
   expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
   view.rerender(<SequenceTrack {...trackProps} showTranslation={false} />);
   expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
+});
+
+it.each([undefined, 'M'])('draws and explains an SO CDS assumed view with stored %s', translation => {
+  const seq = 'ATGTGATGG';
+  const parsed = parseGFF3(`r\tx\tSO:0000316\t1\t9\t.\t+\t0\tID=c;transl_table=99${translation ? `;translation=${translation}` : ''}`);
+  const record = applyAnnotations([{ id: 'r', name: 'r', sequence: seq, moleculeType: 'dna', features: [] }], parsed.features).next[0];
+  const feature = record.features[0];
+  const view = render(<SequenceTrack {...props(seq, feature)} record={record} />);
+  expect(recorder.texts().slice(-3)).toEqual(['M', '*', 'W']);
+  expect(recorder.texts()).not.toContain('!');
+  const dashed = recorder.strokeRects().filter(r => r.dash.length > 0);
+  expect(dashed).toHaveLength(1);
+  expect(dashed[0].color).toBe('#ef4444');
+  const tips = [...view.container.querySelectorAll('[data-assumed-codon]')].map(e => e.getAttribute('data-tip')!);
+  expect(tips).toHaveLength(translation ? 2 : 3);
+  expect(tips.every(t => t.includes('assuming table 1'))).toBe(true);
+  expect(tips.at(-2)).toContain('TGA: stop');
+  expect(tips.at(-1)).toContain('TGG');
+  const warning = view.container.querySelector('[data-genetic-code-warning]')!.getAttribute('data-tip');
+  expect(warning).toContain(translation ? 'first 1 residues' : 'Residues assume table 1');
+  expect(feature.metadata?.translation).toBe(translation);
+  expect(feature.metadata?.transl_table).toBe('99');
 });

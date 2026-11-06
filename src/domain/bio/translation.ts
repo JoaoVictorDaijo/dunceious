@@ -125,7 +125,11 @@ export function resolvedTranslationFeature(feature: BioFeature): BioFeature {
 /** Import/save/load own cache invalidation; redraws consume that disposable result. */
 export function checkedTranslation(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType'>): ConceptualTranslation {
   if (feature.metadata?._translationCheck) {
-    try { return JSON.parse(feature.metadata._translationCheck) as ConceptualTranslation; } catch { /* Recompute an absent runtime cache. */ }
+    try {
+      return JSON.parse(feature.metadata._translationCheck) as ConceptualTranslation;
+    } catch {
+      return conceptualTranslation(feature, record);
+    }
   }
   return conceptualTranslation(feature, record);
 }

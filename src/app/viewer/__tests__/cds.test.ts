@@ -100,14 +100,18 @@ describe('computeBrokenFeatureMap', () => {
   });
 
   it('uses the DNA despite a curated stored protein', () => {
-    // ATG TGA CCC recomputes to M _ P — an internal stop — but /transl_except
-    // recodes the TGA to selenocysteine, so the annotated protein is not broken.
+    // A supplied U does not apply /transl_except or suppress the DNA's definite stop.
     const seq = 'ATGTGACCC';
     const recomputed = cds({ start: 0, end: 9 });
     expect(computeBrokenFeatureMap([recomputed], seq).get(recomputed)).toBe(true);
     const annotated = cds({ start: 0, end: 9, metadata: { translation: 'MUP' } });
     expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(true);
   });
+  it('leaves stop status unset when an actual transl_except is not applied', () => {
+    const feature = cds({ start: 0, end: 9, metadata: { translation: 'MUP', transl_except: '(pos:4..6,aa:Sec)' } });
+    expect(computeBrokenFeatureMap([feature], 'ATGTGACCC').has(feature)).toBe(false);
+  });
+
 });
 
 describe('codonFrame', () => {

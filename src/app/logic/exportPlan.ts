@@ -80,7 +80,11 @@ export function serializeExport(records: SeqRecord[], format: HubExportFormat, o
   if (format === 'genbank') return exportToGenBank(chosen);
   if (format === 'gff3') return exportToGff3(chosen);
   if (format === 'fasta') return exportToFasta(chosen, { residues: options.residues ?? 'original', header: options.header ?? 'id' });
-  return { text: serializeProject({ featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false, ...options.projectState, records: chosen }), report: emptyReport() };
+  const report = emptyReport();
+  report.translationWarnings = chosen.flatMap(record => record.features
+    .filter(feature => feature.metadata?._translationSource === 'removed')
+    .map(feature => `${feature.name}: ${feature.metadata!._translationMessage ?? 'Translation removed'}`));
+  return { text: serializeProject({ featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false, ...options.projectState, records: chosen }), report };
 }
 
 export function missingOrganismWarning(count: number): string {
@@ -89,7 +93,7 @@ export function missingOrganismWarning(count: number): string {
 
 export function describeExport(records: SeqRecord[], format: HubExportFormat, options: ExportOptions = {}): { report: ExportReport; summary: string } {
   const { report } = serializeExport(records, format, options);
-  if (format === 'project') return { report, summary: 'Every value, original file detail, edit state, display name, modifier and colour is kept.' };
+  if (format === 'project') return { report, summary: ['Every value, original file detail, edit state, display name, modifier and colour is kept.', ...report.translationWarnings].join(' ') };
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
   const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];

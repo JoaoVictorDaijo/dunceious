@@ -31,7 +31,7 @@ export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds', 'SO:0000316'];
 
 /** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
 export const isTranslatedFeature = (feature: BioFeature): boolean =>
-  CDS_ORF_TYPES.includes(feature.type) && definesOneSequence(feature);
+  (isCds(feature) || ['ORF', 'orf'].includes(feature.type)) && definesOneSequence(feature);
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
