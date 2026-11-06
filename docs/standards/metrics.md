@@ -27,13 +27,13 @@ width is not a record's ungapped residue length.
 
 **Applications.** No additional application-specific length convention is established here.
 
-**Dunceious.** Mixed — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:278` still counts aligned-or-raw width as `bp`;
-the raw-sequence badge at :333 also uses `bp` for proteins. Feature lengths at :219, :228 and
-the selected-view badge at :333 now choose `aa`/`bp` and name the counted view. Raw hub/index
-and export-tree lengths use correct units (`src/app/components/hub/SequenceSectionHeader.tsx:50`,
-`HubIndex.tsx:56`, `ExportSequenceTree.tsx:61`); annotation-row units at `AnnotationRow.tsx:84`
-are correct. `src/app/logic/bioResponse.ts:205` still calls alignment width `bp`.
+**Dunceious.** Record details count `record.sequence.length` as residues with `aa` for
+proteins and `bp` for nucleotides. When `alignedSequence` exists, a separate Alignment length
+row counts its columns, including gaps. The raw-sequence badge uses the same residue units.
+Feature lengths and selected-view badges retain their feature/region extents. Literal mounted
+oracles in `RecordDetailsModal.test.tsx` distinguish ACGT (4 bp) from AC--GT (6 columns),
+and MA (2 aa) from M--A (4 columns). Raw hub/index and export-tree lengths use molecule units.
+The separate alignment log in `src/app/logic/bioResponse.ts:205` still calls alignment width `bp`.
 
 ## METRIC-2. Feature length
 
@@ -70,9 +70,11 @@ The supplied version is pinned in [Sources](sources.md); the upstream URL rolls 
 
 **Applications.** No application fallback policy is inferred from database semantics.
 
-**Dunceious.** Deviates — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:272` displays `accession?.trim() || id` under
-Accession. METRIC-10a separately governs the feature count beside it.
+**Dunceious.** Record details show the trimmed accession, or `—` when absent, under
+Accession, and `record.id` separately under Identifier. HubIndex labels its accession-or-local-id
+sort “Identifier (A–Z)”; the sort key remains accession when available, otherwise local id.
+Mounted tests cover absent, blank and present accessions independently of the local identifier.
+METRIC-10a separately governs the feature count beside it.
 
 ## METRIC-3b. Detail-warning provenance
 
