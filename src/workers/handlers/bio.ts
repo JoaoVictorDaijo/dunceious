@@ -28,7 +28,9 @@ import { parseBED, parseGFF3, parseBedGraph, type AnnotationTrack } from '@/src/
 /** Pure router for bio-worker messages: maps a request to its response. */
 export function handleBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
   const response = routeBioMessage(msg);
-  return { ...response, requestId: msg.requestId, workspaceRevision: msg.workspaceRevision, incomingCategory: msg.incomingCategory };
+  return { ...response, requestId: msg.requestId, workspaceRevision: msg.workspaceRevision, incomingCategory: msg.type === 'PARSE_GENBANK'
+    ? response.type === 'PARSE_SUCCESS' && response.records.length ? (response.records[0].moleculeType === 'protein' ? 'protein' : 'nucleotide') : undefined
+    : msg.incomingCategory };
 }
 
 function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
