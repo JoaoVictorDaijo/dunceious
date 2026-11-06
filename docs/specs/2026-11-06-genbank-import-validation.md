@@ -6,7 +6,7 @@ areas: ["genbank-io", "sequence-io", "app"]
 prs: [298]
 issues: [286, 244]
 superseded_by: null
-summary: "A GenBank file is refused as a whole, with every problem named, when a record's sequence, coordinates or molecule would be wrong. Feature-table conformance problems load with import notes shown in the log and a quiet status-bar list. Layout and inert unknown qualifiers are accepted silently, and export refuses residues GenBank cannot hold."
+summary: "A GenBank file is refused as a whole, with every problem named, when a record's sequence, coordinates or molecule would be wrong, or when a nucleotide feature lacks an INSDC mandatory qualifier. Other feature-table conformance problems load with import notes shown in the log and a quiet status-bar list. Layout and inert unknown qualifiers are accepted silently, and export refuses residues GenBank cannot hold."
 ---
 # GenBank import validation — design
 
@@ -32,7 +32,9 @@ point C asks that GenBank stay ungapped.
 ## Decisions (owner, 2026-11-06)
 
 - **Three tiers.**
-  - **Refuse:** the sequence, coordinates or molecule would be wrong.
+  - **Refuse:** the sequence, coordinates or molecule would be wrong. Also a missing INSDC
+    mandatory qualifier on a nucleotide record, which the owner placed here on 2026-11-06,
+    following NCBI's rejection of such submissions.
   - **Warning:** a conformance problem, with severity closer to NCBI's.
   - **Accepted silently:** layout and inert unknown qualifiers.
 - **A refused file loads nothing.** Every problem is listed at once (#244's triage left
@@ -141,18 +143,18 @@ and the line.
 | `guardBetweenBaseSite` | `n^n+1`, and `length^1` on a circular record | the same PR (#230) |
 | `guardRemoteLocation` | `ACC:n..m`, `ACC.V:n..m` | the same PR (#245) |
 | `guardOneOfPosition` | `n.m` (e.g. `102.110`) | stays in this spec; no fix is planned yet |
+| `guardSiteInCompound` | a `^` site inside a `join`/`order`, or as a span end. INSDC 11.4 §3.4.2 allows these, so they are unsupported, not malformed | stays in this spec unless the location-reading PR takes it |
 
 **Still refused after those guards go.** The location-reading PR leaves these to this spec's Malformed location and Location out of range checks, so they are refused here, each with its own message and test:
 - unreadable location text;
 - bounds outside the record;
 - `join` and `order` mixed in one location;
 - a `^` site whose two bases don't adjoin, or that falls outside the record;
-- `^` inside a compound location, or used as a span end;
 - `>` on a start, or `<` on an end.
 
 **Nested joins are valid and are not refused.** A join inside a join, e.g. `join(1..5,complement(join(10..20,30..40)))`, is valid INSDC. The location-reading PR parses it in full; today's parser drops `30..40`. This spec neither guards it nor refuses it.
 
-| Location out of range | Every position satisfies 1 ≤ position ≤ the sequence length. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
+| Location out of range | Every **local** position satisfies 1 ≤ position ≤ the sequence length. A position on a remote entry (`ACC.V:n..m`) is not checked against this record, as INSDC 11.4 §3.4.2 excepts remote locations. Until the remote guard is removed, such locations are refused by that guard instead. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
 | Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it. Recovery: parsing resynchronises at the next unambiguous boundary, a feature key line (key at column 6), `ORIGIN`, `CONTIG` or `//`. The lines in between aren't read as qualifiers, and the finding says so. Later features and records are still checked, so the "everything at once" promise holds outside the broken feature | "/note on CDS gene1 has no closing quote; the rest of that feature wasn't checked." |
 | Molecule mixture | Each record's category comes from its LOCUS unit token: `bp` is nucleotide and `aa` is protein. It is not found by searching the whole line, which today reads a locus named `AA` as protein (`sequence.ts:389-393`). Within one file all records must share one category | "This file mixes protein and nucleotide records." |
 | Mandatory qualifier missing (nucleotide records) | A feature lacks a qualifier INSDC 11.4 Appendix II makes mandatory for its key: `source` needs `/organism` and `/mol_type`. Also `gap` `/estimated_length`; `assembly_gap` `/estimated_length` and `/gap_type`, plus `/linkage_evidence` for the gap types that require it; `misc_binding` and `protein_bind` `/bound_moiety`; `mobile_element` `/mobile_element_type`; `modified_base` `/mod_base`; `ncRNA` `/ncRNA_class`; `old_sequence` `/citation` or `/compare`; `operon` `/operon`; `regulatory` `/regulatory_class`. The owner moved this from Warning to Refuse on 2026-11-06, following NCBI, which rejects such submissions | "source in NC_X has no /organism." |
@@ -375,8 +377,8 @@ Expected results never come from the parser under test.
 | Layout | Standard ORIGIN lines with counts and spaces: accepted, sequence unchanged |
 | Length | LOCUS 10 bp with 10 bases: accepted; with 9 bases: refused with both numbers; LOCUS without a length: refused. A 120,000 bp record with long count columns: accepted |
 | Structure | No LOCUS; ORIGIN header with no sequence lines; no ORIGIN at all; CONTIG with no ORIGIN; ORIGIN header followed by CONTIG and no sequence lines (CONTIG message both times); final record without `//`: each refused. A two-record file with one bad record loads neither |
-| Locations | `<1..>10`, `complement(join(1..3,7..9))`, and the nested `join(1..5,complement(join(10..20,30..40)))`: accepted. `join(1..3,order(5..7,9..10))`, `5^7`, `join(1^2,5..9)`, `>1..10` and `1..<10`: refused, each with its message. `1..2x0`, `1..20` on 10 bp, `0..5`, `AB123:1..5`, `order(1..3,5..7)`, `5.7`: refused with their messages. `10^11` refused until #230 lands, then accepted |
-| Qualifiers | Unterminated `/note="abc`: refused. Unknown key `my_feature`: warning. `/organism` missing on `source`: warning. `/gene` repeated: warning naming it. `/label` on a CDS: no finding |
+| Locations | `<1..>10`, `complement(join(1..3,7..9))`, and the nested `join(1..5,complement(join(10..20,30..40)))`: accepted. `join(1..3,order(5..7,9..10))`, `5^7`, `>1..10` and `1..<10`: refused as malformed. `join(1^2,5..9)`: refused by `guardSiteInCompound` as unsupported. Once the remote guard is gone, `AB123.1:500..600` on a 100 bp record isn't refused for bounds. `1..2x0`, `1..20` on 10 bp, `0..5`, `AB123:1..5`, `order(1..3,5..7)`, `5.7`: refused with their messages. `10^11` refused until #230 lands, then accepted |
+| Qualifiers | Unterminated `/note="abc`: refused. Unknown key `my_feature`: warning. `/gene` repeated: warning naming it. `/label` on a CDS: no finding |
 | Molecule | `LOCUS AA 4 bp DNA linear` is nucleotide; `LOCUS rnaseP 300 aa` is protein. A nucleotide and a protein record in one file: refused. A protein file picked together with a nucleotide file into an empty session: whichever commits second is refused, in both response orders. A protein-first file with a later malformed record, in a nucleotide session: one dialog listing the mismatch and the malformed record |
 | Frame | `/codon_start=0`, `4`, `2junk`: note, translation suppressed, value kept. `/codon_start=2`: no note |
 | Inert qualifiers | GenBank `/phase=1` on a CDS without `/codon_start`: stored in `unknownQualifiers`, the frame stays 1, export writes no `/codon_start=2`, and reimport gives the same CDS. `/_gffStrand="."`: the strand stays as parsed |
