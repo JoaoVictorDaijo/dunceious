@@ -62,7 +62,7 @@ export function parseQualifiers(
         break;
       }
       if (!openQuote && next.startsWith('/')) break;
-      value += (key === 'translation' ? '' : ' ') + next;
+      value += key === 'transl_except' ? lines[i + 1].slice(21) : (key === 'translation' ? '' : ' ') + next;
       i++;
     }
     if (interrupted || (quoted && !quotedValueIsClosed(value))) {

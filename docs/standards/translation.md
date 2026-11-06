@@ -262,5 +262,8 @@ unchanged pending owner policy. There is no reversed or GenBank/GFF3 selection-e
 
 Non-printable GenBank text remains held: existing newline folding remains lossy; other control
 characters refuse export with the logical value. General free-text wrapping limits remain #308.
-Malformed code breaks reaching the writer refuse export defensively. Another accession and
+Malformed code breaks reaching the writer refuse export defensively. Compact exception values wrap
+only after commas; their physical continuations concatenate without inserted characters. Readers
+that insert whitespace after those commas still retain parseable locations. A token with no fitting
+comma retains the existing overlong-line limitation. Another accession and
 conflicting residues retain assertions with unavailable computation; neither is silently dropped.

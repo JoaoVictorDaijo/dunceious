@@ -171,6 +171,7 @@ function clipFeature(
     delete result.locationString;
   }
 
+  // TODO(#253): settle clipped product/frame policy; retain omission and the existing frame formula.
   const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
   if (!clipped) return result;
   if (feature.metadata) {
@@ -245,7 +246,6 @@ export function sliceRecordsBySelection(
         if (clipped && ['CDS', 'cds', 'SO:0000316'].includes(feature.type)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = feature.translationExceptions.flatMap((raw, occurrence) => {
           const parsed = parseCodeBreak(raw, feature.strand);
-          // TODO(#253): malformed project/GFF3 assertions remain literal and unavailable pending owner disposition.
           if (typeof parsed === 'string') return [raw];
           if (parsed.positions.some(p => p.identity && p.identity !== record.accession && p.identity !== record.version)) return [raw];
           const missing = parsed.positions.filter(p => p.base < selStart || p.base >= selEnd);

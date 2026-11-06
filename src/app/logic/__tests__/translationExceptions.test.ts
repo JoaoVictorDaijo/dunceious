@@ -145,3 +145,18 @@ it('note-only OTHER refresh preserves the supplied protein and refreshes the dia
   expect(JSON.parse(saved[0].features[0].metadata!._translationCheck)).toMatchObject({ residues: 'MX', comparison: { differing: [] } });
   expect(JSON.parse(saved[0].features[0].metadata!._translationCheck).exceptions[0].warnings).toBeUndefined();
 });
+
+it('wraps compact qualified split-codon exceptions after commas and accepts space-joined readers', () => {
+  const raw = '(pos:join(NC_000001.11:4,NC_000001.11:10,NC_000001.11:11),aa:Sec)';
+  const record = { id: 'r', name: 'r', accession: 'NC_000001', version: 'NC_000001.11', sequence: 'ATGTNNNNNGATAA', features: [{ type: 'CDS', name: 'c', start: 0, end: 14, strand: 1 as const, segments: [{ start: 0, end: 4 }, { start: 9, end: 14 }], operator: 'join' as const, translationExceptions: [raw] }] };
+  const text = exportToGenBank([record]).text;
+  const qualifierLines = text.split('\n').filter(line => line.startsWith('                     '));
+  expect(qualifierLines.every(line => line.length <= 80)).toBe(true);
+  const reread = parseGenBank(text).records[0];
+  const cds = reread.features.find(feature => feature.type === 'CDS')!;
+  expect(cds.translationExceptions).toEqual([raw]);
+  expect(conceptualTranslation(cds, reread)).toMatchObject({ residues: 'MU' });
+  const spaceJoined = text.replace(/,\n {21}(?!\/)/g, ', ');
+  const otherReader = parseGenBank(spaceJoined).records[0];
+  expect(conceptualTranslation(otherReader.features.find(feature => feature.type === 'CDS')!, otherReader)).toMatchObject({ residues: 'MU' });
+});

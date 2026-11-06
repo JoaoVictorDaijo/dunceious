@@ -121,6 +121,7 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
   if (!isCds(feature)) return feature;
   const conceptual = conceptualTranslation(feature, record);
+  // TODO(#253): choose malformed GFF3/project ingress disposition; retain assertions without verification.
   const dropped = new Set(conceptual.exceptions?.filter(e => e.status === 'dropped').map(e => e.occurrence));
   if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);

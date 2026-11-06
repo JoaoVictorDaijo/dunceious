@@ -149,6 +149,13 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
   const lines: string[] = [];
   while (remaining.length > 58) {
+    if (key === 'transl_except') {
+      const comma = remaining.lastIndexOf(',', 57);
+      if (comma < 0) break;
+      lines.push(indent + remaining.slice(0, comma + 1));
+      remaining = remaining.slice(comma + 1);
+      continue;
+    }
     let boundary = key === 'translation' ? 58 : -1;
     if (key !== 'translation') {
       for (let i = 58; i > 0; i--) {
