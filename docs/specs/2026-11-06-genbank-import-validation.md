@@ -38,6 +38,10 @@ point C asks that GenBank stay ungapped.
 - **A refused file loads nothing.** Every problem is listed at once (#244's triage left
   "reject or normalize" open; the owner chose reject).
 - **Warnings stay out of the way:** a log line plus a per-file import summary.
+- **Confirmed later the same day:**
+  - `*` in a protein record is refused, and so is a CONTIG-only record;
+  - the showroom shows no import notes, and a test pins its samples' warning list instead;
+  - feature names keep coming from `/label` when it is the only name.
 
 ## Standards and reference behaviour
 
@@ -122,13 +126,13 @@ and the line.
 | No sequence data | An entry with no sequence lines, whether or not an ORIGIN header is present, and no CONTIG | "NC_X has no sequence." |
 | Sequence only as CONTIG | The entry has a CONTIG line (§3.4.15) and no sequence lines, with or without an ORIGIN header. The sequence must be assembled from other entries | "NC_X gives its sequence as CONTIG (assembled from other records), which Dunceious can't read yet." |
 | Missing final `//` | Each entry ends with `//`. A file that ends inside an entry may be cut short | "The file ends inside record 4 without //; it may be cut short." |
-| Residue characters | Sequence lines are a base count, then residues in groups of up to 10 separated by spaces (§3.4.14). After removing the count and spaces, every character must be a residue: ALPHA-1 for DNA/RNA, ALPHA-2 for protein, either case. `-`, `.`, `*`, digits inside the residues and any other symbol are refused, with the first position | "The sequence contains "-" at base 1,204." |
+| Residue characters | Sequence lines are a base count, then residues (§3.4.14 writes them in groups of 10 separated by spaces). Grouping is layout and is not enforced: a line of 60 residues without spaces is accepted. After removing the leading count and all whitespace, every character must be a residue: ALPHA-1 for DNA/RNA, ALPHA-2 for protein, either case. `-`, `.`, `*`, digits inside the residues and any other symbol are refused, with the first position | "The sequence contains "-" at base 1,204." |
 | Length mismatch | The LOCUS length, the integer token followed by the unit token `bp` or `aa`, equals the residue count (§3.4.4) | "LOCUS says 39,937 bp, but ORIGIN has 39,935 bases." |
 | LOCUS length or unit unreadable | No integer token followed by `bp` or `aa` | "NC_X's LOCUS line has no sequence length." |
 | Malformed location | The location text must parse fully under LOC-1–LOC-7. Today's digit salvage is removed. Valid fuzzy (`<`, `>`) and `join`/`complement` forms pass | "CDS location 12..2x10 can't be read." |
 | Unsupported location form | `order()` until #225, `n^n+1` until #230, `n.m` (one-of) and remote `ACC:n..m` until supported. They are legal INSDC, but today's parser reads them as different bases | "gene1 uses a remote location (AB123:1..20), which Dunceious can't place." |
 | Location out of range | Every position satisfies 1 ≤ position ≤ the sequence length. A between-base site `n^1` on a circular molecule, with n = length, is allowed once #230 lands | "CDS 12..2210 runs past the end of the 2,040 bp sequence." |
-| Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it | "/note on CDS gene1 has no closing quote." |
+| Malformed qualifier | An unterminated quoted value, or a qualifier line that can't be read. Either could swallow the lines after it. Recovery: parsing resynchronises at the next unambiguous boundary, a feature key line (key at column 6), `ORIGIN`, `CONTIG` or `//`. The lines in between aren't read as qualifiers, and the finding says so. Later features and records are still checked, so the "everything at once" promise holds outside the broken feature | "/note on CDS gene1 has no closing quote; the rest of that feature wasn't checked." |
 | Molecule mixture | Each record's category comes from its LOCUS unit token: `bp` is nucleotide and `aa` is protein. It is not found by searching the whole line, which today reads a locus named `AA` as protein (`sequence.ts:389-393`). Within one file all records must share one category | "This file mixes protein and nucleotide records." |
 
 **Category and subtype are separate.**
@@ -151,7 +155,7 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Check | Rule | NCBI analogue |
 |---|---|---|
 | Unknown feature key | Not in INSDC 11.4 Appendix II | Warning (unknown imported feature key) |
-| Qualifier not allowed on the key | Appendix II's qualifier lists | Warning (WrongQualOnImpFeat) |
+| Qualifier not allowed on the key | A **recognised** qualifier (in Appendix III) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Unrecognised qualifiers never trigger this; they are accepted silently on any key (see below). An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
 | Mandatory qualifier missing | e.g. `source` without `/organism` or `/mol_type`; `regulatory` without `/regulatory_class` | REJECT in legacy Sequin for a missing organism. Dunceious keeps the record and warns, because its sequence and coordinates are intact |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
@@ -207,17 +211,21 @@ table fetched by `pnpm standards:fetch`. The module records its source version a
      entry, not reject it.
    - Cancellation and genuine worker errors keep their current handling.
    - **No stale diagnostics.** Before a refusal dialog or import notes are shown, the response's
-     import-start workspace revision is checked, using #296's revision capture. A response from
-     a replaced workspace is discarded with its log line, and is never shown as describing the
-     new workspace.
+     import-start workspace revision is checked, using #296's revision capture.
+     - A response from a replaced workspace shows neither its dialog nor its notes, and its
+       per-file refusal or notes log line is not written either.
+     - Instead the log records the invalidation once, as #296 specifies: "<file> was not loaded:
+       the workspace was replaced".
    - **Batch rule, agreed with PR #296** (its §B, "Refusals and invalidation in a dropped
      batch", `cc77b96`):
      - **Handled, and the batch continues:** a per-file refusal. That means this spec's
        validation findings, and #296's no-residues, category, lock and gap-removal-declined
        refusals.
      - **The ID map:** a handled refusal settles with an ID map that sets every identifier of
-       every record in the refused file to `null`: its LOCUS name, ACCESSION and VERSION. It
-       does not settle with an empty map. A null entry skips the name, accession
+       every record in the refused file to `null`: its LOCUS name, ACCESSION and VERSION. Each
+       is entered both raw and as `sanitizeId` would give it (`idHelpers.ts:21`). Otherwise an
+       annotation naming `foo_bar` for a refused `foo;bar` would miss the null entry and fall
+       through to an existing `foo_bar`. It does not settle with an empty map. A null entry skips the name, accession
        and sanitized-ID fallbacks and reports the ID as unmatched (`bioResponse.ts:111-116`).
        The batch merge keeps an ID null even when an accepted file in the same batch uses it.
      - **Rejects, and stops the batch:** invalidation only. That is the workspace being replaced
@@ -334,8 +342,11 @@ Expected results never come from the parser under test.
 | Molecule | `LOCUS AA 4 bp DNA linear` is nucleotide; `LOCUS rnaseP 300 aa` is protein. A nucleotide and a protein record in one file: refused. A protein file picked together with a nucleotide file into an empty session: whichever commits second is refused, in both response orders. A protein-first file with a later malformed record, in a nucleotide session: one dialog listing the mismatch and the malformed record |
 | Frame | `/codon_start=0`, `4`, `2junk`: note, translation suppressed, value kept. `/codon_start=2`: no note |
 | Inert qualifiers | GenBank `/phase=1` on a CDS without `/codon_start`: stored in `unknownQualifiers`, the frame stays 1, export writes no `/codon_start=2`, and reimport gives the same CDS. `/_gffStrand="."`: the strand stays as parsed |
-| Aliases | A refused file with `LOCUS X` and `ACCESSION AB123`, dropped with a GFF3 naming `AB123`, into a workspace that already has a record with accession `AB123`: the GFF3 rows stay unmatched |
-| Stale responses | The workspace is replaced while a malformed file and a file with notes are parsing: neither the dialog nor the notes appear, and the log says why |
+| Aliases | A refused file with `LOCUS X` and `ACCESSION AB123`, dropped with a GFF3 naming `AB123`, into a workspace that already has a record with accession `AB123`: the GFF3 rows stay unmatched. A refused `LOCUS foo;bar` with a GFF3 naming `foo_bar`, into a workspace that already has `foo_bar`: unmatched, for both the raw and the sanitized annotation ID |
+| Qualifier recovery | A CDS with `/note="abc` unclosed, followed by an indented `/codon_start=4` and a later `gene` with a malformed location: one dialog with the unclosed note, which says the rest of that CDS wasn't checked, and the gene's location finding |
+| Wrong-key and private qualifiers | `/codon_start` on a `gene`: wrong-key warning. `/label` on a CDS, and any qualifier on an unknown key: no qualifier warning |
+| ORIGIN grouping | A sequence line with a count and 60 residues without spaces: accepted |
+| Stale responses | The workspace is replaced while a malformed file and a file with notes are parsing: neither the dialog nor the notes appear, and neither file's refusal or notes log line is written. The log has one invalidation line per file, saying the workspace was replaced |
 | Frame-dependent outputs | `/codon_start=4` and `2junk` on a 9-base CDS with no stored translation: the Hub shows the reason, not `2 aa` or `NaN aa`; no GFF3 phase is exported from them. `/codon_start=2`: count and phase as today. A selection export clipping a `/codon_start=4` CDS keeps `4`, and on reimport the CDS is still flagged with translation suppressed. A clipped `/codon_start=2` CDS gets today's rebased frame |
 | Naming unchanged | A CDS named only by `/label=A`: its name is `A`, comparison groups it as today, and export writes `/standard_name="A"` as today |
 | Batch | A drop of `[bad.gb, good.gb]` and of `[good.gb, bad.gb]`: the good file loads, the bad one shows the dialog. A category-mismatched GenBank file followed by a valid file: the valid file loads. An annotation file dropped with `bad.gb` doesn't attach to an existing record with the same ID |
