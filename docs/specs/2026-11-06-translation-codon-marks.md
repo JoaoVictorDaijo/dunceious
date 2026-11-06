@@ -28,11 +28,16 @@ Dependencies, in order:
   read-only import provenance, recomputation after coding edits, conceptual comparison,
   counts and early-stop diagnostics. Cite that named model, not its changing line numbers.
 - **PR 2, “CDS translation exceptions under NCBI code-break rules”**, in
-  `docs/specs/2026-11-06-translation-transl-except.md` on `fix/cds-transl-except` at `8449576`:
+  `docs/specs/2026-11-06-translation-transl-except.md` on `fix/cds-transl-except` at `3beaef4`:
   consume its **Exception evidence on every result** interface (ordered occurrence
   evidence and diagnostics on both `ConceptualTranslation` variants). PR 3 never parses
   exceptions independently. Until PR 2 supplies it, PR 1's `unavailable` reason is exactly
-  `unsupported-exception`. PR 2's unresolved failure policies remain conditional.
+  `unsupported-exception`. PR 2's unresolved failure policies remain conditional: owner
+  [question 3](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L487) permits either
+  whole-CDS unavailability with successful local evidence or an explicitly incomplete
+  subset preview. Neither permits verified comparison, counts, early-stop claims or
+  computed `/translation` export from an incomplete result. Bind preview representation
+  and viewer treatment to PR 2's resolved interface before implementation.
 - **PR #295**, `fix/assumed-genetic-code`: the #288 presentation-only assumption and its
   shared marker, inspected from `origin/fix/assumed-genetic-code`. It has not landed in
   this checkout. Reuse its drawing branch and hover machinery rather than creating a
@@ -176,7 +181,12 @@ eligible nucleotide records, which supplies its own explicit assumed D. No unava
 result supplies a verified length, discrepancy chip, terminal glyph or early-stop mark.
 A short stored protein in a non-invalid-code unavailable result shows only its stored
 cells, no computed tail or length chip; feature details explain why the tail cannot be
-checked. Missing completeness is never inferred from a false partial-end accessor.
+checked. PR 2's optional incomplete preview is also unverified: successful local evidence
+may explain an adjusted preview, but cannot supply verified codon/substitution marks,
+comparison, counts, terminal/early-stop claims or discrepancy chips. Keep any preview
+visibly labelled incomplete and separate from verified C; its representation and viewer
+treatment await PR 2's resolved interface. Missing completeness is never inferred from a
+false partial-end accessor.
 
 For each eligible codon let S be the stored residue if present, O its ordinary code reading,
 I its contextual reading after initiation but before exceptions, and C its effective
@@ -287,7 +297,25 @@ Tooltip/accessibility text:
 “Annotated protein is N translation positions longer/shorter than the DNA-derived protein
 (terminal stop excluded). Stored residues past the last translated position: {extra}”
 or “N DNA-derived positions have no annotated residue.” Use singular grammar for N=1.
-List long extras in scrollable tooltip content with the exact total; indicate any truncation.
+For long extras, keep the tooltip bounded to the available viewport: show the exact total,
+a fitting prefix with explicit “Preview; complete list in feature details” text, and no
+interactive or scrollable tooltip content. The complete ordered list remains available
+in feature details with translation-position numbers and literal residues, including its
+final residue; never truncate that list. The chip is an actionable button named
+“{feature}: show all N extra stored translation positions in feature details”. Pointer
+activation or Enter/Space opens that feature's details at the complete-list section and
+moves focus to its labelled heading. Provide the same labelled action alongside the
+feature's length summary, so the list is reachable when the chip is offscreen or hidden
+at overview zoom. Details support pointer scrolling and a keyboard-focusable list region
+with Arrow/Page/End navigation to the final entry; closing details returns focus to the
+invoking control if still present, otherwise the feature's surviving details control.
+
+This uses the existing [`TooltipLayer`](../../src/app/components/TooltipLayer.tsx) as a
+noninteractive summary: it renders `pointer-events-none`, closes on pointer press and
+focus loss, and captures scroll to dismiss. Preserve those rules; a link inside the tooltip
+or overflow styling alone cannot provide the complete-list route. Opening details may
+dismiss the tooltip normally; the list belongs to the details surface and remains usable
+independently of the tooltip's lifetime.
 
 Feature/hub explanations and every discrepancy codon/chip tooltip use a shared summary:
 “Annotation differs from DNA at N codons” only when `differing.length > 0`, followed by
@@ -489,7 +517,7 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | `ATGGCNRAY`, table 99, S absent | 2 GCN=A invariant; 3 RAY={D,N} unresolved | Solid assumed A; dashed assumed `?` even though readings invariant | G four GC codons A; GAC/GAT D, AAC/AAT N across tables; #295 unresolved marker |
 | `ATGTGGTAA`, table 99, S=`M` | Stored first M; assumed tail W,stop | Unverified stored M; solid assumed W, dashed red `*`; no short chip | G table 1 tail; PR 1 invalid-code unavailable and #295 tail contract |
 | `ATGTGGTAA`, table 99, S=`MW` | Stored M/W cannot be compared under unknown code | Unverified stored cells, no curated/verified stop claims | G has no id 99; no reference translation of an invalid id claimed |
-| `ATGTGATAA`, S=`MU`, exceptions `(pos:4..6,aa:Sec)` and `(pos:5..7,aa:Val)` | First maps TGA→U; second crosses codons | Conditional: whole-result-unavailable → unverified cells; valid-subset → explained lighter U, no stop/mismatch, plus failed-entry diagnostic | F single-codon rule; PR 2 owns the failed-value computation policy (dependency below); no invalid application guessed |
+| `ATGTGATAA`, S=`MU`, exceptions `(pos:4..6,aa:Sec)` and `(pos:5..7,aa:Val)` | First maps TGA→U; second crosses codons; conditional on PR 2 classifying it unusable under its resolved application policy | Conditional: whole-CDS unavailable with successful local evidence, or an explicitly incomplete adjusted preview with per-occurrence evidence. Both retain imported MU and warnings; neither supplies verified substitution/mismatch marks, comparison, counts, terminal/early-stop claims (including “no stop”), length chips or computed /translation export. Any preview stays visibly incomplete; no lighter U may imply a verified result | F single-codon rule; PR 2 question 3 owns the two failure alternatives and [question 4](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L489) owns stricter mapping eligibility. Resolve interface and viewer treatment there; no invalid application or owner policy guessed |
 | `ATGAAAGCTTAA`, `(pos:4..6,aa:TERM)`, S=`M*A`; separately `MKA` and `MXA` | 2: O=I=K, C=stop; conceptual M*A | Verified `!` for `*` (count 0); lighter K/X + stop edge (differing=[1], count 1). All say AAA ordinarily K, exception specifies stop | G AAA=K, GCT=A; F TERM=* overrides codon; terminal TAA removed |
 | `ATGAAACCCTAA`, `(pos:4..6,aa:TERM)`, S=`MXP`; controls S=`M*P` / `MKP` | Ordinary MKP; effective M*P, possible M,*,P, internalStops=[1]; differing=[1] / [] / [1], no tails | X/K lighter with stop edge, stored * verified `!`; shared codon count 1 / 0 / 1, 3 positions and 1 internal stop. X tooltip names AAA→K and TERM→stop. Remove TERM: MKP, X wildcard count 0/no stop; Sec + S=MUP: no mismatch/stop | G AAA=K, CCC=P; F TERM/Sec overrides; exact PR 2 shared MXP fixture |
 | `GTGAAATAA`, `(pos:1..3,aa:Val)`, S=`VK` | 1: O=V, I=M, C=V | Lighter V exception mark, no mismatch; tooltip explains initiated M overridden by Val | G GTG ordinary V/Starts M; F Val=V; PR 2 applies exceptions after initiation |
@@ -528,6 +556,25 @@ at current bounds. These are presentation integration fixtures, not new translat
 | Arm the delayed opening on a codon or feature, then revise evidence, replace/remove the target or change its geometry before the delay expires. | No obsolete tooltip opens when timers advance; detached old nodes retain no `aria-describedby`. A new interaction can open the current explanation. This rejects a late callback that survives invalidation even when no tooltip was visible yet. |
 | Keep a codon/feature explanation open during the same-length alignment overlay fixture above. | Dismiss before remapped paint/targets appear; reopening uses unchanged biological explanation at the new bounds. Real pointer hits, gap misses and keyboard geometry follow the new mapping, with no new translation/comparison run. |
 
+### Long stored-extra list acceptance fixture
+
+Use DNA `ATGAAATAA`, table 11, complete CDS `1..9`, and imported stored protein
+`MK` followed by 200 literal A residues and a final W. Independent hand derivation gives
+conceptual MK (terminal TAA omitted), 203 stored positions and 201 extras; the final extra
+is W at stored translation position 203 (extra ordinal 201). Choose a viewport where the
+complete tail exceeds the available tooltip and details height.
+
+Through the real track, shared tooltip and feature-details route, pointer hover and
+keyboard focus on `+201 positions` must expose the same bounded preview, exact total and
+complete-list instruction without claiming the preview is complete. Activate the chip by
+pointer, then independently by keyboard Enter/Space; details open at the labelled list
+heading. Pointer scrolling must reach W/position 203; keyboard focus into the list region
+and End must also reveal that final entry. The full list preserves all 201 extras in
+order and stays usable after the tooltip dismisses. Close details and verify focus returns
+to the invoking control. Repeat via the feature-summary action with the endpoint offscreen
+and at overview zoom. This rejects an inaccessible tooltip-only tail, a silently truncated
+list and a details action that loses the requested feature or final residue.
+
 ## Open decisions and unresolved acceptance gaps
 
 1. **Unverified stored cells' additional visual.** A biologist can read the deposited protein, but we
@@ -549,20 +596,25 @@ at current bounds. These are presentation integration fixtures, not new translat
 3. **PR 2 failed-value computation policy (dependency, not a PR 3 default).** Some
    translation-exception annotations are invalid or cross codon boundaries, so a
    biologist cannot assume every requested amino-acid replacement is meaningful.
-   Options, owned by PR 2: make the whole computation unavailable, or apply a verified
-   valid subset with diagnostics. Preserve all occurrence evidence in either case.
-   PR 3 consumes the resolved `ConceptualTranslation` status and never promotes a failed
-   entry into a substitution; an unavailable result certifies no applied stop/mismatch.
-   The mixed valid/off-codon fixture above specifies both outcomes conditionally. Resolve
-   in PR 2 before implementing this branch and bind to its eventual named failed-value
-   policy; “With a failed value” remains open at `8449576`. PR 3 neither chooses nor
-   freezes that recommendation. OTHER/Xaa comparison sets, conflicting/duplicate
-   assertions and other PR 2 open application policies also remain PR 2-owned: consume
-   their final availability, possible sets, differing indices and occurrence evidence
-   without a viewer fallback; resolution is required before accepting affected cases.
-   The mockup and cited INSDC text do not settle failure handling; NCBI parser/translator
-   and validator behavior for mixed valid/invalid entries has not been established.
-   Suggestion: make the whole computation unavailable until the annotation's intended protein can be established, preserving all occurrence evidence for PR 2's decision.
+   Options, owned by PR 2's [question 3](https://github.com/JoaoVictorDaijo/dunceious/blob/3beaef49acc76d12796830ee39d450b988376b8f/docs/specs/2026-11-06-translation-transl-except.md#L487)
+   at `3beaef4`: make whole-CDS computation unavailable while retaining successful local
+   evidence, or expose an explicitly incomplete subset result allowing an adjusted preview
+   and per-occurrence evidence only. Both preserve imported protein, warnings and all
+   occurrence evidence; neither certifies a verified comparison, count, early-stop claim
+   or computed `/translation` export from the incomplete computation. An incomplete
+   preview remains visibly unverified and cannot feed verified codon/substitution marks,
+   discrepancy chips or terminal/stop claims, including a claim of no stop or no mismatch.
+   PR 3 never promotes a failed entry into a substitution or treats successful local
+   evidence as whole-CDS verification. The mixed valid/off-codon fixture above specifies
+   both outcomes conditionally. Resolve this policy in PR 2 before implementation and bind
+   the preview's representation and viewer treatment to its eventual interface; PR 3
+   chooses neither alternative. OTHER/Xaa comparison sets and stricter mapping eligibility
+   also remain PR 2-owned: consume their final availability, possible sets, differing
+   indices and occurrence evidence without a viewer fallback; resolution is required
+   before accepting affected cases. The mockup and cited INSDC text do not settle this
+   app's whole-CDS verification policy. NCBI parses individual values and translates
+   parsed breaks while retaining failures as qualifiers; that behavior does not certify
+   an incomplete app result.
 4. **Overlapping feature presentation.** Two CDSs can cover the same bases yet carry
    different proteins or explanations, even when their amino-acid letters agree; a
    biologist must be able to inspect both. Options: extend the existing lane packer to
@@ -592,13 +644,13 @@ Assumed-table policy belongs to #295; this PR protects its integration in the sh
 | Guarantee/source | Existing protection inspected | Decision |
 |---|---|---|
 | Initiation lookup, RNA normalization / #261 | `initiatorResidue.test.ts` matches literal Starts rows for tables 1/11; lowercase `gug`→M while context-free GTG→V | Reuse lookup coverage; add projection-level complete/partial/phase and stored override distinction. Do not retest every codon lookup. |
-| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. |
+| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. Include both conditional mixed-exception outcomes; reject incomplete previews promoted into verified marks, comparison, counts or stop claims. |
 | Lane, reverse, joined/origin geometry / OP-8 | `SequenceTrack.test.tsx` “splits a splice-crossing codon without painting the intron” asserts exact rectangles; origin case tests both strands. Its aligned-CDS assertion currently paints across a gap and contradicts this contract. | Strengthen the recorder boundary with differing/stop-edge states and hit targets on all pieces. Replace the contrary gap assertion with real-column splits; check gap-only search hits and pointer misses plus real-base hits. Assert one logical keyboard stop; no gaps/intron painting. Include retained padded fragments, dropped fragments and partial TERM targets on actual bases only; no geometry for unknown-strand/order/remote inputs. |
 | Search + stop edge + chip compositing / mockup | Existing active-search priority test draws overlapping active/other search backgrounds; none found for lighter cells/chips | Add canvas-recorder checks for white base, lighter S, base-facing edge on both strands, exact partial hit outline, longer/shorter chips. Add overlap/packing and real target checks after Open decision 4 is settled, including equal letters with distinct provenance. Browser visual check owns legibility and collisions; spy alone cannot prove appearance. |
 | Zoom and transition preservation | `translationStyles.test.ts` pins shared threshold 5 and reduced-motion CSS; `SequenceTrack.test.tsx` low-zoom test keeps search within nucleotide band | Reuse threshold/transition checks; strengthen observable rendered targets at 5/just above 5, 12/just above 12 and 20, plus translation-off/protein modes. Reject hidden focus targets and stale explanations on zoom/pan. |
 | Assumed vs stored, no false biological claims / #295 | Current `SequenceTrack.geneticCodes.test.tsx` asserts invalid-code `?` and a warning; this is predecessor behavior superseded by #295 | Reconcile with #295 tests at integration; add shared-path solid invariant/dashed sensitive, stored-wins and short assumed-tail checks. Never preserve obsolete `?`-everywhere assertions as scientific truth. |
 | Per-record eligibility / PR 1 step 0 | PR 1 specifies protein/cache acceptance fixtures; no PR 3 projection protection found | Add real record→projection/details and format-2 reload checks with QQQ/imported and forged AKA cache; deny all nucleotide paint/targets/counts including table 99/exception fallback, preserve QQQ/source/copy. Include allowed DNA/RNA/absent-type controls and mixed records; a session-only gate cannot pass. |
-| Tooltip and accessibility wiring and lifecycle | `TooltipLayer.test.tsx` asserts delayed hover text/shortcut and `aria-describedby`, press dismissal/unlinking and warm switching; existing genetic-code test gets a real warning button by accessible name. None found for revision, removal/replacement or geometry invalidation. | Reuse existing shared-tooltip protections; add the lifecycle fixtures above through real renderer/tooltip wiring for codon and feature/count consumers, including pending timers, no fresh hover/focus and reopening with current text/bounds. Preserve Escape/blur, escaped qualifier content, biological tab order and shared text. One browser journey checks actual focus rings, readable hover, pan anchor changes and search overlap on both strands. |
+| Tooltip and accessibility wiring and lifecycle | `TooltipLayer.test.tsx` asserts delayed hover text/shortcut and `aria-describedby`, press dismissal/unlinking and warm switching; existing genetic-code test gets a real warning button by accessible name. None found for revision, removal/replacement or geometry invalidation. | Reuse existing shared-tooltip protections; add the lifecycle fixtures above through real renderer/tooltip wiring for codon and feature/count consumers, including pending timers, no fresh hover/focus and reopening with current text/bounds. Preserve Escape/blur, escaped qualifier content, biological tab order and shared text. Add the long stored-extra fixture through real chip/feature-summary→details wiring: bounded preview, complete ordered list and final W reachable by pointer and keyboard, with focus entry/return and offscreen/overview access. No complete-tail navigation protection found. One browser journey checks actual focus rings, readable hover, pan anchor changes, long-list navigation and search overlap on both strands. |
 | Alignment-only display invalidation / accepted `applyFastaResponse` overlay | `bioResponse.test.ts` “accepts a case-only difference and keeps the loaded residues as the source” asserts raw sequence/features alongside new `alignedSequence`; its overlay test asserts accepted alignment strings. Neither checks renderer caches, targets or lane occupancy. | Add the same-length gap-move fixture through the accepted overlay→real track update, comparing pieces/index/occupancy with a fresh second-mapping projection. Observe exact paint, gap pointer misses, changed codon hits and keyboard bounds/order together; assert biological evidence reuse and no translation/comparison work. Include alignment removal/raw-display restoration to reject a stale mapped cache in the reverse direction. |
 | Atomic refresh after edits; feature tooltip and hub count agree | PR 1's spec proposes invalidation tests; they were not executed/credited here | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop diagnostics in feature/hub/chip but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
 | Exact visibility and deep lanes / #300 | #295 source has exact max-end hover lookup; no executed evidence for PR 3 drawing index or vertical clipping | Add indexed-vs-exhaustive synthetic comparison at boundary overlaps, split pieces and deep lanes. Minimal correctness stays in CI; opt-in dense browser benchmark measures redraw/DOM/memory over repeated pans without retranslating. No fixed fps promise without measurement. |
