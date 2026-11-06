@@ -150,6 +150,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const dragCleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => { dragCleanup.current?.(); }, []);
   const addSequencesInput = useRef<HTMLInputElement>(null);
+  const alignedRow = records.find(record => record.alignedSequence);
+  const selectionOutsideAlignment = Boolean(activeSelection
+    && Math.min(activeSelection.start, activeSelection.end) >= (alignedRow?.alignedSequence?.length ?? 0));
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -268,7 +271,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="grid grid-cols-3 gap-2 pt-2">
               <details className="relative"><summary className="cursor-pointer py-2 text-emerald-400 text-[11px]">Export FASTA</summary>
                 <div className="absolute z-30 bg-slate-900 p-2 rounded-lg flex flex-col">
-                  <button disabled={!records.some(r => r.alignedSequence) || Math.min(activeSelection.start, activeSelection.end) >= (records.find(r => r.alignedSequence)?.alignedSequence?.length ?? 0)} data-tip={!records.some(r => r.alignedSequence) ? 'No row is aligned' : 'The selection is outside the alignment'} onClick={() => onExportSelection('aligned')}>Aligned, with gaps</button>
+                  <button disabled={!alignedRow || selectionOutsideAlignment} data-tip={!alignedRow ? 'No row is aligned' : selectionOutsideAlignment ? 'The selection is outside the alignment' : undefined} onClick={() => onExportSelection('aligned')}>Aligned, with gaps</button>
                   <button onClick={() => onExportSelection('original')}>Sequences only, no gaps</button>
                 </div>
               </details>
