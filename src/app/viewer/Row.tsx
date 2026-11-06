@@ -491,7 +491,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
-              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
+              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}
             </div>
           )}
 

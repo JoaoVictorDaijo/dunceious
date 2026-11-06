@@ -1,7 +1,8 @@
 # Displayed metrics and sequence summaries
 
 Code assessments below are static inspections of `f5a6ad2` on 2026-10-23, not new runtime or
-reference-tool conformance tests. Sources marked Documented describe the cited version or
+reference-tool conformance tests, except METRIC-1, updated on 2026-11-06 for #259 with the mounted
+tests it names. Sources marked Documented describe the cited version or
 observation date only; live manuals are not assigned the releases in [Tools](tools.md).
 **Owner decision open** identifies an unresolved contract, not an adopted scientific method.
 Scientific choices still require an established source, its defaults and an independent oracle
@@ -32,8 +33,8 @@ proteins and `bp` for nucleotides. When `alignedSequence` exists, a separate Ali
 row counts its columns, including gaps. The raw-sequence badge uses the same residue units.
 Feature lengths and selected-view badges retain their feature/region extents. Literal mounted
 oracles in `RecordDetailsModal.test.tsx` distinguish ACGT (4 bp) from AC--GT (6 columns),
-and MA (2 aa) from M--A (4 columns). Raw hub/index and export-tree lengths use molecule units.
-The separate alignment log in `src/app/logic/bioResponse.ts:205` still calls alignment width `bp`.
+and MA (2 aa) from M--A (4 columns). Raw hub/index and export-tree lengths use molecule units,
+and so does the viewer's focus badge. The alignment-overlay log names its width in columns.
 
 ## METRIC-2. Feature length
 
