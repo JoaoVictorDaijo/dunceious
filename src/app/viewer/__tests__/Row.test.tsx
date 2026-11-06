@@ -639,3 +639,24 @@ it.each([
   expect(container.querySelector('[data-annotation-name]')?.textContent).toContain('real bar');
   expect(glyphs(container)[0].getAttribute('d')).toMatch(strand === 1 ? /L208,/ : /L48,/);
 });
+
+
+it('bounds whole-sequence length recovery independently of aligned CDS count', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  const record = rec(features);
+  record.sequence = 'ATGTAGGAG';
+  record.alignedSequence = seq;
+  const data = rowData(record);
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    render(<Row index={0} style={{}} data={data} />);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq).length).toBeLessThanOrEqual(1);
+  } finally {
+    replacement.mockRestore();
+  }
+});

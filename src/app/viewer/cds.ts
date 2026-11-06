@@ -47,7 +47,7 @@ export const computeBrokenFeatureMap = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
-  topology: { isCircular?: boolean } = { isCircular: true },
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): Map<BioFeature, boolean> => {
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
@@ -115,7 +115,7 @@ export const assignTranslationLanes = (
   features: BioFeature[],
   seq: string,
   moleculeType?: SeqRecord['moleculeType'],
-  topology: { isCircular?: boolean } = { isCircular: true },
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): TranslationLanes => {
   if (moleculeType === 'protein') return NO_TRANSLATION_LANES;
   const positions = seq.includes('-') ? alignedToOriginalPositions(seq) : null;

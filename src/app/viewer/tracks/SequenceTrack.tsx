@@ -103,7 +103,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Pre-compute broken-protein status for each CDS/ORF feature.
   const brokenFeatureMap = useMemo(
-    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType, record ?? { isCircular: true }) : new Map<BioFeature, boolean>()),
+    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType, record ? { isCircular: record.isCircular, biologicalLength: record.sequence.length } : { isCircular: true }) : new Map<BioFeature, boolean>()),
     [features, seq, moleculeType, translationVisible, record],
   );
 

@@ -133,7 +133,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, l.record),
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }),
     [l.record.features, seq, l.record.moleculeType, l.record],
   );
 

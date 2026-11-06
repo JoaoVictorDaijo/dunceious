@@ -427,3 +427,23 @@ it('passes the known biological length to feature extraction on translation redr
     extraction.mockRestore();
   }
 });
+
+
+it('bounds whole-sequence length recovery independently of aligned CDS count', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  installCanvasRecorder();
+  const record = { id: 'scan', name: 'scan', sequence: 'ATGTAGGAG', alignedSequence: seq, features };
+  const input = props(seq, features);
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    render(<SequenceTrack {...input} record={record} />);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq).length).toBeLessThanOrEqual(1);
+  } finally {
+    replacement.mockRestore();
+  }
+});
