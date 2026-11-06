@@ -176,20 +176,36 @@ The entry is the only owner of that response, and it settles exactly once:
      - the alignment lock (`isAlignmentLocked`);
      - the session molecule gate against the **current** records, the same `getLoadedCategory`
        check the picker runs at dispatch (`useFileHandlers.ts:186-197`).
-   - Any failure: nothing is committed, the log names the reason, and a tracked request
-     rejects. For example: "<file> was not loaded: the session now holds nucleotide sequences".
+   - Any failure: nothing is committed and the log names the reason, for example "<file> was not
+     loaded: the session now holds nucleotide sequences". A stale workspace is invalidation and
+     rejects a tracked request. A lock or category refusal settles it as handled, with all of the
+     file's IDs mapped to `null` (see "Refusals and invalidation" below).
    - Otherwise `applyFastaAndLog` runs against the current records. It strips `-` and `.`,
      commits, logs the removal as today, and resolves a tracked request with the `idMap`.
 3. **Don't load:** nothing is committed. The log says "<file> was not loaded: gap removal
    declined".
    - **Picker and Hub** entries have no request to settle.
-   - **A dropped file** settles its request with an empty ID map instead of an error.
-     `importDroppedBatch` (`dropRouting.ts:52-66`) then carries on with the next files, so one
-     declined file doesn't stop the rest of the batch.
-   - Annotation rows naming the declined file's IDs find no record, and are reported by the
-     existing "did not match active records" warning.
-   - A refused file (`reject-no-residues`, a stale workspace, the lock or the category) still
-     rejects, which stops the batch as today, and the log names it.
+   - **A dropped file** settles its request as handled, with an ID map that maps **every ID in
+     that file to `null`**. It does not reject.
+   - `importDroppedBatch` (`dropRouting.ts:52-66`) merges the map and carries on with the next
+     files, so one declined file doesn't stop the rest of the batch.
+   - A `null` entry already means "attach nothing": `applyAnnotations` skips the name, accession
+     and sanitized-ID fallbacks for it and reports the ID as unmatched (`bioResponse.ts:111-112`).
+     So an annotation naming a declined ID is never attached to an existing record with the same
+     name, or to another file's record. It is reported by the existing "did not match active
+     records" warning.
+   - When an accepted file in the same batch uses the same ID, the merge already keeps it `null`
+     (ambiguous, `dropRouting.ts:62`), so it stays unattached too.
+
+**Refusals and invalidation in a dropped batch** (aligned with the GenBank import-validation
+spec, #298):
+- **Every per-file refusal settles as handled,** in the same way: no residues, a category
+  mismatch, the alignment lock, a declined gap removal, and the sibling spec's validation
+  refusals. Each one maps all of that file's IDs to `null`, logs the reason, and lets the batch
+  continue.
+- **Only invalidation rejects and stops the batch:** the workspace replaced, a worker failure,
+  or unmount.
+- **The picker and Hub paths** have no batch: each file is logged on its own.
 4. **Invalidation.** These clear every entry, rejecting tracked requests and logging one line
    per file ("<file> was not loaded: <reason>"):
    - the workspace is replaced (project load, new session);
@@ -291,6 +307,14 @@ uses it, so no path keeps its own variant.
 
 ## Mixed aligned and unaligned rows
 
+- **Conservation control:** its availability follows the aligned rows, not today's
+  equal-length test.
+  - Today `isAlignmentLoaded` (`viewModel.ts:111`) requires every row, aligned or raw, to have
+    the same length, and the toolbar toggle uses it to disable itself (`TopNav.tsx:166`,
+    `App.tsx:327`). One longer unaligned row would lock the track off.
+  - The toggle is enabled when at least two rows have an `alignedSequence`.
+  - When it is disabled, its tooltip says "Conservation needs at least two aligned sequences".
+  - Other uses of `isAlignmentLoaded` are checked and kept as they are, on purpose.
 - **Conservation** (`GenomeViewer.tsx:215-235`):
   - computed over aligned rows only, at alignment columns;
   - the score keeps today's definition: the count of the most frequent residue, divided by the
@@ -332,9 +356,9 @@ gaps by character. They never come from the code under test.
 |---|---|---|
 | A: aligned load | `bioResponse.test.ts` | Empty workspace, `>a AC--GT` / `>b ACTTGT`: records `a` with `ACGT` aligned `AC--GT`, `b` with `ACTTGT`. Unequal lengths, `.`, an empty row and an all-gap row each refuse with nothing loaded. Duplicate IDs get unique IDs. The reply carries an `idMap` |
 | A: UI | `Sidebar` / `ImportMenu` tests | The pre-aligned input is enabled on an empty workspace with the new text, and disabled while the alignment is locked |
-| B: hold and confirm | `useBioWorker.test.tsx` | A gapped batch file commits nothing until Load, then commits ungapped records. Don't load: nothing committed, the request rejects, the log line is written, and a dropped batch attaches no annotations. Two files queue as "1 of 2". A file without gaps loads with no dialog. Each of the picker, Hub and drop paths reaches the dialog |
+| B: hold and confirm | `useBioWorker.test.tsx` | A gapped batch file commits nothing until Load, then commits ungapped records. Don't load: nothing committed, the log line is written, and a dropped file settles as handled with every one of its IDs mapped to `null`. Two files queue as "1 of 2". A file without gaps loads with no dialog. Each of the picker, Hub and drop paths reaches the dialog |
 | B: settle once, invalidate | `useBioWorker.test.tsx` | Workspace replaced while a dropped file waits: Load commits nothing and the request rejects. Worker failure while waiting: the queue clears with log lines. A second click on the same entry does nothing |
-| B: declined drop continues | `dropRouting` / `useFileHandlers` tests | Drop gapped A, valid B and an annotation file. Declining A loads B and its annotations; the annotation rows for A's IDs are reported as unmatched |
+| B: declined or refused drop continues | `dropRouting` / `useFileHandlers` tests | Drop gapped A, valid B and an annotation file. Declining A loads B and its annotations, and the annotation rows for A's IDs are reported as unmatched. The workspace already holds a record `a`, and the declined file also has ID `a`: the annotation for `a` is not attached to the existing record. An accepted file in the same drop also using `a`: `a` stays unattached. A category-refused file followed by a valid file: the valid file loads. Workspace replaced mid-batch: the batch stops |
 | B: lock and empty session | `useBioWorker.test.tsx` | A gap-free response arriving after a remote alignment started commits nothing. A protein FASTA (immediate and confirmed) and a protein GenBank file each load into an empty workspace |
 | Busy blocks the workspace | `App` test with the dialog mounted | While a confirmation is pending, Ctrl/Command+O, workspace clear, imports and the remote aligner do nothing |
 | A: stale alignment | `useFileHandlers` test | The workspace is replaced, empty or with matching records, before the alignment read finishes or before its response arrives: nothing is applied, and the log says why |
@@ -347,7 +371,7 @@ gaps by character. They never come from the code under test.
 | D: one rule | `fasta.test.ts` | Aligned `AC--GT` with selection `[1,5)`: gapped `C--G`, ungapped `CG`. Mixed set: gapped writes only aligned rows and reports the others; ungapped writes all. Selection `[2,4)` on `AC--GT`: gapped writes `--` and names the row; ungapped leaves it out and names it. Aligned width 4 with an unaligned row of 8, selection `[5,7)`: gapped item disabled |
 | D: every path | `useFileHandlers`, context-menu and `RecordDetailsModal` tests | The toolbar menu, the Sidebar export, the record context menu and the details dialog each offer both modes. The aligned item is disabled when no row is aligned. An unaligned record offers one item |
 | Project refusal | `projectFile.test.ts` | `sequence: "AC-GT"` refuses with the damaged-file message. Rows `AC--GT` (6 columns) and `ACTTGT--` (8 columns) refuse with the unequal-width message. A valid aligned project still loads |
-| Conservation | `GenomeViewer` / pure helper test | Two aligned rows plus one unaligned: scores use the two aligned rows only, against hand-computed values. One aligned row: no scores, plus the tooltip text |
+| Conservation | `GenomeViewer` / pure helper and `TopNav` tests | Two aligned rows of width 6 plus one unaligned row of length 8: the toggle is enabled, and scores use the two aligned rows only, against hand-computed values. One aligned row: the toggle is disabled with its tooltip, and there are no scores |
 | Mixed marks | `ViewerToolbar` / `Row` tests | The chip appears only in mixed workspaces and names the unaligned IDs. The unaligned label is dashed. The end tick sits at the row's length and says `bp`, or `aa` in a protein workspace |
 
 ## Living documents
