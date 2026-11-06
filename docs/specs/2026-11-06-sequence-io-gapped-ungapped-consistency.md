@@ -121,24 +121,47 @@ The worker stays unchanged. `useBioWorker` changes what it does with a batch `FA
 whose rows contain `-` or `.`.
 
 **Entry paths.** All three batch paths reach the same branch:
-- the Sidebar file picker and the Hub import menu, through `handleSequenceUpload`, which posts
+- the Sidebar file picker and the Hub import menu, through `handleFileUpload`, which posts
   untracked messages (`useFileHandlers.ts:170-199`, `upload.ts:90-96`);
 - drag-and-drop, through `importDroppedBatch`, which uses tracked requests with a promise and a
   workspace-revision guard (`useFileHandlers.ts:287-300`).
 
-**The pending queue.** Instead of committing, the response becomes a queue entry. Each entry holds:
+**Every batch commit is checked against the state it started from.** This applies to every
+batch sequence response, gapped or not, FASTA or GenBank. The confirm step only adds a wait in
+the middle.
+- **Workspace identity at import start.**
+  - `handleFileUpload` reads the workspace revision once, before any file is read, as the drop
+    path already does (`useFileHandlers.ts:287-289`).
+  - The request carries it (`workspaceRevision`), and the worker echoes it in the response, as
+    it echoes `filename` today.
+  - A response whose revision differs from the current one is discarded before it is queued or
+    committed. The log says "<file> was not loaded: the workspace was replaced". A tracked
+    request rejects.
+- **Molecule category at dispatch.**
+  - The dispatch-time category (`sniffFastaCategory` or `sniffGenBankCategory`,
+    `useFileHandlers.ts:49-71`) is carried the same way, as `incomingCategory`.
+  - Right before committing, it is checked against `getLoadedCategory` of the **current**
+    records, for every batch response.
+  - This closes today's gap, where files picked together are all checked against the records
+    captured when the picker fired (`useFileHandlers.ts:177-199`). A gap-free nucleotide file
+    could then be committed after a protein file was.
+  - A mismatch commits nothing. It opens the existing molecule-type mismatch dialog, logs as
+    today, and rejects a tracked request.
+
+**The pending queue.** Instead of committing, a gapped response becomes a queue entry. Each entry holds:
 - the response, plus a preview: the file name, and each record's ID with the number of gap
   characters that would be removed;
 - its source: tracked (with the pending request and its `shouldCommit` guard) or untracked;
-- the workspace revision at the time it was queued.
+- the workspace revision and `incomingCategory` captured when its import started, never when it
+  was queued.
 
 The entry is the only owner of that response, and it settles exactly once:
 1. **Before anything else,** the entry is taken off the queue. A second choice on the same entry
    is impossible.
 2. **Load:**
    - First the commit-time checks, in this order:
-     - the entry's guard (`shouldCommit` for drops; the stored revision against the current one
-       for picker and Hub entries);
+     - the entry's guard: `shouldCommit` for drops, and the import-start revision against the
+       current one for picker and Hub entries;
      - the alignment lock (`isAlignmentLocked`);
      - the session molecule gate against the **current** records, the same `getLoadedCategory`
        check the picker runs at dispatch (`useFileHandlers.ts:186-197`).
@@ -221,7 +244,7 @@ uses it, so no path keeps its own variant.
 
 ## Project files
 
-`validateProject` (`projectFile.ts:89-118`) adds two checks. The existing per-record
+`parseProject` (`projectFile.ts:89-118`) adds two checks. The existing per-record
 `alignedSequence` checks stay, and the format number does not change here.
 - **A record whose `sequence` contains `-` or `.`** is refused: "This project file contains gap
   characters in the sequence of <id>; the file is damaged".
@@ -276,7 +299,8 @@ gaps by character. They never come from the code under test.
 | A: UI | `Sidebar` / `ImportMenu` tests | The pre-aligned input is enabled on an empty workspace with the new text, and disabled while the alignment is locked |
 | B: hold and confirm | `useBioWorker.test.tsx` | A gapped batch file commits nothing until Load, then commits ungapped records. Don't load: nothing committed, the request rejects, the log line is written, and a dropped batch attaches no annotations. Two files queue as "1 of 2". A file without gaps loads with no dialog. Each of the picker, Hub and drop paths reaches the dialog |
 | B: settle once, invalidate | `useBioWorker.test.tsx` | Workspace replaced while a dropped file waits: Load commits nothing and the request rejects. Worker failure while waiting: the queue clears with log lines. A second click on the same entry does nothing |
-| B: molecule gate | `useFileHandlers` test | Empty workspace, a gapped protein file and an ungapped nucleotide file picked together. Nucleotide first: Load on the protein refuses with the session message. Protein confirmed first: the nucleotide file is then refused as today |
+| B: molecule gate on every commit | `useFileHandlers` / `useBioWorker` tests | Empty workspace, a gapped protein file and an ungapped nucleotide file picked together. Nucleotide commits first: Load on the protein refuses. Protein is confirmed first, then the slower nucleotide file's read finishes: the nucleotide file refuses. The same with a GenBank file in place of the nucleotide FASTA |
+| B: replacement before queueing | same | Pick a fast file and a slow gapped file. The fast response clears processing, then the workspace is replaced, then the slow response arrives: it is discarded and never queued, and the log says why. A slow read across replacement behaves the same. Two files in the same workspace still both load |
 | B: dialog on top | `App` test with the real overlay mounted | While a confirmation is pending and another response arrives, the dialog stays reachable, both buttons work, and workspace actions stay blocked |
 | B: `.` | `bioResponse.test.ts` | Batch `AC..GT` loads as `ACGT`, counting 2 removed |
 | B: stale state | `useBioWorker.test.tsx` | A file confirmed after another load committed is applied to the current records, and no records are lost |
