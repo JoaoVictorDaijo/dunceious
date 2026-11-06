@@ -49,9 +49,12 @@ explicitly held by the owner are under Open decisions, marked awaiting owner.
    occurrence, literal value and rule. Correct names in any capitalisation pass. This overrides
    #286's qualifier-warning rule **only for `/transl_except`**. GFF3/project scope awaits owner.
    **Backed by: owner decision 2026-11-06**, stricter than NCBI permissive rounding/X fallback.
-7. Resolve only the current record's exact `SeqRecord.accession`, including version if present.
-   No record id, display name, version stripping, alias guessing or fetching. Another accession's
-   drop-versus-refuse classification awaits owner.
+7. Resolve qualified positions by exact equality with the current record's separate
+   `SeqRecord.accession` or `SeqRecord.version` field, when populated. With ACCESSION `R` and
+   VERSION `R.1`, both `R` and `R.1` match their respective fields; `R.2` does not match.
+   A bare accession matches only by exact equality with the accession field, never by stripping
+   a version. No record id, display name, aliases or fetching. Another identity's drop-versus-refuse
+   classification awaits owner.
    **Backed by: owner decision 2026-11-06**; INSDC remote syntax alone does not define aliases.
 8. “export anyways, but warn informing a annotation is being broke. in the exported the
    annotation start will have those identifiers to explain annotation continues/annotation
@@ -64,7 +67,10 @@ explicitly held by the owner are under Open decisions, marked awaiting owner.
 9. “The text inconsistency must be resolved using data from the original file to ensure
    validity without breaking line formatting or losing details”. Encode representable text
    losslessly with doubled quotes and safe wrapping; do not block merely because it has quotes
-   or a slash fragment. This is not permission to repair malformed biological assertions.
+   or a slash fragment. PR 2 covers syntax-validated `/transl_except` and ordinary text whose
+   tokens fit the physical line; other free-text over-long tokens are outside this PR under
+   [issue #308: GenBank writer over-long tokens](https://github.com/JoaoVictorDaijo/dunceious/issues/308).
+   This is not permission to repair malformed biological assertions.
    **Backed by: owner decision 2026-11-06**; INSDC 11.4 §3.3.3.1 specifies doubled quotes.
 10. Unverified stored cells use normal drawing with hover explanation, not mismatch fill.
     **Backed by: owner decision 2026-11-06**; PR 3 owns rendering.
@@ -143,11 +149,12 @@ proposed function names. New exception parsing/mapping helpers can be named duri
 | Actual home and function/type | Extension required |
 |---|---|
 | `src/domain/bio/types.ts`: `BioFeature`, `ConceptualTranslation` | One canonical ordered `translationExceptions?: string[]`; evidence on both result variants. No metadata duplicate. |
-| `src/domain/bio/translation.ts`: `conceptualTranslation` | Replace scalar `metadata.transl_except` blanket `unsupported-exception` gate with validated array application. Its current `TranslationRecord` lacks accession: add exact record identity to the input for qualified positions. Preserve other eligibility reasons. |
+| `src/domain/bio/translation.ts`: `conceptualTranslation` | Replace scalar `metadata.transl_except` blanket `unsupported-exception` gate with validated array application. Its current `TranslationRecord` lacks identity fields: carry both `accession` and `version` into the input for exact qualified-position matching. Preserve other eligibility reasons. |
 | Same: `resolvedTranslationFeature`, `checkTranslation`, `checkedTranslation` | Reuse biological orientation resolution; cache adjusted result/evidence; never trust project caches. |
 | Same: `compareTranslation`, `translationWarning`, `translationReason`, `translationDescription` | Compare adjusted possible sets including OTHER sense wildcard; expose drops separately from mismatch; preserve stop-over-stored-X and length discrepancy semantics. |
 | `src/domain/bio/sequence.ts`: `extractCodingSequence`, `featureTranslTable`, `initiatorResidue` | Reuse extraction/phase, table validation and Starts rule; keep removed-terminal real base map before trimming. No endpoint subtraction. |
 | `src/core/genbank/qualifierParser.ts`: `parseQualifiers`; `featureParser.ts`: `parseFeatures` | Current parser is scalar last-value-wins. Capture all exception occurrences in order, including empty values for refusal; pass canonical array into features and retain finding context. |
+| `src/core/genbank/headerParser.ts`: `parseHeader`; `toSeqRecord.ts`: `toSeqRecord` | Preserve separate parsed ACCESSION and VERSION fields through worker publication and translation input; do not collapse them to one accession string. |
 | `src/core/genbank/validation.ts`: `validateRecord`; `toSeqRecord.ts`: `toSeqRecord` | Run syntax/shape checks after sequence/location available, produce refusal findings naming CDS/value/rule before publishing any records from that file. |
 | `src/workers/handlers/bio.ts`: `handleBioMessage`, `routeBioMessage` | Carry array/findings through real GenBank worker import and prevent partial file publication on refusal. Existing checkTranslation call must use adjusted results. |
 | `src/core/formats/gff3.ts`: `parseAttributes`, `readRows`, `parseGFF3`, `addQualifiers`, `exportToGff3` | Split raw list commas before decoding; aggregate occurrences from every same-ID row; serialize array once on first emitted row, with inner commas encoded. |
@@ -155,9 +162,10 @@ proposed function names. New exception parsing/mapping helpers can be named duri
 | `src/app/logic/featureManager.ts`: `saveEditedFeature` | Compare array as biological input; sanitize unusable entries, recompute with retained ones and report losses before committing save. Keep unrelated edits/provenance. |
 | `src/app/components/FeatureEditorModal.tsx`: `commitRows`, `updateRow`, preview calling `saveEditedFeature` | Ordered repeated exception rows, shared preview/save diagnostics, phase read-only alongside translation; frame edited by codon_start. Do not expose a rename/delete path that bypasses read-only phase. |
 | `src/app/logic/projectFile.ts`: `validRecord`, `serializeProject`, `parseProject` | Validate/preserve optional string array in format 2, discard derived checks and recompute; malformed import disposition pending. No legacy scalar migration. |
-| `src/core/genbank/serialize.ts`: `serializeRecord`, `exportToGenBank`; `qualifierRules.ts`: `formatQualifier` | Emit repeated exceptions, lossless text quotes/wrap, adjusted protein policy and report. Keep supplied protein-record CDS translation (answer 1). |
+| `src/core/genbank/serialize.ts`: `serializeRecord`, `exportToGenBank`; `qualifierRules.ts`: `formatQualifier` | Emit repeated exceptions, scoped lossless text quotes/wrap (ordinary tokens must fit), adjusted protein policy and report. Keep supplied protein-record CDS translation (answer 1). |
 | `src/core/exportReport.ts`: `ExportReport`; `src/app/logic/exportPlan.ts`: `serializeExport`, `describeExport` | Carry code-break loss and clipping diagnostics to actual export preview/result, not console alone. |
-| `src/domain/bio/intervals.ts`: `clipFeature`, `sliceRecordsBySelection` | Transform exception base coordinates with geometry, mark cut ends and drop cut-destroyed codons with report. Existing clipFeature removes clipped translation and adjusts codon_start; owner-held question must be resolved before changing that policy. |
+| `src/domain/bio/intervals.ts`: `clipFeature`, `sliceRecordsBySelection` | Return sliced records plus structured domain losses; transform exception base coordinates with geometry, mark cut ends and drop cut-destroyed codons. Existing clipFeature removes clipped translation and adjusts codon_start; owner-held question must be resolved before changing that policy. |
+| `src/app/hooks/useFileHandlers.ts`: `exportSelectionJson` | Consume sliced records and losses, aggregate per-record losses and present named warnings before JSON download; project serialization must not bypass notice delivery. |
 
 ### Canonical values and import
 
@@ -202,7 +210,11 @@ bases. Use extraction's biological map through joins, circular origin and per-in
 complements; aligned columns are not entry bases. Skip codon_start−1 at the biological 5′ end.
 A complete break identifies exactly three consecutive coding offsets `3k..3k+2` in biological
 orientation. A split codon may use `join`; a genomic range including introns cannot name it.
-Accept exact current accession only, with no cross-record lookup.
+Match a qualified identifier against the current record's separate accession and version fields
+by exact string equality as in owner answer 7; pass both through every translation caller.
+`R.1` matches VERSION `R.1`; `R` matches ACCESSION `R` only. A different version is not this
+record, even if its prefix matches. Never derive another identity by stripping a version or
+using an alias; no cross-record lookup.
 
 Accept INSDC §7.4.3 one/three-letter names case-insensitively: Sec/U→U, Pyl/O→O,
 Asx/B→DN, Glx/Z→EQ, Xle/J→IL, Xaa/X and OTHER→sense wildcard, TERM→stop, ordinary
@@ -283,12 +295,19 @@ exceptions from protein differences. Untouched proteins retain provenance; after
 edit export only successful adjusted protein without internal stops, otherwise omit with notice.
 Keep supplied `/translation` on protein-record CDSs; no DNA verification is implied.
 
+PR 2's lossless promise covers syntax-validated `/transl_except` values and quote doubling /
+slash-safe wrapping for ordinary printable text whose tokens fit within the line's available
+columns (INSDC columns 22–80, including qualifier/quote overhead where applicable). Validated
+exception syntax cannot contain the arbitrary free-text payload described below.
 Representable text uses INSDC quote doubling, not backslash escaping. Extend `formatQualifier`
 so its physical continuations never begin with `/` after indentation; reader and writer must
 preserve logical value, spaces and structure. `parseQualifiers` already decodes doubled quotes
 but its continuation heuristics and last-value store need review. Preflight actual formatted
 lines against literal logical expectations; never silently normalize, drop details, create another
-qualifier or invent a translation. This applies to all text touched by this serialization fix.
+qualifier or invent a translation within this scoped guarantee. An over-long unbroken token
+in any other free-text qualifier is a pre-existing general GenBank writer limit, outside PR 2;
+it is tracked separately as [issue #308: GenBank writer over-long tokens](https://github.com/JoaoVictorDaijo/dunceious/issues/308).
+This spec defines no new export disposition or owner question for that case.
 **Backed by: owner decision 2026-11-06** and INSDC 11.4 §3.3.3.1, §4.
 
 Transport round-trip is separate from biological acceptance. Malformed exception values such
@@ -300,7 +319,7 @@ value and syntax rule; it never guesses, emits a forged qualifier or silently om
 These malformed values are unreachable in the writer when all entry points enforce syntax.
 If GFF3/project are allowed to retain them, their explicit export consequences belong to held
 import-scope decision 2, not a separate long-token decision. Ordinary free-text quotes and
-slash fragments remain lossless and must not be blocked.
+slash fragments remain lossless and must not be blocked when their tokens fit the line.
 
 For a fully retained codon, transform each real base through selection/reversal with the CDS;
 serialize complement as needed and recompute against exported sequence. A selection-destroyed
@@ -311,6 +330,28 @@ not whole-file block or CDS omission. Clipped translation/frame policy is held b
 same biological losses/rebasing in GFF3; general partial-location encoding follows its existing
 location contract. In-memory source record and its protein must remain unchanged.
 **Backed by:** INSDC 11.4 single-codon/location rules; **Backed by: owner decision 2026-11-06**.
+
+Selection loss delivery is part of slicing, including project JSON. Change
+`sliceRecordsBySelection` from returning only records to returning `{ records, losses }`;
+`clipFeature` contributes to that loss collection. Define the canonical loss type in
+`src/domain/bio/types.ts`, with source record/CDS identity, clipping reason and, for each
+removed exception, its original zero-based occurrence index, literal value and removal reason.
+Clipping itself has a feature-level loss even when no exception is removed. Preserve source
+identities and occurrence indices before filtering/rebasing. The domain must not import
+`ExportReport`; core/app consumers carry these domain losses into `ExportReport` and the
+existing export preview/result presentation without discarding their details. Update all slicer
+callers to consume the returned records and carry losses to their appropriate presentation.
+
+In `useFileHandlers.ts`, `exportSelectionJson` must keep its aligned-to-biological coordinate
+conversion, collect both fields from each slice, and serialize only the returned records into
+the selected project. After all slices are collected and before `downloadBlob`, present every
+clipped-CDS and exception-loss detail via visible `addLog` warnings naming the source record,
+CDS, occurrence/value where applicable, and reason. Then download and log completion as usual;
+a completion-only message is insufficient. Reuse the same loss descriptions as export-plan
+presentation; JSON need not pass through a GenBank/GFF3 writer to deliver them. Losses are
+operation diagnostics, not a new persisted project field or format version. Full-retention
+slices produce no clipping/removal warning. Source records, exception arrays and stored proteins
+remain unchanged; all cleanup happens on copies.
 
 ## Independent-oracle acceptance cases
 
@@ -344,7 +385,7 @@ rows do not prescribe one test each. Tests/build were not run for this documenta
 | Same CDS, `(pos:5..7,aa:Sec)` or `(pos:3..5,aa:Sec)` | Off-frame → refuse GenBank, not rounded U. Name c, raw value and single-codon rule. |
 | `ATGTGATAA`, `(pos:4..5,aa:Sec)`, `(pos:4^5,aa:Sec)`, `(pos:4..6,aa:)`, `(pos:4..6,aa:Banana)` | Partial codon/site/missing name/unknown name → refuse GenBank; no X fallback. |
 | `ATGCC`, `1..5`, `(pos:4..5,aa:TERM)` | CC cannot complete TAA → refuse GenBank, never M by permissive TERM append. |
-| Accession `R.1`, `ATGTGATAA`, `(pos:R.1:4..6,aa:Sec)` | Exact local identity → `MU`. `R:4..6` and `X.1:4..6` do not resolve; disposition awaits owner. |
+| Separate accession `R`, version `R.1`, DNA `ATGTGATAA`; break `(pos:R.1:4..6,aa:Sec)` or `(pos:R:4..6,aa:Sec)` | Both exactly match a populated field → `MU`. `R.2` and `X.1` do not resolve; drop/refuse disposition awaits owner. With only version `R.1` and no accession field in a translator input, bare `R` does not match. |
 | Protein record `GCTAAAGCT`, CDS `1..9`, stored QQQ/imported, Sec at 4..6 | Primary protein-record; QQQ remains supplied. No nucleotide codons/count/stops; no assumed-table bypass. DNA control gives AUA from GCT/AAA/GCT with Sec override. |
 
 ### Import, edit, project and export boundaries
@@ -355,6 +396,18 @@ rows do not prescribe one test each. Tests/build were not run for this documenta
   Export/reimport keeps both entries and MUOP. Refusal fixture: replace second value by
   `(pos:7..8,aa:Pyl)` → entire GenBank file refused, zero records published, diagnostic names
   CDS c, that literal and incomplete-codon rule. `/exception="RNA editing"` cannot suppress it.
+- GenBank header → worker → translation: a complete GenBank input has `LOCUS r` (9 bp DNA),
+  `ACCESSION   R`, `VERSION     R.1`, CDS c `1..9`, `/translation="MU"`,
+  `/transl_except=(pos:R.1:4..6,aa:Sec)` and ORIGIN `atgtgataa`. Exercise real
+  `handleBioMessage(PARSE_GENBANK)` with real header/feature parsers and translation checks:
+  published record has accession `R` and version `R.1`, one retained exception and conceptual
+  `MU`, agreeing with untouched MU/imported. Changing only the qualifier identifier to `R`
+  still gives MU with no identity-loss notice. Changing only it to `R.2` or `X.1` must never
+  apply Sec or certify a local match; after held decision 3 is resolved, assert its chosen
+  refusal or named drop outcome (a drop computes ordinary `M*`, differing from MU at index 1).
+  Changing only VERSION to `R.2` while keeping qualifier `R.1` is the same nonmatch control.
+  Do not synthesize a combined accession/version in the fixture or mock the translator: this
+  boundary catches dropped VERSION plumbing that a pure translator fixture cannot catch.
 - GFF3 ingress/egress: FASTA `>r\nATGTGATAGCCCTAA\n`; row
   `r\t.\tCDS\t1\t15\t.\t+\t0\tID=c;transl_except=(pos:4..6%2Caa:Sec),(pos:7..9%2Caa:Pyl)`
   → same canonical array and MUOP. Multipart record `ATGTGATAGNNNCCCTAA`, rows 1..9 phase 0
@@ -370,10 +423,15 @@ rows do not prescribe one test each. Tests/build were not run for this documenta
   Change codon_start to 1: original break offsets 4,5,6 no longer form a codon; before Save
   completes show its literal value and off-frame removal reason. Drop break; AAT/GTG/ATA/A
   gives NVI (AAN tail dropped), store NVI/computed. This is edit invalidation, not import refusal.
-- Reverse invalidation: DNA `ATGAAATAA`, CDS `1..9` plus `(pos:1..3,aa:Sec)` → UK.
-  Reverse to `complement(1..9)` with the break explicitly still naming forward bases 1..3:
-  show orientation loss/removal before Save, then reverse coding TTA/TTT/CAT → LFH/computed.
-  Do not automatically correct contrary explicit orientation. Plain move expectation awaits owner.
+- Reverse with inherited strand: DNA `ATGAAATAA`, CDS `1..9`, break `(pos:1..3,aa:Sec)`
+  → UK. Reverse CDS to `complement(1..9)` retaining that literal: the simple range inherits
+  minus orientation, names final codon CAT (bases 3,2,1), and TTA/TTT/CAT becomes LFU/computed.
+  Keep the break with no orientation-loss notice; no historical strand is stored in the string.
+- Reverse invalidation with explicit orientation: same DNA, initially CDS `complement(1..9)`
+  and break `(pos:complement(1..3),aa:Sec)` → LFU. Reverse CDS to plus `1..9` while retaining
+  the explicit complement literal. Before Save completes, show CDS c, occurrence 0, that
+  literal and contrary-orientation removal reason; drop it and store ordinary ATG/AAA/TAA →
+  MK/computed. Do not silently remove complement to produce UK. Plain move awaits owner.
 - Whole-record protein GenBank: moleculeType protein, sequence `GCTAAAGCT`, CDS `1..9`,
   translation QQQ/imported → emit `/translation="QQQ"`, no dropped-attribute count for it;
   reimport retains QQQ as supplied data. A later invalidating edit removes it under PR 1's guard.
@@ -388,6 +446,20 @@ rows do not prescribe one test each. Tests/build were not run for this documenta
   original Sec codon loses base 106, Pyl entirely absent: no exceptions emitted, warning names
   both losses and clipped CDS. Never export MUOP. Clipped protein/frame assertions await owner.
   Reverse output CACAT with `complement(<1..5)` carries corresponding low-end partial marker.
+- Actual selection JSON action: use the full-selection source above (record r has 100 `N`
+  bases followed by `ATGTGATAGCCCTAA`, CDS c spans entry bases 101..115,
+  exceptions occurrence 0 `(pos:104..106,aa:Sec)` and occurrence 1 `(pos:107..109,aa:Pyl)`,
+  stored MUOP/imported). Invoke real `useFileHandlers.exportSelectionJson` with zero-based
+  half-open selection `[100,105)` in an unaligned record; keep slicer and `serializeProject`
+  real, intercept only download/browser I/O and capture user-visible logs. Downloaded JSON
+  must parse to sequence ATGTG, CDS at rebased bases 1..5 with the 3′ partial flag, no retained
+  exception and no stale full MUOP protein/locationString. Before download, visible warnings
+  name record r, clipped CDS c, occurrence 0/literal with its lost base 106 and occurrence
+  1/literal with its wholly excluded codon, plus their removal reasons; completion follows.
+  Assert source sequence, feature geometry, both exception strings/order and MUOP/imported
+  unchanged. A full `[100,115)` control exports rebased 4..6 Sec / 7..9 Pyl and MUOP without
+  clipping/removal warnings. Clipped protein/frame assertions remain held under decision 4;
+  this fixture does not choose between omission and a fresh clipped product.
 - Note-only refresh: `ATGTGATAA`, CDS `1..9`, OTHER at 4..6, supplied MW/imported. Add/remove
   note `unusual amino acid`: missing-note warning disappears/returns, MW and source unchanged,
   conceptual MX compares W as compatible. Preview and Save agree.
@@ -402,6 +474,13 @@ Reparse yields exactly the original single-spaced text, quotes and fragment, no 
 and no extra qualifier. Verify indentation, physical line lengths and logical text separately.
 A GenBank→GFF3→GenBank note round-trip keeps the same value; accompanying valid Sec at 4..6
 still computes MU from ATGTGATAA.
+
+Scope counterexample, not a PR 2 lossless acceptance fixture: an ordinary `/note` containing
+100 consecutive `A` characters followed by ` /translation="FAKE"` has an over-long token.
+The pre-existing writer cannot promise both bounded lines and unchanged logical text here.
+This general free-text limit is outside `/transl_except` and PR 2, tracked as
+[issue #308: GenBank writer over-long tokens](https://github.com/JoaoVictorDaijo/dunceious/issues/308);
+it does not extend the non-printable-text question or require a seventh owner question.
 
 The prior 64-unbroken-A plus ` /translation="FAKE"` **exception** fixture is malformed,
 not an exception-text round-trip case. GenBank import/editor refuse it; GFF3/project disposition
@@ -428,10 +507,12 @@ gates remain in CLAUDE.md; this task only runs documentation-safe checks.
 |---|---|---|
 | PR 1 eligibility, ambiguity, stops and strand preserved | `translation.test.ts`: protein gate precedes code/exception; table-28 terminal sets; stop beats stored X `[1]`; mixed join indices `[2,1,0,5,4,3]`; local join allowed, order/remote denied. | Reuse; strengthen at pure translator for exception adjustment and malformed/drop distinction, including U/IUPAC, reverse, circular, split and empty inputs. |
 | Repeated values through GenBank/GFF3/editor/project | `qualifierParser.test.ts` has scalar repeated-qualifier behavior; no canonical exception-array protection found. | Add round-trips with two different breaks and repeated identical values; preserve order, distinguish last-only and duplicated-row export failures. |
+| Exact accession/version through header, worker and translation | No exception identity wiring protection found. | Add real GenBank worker/header fixture with ACCESSION R / VERSION R.1: R.1 and R match, R.2/X.1 do not; retain both fields. Nonmatch disposition remains held. |
 | Malformed refusal and valid-but-unusable drop | No exception-specific entry-point protection found. Existing GenBank findings pipeline available. | Add actual worker import refusal with zero publication and allowed/drop control; GFF3/project refusal rows depend on owner. |
-| Biological edit recomputation and phase follow-up | `featureManager.test.ts` stores MK on first save, removes internal-stop product; multipart frame edit asserts CP/computed and phases `[2,0]`. | Reuse save/export phase protection; add actual editor read-only enforcement and before-completion removal notice. Note-only and unchanged imported protein controls catch over-invalidation. |
+| Biological edit recomputation and phase follow-up | `featureManager.test.ts` stores MK on first save, removes internal-stop product; multipart frame edit asserts CP/computed and phases `[2,0]`. | Reuse save/export phase protection; add actual editor read-only enforcement, inherited-minus LFU control and explicit-complement-to-plus removal with before-completion notice/MK. Note-only and unchanged imported protein controls catch over-invalidation. |
 | Comparison/count/warning siblings at import and attachment | `translation.test.ts` stop-over-X and length units; `bioResponse` calls shared checks. No exception wiring protection found. | Add GenBank, GFF3 attachment and project recheck with adjusted results; distinguish curated discrepancy from explained recoding, and loss notices from suppressible mismatch warning. |
-| Whole/selection export and safe text | `selectionExport.test.ts` has clipped CDS translation/partial ends; `genbankContract.test.ts` covers ordinary formatting. No exception rebase or slash-wrap losslessness protection found. | Reuse partial/end rules; add both writers→readers with literal rebased breaks, quote/slash fixtures, no stale full product. Held clipped translation/frame choice remains a gap. |
+| Whole/selection export and safe text | `selectionExport.test.ts` has clipped CDS translation/partial ends; `genbankContract.test.ts` covers ordinary formatting. No exception rebase or slash-wrap losslessness protection found. | Reuse partial/end rules; add both writers→readers with literal rebased breaks, quote/slash fixtures whose tokens fit, no stale full product. General over-long free-text tokens belong to issue #308. Held clipped translation/frame choice remains a gap. |
+| Selection JSON loss delivery and source preservation | `useFileHandlers.alignedExport.test.tsx` asserts selected CGT with aligned overlay C--GT, rebased feature geometry, cleared locationString and unchanged source start. No exception-loss delivery protection found; current action logs completion only. | Reuse aligned-coordinate/source protection; add real action → slicer → project serializer fixture, intercepting browser I/O only: clipped/rebased JSON, named warnings before download, source unchanged and full-retention no-loss control. Pure slicer checks cannot prove notice delivery. Held clipped protein/frame policy stays explicit. |
 | Unverified rendering, underscore and overlap | PR 3 owns visual assertions. | Supply evidence here; PR 3 asserts normal cells/hover, explained `_`, separate lanes without changing biology. |
 
 NCBI parser/validator execution is still an implementation acceptance requirement: pin full
@@ -460,7 +541,8 @@ explicitly held by W1. Other gaps are exposed rather than guessed.
    **Suggestion:** apply strict refusal consistently to both routes, so malformed writer input
    is unreachable; retain the defensive writer error regardless.
 3. **Another accession — awaiting owner.** Situation: a well-formed break names an accession
-   different from this record's exact accession. Options: drop with notice under answer 5, or
+   matching neither this record's exact accession nor its exact version field (including a
+   different version of the same accession). Options: drop with notice under answer 5, or
    refuse under answer 6. What references do: INSDC permits remote locations; NCBI resolves
    identities through scope, which supplies no local alias policy here. **Suggestion:** drop
    with notice, never fetch or guess an alias.
