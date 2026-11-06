@@ -72,6 +72,9 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
     ? `Zero-length site ${span}: the location covers no ${residues}.`
     : `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
   const partial = views.partial && <> <Flag>Partial:</Flag> at least one end lies beyond the annotated base (&lt; or &gt;), so this sequence is incomplete.</>;
+  if (views.remote) {
+    return <><Flag>Intervals in other records:</Flag> {views.remote} {views.remote.startsWith('1 ') ? 'is' : 'are'} not in this record, so no feature sequence is shown; Dunceious doesn't load other records' bases. {region}{partial}</>;
+  }
   if (views.feature === null) {
     return <><Flag>order() location:</Flag> INSDC gives the order of these {n} intervals but does not imply they form one sequence, so only the region spanned is shown. {region}{partial}</>;
   }
@@ -121,7 +124,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const { copyText, hoverTips, portalTarget } = useUiEffects();
   const searchHit = feature ? readSearchHit(feature) : null;
   const current = feature ? isSearchHitCurrent(feature) : false;
-  const joined = !searchHit && (feature?.segments?.length ?? 0) > 1;
+  const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
@@ -218,9 +221,11 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {fmt(views.featureLength)} {unit}
-                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">Partial</span></>}
+                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">{views.partialLabel}</span></>}
                   {' '}<span className="text-[11px] font-sans font-semibold text-slate-500">
-                    {views.feature === null
+                    {views.remote
+                      ? `in this record, plus ${views.remote}`
+                      : views.feature === null
                       ? `in ${views.intervals} intervals (not joined)`
                       : `feature sequence · ${views.intervals > 1 ? `sum of ${views.intervals} location intervals` : '1 location interval'}`}
                   </span>
@@ -229,7 +234,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {locationLabel(views.regionStart, views.regionEnd, record)}</span>
                 </p>
               </div>}
-              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
+              {onSetBasesMode && (searchHit || multiInterval) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
                   <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
                     onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded-sm p-2">
@@ -237,7 +242,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
                   </select>
                 </label>
-                {joined && <p>The query layer isn't available for joined annotations.</p>}
+                {multiInterval && <p>The query layer isn't available for annotations with more than one interval.</p>}
                 {searchHit && !current && <p>The search alignment no longer matches this annotation's region.</p>}
                 {searchHit && onRemoveSearchDetails && <button type="button" onClick={onRemoveSearchDetails} className="text-rose-600">Remove search details</button>}
               </div> : onSetShowBases && (
@@ -310,7 +315,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                       return (
                         <label
                           key={option}
-                          data-tip={disabled ? 'An order() location does not define one joined sequence' : undefined}
+                          data-tip={disabled ? (views.remote ? 'Some intervals are in other records' : 'An order() location does not define one joined sequence') : undefined}
                           className={`px-2.5 py-1 rounded-md transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-500/60 ${shown === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'} ${disabled ? 'line-through opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <input type="radio" name={viewGroup} value={option} checked={shown === option} disabled={disabled}

@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { expect, it } from 'vitest';
 import fixture from './fixtures/ncbi-genetic-codes.biopython.json';
 import { assumedTranslation, otherReadings, startTables } from '../assumedTranslation';
@@ -26,6 +27,13 @@ import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
 import { serializeProject } from '@/src/app/logic/projectFile';
 import type { BioFeature } from '../types';
+
+/** The parsed geometry of a location, as GenBank import gives it, so its partial flags are set. */
+const located = (locationString?: string) => {
+  if (locationString === undefined) return {};
+  const { strand, segments } = parseLocation(locationString);
+  return { locationString, strand, segments };
+};
 
 const feature = (table?: string, type = 'CDS'): BioFeature => ({
   type, name: 'test', start: 0, end: 12, strand: 1,
@@ -75,7 +83,7 @@ it('gates the view on invalid codes and coding feature types, without changing c
 });
 
 it('keeps provisional residues out of annotations, interchange exports and project serialization', () => {
-  const f = { ...feature('99'), locationString: '1..12' };
+  const f = { ...feature('99'), ...located('1..12') };
   const record = { id: 'r', name: 'r', sequence: 'TTGTGGTGAGCT', features: [f] };
   const before = JSON.stringify(record);
   expect(assumedTranslation(f, record.sequence)?.residues).toBe('MW*A');
@@ -110,7 +118,7 @@ it('reads complete first codons and start sensitivity against every Biopython St
       table.starts[Object.keys(table.codons).indexOf(codon)] === 'M').map(([id]) => Number(id));
     const aa = residue(tables['1'].codons[codon]);
     const ordinarySensitive = Object.values(tables).some(t => t.codons[codon] !== tables['1'].codons[codon]);
-    const f = { ...feature('99'), locationString: '1..6', metadata: { transl_table: '99', codon_start: '1' } };
+    const f = { ...feature('99'), ...located('1..6'), metadata: { transl_table: '99', codon_start: '1' } };
     const view = assumedTranslation(f, codon + codon)!;
     expect(startTables(codon), codon).toEqual(starts);
     const contextual = new Map<string, number[]>();
@@ -146,7 +154,7 @@ it.each([
   { codon: 'ATN', locationString: '1..9', codon_start: '1', expected: '?', sensitive: true },
   { codon: 'YTG', locationString: '1..9', codon_start: '1', expected: 'L', sensitive: true },
 ])('applies initiation context to $codon at $locationString /codon_start=$codon_start', ({ codon, locationString, codon_start, expected, sensitive }) => {
-  const f = { ...feature('99'), locationString, metadata: { transl_table: '99', ...(codon_start ? { codon_start } : {}) } };
+  const f = { ...feature('99'), ...located(locationString), metadata: { transl_table: '99', ...(codon_start ? { codon_start } : {}) } };
   const view = assumedTranslation(f, codon)!;
   expect(view.residues).toBe(expected);
   expect(view.codeSensitive).toEqual([sensitive]);

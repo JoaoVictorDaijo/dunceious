@@ -22,6 +22,9 @@ import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseGenBank } from '../index';
 import { exportToGenBank } from '../serialize';
+import { parseLocation } from '../locationParser';
+import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { readFileSync } from 'node:fs';
 
 function record(overrides: Partial<SeqRecord> = {}): SeqRecord {
   return { id: 'REC1', name: 'Record 1', sequence: 'ATGCAAATAG', features: [], ...overrides };
@@ -140,6 +143,92 @@ ORIGIN
     const source = record({ features: [{ type: 'misc_feature', name: 'nested', start: 0, end: 6, strand: 1,
       segments: [{ start: 4, end: 6, strand: -1 }, { start: 0, end: 2, strand: 1 }] }] });
     expect(exportToGenBank([source]).text).toContain('     misc_feature    join(complement(5..6),1..2)\n');
+  });
+});
+
+// Rebuilding a location without its source text (after an edit or a selection export) must write
+// the INSDC form that was read. Oracles: Biopython 1.88 writes O1 back as order(1..3,11..13) and S1
+// as 10^11 (docs/standards/conformance); §3.4.2.1 permits length^1 on a circular molecule.
+describe('exportToGenBank – rebuilt operators and sites', () => {
+  const locationLine = (feature: Partial<SeqRecord['features'][number]>, overrides: Partial<SeqRecord> = {}) =>
+    exportToGenBank([record({
+      sequence: 'A'.repeat(30),
+      features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
+      ...overrides,
+    })]).text.split('\n').find(line => line.startsWith('     misc_feature'))?.slice(21);
+
+  it.each([
+    [{ operator: 'order' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'order(1..3,11..13)'],
+    [{ operator: 'order' as const, strand: -1 as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'complement(order(1..3,11..13))'],
+    [{ operator: 'join' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'join(1..3,11..13)'],
+    [{ betweenBases: true as const, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, '10^11'],
+    [{ betweenBases: true as const, strand: -1 as const, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, 'complement(10^11)'],
+  ])('writes %o as %s', (feature, location) => {
+    expect(locationLine(feature)).toBe(location);
+  });
+
+  it('writes a site at the end of a circular record as length^1', () => {
+    expect(locationLine({ betweenBases: true, start: 30, end: 30, segments: [{ start: 30, end: 30 }] }, { isCircular: true })).toBe('30^1');
+  });
+
+  it('writes a site whose edit gave it a width as the span', () => {
+    expect(locationLine({ betweenBases: true, start: 10, end: 12, segments: [{ start: 10, end: 12 }] })).toBe('11..12');
+  });
+
+  it('round-trips an edited order() feature through parse and export', () => {
+    const [parsed] = parseGenBank(exportToGenBank([record({ sequence: 'A'.repeat(30), features: [{
+      type: 'Site', name: 's', operator: 'order', start: 31, end: 108, strand: 1,
+      segments: [{ start: 1, end: 3 }, { start: 9, end: 12 }],
+    }] })]).text).records;
+    expect(parsed.features.find(f => f.type === 'Site')).toMatchObject({ operator: 'order', locationString: 'order(2..3,10..12)' });
+  });
+});
+
+// LOC-4: an edit keeps both markers, including on the end whose number changed (owner decision 12).
+// SCU49845's TCP1-beta CDS is <1..206.
+describe('exportToGenBank – partial ends after an edit', () => {
+  it('writes <1..180 after the end of <1..206 is edited to 180', () => {
+    const [parsed] = parseGenBank(readFileSync('src/core/__tests__/fixtures/SCU49845.gb', 'utf8')).records;
+    const cds = parsed.features.find(f => f.type === 'CDS' && f.locationString === '<1..206')!;
+    const edited = { ...cds, ...featureCoordPatch(cds, 'end', '180'), locationString: undefined };
+    const text = exportToGenBank([{ ...parsed, features: [edited] }]).text;
+    expect(text.split('\n')).toContain(`${'CDS'.padStart(8).padEnd(21)}<1..180`);
+  });
+
+  it('writes the markers of a mixed-strand join back where they were read', () => {
+    const parsed = parseLocation('join(<1..6,complement(10..>12))');
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(20), features: [{ type: 'misc_feature', name: 'f', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator }] })]).text;
+    expect(text).toContain('join(<1..6,complement(10..>12))');
+  });
+});
+
+// #241: with the text cleared, the written order rebuilds the nested form that was read, so a
+// re-import reads the same written order (the evaluated form of J4 would read as an origin crossing).
+describe('exportToGenBank – nested locations without their text', () => {
+  it.each([
+    'complement(join(complement(1..2),5..6))',
+    'complement(join(complement(1..2),complement(5..6)))',
+    'join(1..5,complement(join(10..20,30..40)))',
+  ])('writes %s back from its written order', location => {
+    const parsed = parseLocation(location);
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(40), features: [{ type: 'misc_feature', name: 'n', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator, writtenOrder: parsed.writtenOrder }] })]).text;
+    expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
+  });
+});
+
+// #245: with the text cleared, remote parts are written back where they were read (§3.4.3).
+describe('exportToGenBank – remote parts without their text', () => {
+  it.each([
+    'join(1..100,J00194.1:100..202)',
+    'complement(join(1..100,J00194.1:100..202))',
+    'join(complement(J00194.1:100..202),1..100)',
+  ])('writes %s back', location => {
+    const parsed = parseLocation(location);
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(120), features: [{ type: 'misc_feature', name: 'r', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts }] })]).text;
+    expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
   });
 });
 

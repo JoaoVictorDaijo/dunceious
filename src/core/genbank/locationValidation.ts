@@ -21,33 +21,47 @@
 import { parseLocation } from './locationParser';
 
 type LocationProblem = { code: string; message: string };
-export const guardOrderLocation = (text: string): boolean => /order\(/.test(text);
-export const guardBetweenBaseSite = (text: string): boolean => /\^/.test(text);
-export const guardRemoteLocation = (text: string): boolean => /[\w.]+:/.test(text);
-export const guardOneOfPosition = (text: string): boolean => /\d+\.(?!\.)\d+/.test(text);
+/** `n.m` in a base number; an accession's `.version` (`AB123.1:`) is not a position. */
+export const guardOneOfPosition = (text: string): boolean => /\d+\.(?!\.)\d+/.test(text.replace(/[^():,]+:/g, ''));
+/** A `^` site inside another entry's descriptor: valid INSDC (§3.4.2.1(e)), not supported yet. */
+export const guardRemoteSite = (text: string): boolean => /[^():,]+:[<>]?\d+\^/.test(text);
 export const guardSiteInCompound = (text: string): boolean => /\^/.test(text) && /join\(|order\(|\.\./.test(text);
 
-/** INSDC FT 11.4 §3.4: fully consumed grammar; supported local bounds use residue coordinates. */
-export function validateLocation(text: string, length?: number): LocationProblem | null {
+/**
+ * INSDC FT 11.4 §3.4: fully consumed grammar; supported local bounds use residue coordinates.
+ * `order()` (LOC-2), between-base sites (LOC-5) and remote intervals (LOC-8) are read; `n^1` is a
+ * site only on a circular molecule of length n (§3.4.2.1).
+ */
+export function validateLocation(text: string, length?: number, circular = false): LocationProblem | null {
   const loc = text.replace(/\s/g, '');
   const malformed = (message = 'cannot be read') => ({ code: 'malformed-location', message });
   if (!loc) return { code: 'missing-location', message: 'has no location' };
   if (/join\(/.test(loc) && /order\(/.test(loc)) return malformed('mixes join and order');
   if (/>\d+\.\.|\.\.<\d+/.test(loc)) return malformed('has an invalid fuzzy endpoint');
+  // Checked before the local site rules, which would test a remote site against this record's length.
+  if (guardRemoteSite(loc)) return { code: 'unsupported-location', message: 'uses a between-base site in another record, which Dunceious cannot place yet' };
   for (const m of loc.matchAll(/(\d+)\^(\d+)/g)) {
     const start = Number(m[1]), end = Number(m[2]);
-    if (end !== start + 1 && !(start === length && end === 1)) return malformed('between-base positions do not adjoin');
+    if (end !== start + 1 && !(start === length && end === 1 && circular)) return malformed('between-base positions do not adjoin');
     if (length !== undefined && (start < 1 || start > length || end < 1 || end > length)) return { code: 'location-out-of-range', message: `is outside the ${length} residue sequence` };
+  }
+  // §3.4.2.1(e): a remote entry is named by accession-number and sequence version.
+  for (const m of loc.matchAll(/(?:^|[(,])([^():,]+):/g)) {
+    if (!/^[A-Za-z][A-Za-z0-9_]*\.\d+$/.test(m[1])) return malformed(`remote entry ${m[1]} has no sequence version`);
   }
   const guards = [
     [guardSiteInCompound, 'a between-base site in a compound'],
-    [guardOrderLocation, 'order'], [guardBetweenBaseSite, 'a between-base site'],
-    [guardRemoteLocation, 'a remote location'], [guardOneOfPosition, 'a one-of position'],
+    [guardOneOfPosition, 'a one-of position'],
   ] as const;
   for (const [guard, style] of guards) if (guard(loc)) return { code: 'unsupported-location', message: `uses ${style}, which Dunceious cannot place yet` };
   try {
     const parsed = parseLocation(loc);
-    if (parsed.segments.some(p => p.start < 0 || p.end <= p.start || !Number.isSafeInteger(p.start) || !Number.isSafeInteger(p.end) || (length !== undefined && p.end > length))) return { code: 'location-out-of-range', message: `is outside the ${length ?? ''} residue sequence` };
+    // A between-base site is the one zero-length interval; remote intervals are not local segments.
+    const empty = (p: { start: number; end: number }) => p.end < p.start || (p.end === p.start && !parsed.betweenBases);
+    if (parsed.segments.some(p => p.start < 0 || empty(p) || !Number.isSafeInteger(p.start) || !Number.isSafeInteger(p.end) || (length !== undefined && p.end > length))) return { code: 'location-out-of-range', message: `is outside the ${length ?? ''} residue sequence` };
+    // §3.4.2: a remote interval may lie beyond this record's length, but it still starts at base 1
+    // or later and does not run backwards.
+    if (parsed.remoteParts?.some(p => p.start < 0 || p.end <= p.start || !Number.isSafeInteger(p.start) || !Number.isSafeInteger(p.end))) return malformed('has an invalid interval in another record');
   } catch { return malformed(); }
   return null;
 }

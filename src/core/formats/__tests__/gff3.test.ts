@@ -21,8 +21,11 @@
 import { it, expect } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGff3, parseGFF3 } from '../gff3';
+import { exportToGenBank } from '../../genbank/serialize';
 import { soTypeFor } from '../soTypes';
-import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { extractCodingSequence, extractFeatureSequence } from '@/src/domain/bio/sequence';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 
 const feature = (extra: Partial<BioFeature> = {}): BioFeature => ({ type: 'CDS', name: 'gene1', start: 0, end: 150, strand: 1, ...extra });
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'seq_1', name: 'seq_1', sequence: 'A'.repeat(1000), features: [], ...extra });
@@ -219,4 +222,123 @@ it('preserves reserved attribute case and distinct custom case variants', () => 
 it('merges custom case collisions as encoded GFF3 multi-values without losing data', () => {
   const { text } = exportToGff3([record({ features: [feature({ metadata: { Foo: 'a,b', foo: 'c', FOO: 'a,b' } })] })]);
   expect(lines(text)[1][8]).toContain('foo=a%2Cb,c');
+});
+
+// GFF3 1.26 has no join/order operator, and a zero-length feature is written "start equals end"
+// with the site to the right of that base, which a one-base feature also reads as. The insdc_*
+// attributes carry what the columns cannot, so INSDC order() (§3.4.2.2) and n^n+1 (§3.4.2.1)
+// survive a round trip.
+const siteFeature = feature({ type: 'misc_feature', name: 'cut', betweenBases: true, start: 10, end: 10, segments: [{ start: 10, end: 10 }] });
+const orderFeature = feature({ type: 'misc_feature', name: 'pocket', operator: 'order', start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] });
+
+it('writes a between-base site as one row with start equal to end, after the base before the site', () => {
+  const [, row] = lines(exportToGff3([record({ features: [siteFeature] })]).text);
+  expect(row.slice(3, 5)).toEqual(['10', '10']);
+  expect(row[8]).toContain('insdc_site=true');
+});
+
+it('writes the operator of an order() feature on each of its rows', () => {
+  const rows = lines(exportToGff3([record({ features: [orderFeature] })]).text).slice(1);
+  expect(rows.map(row => row.slice(3, 5))).toEqual([['1', '3'], ['11', '13']]);
+  expect(rows.every(row => row[8].includes('insdc_operator=order'))).toBe(true);
+});
+
+it.each([
+  ['a site', siteFeature, { betweenBases: true, start: 10, end: 10 }],
+  ['an order() feature', orderFeature, { operator: 'order', segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }],
+])('reads %s back from its own export', (_label, original, expected) => {
+  const [imported] = parseGFF3(exportToGff3([record({ features: [original] })]).text).features.seq_1;
+  expect(imported).toMatchObject(expected);
+  expect(imported.metadata).not.toHaveProperty('insdc_site');
+  expect(imported.metadata).not.toHaveProperty('insdc_operator');
+});
+
+it('reads a one-base row without insdc_site as one base, not a site', () => {
+  const [imported] = parseGFF3('##gff-version 3\nseq_1\t.\tmisc_feature\t10\t10\t.\t+\t.\tID=a\n').features.seq_1;
+  expect(imported).toMatchObject({ start: 9, end: 10 });
+  expect(imported.betweenBases).toBeUndefined();
+});
+
+it('reads rows sharing an ID without insdc_operator as a join', () => {
+  const text = '##gff-version 3\nseq_1\t.\tmisc_feature\t1\t3\t.\t+\t.\tID=a\nseq_1\t.\tmisc_feature\t11\t13\t.\t+\t.\tID=a\n';
+  expect(parseGFF3(text).features.seq_1[0].operator).toBe('join');
+});
+
+// LOC-4 through GFF3: each row carries its own interval's markers, read from the flags, so an edited
+// feature keeps them and a remote accession's digits can never be mistaken for a base number.
+it('writes and reads back per-row partial markers from the interval flags', () => {
+  const partial = feature({ type: 'misc_feature', name: 'p', operator: 'join', start: 0, end: 30,
+    segments: [{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }] });
+  const rows = lines(exportToGff3([record({ features: [partial] })]).text).slice(1);
+  expect(rows.map(row => [row[8].includes('insdc_partial_start=%3C'), row[8].includes('insdc_partial_end=%3E')])).toEqual([[true, false], [false, true]]);
+  const [imported] = parseGFF3(exportToGff3([record({ features: [partial] })]).text).features.seq_1;
+  expect(imported.segments).toEqual([{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }]);
+  expect(imported.metadata).not.toHaveProperty('_gffPartialEnds');
+});
+
+// #241 through GFF3: rows have no nesting, so insdc_written_order carries the written order and the
+// nested feature keeps its linear envelope and its sequence after a round trip.
+it('keeps the written order of a nested feature through GFF3', () => {
+  const parsed = parseLocation('complement(join(complement(1..3),10..12))');
+  const nested = feature({ type: 'misc_feature', name: 'n', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, writtenOrder: parsed.writtenOrder });
+  const circular = record({ sequence: 'ACGTTGCAAGCTTCAGGATC', isCircular: true, features: [nested] });
+  const [imported] = parseGFF3(exportToGff3([circular]).text).features.seq_1;
+  expect(imported.writtenOrder).toEqual([1, 0]);
+  expect(featureEnvelope(imported)).toEqual({ start: 0, end: 12 });
+  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe(extractFeatureSequence(nested, circular.sequence).featureSeq);
+  expect(imported.metadata).not.toHaveProperty('insdc_written_order');
+});
+
+// #245 through GFF3, which has no remote reference: insdc_remote carries the remote parts, each
+// with its stored position, and the export report counts the features that need it.
+it('carries remote parts through GFF3 and counts them in the report', () => {
+  const parsed = parseLocation('join(1..100,J00194.1:100..202)');
+  const withRemote = feature({ type: 'CDS', name: 'r', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const remoteOnly = feature({ type: 'misc_feature', name: 'away', start: 0, end: 0, segments: [],
+    remoteParts: [{ accession: 'J00194.1', start: 1, end: 3, strand: 1, index: 0 }] });
+  const { text, report } = exportToGff3([record({ features: [withRemote, remoteOnly] })]);
+  expect(report.remotePartsCarried).toBe(1);
+  expect(report.remoteOnlyOmitted).toBe(1);
+  const [imported] = parseGFF3(text).features.seq_1;
+  expect(imported.remoteParts).toEqual(parsed.remoteParts);
+  expect(imported.metadata).not.toHaveProperty('insdc_remote');
+});
+
+it('writes a reverse remote part back on its own strand after a GFF3 round trip', () => {
+  const parsed = parseLocation('join(complement(J00194.1:100..202),1..100)');
+  const original = feature({ type: 'misc_feature', name: 'r', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const [imported] = parseGFF3(exportToGff3([record({ features: [original] })]).text).features.seq_1;
+  expect(exportToGenBank([record({ features: [{ ...imported, type: 'misc_feature' }] })]).text)
+    .toContain('join(complement(J00194.1:100..202),1..100)');
+});
+
+// Codex review of #306: GFF3 round trips must keep what GenBank keeps.
+it.each([
+  // order() with one local interval: the operator counts the remote part too (LOC-2).
+  ['order(1..3,J00194.1:10..12)', false],
+  // On a circular record, rows that carry a remote part are not rotated (LOC-1).
+  ['join(1..3,J00194.1:10..12,28..30)', true],
+])('keeps %s through GFF3', (location, isCircular) => {
+  const parsed = parseLocation(location);
+  const original = feature({ type: 'misc_feature', name: 'g', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const source = record({ sequence: 'A'.repeat(30), isCircular, features: [original] });
+  const [imported] = parseGFF3(exportToGff3([source]).text).features.seq_1;
+  expect(exportToGenBank([{ ...source, features: [imported] }]).text).toContain(location);
+});
+
+// LOC-3: per-interval complements on one strand are not a whole-feature complement, so their
+// evaluation order survives GFF3 (join(complement(1..3),complement(7..9)) reads TTT then CCC).
+it('keeps the evaluation order of same-strand inner complements through GFF3', () => {
+  const parsed = parseLocation('join(complement(1..3),complement(7..9))');
+  const original = feature({ type: 'misc_feature', name: 'c', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator });
+  const sequence = 'AAACCCGGGTTT';
+  const [imported] = parseGFF3(exportToGff3([record({ sequence, features: [original] })]).text).features.seq_1;
+  expect(extractFeatureSequence(original, sequence).featureSeq).toBe('TTTCCC');
+  expect(extractFeatureSequence(imported, sequence).featureSeq).toBe('TTTCCC');
+  expect(imported.metadata).not.toHaveProperty('insdc_interval_strands');
 });

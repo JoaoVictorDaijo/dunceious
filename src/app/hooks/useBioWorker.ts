@@ -24,7 +24,7 @@ import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } fr
 import { isProteinSession } from '@/src/domain/bio/sequence';
 import { SeqRecord } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaAndLog, type GapRemoval } from '@/src/app/logic/bioResponse';
+import { applyParseSuccess, applyAnnotations, applyFastaAndLog, remotePartsWarning, type GapRemoval } from '@/src/app/logic/bioResponse';
 
 /** A pending FASTA consent preview; token identifies one exactly-once choice. */
 export interface GapNotice { token: number; fileName: string; records: GapRemoval[] }
@@ -178,6 +178,11 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
         addLog(importLog(file, false));
       }
       addLog(`Batch ingestion complete: ${result.count} records added.`);
+      const remoteWarning = remotePartsWarning(msg.records);
+      if (remoteWarning) {
+        addLog(remoteWarning);
+        console.warn(remoteWarning);
+      }
       settle({ ...msg, idMap: result.idMap });
     } else if (msg.type === 'FASTA_SUCCESS') {
       const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);

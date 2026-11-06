@@ -21,11 +21,16 @@
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { definesOneSequence } from '@/src/domain/bio/locationFlags';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
 export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds'];
+
+/** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
+export const isTranslatedFeature = (feature: BioFeature): boolean =>
+  CDS_ORF_TYPES.includes(feature.type) && definesOneSequence(feature);
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
@@ -90,7 +95,7 @@ export const computeBrokenFeatureMap = (
   const map = new Map<BioFeature, boolean>();
   if (moleculeType === 'protein') return map;
   features
-    .filter(f => validCodonStart(f.metadata?.codon_start) && CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number')
+    .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number')
     .forEach(f => {
       const { codingSeq } = extractCodingSequence(f, seq);
       const translTable = featureTranslTable(f);
@@ -164,7 +169,7 @@ export const assignTranslationLanes = (
   const pack = (strand: 1 | -1) => {
     const units: { feature: BioFeature; frame: Frame; spans: { start: number; end: number }[] }[] = [];
     features
-      .filter(f => validCodonStart(f.metadata?.codon_start) && CDS_ORF_TYPES.includes(f.type) && getFeatureStrand(f) === strand)
+      .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
       .forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const spans = new Map<Frame, { start: number; end: number }[]>();

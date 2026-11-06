@@ -27,8 +27,8 @@ import { extractFeatureSequence } from '@/src/domain/bio/sequence';
 for (const [path, expected] of Object.entries(oracle)) it(`matches Biopython 1.88: ${path}`, () => {
   const raw = readFileSync(path, 'utf8');
   const result = parseGenBank(raw);
-  const unsupported = [...raw.matchAll(/^ {5}Site +(?<location>order\(.*(?:\n {21}[^/].*)*)/gm)].map(m => m.groups!.location.replace(/\s/g, ''));
-  expect(result.findings.filter(f => f.tier === 'refuse').map(f => [f.code, f.feature?.key, f.message])).toEqual(unsupported.map(loc => ['unsupported-location', 'Site', `Site location ${loc}: uses order, which Dunceious cannot place yet`]));
+  // order() Site features are read since #306 (LOC-2), so these examples load without refusals.
+  expect(result.findings.filter(f => f.tier === 'refuse')).toEqual([]);
   const independentlyRead = [...raw.matchAll(/^LOCUS\s+(\S+)\s+(\d+)\s+(bp|aa)\b/gm)];
   expect(result.records).toHaveLength(independentlyRead.length);
   expect(result.records.map(r => [r.id, r.sequence.length, r.moleculeType === 'protein' ? 'aa' : 'bp'])).toEqual(independentlyRead.map(m => [m[1], Number(m[2]), m[3]]));

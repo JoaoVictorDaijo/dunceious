@@ -52,7 +52,7 @@ export function toSeqRecord(recordStr: string, finding?: FindingSink): SeqRecord
 
   const header = parseHeader(lines);
   const sequence = parseSequence(lines);
-  const features = parseFeatures(lines, finding, header.moleculeType === 'protein', sequence.length);
+  const features = parseFeatures(lines, finding, header.moleculeType === 'protein', sequence.length, header.isCircular);
 
   return {
     id: header.id,

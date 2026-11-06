@@ -21,12 +21,32 @@
 import type { BioFeature, FeatureSegment } from './types';
 import { isNestedComplementLocation } from './locationFlags';
 
+/** A permutation of 0..length-1: one written position per stored segment. */
+function isWrittenOrder(order: number[] | undefined, length: number): order is number[] {
+  return order?.length === length && new Set(order).size === length && order.every(i => Number.isInteger(i) && i >= 0 && i < length);
+}
+
 /**
- * Segments in the order the location writes them, which the origin-crossing geometry reads. The
- * parser stores a nested outer complement's intervals in evaluation order instead.
+ * Segments in the order the location writes them, which the origin-crossing geometry, frameshift
+ * junctions and connectors read. The parser stores nested locations in evaluation order and records
+ * the written order in `writtenOrder`. Features from before that field fall back to their text.
  */
-export function writtenOrderSegments(feature: Pick<BioFeature, 'segments' | 'locationString'>): FeatureSegment[] | undefined {
-  return isNestedComplementLocation(feature) ? feature.segments?.slice().reverse() : feature.segments;
+export function writtenOrderSegments(feature: Pick<BioFeature, 'segments' | 'locationString' | 'writtenOrder'>): FeatureSegment[] | undefined {
+  const segments = feature.segments;
+  if (segments && isWrittenOrder(feature.writtenOrder, segments.length)) {
+    const written: FeatureSegment[] = new Array(segments.length);
+    feature.writtenOrder.forEach((position, i) => { written[position] = segments[i]; });
+    return written;
+  }
+  return isNestedComplementLocation(feature) ? segments?.slice().reverse() : segments;
+}
+
+/** The written order of the segments that remain, ranked again, after the others are removed. */
+export function keptWrittenOrder(order: number[] | undefined, kept: number[]): number[] | undefined {
+  if (!order) return undefined;
+  const positions = kept.map(i => order[i]);
+  const ranked = positions.map(position => positions.filter(other => other < position).length);
+  return ranked.some((position, i) => position !== i) ? ranked : undefined;
 }
 
 /** Authoritative segment bounds retain the high/low order of circular joins. */

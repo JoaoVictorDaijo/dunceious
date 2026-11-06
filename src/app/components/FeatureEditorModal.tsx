@@ -22,7 +22,10 @@ import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { keptWrittenOrder } from '@/src/domain/bio/featureEnvelope';
+import { featureCoordPatch, remoteIntervalsText } from '@/src/app/logic/viewModel';
+import { keptRemoteParts } from '@/src/domain/bio/intervals';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
   metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
@@ -237,17 +240,31 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           </div>
 
+          {isBetweenBasesSite(feature) && (
+            <p data-location-note="site" className="text-[11px] text-slate-400">
+              Between-base site after base {feature.start}: it covers no bases. Give it different start and end to make it a span.
+            </p>
+          )}
+
+          {feature.remoteParts?.length ? (
+            <p data-location-note="remote" className="text-[11px] text-slate-400">
+              {remoteIntervalsText(feature.remoteParts)} {feature.remoteParts.length === 1 ? 'is' : 'are'} kept as written and can't be edited here.
+            </p>
+          ) : null}
+
           {/* Segments editor (multi-segment features) */}
           {feature.segments && feature.segments.length > 1 && (
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
                   Segments ({feature.segments.length})
+                  {isOrderLocation(feature) && <span className="ml-2 normal-case font-medium text-slate-600">order(): placed in this order, not joined</span>}
                 </label>
                 <button
                   onClick={() => {
                     const newSegs = [...feature.segments!, { start: feature.end, end: feature.end + 100 }];
-                    setGeometry({ segments: newSegs });
+                    // An appended segment is written last.
+                    setGeometry({ segments: newSegs, writtenOrder: feature.writtenOrder && [...feature.writtenOrder, feature.writtenOrder.length] });
                   }}
                   data-tip="Append a new segment after the last one"
                   className="text-[10px] font-bold text-env uppercase hover:text-env/80 transition-colors"
@@ -283,7 +300,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                     <button
                       onClick={() => {
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
-                        setGeometry({ segments: newSegs });
+                        const kept = feature.segments!.map((_, i) => i).filter(i => i !== idx);
+                        setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept),
+                          remoteParts: feature.remoteParts && keptRemoteParts(feature.remoteParts, feature.segments!.length, kept) });
                       }}
                       aria-label={`Remove segment ${idx + 1}`}
                       data-tip="Remove this segment"

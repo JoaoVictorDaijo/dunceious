@@ -146,6 +146,22 @@ it('uses an explicit reverse strand for its provisional count', () => {
   expect(text).not.toContain("can't verify");
 });
 
+// LOC-2/LOC-7: an order() CDS defines no single sequence, so the tooltip derives no protein count
+// from it, under a valid or an invalid genetic code (Codex review of #306).
+function OrderSubject({ table }: { table: string }) {
+  const update = useTrackTooltip();
+  const feature: BioFeature = { type: 'CDS', name: 'o', start: 0, end: 9, strand: 1, operator: 'order',
+    segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], metadata: { transl_table: table } };
+  return <button onClick={() => update({ record: { id: 'r', name: 'r', sequence: 'AAACCCGGGTTT', features: [feature] }, feature, color: '#fff', x: 0, y: 0 }, feature)}>hover</button>;
+}
+
+it.each(['1', '999'])('shows no protein count for an order() CDS under table %s', table => {
+  const view = render(<TrackTooltipProvider><OrderSubject table={table} /></TrackTooltipProvider>);
+  fireEvent.click(view.getByText('hover'));
+  expect(view.getByRole('tooltip').textContent).not.toMatch(/\d aa|positions|Count not verified/);
+  expect(view.getByRole('tooltip').textContent).toContain('6 bp in 2 intervals (not joined)');
+});
+
 
 it.each([
   { table: '1', translation: undefined }, { table: '99', translation: undefined },

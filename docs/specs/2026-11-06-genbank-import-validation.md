@@ -146,6 +146,20 @@ and the line.
 | `guardOneOfPosition` | `n.m` (e.g. `102.110`). INSDC 11.4 §3.4.2.1 allows it only in existing entries, not newly created ones | stays in this spec; no fix is planned yet |
 | `guardSiteInCompound` | a `^` site inside a `join`/`order`, or as a span end. INSDC 11.4 §3.4.2 allows these, so they are unsupported, not malformed | stays in this spec unless the location-reading PR takes it |
 
+**Note (2026-11-06, #306).** The location-reading PR removed `guardOrderLocation`,
+`guardBetweenBaseSite` and `guardRemoteLocation`: files using `order()`, `n^n+1` and remote
+intervals now load (LOC-2, LOC-5, LOC-8). `guardOneOfPosition` and `guardSiteInCompound` stay. It
+also tightened two checks this spec owns:
+- `n^1` passes only on a circular record of length n, since the validator now receives the
+  topology;
+- a remote entry without a sequence version (`AB123:1..4`) is malformed, because §3.4.2.1(e) names
+  "the accession-number and sequence version";
+- a remote interval that starts before base 1 or runs backwards is malformed; only the local length
+  limit is lifted for it (§3.4.2).
+
+It added one guard, `guardRemoteSite`: a between-base site in another record (`AB123.1:2^3`) is
+valid INSDC but not supported yet.
+
 **Still refused after those guards go.** The location-reading PR leaves these to this spec's Malformed location and Location out of range checks, so they are refused here, each with its own message and test:
 - unreadable location text;
 - bounds outside the record;
