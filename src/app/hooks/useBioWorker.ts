@@ -22,7 +22,7 @@ import { unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaAndLog, type GapRemoval } from '@/src/app/logic/bioResponse';
+import { applyParseSuccess, applyAnnotations, applyFastaAndLog, remotePartsWarning, type GapRemoval } from '@/src/app/logic/bioResponse';
 
 /** One FASTA file loaded as sequences whose records lost '-' gap characters. */
 export interface GapNotice { fileName: string; records: GapRemoval[] }
@@ -150,6 +150,11 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
         setRecords(result.next);
         addLog(`Batch ingestion complete: ${result.count} records added.`);
+        const remoteWarning = remotePartsWarning(msg.records);
+        if (remoteWarning) {
+          addLog(remoteWarning);
+          console.warn(remoteWarning);
+        }
         msg = { ...msg, idMap: result.idMap };
         setIsProcessing(false);
 

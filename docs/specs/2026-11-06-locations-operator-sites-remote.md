@@ -378,6 +378,10 @@ export interface RemotePart {
   partialEnd?: true;
   /** Position among all the location's intervals as written, so export restores the order. */
   index: number;
+  // Refined while building it: the position among all intervals in the order `segments` stores
+  // them (as written, or in evaluation order for per-strand locations), so the existing GenBank and
+  // GFF3 writers handle a remote part like any interval. A remote part inside a nested location is
+  // then written in the evaluated form, the same sequence under §3.4.2.2 but not the same text.
 }
 
 export interface BioFeature {

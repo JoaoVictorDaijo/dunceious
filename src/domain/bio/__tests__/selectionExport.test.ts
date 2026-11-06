@@ -453,3 +453,15 @@ describe('sliceRecordsBySelection – written order', () => {
     expect(clipped.writtenOrder).toEqual([1, 0]);
   });
 });
+
+// #245: remote parts keep their own coordinates; their place among the kept intervals is re-ranked.
+describe('sliceRecordsBySelection – remote parts', () => {
+  it('keeps the remote part after the kept local interval', () => {
+    const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(40), features: [{
+      type: 'misc_feature', name: 'n', start: 0, end: 30, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 5 }, { start: 20, end: 30 }],
+      remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 2 }],
+    }] }], 10, 40)[0].features;
+    expect(clipped.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
+  });
+});

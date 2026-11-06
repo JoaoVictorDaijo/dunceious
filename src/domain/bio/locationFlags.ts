@@ -30,16 +30,17 @@ export function isOrderLocation(feature: Pick<BioFeature, 'operator' | 'location
 }
 
 /**
- * The intervals form one sequence (LOC-1): more than one segment under `join`, never `order`.
- * Every reader that connects, concatenates, translates or reads frameshifts across intervals
- * asks this, not the segment count.
+ * The intervals form one sequence of this record (LOC-1): more than one segment under `join`, never
+ * `order`, and none in another entry. Every reader that connects, concatenates, translates or reads
+ * frameshifts across intervals asks this, not the segment count.
  */
-export function isJoinedLocation(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString'>): boolean {
-  return (feature.segments?.length ?? 0) > 1 && !isOrderLocation(feature);
+export function isJoinedLocation(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString' | 'remoteParts'>): boolean {
+  return (feature.segments?.length ?? 0) > 1 && !isOrderLocation(feature) && !feature.remoteParts?.length;
 }
 
-/** One interval, or intervals under `join`: the location defines one sequence (LOC-7). */
-export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString'>): boolean {
+/** One interval, or intervals under `join`, all in this record: the location defines one sequence (LOC-7). */
+export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString' | 'remoteParts'>): boolean {
+  if (feature.remoteParts?.length) return false;
   return (feature.segments?.length ?? 0) <= 1 || isJoinedLocation(feature);
 }
 

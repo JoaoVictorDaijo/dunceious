@@ -77,6 +77,21 @@ export interface BioFeature {
    * location writes its intervals, as in a nested `complement(join(complement(a),b))` (#241).
    */
   writtenOrder?: number[];
+  /**
+   * Intervals in other INSDC entries (§3.4.2.1(e)), never local bases (#245). `segments` holds only
+   * this record's intervals, so a reader that ignores these cannot mistake them for local ones.
+   */
+  remoteParts?: RemotePart[];
+}
+
+/** An interval in another entry, in that entry's 0-based half-open coordinates. */
+export interface RemotePart extends FeatureSegment {
+  /** Accession.version as written, e.g. `J00194.1`. */
+  accession: string;
+  /** The strand it is read on. */
+  strand: 1 | -1;
+  /** Its position among all the location's intervals in the order `segments` stores them. */
+  index: number;
 }
 
 /** `join` concatenates its elements; `order` only places them (INSDC FT 11.4 §3.4.2.2). */

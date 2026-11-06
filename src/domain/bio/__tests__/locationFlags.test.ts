@@ -20,7 +20,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { BioFeature } from '../types';
-import { isBetweenBasesSite, isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
+import { definesOneSequence, isBetweenBasesSite, isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
 
 describe('isNestedComplementLocation', () => {
   // The parser reverses a list only when an outer complement wraps join/order and one of the list's
@@ -68,5 +68,14 @@ describe('isBetweenBasesSite', () => {
     [{ start: 10, end: 10 }, false],
   ])('%o → %s', (feature, site) => {
     expect(isBetweenBasesSite(feature)).toBe(site);
+  });
+});
+
+// #245: local intervals of a location with remote parts are not one sequence of this record.
+describe('definesOneSequence and isJoinedLocation – remote parts', () => {
+  const remote = { remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1 as const, index: 1 }] };
+  it('is false for a location with a remote part', () => {
+    expect(definesOneSequence({ segments: [{ start: 0, end: 100 }], ...remote })).toBe(false);
+    expect(isJoinedLocation({ operator: 'join', segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }], ...remote })).toBe(false);
   });
 });

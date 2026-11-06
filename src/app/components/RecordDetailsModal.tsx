@@ -72,6 +72,9 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
     ? `Zero-length site ${span}: the location covers no ${residues}.`
     : `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
   const partial = views.partial && <> <Flag>Partial:</Flag> at least one end lies beyond the annotated base (&lt; or &gt;), so this sequence is incomplete.</>;
+  if (views.remote) {
+    return <><Flag>Intervals in other records:</Flag> {views.remote} {views.remote.startsWith('1 ') ? 'is' : 'are'} not in this record, so no feature sequence is shown; Dunceious doesn't load other records' bases. {region}{partial}</>;
+  }
   if (views.feature === null) {
     return <><Flag>order() location:</Flag> INSDC gives the order of these {n} intervals but does not imply they form one sequence, so only the region spanned is shown. {region}{partial}</>;
   }
@@ -220,7 +223,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {fmt(views.featureLength)} {unit}
                   {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">{views.partialLabel}</span></>}
                   {' '}<span className="text-[11px] font-sans font-semibold text-slate-500">
-                    {views.feature === null
+                    {views.remote
+                      ? `in this record, plus ${views.remote}`
+                      : views.feature === null
                       ? `in ${views.intervals} intervals (not joined)`
                       : `feature sequence · ${views.intervals > 1 ? `sum of ${views.intervals} location intervals` : '1 location interval'}`}
                   </span>
@@ -310,7 +315,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                       return (
                         <label
                           key={option}
-                          data-tip={disabled ? 'An order() location does not define one joined sequence' : undefined}
+                          data-tip={disabled ? (views.remote ? 'Some intervals are in other records' : 'An order() location does not define one joined sequence') : undefined}
                           className={`px-2.5 py-1 rounded-md transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-500/60 ${shown === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'} ${disabled ? 'line-through opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <input type="radio" name={viewGroup} value={option} checked={shown === option} disabled={disabled}

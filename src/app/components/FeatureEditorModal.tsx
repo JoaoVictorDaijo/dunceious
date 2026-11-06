@@ -24,7 +24,8 @@ import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { keptWrittenOrder } from '@/src/domain/bio/featureEnvelope';
-import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { featureCoordPatch, remoteIntervalsText } from '@/src/app/logic/viewModel';
+import { keptRemoteParts } from '@/src/domain/bio/intervals';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
   metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
@@ -245,6 +246,12 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </p>
           )}
 
+          {feature.remoteParts?.length ? (
+            <p data-location-note="remote" className="text-[11px] text-slate-400">
+              {remoteIntervalsText(feature.remoteParts)} {feature.remoteParts.length === 1 ? 'is' : 'are'} kept as written and can't be edited here.
+            </p>
+          ) : null}
+
           {/* Segments editor (multi-segment features) */}
           {feature.segments && feature.segments.length > 1 && (
             <div>
@@ -294,7 +301,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                       onClick={() => {
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
                         const kept = feature.segments!.map((_, i) => i).filter(i => i !== idx);
-                        setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept) });
+                        setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept),
+                          remoteParts: feature.remoteParts && keptRemoteParts(feature.remoteParts, feature.segments!.length, kept) });
                       }}
                       aria-label={`Remove segment ${idx + 1}`}
                       data-tip="Remove this segment"

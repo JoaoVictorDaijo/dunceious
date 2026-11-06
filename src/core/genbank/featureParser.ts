@@ -68,7 +68,7 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       fullLocation += lines[++i].trim();
     }
 
-    const { segments, strand, start, end, operator, betweenBases, writtenOrder } = parseLocation(fullLocation);
+    const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = parseLocation(fullLocation);
 
     const feature: BioFeature = {
       type,
@@ -82,6 +82,7 @@ export function parseFeatures(lines: string[]): BioFeature[] {
       ...(operator && { operator }),
       ...(betweenBases && { betweenBases }),
       ...(writtenOrder && { writtenOrder }),
+      ...(remoteParts && { remoteParts }),
     };
 
     // Parse qualifiers immediately following this feature

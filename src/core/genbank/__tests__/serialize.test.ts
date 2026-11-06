@@ -217,3 +217,17 @@ describe('exportToGenBank – nested locations without their text', () => {
     expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
   });
 });
+
+// #245: with the text cleared, remote parts are written back where they were read (§3.4.3).
+describe('exportToGenBank – remote parts without their text', () => {
+  it.each([
+    'join(1..100,J00194.1:100..202)',
+    'complement(join(1..100,J00194.1:100..202))',
+    'join(complement(J00194.1:100..202),1..100)',
+  ])('writes %s back', location => {
+    const parsed = parseLocation(location);
+    const text = exportToGenBank([record({ sequence: 'A'.repeat(120), features: [{ type: 'misc_feature', name: 'r', strand: parsed.strand,
+      start: parsed.start, end: parsed.end, segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts }] })]).text;
+    expect(text.split('\n')).toContain(`${'misc_feature'.padStart(17).padEnd(21)}${location}`);
+  });
+});

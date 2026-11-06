@@ -196,8 +196,35 @@ first, the default the standard defines:
 [#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
 outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
 track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2) and
-partial ends from its per-end flags (LOC-4). Tested against the oracle for J1–J5, W1, W2, O1 and P1
+partial ends from its per-end flags (LOC-4). A location with intervals in other entries has no
+feature sequence; only its region in this record is shown (LOC-8). Tested against the oracle for J1–J5, W1, W2, O1 and P1
 (`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
 caption names both steps, inner complements first and then the outer one. The interval-sum
 and region lengths have distinct labels, the presentation requirement tracked by
 [#227](https://github.com/JoaoVictorDaijo/dunceious/issues/227).
+
+## LOC-8. Intervals in other entries
+
+**Rule.** §3.4.2.1(e): "A location in a remote entry (not the entry to which the feature table
+belongs) can be specified by giving the accession-number and sequence version of the remote entry,
+followed by a colon ":", followed by a location descriptor which applies to that entry's
+sequence". §3.4.3: `join(1..100,J00194.1:100..202)` "Joins region 1..100 of the existing entry with
+the region 100..202 of remote entry J00194". §3.4.2 allows bounds beyond the presented sequence only
+for a remote entry.
+
+**Reference tools.** Biopython 1.88, Documented (not run here): `SimpleLocation.ref` holds the
+accession, and `extract()` needs the referenced record passed in `references`.
+
+**Applications.** Unknown.
+
+**Dunceious.** Conforms ([#245](https://github.com/JoaoVictorDaijo/dunceious/issues/245)).
+`parseLocation` keeps each remote interval as a `RemotePart` (accession, that entry's coordinates,
+strand, partial ends and its place among the stored intervals); `segments` holds only this
+record's intervals. Dunceious doesn't load other records, so a feature with remote parts has no
+feature sequence, translation or early-stop flag (`extractFeatureSequence`, `definesOneSequence`).
+The viewer draws its local parts, and the tooltip, details window and length name the rest ("100 bp
+in this record, plus 1 interval in J00194.1"). Import logs one warning per file naming those
+features, also in the browser console. GenBank export writes the parts back; GFF3, which has no
+remote reference, carries them as `insdc_remote` and its export report counts them, leaving out a
+feature with no interval in this record.
+

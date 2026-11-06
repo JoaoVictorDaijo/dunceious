@@ -143,6 +143,7 @@ type LocatedFeature = {
   start: number;
   end: number;
   segments?: { start: number; end: number; strand?: 1 | -1 }[];
+  remoteParts?: unknown[];
 };
 
 /**
@@ -166,6 +167,9 @@ export function extractFeatureSequence(
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
 ): { featureSeq: string; alignedIndices: number[] } {
+  // INSDC FT 11.4 §3.4.2.1(e): a remote part's bases belong to another entry, so the location
+  // defines no sequence of this record (#245). Biopython 1.88 likewise needs the referenced record.
+  if (feature.remoteParts?.length) return { featureSeq: '', alignedIndices: [] };
   const seqLen = seq.length;
   let segments: { start: number; end: number; strand?: 1 | -1 }[];
 

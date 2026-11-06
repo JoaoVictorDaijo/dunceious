@@ -95,6 +95,8 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   if (omitted) notes.push(`${omitted} invalid edited ${omitted === 1 ? 'detail' : 'details'} left out.`);
   if (report.droppedAttributes) notes.push(`${report.droppedAttributes} non-GenBank attributes left out.`);
   if (report.deprecatedModifiersOmitted) notes.push(`${report.deprecatedModifiersOmitted} deprecated modifiers left out.`);
+  if (report.remotePartsCarried) notes.push(`${report.remotePartsCarried} ${report.remotePartsCarried === 1 ? 'annotation keeps its' : 'annotations keep their'} intervals in other records only as the insdc_remote attribute.`);
+  if (report.remoteOnlyOmitted) notes.push(`${report.remoteOnlyOmitted} ${report.remoteOnlyOmitted === 1 ? 'annotation lies' : 'annotations lie'} entirely in other records and ${report.remoteOnlyOmitted === 1 ? 'was' : 'were'} left out.`);
   if (report.adjustedIds.length) notes.push(`${report.adjustedIds.length} IDs adjusted.`);
   notes.push('Display names stay in Dunceious.');
   return { report, summary: notes.join(' ') + (report.missingOrganism ? `\n${missingOrganismWarning(report.missingOrganism)}` : '') };

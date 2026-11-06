@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, RemotePart, SeqRecord } from '@/src/domain/bio/types';
 import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { isBetweenBasesSite, isFivePrimePartialLocation, isOrderLocation, isPartialLocation, isThreePrimePartialLocation } from '@/src/domain/bio/locationFlags';
@@ -50,6 +50,10 @@ export function getDisplaySeq(
 export function featureLengthText(record: Pick<SeqRecord, 'sequence' | 'moleculeType'>, feature: BioFeature): string {
   const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
   if (isBetweenBasesSite(feature)) return `0 ${unit} (between-base site)`;
+  if (feature.remoteParts?.length) {
+    const local = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
+    return `${local} ${unit} in this record, plus ${remoteIntervalsText(feature.remoteParts)}`;
+  }
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
   const intervals = feature.segments?.length ?? 1;
   return intervals > 1 && isOrderLocation(feature) ? `${length} ${unit} in ${intervals} intervals (not joined)` : `${length} ${unit}`;
@@ -92,6 +96,14 @@ export interface FeatureSequenceViews {
   partial: boolean;
   /** Which end is partial, read 5′→3′ (`isFivePrimePartialLocation`); `Partial` for protein or interior markers. */
   partialLabel: string | null;
+  /** "1 interval in J00194.1" when some intervals lie in other entries, which give no local sequence. */
+  remote: string | null;
+}
+
+/** "1 interval in J00194.1": a feature's intervals in other records, by accession. */
+export function remoteIntervalsText(parts: RemotePart[]): string {
+  const accessions = [...new Set(parts.map(part => part.accession))].join(', ');
+  return `${parts.length} ${parts.length === 1 ? 'interval' : 'intervals'} in ${accessions}`;
 }
 
 /** Names the partial end of a nucleotide feature's location; a protein record has no 5′/3′. */
@@ -111,7 +123,7 @@ export function featureSequenceViews(
   const alphabet = record.moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, record.moleculeType);
   const envelope = featureEnvelope(feature);
   return {
-    feature: isOrderLocation(feature) ? null : extractFeatureSequence(feature, sequence, alphabet).featureSeq,
+    feature: isOrderLocation(feature) || feature.remoteParts?.length ? null : extractFeatureSequence(feature, sequence, alphabet).featureSeq,
     featureLength: featureLength(sequence.length, feature.start, feature.end, feature.segments),
     intervals: feature.segments?.length || 1,
     region: getDisplaySeq(sequence, envelope),
@@ -120,6 +132,7 @@ export function featureSequenceViews(
     regionEnd: envelope.end,
     partial: isPartialLocation(feature),
     partialLabel: partialEndsLabel(feature, record.moleculeType === 'protein'),
+    remote: feature.remoteParts?.length ? remoteIntervalsText(feature.remoteParts) : null,
   };
 }
 

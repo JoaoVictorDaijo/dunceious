@@ -25,6 +25,7 @@ import React, { memo, useMemo, useState } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
+import { remoteIntervalsText } from '@/src/app/logic/viewModel';
 import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
@@ -339,6 +340,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   : `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`)}`,
                 annotationDirection(f, l.record.moleculeType),
                 unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
+                f.remoteParts?.length ? `${remoteIntervalsText(f.remoteParts)}, not in this record` : null,
                 isBetweenBasesSite(f) ? 'Between-base site: covers no bases' : null,
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',

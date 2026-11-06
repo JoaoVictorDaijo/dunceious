@@ -275,3 +275,26 @@ describe('parseLocation – nested locations and written order', () => {
       expect(parseLocation(loc).writtenOrder).toBeUndefined();
     });
 });
+
+// INSDC FT 11.4 §3.4.2.1(e): an accession.version prefix makes the descriptor apply to that entry's
+// sequence, so its interval is kept as a remote part and never becomes local bases (#245). The
+// §3.4.3 example join(1..100,J00194.1:100..202) is the oracle.
+describe('parseLocation – remote parts', () => {
+  it('keeps J00194.1:100..202 as a remote part next to the local interval', () => {
+    const r = parseLocation('join(1..100,J00194.1:100..202)');
+    expect(r.segments).toEqual([{ start: 0, end: 100 }]);
+    expect(r.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
+    expect(r).toMatchObject({ start: 0, end: 100, operator: 'join' });
+  });
+
+  it('reads a remote part on the reverse strand of a whole-feature complement', () => {
+    expect(parseLocation('complement(join(1..100,J00194.1:100..>202))').remoteParts)
+      .toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: -1, partialEnd: true, index: 1 }]);
+  });
+
+  it('keeps a location entirely in another entry with no local interval', () => {
+    const r = parseLocation('J00194.1:2..3');
+    expect(r.segments).toEqual([]);
+    expect(r.remoteParts).toEqual([{ accession: 'J00194.1', start: 1, end: 3, strand: 1, index: 0 }]);
+  });
+});

@@ -193,3 +193,17 @@ describe('project written order saved before the field', () => {
     expect(result.project.records[0].features[0].writtenOrder).toEqual([1, 0]);
   });
 });
+
+// #245 for projects saved before remoteParts: the remote interval was stored as local bases, so the
+// feature is re-read from its text and the other entry's coordinates leave the local segments.
+describe('project remote parts saved before the field', () => {
+  it('moves J00194.1:100..202 out of the local segments', () => {
+    const legacy = { ...record, sequence: 'A'.repeat(300), alignedSequence: undefined, features: [{ type: 'CDS', name: 'r', strand: 1,
+      start: 0, end: 202, segments: [{ start: 0, end: 100 }, { start: 99, end: 202 }],
+      locationString: 'join(1..100,J00194.1:100..202)' } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    expect(result.project.records[0].features[0]).toMatchObject({ segments: [{ start: 0, end: 100 }], start: 0, end: 100,
+      remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }] });
+  });
+});

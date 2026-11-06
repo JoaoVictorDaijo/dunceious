@@ -21,6 +21,7 @@
 import { it, expect } from 'vitest';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGff3, parseGFF3 } from '../gff3';
+import { exportToGenBank } from '../../genbank/serialize';
 import { soTypeFor } from '../soTypes';
 import { extractCodingSequence, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
@@ -287,4 +288,29 @@ it('keeps the written order of a nested feature through GFF3', () => {
   expect(featureEnvelope(imported)).toEqual({ start: 0, end: 12 });
   expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe(extractFeatureSequence(nested, circular.sequence).featureSeq);
   expect(imported.metadata).not.toHaveProperty('insdc_written_order');
+});
+
+// #245 through GFF3, which has no remote reference: insdc_remote carries the remote parts, each
+// with its stored position, and the export report counts the features that need it.
+it('carries remote parts through GFF3 and counts them in the report', () => {
+  const parsed = parseLocation('join(1..100,J00194.1:100..202)');
+  const withRemote = feature({ type: 'CDS', name: 'r', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const remoteOnly = feature({ type: 'misc_feature', name: 'away', start: 0, end: 0, segments: [],
+    remoteParts: [{ accession: 'J00194.1', start: 1, end: 3, strand: 1, index: 0 }] });
+  const { text, report } = exportToGff3([record({ features: [withRemote, remoteOnly] })]);
+  expect(report.remotePartsCarried).toBe(1);
+  expect(report.remoteOnlyOmitted).toBe(1);
+  const [imported] = parseGFF3(text).features.seq_1;
+  expect(imported.remoteParts).toEqual(parsed.remoteParts);
+  expect(imported.metadata).not.toHaveProperty('insdc_remote');
+});
+
+it('writes a reverse remote part back on its own strand after a GFF3 round trip', () => {
+  const parsed = parseLocation('join(complement(J00194.1:100..202),1..100)');
+  const original = feature({ type: 'misc_feature', name: 'r', strand: parsed.strand, start: parsed.start, end: parsed.end,
+    segments: parsed.segments, operator: parsed.operator, remoteParts: parsed.remoteParts });
+  const [imported] = parseGFF3(exportToGff3([record({ features: [original] })]).text).features.seq_1;
+  expect(exportToGenBank([record({ features: [{ ...imported, type: 'misc_feature' }] })]).text)
+    .toContain('join(complement(J00194.1:100..202),1..100)');
 });

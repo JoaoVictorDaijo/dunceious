@@ -278,3 +278,16 @@ describe('RecordDetailsModal record summary', () => {
     expect(screen.queryByText('Alignment length')).toBeNull();
   });
 });
+
+// #245 and owner decision 7: a location with an interval in another record shows no feature
+// sequence; the length counts this record's bases and names the other record.
+describe('remote location intervals', () => {
+  it('names the other record instead of showing its bases', () => {
+    const feature: BioFeature = { type: 'CDS', name: 'r', start: 0, end: 4, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 4 }], remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }],
+      locationString: 'join(1..4,J00194.1:100..202)' };
+    open({ id: 'r', name: 'r', sequence: 'ACGTACGT', features: [feature] }, feature);
+    expect(caption()).toMatch(/^Intervals in other records: 1 interval in J00194\.1 is not in this record, so no feature sequence is shown/);
+    expect(lengths()).toMatch(/^4 bp in this record, plus 1 interval in J00194\.1/);
+  });
+});

@@ -59,7 +59,7 @@
  *   Both are near-impossible in real annotations.
  */
 
-import type { FeatureSegment, LocationOperator } from '@/src/domain/bio/types';
+import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -72,6 +72,7 @@ export interface LocationData {
   betweenBases?: true;
   /** Written position of each stored segment, when it differs from the stored (evaluation) order. */
   writtenOrder?: number[];
+  remoteParts?: RemotePart[];
 }
 
 /**
@@ -105,7 +106,7 @@ function splitTopLevelCommas(list: string): string[] {
 }
 
 /** One interval as evaluated: the strand it is read on and its position in the written text. */
-type Interval = FeatureSegment & { strand: 1 | -1; written: number };
+type Interval = FeatureSegment & { strand: 1 | -1; written: number; accession?: string };
 
 /**
  * INSDC FT 11.4 §3.4.2.2 at any depth: `complement()` reverses what it encloses and reads it on the
@@ -116,7 +117,10 @@ function evaluate(text: string, strand: 1 | -1, counter: { next: number }): Inte
   const operator = text.match(/^(complement|join|order)\((.*)\)$/);
   if (operator?.[1] === 'complement') return evaluate(operator[2], strand === 1 ? -1 : 1, counter).reverse();
   if (operator) return splitTopLevelCommas(operator[2]).flatMap(element => evaluate(element, strand, counter));
-  return [{ ...parseCoord(text), strand, written: counter.next++ }];
+  // §3.4.2.1(e): `accession.version:` makes the descriptor apply to that entry's sequence.
+  const remote = text.match(/^([^():,]+):(.+)$/);
+  const descriptor = remote ? remote[2] : text;
+  return [{ ...parseCoord(descriptor), strand, written: counter.next++, ...(remote && { accession: remote[1] }) }];
 }
 
 /** Parses a single coordinate element (`n..m`, `n^m`, or `n`) to a half-open range. */
@@ -152,9 +156,14 @@ export function parseLocation(loc: string): LocationData {
     return { segments: [segment], strand: outerComplement ? -1 : 1, ...segment, betweenBases: true };
   }
 
-  const evaluated = evaluate(cleanLoc, 1, { next: 0 });
+  const all = evaluate(cleanLoc, 1, { next: 0 });
+  const local = all.filter(interval => interval.accession === undefined);
+  // Local intervals are numbered among themselves, so `writtenOrder` and the origin test see them
+  // alone; remote parts keep their place among all intervals through `index` below.
+  const localRank = new Map([...local].sort((a, b) => a.written - b.written).map((interval, rank) => [interval, rank]));
+  const evaluated = local.map(interval => ({ ...interval, written: localRank.get(interval)! }));
   const written = [...evaluated].sort((a, b) => a.written - b.written);
-  const strands = evaluated.map(p => p.strand);
+  const strands = all.map(p => p.strand);
   const mixedStrand = strands.some(s => s !== strands[0]);
 
   // A complement() below the outermost one, or mixed strands, needs per-interval orientation, and
@@ -162,11 +171,16 @@ export function parseLocation(loc: string): LocationData {
   // shape holds: the intervals as written, one strand on the feature, and the whole sequence
   // reverse-complemented downstream when that strand is -1.
   const usePerSegment = body.includes('complement(') || mixedStrand;
-  const strip = ({ strand: _strand, written: _written, ...part }: Interval): FeatureSegment => part;
+  const strip = ({ strand: _strand, written: _written, accession: _accession, ...part }: Interval): FeatureSegment => part;
 
   let segments: FeatureSegment[];
   let strand: 1 | -1;
   let writtenOrder: number[] | undefined;
+  // The order every interval is stored in, remote parts included: evaluation order per strand, else as written.
+  const stored = usePerSegment ? all : [...all].sort((a, b) => a.written - b.written);
+  const remoteParts: RemotePart[] = stored.flatMap((interval, index) => interval.accession === undefined ? [] : [{
+    ...strip(interval), accession: interval.accession, strand: interval.strand, index,
+  }]);
 
   if (usePerSegment) {
     // The parent strand is the majority (ties resolve to +1).
@@ -202,6 +216,7 @@ export function parseLocation(loc: string): LocationData {
     segments, strand, start, end,
     ...(operator && { operator }),
     ...(writtenOrder && { writtenOrder }),
+    ...(remoteParts.length > 0 && { remoteParts }),
   };
 }
 

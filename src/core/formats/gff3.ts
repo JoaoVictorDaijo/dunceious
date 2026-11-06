@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
+import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
+import { parseLocation } from '../genbank/locationParser';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -162,6 +163,12 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
 
     for (const [featureIndex, feature] of record.features.entries()) {
       if (feature.type === 'source') continue;
+      const remote = feature.remoteParts ?? [];
+      // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
+      if (remote.length && !feature.segments?.length) {
+        report.remoteOnlyOmitted++;
+        continue;
+      }
       const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, length);
       const phases = partPhases(feature, segments);
       const so = soTypeFor(feature.type);
@@ -174,6 +181,14 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
       // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
       if (feature.writtenOrder) attrs.insdc_written_order = feature.writtenOrder.map(String);
+      if (remote.length) {
+        // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
+        attrs.insdc_remote = remote.map(part => {
+          const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
+          return `${part.index}:${part.strand === -1 ? `complement(${span})` : span}`;
+        });
+        report.remotePartsCarried++;
+      }
       if (isBetweenBasesSite(feature)) {
         // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
         attrs.insdc_site = 'true';
@@ -226,17 +241,35 @@ function parseAttributes(raw: string): Record<string, string> {
   return result;
 }
 
-/** Reads and removes `insdc_written_order`; a value that is not a permutation of the rows is dropped. */
-function takeWrittenOrder(feature: BioFeature): number[] | undefined {
+/** Reads and removes one of Dunceious's own `insdc_*` list attributes. */
+function takeListAttribute(feature: BioFeature, key: string): string | undefined {
   const metadata = feature.metadata!;
-  const raw = metadata.insdc_written_order;
-  delete metadata.insdc_written_order;
+  const raw = metadata[key];
+  delete metadata[key];
   if (metadata._gffLists) {
     const lists = JSON.parse(metadata._gffLists);
-    delete lists.insdc_written_order;
+    delete lists[key];
     if (Object.keys(lists).length) metadata._gffLists = JSON.stringify(lists);
     else delete metadata._gffLists;
   }
+  return raw;
+}
+
+/** Reads `insdc_remote` back into remote parts; a value that does not parse as one is dropped. */
+function takeRemoteParts(feature: BioFeature): RemotePart[] | undefined {
+  const raw = takeListAttribute(feature, 'insdc_remote');
+  if (raw === undefined) return undefined;
+  const parts = raw.split(',').flatMap(value => {
+    const item = value.match(/^(\d+):(.+)$/);
+    const [part] = item ? parseLocation(item[2]).remoteParts ?? [] : [];
+    return part ? [{ ...part, index: Number(item![1]) }] : [];
+  });
+  return parts.length ? parts : undefined;
+}
+
+/** Reads and removes `insdc_written_order`; a value that is not a permutation of the rows is dropped. */
+function takeWrittenOrder(feature: BioFeature): number[] | undefined {
+  const raw = takeListAttribute(feature, 'insdc_written_order');
   if (raw === undefined) return undefined;
   const order = raw.split(',').map(Number);
   const length = feature.segments!.length;
@@ -390,6 +423,8 @@ export function parseGFF3(content: string): {
     for (const feature of values) {
       if (feature.segments!.length > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
       delete feature.metadata!.insdc_operator;
+      const remoteParts = takeRemoteParts(feature);
+      if (remoteParts) feature.remoteParts = remoteParts;
       const writtenOrder = takeWrittenOrder(feature);
       if (writtenOrder) {
         // The rows are in evaluation order, each read on its own strand, as the parser stores them.

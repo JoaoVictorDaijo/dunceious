@@ -28,9 +28,12 @@ import { emptyReport, detailsForExport, type ExportResult } from '../exportRepor
 import { searchHitNote } from '../formats/searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
 
-const span = (segment: FeatureSegment) =>
-  `${segment.partialStart ? '<' : ''}${segment.start + 1}..${segment.partialEnd ? '>' : ''}${segment.end}`;
-const oriented = (segment: FeatureSegment, strand: 1 | -1) => (strand === -1 ? `complement(${span(segment)})` : span(segment));
+/** An interval, local or in another entry (`accession`, INSDC FT 11.4 §3.4.2.1(e)). */
+type Written = FeatureSegment & { accession?: string };
+
+const span = (segment: Written) =>
+  `${segment.accession ? `${segment.accession}:` : ''}${segment.partialStart ? '<' : ''}${segment.start + 1}..${segment.partialEnd ? '>' : ''}${segment.end}`;
+const oriented = (segment: Written, strand: 1 | -1) => (strand === -1 ? `complement(${span(segment)})` : span(segment));
 
 /**
  * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
@@ -40,7 +43,8 @@ const oriented = (segment: FeatureSegment, strand: 1 | -1) => (strand === -1 ? `
  */
 function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[]): string | null {
   const order = feature.writtenOrder;
-  if (order?.length !== segments.length) return null;
+  // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
+  if (order?.length !== segments.length || feature.remoteParts?.length) return null;
   const operator = feature.operator ?? 'join';
   const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
   const evaluationAt: number[] = [];
@@ -75,11 +79,15 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
     const site = `${feature.start}^${feature.start === sequenceLength ? 1 : feature.start + 1}`;
     return feature.strand === -1 ? `complement(${site})` : site;
   }
-  const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, sequenceLength);
-  const mixed = segments.some(segment => segment.strand !== undefined);
+  const remote = feature.remoteParts ?? [];
+  const segments = feature.segments?.length || remote.length ? feature.segments ?? [] : splitWrapAround(feature.start, feature.end, sequenceLength);
+  const mixed = segments.some(segment => segment.strand !== undefined) || remote.some(part => part.strand !== feature.strand);
   const nested = mixed ? writtenNestedLocation(feature, segments) : null;
   if (nested) return nested;
-  const locations = segments.map(segment => (mixed ? oriented(segment, segment.strand ?? feature.strand) : span(segment)));
+  // Remote parts go back to their place in the stored order (#245).
+  const stored: Written[] = [...segments];
+  for (const part of [...remote].sort((a, b) => a.index - b.index)) stored.splice(Math.min(part.index, stored.length), 0, part);
+  const locations = stored.map(segment => (mixed ? oriented(segment, segment.strand ?? feature.strand) : span(segment)));
   const location = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
   return !mixed && feature.strand === -1 ? `complement(${location})` : location;
 }

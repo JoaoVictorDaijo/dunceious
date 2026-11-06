@@ -78,6 +78,18 @@ export function resolveAccession(incomingAccession: string | undefined): string 
   return incomingAccession?.trim() || undefined;
 }
 
+/**
+ * One warning per file naming the annotations with intervals in other records (INSDC FT 11.4
+ * §3.4.2.1(e)), whose sequence Dunceious doesn't load or show (#245).
+ */
+export function remotePartsWarning(records: SeqRecord[]): string | null {
+  const remote = records.flatMap(record => record.features).filter(feature => feature.remoteParts?.length);
+  if (remote.length === 0) return null;
+  const names = remote.map(feature => `${feature.name}: ${[...new Set(feature.remoteParts!.map(part => part.accession))].join(', ')}`).join('; ');
+  const count = remote.length === 1 ? '1 annotation has intervals' : `${remote.length} annotations have intervals`;
+  return `WARNING: ${count} in other records, which Dunceious doesn't load (${names}). Their sequence and translation aren't shown.`;
+}
+
 export function applyParseSuccess(
   prev: SeqRecord[], incoming: SeqRecord[], filename?: string,
 ): { next: SeqRecord[]; count: number; idMap: BatchIdMap } {

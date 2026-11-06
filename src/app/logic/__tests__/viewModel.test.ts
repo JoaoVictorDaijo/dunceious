@@ -176,3 +176,12 @@ describe('partialEndsLabel', () => {
     expect(partialEndsLabel({ strand: 1, segments: [{ start: 0, end: 9, partialStart: true }] }, true)).toBe('Partial');
   });
 });
+
+// Owner decision 7: a feature with remote parts counts only this record's bases, and names the rest.
+describe('featureLengthText – remote parts', () => {
+  it('counts local bases and names the remote interval', () => {
+    expect(featureLengthText({ sequence: 'A'.repeat(200) }, { type: 'CDS', name: 'r', strand: 1, start: 0, end: 100,
+      segments: [{ start: 0, end: 100 }], remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }] }))
+      .toBe('100 bp in this record, plus 1 interval in J00194.1');
+  });
+});

@@ -54,6 +54,7 @@ export type {
   FeatureSegment,
   BioFeature,
   LocationOperator,
+  RemotePart,
   QuantitativeTrack,
   SeqRecord,
   SearchResult,

@@ -81,6 +81,8 @@ function validRecord(value: unknown): boolean {
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.betweenBases === undefined || feature.betweenBases === true)
     && (feature.writtenOrder === undefined || (Array.isArray(feature.writtenOrder) && feature.writtenOrder.every(Number.isInteger)))
+    && (feature.remoteParts === undefined || (Array.isArray(feature.remoteParts) && feature.remoteParts.every(part => isObject(part)
+      && coordinates(part) && typeof part.accession === 'string' && (part.strand === 1 || part.strand === -1) && Number.isInteger(part.index))))
     && (feature.metadata === undefined || stringMap(feature.metadata))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
@@ -97,13 +99,19 @@ function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): bo
 }
 
 /**
- * Projects saved before features carried `operator`, `betweenBases`, per-end partial flags and
- * `writtenOrder` hold them only in `locationString`, which the first edit clears; read them from
- * that text while it is still there.
+ * Projects saved before features carried `operator`, `betweenBases`, per-end partial flags,
+ * `writtenOrder` and `remoteParts` hold them only in `locationString`, which the first edit clears;
+ * read them from that text while it is still there. Remote intervals were stored as local
+ * segments then, so a feature that has them is re-read from its text whole (#245).
  */
 function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (!feature.locationString) return feature;
   const parsed = parseLocation(feature.locationString);
+  if (parsed.remoteParts && !feature.remoteParts) {
+    const { segments, strand, start, end, operator, writtenOrder, remoteParts } = parsed;
+    return { ...feature, segments, strand, start, end, remoteParts,
+      ...(operator && { operator }), ...(writtenOrder && { writtenOrder }) };
+  }
   let next = feature;
   if (!next.operator && parsed.operator && (next.segments?.length ?? 0) > 1) next = { ...next, operator: parsed.operator };
   if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {

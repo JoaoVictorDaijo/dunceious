@@ -25,6 +25,7 @@ import {
   applyAnnotations,
   applyFastaResponse,
   applyFastaAndLog,
+  remotePartsWarning,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
@@ -553,5 +554,18 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
       'Removed alignment gaps ("-") from 2 records in gapped.fa: a (1), b (2).',
       'ERROR: only.fa was not loaded: records with no residues: [b].',
     ]);
+  });
+});
+
+// Owner decision 9 (Murilo, #245): one warning per file names the features with remote parts.
+describe('remotePartsWarning', () => {
+  const remote = (name: string, accession: string): BioFeature => ({ type: 'CDS', name, start: 0, end: 1, strand: 1,
+    remoteParts: [{ accession, start: 0, end: 3, strand: 1, index: 1 }] });
+  it('is null without remote parts', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [] }])).toBeNull();
+  });
+  it('names each feature and its accessions', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [remote('cds1', 'J00194.1'), remote('cds2', 'AB000001.2')] }]))
+      .toBe("WARNING: 2 annotations have intervals in other records, which Dunceious doesn't load (cds1: J00194.1; cds2: AB000001.2). Their sequence and translation aren't shown.");
   });
 });

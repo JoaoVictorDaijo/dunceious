@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { FeatureSegment, BioFeature, SeqRecord } from './types';
+import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite } from './locationFlags';
 import { keptWrittenOrder } from './featureEnvelope';
 
@@ -161,6 +161,7 @@ function clipFeature(
   const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
   if (writtenOrder) result.writtenOrder = writtenOrder;
   else delete result.writtenOrder;
+  if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
   if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
     delete result.locationString;
   }
@@ -182,6 +183,17 @@ function clipFeature(
     result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
   }
   return result;
+}
+
+/**
+ * Remote parts keep their own coordinates (another entry's), and their place among the stored
+ * intervals moves up past each local interval the selection dropped before them.
+ */
+export function keptRemoteParts(parts: RemotePart[], localCount: number, kept: number[]): RemotePart[] {
+  const stored: (number | RemotePart)[] = Array.from({ length: localCount }, (_, i) => i);
+  for (const part of [...parts].sort((a, b) => a.index - b.index)) stored.splice(Math.min(part.index, stored.length), 0, part);
+  const remaining = stored.filter(item => typeof item !== 'number' || kept.includes(item));
+  return remaining.flatMap((item, index) => (typeof item === 'number' ? [] : [{ ...item, index }]));
 }
 
 /** Counts only biological bases preceding the first selected part in transcription order. */
