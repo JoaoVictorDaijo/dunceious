@@ -64,11 +64,7 @@ function positionOfOffset(gene: Gene, offset: number): number | undefined {
   return undefined;
 }
 
-/**
- * The codon that reads `pos`. Gene 10B's −1 ribosomal frameshift reads base
- * 23,989 twice; this returns the first reading, so codons after it follow the
- * shifted frame exactly as gp10B does. A base a +1 frameshift skips has none.
- */
+/** The codon at `pos` in the first curated gene that contains it (see codonInGene). */
 export function codonAt(pos: number): Codon | undefined {
   const gene = geneAt(pos);
   return gene ? codonInGene(gene, pos) : undefined;
@@ -76,6 +72,9 @@ export function codonAt(pos: number): Codon | undefined {
 
 /**
  * Reads a codon in one curated T7 CDS, including where another gene overlaps it.
+ * Gene 10B's −1 ribosomal frameshift reads base 23,989 twice; this returns the first
+ * reading, so codons after it follow the shifted frame exactly as gp10B does. A base
+ * a +1 frameshift skips has none.
  * All greeter CDSs are 5′-complete with /codon_start=1 and /transl_table=11 in
  * NC_001604.1; greeterContent.test.ts checks these prerequisites for initiation Met.
  */
