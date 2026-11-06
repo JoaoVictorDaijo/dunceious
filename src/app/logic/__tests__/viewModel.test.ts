@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDisplaySeq, featureLength, deriveAlignmentState, featureCoordPatch } from '../viewModel';
+import { getDisplaySeq, featureLength, deriveAlignmentState, featureCoordPatch, featureLengthText } from '../viewModel';
 
 describe('getDisplaySeq', () => {
   it('returns the whole sequence when there is no feature', () => {
@@ -128,5 +128,19 @@ describe('featureCoordPatch', () => {
     expect(patch.segments).toHaveLength(1);
     expect(Number.isNaN(patch.segments![0].start)).toBe(true);
     expect(patch.segments![0].end).toBe(50);
+  });
+});
+
+// LOC-7 (owner decision on #81): an order() feature's length is its interval sum named "not joined".
+describe('featureLengthText', () => {
+  const protein = { sequence: 'M'.repeat(200), moleculeType: 'protein' as const };
+  const dna = { sequence: 'A'.repeat(200) };
+  const sites = [31, 34, 36, 107].map(i => ({ start: i, end: i + 1 }));
+  it.each([
+    [protein, { operator: 'order' as const, segments: sites, start: 31, end: 108 }, '4 aa in 4 intervals (not joined)'],
+    [dna, { operator: 'join' as const, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }], start: 0, end: 30 }, '20 bp'],
+    [dna, { start: 0, end: 1500 }, '1,500 bp'],
+  ])('%o, %o → %s', (record, feature, text) => {
+    expect(featureLengthText(record, { type: 'misc_feature', name: 'f', strand: 1, ...feature })).toBe(text);
   });
 });

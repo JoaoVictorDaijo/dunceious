@@ -82,3 +82,18 @@ describe('segmentFrameshifts', () => {
     expect(segmentFrameshifts({ strand: 1 })).toEqual([]);
   });
 });
+
+// INSDC FT 11.4 /ribosomal_slippage: slippage is written with join; order() implies nothing about
+// joining its elements (§3.4.2.2), so its gaps are never frameshifts. Location from the
+// SARS-CoV-2 orf1ab polyprotein (YP_009724389.1) Site features.
+describe('segmentFrameshifts – order()', () => {
+  const segments = [{ start: 147, end: 152 }, { start: 153, end: 161 }, { start: 172, end: 175 }];
+  it('reads no junctions in an order() location, with or without its text', () => {
+    expect(segmentFrameshifts({ strand: 1, segments, operator: 'order' })).toEqual([]);
+    expect(segmentFrameshifts({ strand: 1, segments, locationString: 'order(148..152,154..161,173..175)' })).toEqual([]);
+  });
+
+  it('still reads the same gaps under join', () => {
+    expect(segmentFrameshifts({ strand: 1, segments, operator: 'join' })).toEqual([{ position: 153, shift: 1 }]);
+  });
+});

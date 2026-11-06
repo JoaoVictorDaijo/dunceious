@@ -79,7 +79,7 @@ describe('parseLocation – complement', () => {
 describe('parseLocation – linear join', () => {
   it('creates multiple segments for join()', () => {
     const r = parseLocation('join(1..10,21..30)');
-    expect(r).toEqual({ start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] });
+    expect(r).toEqual({ start: 0, end: 30, strand: 1, operator: 'join', segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }] });
   });
 
   it('handles three-segment join', () => {
@@ -193,4 +193,24 @@ describe('nested complement evaluation (INSDC 11.4)', () => {
     expect(extractFeatureSequence(location, 'AACCGGTT')).toEqual({ featureSeq: sequence, alignedIndices: indices });
     expect({ start: location.start, end: location.end }).toEqual({ start: 0, end });
   });
+});
+
+// INSDC FT 11.4 §3.4.2.2: join and order are distinct operators, and complement may wrap either.
+// Biopython 1.88 keeps operator="order" (O1).
+describe('parseLocation – operator', () => {
+  it.each([
+    ['join(1..10,21..30)', 'join'],
+    ['order(1..3,11..13)', 'order'],
+    ['complement(order(1..3,11..13))', 'order'],
+    ['complement(join(complement(1..2),5..6))', 'join'],
+    ['order(32,35,37,108)', 'order'],
+  ] as const)('records the operator of %s', (loc, operator) => {
+    const r = parseLocation(loc);
+    expect(r.operator).toBe(operator);
+  });
+
+  it.each(['5..9', 'complement(5..9)', '42'])('records no operator for the single interval %s', loc => {
+    expect(parseLocation(loc).operator).toBeUndefined();
+  });
+
 });

@@ -44,7 +44,7 @@ Every claim about a tool carries one of these:
 | ID | Operation | Governing source | Dunceious | Rule file |
 |---|---|---|---|---|
 | LOC-1 | `join()` concatenates in written order | INSDC FT 11.4 §3.4.2.2 | Conforms | [locations](locations.md#loc-1-join-concatenates-in-written-order) |
-| LOC-2 | `order()` is not `join()` | INSDC FT 11.4 §3.4.2.2 | Deviates: #225 | [locations](locations.md#loc-2-order-is-not-join) |
+| LOC-2 | `order()` is not `join()` | INSDC FT 11.4 §3.4.2.2 | Conforms | [locations](locations.md#loc-2-order-is-not-join) |
 | LOC-3 | `complement()`, whole feature or per interval | INSDC FT 11.4 §3.4.2.2 | Conforms, including nested outer complements | [locations](locations.md#loc-3-complement-whole-feature-or-per-interval) |
 | LOC-4 | `<` `>` uncertain bounds | INSDC FT 11.4 §3.4.2.1, §3.4.3 | Deviates: #226 | [locations](locations.md#loc-4-uncertain-bounds) |
 | LOC-5 | `n^(n+1)` between-base sites | INSDC FT 11.4 §3.4.2.1 | Deviates: #230 | [locations](locations.md#loc-5-between-base-sites) |

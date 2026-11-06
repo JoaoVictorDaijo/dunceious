@@ -121,7 +121,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const { copyText, hoverTips, portalTarget } = useUiEffects();
   const searchHit = feature ? readSearchHit(feature) : null;
   const current = feature ? isSearchHitCurrent(feature) : false;
-  const joined = !searchHit && (feature?.segments?.length ?? 0) > 1;
+  const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
@@ -229,7 +229,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {locationLabel(views.regionStart, views.regionEnd, record)}</span>
                 </p>
               </div>}
-              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
+              {onSetBasesMode && (searchHit || multiInterval) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
                   <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
                     onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded-sm p-2">
@@ -237,7 +237,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
                   </select>
                 </label>
-                {joined && <p>The query layer isn't available for joined annotations.</p>}
+                {multiInterval && <p>The query layer isn't available for annotations with more than one interval.</p>}
                 {searchHit && !current && <p>The search alignment no longer matches this annotation's region.</p>}
                 {searchHit && onRemoveSearchDetails && <button type="button" onClick={onRemoveSearchDetails} className="text-rose-600">Remove search details</button>}
               </div> : onSetShowBases && (

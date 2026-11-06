@@ -43,6 +43,17 @@ export function getDisplaySeq(
   return sequence.substring(start) + sequence.substring(0, end);
 }
 
+/**
+ * One feature's length as every compact view words it: the interval sum, named "not joined" for an
+ * `order()` location (LOC-2, LOC-7).
+ */
+export function featureLengthText(record: Pick<SeqRecord, 'sequence' | 'moleculeType'>, feature: BioFeature): string {
+  const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
+  const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
+  const intervals = feature.segments?.length ?? 1;
+  return intervals > 1 && isOrderLocation(feature) ? `${length} ${unit} in ${intervals} intervals (not joined)` : `${length} ${unit}`;
+}
+
 /** Wrapping features and segments need the source length to count across the origin. */
 export function featureLength(
   seqLen: number | undefined,

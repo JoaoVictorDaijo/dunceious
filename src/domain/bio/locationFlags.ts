@@ -20,13 +20,31 @@
 
 import type { BioFeature } from './types';
 
-// The structured location reads `order` as `join` and drops `<`/`>`, so both flags come from the
-// raw INSDC text, which an edited feature no longer carries.
-// FIXME(#225, #226): read both from the parsed location once the parser keeps them.
+// The structured location drops `<`/`>`, so the partial flags come from the raw INSDC text, which
+// an edited feature no longer carries.
+// FIXME(#226): read the partial ends from the parsed location once the parser keeps them.
 
-/** `order()` (INSDC FT 11.4 §3.4.2.2): nothing is implied about joining the intervals (LOC-2). */
-export function isOrderLocation(feature: Pick<BioFeature, 'locationString'>): boolean {
+/**
+ * `order()` (INSDC FT 11.4 §3.4.2.2): nothing is implied about joining the intervals (LOC-2).
+ * The raw text answers only for features loaded before `operator` existed.
+ */
+export function isOrderLocation(feature: Pick<BioFeature, 'operator' | 'locationString'>): boolean {
+  if (feature.operator) return feature.operator === 'order';
   return /\border\(/.test(feature.locationString ?? '');
+}
+
+/**
+ * The intervals form one sequence (LOC-1): more than one segment under `join`, never `order`.
+ * Every reader that connects, concatenates, translates or reads frameshifts across intervals
+ * asks this, not the segment count.
+ */
+export function isJoinedLocation(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString'>): boolean {
+  return (feature.segments?.length ?? 0) > 1 && !isOrderLocation(feature);
+}
+
+/** One interval, or intervals under `join`: the location defines one sequence (LOC-7). */
+export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString'>): boolean {
+  return (feature.segments?.length ?? 0) <= 1 || isJoinedLocation(feature);
 }
 
 /**

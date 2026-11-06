@@ -38,7 +38,7 @@ function featureLocation(feature: BioFeature, sequenceLength: number): string {
     const strand = 'strand' in segment ? segment.strand : undefined;
     return mixed && (strand ?? feature.strand) === -1 ? `complement(${location})` : location;
   });
-  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
+  const location = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
   return !mixed && feature.strand === -1 ? `complement(${location})` : location;
 }
 

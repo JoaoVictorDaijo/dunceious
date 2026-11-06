@@ -61,7 +61,12 @@ export interface BioFeature {
   segments?: FeatureSegment[];
   /** Original source location text (e.g. GenBank join/complement), preserved for round-trip export. */
   locationString?: string;
+  /** INSDC FT 11.4 §3.4.2.2 operator of a multi-interval location (LOC-1, LOC-2). */
+  operator?: LocationOperator;
 }
+
+/** `join` concatenates its elements; `order` only places them (INSDC FT 11.4 §3.4.2.2). */
+export type LocationOperator = 'join' | 'order';
 
 /** Quantitative track. `data` intervals are `[start, end)` 0-based half-open; `kind` = 'line' (bedGraph) or 'interval' (BED). */
 export interface QuantitativeTrack {

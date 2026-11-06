@@ -142,3 +142,32 @@ ORIGIN
     expect(exportToGenBank([source]).text).toContain('     misc_feature    join(complement(5..6),1..2)\n');
   });
 });
+
+// Rebuilding a location without its source text (after an edit or a selection export) must write
+// the INSDC form that was read. Oracle: Biopython 1.88 writes O1 back as order(1..3,11..13)
+// (docs/standards/conformance).
+describe('exportToGenBank – rebuilt operators', () => {
+  const locationLine = (feature: Partial<SeqRecord['features'][number]>, overrides: Partial<SeqRecord> = {}) =>
+    exportToGenBank([record({
+      sequence: 'A'.repeat(30),
+      features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
+      ...overrides,
+    })]).text.split('\n').find(line => line.startsWith('     misc_feature'))?.slice(21);
+
+  it.each([
+    [{ operator: 'order' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'order(1..3,11..13)'],
+    [{ operator: 'order' as const, strand: -1 as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'complement(order(1..3,11..13))'],
+    [{ operator: 'join' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'join(1..3,11..13)'],
+  ])('writes %o as %s', (feature, location) => {
+    expect(locationLine(feature)).toBe(location);
+  });
+
+
+  it('round-trips an edited order() feature through parse and export', () => {
+    const [parsed] = parseGenBank(exportToGenBank([record({ sequence: 'A'.repeat(30), features: [{
+      type: 'Site', name: 's', operator: 'order', start: 31, end: 108, strand: 1,
+      segments: [{ start: 1, end: 3 }, { start: 9, end: 12 }],
+    }] })]).text);
+    expect(parsed.features.find(f => f.type === 'Site')).toMatchObject({ operator: 'order', locationString: 'order(2..3,10..12)' });
+  });
+});

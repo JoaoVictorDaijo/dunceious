@@ -27,6 +27,7 @@
  *   - Single position:        42
  *   - Complement:             complement(1..100)
  *   - Join (linear):          join(1..10,21..30)
+ *   - Order:                  order(1..3,11..13) – same segments as join; `operator` tells them apart
  *   - Join (circular wrap):   join(2427..3323,1..1758)  – first segment START > last segment END
  *   - Nested complement:      complement(join(1..10,21..30))
  *   - Fuzzy boundaries (</>): <1..>100  (angle brackets are stripped)
@@ -57,7 +58,7 @@
  *   Both are near-impossible in real annotations.
  */
 
-import type { FeatureSegment } from '@/src/domain/bio/types';
+import type { FeatureSegment, LocationOperator } from '@/src/domain/bio/types';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -66,6 +67,7 @@ export interface LocationData {
   start: number;
   /** 0-based end (exclusive). */
   end: number;
+  operator?: LocationOperator;
 }
 
 /** Splits a join/order element list on commas that are not inside nested parens. */
@@ -106,8 +108,9 @@ export function parseLocation(loc: string): LocationData {
   const outerComplement = outer !== null;
   const body = outer ? outer[1] : cleanLoc;
 
-  const listMatch = body.match(/^(?:join|order)\((.*)\)$/);
-  const elements = listMatch ? splitTopLevelCommas(listMatch[1]) : [body];
+  const listMatch = body.match(/^(join|order)\((.*)\)$/);
+  const operator = listMatch?.[1] as LocationOperator | undefined;
+  const elements = listMatch ? splitTopLevelCommas(listMatch[2]) : [body];
 
   let anyInnerComplement = false;
   const parsed = elements.map(el => {
@@ -164,5 +167,9 @@ export function parseLocation(loc: string): LocationData {
     }
   }
 
-  return { segments, strand, start, end };
+  return {
+    segments, strand, start, end,
+    ...(operator && { operator }),
+  };
 }
+

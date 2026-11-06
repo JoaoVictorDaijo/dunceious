@@ -41,7 +41,7 @@ describe('RecordDetailsModal biological coordinates', () => {
       onFocusFeature={onFocusFeature} onExportRecord={() => {}} onCopyLog={() => {}} />);
     expect(lengths()).toBe('7 bp feature sequence · sum of 2 location intervals8 bp region spanned · 1..8');
     fireEvent.click(screen.getByText(/Focus/));
-    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
+    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7, lengthText: '7 bp' });
   });
 });
 
@@ -56,12 +56,12 @@ it('offers query bases only for a hit, shows staleness and removes search detail
   fireEvent.click(screen.getByRole('button', { name: 'Remove search details' }));
   expect(remove).toHaveBeenCalledOnce();
 });
-it('keeps joined annotations on record bases only', () => {
-  const feature = { name: 'joined', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, segments: [{ start: 0, end: 1 }, { start: 2, end: 3 }] };
+it.each(['join', 'order'] as const)('keeps %s() annotations with several intervals on record bases only', operator => {
+  const feature = { name: 'parts', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, operator, segments: [{ start: 0, end: 1 }, { start: 2, end: 3 }] };
   render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACG', features: [feature] }} feature={feature}
     onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} />);
   expect(screen.queryByRole('option', { name: 'Query aligned to record' })).toBeNull();
-  expect(screen.getByText("The query layer isn't available for joined annotations.")).toBeTruthy();
+  expect(screen.getByText("The query layer isn't available for annotations with more than one interval.")).toBeTruthy();
 });
 
 // Expected sequences come from docs/standards/conformance/expected-oracle.txt (INSDC rules by hand).

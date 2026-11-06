@@ -22,6 +22,7 @@ import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/s
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -89,7 +90,7 @@ function restorePartialLocation(feature: BioFeature): void {
     const location = `${markers?.[2] ?? ''}${part.start + 1}..${markers?.[3] ?? ''}${part.end}`;
     return mixed && part.strand === -1 ? `complement(${location})` : location;
   });
-  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
+  const location = locations.length > 1 ? `${feature.operator ?? 'join'}(${locations.join(',')})` : locations[0];
   feature.locationString = !mixed && feature.strand === -1 ? `complement(${location})` : location;
 }
 
@@ -193,6 +194,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
       const partials = partialParts(feature);
+      if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
         const markers = partials.find(([start, end]) => start === segment.start && end === segment.end);
@@ -384,6 +386,8 @@ export function parseGFF3(content: string): {
   }
   for (const [seqid, values] of Object.entries(features)) {
     for (const feature of values) {
+      if (feature.segments!.length > 1) feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
+      delete feature.metadata!.insdc_operator;
       if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
       restorePartialLocation(feature);
       if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;

@@ -29,7 +29,7 @@ import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
-import { segmentFrameshifts } from '@/src/domain/bio';
+import { isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
@@ -309,8 +309,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const openness = showsAnnotationBases(f) ? basesOpenness : 0;
               const expanded = openness > 0;
               const barHeight = ANNOT_BAR_HEIGHT + openness * ANNOT_BASES_HEIGHT;
+              const unjoined = (f.segments?.length ?? 0) > 1 && isOrderLocation(f);
               const place = (node: React.ReactNode) => (
-                <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
+                <g key={i} className={unjoined ? 'annot-feature annot-order' : 'annot-feature'} style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
               const isSelected = focusedRegion?.featureIndex !== undefined && isFocusedSelection(focusedRegion, persistentSelection)
                 ? l.id === focusedRegion.recordId && l.record.features[focusedRegion.featureIndex] === f
@@ -335,11 +336,33 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
                 annotationDirection(f, l.record.moleculeType),
+                unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
+
+              const interactions = {
+                style: { cursor: 'pointer' },
+                onPointerOver: (ev: React.PointerEvent) => {
+                  if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
+                },
+                onPointerOut: () => setTooltip(null),
+                onClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onViewDetails?.(l.id, f);
+                },
+                onContextMenu: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onContextMenu(ev, l.id, f);
+                },
+                onDoubleClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  ev.preventDefault();
+                  onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
+                },
+              };
 
               const partVisible = (s: number, e: number) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
@@ -371,24 +394,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                      onPointerOver={(ev) => {
-                        if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
-                      }}
-                      onPointerOut={() => setTooltip(null)}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        onViewDetails?.(l.id, f);
-                      }}
-                      onContextMenu={(ev) => {
-                        ev.stopPropagation();
-                        onContextMenu(ev, l.id, f);
-                      }}
-                      onDoubleClick={(ev) => {
-                        ev.stopPropagation();
-                        ev.preventDefault();
-                        onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
-                      }}
+                      opacity={isSelected ? 1 : 0.85}
+                      {...interactions}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType} alphabet={annotationAlphabet}
                       start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
@@ -403,7 +410,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 // Connectors pair intervals as the location writes them, the order the origin test reads.
                 const written = writtenOrderSegments(f) ?? f.segments;
                 const connectingLines: React.ReactElement[] = [];
-                for (let idx = 0; idx < written.length - 1; idx++) {
+                // order() places its intervals without joining them (LOC-2), so nothing connects them.
+                for (let idx = 0; isJoinedLocation(f) && idx < written.length - 1; idx++) {
                   const s1 = written[idx];
                   const s2 = written[idx + 1];
 
@@ -503,7 +511,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
-              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}
+              {`${focusedRegion.label} · ${focusedRegion.lengthText ?? `${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}`}
             </div>
           )}
 

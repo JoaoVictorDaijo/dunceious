@@ -390,3 +390,18 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
     expect(result.features[0].metadata?.codon_start).toBe('2');
   });
 });
+
+// A selection export rebuilds locations without their text, so the operator must travel on the
+// feature (LOC-2).
+describe('sliceRecordsBySelection – operators', () => {
+  const slice = (feature: Partial<BioFeature>, start: number, end: number) => sliceRecordsBySelection([{
+    id: 'r', name: 'r', sequence: 'A'.repeat(40),
+    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
+  }], start, end)[0].features;
+
+  it('keeps the order() operator on the clipped feature', () => {
+    const [clipped] = slice({ operator: 'order', start: 2, end: 30, segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }, { start: 25, end: 30 }] }, 0, 20);
+    expect(clipped).toMatchObject({ operator: 'order', segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }] });
+  });
+
+});

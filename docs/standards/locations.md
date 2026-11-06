@@ -41,11 +41,16 @@ if Dunceious ever offers it, it must be labelled as such.
 
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
-**Dunceious.** Deviates — [#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225). The structured model reads `order` as `join`
-(`src/core/genbank/locationParser.ts:108`). The details window reads `order(` from the raw
-location text instead and never joins it (LOC-7); an edited feature has lost that text. The original text survives an unchanged
-GenBank export (`featureParser.ts:79`, `serialize.ts:32`); after a geometry or strand edit the
-location is rebuilt as `join(...)` (`serialize.ts:40`).
+**Dunceious.** Conforms ([#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225)). The
+parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`), so edits and
+selection export keep it, and a rebuilt location is written as `order(...)`. Readers ask
+`isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
+count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
+sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its
+intervals are drawn as separate bars that highlight together on hover. GFF3 has no operator, so
+export writes `insdc_operator=order` on each row and import reads it back. Projects saved before
+the field existed get it from their location text on load. Tested against O1 (Biopython 1.88
+write-back).
 
 ## LOC-3. `complement()`, whole feature or per interval
 
@@ -171,9 +176,9 @@ first, the default the standard defines:
 **Dunceious.** The sequences conform for supported location forms under the decision in
 [#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
 outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
-track uses before `/codon_start`. Until #225 and #226 are fixed, `order()` and partial ends are
-read from the raw location text (`src/domain/bio/locationFlags.ts`), which an edited feature no
-longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
+track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2). Until
+#226 is fixed, partial ends are read from the raw location text
+(`src/domain/bio/locationFlags.ts`), which an edited feature no longer has. Tested against the oracle for J1–J5, W1, W2, O1 and P1
 (`src/app/logic/__tests__/featureSequenceViews.test.ts`). For nested outer complements the
 caption names both steps, inner complements first and then the outer one. The interval-sum
 and region lengths have distinct labels, the presentation requirement tracked by

@@ -19,7 +19,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { isNestedComplementLocation } from '../locationFlags';
+import type { BioFeature } from '../types';
+import { isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
 
 describe('isNestedComplementLocation', () => {
   // The parser reverses a list only when an outer complement wraps join/order and one of the list's
@@ -41,3 +42,21 @@ describe('isNestedComplementLocation', () => {
     expect(isNestedComplementLocation({})).toBe(false);
   });
 });
+
+// LOC-1/LOC-2: only join makes intervals one sequence. The operator survives edits that clear the
+// location text, so an edited order() feature must still read as not joined.
+describe('isJoinedLocation and isOrderLocation', () => {
+  const two = [{ start: 0, end: 3 }, { start: 10, end: 13 }];
+  it.each<[Pick<BioFeature, 'operator' | 'segments' | 'locationString'>, boolean, boolean]>([
+    [{ operator: 'join' as const, segments: two }, true, false],
+    [{ operator: 'order' as const, segments: two }, false, true],
+    [{ operator: 'order' as const, segments: two, locationString: undefined }, false, true],
+    [{ segments: two, locationString: 'order(1..3,11..13)' }, false, true],
+    [{ segments: two }, true, false],
+    [{ operator: 'join' as const, segments: [two[0]] }, false, false],
+  ])('%o → joined %s, order %s', (feature, joined, order) => {
+    expect(isJoinedLocation(feature)).toBe(joined);
+    expect(isOrderLocation(feature)).toBe(order);
+  });
+});
+

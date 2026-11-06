@@ -249,3 +249,17 @@ ORIGIN
 //`);
   expect(record.locationQualifier).not.toBe('country');
 });
+
+// INSDC FT 11.4 §3.4.2.2: the parsed feature keeps the operator its location was written with.
+describe('parseGenBank – location operator', () => {
+  it('carries the operator of an order() location onto the feature', () => {
+    const [feature] = parseGenBank(`LOCUS       ORD001        30 bp    DNA     linear   01-JAN-2024
+FEATURES             Location/Qualifiers
+     misc_feature    order(1..3,11..13)
+ORIGIN
+        1 atgcatgcat gcatgcatgc atgcatgcat
+//
+`)[0].features;
+    expect(feature.operator).toBe('order');
+  });
+});

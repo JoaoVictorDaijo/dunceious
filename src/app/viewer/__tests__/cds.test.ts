@@ -202,3 +202,21 @@ describe('geneticCodeWarning', () => {
     expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
   });
 });
+
+// LOC-2/LOC-7: an order() location defines no single sequence, so a CDS written with it has no
+// coding sequence to translate or check for stops; the same intervals under join do.
+describe('order() CDS', () => {
+  const segments = [{ start: 0, end: 3 }, { start: 6, end: 9 }];
+  const cds = (operator: 'join' | 'order'): BioFeature => ({ type: 'CDS', name: operator, start: 0, end: 9, strand: 1, operator, segments });
+  it('is neither translated nor flagged for an early stop', () => {
+    const order = cds('order');
+    expect(computeBrokenFeatureMap([order], 'ATGGGGTAG').has(order)).toBe(false);
+    expect(assignTranslationLanes([order], 'ATGGGGTAG').laneOf.has(order)).toBe(false);
+  });
+
+  it('is translated under join', () => {
+    const join = cds('join');
+    expect(computeBrokenFeatureMap([join], 'ATGGGGTAG').has(join)).toBe(true);
+    expect(assignTranslationLanes([join], 'ATGGGGTAG').laneOf.has(join)).toBe(true);
+  });
+});

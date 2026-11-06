@@ -22,6 +22,7 @@ import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
@@ -243,6 +244,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
                   Segments ({feature.segments.length})
+                  {isOrderLocation(feature) && <span className="ml-2 normal-case font-medium text-slate-600">order(): placed in this order, not joined</span>}
                 </label>
                 <button
                   onClick={() => {

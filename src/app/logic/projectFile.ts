@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
@@ -76,6 +77,7 @@ function validRecord(value: unknown): boolean {
     && typeof feature.type === 'string' && typeof feature.name === 'string'
     && (feature.strand === 1 || feature.strand === -1)
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
+    && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.metadata === undefined || stringMap(feature.metadata))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
@@ -84,6 +86,17 @@ function validRecord(value: unknown): boolean {
     && (track.color === undefined || typeof track.color === 'string')
     && typeof track.id === 'string' && typeof track.name === 'string' && Array.isArray(track.data)
     && track.data.every(item => isObject(item) && coordinates(item) && typeof item.value === 'number' && Number.isFinite(item.value))));
+}
+
+/**
+ * Projects saved before features carried `operator` hold it only in
+ * `locationString`, which the first edit clears; read it from that text while it is still there.
+ */
+function withLegacyLocation(feature: BioFeature): BioFeature {
+  if (!feature.locationString || feature.operator) return feature;
+  const parsed = parseLocation(feature.locationString);
+  if (parsed.operator && (feature.segments?.length ?? 0) > 1) return { ...feature, operator: parsed.operator };
+  return feature;
 }
 
 export function parseProject(text: string): { ok: true; project: ProjectFile } | { ok: false; message: string } {
@@ -115,5 +128,9 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
       return { ok: false, message: `This project file contains an alignment whose residues differ from sequence ${record.id}.` };
     }
   }
-  return { ok: true, project: value as unknown as ProjectFile };
+  const project = value as unknown as ProjectFile;
+  project.records = project.records.map(record => ({
+    ...record, features: record.features.map(withLegacyLocation),
+  }));
+  return { ok: true, project };
 }

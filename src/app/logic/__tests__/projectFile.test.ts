@@ -126,3 +126,27 @@ it.each([
   expect(gff).toContain(`Note=${note}`);
   if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
+
+// Projects saved before features carried `operator` hold order() only in locationString, which the
+// first edit clears. Loading reads it from that text (INSDC FT 11.4 §3.4.2.2), so an edit cannot
+// turn order() into join().
+describe('project locations saved before operators and sites', () => {
+  const load = (feature: Record<string, unknown>, extra: Partial<SeqRecord> = {}) => {
+    const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, ...extra,
+      features: [{ type: 'misc_feature', name: 'f', strand: 1, ...feature } as never] };
+    const result = parseProject(serializeProject({ ...state, records: [legacy] }));
+    if (!result.ok) throw new Error(result.message);
+    return result.project.records[0].features[0];
+  };
+
+  it('reads the operator of an order() feature from its location text', () => {
+    expect(load({ start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(1..3,11..13)' }).operator).toBe('order');
+  });
+
+
+  it.each([{ operator: 'splice' }, { operator: 1 }])('refuses the invalid location field %o', field => {
+    const result = parseProject(serializeProject({ ...state, records: [{ ...record,
+      features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 0, end: 1, ...field } as never] }] }));
+    expect(result.ok).toBe(false);
+  });
+});

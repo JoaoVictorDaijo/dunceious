@@ -220,3 +220,25 @@ it('merges custom case collisions as encoded GFF3 multi-values without losing da
   const { text } = exportToGff3([record({ features: [feature({ metadata: { Foo: 'a,b', foo: 'c', FOO: 'a,b' } })] })]);
   expect(lines(text)[1][8]).toContain('foo=a%2Cb,c');
 });
+
+// GFF3 1.26 has no join/order operator, so the insdc_operator attribute carries it and INSDC
+// order() (§3.4.2.2) survives a round trip.
+const orderFeature = feature({ type: 'misc_feature', name: 'pocket', operator: 'order', start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] });
+
+it('writes the operator of an order() feature on each of its rows', () => {
+  const rows = lines(exportToGff3([record({ features: [orderFeature] })]).text).slice(1);
+  expect(rows.map(row => row.slice(3, 5))).toEqual([['1', '3'], ['11', '13']]);
+  expect(rows.every(row => row[8].includes('insdc_operator=order'))).toBe(true);
+});
+
+it('reads an order() feature back from its own export', () => {
+  const [imported] = parseGFF3(exportToGff3([record({ features: [orderFeature] })]).text).features.seq_1;
+  expect(imported).toMatchObject({ operator: 'order', segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] });
+  expect(imported.metadata).not.toHaveProperty('insdc_operator');
+});
+
+
+it('reads rows sharing an ID without insdc_operator as a join', () => {
+  const text = '##gff-version 3\nseq_1\t.\tmisc_feature\t1\t3\t.\t+\t.\tID=a\nseq_1\t.\tmisc_feature\t11\t13\t.\t+\t.\tID=a\n';
+  expect(parseGFF3(text).features.seq_1[0].operator).toBe('join');
+});

@@ -29,7 +29,7 @@ import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, type TranslationLanes } from '../cds';
+import { isTranslatedFeature, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
@@ -326,7 +326,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
     // 2. Render Translation (CDS/ORF annotation features only)
     if (translationVisible) {
-      features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
+      features.filter(f => isTranslatedFeature(f) && typeof getFeatureStrand(f) === 'number').forEach(f => {
         const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
         const isBroken = brokenFeatureMap.get(f) ?? false;
         const translTable = featureTranslTable(f);
