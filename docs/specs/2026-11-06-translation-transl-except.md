@@ -75,8 +75,8 @@ Sources inspected, with evidence levels:
   Sec→U, Pyl→O and TERM→`*`; this is not proof that every alias is accepted by code-break parsing.
 - **Documented, not executed:** same snapshot,
   [newcleanup.cpp](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6582)
-  repairs interval strand on same-sequence minus CDSs, sorts breaks and removes equal
-  location/amino-acid duplicates. The follow-up read-only fetch of
+  repairs interval strand on same-sequence minus CDSs, stable-sorts breaks by CDS offset and
+  removes only adjacent equal location/amino-acid duplicates. The follow-up read-only fetch of
   [cleanup.cpp, ParseCodeBreak/ParseCodeBreaks](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/cleanup.cpp#L4520)
   establishes that cleanup processes each qualifier, delegates locations to `ReadLocFromText`,
   rejects simple intervals longer than three bases and simple points/intervals outside the CDS,
@@ -145,7 +145,8 @@ contract above.
 For multipart CDSs use the existing `(seqid, ID)` grouping in `src/core/formats/gff3.ts`,
 not new Parent-based regrouping. Append each row's items in file row/list order before
 biological segment reordering. Preserve identical occurrences and different values; application
-normalization follows NCBI equality below; identical assertions apply once.
+normalization follows NCBI equality below; only adjacent equal assertions collapse after
+stable sorting by CDS offset, never equal assertions separated by a conflicting residue.
 Do not discard later rows or sort qualifier values.
 GFF3 export reads the canonical array directly, percent-encodes each item including internal
 commas, then joins items with literal commas. Emit the full list once, on the first emitted
@@ -165,6 +166,11 @@ diagnostics, mapped bases/codon index where available, and `applied`, `failed` o
 application status with reason. Applied entries include replacement and whether their position
 was removed as the terminal stop. Preserve that slot's real bases and pre-removal codon index
 even though it is absent from `residues`/`possible`; PR 3 needs this for terminal/partial TERM.
+Associate all occurrences in each adjacent equal run with its single application. Equal
+assertions separated by a conflicting assertion have separate ordered applications: keep
+their `applied` status and replacement evidence, identify which application superseded each
+earlier one, and identify the final effective application. An earlier matching residue is
+not retroactively the winning application; repeated winners remain separate from it.
 A failed entry remains addressable; deferred mapping is not an off-frame/outside-CDS finding.
 
 An independent syntax/vocabulary/note pass visits **every** entry before eligibility exits.
@@ -252,8 +258,10 @@ a partial CDS end with a partial marker on the exception location itself.
    including entries after a stop. Defer only checks lacking required inputs.
 3. Produce ordinary codon states using PR 1's IUPAC/U, initiation, leftover and context-dependent
    terminal-table rules, retaining the terminal position until substitutions finish.
-4. Apply resolved code breaks to those positions; terminal TERM may supply the suffix stop
-   absent from the ordinary protein. NCBI substitution occurs after initiation, so `aa:Val`
+4. Stable-sort resolved code breaks by CDS offset, collapse only adjacent equal normalized
+   location/residue assertions, and apply the surviving breaks in order. Never globally
+   deduplicate: a repeated residue after a conflict must overwrite that conflict. Terminal TERM
+   may supply the suffix stop absent from the ordinary protein. NCBI substitution occurs after initiation, so `aa:Val`
    on the first GTG of a complete table-11 CDS yields V, not M. Never run initiation again.
 5. An explicit residue replaces `possible` for comparison: Sec→`U`, Pyl→`O`, TERM→`*`,
    Asx→`DN`, Glx→`EQ`, Xle→`IL`. OTHER/Xaa renders X for an unspecified amino acid. Its comparison set remains an owner decision below; the recommended all-sense-residue set is not normative. Effective internal TERM differs from stored X under revised PR 1's stop precedence.
@@ -354,8 +362,10 @@ values follow the separate recovery question, never an unsafe-success claim.
 ## Settled rules, reference work and sibling integration
 
 INSDC's listed one-/three-letter forms, single-codon geometry and terminal T/TA→TAA TERM are
-settled above. NCBI cleanup's equal normalized location/residue collapse is the normalization
-contract: apply once and associate all raw occurrences with that application; never erase them.
+settled above. NCBI cleanup's stable offset sort and adjacent-only equal normalized
+location/residue collapse are the normalization contract: apply once per adjacent equal run
+and associate that run's raw occurrences with its application; never erase them or collapse
+equal assertions across an intervening conflict. The final surviving application wins.
 No additional refusal of identical assertions is proposed.
 Exact current-record accession identity may resolve only to the same record/base map; a different
 loaded record is not made eligible by being in memory. PR 1's nonlocal-CDS gate remains intact.
@@ -398,16 +408,22 @@ Sources were fetched read-only at Toolkit `912b751` and Biopython tag `biopython
 These are source traces, not executed parser/validator fixtures. Raw occurrences always survive.
 Validator diagnostics describe annotation validity; they do not prove the translator refused it.
 
-- **Row 3 — identical assertions:** apply one normalized location/residue assertion and associate
-  every raw occurrence with it. No app refusal. **Backed by: `src/objtools/cleanup/newcleanupp.cpp:CNewCleanup_imp::CdregionFeatBC`, `CCodeBreakEqual` at commit `912b751`**
-  ([source](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6540)).
-- **Row 4 — conflicting assertions:** retain raw order; for the same normalized location the
-  last different residue wins, and report a conflict diagnostic. Cleanup's comparator orders
-  only by CDS offset; stable list sorting preserves same-offset input order, and equality
-  includes residue. The translator overwrites in that order. Validator reports Error
+- **Row 3 — identical assertions:** stable-sort by CDS offset, then use adjacent-only `unique`
+  with normalized location/residue equality. Apply once per surviving run and associate every
+  raw occurrence in that run with it. Do not globally collapse identical assertions:
+  Sec/Pyl/Sec retains all three applications. No app refusal. **Backed by: `src/objtools/cleanup/newcleanupp.cpp:CNewCleanup_imp::CdregionFeatBC`, `CCodeBreakCompare`, `CCodeBreakEqual` at commit `912b751`**
+  ([comparator/equality](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6506),
+  [sort/unique](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6604)).
+- **Row 4 — conflicting assertions:** retain raw occurrences; for the same normalized location
+  the last raw assertion wins, including a repeated residue after a conflict, and report a
+  conflict diagnostic. Cleanup's stable offset sort preserves same-offset input order; its
+  adjacent-only equality includes residue. The translator overwrites in surviving order.
+  Keep superseded application evidence and mark the final effective application separately.
+  Validator reports Error
   `DuplicateTranslExcept` for adjacent equal locations, without selecting a different winner.
   Thus diagnostic severity is not computation refusal. **Backed by: `src/objtools/cleanup/newcleanupp.cpp:CCodeBreakCompare`, `CCodeBreakEqual`, `CNewCleanup_imp::CdregionFeatBC`; `src/objmgr/util/sequence.cpp:CSeqTranslator::Translate`; `src/objtools/validator/cdregion_validator.cpp:CCdregionValidator::x_ValidateCodebreak` at commit `912b751`**
-  ([validator](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/cdregion_validator.cpp#L687)).
+  ([overwrite loop](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L4225),
+  [validator](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/validator/cdregion_validator.cpp#L687)).
 - **Rows 6–8 — short locations:** cleanup accepts contained simple points/intervals of length
   at most three without testing terminality, residue identity or T/TA sequence. Translation
   uses `(LocationOffset - frame) / 3`: an internal short break can overwrite that position;
@@ -516,6 +532,7 @@ Conditional rows are acceptance gaps awaiting the decision above, not approved o
 | Same, `pos:0..2`, `10..12`, `4..5 Sec`, or `pos:4^5` | invalid bound/outside record/CDS/site are unusable; short non-TERM follows the source trace and question 4 | H location/single-codon constraints; D CDSrange where applicable |
 | Empty record/CDS; no qualifier / empty qualifier value | unavailable empty / invalid-value diagnostic; no invented codon zero or verified empty protein | PR 1 empty contract + H: no bases to locate |
 | Two identical `4..6 Sec`; then Sec/Pyl at same codon | identical case `MU`, one application/two raw occurrences; Sec then Pyl gives `MO` plus conflict diagnostic, reverse order gives `MU` plus conflict diagnostic | N; stable cleanup ordering/equality; validator DuplicateTranslExcept Error |
+| `1..9`, `ATGTGATAA`, ordered `4..6` breaks Sec/Pyl/Sec; Pyl/Sec/Pyl | `MU`; `MO`, respectively; three raw occurrences and three ordered applications in each case, conflict evidence retained, occurrence 2 effective | N stable offset sort, adjacent-only unique and ordered overwrite; H literal substitutions and final TAA removal |
 | `pos:X22222:4..6,aa:Sec`, accession unavailable | retain raw qualifier; unresolved, no local substitution; import warns; availability follows failed-value policy | H remote syntax; local-only owner constraint |
 | Malformed `(pos:4..6,aa:)`, unknown `aa:Banana` | NCBI creates X for both; app diagnostic distinguishes absent residue and unknown name; stricter verification follows question 4 and failed-value handling follows question 3 | H controlled vocabulary; ParseCodeBreak + x_ValidAminoAcid source trace |
 | `1..>9`, `ATG TGA TGG`, `4..6 Sec` | `MUW`; 3′ partial does not block a full internal exception | H + N |
@@ -538,6 +555,21 @@ columns; `\t` denotes one literal tab and `\n` one newline. No stored protein un
   Sec/Pyl changes `MO` to `MU`, with a conflict diagnostic in both orders and both raw values
   retained. Check cleanup equality/order separately from validator Error DuplicateTranslExcept;
   an identical pair normalized away must not be called a remaining validator conflict.
+- **Interleaved duplicate/conflict precedence:** DNA `ATGTGATAA`, CDS `1..9`, table 1,
+  values `['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)', '(pos:4..6,aa:Sec)']`
+  → `MU`; swapping Sec and Pyl in all three strings gives Pyl/Sec/Pyl → `MO`.
+  All breaks map to real bases [4,5,6], coding offsets [3,4,5], pre-removal codon index 1.
+  The ordinary ATG/TGA/TAA protein M/stop/stop becomes M/U/stop or M/O/stop, then the final
+  TAA stop is removed. In each case retain all three raw strings in order through
+  GenBank/GFF3/project round-trip, three separate `applied` occurrences with replacement
+  U/O/U or O/U/O, and conflict evidence referencing occurrences 0, 1 and 2. Occurrence 0's
+  application is superseded by 1, and 1 by 2; only 2 is effective, even though 0 names the
+  same residue. No assertion is an adjacent duplicate here. Global first-occurrence collapse
+  would incorrectly produce `MO` / `MU` and must fail acceptance. **Backed by:** Toolkit
+  `912b751` [stable offset sort and adjacent-only unique](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objtools/cleanup/newcleanupp.cpp#L6506)
+  and [ordered translator overwrite](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/912b751/src/objmgr/util/sequence.cpp#L4225).
+  These are source-backed hand derivations, not executed NCBI fixtures; record validator
+  diagnostics separately from application evidence.
 - **Simple minus strand, omitted and contrary orientation:** forward DNA `TTATCACAT`, CDS
   `complement(1..9)` gives coding `ATGTGATAA`. `(pos:4..6,aa:Sec)` (omitted complement)
   and `(pos:complement(complement(4..6)),aa:Sec)` (explicit plus orientation resolving to a
@@ -711,7 +743,7 @@ with actual reused/added checks and executed results at handoff.
 |---|---|---|
 | Correct base order, phase, strand and mapping | `translationHelpers.test.ts`: joined extraction asserts `[0,1,2,6,7,8]`; reverse extraction asserts reversed indices. `featureManager.test.ts`: phase deletion asserts coding `AATGAAACCC` through GenBank round-trip. | Reuse extraction regressions; add conceptual translation checks for literal adjusted proteins and split/nonzero-start maps. Detect endpoint subtraction and phase rounding. |
 | All repeated values survive parser, editor, project and writer | `qualifierParser.test.ts` checks ordinary multiline translation; `featureParser.test.ts` still asserts duplicate protein stores. No exception multiplicity or unsafe cross-format representation protection found. Current GFF3 reader merges geometry but loses later-row attributes; writer enumerates metadata. | Add lossless parser→editor/project→GenBank/GFF3 round-trip at cheapest capable boundaries; distinguish two different breaks from last-value-only overwrite. Do not retain obsolete duplicate-protein expectation after PR 1. |
-| Exceptions override initiation/stops/ambiguity; invalid mappings do not assert proteins | No PR 1 `translation.test.ts` present here; no exception application test found. | Add pure-domain oracle fixtures above, including allowed and invalid positions, partial ends, U/IUPAC and empty cases. Conditional cases wait for decisions. |
+| Exceptions override initiation/stops/ambiguity; invalid mappings do not assert proteins | No PR 1 `translation.test.ts` present here; no exception application test found. | Add pure-domain oracle fixtures above, including allowed and invalid positions, partial ends, U/IUPAC and empty cases. Interleaved Sec/Pyl/Sec and Pyl/Sec/Pyl must reject global deduplication, retain three occurrences/conflict evidence and identify the effective final application; adjacent identical pairs still share one application. Conditional cases wait for decisions. |
 | Recompute/remove on biological edits; preserve unrelated edits and imported protein | `featureManager.test.ts` asserts phase-cache invalidation on start/end/strand/segments and unrelated rename preserves phase; no exception/protein protection found. | Strengthen save-boundary checks for adjusted success and removal on invalidation/internal stops; preserve raw entries and unrelated-edit provenance. Preview must agree with save. |
 | Stored comparison, early stops and count use adjusted result, not raw DNA | No exception-specific protection found. PR 1 comparison/count assertions are planned only. | Reuse merged PR 1 checks; add Sec removing a stop, TERM adding one and genuine curated mismatch, through shared domain result and consuming app boundary. Reject false lighter-fill/mismatch and raw-TGA early stop. |
 | Both import routes diagnose without overwriting curated proteins | `bioResponse.test.ts` inspected by search; no transl_except assertions found. | Add entry-point checks for GenBank, FASTA+GFF3 attachment and project recheck, plus unavailable-result evidence and note-only preview/save refresh. Keep parser/diagnostic wiring real; invalid exceptions must not be counted as verified mismatches. |
@@ -768,8 +800,10 @@ may derive expected residues by calling the translator under test.
    resolve the numbered Open decisions before implementing those paths; recommendations are not
    owner decisions. **Backed by:** evidence limits above.
 
-11. Reference defaults were left as unrestricted owner choices. **Decision:** apply equal
-    assertions once, use the last conflicting residue with a diagnostic, assign known CDS
+11. Reference defaults were left as unrestricted owner choices. **Decision:** stable-sort by
+    CDS offset, collapse only adjacent equal assertions and overwrite in surviving order,
+    so the last raw assertion wins even when repeating an earlier residue; retain conflict
+    and superseded application evidence, assign known CDS
     strand to covered simple intervals, accept post-label whitespace and recognized
     case-insensitive multi-letter aliases, and honor terminal TERM on a partial parent CDS.
     **You'll notice:** these covered files compute consistently with the pinned reference
