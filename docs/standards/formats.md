@@ -58,7 +58,10 @@ the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology ret
 [#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
 ORIGIN retains characters for validation, removing only the leading count and whitespace.
 The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
-revision, alignment lock and validated molecule category before committing records or findings. Display naming and SOURCE fallback remain local policies.
+revision, alignment lock and validated molecule category before committing records or findings.
+App accumulates refused files in one dialog; accepted warnings stay in the StatusBar import
+notes until cleared or their assigned workspace records are removed. Replaced-workspace
+responses show no diagnostics. Display naming and SOURCE fallback remain local policies.
 The GenBank writer uses `genBankExportProblem` to omit records with any non-residue
 (including `-`, `.` and `*`), names each omission in the export report/log and Hub preview,
 and never strips characters to repair feature coordinates.
