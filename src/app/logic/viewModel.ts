@@ -21,7 +21,7 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { complementAlphabet, extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { isOrderLocation, isPartialLocation } from '@/src/domain/bio/locationFlags';
+import { isBetweenBasesSite, isOrderLocation, isPartialLocation } from '@/src/domain/bio/locationFlags';
 
 /**
  * The sequence slice a record/feature detail view should display.
@@ -45,10 +45,11 @@ export function getDisplaySeq(
 
 /**
  * One feature's length as every compact view words it: the interval sum, named "not joined" for an
- * `order()` location (LOC-2, LOC-7).
+ * `order()` location (LOC-2, LOC-7), and zero for a between-base site (LOC-5).
  */
 export function featureLengthText(record: Pick<SeqRecord, 'sequence' | 'moleculeType'>, feature: BioFeature): string {
   const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
+  if (isBetweenBasesSite(feature)) return `0 ${unit} (between-base site)`;
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
   const intervals = feature.segments?.length ?? 1;
   return intervals > 1 && isOrderLocation(feature) ? `${length} ${unit} in ${intervals} intervals (not joined)` : `${length} ${unit}`;

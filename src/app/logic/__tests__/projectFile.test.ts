@@ -127,9 +127,9 @@ it.each([
   if (!('minQueryIdentity' in params)) expect(gb + gff).not.toMatch(/min query identity/);
 });
 
-// Projects saved before features carried `operator` hold order() only in locationString, which the
-// first edit clears. Loading reads it from that text (INSDC FT 11.4 §3.4.2.2), so an edit cannot
-// turn order() into join().
+// Projects saved before features carried `operator` and `betweenBases` hold order() and n^n+1 only
+// in locationString, which the first edit clears. Loading reads both from that text (INSDC FT 11.4
+// §3.4.2.1-2), so an edit cannot turn order() into join() or keep a site two bases wide.
 describe('project locations saved before operators and sites', () => {
   const load = (feature: Record<string, unknown>, extra: Partial<SeqRecord> = {}) => {
     const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, ...extra,
@@ -143,8 +143,16 @@ describe('project locations saved before operators and sites', () => {
     expect(load({ start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(1..3,11..13)' }).operator).toBe('order');
   });
 
+  it('re-reads a site saved with the two-base geometry as zero bases', () => {
+    expect(load({ start: 9, end: 11, segments: [{ start: 9, end: 11 }], locationString: '10^11' }))
+      .toMatchObject({ start: 10, end: 10, segments: [{ start: 10, end: 10 }], betweenBases: true });
+  });
 
-  it.each([{ operator: 'splice' }, { operator: 1 }])('refuses the invalid location field %o', field => {
+  it('leaves a site that does not fit its record as saved', () => {
+    expect(load({ start: 29, end: 1, locationString: '30^1' })).toMatchObject({ start: 29, end: 1 });
+  });
+
+  it.each([{ operator: 'splice' }, { betweenBases: 'yes' }])('refuses the invalid location field %o', field => {
     const result = parseProject(serializeProject({ ...state, records: [{ ...record,
       features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 0, end: 1, ...field } as never] }] }));
     expect(result.ok).toBe(false);

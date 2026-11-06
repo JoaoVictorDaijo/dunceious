@@ -107,8 +107,17 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 
 **Applications.** Unknown.
 
-**Dunceious.** Deviates — [#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230). `parseCoord` reads `10^11` as bases 10–11, length 2
-(`locationParser.ts:90`).
+**Dunceious.** Conforms ([#230](https://github.com/JoaoVictorDaijo/dunceious/issues/230)) for a
+site that is the whole location or its `complement()`. `parseLocation` reads `n^n+1`, and `n^1` at
+the end of a circular record, as the empty interval at boundary n (`BioFeature.betweenBases`, with
+`start === end`); `isBetweenBasesSite` is what readers ask. The site has length 0, no feature
+sequence, and is drawn as a rule on the boundary with a caret under it. GenBank export writes it
+back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) with
+`insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
+both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
+adjoin or lie outside the record. A site inside `join`/`order` or as a span end is valid INSDC but
+not supported; #298 refuses it as unsupported. Tested against S1 (Biopython 1.88: `[10:10]`,
+written back as `10^11`).
 
 ## LOC-6. Features crossing the origin
 

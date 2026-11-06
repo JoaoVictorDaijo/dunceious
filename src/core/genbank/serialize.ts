@@ -21,6 +21,7 @@
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isBetweenBasesSite } from '@/src/domain/bio/locationFlags';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
@@ -31,6 +32,11 @@ import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qu
  */
 function featureLocation(feature: BioFeature, sequenceLength: number): string {
   if (feature.locationString) return feature.locationString;
+  if (isBetweenBasesSite(feature)) {
+    // INSDC FT 11.4 §3.4.2.1: n^n+1, or length^1 for the site at a circular molecule's origin.
+    const site = `${feature.start}^${feature.start === sequenceLength ? 1 : feature.start + 1}`;
+    return feature.strand === -1 ? `complement(${site})` : site;
+  }
   const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, sequenceLength);
   const mixed = segments.some(segment => 'strand' in segment && segment.strand !== undefined);
   const locations = segments.map(segment => {

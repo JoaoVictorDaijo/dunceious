@@ -22,7 +22,7 @@ import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/s
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -195,6 +195,14 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       if (so.original) attrs.insdc_type = so.original;
       const partials = partialParts(feature);
       if (isOrderLocation(feature) && segments.length > 1) attrs.insdc_operator = 'order';
+      if (isBetweenBasesSite(feature)) {
+        // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
+        attrs.insdc_site = 'true';
+        const direction = getFeatureStrand(feature);
+        const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
+        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(feature.start), String(feature.start), metadata.score ?? '.', strand, '.', attributeText(attrs)].join('\t'));
+        continue;
+      }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
         const markers = partials.find(([start, end]) => start === segment.start && end === segment.end);
@@ -277,11 +285,13 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const cols = line.split('\t');
     if (cols.length < 9) continue;
     const [encodedId, source, type, from, to, score, strand, phase, raw] = cols;
-    const start = Number(from) - 1;
-    const end = Number(to);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) continue;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
+    const site = metadata.insdc_site === 'true' && from === to;
+    delete metadata.insdc_site;
+    const start = site ? Number(from) : Number(from) - 1;
+    const end = Number(to);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || (site ? start < 1 : start < 0 || end <= start)) continue;
     const partialStart = /^[<>]$/.test(metadata.insdc_partial_start ?? '') ? metadata.insdc_partial_start : '';
     const partialEnd = /^[<>]$/.test(metadata.insdc_partial_end ?? '') ? metadata.insdc_partial_end : '';
     delete metadata.insdc_partial_start;
@@ -299,6 +309,7 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
       type: metadata.insdc_type || type,
       name: metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${start + 1}`,
       start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end }], metadata,
+      ...(site && { betweenBases: true as const }),
     };
     rows.push({ seqid, feature });
   }

@@ -250,16 +250,26 @@ ORIGIN
   expect(record.locationQualifier).not.toBe('country');
 });
 
-// INSDC FT 11.4 §3.4.2.2: the parsed feature keeps the operator its location was written with.
-describe('parseGenBank – location operator', () => {
-  it('carries the operator of an order() location onto the feature', () => {
-    const [feature] = parseGenBank(`LOCUS       ORD001        30 bp    DNA     linear   01-JAN-2024
+// INSDC FT 11.4 §3.4.2.1: n^n+1, and length^1 on a circular molecule of that length, are sites of
+// zero length. Sites that do not fit the record never reach the parser: #298 refuses them.
+describe('parseGenBank – between-base sites and operators', () => {
+  const record = (location: string, topology: 'linear' | 'circular') => parseGenBank(`LOCUS       SITE001       30 bp    DNA     ${topology}   01-JAN-2024
 FEATURES             Location/Qualifiers
-     misc_feature    order(1..3,11..13)
+     misc_feature    ${location}
 ORIGIN
         1 atgcatgcat gcatgcatgc atgcatgcat
 //
-`)[0].features;
-    expect(feature.operator).toBe('order');
+`)[0].features[0];
+
+  it.each([
+    ['10^11', 'linear', 10],
+    ['29^30', 'linear', 29],
+    ['30^1', 'circular', 30],
+  ] as const)('reads %s on a %s 30 bp record as a site at boundary %i', (location, topology, boundary) => {
+    expect(record(location, topology)).toMatchObject({ betweenBases: true, start: boundary, end: boundary, locationString: location });
+  });
+
+  it('carries the operator of an order() location onto the feature', () => {
+    expect(record('order(1..3,11..13)', 'linear').operator).toBe('order');
   });
 });

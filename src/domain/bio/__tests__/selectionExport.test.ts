@@ -392,8 +392,8 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
 });
 
 // A selection export rebuilds locations without their text, so the operator must travel on the
-// feature (LOC-2).
-describe('sliceRecordsBySelection – operators', () => {
+// feature (LOC-2), and a site (LOC-5) is kept only when both bases it lies between are selected.
+describe('sliceRecordsBySelection – operators and sites', () => {
   const slice = (feature: Partial<BioFeature>, start: number, end: number) => sliceRecordsBySelection([{
     id: 'r', name: 'r', sequence: 'A'.repeat(40),
     features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
@@ -404,4 +404,13 @@ describe('sliceRecordsBySelection – operators', () => {
     expect(clipped).toMatchObject({ operator: 'order', segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }] });
   });
 
+  it.each([
+    [5, 20, [{ start: 5, end: 5 }]],
+    [10, 20, []],
+    [0, 10, []],
+  ])('selecting [%i, %i) around the site 10^11 keeps %o', (start, end, segments) => {
+    const kept = slice({ betweenBases: true, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, start, end);
+    expect(kept.map(feature => feature.segments?.[0] ?? null).filter(Boolean)).toEqual(segments);
+    kept.forEach(feature => expect(feature.betweenBases).toBe(true));
+  });
 });

@@ -47,6 +47,11 @@ export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segme
   return (feature.segments?.length ?? 0) <= 1 || isJoinedLocation(feature);
 }
 
+/** An INSDC `n^n+1` site (LOC-5): zero bases at the boundary `start`, which must equal `end`. */
+export function isBetweenBasesSite(feature: Pick<BioFeature, 'betweenBases' | 'start' | 'end'>): boolean {
+  return feature.betweenBases === true && feature.start === feature.end;
+}
+
 /**
  * An outer `complement()` around a `join()`/`order()` whose top-level elements include a
  * `complement()`: the parser stores its intervals in evaluation order (reversed), not as written

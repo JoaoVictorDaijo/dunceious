@@ -647,11 +647,11 @@ it('picks only the interval in the pointed packed lane', () => {
 
 // LOC-2: order() intervals are placed, not joined, so no connector or frameshift mark is drawn
 // between them, though each interval is still a bar. Locations parsed from their INSDC text.
-describe('Row – order()', () => {
+describe('Row – order() and between-base sites', () => {
   const fromLocation = (name: string, location: string): BioFeature => {
     const parsed = parseLocation(location);
     return { type: 'misc_feature', name, strand: parsed.strand, start: parsed.start, end: parsed.end,
-      segments: parsed.segments, operator: parsed.operator };
+      segments: parsed.segments, operator: parsed.operator, betweenBases: parsed.betweenBases };
   };
 
   it('draws an order() feature as separate bars with no connectors or frameshift marks', () => {
@@ -669,4 +669,10 @@ describe('Row – order()', () => {
     expect(container.querySelector('.annot-order')).toBeNull();
   });
 
+  it('draws a between-base site as a mark at the boundary, not a bar', () => {
+    const { container } = renderRow(rec([fromLocation('cut', '10^11')]));
+    const site = container.querySelector('[data-annotation-site]');
+    expect(site?.getAttribute('data-x')).toBe(String(10 * ZOOM));
+    expect(container.querySelectorAll('path[data-annotation-part]')).toHaveLength(0);
+  });
 });

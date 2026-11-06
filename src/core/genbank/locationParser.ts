@@ -23,7 +23,8 @@
  *
  * Supported location forms:
  *   - Simple range:           1..100
- *   - Point site:             50^51
+ *   - Between-base site:      50^51 (zero length at boundary 50; 1000^1 is kept as boundary 1000,
+ *                             valid only when the record is circular and 1000 bases long)
  *   - Single position:        42
  *   - Complement:             complement(1..100)
  *   - Join (linear):          join(1..10,21..30)
@@ -68,6 +69,18 @@ export interface LocationData {
   /** 0-based end (exclusive). */
   end: number;
   operator?: LocationOperator;
+  betweenBases?: true;
+}
+
+/**
+ * The boundary of a whole-location `n^m` site: n^n+1, or the circular `length^1`. Whether `n^1`
+ * fits the record is checked on import (#298), which refuses every site that does not.
+ */
+function siteBoundary(location: string): number | null {
+  const site = location.match(/^(\d+)\^(\d+)$/);
+  if (!site) return null;
+  const [n, m] = [parseInt(site[1]), parseInt(site[2])];
+  return m === n + 1 || (m === 1 && n > 1) ? n : null;
 }
 
 /** Splits a join/order element list on commas that are not inside nested parens. */
@@ -111,6 +124,12 @@ export function parseLocation(loc: string): LocationData {
   const listMatch = body.match(/^(join|order)\((.*)\)$/);
   const operator = listMatch?.[1] as LocationOperator | undefined;
   const elements = listMatch ? splitTopLevelCommas(listMatch[2]) : [body];
+
+  const boundary = listMatch ? null : siteBoundary(body);
+  if (boundary !== null) {
+    const segment = { start: boundary, end: boundary };
+    return { segments: [segment], strand: outerComplement ? -1 : 1, ...segment, betweenBases: true };
+  }
 
   let anyInnerComplement = false;
   const parsed = elements.map(el => {
@@ -173,3 +192,14 @@ export function parseLocation(loc: string): LocationData {
   };
 }
 
+/**
+ * INSDC FT 11.4 §3.4.2.1 against the record: `n^n+1` needs both bases inside it, and `n^1` is
+ * allowed only on a circular molecule whose length is n. `parseLocation` cannot check this, as it
+ * does not know the record.
+ */
+export function siteFitsRecord(location: string, length: number, circular: boolean): boolean {
+  const site = location.replace(/\s/g, '').match(/^(?:complement\()?(\d+)\^(\d+)\)?$/);
+  if (!site) return false;
+  const [n, m] = [parseInt(site[1]), parseInt(site[2])];
+  return m === n + 1 ? n >= 1 && m <= length : m === 1 && n === length && circular;
+}

@@ -144,9 +144,9 @@ ORIGIN
 });
 
 // Rebuilding a location without its source text (after an edit or a selection export) must write
-// the INSDC form that was read. Oracle: Biopython 1.88 writes O1 back as order(1..3,11..13)
-// (docs/standards/conformance).
-describe('exportToGenBank – rebuilt operators', () => {
+// the INSDC form that was read. Oracles: Biopython 1.88 writes O1 back as order(1..3,11..13) and S1
+// as 10^11 (docs/standards/conformance); §3.4.2.1 permits length^1 on a circular molecule.
+describe('exportToGenBank – rebuilt operators and sites', () => {
   const locationLine = (feature: Partial<SeqRecord['features'][number]>, overrides: Partial<SeqRecord> = {}) =>
     exportToGenBank([record({
       sequence: 'A'.repeat(30),
@@ -158,10 +158,19 @@ describe('exportToGenBank – rebuilt operators', () => {
     [{ operator: 'order' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'order(1..3,11..13)'],
     [{ operator: 'order' as const, strand: -1 as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'complement(order(1..3,11..13))'],
     [{ operator: 'join' as const, start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }, 'join(1..3,11..13)'],
+    [{ betweenBases: true as const, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, '10^11'],
+    [{ betweenBases: true as const, strand: -1 as const, start: 10, end: 10, segments: [{ start: 10, end: 10 }] }, 'complement(10^11)'],
   ])('writes %o as %s', (feature, location) => {
     expect(locationLine(feature)).toBe(location);
   });
 
+  it('writes a site at the end of a circular record as length^1', () => {
+    expect(locationLine({ betweenBases: true, start: 30, end: 30, segments: [{ start: 30, end: 30 }] }, { isCircular: true })).toBe('30^1');
+  });
+
+  it('writes a site whose edit gave it a width as the span', () => {
+    expect(locationLine({ betweenBases: true, start: 10, end: 12, segments: [{ start: 10, end: 12 }] })).toBe('11..12');
+  });
 
   it('round-trips an edited order() feature through parse and export', () => {
     const [parsed] = parseGenBank(exportToGenBank([record({ sequence: 'A'.repeat(30), features: [{

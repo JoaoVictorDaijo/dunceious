@@ -131,7 +131,8 @@ describe('featureCoordPatch', () => {
   });
 });
 
-// LOC-7 (owner decision on #81): an order() feature's length is its interval sum named "not joined".
+// LOC-7 (owner decision on #81): an order() feature's length is its interval sum named "not joined";
+// LOC-5: a between-base site covers no bases.
 describe('featureLengthText', () => {
   const protein = { sequence: 'M'.repeat(200), moleculeType: 'protein' as const };
   const dna = { sequence: 'A'.repeat(200) };
@@ -139,6 +140,7 @@ describe('featureLengthText', () => {
   it.each([
     [protein, { operator: 'order' as const, segments: sites, start: 31, end: 108 }, '4 aa in 4 intervals (not joined)'],
     [dna, { operator: 'join' as const, segments: [{ start: 0, end: 10 }, { start: 20, end: 30 }], start: 0, end: 30 }, '20 bp'],
+    [dna, { betweenBases: true as const, segments: [{ start: 10, end: 10 }], start: 10, end: 10 }, '0 bp (between-base site)'],
     [dna, { start: 0, end: 1500 }, '1,500 bp'],
   ])('%o, %o → %s', (record, feature, text) => {
     expect(featureLengthText(record, { type: 'misc_feature', name: 'f', strand: 1, ...feature })).toBe(text);

@@ -221,9 +221,18 @@ it('merges custom case collisions as encoded GFF3 multi-values without losing da
   expect(lines(text)[1][8]).toContain('foo=a%2Cb,c');
 });
 
-// GFF3 1.26 has no join/order operator, so the insdc_operator attribute carries it and INSDC
-// order() (§3.4.2.2) survives a round trip.
+// GFF3 1.26 has no join/order operator, and a zero-length feature is written "start equals end"
+// with the site to the right of that base, which a one-base feature also reads as. The insdc_*
+// attributes carry what the columns cannot, so INSDC order() (§3.4.2.2) and n^n+1 (§3.4.2.1)
+// survive a round trip.
+const siteFeature = feature({ type: 'misc_feature', name: 'cut', betweenBases: true, start: 10, end: 10, segments: [{ start: 10, end: 10 }] });
 const orderFeature = feature({ type: 'misc_feature', name: 'pocket', operator: 'order', start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] });
+
+it('writes a between-base site as one row with start equal to end, after the base before the site', () => {
+  const [, row] = lines(exportToGff3([record({ features: [siteFeature] })]).text);
+  expect(row.slice(3, 5)).toEqual(['10', '10']);
+  expect(row[8]).toContain('insdc_site=true');
+});
 
 it('writes the operator of an order() feature on each of its rows', () => {
   const rows = lines(exportToGff3([record({ features: [orderFeature] })]).text).slice(1);
@@ -231,12 +240,21 @@ it('writes the operator of an order() feature on each of its rows', () => {
   expect(rows.every(row => row[8].includes('insdc_operator=order'))).toBe(true);
 });
 
-it('reads an order() feature back from its own export', () => {
-  const [imported] = parseGFF3(exportToGff3([record({ features: [orderFeature] })]).text).features.seq_1;
-  expect(imported).toMatchObject({ operator: 'order', segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] });
+it.each([
+  ['a site', siteFeature, { betweenBases: true, start: 10, end: 10 }],
+  ['an order() feature', orderFeature, { operator: 'order', segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }] }],
+])('reads %s back from its own export', (_label, original, expected) => {
+  const [imported] = parseGFF3(exportToGff3([record({ features: [original] })]).text).features.seq_1;
+  expect(imported).toMatchObject(expected);
+  expect(imported.metadata).not.toHaveProperty('insdc_site');
   expect(imported.metadata).not.toHaveProperty('insdc_operator');
 });
 
+it('reads a one-base row without insdc_site as one base, not a site', () => {
+  const [imported] = parseGFF3('##gff-version 3\nseq_1\t.\tmisc_feature\t10\t10\t.\t+\t.\tID=a\n').features.seq_1;
+  expect(imported).toMatchObject({ start: 9, end: 10 });
+  expect(imported.betweenBases).toBeUndefined();
+});
 
 it('reads rows sharing an ID without insdc_operator as a join', () => {
   const text = '##gff-version 3\nseq_1\t.\tmisc_feature\t1\t3\t.\t+\t.\tID=a\nseq_1\t.\tmisc_feature\t11\t13\t.\t+\t.\tID=a\n';

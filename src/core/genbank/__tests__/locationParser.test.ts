@@ -52,11 +52,25 @@ describe('parseLocation – single position and site', () => {
     expect(r.end).toBe(42);
   });
 
-  it('characterises the known LOC-5 two-base deviation for n^m', () => {
-    // FIXME(#230): an INSDC between-base site must cover zero bases.
-    const r = parseLocation('100^101');
-    expect(r.start).toBe(99);
-    expect(r.end).toBe(101);
+  // INSDC FT 11.4 §3.4.2.1: n^n+1 is the site between two adjoining bases; Biopython 1.88 reads
+  // 10^11 as the empty interval [10:10] (conformance case S1).
+  it('reads n^n+1 as a zero-length site at the boundary after base n', () => {
+    const r = parseLocation('10^11');
+    expect(r).toMatchObject({ start: 10, end: 10, betweenBases: true, strand: 1 });
+    expect(r.segments).toEqual([{ start: 10, end: 10 }]);
+  });
+
+  it('reads complement(n^n+1) as a reverse-strand site', () => {
+    expect(parseLocation('complement(123^124)')).toMatchObject({ start: 123, end: 123, betweenBases: true, strand: -1 });
+  });
+
+  it('keeps n^1 as a candidate circular site at the boundary after base n', () => {
+    expect(parseLocation('1000^1')).toMatchObject({ start: 1000, end: 1000, betweenBases: true });
+  });
+
+  // §3.4.2.1 permits only n^n+1 and the circular length^1; #298 refuses the rest on import.
+  it.each(['10^12', '11^10', '1^1'])('never reads %s, whose bases are not adjoining, as a site', loc => {
+    expect(parseLocation(loc).betweenBases).toBeUndefined();
   });
 });
 

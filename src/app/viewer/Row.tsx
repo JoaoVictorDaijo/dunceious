@@ -29,7 +29,7 @@ import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
-import { isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
+import { isBetweenBasesSite, isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
@@ -334,9 +334,12 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
                 geneticCodeWarning(f),
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
+                `Locus: ${f.locationString || (isBetweenBasesSite(f)
+                  ? `${getOriginalPos(seq, f.start)}^${getOriginalPos(seq, f.start) + 1}`
+                  : `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`)}`,
                 annotationDirection(f, l.record.moleculeType),
                 unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
+                isBetweenBasesSite(f) ? 'Between-base site: covers no bases' : null,
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
@@ -403,6 +406,24 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   </React.Fragment>
                 );
               };
+
+              if (isBetweenBasesSite(f)) {
+                // A site covers no bases (INSDC FT 11.4 §3.4.2.1), so it is a boundary, not a bar:
+                // a rule between the two bases with a caret under it, as `^` writes it.
+                const x = xScale(f.start) - scrollX;
+                if (x < -60 || x > viewportWidth + 4) return null;
+                const color = isSelected ? '#000' : f.color || getFeatureColor(f.type, customColors);
+                const base = y + barHeight;
+                return place(
+                  <g data-annotation-site="" data-annotation-feature={f.name} data-state={isSelected ? 'selected' : 'unselected'} data-x={x}>
+                    <line x1={x} x2={x} y1={y - 1} y2={base} stroke={color} strokeWidth={isSelected ? 2 : 1.5} />
+                    <path d={`M${x - 4},${base + 1}L${x},${base - 4}L${x + 4},${base + 1}Z`} fill={color} />
+                    <text x={x + 6} y={y + ANNOT_BAR_HEIGHT / 2} fontSize={9} fontWeight={600} dominantBaseline="central"
+                      style={{ fill: `color-mix(in srgb, ${color} 62%, #0f172a)` }} pointerEvents="none">{f.name}</text>
+                    <rect data-annotation-part="" x={x - 5} y={y - 2} width={10} height={barHeight + 4} fill="transparent" {...interactions} />
+                  </g>
+                );
+              }
 
               if (f.segments && f.segments.length > 0) {
                 const lineY = y + ANNOT_BAR_HEIGHT / 2;

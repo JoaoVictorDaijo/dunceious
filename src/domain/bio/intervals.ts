@@ -19,6 +19,7 @@
  */
 
 import type { FeatureSegment, BioFeature, SeqRecord } from './types';
+import { isBetweenBasesSite } from './locationFlags';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -122,6 +123,12 @@ function clipFeature(
   selStart: number,
   selEnd: number
 ): BioFeature | null {
+  if (isBetweenBasesSite(feature)) {
+    // A site lies between two bases (LOC-5); it stays only when both of them are selected.
+    if (!(feature.start > selStart && feature.start < selEnd)) return null;
+    const boundary = feature.start - selStart;
+    return { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
+  }
   const segments = feature.segments?.length
     ? feature.segments
     : splitWrapAround(feature.start, feature.end, seq.length);

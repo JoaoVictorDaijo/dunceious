@@ -20,7 +20,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { BioFeature } from '../types';
-import { isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
+import { isBetweenBasesSite, isJoinedLocation, isNestedComplementLocation, isOrderLocation } from '../locationFlags';
 
 describe('isNestedComplementLocation', () => {
   // The parser reverses a list only when an outer complement wraps join/order and one of the list's
@@ -60,3 +60,13 @@ describe('isJoinedLocation and isOrderLocation', () => {
   });
 });
 
+// LOC-5: a site is zero bases; an edit that gives it a width ends the site.
+describe('isBetweenBasesSite', () => {
+  it.each([
+    [{ betweenBases: true as const, start: 10, end: 10 }, true],
+    [{ betweenBases: true as const, start: 10, end: 12 }, false],
+    [{ start: 10, end: 10 }, false],
+  ])('%o → %s', (feature, site) => {
+    expect(isBetweenBasesSite(feature)).toBe(site);
+  });
+});

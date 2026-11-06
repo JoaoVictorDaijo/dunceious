@@ -19,7 +19,7 @@
  */
 
 import type { BioFeature, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { parseLocation } from '@/src/core/genbank/locationParser';
+import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
@@ -78,6 +78,7 @@ function validRecord(value: unknown): boolean {
     && (feature.strand === 1 || feature.strand === -1)
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
+    && (feature.betweenBases === undefined || feature.betweenBases === true)
     && (feature.metadata === undefined || stringMap(feature.metadata))
     && (feature.segments === undefined || (Array.isArray(feature.segments) && feature.segments.every(segment => isObject(segment) && coordinates(segment)
       && (segment.strand === undefined || segment.strand === 1 || segment.strand === -1)))))) return false;
@@ -89,13 +90,16 @@ function validRecord(value: unknown): boolean {
 }
 
 /**
- * Projects saved before features carried `operator` hold it only in
- * `locationString`, which the first edit clears; read it from that text while it is still there.
+ * Projects saved before features carried `operator` and `betweenBases` hold them only in
+ * `locationString`, which the first edit clears; read them from that text while it is still there.
  */
-function withLegacyLocation(feature: BioFeature): BioFeature {
-  if (!feature.locationString || feature.operator) return feature;
+function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
+  if (!feature.locationString || feature.operator || feature.betweenBases) return feature;
   const parsed = parseLocation(feature.locationString);
   if (parsed.operator && (feature.segments?.length ?? 0) > 1) return { ...feature, operator: parsed.operator };
+  if (parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
+    return { ...feature, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
+  }
   return feature;
 }
 
@@ -130,7 +134,7 @@ export function parseProject(text: string): { ok: true; project: ProjectFile } |
   }
   const project = value as unknown as ProjectFile;
   project.records = project.records.map(record => ({
-    ...record, features: record.features.map(withLegacyLocation),
+    ...record, features: record.features.map(feature => withLegacyLocation(feature, record)),
   }));
   return { ok: true, project };
 }

@@ -22,7 +22,7 @@ import React, { useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
@@ -237,6 +237,12 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
               />
             </div>
           </div>
+
+          {isBetweenBasesSite(feature) && (
+            <p data-location-note="site" className="text-[11px] text-slate-400">
+              Between-base site after base {feature.start}: it covers no bases. Give it different start and end to make it a span.
+            </p>
+          )}
 
           {/* Segments editor (multi-segment features) */}
           {feature.segments && feature.segments.length > 1 && (
