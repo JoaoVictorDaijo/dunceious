@@ -180,7 +180,8 @@ ambiguity codes are valid residues. Neither is ever a finding.
 | Check | Rule | NCBI analogue |
 |---|---|---|
 | Unknown feature key | Not in INSDC 11.4 Appendix II (nucleotide records), or not a key the NCBI C++ Toolkit emits (protein records) | Warning (unknown imported feature key) |
-| Qualifier not allowed on the key | A **recognised** qualifier (Appendix III, or the toolkit set for protein records) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Unrecognised qualifiers never trigger this; they are accepted silently on any key (see below). An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
+| Qualifier not allowed on the key | Nucleotide records: a recognised qualifier (Appendix III) that Appendix II does not list for that key, e.g. `/codon_start` on a `gene`. Protein records: a recognised qualifier that the toolkit's subtype map for that key does not allow, unless it is flat-file-only (see the protein rules). Unrecognised qualifiers never trigger this; they are accepted silently on any key. An unknown key gets the unknown-key warning only, never one per qualifier | Warning (WrongQualOnImpFeat) |
+| Toolkit-mandatory qualifier missing (protein records) | A protein feature lacks a qualifier the toolkit's maps make mandatory for its subtype. A warning, not a refusal, by owner decision; the toolkit doesn't require `/mol_type` | Warning in the toolkit's own validator |
 | Repeated qualifier, last value kept | Until #242 lands | None; this is Dunceious's own data loss, so it must be visible |
 | Duplicate LOCUS names | Records keep unique internal IDs (`makeUniqueId`, `bioResponse.ts:87-91`), and the note names the renaming | None |
 | Invalid frame | `/codon_start` must be exactly `1`, `2` or `3` (INSDC 11.4 Appendix III). Values such as `0`, `4` or `2junk` today reach `parseInt` and shift the frame (`sequence.ts:232-236`). The value is kept, and the note names it. One shared check, `validCodonStart`, guards every result that depends on the frame: the translation track, the early-stop flag, the Hub's amino-acid count (`TrackTooltip.tsx:46,58` today shows `2 aa` for `4` and `NaN aa` for `2junk`), and GFF3 phase export. Each shows the reason instead of a value. Selection export (`intervals.ts:144`) keeps an invalid value unchanged when it clips a CDS, and never computes a new frame from it, so the exported file stays flagged instead of carrying a guessed valid frame. GenBank export can't carry an invalid frame. Today it drops an empty `/codon_start=""` (`serialize.ts:91,109`), so a reimport would fall back to frame 1. So a record holding a CDS with an invalid frame (empty included) is left out of a GenBank export and named in the report: "<id> not exported: CDS <name> has an invalid /codon_start". This uses the same backstop as invalid residues. The same applies to an invalid `/transl_table` (see the next row). Project files keep the value | Error-level in NCBI's validator |
@@ -199,12 +200,18 @@ A protein record gets:
 - **warnings, never refusals, for tag problems.** Those are a key the toolkit doesn't emit, a qualifier its maps don't allow on that key, or a qualifier its maps make mandatory that is missing. The toolkit deliberately doesn't require `/mol_type`, so the 5 bundled protein records, which omit it, get no finding.
 - **Recognised protein qualifiers**, for the inert-qualifier rule, are two sets combined:
   - every qualifier name in the toolkit's qualifier-name table (`SeqFeatData.cpp`);
-  - the flat-file-only qualifiers that `feature_item.cpp` writes for protein records, such as
-    `/coded_by`, `/calculated_mol_wt` and `/peptide`.
+  - the flat-file-only qualifiers: those `feature_item.cpp` writes for protein records that
+    appear in **no** subtype map at all, such as `/coded_by` and `/peptide`.
 
-  The combined set replaces the hand-written `PROTEIN_QUALIFIERS` list. The allowed-on-key
-  check uses only the subtype maps. A flat-file-only qualifier is never warned about on any
-  key, because the maps don't cover it. So `/coded_by` round-trips with no finding.
+  The combined set replaces the hand-written `PROTEIN_QUALIFIERS` list.
+
+  **Precedence for the allowed-on-key check:**
+  1. A qualifier that appears in some subtype map is checked against the key's map. For
+     example, `/calculated_mol_wt` is allowed on Protein and the peptide subtypes, and warned
+     about elsewhere.
+  2. A flat-file-only qualifier is never warned about, on any key.
+
+  So `/coded_by` round-trips with no finding.
 - **Protein unknowns, as for DNA:** an unrecognised protein qualifier is accepted silently and
   stored inert. A key the toolkit doesn't emit gets one unknown-key warning, never one per
   qualifier.
