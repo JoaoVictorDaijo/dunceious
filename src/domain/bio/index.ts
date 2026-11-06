@@ -19,6 +19,7 @@
  */
 
 export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
+export { alignedEnvelope, buildDisplayTrack, displayTracks, packTrackRows, pickTrackData, residueRuns, trackPosition, trackValueRange, unplacedSummary } from './quantitativeTracks';
 export { calculateConsensus } from './consensus';
 export { compareToReference } from './referenceComparison';
 export type { ResidueComparison, ComparisonAlphabet } from './referenceComparison';
