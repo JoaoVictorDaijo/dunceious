@@ -90,7 +90,7 @@ Only circular origin-contiguous same-strand splits normalize into one logical wr
 every other part-count change is a non-move. Match prior raw occurrences independently of array
 index, consuming each at most once. Never repair a malformed assertion. Reverse/reframe or other
 non-move changes remove newly unusable inherited breaks with the before-save notice.
-**Backed by: owner decision (accepted suggestion), 2026-11-07**, refined by structural decision W2.
+**Backed by: owner decision (accepted suggestion), 2026-11-07**, refined by [structural decision W2](2026-11-06-translation-transl-except.md#L647).
 
 B. **Import scope:** malformed syntax/shape refuses GenBank, GFF3 and project imports, naming
 CDS, occurrence, literal and rule. Bare GFF3 transl_except without an equals sign refuses
