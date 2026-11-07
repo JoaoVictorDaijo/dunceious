@@ -18,14 +18,16 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { translationSummary } from '@/src/app/viewer/translationPresentation';
+import { TOOLTIP_INVALIDATE } from '../TooltipLayer';
 import { displayLocation } from '@/src/app/logic/displayLocation';
-import { conceptualTranslation, translationDescription, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
+import { checkedTranslation, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { extractCodingSequence, featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
 import { CDS_ORF_TYPES, geneticCodeWarning, isTranslatedFeature } from '@/src/app/viewer/cds';
-import { createContext, useCallback, useContext, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { featureLengthText } from '@/src/app/logic/viewModel';
@@ -44,6 +46,20 @@ export function TrackTooltipProvider({ children }: { children: ReactNode }) {
     if (current.current?.feature === next?.feature && current.current?.record === next?.record) return;
     current.current = next; setHover(next);
   }, []);
+  useLayoutEffect(() => {
+    const close = () => { current.current = null; owner.current = null; setHover(null); };
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener(TOOLTIP_INVALIDATE, close);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener(TOOLTIP_INVALIDATE, close);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, []);
   return <TrackTooltipContext.Provider value={update}>{children}{hover && createPortal(<TrackTooltip hover={hover} />, document.body)}</TrackTooltipContext.Provider>;
 }
 function unverifiedCount(protein: string): string {
@@ -60,7 +76,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   const frameWarning = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
     ? geneticCodeWarning(feature) : null;
   const location = displayLocation(feature, record);
-  const conceptual = conceptualTranslation(feature, { ...record, biologicalLength: record.sequence.length });
+  const conceptual = checkedTranslation(feature, { ...record, biologicalLength: record.sequence.length });
   const metric = conceptual.status === 'ok'
     ? conceptual.internalStops.length ? `${conceptual.residues.length} positions, ${conceptual.internalStops.length} internal stop${conceptual.internalStops.length === 1 ? '' : 's'}` : `${conceptual.residues.length} aa`
     : `can't verify: ${translationReason(conceptual, feature)}`;
@@ -94,7 +110,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
       : isCds(feature) && record.moleculeType !== 'protein' && ` · ${metric}${conceptual.status === 'ok' && conceptual.threePrimeIndeterminate ? ' · end uncertain' : ''}`)}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
     <p className="mt-2 text-slate-400" title="Translation positions without the terminal stop; internal stops and X/U/O included.">Click to jump to the row</p>
     {!invalidGeometry && isCds(feature) && conceptual.status === 'ok' && <p className="mt-2 text-[10px] text-slate-400">Translation positions without the terminal stop; internal stops and X/U/O included.</p>}
-    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationDescription(feature, record)}</p>}
+    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationSummary(feature, conceptual)}</p>}
     {countReason && <p id={reasonId} data-count-reason="" className="mt-2 text-[10px] text-slate-400">{countReason}</p>}
   </div>;
 }

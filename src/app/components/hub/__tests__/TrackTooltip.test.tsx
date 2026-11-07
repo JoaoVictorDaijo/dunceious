@@ -23,6 +23,7 @@ import { expect, it } from 'vitest';
 import { render, fireEvent } from '@/src/app/testing/renderHarness';
 import { TrackTooltipProvider, useTrackTooltip } from '../TrackTooltip';
 import fixture from '@/src/domain/bio/__tests__/fixtures/ncbi-genetic-codes.biopython.json';
+import { checkTranslation, checkedTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
 function Subject({ sequence, translation, type = 'CDS', table = '99', moleculeType = 'dna', orientation = 1, codonStart }: { sequence: string; codonStart?: string; translation?: string; type?: string; table?: string; moleculeType?: 'dna' | 'protein'; orientation?: 1 | -1 | '.' | '?' }) {
@@ -208,4 +209,22 @@ it.each([false, true])('uses record topology for a reversed interval (circular=%
   fireEvent.click(view.getByText('hover'));
   const length = view.getByText('Length').nextElementSibling!;
   expect(length.textContent).toBe(isCircular ? '5 bp · 1 aa' : '5 bp');
+});
+
+it.each([
+ ['ATGAAATAA', 'MK', ['(pos:X.1:4..6,aa:Sec)'], 1],
+ ['ATGTGATAA', 'MU', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'], 2],
+] as const)('retains %s normalized dropped-exception evidence in the hub summary', (sequence, translation, raw, count) => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence, moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '11', translation }, translationExceptions: [...raw] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ expect(checkedTranslation(feature, source).exceptions?.filter(e => e.status === 'dropped')).toHaveLength(count);
+ const record = { ...source, features: [feature] };
+ const view = render(<TrackTooltipProvider><ContextSubject record={record} feature={feature} /></TrackTooltipProvider>);
+ fireEvent.click(view.getByText('hover'));
+ const tip = view.getByRole('tooltip');
+ expect(tip.textContent).toContain(`${count} dropped translation exception${count === 1 ? '' : 's'}`);
+ expect(tip.textContent).toContain('Complete diagnostics in feature details');
+ expect(tip.textContent).toContain(sequence === 'ATGAAATAA' ? '9 bp · 2 aa' : '9 bp · 2 positions, 1 internal stop');
 });

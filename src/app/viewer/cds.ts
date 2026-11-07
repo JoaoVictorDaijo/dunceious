@@ -18,12 +18,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
+import { checkedTranslation, compareTranslation, isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { definesOneSequence } from '@/src/domain/bio/locationFlags';
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, ConceptualTranslation } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
@@ -32,6 +32,13 @@ export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds', 'SO:0000316'];
 /** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
 export const isTranslatedFeature = (feature: BioFeature): boolean =>
   (isCds(feature) || ['ORF', 'orf'].includes(feature.type)) && definesOneSequence(feature);
+
+/** A mapped deferral withholds a code-dependent substitution, not the explicitly assumed DNA view. */
+export function allowsAssumedCode(result: ConceptualTranslation): boolean {
+  return result.status === 'unavailable' && result.reason === 'invalid-code'
+    && (result.exceptions ?? []).every(e => e.status !== 'malformed'
+      && (e.status !== 'deferred' || (e.codonIndex !== undefined && !!e.bases?.length)));
+}
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
@@ -121,12 +128,12 @@ export const codonFrame = (firstBase: number, strand: 1 | -1): 0 | 1 | 2 => {
   return (((anchor % 3) + 3) % 3) as 0 | 1 | 2;
 };
 
-/** Codon pieces follow biological adjacency; inserted alignment gaps stay inside a piece. */
+/** Codon pieces follow biological adjacency; alignment gaps split pieces. */
 export function codonSpans(indices: number[], positions: ArrayLike<number> | null): { start: number; end: number }[] {
   const spans: { start: number; end: number }[] = [];
   indices.forEach((index, i) => {
     const previous = indices[i - 1];
-    const adjacent = i > 0 && Math.abs(positions ? positions[index] - positions[previous] : index - previous) === 1;
+    const adjacent = i > 0 && Math.abs(index - previous) === 1 && Math.abs(positions ? positions[index] - positions[previous] : index - previous) === 1;
     const span = adjacent ? spans[spans.length - 1] : undefined;
     if (span) {
       span.start = Math.min(span.start, index);
@@ -151,8 +158,7 @@ export const NO_TRANSLATION_LANES: TranslationLanes = { laneOf: new Map(), forwa
 
 /**
  * Packs each strand's CDS/ORF translations into as few rows as possible.
- * Overlapping codons in the same reading frame are the same codons, so they
- * share a row; only an overlap in a different frame forces a new one. A
+ * Distinct overlapping features retain independent provenance and targets. A
  * frameshifted join reads in two frames, so each frame of a feature is packed
  * on its own and the frameshift step crosses between their rows. Lanes are
  * derived from the whole record, not the viewport, so rows stay put while scrolling.
@@ -171,17 +177,36 @@ export const assignTranslationLanes = (
     features
       .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
       .forEach(f => {
+        if (isCds(f)) {
+          const result = checkedTranslation(f, { sequence: seq, moleculeType, ...topology });
+          if (result.status === 'unavailable' && !storedTranslation(f)
+            && !allowsAssumedCode(result)) return;
+        }
         const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, topology);
         const spans = new Map<Frame, { start: number; end: number }[]>();
-        for (let j = 0; j < codingSeq.length - 2; j += 3) {
+        for (let j = 0; j < codingSeq.length; j += 3) {
           const startIdx = alignedIndices[j];
-          const endIdx = alignedIndices[j + 2];
+          const endIdx = alignedIndices[Math.min(j + 2, alignedIndices.length - 1)];
           if (startIdx === undefined || endIdx === undefined) continue;
           const frame = codonFrame(positions ? positions[startIdx] : startIdx, strand);
           const pieces = codonSpans(alignedIndices.slice(j, j + 3), positions);
           const frameSpans = spans.get(frame) ?? [];
           frameSpans.push(...pieces);
           spans.set(frame, frameSpans);
+        }
+        if (isCds(f) && storedTranslation(f)) {
+          const result = checkedTranslation(f, { sequence: seq, moleculeType, ...topology });
+          if (result.status === 'ok') {
+            const comparison = compareTranslation(storedTranslation(f)!, result);
+            const last = alignedIndices.at(-1);
+            if ((comparison.storedExtra || comparison.storedShortBy) && last !== undefined) {
+              const anchor = alignedIndices[Math.floor((alignedIndices.length - 1) / 3) * 3];
+              const frame = codonFrame(positions ? positions[anchor] : anchor, strand);
+              const pieces = spans.get(frame) ?? [];
+              pieces.push(strand === 1 ? { start: last + 1, end: last + 31 } : { start: last - 30, end: last });
+              spans.set(frame, pieces);
+            }
+          }
         }
         spans.forEach((pieces, frame) => {
           const merged: { start: number; end: number }[] = [];
@@ -196,7 +221,7 @@ export const assignTranslationLanes = (
     const lanes: (typeof units)[] = [];
     units.sort((a, b) => a.spans[0].start - b.spans[0].start).forEach(unit => {
       let lane = lanes.findIndex(placed => placed.every(p =>
-        p.frame === unit.frame || unit.spans.every(a => p.spans.every(b => a.end <= b.start || b.end <= a.start))));
+        (p.feature === unit.feature && p.frame === unit.frame) || unit.spans.every(a => p.spans.every(b => a.end <= b.start || b.end <= a.start))));
       if (lane < 0) lane = lanes.push([]) - 1;
       lanes[lane].push(unit);
       const frames = laneOf.get(unit.feature) ?? new Map<Frame, number>();

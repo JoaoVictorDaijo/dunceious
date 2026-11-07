@@ -148,10 +148,10 @@ describe('assignTranslationLanes', () => {
     expect([lanes.laneOf.get(a)?.get(0), lanes.laneOf.get(b)?.get(1)]).toEqual([0, 0]);
   });
 
-  it('shares a lane for overlapping features in the same frame', () => {
+  it('keeps independent lanes for overlapping features in the same frame', () => {
     const ab = cds({ start: 0, end: 30 });
     const a = cds({ start: 0, end: 15 });
-    expect(assignTranslationLanes([ab, a], seq).forward).toBe(1);
+    expect(assignTranslationLanes([ab, a], seq).forward).toBe(2);
   });
 
   it('splits overlapping features in different frames', () => {
@@ -282,4 +282,10 @@ it.each(['1', '99'])('lets an invalid frame suppress translation and broken stat
   expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
   expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
   expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
+});
+
+it('keeps an assumed lane for mapped invalid-code deferrals without claiming a DNA stop', () => {
+ const f = cds({ start: 0, end: 9, metadata: { transl_table: '999' }, translationExceptions: ['(pos:4..6,aa:Sec)'] });
+ expect(assignTranslationLanes([f], 'ATGTGATAA', 'dna').forward).toBe(1);
+ expect(computeBrokenFeatureMap([f], 'ATGTGATAA', 'dna').has(f)).toBe(false);
 });

@@ -25,6 +25,7 @@ import { render, screen, fireEvent, act } from '@/src/app/testing/renderHarness'
 import RecordDetailsModal from '../RecordDetailsModal';
 import { UiEffectsContext, DEFAULT_UI_EFFECTS } from '../uiEffects';
 import { parseGenBank } from '@/src/core/genbank';
+import { checkTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
 const radio = (name: string) => screen.getByRole('radio', { name }) as HTMLInputElement;
@@ -322,4 +323,34 @@ describe('remote location intervals', () => {
     expect(caption()).toMatch(/^Intervals in other records: 1 interval in J00194\.1 is not in this record, so no feature sequence is shown/);
     expect(lengths()).toMatch(/^4 bp in this record, plus 1 interval in J00194\.1/);
   });
+});
+
+it('keeps every internal-stop diagnostic and every raw occurrence in the labelled details surface', () => {
+ const sequence = 'ATG' + 'TGA'.repeat(32) + 'TAA';
+ const entries = ['(pos:X.1:4..6,aa:Sec)', `(pos:${' '.repeat(2000)}4..6,aa:TERM)`];
+ const f: BioFeature = { type: 'CDS', name: 'dense', start: 0, end: sequence.length, strand: 1, segments: [{ start: 0, end: sequence.length }],
+   metadata: { translation: 'M' + 'X'.repeat(32), transl_table: '11' }, translationExceptions: entries };
+ render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence, moleculeType: 'dna', features: [f] }} feature={f}
+   onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+ const details = screen.getByRole('region', { name: 'Translation diagnostics' });
+ expect(details.textContent).toContain('32 internal stops');
+ expect(details.textContent).toContain('Internal stop at codon 2, bases 4, 5, 6');
+ expect(details.textContent).toContain('Internal stop at codon 33, bases 97, 98, 99');
+ for (const raw of entries) expect(details.textContent).toContain(raw);
+});
+
+it.each([
+ ['ATGAAATAA', 'MK', ['(pos:X.1:4..6,aa:Sec)'], 'another exact accession/version'],
+ ['ATGTGATAA', 'MU', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'], 'conflicting residues'],
+] as const)('keeps normalized dropped literals in complete details for %s', (sequence, translation, entries, reason) => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence, moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation, transl_table: '11' }, translationExceptions: [...entries] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ render(<RecordDetailsModal record={{ ...source, features: [feature] }} feature={feature}
+   onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+ const details = screen.getByRole('region', { name: 'Translation diagnostics' });
+ for (const raw of entries) expect(details.textContent).toContain(raw);
+ expect(details.textContent).toContain('dropped');
+ expect(details.textContent).toContain(reason);
 });

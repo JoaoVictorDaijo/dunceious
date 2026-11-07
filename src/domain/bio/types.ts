@@ -257,6 +257,18 @@ export interface TranslationExceptionEvidence {
   warnings?: string[];
 }
 
+export interface CodonProvenance {
+  codonIndex: number;
+  proteinIndex?: number;
+  fragment: string;
+  triplet: string;
+  alignedIndices: number[];
+  ordinary: string;
+  contextual: string;
+  effective: string;
+  terminalRemoved: boolean;
+}
+
 export type ConceptualTranslation =
-  | { status: 'ok'; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[]; exceptions?: TranslationExceptionEvidence[] }
+  | { status: 'ok'; codons: CodonProvenance[]; residues: string; possible: string[]; internalStops: number[]; threePrimeIndeterminate: boolean; alignedIndices: number[]; exceptions?: TranslationExceptionEvidence[] }
   | { status: 'unavailable'; reason: 'protein-record' | 'invalid-code' | 'unsupported-exception' | 'unknown-strand' | 'nonlocal-location' | 'unknown-completeness' | 'empty'; exceptions?: TranslationExceptionEvidence[] };

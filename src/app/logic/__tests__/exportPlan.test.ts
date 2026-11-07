@@ -26,6 +26,7 @@ import { parseGenBank } from '@/src/core/genbank';
 import { parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
+import { checkTranslation } from '@/src/domain/bio/translation';
 import { saveEditedFeature } from '../featureManager';
 import { initialExportSelection, describeExport, serializeExport } from '../exportPlan';
 
@@ -221,4 +222,20 @@ it('carries the saved internal-stop removal warning in project export and previe
   expect(saved.records[0].features[0].metadata._translationSource).toBe('removed');
   expect(serializeExport([original], 'project').report.translationWarnings).toEqual([]);
   expect(describeExport([original], 'project').summary).not.toContain('Translation removed');
+});
+
+it('previews the actual normalized export without restoring a dropped foreign qualifier', () => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence: 'ATGAAATAA', moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation: 'MK', transl_table: '11' }, translationExceptions: ['(pos:X.1:4..6,aa:Sec)'] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ const record = { ...source, features: [feature] };
+ const snapshot = JSON.stringify(record);
+ const preview = describeExport([record], 'genbank');
+ const output = serializeExport([record], 'genbank');
+ expect(preview.report).toEqual(output.report);
+ expect(output.text).toContain('/translation="MK"');
+ expect(output.text).not.toContain('/transl_except=');
+ expect(output.text).not.toContain('X.1');
+ expect(JSON.stringify(record)).toBe(snapshot);
 });

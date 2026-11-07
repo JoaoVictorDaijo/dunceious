@@ -22,7 +22,9 @@
 import * as d3 from 'd3';
 import * as bio from '@/src/domain/bio';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
+import { render, fireEvent, screen, act, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
+import { checkTranslation } from '@/src/domain/bio/translation';
+import TooltipLayer from '@/src/app/components/TooltipLayer';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
 import { parseFasta } from '@/src/core/formats/fasta';
 import { TouchArbiter } from '../../touchGesture';
@@ -162,7 +164,10 @@ describe('aligned CDS translation', () => {
     const { container } = render(<SequenceTrack {...props(seq, [{ type: 'CDS', name: 'gapped', start: 2, end: 14, strand: 1,
       segments: [{ start: 2, end: 14 }] }])} />);
     expect(recorder.texts().slice(-3)).toEqual(['M', 'K', '_']);
-    expect(recorder.fillRects().slice(-3)).toEqual([[40, 0, 80, 18], [140, 0, 60, 18], [220, 0, 60, 18]]);
+    expect(recorder.fillRects().slice(-4)).toEqual([[40, 0, 20, 18], [80, 0, 40, 18], [140, 0, 60, 18], [220, 0, 60, 18]]);
+    const codons = container.querySelectorAll('[data-codon-target]');
+    expect(codons).toHaveLength(3);
+    expect([...codons[0].children].map(piece => [(piece as HTMLElement).style.left, (piece as HTMLElement).style.width])).toEqual([['0px', '20px'], ['40px', '40px']]);
     expect(container.querySelector<HTMLCanvasElement>('[data-translation-band="forward"]')?.style.transform).toBe('translateY(82px)');
   });
 });
@@ -420,9 +425,10 @@ it('passes the known biological length to feature extraction on translation redr
   const extraction = vi.spyOn(bio, 'extractCodingSequence');
   try {
     const { rerender } = render(<SequenceTrack {...input} record={record} />);
+    expect(extraction).toHaveBeenCalledWith(feature, 'AT--G', { isCircular: undefined, biologicalLength: 3 });
     extraction.mockClear();
     rerender(<SequenceTrack {...input} record={record} scrollX={1} />);
-    expect(extraction).toHaveBeenCalledWith(feature, 'AT--G', { isCircular: undefined, biologicalLength: 3 });
+    expect(extraction).not.toHaveBeenCalled();
   } finally {
     extraction.mockRestore();
   }
@@ -446,4 +452,135 @@ it('bounds whole-sequence length recovery independently of aligned CDS count', (
   } finally {
     replacement.mockRestore();
   }
+});
+
+it('retains a curated hidden-stop residue with a base-facing edge and ordinary codon targets', () => {
+ const recorder = installCanvasRecorder();
+ const f: BioFeature = { type: 'CDS', name: 'curated', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }], metadata: { translation: 'MXA', transl_table: '11' } };
+ const { container } = render(<SequenceTrack {...props('ATGTGAGCTTAA', [f])} />);
+ expect(recorder.texts().slice(-4)).toEqual(['M', 'X', 'A', '_']);
+ expect(recorder.fillRects()).toContainEqual([60, 15, 60, 3]);
+ const targets = container.querySelectorAll('[data-codon-target]');
+ expect(targets).toHaveLength(4);
+ expect(targets[1].getAttribute('data-tip')).toContain('Early stop in the conceptual CDS');
+ expect(targets[1].getAttribute('aria-label')).toContain('Annotated X (unknown)');
+});
+
+it('places a length chip after the endpoint without inventing missing codon cells', () => {
+ installCanvasRecorder();
+ const f: BioFeature = { type: 'CDS', name: 'short', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }], metadata: { translation: 'M', transl_table: '11' } };
+ const { container } = render(<SequenceTrack {...props('ATGTAAGGGTAA', [f])} viewportWidth={500} />);
+ expect(container.querySelectorAll('[data-codon-target]')).toHaveLength(2);
+ const chip = container.querySelector('[data-translation-chip]');
+ expect(chip?.textContent).toBe('−2 positions');
+ expect(chip?.getAttribute('data-tip')).toContain('2 DNA-derived positions have no annotated residue');
+ expect(chip?.getAttribute('data-tip')).toContain('internal stop');
+});
+
+it.each([5, 5.01, 12, 12.01, 20])('keeps mark meaning and exact eligibility at zoom %s', zoomLevel => {
+ installCanvasRecorder();
+ const f: BioFeature = { type: 'CDS', name: 'visible', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: 'MK', transl_table: '11' } };
+ const { container } = render(<SequenceTrack {...props('ATGAGATAA', [f])} zoomLevel={zoomLevel}
+   xScale={d3.scaleLinear().domain([0, 9]).range([0, 9 * zoomLevel])} />);
+ const targets = container.querySelectorAll('[data-codon-target]');
+ expect(targets.length).toBe(zoomLevel > 5 ? 3 : 0);
+ if (zoomLevel > 5) expect(targets[1].getAttribute('data-tip')).toContain('Stored /translation differs here');
+});
+it('dismisses open and pending evidence on pan and recomputation, while keeping a surviving focus target', () => {
+ vi.useFakeTimers();
+ installCanvasRecorder();
+ const f: BioFeature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: 'MK', transl_table: '11' } };
+ const input = props('ATGAGATAA', [f]);
+ const { container, rerender } = render(<><SequenceTrack {...input} /><TooltipLayer /></>);
+ const target = container.querySelectorAll<HTMLElement>('[data-codon-target]')[1];
+ fireEvent.pointerOver(target.firstElementChild!);
+ act(() => vi.advanceTimersByTime(400));
+ expect(screen.getByRole('tooltip').textContent).toContain('Stored /translation differs here');
+ target.focus();
+ rerender(<><SequenceTrack {...input} scrollX={1} /><TooltipLayer /></>);
+ expect(screen.queryByRole('tooltip')).toBeNull();
+ expect(target.hasAttribute('aria-describedby')).toBe(false);
+ expect(document.activeElement).toBe(target);
+ fireEvent.pointerOver(target.firstElementChild!);
+ const changed = { ...f, metadata: { translation: 'MR', transl_table: '11' } };
+ rerender(<><SequenceTrack {...input} features={[changed]} translationLanes={assignTranslationLanes([changed], input.seq)} /><TooltipLayer /></>);
+ act(() => vi.advanceTimersByTime(400));
+ expect(screen.queryByRole('tooltip')).toBeNull();
+ vi.useRealTimers();
+});
+
+it.each([undefined, 'MU'])('renders mapped invalid-code exceptions as unapplied; stored=%s', translation => {
+ const recorder = installCanvasRecorder();
+ const raw = '(pos:4..6,aa:Sec)';
+ const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '999', ...(translation ? { translation } : {}) }, translationExceptions: [raw] }, record);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} />);
+ expect(recorder.texts().slice(-3)).toEqual(translation ? ['M', 'U', '*'] : ['M', '*', '*']);
+ const targets = container.querySelectorAll('[data-codon-target]');
+ expect(targets).toHaveLength(3);
+ expect(targets[1].getAttribute('data-tip')).toContain(raw);
+ expect(targets[1].getAttribute('data-tip')).toContain('was not applied');
+ for (const i of [0, 2]) expect(targets[i].getAttribute('data-tip')).not.toContain(raw);
+ for (const target of targets) expect(target.getAttribute('data-tip')).toContain('1 deferred translation exception');
+ expect(container.querySelector('[data-translation-chip]')).toBeNull();
+ expect(recorder.texts()).not.toContain('!');
+ expect(recorder.fillRects().some(([, , , height]) => height === 3)).toBe(false);
+});
+it('renders all-conflicts-dropped as a DNA hidden stop with each original notice', () => {
+ const recorder = installCanvasRecorder();
+ const entries = ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'];
+ const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '11', translation: 'MU' }, translationExceptions: entries }, record);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} />);
+ expect(recorder.texts().slice(-3)).toEqual(['M', 'U', '_']);
+ expect(recorder.fillRects()).toContainEqual([60, 15, 60, 3]);
+ const target = container.querySelectorAll('[data-codon-target]')[1];
+ for (const raw of entries) expect(target.getAttribute('data-tip')).toContain(raw);
+ expect(target.getAttribute('data-tip')).toContain('conflicting residues');
+ expect(target.getAttribute('data-tip')).not.toContain('annotated exception specifies');
+});
+
+it.each([undefined, 'V'])('chooses exactly one invalid-code ORF presentation source per codon; stored=%s', translation => {
+ const recorder = installCanvasRecorder();
+ const f: BioFeature = { type: 'ORF', name: 'orf', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '999', ...(translation ? { translation } : {}) } };
+ const { container } = render(<SequenceTrack {...props('ATGTGATAA', [f])} />);
+ expect(recorder.texts().slice(-3)).toEqual(translation ? ['V', '*', '*'] : ['M', '*', '*']);
+ const targets = [...container.querySelectorAll('[data-codon-target]')];
+ expect(targets).toHaveLength(3);
+ expect(targets.map(target => target.children.length)).toEqual([1, 1, 1]);
+ for (const [i, target] of targets.entries()) {
+   expect(target.getAttribute('data-tip')).not.toContain('?');
+   expect(target.getAttribute('data-tip')).toContain(i === 0 && translation ? 'Annotated V' : 'assuming table 1');
+ }
+});
+it('does no whole-sequence gap scan on a million-base pan', () => {
+ installCanvasRecorder();
+ const sequence = 'A'.repeat(1_000_000);
+ const input = { ...props(sequence, []), viewportWidth: 200, showTranslation: false };
+ const includes = vi.spyOn(String.prototype, 'includes');
+ try {
+   const { rerender } = render(<SequenceTrack {...input} />);
+   includes.mockClear();
+   rerender(<SequenceTrack {...input} scrollX={100} />);
+   expect(includes.mock.calls.filter(([search], i) => search === '-' && String(includes.mock.contexts[i]) === sequence)).toHaveLength(0);
+ } finally { includes.mockRestore(); }
+});
+
+it('keeps normalized dropped evidence in codon and length-chip summaries', () => {
+ installCanvasRecorder();
+ const record = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence: 'ATGAAATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '11', translation: 'MKVW' }, translationExceptions: ['(pos:X.1:4..6,aa:Sec)'] }, record);
+ expect(f.translationExceptions).toEqual([]);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} viewportWidth={500} />);
+ const targets = [...container.querySelectorAll('[data-codon-target]'), container.querySelector('[data-translation-chip]')!];
+ expect(targets).toHaveLength(4);
+ for (const target of targets) {
+   expect(target.getAttribute('data-tip')).toContain('1 dropped translation exception');
+   expect(target.getAttribute('data-tip')).toContain('Complete diagnostics in feature details');
+ }
+ expect(container.querySelector('[data-translation-chip]')?.textContent).toBe('+2 positions');
 });

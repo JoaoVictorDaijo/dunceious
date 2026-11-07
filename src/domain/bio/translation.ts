@@ -19,7 +19,7 @@
  */
 
 
-import type { BioFeature, SeqRecord, ConceptualTranslation, TranslationExceptionEvidence, SelectionArea } from './types';
+import type { BioFeature, SeqRecord, ConceptualTranslation, CodonProvenance, TranslationExceptionEvidence, SelectionArea } from './types';
 export type { ConceptualTranslation } from './types';
 import { codeBreakEvidence, codeBreakMessage, transformCodeBreak, SENSE_RESIDUES } from './translationExceptions';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
@@ -68,6 +68,8 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   const code = NCBI_GENETIC_CODES[table];
   const possible: string[] = [];
   const residues: string[] = [];
+  const ordinary: string[] = [];
+  const contextual: string[] = [];
   const full = Math.floor(seq.length / 3);
   const index = (codon: string) => [...codon].reduce((n, b) => n * 4 + 'TCAG'.indexOf(b), 0);
   const readings = (codon: string, terminal: boolean) => [...new Set(expansions(codon).map(c => {
@@ -76,12 +78,15 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   }))].sort().join('');
   for (let i = 0; i < full; i++) {
     const codon = seq.slice(i * 3, i * 3 + 3);
+    ordinary.push(readings(codon, false));
     let set = readings(codon, i === full - 1 && seq.length % 3 === 0 && !isThreePrimePartialLocation(resolved));
     if (i === 0 && !isFivePrimePartialLocation(resolved) && Number(feature.metadata?.codon_start ?? 1) === 1 && initiatorResidue(codon, table)) set = 'M';
+    contextual.push(set);
     possible.push(set); residues.push(reading(set));
   }
   if (seq.length % 3) {
     const set = readings(seq.slice(full * 3).padEnd(3, 'N'), false);
+    ordinary.push(set); contextual.push(set);
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
   if (feature.translationExceptions?.length) {
@@ -91,9 +96,17 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
       residues[evidence.codonIndex!] = reading(evidence.possible!);
     }
   }
+  const codons: CodonProvenance[] = possible.map((effective, codonIndex) => ({
+    codonIndex, proteinIndex: codonIndex, fragment: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3),
+    triplet: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3).padEnd(3, 'N'),
+    alignedIndices: alignedIndices.slice(codonIndex * 3, codonIndex * 3 + 3),
+    ordinary: ordinary[codonIndex], contextual: contextual[codonIndex], effective,
+    terminalRemoved: effective === '*' && codonIndex === possible.length - 1,
+  }));
+  if (codons.at(-1)?.terminalRemoved) codons[codons.length - 1].proteinIndex = undefined;
   if (possible.at(-1) === '*') { possible.pop(); residues.pop(); }
   const threePrimeIndeterminate = !!possible.at(-1)?.includes('*') && possible.at(-1) !== '*';
-  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
+  return { status: 'ok', codons, residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
 }
 
 export function compareTranslation(stored: string, conceptual: Extract<ConceptualTranslation, { status: 'ok' }>) {
@@ -160,14 +173,24 @@ export function checkedTranslation(feature: BioFeature, record: TranslationRecor
   return conceptualTranslation(feature, record);
 }
 
-export function translationDescription(feature: BioFeature, record: TranslationRecord): string {
-  const result = checkedTranslation(feature, record);
+export function translationDescription(feature: BioFeature, record: TranslationRecord, result = checkedTranslation(feature, record)): string {
   const clauses = [feature.metadata?._translationMessage ?? ''];
   for (const e of result.exceptions ?? []) {
     if (e.status !== 'applied') clauses.push(codeBreakMessage(e));
     clauses.push(...(e.warnings ?? []));
   }
   if (result.status === 'unavailable') clauses.push(`Can't verify: ${translationReason(result, feature)}`);
+  if (result.status === 'ok') {
+    if (result.internalStops.length) clauses.push(`${result.residues.length} positions, ${result.internalStops.length} internal stop${result.internalStops.length === 1 ? '' : 's'}`);
+    for (const i of result.internalStops) {
+      const c = result.codons[i];
+      clauses.push(`Internal stop at codon ${i + 1}, bases ${c.alignedIndices.map(n => n + 1).join(', ')}, ${c.fragment}; effective stop under table ${featureTranslTable(feature)}${result.exceptions?.filter(e => e.status === 'applied' && e.codonIndex === i).map(e => `; exception ${e.raw}`).join('') ?? ''}`);
+    }
+    if (result.threePrimeIndeterminate) {
+      const c = result.codons[result.residues.length - 1];
+      clauses.push(`End uncertain: ${c.triplet} may read ${[...c.effective].join(', ')}, including a terminal stop; this position is retained`);
+    }
+  }
   const stored = storedTranslation(feature);
   if (stored && result.status === 'ok') {
     const comparison = compareTranslation(stored, result);
