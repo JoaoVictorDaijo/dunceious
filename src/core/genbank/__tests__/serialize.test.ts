@@ -354,3 +354,33 @@ it.each([
     expect(conceptualTranslation(cds, imported.records[0])).toMatchObject({ status: 'ok', residues });
   }
 });
+
+
+it.each([
+  { input: '5^6', rebased: '3^4', strand: 1 as const },
+  { input: 'complement(5^6)', rebased: 'complement(3^4)', strand: -1 as const },
+])('exports the selected standalone site $input at its rebased boundary', ({ input, rebased, strand }) => {
+  const r = record({ sequence: 'ATGAAATAA', features: [
+    { type: 'misc_feature', name: 'site', ...parseLocation(input), locationString: input },
+    { type: 'source', name: 'source', start: 0, end: 9, strand: 1, metadata: { organism: 'synthetic construct', mol_type: 'genomic DNA' } },
+  ] });
+  for (const scenario of [
+    { start: 2, end: 8, boundary: 3, location: rebased, retained: undefined },
+    { start: 0, end: 8, boundary: 5, location: input, retained: input },
+  ]) {
+    const selected = sliceRecordsBySelection([r], scenario.start, scenario.end);
+    expect(selected.losses).toEqual([]);
+    const site = selected.records[0].features[0];
+    expect(site).toMatchObject({ start: scenario.boundary, end: scenario.boundary, strand, betweenBases: true,
+      segments: [{ start: scenario.boundary, end: scenario.boundary }] });
+    const text = exportToGenBank(selected.records).text;
+    expect(text).toContain(`misc_feature    ${scenario.location}`);
+    expect(site.locationString).toBe(scenario.retained);
+    const imported = parseGenBank(text);
+    expect(imported.findings).toEqual([]);
+    expect(imported.records[0].features.find(f => f.name === 'site')).toMatchObject({
+      start: scenario.boundary, end: scenario.boundary, strand, betweenBases: true,
+      segments: [{ start: scenario.boundary, end: scenario.boundary }],
+    });
+  }
+});

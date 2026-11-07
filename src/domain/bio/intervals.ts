@@ -140,7 +140,9 @@ function clipFeature(
     // A site lies between two bases (LOC-5); it stays only when both of them are selected.
     if (!siteNeighboursSelected(feature.start, seq.length, circular, selStart, selEnd)) return null;
     const boundary = feature.start - selStart;
-    return { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
+    const result = { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
+    if (boundary !== feature.start) delete result.locationString;
+    return result;
   }
   const segments = feature.segments?.length || feature.remoteParts?.length
     ? featureParts(feature, { length: seq.length, isCircular: circular })
