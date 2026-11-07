@@ -137,13 +137,11 @@ export const PROTEIN_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new Map(
 );
 
 export function formatQualifier(key: string, value: string, syntax: QualifierSyntax): string[] {
+  assertGenBankQualifierText(key, value);
   const indent = ' '.repeat(21);
   if (syntax === 'flag') return [indent + '/' + key];
   if (!value) return [];
 
-  // TODO(#253): owner must choose disposition for non-printable text; line breaks retain existing folding.
-  value = value.replace(/\s*[\r\n]+\s*/g, ' ');
-  if ([...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error(`/${key}=${JSON.stringify(value)}: non-printable logical text cannot be encoded losslessly in GenBank`);
   const quoted = syntax === 'quoted';
   const escaped = quoted ? value.replace(/"/g, '""') : value;
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
@@ -173,4 +171,8 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   }
   lines.push(indent + remaining);
   return lines;
+}
+
+export function assertGenBankQualifierText(key: string, value: string): void {
+  if (/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value)) throw new Error(`/${key}=${JSON.stringify(value)}: non-printable control characters (Cc) and line/paragraph separators (Zl/Zp) cannot be encoded in GenBank qualifiers`);
 }

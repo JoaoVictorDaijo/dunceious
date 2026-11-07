@@ -350,8 +350,8 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
     };
     const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9).records;
     const selected = result.features[0];
-    expect(selected?.metadata?.translation).toBeUndefined();
-    expect(selected.metadata?.translation).toBeUndefined();
+    expect(selected?.metadata?.translation).toBe('KP');
+    expect(selected.metadata?.translation).toBe('KP');
     expect(selected.metadata?._gffPhases).toBeUndefined();
     expect(selected.metadata?.phase).toBeUndefined();
     expect(translateFeature(selected, extractCodingSequence(selected, result.sequence).codingSeq)).toBe('KP');

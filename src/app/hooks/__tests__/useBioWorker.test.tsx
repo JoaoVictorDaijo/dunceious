@@ -310,3 +310,16 @@ it('logs unplaced track rows once per accepted processing result without mutatin
   expect(h.result.current.records[0]).toBe(source);
   expect(h.result.current.records[0].displayTracks).toBeUndefined();
 });
+
+it('refuses a malformed GFF3 attachment atomically and visibly through the real worker route', async () => {
+  const h = setup();
+  const records: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGTGATAA', features: [] }, { id: 'b', name: 'b', sequence: 'ATGTGATAA', features: [] }];
+  act(() => h.result.current.setRecords(records));
+  const promise = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'bad.gff3', content: 'a\t.\tCDS\t1\t9\t.\t+\t0\tID=good;transl_except=(pos:4..6%2Caa:Sec)\nb\t.\tCDS\t1\t9\t.\t+\t0\tID=bad;transl_except=(pos:5..7%2Caa:Sec)' });
+  const refused = expect(promise).rejects.toThrow(/CDS bad.*5\.\.7.*off-frame/);
+  act(() => h.worker.release(h.worker.requests.length - 1));
+  await refused;
+  expect(h.result.current.records).toEqual(records);
+  expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/import refused.*CDS bad.*5\.\.7.*off-frame/));
+  expect(h.log.mock.calls.flat().join(' ')).not.toContain('Annotation import complete');
+});

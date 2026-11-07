@@ -212,11 +212,20 @@ it.each([105, 115])('delivers selection JSON biological loss details before down
   expect(saved.features[0].locationString).toBeUndefined();
   if (end === 105) {
     expect(saved.features[0]).toMatchObject({ translationExceptions: [], segments: [{ start: 0, end: 5, partialEnd: true }] });
-    expect(saved.features[0].metadata.translation).toBeUndefined();
+    expect(saved.features[0].metadata.translation).toBe('M');
     expect(events.slice(0, events.indexOf('download')).join(' ')).toMatch(/r: CDS c.*occurrence 0.*104\.\.106.*106.*occurrence 1.*107\.\.109.*wholly excluded/);
   } else {
     expect(saved.features[0]).toMatchObject({ translationExceptions: ['(pos:4..6,aa:Sec)', '(pos:7..9,aa:Pyl)'], metadata: { translation: 'MUOP' } });
     expect(events[0]).toBe('download');
   }
   expect(JSON.stringify(source)).toBe(before);
+});
+
+it('delivers printable non-ASCII qualifier warnings from the export report', () => {
+  const log = vi.fn();
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { note: 'é µ ±' } }] };
+  const { result } = setup([source], log);
+  result.current.exportRecords(['r'], 'genbank');
+  expect(vi.mocked(downloadBlob).mock.calls[0][0]).toContain('/note="é µ ±"');
+  expect(log).toHaveBeenCalledWith(expect.stringMatching(/WARNING:.*note="é µ ±".*ASCII 32–126/));
 });

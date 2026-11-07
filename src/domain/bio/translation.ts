@@ -83,22 +83,21 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     const set = readings(seq.slice(full * 3).padEnd(3, 'N'), false);
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
-  let entry = -1;
-  const entryMap = [...record.sequence].map(base => base === '-' ? -1 : ++entry);
-  exceptions = codeBreakEvidence(feature, record, seq, alignedIndices.map(i => entryMap[i]));
-  if (exceptions.some(e => e.status === 'malformed' || e.status === 'deferred')) return unavailable('unsupported-exception');
-  // TODO(#253): choose conflicting survivors; retain all assertions and withhold computation.
-  const assignments = new Map<number, string>();
-  for (const evidence of exceptions) {
-    if (evidence.status !== 'applied') continue;
-    const slot = evidence.codonIndex!;
-    if (assignments.has(slot) && assignments.get(slot) !== evidence.possible) {
-      exceptions = exceptions.map(e => e.codonIndex === slot ? { ...e, status: 'deferred', reason: 'conflicting residues; awaiting owner' } : e);
-      return unavailable('unsupported-exception');
+  if (feature.translationExceptions?.length) {
+    exceptions = codeBreakEvidence(feature, record, seq, entryIndices(record, alignedIndices));
+    if (exceptions.some(e => e.status === 'malformed' || e.status === 'deferred')) return unavailable('unsupported-exception');
+    const sets = new Map<number, Set<string>>();
+    for (const evidence of exceptions) if (evidence.status === 'applied') {
+      const values = sets.get(evidence.codonIndex!) ?? new Set<string>();
+      values.add(evidence.possible!);
+      sets.set(evidence.codonIndex!, values);
     }
-    assignments.set(slot, evidence.possible!);
-    possible[slot] = evidence.possible!;
-    residues[slot] = reading(evidence.possible!);
+    exceptions = exceptions.map(e => e.status === 'applied' && sets.get(e.codonIndex!)!.size > 1
+      ? { ...e, status: 'dropped', reason: 'conflicting residues for one codon' } : e);
+    for (const evidence of exceptions) if (evidence.status === 'applied') {
+      possible[evidence.codonIndex!] = evidence.possible!;
+      residues[evidence.codonIndex!] = reading(evidence.possible!);
+    }
   }
   if (possible.at(-1) === '*') { possible.pop(); residues.pop(); }
   const threePrimeIndeterminate = !!possible.at(-1)?.includes('*') && possible.at(-1) !== '*';
@@ -121,7 +120,6 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
   if (!isCds(feature)) return feature;
   const conceptual = conceptualTranslation(feature, record);
-  // TODO(#253): choose malformed GFF3/project ingress disposition; retain assertions without verification.
   const dropped = new Set(conceptual.exceptions?.filter(e => e.status === 'dropped').map(e => e.occurrence));
   if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);
@@ -188,4 +186,32 @@ export function translationDescription(feature: BioFeature, record: TranslationR
     if (feature.metadata?.exception) clauses.push(`/exception: ${feature.metadata.exception}`);
   }
   return clauses.filter(Boolean).join('. ');
+}
+
+const recordGaps = new WeakMap<object, { sequence: string; gaps: number[] }>();
+
+/** Cache only gap positions, never a genome-sized entry map for each CDS. */
+function entryIndices(record: TranslationRecord, indices: number[]): number[] {
+  let cached = recordGaps.get(record);
+  if (!cached || cached.sequence !== record.sequence) {
+    cached = { sequence: record.sequence, gaps: Array.from(record.sequence.matchAll(/-/g), match => match.index) };
+    recordGaps.set(record, cached);
+  }
+  const gaps = cached.gaps;
+  if (!gaps.length) return indices;
+  return indices.map(index => {
+    let low = 0, high = gaps.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (gaps[middle] < index) low = middle + 1;
+      else high = middle;
+    }
+    return index - low;
+  });
+}
+
+export function malformedCodeBreakMessage(feature: BioFeature, record?: TranslationRecord): string | undefined {
+  const evidence = record ? conceptualTranslation(feature, record).exceptions : codeBreakEvidence(feature, {});
+  const malformed = evidence?.find(item => item.status === 'malformed');
+  return malformed && codeBreakMessage(malformed);
 }

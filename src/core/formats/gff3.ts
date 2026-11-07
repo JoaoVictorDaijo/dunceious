@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { parseLocation } from '../genbank/locationParser';
@@ -360,6 +361,8 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
       feature.translationExceptions = attributeValues(metadata, 'transl_except');
       takeListAttribute(feature, 'transl_except');
     }
+    const malformed = malformedCodeBreakMessage(feature);
+    if (malformed) throw new Error(malformed);
     rows.push({ seqid, feature });
   }
 

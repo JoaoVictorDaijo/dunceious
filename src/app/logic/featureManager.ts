@@ -18,8 +18,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, conceptualTranslation, isCds, translationReason } from '@/src/domain/bio/translation';
-import { codeBreakMessage } from '@/src/domain/bio/translationExceptions';
+import { checkTranslation, conceptualTranslation, isCds, translationReason, resolvedTranslationFeature } from '@/src/domain/bio/translation';
+import { codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
+import { extractCodingSequence } from '@/src/domain/bio/sequence';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
@@ -55,12 +56,11 @@ export function saveEditedFeature(
       || JSON.stringify(previous.translationExceptions) !== JSON.stringify(marked.translationExceptions)
       || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
     marked.metadata = { ...marked.metadata };
-    // TODO(#253): replace the plain-move lockout with the owner's coordinate policy.
-    if (previous && marked.translationExceptions?.length && previous.start !== marked.start
-      && previous.end - previous.start === marked.end - marked.start && previous.strand === marked.strand
-      && previous.metadata?.codon_start === marked.metadata.codon_start) {
-      addLog(`WARNING: CDS ${marked.name}: plain move with /transl_except awaits owner; Save refused`);
-      return r;
+    const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, r) : undefined;
+    if (previous && displacement !== undefined) {
+      const valid = conceptualTranslation(previous, r).exceptions;
+      marked.translationExceptions = marked.translationExceptions?.map((raw, i) => valid?.some(e => e.occurrence === i && e.raw === raw && e.status === 'applied')
+        ? transformCodeBreak(raw, previous.strand, displacement, true, r.isCircular ? r.sequence.length : undefined) : raw);
     }
     const evaluated = marked.translationExceptions?.length ? conceptualTranslation(marked, r) : undefined;
     const previousEvidence = previous?.translationExceptions?.length ? conceptualTranslation(previous, r).exceptions : [];
@@ -181,4 +181,23 @@ export function annotationCoords(
     }
   }
   return { start: finalStart, end: finalEnd, segments: finalSegments };
+}
+
+/** A move preserves every biological base visit and its orientation, including across an origin. */
+function plainMoveOffset(previous: BioFeature, next: BioFeature, record: SeqRecord): number | undefined {
+  if (getFeatureStrand(previous) !== getFeatureStrand(next) || previous.metadata?.codon_start !== next.metadata?.codon_start) return;
+  const before = extractCodingSequence(resolvedTranslationFeature(previous), record.sequence, record).alignedIndices;
+  const after = extractCodingSequence(resolvedTranslationFeature(next), record.sequence, record).alignedIndices;
+  if (!before.length || before.length !== after.length) return;
+  const offset = after[0] - before[0];
+  if (!offset) return;
+  const direction = (feature: BioFeature, base: number) => (feature.segments?.length ? feature.segments : [feature])
+    .filter(part => part.start <= part.end ? base >= part.start && base < part.end : base >= part.start || base < part.end)
+    .map(part => part.strand ?? feature.strand).sort().join(',');
+  const length = record.sequence.length;
+  if (before.every((base, i) => {
+    const shifted = base + offset;
+    const expected = record.isCircular ? ((shifted % length) + length) % length : shifted;
+    return expected === after[i] && direction(previous, base) === direction(next, after[i]);
+  })) return offset;
 }

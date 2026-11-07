@@ -228,6 +228,33 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     setIsProcessing(false);
   };
 
+  const receiveAnnotations = (msg: Extract<BioWorkerResponse, { type: 'ANNOTATIONS_SUCCESS' }>) => {
+    if (optionsRef.current.isAlignmentLocked?.()) {
+      addLog('Annotations were not loaded: the workspace is locked');
+      setIsProcessing(false);
+      settle({ ...msg, annotations: {}, details: {} });
+      return;
+    }
+    const annotationResponse = msg;
+    let annotationRefusal: string | undefined;
+    setRecords(prev => {
+      const { next, totalAdded, unmatched, refusal } = applyAnnotations(prev, annotationResponse.annotations, annotationResponse.details, annotationResponse.idMap);
+      if (refusal) { annotationRefusal = refusal; addLog(`ERROR: Annotation import refused: ${refusal}`); return prev; }
+      logAttachedTranslationWarning(prev, next, addLog);
+      if (unmatched.length > 0) {
+        addLog(
+          `WARNING: Some IDs in file did not match active records: [${unmatched
+            .slice(0, 5)
+            .join(', ')}${unmatched.length > 5 ? '...' : ''}]`,
+        );
+      }
+      addLog(`Annotation import complete: ${totalAdded} features added across records.`);
+      return next;
+    });
+    setIsProcessing(false);
+    settle(msg, annotationRefusal);
+  };
+
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     const worker = new Worker(
@@ -236,6 +263,7 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     );
     bioWorkerRef.current = worker;
     let active = true;
+
 
     worker.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
       if (!active) return;
@@ -262,27 +290,8 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
         return;
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
-        if (optionsRef.current.isAlignmentLocked?.()) {
-          addLog('Annotations were not loaded: the workspace is locked');
-          setIsProcessing(false);
-          settle({ ...msg, annotations: {}, details: {} });
-          return;
-        }
-        const annotationResponse = msg;
-        setRecords(prev => {
-          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotationResponse.annotations, annotationResponse.details, annotationResponse.idMap);
-          logAttachedTranslationWarning(prev, next, addLog);
-          if (unmatched.length > 0) {
-            addLog(
-              `WARNING: Some IDs in file did not match active records: [${unmatched
-                .slice(0, 5)
-                .join(', ')}${unmatched.length > 5 ? '...' : ''}]`,
-            );
-          }
-          addLog(`Annotation import complete: ${totalAdded} features added across records.`);
-          return next;
-        });
-        setIsProcessing(false);
+        receiveAnnotations(msg);
+        return;
 
       } else if (msg.type === 'ERROR') {
         setIsProcessing(false);
