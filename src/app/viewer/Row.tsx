@@ -36,7 +36,8 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
 import { invalidateTooltips } from '@/src/app/components/TooltipLayer';
-import { isCds, translationDescription } from '@/src/domain/bio/translation';
+import { isCds, checkedTranslation } from '@/src/domain/bio/translation';
+import { translationSummary } from './translationPresentation';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
 import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
@@ -349,7 +350,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
                     l.record.moleculeType)
                   : null,
-                isCds(f) ? translationDescription(f, l.record) : null,
+                isCds(f) ? translationSummary(f, checkedTranslation(f, l.record)) : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
                 `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),

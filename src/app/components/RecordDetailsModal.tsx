@@ -35,6 +35,7 @@ import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarge
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
+  returnFocusTo?: HTMLElement | null;
   feature: BioFeature | null;
   onClose: () => void;
   onFocusFeature: (target: FocusTarget) => void;
@@ -111,6 +112,7 @@ const Flag = ({ children }: { children: React.ReactNode }) => <span className="t
  */
 const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   record,
+  returnFocusTo,
   feature,
   onClose,
   onFocusFeature,
@@ -125,14 +127,14 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const stored = feature ? storedTranslation(feature) : undefined;
   const comparison = stored && conceptual?.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
   useLayoutEffect(() => {
-    const invoking = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const invoking = returnFocusTo;
     return () => {
       if (invoking?.isConnected) { invoking.focus(); return; }
       const label = feature ? `Inspect ${feature.name} on ${record.id}` : undefined;
       const fallback = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find(button => button.getAttribute('aria-label') === label);
       fallback?.focus();
     };
-  }, []);
+  }, [returnFocusTo]);
   const searchHit = feature ? readSearchHit(feature) : null;
   const current = feature ? isSearchHitCurrent(feature) : false;
   const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
@@ -140,6 +142,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
   const viewGroup = useId();
+  const diagnosticsHeading = useId();
   const shown: SequenceView = views?.feature != null && view === 'feature' ? 'feature' : 'region';
   const displaySeq = !views ? record.sequence : shown === 'feature' ? views.feature ?? '' : views.region;
   const formatted = feature ? formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }) : null;
@@ -368,7 +371,11 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           </div>
 
           {comparison?.storedExtra && conceptual?.status === 'ok' && <TranslationExtras extra={comparison.storedExtra} offset={conceptual.residues.length} autoFocus />}
-          {feature && isCds(feature) && <p className="text-xs text-slate-500">{storedTranslation(feature) ? feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported' : ''} · {translationDescription(feature, record)}</p>}
+          {feature && isCds(feature) && <section aria-labelledby={diagnosticsHeading}>
+            <h3 id={diagnosticsHeading} className="font-semibold">Translation diagnostics</h3>
+            <p className="text-xs text-slate-500">{storedTranslation(feature) ? feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported' : ''} · {translationDescription(feature, record, conceptual)}</p>
+            <ol className="text-xs break-words">{conceptual?.exceptions?.map(e => <li key={e.occurrence}>{e.occurrence + 1}: {e.raw} — {e.status}{e.reason ? `: ${e.reason}` : ''}</li>)}</ol>
+          </section>}
           {/* Translation (feature only) */}
           {(feature && storedTranslation(feature)) && (
             <div className="stack-y-3 pt-4 border-t border-slate-100">

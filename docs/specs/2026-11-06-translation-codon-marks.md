@@ -278,8 +278,8 @@ A short stored protein in a non-invalid-code unavailable result shows only its s
 cells, no computed tail or length chip; feature details explain why the tail cannot be
 checked. A dropped otherwise-valid break does not itself make C unavailable: under answer 5,
 consume the computed result from remaining valid entries and show its drop notice in
-feature details/warning and relevant explanations. The notice names the raw occurrence
-and reason; do not imply that every requested exception was applied. Every conflict is
+feature details/warning and relevant explanations. The complete notice in details names the raw occurrence
+and reason; mapped codons show bounded local previews and all tooltips retain exact status counts. Do not imply that every requested exception was applied. Every conflict is
 removed before protein eligibility; a remaining raw DNA stop is an effective stop, not an
 applied conflicting substitution. Final PR 2 decision B refuses malformed GenBank/GFF3/project
 imports before any record/attachment publication. Such refused inputs have no PR 3 targets.
@@ -389,12 +389,13 @@ Use PR 1's `storedExtra` and `storedShortBy`, only with an available comparison.
 stored residues have no genomic positions and never become invented codon cells. Short
 stored proteins get no invented tail: valid-code missing slots have **no codon cell, glyph
 or codon target**, including `!` for a conceptual internal stop. The chip explains them.
-DNA-driven internal-stop status/count remains available in feature/hub explanations and
-the length-chip tooltip, naming the stop codon number, real bases and cause; no unmatched
+DNA-driven internal-stop status/count remains available as compact exact counts in
+feature/hub explanations and the length-chip tooltip. Every stop codon number, real base
+and cause remains in the labelled Translation diagnostics details surface; no unmatched
 residue is painted to make that diagnostic discoverable. For `ATGTAAGGGTAA`, S=`M`,
 conceptual `M*G`, show M and `−2 positions`, no cells at positions 2/3; feature/hub/chip
-text reports “3 positions, 1 internal stop”, codon 2/bases 4..6/TAA under table 11, and
-the length clause (no zero-codon mismatch clause). Without any stored protein, draw the conceptual
+text reports “3 positions, 1 internal stop” and the length clause (no zero-codon mismatch
+clause), with complete codon 2/bases 4..6/TAA/table-11 diagnostics in details. Without any stored protein, draw the conceptual
 protein normally and no length-difference chip. Invalid-code short tails instead follow
 #295's explicitly assumed-tail contract; no `storedShortBy` is inferred from a guess.
 
@@ -419,7 +420,8 @@ moves focus to its labelled heading. Provide the same labelled action alongside 
 feature's length summary, so the list is reachable when the chip is offscreen or hidden
 at overview zoom. Details support pointer scrolling and a keyboard-focusable list region
 with Arrow/Page/End navigation to the final entry; closing details returns focus to the
-invoking control if still present, otherwise the feature's surviving details control.
+invoking control if still present, otherwise the feature's surviving details control. Capture
+that invoking control at the opening action, before any descendant autofocus runs.
 
 This uses the existing [`TooltipLayer`](../../src/app/components/TooltipLayer.tsx) as a
 noninteractive summary: it renders `pointer-events-none`, closes on pointer press and
@@ -438,6 +440,24 @@ and unmatched tails; it includes effective internal stops against stored X. Each
 CDS counts once for PR 1's file warning, subject to `/exception` suppression; suppression
 never removes these explanations. Reuse PR 1's DNA count and #295's unverified hub number
 (italic, dotted underline, explanatory footnote), rather than the mockup's older plain count.
+
+**Local tooltip content and complete details.** Codon explanations contain only their own
+reading, initiation/stop/partial context and mapped occurrence evidence, plus the compact shared
+position/stop/mismatch/length and exception-status counts. They never embed the feature's full
+stop-location or raw-occurrence list. Feature/hub/chip tooltips use the same compact counts.
+Unmapped occurrences such as a foreign identity receive a count and a complete-details pointer,
+without an invented codon attachment. The labelled Translation diagnostics details surface
+retains every per-stop location/cause and every literal occurrence, status and reason.
+
+A codon tooltip shows at most two local occurrence previews, with an explicit “shown of total”
+count and complete-details wording; each raw value/reason preview uses at most 160 characters,
+with truncation explicitly labelled. Generic `/exception` text uses the same preview rule.
+This bounds tooltip formatting and content without capping evidence, marks or complete details.
+Normalize stored protein once per projection, pre-index stops/differences and mapped exceptions,
+and build the compact shared summary once. Projection formatting is proportional to codons and
+occurrences; it performs no whole-protein normalization or whole-occurrence membership scan per
+codon. Pan reuses a memoized gap-presence decision and existing indexed geometry, including on
+ungapped records.
 
 Mapping uses extraction provenance, with no genomic endpoint subtraction. **Adapt
 `codonSpans` for translation paint/targets:** its current biological-adjacency test merges
@@ -649,7 +669,7 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | `ATGTGATAA`, table 999, valid Sec at 4..6, S absent; control S=MU | Primary invalid-code, mapped deferred occurrence at bases 4..6/codon 2; ordinary table-1 view M** | Explicit assumed M and dashed `*` targets, qualifier says not applied. Stored MU stays normal/unverified and only the tail assumes table 1; no U substitution or verified stop/count/chip | Final geometry evidence contract; approved mapped-deferral adaptation and #295 |
 | `GTGAAATAA`, `(pos:1..3,aa:Val)`, S=`VK` | 1: O=V, I=M, C=V | Lighter V exception mark, no mismatch; tooltip explains initiated M overridden by Val | G GTG ordinary V/Starts M; F Val=V; PR 2 applies exceptions after initiation |
 | `ATGAAAGGGTAA`, S=`M` | Conceptual MKG, differing=[], storedShortBy=2 | `−2 positions`; length-only tooltip, no zero-codon clause; one file warning | G M,K,G then terminal stop; hand lengths 3−1=2 |
-| `ATGTAAGGGTAA`, S=`M` | Conceptual M*G, internalStops=[1], differing=[], storedShortBy=2 | M plus `−2 positions`; no unmatched codon 2/3 cells/targets or `!`; feature/hub/chip expose 3 positions, 1 internal stop at codon 2/bases 4..6 | G M,stop,G,terminal stop; PR 1 excludes unmatched tails from codon display |
+| `ATGTAAGGGTAA`, S=`M` | Conceptual M*G, internalStops=[1], differing=[], storedShortBy=2 | M plus `−2 positions`; no unmatched codon 2/3 cells/targets or `!`; feature/hub/chip expose 3 positions, 1 internal stop and a details pointer; details name codon 2/bases 4..6 | G M,stop,G,terminal stop; PR 1 excludes unmatched tails from codon display |
 | `ATGAAATAA`, S=`MKV`; separately `MVV` | Conceptual MK; extra V; differing=[] / [1] | `+1 position`; length clause for both; MVV also says 1 codon; one warned CDS each | G AAA=K; lengths 3−2=1, V differs from K only in MVV |
 | `ATGAAATAA`, S=`M`, `/exception="RNA editing"` | Conceptual MK; shortBy=1 | `−1 position`, length-only explanation retained; no file mismatch warning | G M,K; PR 1 suppression affects warning only |
 | `ATGAAATAA`, GFF3 strand `.`, separately `?`, phase 0, S=`MK` | Biological orientation unknown despite numeric fallback | No codon lane/cells/chips/targets; details retain MK and unknown-strand reason | PR 1 eligibility; no inferred orientation |
@@ -734,7 +754,7 @@ Assumed-table policy belongs to #295; this PR protects its integration in the sh
 | Per-record eligibility / PR 1 step 0 | PR 1 specifies protein/cache acceptance fixtures; no PR 3 projection protection found | Add real record→projection/details and format-2 reload checks with QQQ/imported and forged AKA cache; deny all nucleotide paint/targets/counts including table 99/exception fallback, preserve QQQ/source/copy. Include allowed DNA/RNA/absent-type controls and mixed records; a session-only gate cannot pass. |
 | Tooltip and accessibility wiring and lifecycle | `TooltipLayer.test.tsx` asserts delayed hover text/shortcut and `aria-describedby`, press dismissal/unlinking and warm switching; existing genetic-code test gets a real warning button by accessible name. None found for revision, removal/replacement or geometry invalidation. | Reuse existing shared-tooltip protections; add the lifecycle fixtures above through real renderer/tooltip wiring for codon and feature/count consumers, including pending timers, no fresh hover/focus and reopening with current text/bounds. Preserve Escape/blur, escaped qualifier content, biological tab order and shared text. Assert exactly one keyboard stop per visible logical codon, including ordinary no-op/uncertainty cells and both overlapping features’ ordinary R cells; reject missing ordinary targets and duplicate split-piece stops. Add the long stored-extra fixture through real chip/feature-summary→details wiring: bounded preview, complete ordered list and final W reachable by pointer and keyboard, with focus entry/return and offscreen/overview access. No complete-tail navigation protection found. One browser journey checks actual focus rings, readable hover, pan anchor changes, long-list navigation and search overlap on both strands. |
 | Alignment-only display invalidation / accepted `applyFastaResponse` overlay | `bioResponse.test.ts` “accepts a case-only difference and keeps the loaded residues as the source” asserts raw sequence/features alongside new `alignedSequence`; its overlay test asserts accepted alignment strings. Neither checks renderer caches, targets or lane occupancy. | Add the same-length gap-move fixture through the accepted overlay→real track update, comparing pieces/index/occupancy with a fresh second-mapping projection. Observe exact paint, gap pointer misses, changed codon hits and keyboard bounds/order together; assert biological evidence reuse and no translation/comparison work. Include alignment removal/raw-display restoration to reject a stale mapped cache in the reverse direction. |
-| Atomic refresh after edits; feature tooltip and hub count agree | `translation.test.ts` “stop beats stored X…” asserts differing=[1] for MXG, none for M*G and shortBy=2 for M; renderer refresh/count agreement protection not found | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop diagnostics in feature/hub/chip but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
+| Atomic refresh after edits; feature tooltip and hub count agree | `translation.test.ts` “stop beats stored X…” asserts differing=[1] for MXG, none for M*G and shortBy=2 for M; renderer refresh/count agreement protection not found | Add smallest integration check through real edited feature→track/tooltip update, rejecting stale mismatch marks after recomputation; reuse PR 1 tests for persisted protein/export. Hub and feature tooltip are sibling count consumers: assert the same definite-difference count, excluding agreeing initiation/exception and length-only marks, including effective stops against X. Feature/hub and codon/chip tooltips include length clauses and omit zero-codon clauses; `/exception` retains explanations. Short S=M versus M*G keeps early-stop counts in feature/hub/chip and complete stop diagnostics in details, but no unmatched codon cell; retained TAN uncertainty appears in feature/count and codon explanations. |
 | Exact visibility and deep lanes / #300 | #295 source has exact max-end hover lookup; no executed evidence for PR 3 drawing index or vertical clipping | Add indexed-vs-exhaustive synthetic comparison at boundary overlaps, split pieces and deep lanes. Minimal correctness stays in CI; opt-in dense browser benchmark measures redraw/DOM/memory over repeated pans without retranslating. No fixed fps promise without measurement. |
 
 Boundary fixtures additionally include a codon crossing the very first/last viewport pixel,

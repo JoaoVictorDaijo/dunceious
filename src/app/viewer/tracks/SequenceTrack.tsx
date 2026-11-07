@@ -103,6 +103,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const bandTop = y - queryHeight - (translationVisible ? forwardHeight : 0);
 
 
+  const hasGaps = useMemo(() => seq.includes('-'), [seq]);
   const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
   // Keep the source warning accessible even when annotations are hidden.
   const codeWarnings = useMemo(() => features.flatMap(f => {
@@ -113,7 +114,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   }), [features, seq, record]);
   const evidence = useMemo(() => new Map(features.filter(isCds).map(feature => {
     return [feature, cachedCodonMarks(feature, { sequence: record?.sequence ?? seq, moleculeType, isCircular: record?.isCircular, accession: record?.accession, version: record?.version })] as const;
-  })), [features, record?.sequence, record?.isCircular, record?.accession, record?.version, moleculeType, seq.includes('-') ? undefined : seq]);
+  })), [features, record?.sequence, record?.isCircular, record?.accession, record?.version, moleculeType, hasGaps ? undefined : seq]);
   const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
     if (!isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature)) || moleculeType === 'protein') return [];
     const coding = extractCodingSequence(feature, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
@@ -133,7 +134,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Frames and frameshifts are read in biological bases, so an alignment gap
   // between two codons is neither a frame change nor a skipped base.
-  const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
+  const originalPositions = useMemo(() => (hasGaps ? alignedToOriginalPositions(seq) : null), [seq, hasGaps]);
 
   const codonIndex = useMemo(() => {
     const spans: CodonPiece[] = [];
@@ -142,7 +143,8 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       const coding = extractCodingSequence(resolvedTranslationFeature(feature), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
       const assumed = assumedViews.get(feature)?.assumed;
       const initiation = assumedInitiationContext(feature);
-      const cells = evidence.get(feature)?.cells ?? (!isCds(feature) ? [...translateFeature(feature, coding.codingSeq, featureTranslTable(feature))].map((residue, codonIndex) => ({ codonIndex, residue, state: 'ordinary' as const, indices: [], description: '' })) : []);
+      const stored = storedTranslation(feature);
+      const cells = evidence.get(feature)?.cells ?? (!isCds(feature) ? [...(assumed ? stored ?? '' : translateFeature(feature, coding.codingSeq, featureTranslTable(feature)))].map((residue, codonIndex) => ({ codonIndex, residue, state: 'ordinary' as const, indices: [], description: '' })) : []);
       const add = (i: number, residue: string, state: CodonMark['state'], description: string, isAssumed = false) => {
         const indices = coding.alignedIndices.slice(i * 3, i * 3 + 3);
         if (!indices.length) return;
@@ -152,15 +154,20 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
         const pieces = codonSpans(indices, originalPositions);
         const label = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
         const prefix = codonPrefix(feature, i, indices.map(n => originalPositions ? originalPositions[n] : n));
+        let explanation = description;
+        if (isAssumed) explanation = `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code. ${evidence.get(feature)?.exceptionDescriptions.get(i)?.text ?? ''} ${evidence.get(feature)?.summary ?? ''}`;
+        else if (!explanation) explanation = assumed
+          ? `${prefix} Annotated ${residue}. Cannot check against DNA: /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code.`
+          : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`;
         pieces.forEach((piece, pieceIndex) => spans.push({
           ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, logicalKey: `${featureIndex}-${i}`, order: spans.length, feature, frame, codon,
           residue, codeSensitive: isAssumed && !!assumed?.codeSensitive[i], initiation: i === 0 && initiation,
-          state: !isCds(feature) && ['_', '*'].includes(residue) && i < Math.floor(coding.codingSeq.length / 3) - 1 ? 'early-stop' : state, label: piece === label,
-          description: isAssumed ? `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code. ${evidence.get(feature)?.summary ?? ''}` : description ? description : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`,
+          state: !assumed && !isCds(feature) && ['_', '*'].includes(residue) && i < Math.floor(coding.codingSeq.length / 3) - 1 ? 'early-stop' : state, label: piece === label,
+          description: explanation,
         }));
       };
       for (const cell of cells) add(cell.codonIndex, cell.residue, cell.state, cell.description);
-      if (assumed) for (let i = storedTranslation(feature)?.length ?? 0; i < assumed.residues.length; i++) add(i, assumed.residues[i], 'ordinary', '', true);
+      if (assumed) for (let i = stored?.length ?? 0; i < assumed.residues.length; i++) add(i, assumed.residues[i], 'ordinary', '', true);
       const view = evidence.get(feature);
       const comparison = view?.comparison;
       const n = comparison?.storedExtra.length || comparison?.storedShortBy || 0;

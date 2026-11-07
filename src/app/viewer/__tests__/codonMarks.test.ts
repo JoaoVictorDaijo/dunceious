@@ -19,11 +19,11 @@
  */
 
 
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { cachedCodonMarks, codonMarks } from '../codonMarks';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
-import { checkTranslation, checkedTranslation } from '@/src/domain/bio/translation';
+import { checkTranslation, checkedTranslation, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 it.each([
@@ -97,8 +97,14 @@ it.each([
  const view = codonMarks(normalized, record);
  expect(view.cells.map(c => [c.residue, c.state])).toEqual([['M', 'ordinary'], ['U', 'hidden-stop'], ['_', 'terminal']]);
  expect(view.comparison?.differing).toEqual([1]);
- for (const raw of entries) expect(view.cells[1].description).toContain(raw);
- expect(view.summary).toContain(reason);
+ if (_kind === 'conflicts') {
+   for (const raw of entries) expect(view.cells[1].description).toContain(raw);
+   expect(view.cells[1].description).toContain(reason);
+ } else {
+   expect(view.cells[1].description).not.toContain(entries[0]);
+ }
+ expect(view.summary).toContain(`${entries.length} dropped translation exception`);
+ expect(view.summary).toContain('Complete diagnostics in feature details');
  expect(checkedTranslation(normalized, record).exceptions?.every(e => e.status === 'dropped')).toBe(true);
 });
 it.each([undefined, 'MU'])('keeps mapped invalid-code exceptions unapplied in the explicit assumed view; stored=%s', translation => {
@@ -111,8 +117,9 @@ it.each([undefined, 'MU'])('keeps mapped invalid-code exceptions unapplied in th
    exceptions: [{ raw, status: 'deferred', bases: [3, 4, 5], codonIndex: 1, possible: 'U' }] });
  const view = codonMarks(normalized, record);
  expect(view.assumed?.residues).toBe('M**');
- expect(view.summary).toContain('was not applied');
- expect(view.summary).toContain(raw);
+ expect(view.summary).toContain('1 deferred translation exception');
+ expect(view.exceptionDescriptions.get(1)?.text).toContain('was not applied');
+ expect(view.exceptionDescriptions.get(1)?.text).toContain(raw);
  expect(view.cells.map(c => [c.residue, c.state])).toEqual(translation ? [['M', 'unverified'], ['U', 'unverified']] : []);
  expect(view.comparison).toBeUndefined();
 });
@@ -149,4 +156,47 @@ it('projects the recomputed clipped JSON product after reopen without source exc
  expect(view.cells.map(c => [c.residue, c.state])).toEqual([['M', 'ordinary']]);
  expect(view.comparison).toEqual({ differing: [], storedExtra: '', storedShortBy: 0 });
  expect(JSON.stringify(source)).toBe(snapshot);
+});
+
+it('normalizes a long stored protein once and keeps dense-stop tooltips local and compact', () => {
+ const stops = 1000;
+ const record = { sequence: 'ATG' + 'TGA'.repeat(stops) + 'TAA', moleculeType: 'dna' as const };
+ const supplied = 'M ' + 'X '.repeat(stops);
+ const f: BioFeature = { type: 'CDS', name: 'dense', start: 0, end: record.sequence.length, strand: 1,
+   segments: [{ start: 0, end: record.sequence.length }], metadata: { translation: supplied, transl_table: '11' } };
+ const evidence = conceptualTranslation(f, record);
+ const replace = vi.spyOn(String.prototype, 'replace');
+ const includes = vi.spyOn(Array.prototype, 'includes');
+ try {
+   const view = codonMarks(f, record, evidence);
+   const scans = replace.mock.calls.filter(([pattern], i) => String(pattern) === '/\\s/g' && String(replace.mock.contexts[i]) === supplied).length;
+   const membershipScans = includes.mock.contexts.filter(context => Array.isArray(context) && context.length === stops).length;
+   expect(scans).toBe(1);
+   expect(membershipScans).toBe(0);
+   expect(view.summary).toContain('1000 internal stops');
+   expect(view.summary.length).toBeLessThan(500);
+   expect(view.cells).toHaveLength(1002);
+   expect(view.cells.every(c => c.description.length < 1400)).toBe(true);
+   expect(view.cells[0].description).not.toContain('Internal stop at codon 1001');
+   expect(view.cells[1000]).toMatchObject({ residue: 'X', state: 'hidden-stop' });
+ } finally { replace.mockRestore(); includes.mockRestore(); }
+});
+it('indexes exception membership once and explicitly bounds repeated local diagnostic previews', () => {
+ const record = { sequence: 'ATGTGAGCTTAA', moleculeType: 'dna' as const };
+ const raw = `(pos:${' '.repeat(2000)}4..6,aa:Sec)`;
+ const f: BioFeature = { type: 'CDS', name: 'duplicates', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }],
+   metadata: { translation: 'MUA', transl_table: '11' }, translationExceptions: Array(256).fill(raw) };
+ const evidence = conceptualTranslation(f, record);
+ const filter = vi.spyOn(Array.prototype, 'filter');
+ try {
+   const view = codonMarks(f, record, evidence);
+   expect(filter.mock.contexts.filter(context => context === evidence.exceptions).length).toBeLessThanOrEqual(1);
+   expect(view.cells[1].description).toContain('2 of 256');
+   expect(view.cells[1].description).toContain('feature details');
+   expect(view.cells[1].description).toContain('preview; complete value');
+   expect(view.cells[1].description).not.toContain(raw);
+   expect(view.cells[1].description.length).toBeLessThan(1400);
+   expect(view.cells[0].description).not.toContain(raw);
+   expect(view.cells[1]).toMatchObject({ residue: 'U', state: 'substitution' });
+ } finally { filter.mockRestore(); }
 });

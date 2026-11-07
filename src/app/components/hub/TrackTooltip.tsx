@@ -18,9 +18,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { translationSummary } from '@/src/app/viewer/translationPresentation';
 import { TOOLTIP_INVALIDATE } from '../TooltipLayer';
 import { displayLocation } from '@/src/app/logic/displayLocation';
-import { conceptualTranslation, translationDescription, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
+import { conceptualTranslation, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
@@ -109,7 +110,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
       : isCds(feature) && record.moleculeType !== 'protein' && ` · ${metric}${conceptual.status === 'ok' && conceptual.threePrimeIndeterminate ? ' · end uncertain' : ''}`)}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
     <p className="mt-2 text-slate-400" title="Translation positions without the terminal stop; internal stops and X/U/O included.">Click to jump to the row</p>
     {!invalidGeometry && isCds(feature) && conceptual.status === 'ok' && <p className="mt-2 text-[10px] text-slate-400">Translation positions without the terminal stop; internal stops and X/U/O included.</p>}
-    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationDescription(feature, record)}</p>}
+    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationSummary(feature, conceptual)}</p>}
     {countReason && <p id={reasonId} data-count-reason="" className="mt-2 text-[10px] text-slate-400">{countReason}</p>}
   </div>;
 }

@@ -269,6 +269,7 @@ const App: React.FC = () => {
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
   // aligned copy, same order as the record's features), so resolve by position.
+  const detailsInvoker = useRef<HTMLElement | null>(null);
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
   const featureIndexOf = useCallback((recordId: string, feature: BioFeature): number =>
     resolveFeatureIndex(records, transposedRecords, recordId, feature), [records, transposedRecords]);
@@ -277,6 +278,7 @@ const App: React.FC = () => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     const index = feature ? featureIndexOf(recordId, feature) : -1;
+    detailsInvoker.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setViewingRecordDetails(record);
     setViewingFeatureDetails(record.features[index] ?? null);
     setViewingFeatureIndex(index);
@@ -392,6 +394,7 @@ const App: React.FC = () => {
 
       {viewingRecordDetails && (
         <RecordDetailsModal
+          returnFocusTo={detailsInvoker.current}
           record={viewingRecordDetails}
           feature={viewingFeatureDetails}
           onClose={() => { setViewingRecordDetails(null); setViewingFeatureDetails(null); }}

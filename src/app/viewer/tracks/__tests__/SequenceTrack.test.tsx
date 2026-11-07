@@ -519,10 +519,10 @@ it.each([undefined, 'MU'])('renders mapped invalid-code exceptions as unapplied;
  expect(recorder.texts().slice(-3)).toEqual(translation ? ['M', 'U', '*'] : ['M', '*', '*']);
  const targets = container.querySelectorAll('[data-codon-target]');
  expect(targets).toHaveLength(3);
- for (const target of targets) {
-   expect(target.getAttribute('data-tip')).toContain(raw);
-   expect(target.getAttribute('data-tip')).toContain('was not applied');
- }
+ expect(targets[1].getAttribute('data-tip')).toContain(raw);
+ expect(targets[1].getAttribute('data-tip')).toContain('was not applied');
+ for (const i of [0, 2]) expect(targets[i].getAttribute('data-tip')).not.toContain(raw);
+ for (const target of targets) expect(target.getAttribute('data-tip')).toContain('1 deferred translation exception');
  expect(container.querySelector('[data-translation-chip]')).toBeNull();
  expect(recorder.texts()).not.toContain('!');
  expect(recorder.fillRects().some(([, , , height]) => height === 3)).toBe(false);
@@ -540,4 +540,31 @@ it('renders all-conflicts-dropped as a DNA hidden stop with each original notice
  for (const raw of entries) expect(target.getAttribute('data-tip')).toContain(raw);
  expect(target.getAttribute('data-tip')).toContain('conflicting residues');
  expect(target.getAttribute('data-tip')).not.toContain('annotated exception specifies');
+});
+
+it.each([undefined, 'V'])('chooses exactly one invalid-code ORF presentation source per codon; stored=%s', translation => {
+ const recorder = installCanvasRecorder();
+ const f: BioFeature = { type: 'ORF', name: 'orf', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '999', ...(translation ? { translation } : {}) } };
+ const { container } = render(<SequenceTrack {...props('ATGTGATAA', [f])} />);
+ expect(recorder.texts().slice(-3)).toEqual(translation ? ['V', '*', '*'] : ['M', '*', '*']);
+ const targets = [...container.querySelectorAll('[data-codon-target]')];
+ expect(targets).toHaveLength(3);
+ expect(targets.map(target => target.children.length)).toEqual([1, 1, 1]);
+ for (const [i, target] of targets.entries()) {
+   expect(target.getAttribute('data-tip')).not.toContain('?');
+   expect(target.getAttribute('data-tip')).toContain(i === 0 && translation ? 'Annotated V' : 'assuming table 1');
+ }
+});
+it('does no whole-sequence gap scan on a million-base pan', () => {
+ installCanvasRecorder();
+ const sequence = 'A'.repeat(1_000_000);
+ const input = { ...props(sequence, []), viewportWidth: 200, showTranslation: false };
+ const includes = vi.spyOn(String.prototype, 'includes');
+ try {
+   const { rerender } = render(<SequenceTrack {...input} />);
+   includes.mockClear();
+   rerender(<SequenceTrack {...input} scrollX={100} />);
+   expect(includes.mock.calls.filter(([search], i) => search === '-' && String(includes.mock.contexts[i]) === sequence)).toHaveLength(0);
+ } finally { includes.mockRestore(); }
 });

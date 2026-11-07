@@ -98,6 +98,8 @@ Annotations stay whole across alignment gaps: a gap inside a sequence never cuts
 
 Every visible codon can be reached with Tab or hovered for its reading and provenance. A lighter cell retains a curated residue that differs from DNA, or explains a start/translation exception. A red edge means the conceptual CDS stops where the annotation retains a residue; a solid red `!` marks an agreed internal stop. Terminal stops use `_`. Unknown genetic codes keep invariant assumed codons solid and code-sensitive codons dashed, with the assumption explained. Unverified stored residues keep normal styling. An invalid-code view never applies a translation exception: mapped qualifiers remain explicitly unapplied, and dropped conflicting or foreign-accession entries retain their notices.
 
+Codon tooltips explain that codon's reading and local exception evidence, with compact exact counts. They show at most two local occurrence previews and say how many are shown; long qualifier values are explicitly marked as previews. Open annotation details → **Translation diagnostics** for every raw occurrence, status/reason and internal-stop location. Feature, hub and length-chip tooltips summarize counts rather than repeating the whole diagnostic list.
+
 Length differences use `+N positions` or `−N positions`, excluding the terminal stop. Missing annotated residues are not filled in with computed letters. Activate an extra-position chip to open annotation details and the complete numbered list, or use **Show all extra stored translation positions** in details. Ambiguous readings and partial codons explain their real bases and uncertainty.
 
 

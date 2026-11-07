@@ -31,4 +31,10 @@ it('offers all literal extra residues with numbered positions and keyboard End n
  expect(list.textContent).toContain('3: K');
  expect(list.textContent).toContain('5: W');
  expect(list.getAttribute('tabindex')).toBe('0');
+ Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 720 });
+ list.focus();
+ fireEvent.keyDown(list, { key: 'End' });
+ expect(list.scrollTop).toBe(720);
+ expect(list.lastElementChild?.lastElementChild?.textContent).toBe('5: W');
+ expect(document.activeElement).toBe(list);
 });

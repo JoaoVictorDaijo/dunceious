@@ -25,7 +25,7 @@ import { withSearchHit } from '@/src/domain/bio/searchHit';
 import type { BioFeature } from '@/src/domain/bio/types';
 import { loadSampleRecords } from '../sampleWorkspace';
 import { ShowroomDetails } from '../ShowroomDetails';
-import type { ShowroomView } from '../useShowroomView';
+import { useShowroomView, type ShowroomView } from '../useShowroomView';
 import { explanation, expectExplains, gotIt, mountShowroom, noExplanation, openHub } from './showroomTestKit';
 
 // The bundled sample has no annotation made from a search match, the only kind
@@ -143,4 +143,19 @@ describe('the showroom viewport and search', () => {
     expect(within(sidebar()).getByRole('button', { name: 'Whole query' }).getAttribute('aria-pressed')).toBe('true');
     view.expectNoSideEffects();
   });
+});
+
+it('captures the showroom details invoker before extras autofocus and restores it on close', () => {
+ const feature: BioFeature = { type: 'CDS', name: 'extra', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { translation: 'MKVW', transl_table: '11' } };
+ const records = [{ id: 'r', name: 'r', sequence: 'ATGAAATAA', moleculeType: 'dna' as const, features: [feature] }];
+ function Subject() {
+   const view = useShowroomView(records, vi.fn());
+   return <><button onClick={() => view.openDetails('r', feature)}>Open extras</button><ShowroomDetails view={view} explain={vi.fn()} /></>;
+ }
+ render(<Subject />);
+ const invoker = screen.getByRole('button', { name: 'Open extras' });
+ invoker.focus(); fireEvent.click(invoker);
+ expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Extra stored translation positions' }));
+ fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+ expect(document.activeElement).toBe(invoker);
 });

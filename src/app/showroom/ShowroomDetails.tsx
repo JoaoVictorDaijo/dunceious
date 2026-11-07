@@ -36,6 +36,7 @@ export function ShowroomDetails({ view, explain }: { view: ShowroomView; explain
   const showBases = feature ? () => explain('show-bases') : undefined;
   return (
     <RecordDetailsModal
+      returnFocusTo={view.detailsInvoker?.current}
       record={record}
       feature={feature}
       onClose={view.closeDetails}
