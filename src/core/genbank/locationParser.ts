@@ -143,6 +143,12 @@ function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
   throw new Error(`Unreadable location: ${el}`);
 }
 
+function locationOperator(text: string): LocationOperator | undefined {
+  const match = text.match(/^(complement|join|order)\((.*)\)$/);
+  if (!match) return undefined;
+  return match[1] === 'complement' ? locationOperator(match[2]) : match[1] as LocationOperator;
+}
+
 export function parseLocation(loc: string): LocationData {
   const cleanLoc = loc.replace(/\s/g, '');
 
@@ -151,7 +157,7 @@ export function parseLocation(loc: string): LocationData {
   const body = outer ? outer[1] : cleanLoc;
 
   const listMatch = body.match(/^(join|order)\((.*)\)$/);
-  const operator = listMatch?.[1] as LocationOperator | undefined;
+  const operator = locationOperator(cleanLoc);
 
   const boundary = listMatch ? null : siteBoundary(body);
   if (boundary !== null) {

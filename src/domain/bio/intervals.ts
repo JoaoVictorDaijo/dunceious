@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { featureParts } from './featureParts';
 import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
 import { validCodonStart } from './codonStart';
@@ -125,7 +126,8 @@ function clipFeature(
   feature: BioFeature,
   seq: string,
   selStart: number,
-  selEnd: number
+  selEnd: number,
+  circular: boolean,
 ): BioFeature | null {
   if (isBetweenBasesSite(feature)) {
     // A site lies between two bases (LOC-5); it stays only when both of them are selected.
@@ -133,26 +135,33 @@ function clipFeature(
     const boundary = feature.start - selStart;
     return { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
   }
-  const segments = feature.segments?.length
-    ? feature.segments
+  const segments = feature.segments?.length || feature.remoteParts?.length
+    ? featureParts(feature, { length: seq.length, isCircular: circular })
     : splitWrapAround(feature.start, feature.end, seq.length);
   const kept: number[] = [];
   const newSegments = segments.flatMap((segment, i) => {
-    const clipped = clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
+    const clipped = segment.start === segment.end
+      ? segment.start > selStart && segment.start < selEnd ? { start: segment.start - selStart, end: segment.end - selStart } : null
+      : clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
     if (clipped) kept.push(i);
-    return clipped ? [{ ...segment, ...clipped }] : [];
+    return clipped ? [{ ...segment, ...clipped,
+      ...(segment.start < selStart && { partialStart: true as const }),
+      ...(segment.end > selEnd && { partialEnd: true as const }),
+    }] : [];
   });
   if (!newSegments.length) return null;
-  // LOC-4: a cut end gains a marker. A selection is one window, so whatever it drops of the
-  // feature, a cut interval or a whole one, lies below its start or above its end; the kept
-  // interval at that side now continues beyond its base.
-  if (segments.some(segment => segment.start < selStart)) {
-    const lowest = newSegments.reduce((a, b) => (b.start < a.start ? b : a));
-    lowest.partialStart = true;
-  }
-  if (segments.some(segment => segment.end > selEnd)) {
-    const highest = newSegments.reduce((a, b) => (b.end > a.end ? b : a));
-    highest.partialEnd = true;
+  // INSDC FT 11.4 §3.4.2.2: the first/last visit, not the genomic envelope, defines each end.
+  const perPart = segments.some(part => part.strand !== undefined);
+  const order = segments.map((_, i) => i);
+  if (!perPart && feature.strand === -1) order.reverse();
+  const selected = order.filter(i => kept.includes(i));
+  for (const [index, first] of [[selected[0], true], [selected.at(-1)!, false]] as const) {
+    const original = segments[index];
+    const retained = newSegments[kept.indexOf(index)];
+    const reverse = (original.strand ?? feature.strand) === -1;
+    const key = first !== reverse ? 'partialStart' : 'partialEnd';
+    const coordinate = key === 'partialStart' ? 'start' : 'end';
+    if (index !== (first ? order[0] : order.at(-1)) || retained[coordinate] + selStart !== original[coordinate]) retained[key] = true;
   }
 
   const result: BioFeature = {
@@ -223,6 +232,21 @@ function removedTranscriptionBases(
   return removed;
 }
 
+/** Splitting a stored wrap also expands its positions in written order and among remote parts. */
+function selectionGeometry(feature: BioFeature, length: number, isCircular: boolean): BioFeature {
+  if (!isCircular || !feature.segments?.some(part => part.start > part.end)) return feature;
+  const expanded = feature.segments.map(part => featureParts({ ...feature, segments: [part], remoteParts: undefined }, { length, isCircular }));
+  const positions = expanded.flatMap((parts, i) => parts.map((_, j) =>
+    (feature.writtenOrder?.[i] ?? i) * (expanded.length + 1) + (feature.segments![i].strand === -1 ? parts.length - 1 - j : j)));
+  const writtenOrder = positions.map(position => positions.filter(other => other < position).length);
+  const remotes = [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index);
+  const remoteParts = remotes.map((part, i) => ({ ...part,
+    index: part.index + expanded.slice(0, part.index - i).reduce((extra, pieces) => extra + pieces.length - 1, 0),
+  }));
+  return { ...feature, segments: expanded.flat(), writtenOrder,
+    ...(feature.remoteParts && { remoteParts }) };
+}
+
 /**
  * Slices all records to the selection window `[selStart, selEnd)`, rebasing
  * feature/segment coordinates and filtering zero-length track intervals.
@@ -239,10 +263,17 @@ export function sliceRecordsBySelection(
     const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
 
     const slicedFeatures = record.features
-      .map(feature => {
-        const result = clipFeature(feature, seq, selStart, selEnd);
+      .map(original => {
+        const feature = selectionGeometry(original, seq.length, record.isCircular === true);
+        const result = clipFeature(feature, seq, selStart, selEnd, record.isCircular === true);
+        const parts = featureParts(feature, { length: seq.length, isCircular: record.isCircular });
+        for (const part of parts) {
+          if (part.start === part.end && !(part.start > selStart && part.start < selEnd)) {
+            losses.push({ record: record.id, feature: feature.name, reason: 'Between-base site omitted; both neighbouring bases must be selected' });
+          }
+        }
         if (!result) return null;
-        const clipped = (feature.segments?.length ? feature.segments : [feature]).some(part => part.start < selStart || part.end > selEnd);
+        const clipped = parts.some(part => part.start < selStart || part.end > selEnd);
         if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }

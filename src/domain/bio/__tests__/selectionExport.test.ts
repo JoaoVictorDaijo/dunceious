@@ -21,6 +21,9 @@
 import { describe, it, expect } from 'vitest';
 import { clipAndRebaseInterval, sliceRecordsBySelection } from '../intervals';
 import type { SeqRecord, BioFeature } from '../types';
+import { parseLocation } from '@/src/core/genbank/locationParser';
+import { serializeProject, parseProject } from '@/src/app/logic/projectFile';
+import { conceptualTranslation } from '../translation';
 import { extractCodingSequence, translateFeature } from '../sequence';
 
 // ---------------------------------------------------------------------------
@@ -472,4 +475,61 @@ it('keeps the cut-end markers of a feature without segments', () => {
   const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(30),
     features: [{ type: 'misc_feature', name: 'f', start: 0, end: 20, strand: 1 }] }], 5, 15).records[0].features;
   expect(clipped.segments).toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
+});
+
+
+it.each([1, -1] as const)('marks removed biological ends of an out-of-order CDS, strand %s', strand => {
+  const feature: BioFeature = { type: 'CDS', name: 'wrap', ...parseLocation('join(101..109,1..9)'), strand };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'CTGAAATAA' + 'C'.repeat(91) + 'ATGAAAAAA', features: [feature] };
+  const selected = sliceRecordsBySelection([record], 0, 9).records[0];
+  expect(selected.features[0].segments).toEqual([{ start: 0, end: 9, partialStart: true }]);
+  if (strand === 1) {
+    // CTG AAA TAA is an internal Leu, Lys, terminal stop: no initiator substitution.
+    expect(selected.features[0].metadata?.translation).toBe('LK');
+    expect(conceptualTranslation(selected.features[0], selected)).toMatchObject({ status: 'ok', residues: 'LK' });
+  }
+});
+
+it('retains explicit circular segments through selection project round trip', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', isCircular: true,
+    features: [{ type: 'gene', name: 'wrap', start: 8, end: 2, strand: 1, segments: [{ start: 8, end: 2 }], writtenOrder: [0] }] };
+  const selected = sliceRecordsBySelection([record], 0, 10);
+  expect(selected.losses).toEqual([]);
+  const text = serializeProject({ records: selected.records, featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false });
+  const parsed = parseProject(text);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) throw new Error(parsed.message);
+  expect(parsed.project.records[0].features[0].segments).toEqual([{ start: 8, end: 10 }, { start: 0, end: 2 }]);
+});
+
+it('retains compound sites and reports any site whose neighbours are not both selected', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTA', features: [
+    { type: 'misc_feature', name: 'compound', ...parseLocation('join(1..3,5^6,7..9)') },
+    { type: 'misc_feature', name: 'sites', ...parseLocation('join(2^3,5^6)') },
+  ] };
+  const full = sliceRecordsBySelection([record], 0, 9);
+  expect(full.records[0].features.map(f => f.segments)).toEqual([
+    [{ start: 0, end: 3 }, { start: 5, end: 5 }, { start: 6, end: 9 }],
+    [{ start: 2, end: 2 }, { start: 5, end: 5 }],
+  ]);
+  expect(full.losses).toEqual([]);
+  const clipped = sliceRecordsBySelection([record], 5, 9);
+  expect(clipped.records[0].features[0].segments).toEqual([{ start: 1, end: 4, partialStart: true }]);
+  expect(clipped.records[0].features).toHaveLength(1);
+  expect(clipped.losses).toEqual([
+    { record: 'r', feature: 'compound', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+    { record: 'r', feature: 'sites', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+    { record: 'r', feature: 'sites', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+  ]);
+});
+
+
+it('preserves remote-part positions when splitting a wrapped selection segment', () => {
+  const feature: BioFeature = { type: 'misc_feature', name: 'remote', start: 8, end: 2, strand: 1,
+    segments: [{ start: 8, end: 2 }], writtenOrder: [0],
+    remoteParts: [{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 1 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', isCircular: true, features: [feature] };
+  const selected = sliceRecordsBySelection([record], 0, 10).records[0].features[0];
+  expect(selected.writtenOrder).toBeUndefined();
+  expect(selected.remoteParts).toEqual([{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 2 }]);
 });

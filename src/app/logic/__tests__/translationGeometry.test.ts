@@ -22,6 +22,7 @@
 import { expect, it } from 'vitest';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { conceptualTranslation, checkTranslation, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { saveEditedFeature } from '../featureManager';
 import { parseProject, serializeProject } from '../projectFile';
 import { applyAnnotations, logAttachedTranslationWarning } from '../bioResponse';
@@ -194,4 +195,17 @@ it('validates a retained break using the adjusted selection frame', () => {
   expect(conceptualTranslation(opened.project.records[0].features[0], opened.project.records[0])).toMatchObject({ status: 'ok', residues: 'U' });
   expect(selected.losses.filter(loss => loss.occurrence !== undefined)).toEqual([]);
   expect(JSON.stringify(source)).toBe(snapshot);
+});
+
+it.each([
+  ['ATGCCCTAA', [{ start: 0, end: 4, strand: 1 as const }, { start: 6, end: 9, strand: 1 as const }], 'order(1..4,7..9)'],
+  ['ATGCCCAAATTT', [{ start: 0, end: 3, strand: 1 as const }, { start: 6, end: 12, strand: 1 as const }], 'order(1..3,7..12)'],
+])('retains nested order through geometry edits on %s', (sequence, segments, location) => {
+  const original: BioFeature = { type: 'CDS', name: 'ordered', ...parseLocation('complement(complement(order(1..3,7..9)))') };
+  expect(original.operator).toBe('order');
+  const record: SeqRecord = { id: 'r', name: 'r', sequence, features: [original] };
+  const saved = saveEditedFeature([record], 'r', 0, { ...original, segments, end: segments[1].end })[0];
+  expect(saved.features[0].metadata?.translation).toBeUndefined();
+  expect(conceptualTranslation(saved.features[0], saved)).toMatchObject({ status: 'unavailable', reason: 'nonlocal-location' });
+  expect(exportToGenBank([saved]).text).toContain(location);
 });
