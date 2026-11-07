@@ -82,13 +82,15 @@ resolve all subsequent clarifications.
 All six former open decisions are resolved. **Backed by: owner decision (accepted suggestion),
 2026-11-07**, for each answer below; the explicit answers control where a former suggestion differed.
 
-A. **Plain move:** shift valid code-break positions by the same CDS displacement, preserving
-relative offset, identity and every position's strand. Recognize moves from a uniform displacement
-of complete extracted biological visits before codon_start trimming (including skipped leading
-bases and orientation), modulo entry length for circular records; splice reshaping is not
-a plain move. Never repair an already malformed assertion.
-Reverse/reframe removes newly unusable inherited breaks with the before-save notice.
-**Backed by: owner decision (accepted suggestion), 2026-11-07.**
+A. **Plain move:** shift unchanged surviving code-break positions by the same CDS displacement,
+preserving relative offset, identity and every position's strand. Compare ordered logical parts
+once before removing any occurrence: same count, strand and length per part, same order and one
+coordinate offset, with unchanged codon_start. Parts include repeated and frame-skipped visits.
+Only circular origin-contiguous same-strand splits normalize into one logical wrapping part;
+every other part-count change is a non-move. Match prior raw occurrences independently of array
+index, consuming each at most once. Never repair a malformed assertion. Reverse/reframe or other
+non-move changes remove newly unusable inherited breaks with the before-save notice.
+**Backed by: owner decision (accepted suggestion), 2026-11-07**, refined by structural decision W2.
 
 B. **Import scope:** malformed syntax/shape refuses GenBank, GFF3 and project imports, naming
 CDS, occurrence, literal and rule. Bare GFF3 transl_except without an equals sign refuses
@@ -231,7 +233,10 @@ items joined by literal commas, list once on first CDS row. **Backed by:**
 ### Answer 5/6 boundary
 
 Classify syntax/vocabulary first, then shape when geometry is available, then usability.
-Geometry-only shape validation is independent of genetic-code eligibility: an invalid table
+All geometry decisions, including conflicts and selection transforms, use one shared evaluator
+before any invalid-code return; only amino-acid computation uses the genetic code.
+Geometry-only evaluation owns shape, membership, conflicts and selection rebasing independently
+of genetic-code eligibility: an invalid table
 retains the translator primary reason invalid-code but cannot suppress malformed-shape import
 refusal. Valid empty coding visits still establish that an inherited complete break is outside
 the remaining coding region; remove it with its literal value and before-save notice.
@@ -628,3 +633,48 @@ owner policy. No broader NCBI normalization claim is inferred.
 - A valid GFF3 row followed by ID=bad;transl_except without '=' refuses the whole
   attachment via the worker error route, naming CDS bad, the bare attribute and required syntax.
   Receiving records remain unchanged; no annotation-complete message or partial publication.
+
+## Structural decisions — 2026-11-07
+
+**W1 — Shared geometry evaluator.** Import preflight/normalization, Save and selection export
+call geometryCodeBreakEvidence for every check that needs only local nucleotide geometry/frame:
+shape, codon membership, conflicts, cut losses and rebasing. Conflicts drop all occurrences before
+protein eligibility is considered, including with table 999. Selection returns a rebased logical
+value alongside original occurrence/raw/base evidence; it never uses a deferred protein result to
+choose coordinates. Conceptual translation consumes geometry results and retains invalid-code as
+its primary reason. **Backed by: owner structural direction, 2026-11-07.**
+
+**W2 — Explicit move comparison.** Compare ordered parts once before cleanup, never coordinate
+strand sets or frame-trimmed visits. Match unchanged raw assertions against distinct previous
+occurrences independently of their array indices. On circular records only, consecutive same-strand
+parts contiguous across the origin in biological order normalize into one wrapping part in both
+old/new locations. Other part-count changes are non-moves. This preserves both wrap directions
+without treating arbitrary splice reshaping as a move.
+**Backed by: owner structural direction and explicit origin-normalization clarification, 2026-11-07.**
+
+### Audit boundaries and additional literal acceptance
+
+- Table 999, 100 N + ATGTGATAA, CDS 101..109, Sec 104..106, selection [100,109):
+  retain Sec 4..6 through project reopen, primary invalid-code. Cut [100,105) removes it with
+  lost entry base 106 in the notice; no protein is computed. Source values stay unchanged.
+- Table 999, ATGTGATAA, conflicting Sec/Pyl at 4..6: GenBank import, GFF3 attachment,
+  project load and Save remove both with conflict notices; primary invalid-code remains.
+  Identical Sec duplicates retain both raw occurrences, no conflict notice.
+- AAAATGTGATAAATGTGATAA: parts [0,1)+,[0,1)−,[3,12)+, frame 3, Sec 7..9 →
+  [9,10)−,[9,10)+,[12,21)+ is not a move; remove the original break with notice.
+- ATGAAACCCTAAATGAAACCCTAA: move CDS 1..12 to 13..24 while deleting Sec 4..6 before
+  retained Pyl 7..9. Pyl becomes 19..21 and product MKO. Duplicate multiplicity is preserved;
+  a newly added duplicate cannot reuse a consumed previous occurrence.
+- The single move-shape table covers linear, both origin-normalization directions and reverse
+  strand, swapped strands, repeated bases, frame-skipped parts, splice reshaping, shortening,
+  non-origin part-count changes, deleted earlier rows and duplicate multiplicity.
+
+Declared protein records retain the PR 1 no-nucleotide-geometry guard: raw breaks stay supplied
+and unmapped; no conflict or nucleotide-membership claim is made. This is an explicit audit
+boundary, not an invalid-table shortcut.
+
+Writers trust normalized state from ingress/Save and perform no new break cleanup. GFF3 remains
+raw-preserving. GenBank retains its existing defensive malformed/text checks and its existing
+whole-record omission for an invalid transl_table; the named omission is separate from a break
+membership decision. Writer transport/error regressions use eligible-table copies after asserting
+that table-999 omission. No writer-side normalization policy is introduced.

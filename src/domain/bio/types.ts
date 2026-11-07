@@ -251,6 +251,8 @@ export interface TranslationExceptionEvidence {
   reason?: string;
   bases?: number[];
   codonIndex?: number;
+  /** Selection-adjusted value; raw and occurrence retain source identity for loss notices. */
+  rebased?: string;
   possible?: string;
   warnings?: string[];
 }

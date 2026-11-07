@@ -19,8 +19,7 @@
  */
 
 import type { SelectionLoss } from './types';
-import { conceptualTranslation, isCds } from './translation';
-import { parseCodeBreak, transformCodeBreak } from './translationExceptions';
+import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite } from './locationFlags';
@@ -278,25 +277,12 @@ export function sliceRecordsBySelection(
 }
 
 function selectedCodeBreaks(feature: BioFeature, record: SeqRecord, selStart: number, selEnd: number, losses: SelectionLoss[]): string[] {
-  const evidence = feature.translationExceptions?.length ? conceptualTranslation(feature, record).exceptions : [];
-  return feature.translationExceptions!.flatMap((raw, occurrence) => {
-    const status = evidence?.find(item => item.occurrence === occurrence);
-    if (status?.status === 'malformed' || status?.status === 'deferred') {
-      losses.push({ record: record.id, feature: feature.name, occurrence, raw, reason: status.reason ?? status.status });
-      return [raw];
+  const evidence = geometryCodeBreakEvidence(feature, record, { start: selStart, end: selEnd });
+  return evidence.flatMap(item => {
+    if (item.status !== 'applied') {
+      losses.push({ record: record.id, feature: feature.name, occurrence: item.occurrence, raw: item.raw, reason: item.reason ?? item.status });
+      return item.status === 'dropped' ? [] : [item.raw];
     }
-    if (status?.status === 'dropped') {
-      losses.push({ record: record.id, feature: feature.name, occurrence, raw, reason: status.reason! });
-      return [];
-    }
-    const parsed = parseCodeBreak(raw, feature.strand);
-    if (typeof parsed === 'string') return [raw];
-    if (parsed.positions.some(p => p.identity && p.identity !== record.accession && p.identity !== record.version)) return [raw];
-    const missing = parsed.positions.filter(p => p.base < selStart || p.base >= selEnd);
-    if (missing.length) {
-      losses.push({ record: record.id, feature: feature.name, occurrence, raw, reason: `${missing.length === parsed.positions.length ? 'wholly excluded codon' : 'selection destroys codon'}; lost entry bases ${missing.map(p => p.base + 1).join(', ')}` });
-      return [];
-    }
-    return [transformCodeBreak(raw, feature.strand, -selStart, false)];
-        });
+    return [item.rebased!];
+  });
 }

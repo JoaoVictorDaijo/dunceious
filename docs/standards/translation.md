@@ -239,8 +239,10 @@ X/U/O. They use “aa” only without internal stops. Declared protein records, 
 biological strands, nonlocal/multipart order locations and unknown completeness cannot
 establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed GFF3/project input refuses import atomically with the CDS/value/rule (owner B).
 Nonmatching exact identities drop with notice and computation uses the remaining entries (C).
-Plain moves compare complete oriented extraction visits before frame trimming, including
-frame-skipped bases, and shift valid code-break positions with the CDS (A); reverse/reframe removes newly
+Plain moves compare ordered logical parts once before cleanup, including repeated and frame-skipped
+parts: same count, strand, length and order, one coordinate offset, unchanged codon_start. Only
+circular origin-contiguous same-strand splits normalize into one wrapping part. Unchanged surviving
+assertions match previous occurrences independently of row index, with duplicate multiplicity (A); reverse/reframe removes newly
 unusable inherited breaks with notices before Save completes. Malformed new authoring refuses Save.
 
 Comparison preserves supplied proteins. Stored X is compatible with an ordinary residue,
@@ -281,7 +283,8 @@ limitation. The writer defensively refuses malformed code breaks; no biological 
 
 ### Geometry validation and unavailable products
 
-`geometryCodeBreakEvidence` validates syntax and shape from local geometry/frame without
+`geometryCodeBreakEvidence` owns syntax, shape, membership, conflict classification and optional
+selection rebasing/cut-loss evidence from local nucleotide geometry/frame without
 requiring a supported genetic code or computing amino acids. All import boundaries consume
 that evidence independently of the conceptual translator's primary reason. Thus table 999
 retains invalid-code while off-frame, partial-codon and contrary-orientation assertions still
@@ -291,3 +294,14 @@ A shape-valid assertion on an unavailable product is deferred application, never
 
 Bare GFF3 transl_except attributes are refused even without '='; diagnostics name the feature,
 literal attribute and required structured value syntax. The whole attachment remains atomic.
+
+All geometry consumers use that shared evaluator directly for break decisions. Invalid table 999
+cannot suppress conflicts or selection rebasing; conceptual translation alone decides whether a
+protein may be computed. Selection evidence keeps original raw values/occurrence indices and a
+separate rebased logical value. Conflicts are classified before the invalid-code primary return.
+Protein records remain unmapped supplied data under PR 1's guard, including remote-qualified raw
+values; their amino-acid coordinates are not treated as nucleotide coordinates.
+
+GenBank/GFF3 writers trust normalized ingress/Save state, with no new writer cleanup. GFF3 preserves
+raw arrays; GenBank retains its defensive malformed/text errors and whole-record invalid-table
+omission. This record-level omission is separate from geometry decisions about individual breaks.

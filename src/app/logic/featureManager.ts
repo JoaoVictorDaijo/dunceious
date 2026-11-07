@@ -18,9 +18,9 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, conceptualTranslation, isCds, translationReason, resolvedTranslationFeature, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
+import { checkTranslation, conceptualTranslation, isCds, translationReason, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
 import { codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
-import { extractFeatureSequence } from '@/src/domain/bio/sequence';
+import { invalidLocationPart } from '@/src/domain/bio/featureParts';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
@@ -56,17 +56,18 @@ export function saveEditedFeature(
       || JSON.stringify(previous.translationExceptions) !== JSON.stringify(marked.translationExceptions)
       || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
     marked.metadata = { ...marked.metadata };
+    const previousEvidence = previous ? geometryCodeBreakEvidence(previous, r) : [];
+    const matched = matchPreviousOccurrences(previous?.translationExceptions ?? [], marked.translationExceptions ?? []);
     const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, r) : undefined;
     if (previous && displacement !== undefined) {
-      const valid = geometryCodeBreakEvidence(previous, r);
-      marked.translationExceptions = marked.translationExceptions?.map((raw, i) => valid?.some(e => e.occurrence === i && e.raw === raw && e.status === 'applied')
+      marked.translationExceptions = marked.translationExceptions?.map((raw, i) => matched[i] !== undefined && previousEvidence[matched[i]!]?.status === 'applied'
         ? transformCodeBreak(raw, previous.strand, displacement, true, r.isCircular ? r.sequence.length : undefined) : raw);
     }
     const evaluated = geometryCodeBreakEvidence(marked, r);
-    const previousEvidence = previous ? geometryCodeBreakEvidence(previous, r) : [];
     const dropped = new Set<number>();
     for (const evidence of evaluated) {
-      const inherited = previousEvidence?.some(e => e.raw === evidence.raw && e.status === 'applied');
+      const previousOccurrence = matched[evidence.occurrence];
+      const inherited = previousOccurrence !== undefined && previousEvidence[previousOccurrence]?.status === 'applied';
       if (evidence.status === 'malformed' && !inherited) {
         addLog(`WARNING: ${codeBreakMessage(evidence)}; Save refused`);
         return r;
@@ -183,21 +184,45 @@ export function annotationCoords(
   return { start: finalStart, end: finalEnd, segments: finalSegments };
 }
 
-/** A move preserves every biological base visit and its orientation, including across an origin. */
+/** Compare ordered logical parts; only origin-contiguous splits describe one circular part. */
 function plainMoveOffset(previous: BioFeature, next: BioFeature, record: SeqRecord): number | undefined {
   if (getFeatureStrand(previous) !== getFeatureStrand(next) || previous.metadata?.codon_start !== next.metadata?.codon_start) return;
-  const before = extractFeatureSequence(resolvedTranslationFeature(previous), record.sequence, 'dna', record).alignedIndices;
-  const after = extractFeatureSequence(resolvedTranslationFeature(next), record.sequence, 'dna', record).alignedIndices;
-  if (!before.length || before.length !== after.length) return;
-  const offset = after[0] - before[0];
+  const before = moveParts(previous, record), after = moveParts(next, record);
+  if (!before?.length || !after || before.length !== after.length) return;
+  const shift = (value: number) => record.isCircular ? ((value % record.sequence.length) + record.sequence.length) % record.sequence.length : value;
+  const offset = shift(after[0].start - before[0].start);
   if (!offset) return;
-  const direction = (feature: BioFeature, base: number) => (feature.segments?.length ? feature.segments : [feature])
-    .filter(part => part.start <= part.end ? base >= part.start && base < part.end : base >= part.start || base < part.end)
-    .map(part => part.strand ?? feature.strand).sort().join(',');
+  if (before.every((part, i) => part.strand === after[i].strand && part.length === after[i].length
+    && shift(after[i].start - part.start) === offset && shift(after[i].end - part.end) === offset)) return offset;
+}
+
+function moveParts(feature: BioFeature, record: SeqRecord) {
+  const strand = getFeatureStrand(feature);
+  if (strand !== 1 && strand !== -1) return;
+  const parts = feature.segments?.length ? feature.segments : [feature];
+  if (parts.some(part => invalidLocationPart(part, { length: record.sequence.length, isCircular: record.isCircular }))) return;
+  const ordered = !parts.some(part => part.strand !== undefined) && strand === -1 ? [...parts].reverse() : parts;
+  const normalized: { start: number; end: number; strand: 1 | -1; length: number }[] = [];
   const length = record.sequence.length;
-  if (before.every((base, i) => {
-    const shifted = base + offset;
-    const expected = record.isCircular ? ((shifted % length) + length) % length : shifted;
-    return expected === after[i] && direction(previous, base) === direction(next, after[i]);
-  })) return offset;
+  for (const part of ordered) {
+    const current = { start: part.start, end: part.end, strand: part.strand ?? strand, length: part.end >= part.start ? part.end - part.start : length - part.start + part.end };
+    const last = normalized.at(-1);
+    if (record.isCircular && last?.strand === current.strand
+      && (current.strand === 1 ? last.end === length && current.start === 0 : last.start === 0 && current.end === length)) {
+      if (current.strand === 1) last.end = current.end;
+      else last.start = current.start;
+      last.length += current.length;
+    } else normalized.push(current);
+  }
+  return normalized;
+}
+
+function matchPreviousOccurrences(previous: string[], next: string[]): (number | undefined)[] {
+  const occurrences = new Map<string, number[]>();
+  previous.forEach((raw, index) => {
+    const values = occurrences.get(raw) ?? [];
+    values.push(index);
+    occurrences.set(raw, values);
+  });
+  return next.map(raw => occurrences.get(raw)?.shift());
 }
