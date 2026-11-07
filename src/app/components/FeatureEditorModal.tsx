@@ -20,7 +20,7 @@
 
 import { translationDescription } from '@/src/domain/bio/translation';
 import { saveEditedFeature } from '@/src/app/logic/featureManager';
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
@@ -73,6 +73,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 }) => {
   const { feature, recordId, featureIndex } = editing;
   const isNew = featureIndex === -1;
+  const lastSegmentReasonId = useId();
+  const cannotRemoveSegment = feature.segments?.length === 1 && !feature.remoteParts?.length;
   const searchHit = readSearchHit(feature);
   // A wrap-around feature has start > end (it crosses the genome origin on a
   // circular molecule).  We surface this prominently so users know the
@@ -285,6 +287,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
               </div>
+              {cannotRemoveSegment && <p id={lastSegmentReasonId} className="mb-2 text-xs text-slate-400">A location must contain at least one segment.</p>}
               <div className="max-h-48 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
@@ -324,9 +327,11 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept),
                           remoteParts: feature.remoteParts && keptRemoteParts(feature.remoteParts, feature.segments!.length, kept) });
                       }}
+                      disabled={cannotRemoveSegment}
+                      aria-describedby={cannotRemoveSegment ? lastSegmentReasonId : undefined}
                       aria-label={`Remove segment ${idx + 1}`}
                       data-tip="Remove this segment"
-                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-600 transition-opacity"
                     >
                       <i className="fas fa-times text-[10px]"></i>
                     </button>

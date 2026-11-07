@@ -26,6 +26,12 @@ import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { getOriginalPos } from '@/src/domain/bio';
 
+function refuseEmptyLocationEdit(feature: BioFeature, addLog: (message: string) => void): boolean {
+  if (feature.segments?.length !== 0 || feature.remoteParts?.length) return false;
+  addLog(`WARNING: ${feature.name}: a location must contain at least one segment; Save refused`);
+  return true;
+}
+
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
 export function saveEditedFeature(
   records: SeqRecord[],
@@ -36,11 +42,12 @@ export function saveEditedFeature(
 ): SeqRecord[] {
   return records.map(r => {
     if (r.id !== recordId) return r;
+    if (refuseEmptyLocationEdit(feature, addLog)) return r;
     const newFeatures = [...r.features];
     const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
     const marked: BioFeature = { ...feature, ...featureEnvelope(feature), hubEdit };
     const previous = r.features[featureIndex];
-    if (!previous && !marked.segments?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
+    if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
     if (previous && (previous.start !== feature.start || previous.end !== feature.end
       || previous.strand !== feature.strand || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments)
       || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
