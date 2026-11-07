@@ -21,6 +21,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, render, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { checkTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { processTransposition } from '@/src/domain/bio/coordinate';
 import GenomeViewer from '../GenomeViewer';
@@ -219,4 +220,19 @@ it.each(['?', '.'] as const)('does not claim displayed residues for nucleotide o
     .find(line => line.includes('is not an NCBI genetic code'));
   expect(warning).toBe('⚠ /transl_table=99 is not an NCBI genetic code.');
   expect(view.container.querySelector('[data-assumed-codon]')).toBeNull();
+});
+
+it('retains a normalized foreign-identity drop in the feature tooltip summary', () => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence: 'ATGAAATAA', moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation: 'MK', transl_table: '11' }, translationExceptions: ['(pos:X.1:4..6,aa:Sec)'] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ const record = { ...source, features: [feature] };
+ const view = render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null}
+   records={[record]} consensus={record.sequence} showAnnotations showTracks={false}
+   showTranslation={false} showConservation={false} dragMode="select" activeSelection={null}
+   onSelectionChange={() => {}} onExportFasta={() => {}} onAddAnnotation={() => {}}
+   searchResults={[]} currentSearchIdx={-1} />);
+ pointer(view.container.querySelector('[data-annotation-part]')!, 'pointerover', 'mouse');
+ expect(view.getByText(/1 dropped translation exception/).textContent).toContain('Complete diagnostics in feature details');
 });

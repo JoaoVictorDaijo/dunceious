@@ -21,7 +21,7 @@
 import { translationSummary } from '@/src/app/viewer/translationPresentation';
 import { TOOLTIP_INVALIDATE } from '../TooltipLayer';
 import { displayLocation } from '@/src/app/logic/displayLocation';
-import { conceptualTranslation, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
+import { checkedTranslation, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
@@ -76,7 +76,7 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   const frameWarning = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
     ? geneticCodeWarning(feature) : null;
   const location = displayLocation(feature, record);
-  const conceptual = conceptualTranslation(feature, { ...record, biologicalLength: record.sequence.length });
+  const conceptual = checkedTranslation(feature, { ...record, biologicalLength: record.sequence.length });
   const metric = conceptual.status === 'ok'
     ? conceptual.internalStops.length ? `${conceptual.residues.length} positions, ${conceptual.internalStops.length} internal stop${conceptual.internalStops.length === 1 ? '' : 's'}` : `${conceptual.residues.length} aa`
     : `can't verify: ${translationReason(conceptual, feature)}`;

@@ -568,3 +568,19 @@ it('does no whole-sequence gap scan on a million-base pan', () => {
    expect(includes.mock.calls.filter(([search], i) => search === '-' && String(includes.mock.contexts[i]) === sequence)).toHaveLength(0);
  } finally { includes.mockRestore(); }
 });
+
+it('keeps normalized dropped evidence in codon and length-chip summaries', () => {
+ installCanvasRecorder();
+ const record = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence: 'ATGAAATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '11', translation: 'MKVW' }, translationExceptions: ['(pos:X.1:4..6,aa:Sec)'] }, record);
+ expect(f.translationExceptions).toEqual([]);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} viewportWidth={500} />);
+ const targets = [...container.querySelectorAll('[data-codon-target]'), container.querySelector('[data-translation-chip]')!];
+ expect(targets).toHaveLength(4);
+ for (const target of targets) {
+   expect(target.getAttribute('data-tip')).toContain('1 dropped translation exception');
+   expect(target.getAttribute('data-tip')).toContain('Complete diagnostics in feature details');
+ }
+ expect(container.querySelector('[data-translation-chip]')?.textContent).toBe('+2 positions');
+});
