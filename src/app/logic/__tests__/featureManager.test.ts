@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   saveEditedFeature,
   removeFeature,
@@ -26,6 +26,7 @@ import {
   newFeatureFromSelection,
   annotationCoords,
 } from '../featureManager';
+import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
 import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
@@ -255,4 +256,31 @@ it.each([
   expect(r.features[0].metadata?.translation).toBeUndefined();
   expect(r.features[0].metadata?._translationSource).toBe('removed');
   expect(logs).toHaveLength(1); expect(logs[0]).toContain(reason);
+});
+
+it.each(['CDS', 'misc_feature'])('refuses an empty-part %s edit without changing the record or translation lane', type => {
+  const original = feat({ type, name: 'protected', end: 9, segments: [{ start: 0, end: 9 }],
+    metadata: type === 'CDS' ? { translation: 'MK', _translationSource: 'imported' } : { note: 'keep' } });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: [original] });
+  const options = { showAnnotations: false, translationVisible: true, showTracks: false };
+  const before = computeRecordLayouts([record], options)[0];
+  expect(before.translationLanes.forward).toBe(type === 'CDS' ? 1 : 0);
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', 0, { ...original, segments: [], remoteParts: [] }, log);
+  expect(saved).toBe(record);
+  expect(saved.features[0]).toBe(original);
+  expect(saved.features[0].metadata).toEqual(type === 'CDS' ? { translation: 'MK', _translationSource: 'imported' } : { note: 'keep' });
+  expect(computeRecordLayouts([saved], options)[0].translationLanes).toBe(before.translationLanes);
+  expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: protected: a location must contain at least one segment; Save refused');
+});
+
+it.each([0, -1])('keeps a remote-only location saveable at feature index %i', featureIndex => {
+  const original = feat({ name: 'remote', segments: [{ start: 0, end: 5 }],
+    remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 1 }] });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: featureIndex === -1 ? [] : [original] });
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', featureIndex, { ...original, segments: [],
+    remoteParts: [{ ...original.remoteParts![0], index: 0 }] }, log);
+  expect(saved.features[0]).toMatchObject({ segments: [], remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 0 }] });
+  expect(log).not.toHaveBeenCalled();
 });

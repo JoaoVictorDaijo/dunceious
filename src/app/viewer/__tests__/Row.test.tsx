@@ -377,8 +377,8 @@ describe('aligned circular connectors', () => {
 
 
 const coding: BioFeature[] = [
-  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 },
-  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1 },
+  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 30 }] },
+  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1, segments: [{ start: 40, end: 70 }] },
 ];
 
 describe('translation rows and geometry', () => {
@@ -411,7 +411,7 @@ describe('translation rows and geometry', () => {
 
 
 it('keeps a record selection aligned with the full effective row height', () => {
-  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 }]);
+  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 30 }] }]);
   const makeData = (zoomLevel: number) => rowData(record, {
     zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
   });

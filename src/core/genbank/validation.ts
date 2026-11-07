@@ -48,7 +48,7 @@ export function validateRecord(record: SeqRecord, lines: string[], finding: Find
       if (!protein && feature.type === 'assembly_gap' && !['within scaffold', 'repeat within scaffold', 'contamination'].includes(feature.metadata?.gap_type ?? '')) mandatory = mandatory.filter(q => q !== 'linkage_evidence');
       if (!protein && feature.type === 'old_sequence' && (feature.metadata?.citation !== undefined || feature.metadata?.compare !== undefined)) mandatory = [];
       for (const qualifier of mandatory) if (feature.metadata?.[qualifier] === undefined) report(protein ? 'warning' : 'refuse', 'mandatory-qualifier', `${feature.type} has no /${qualifier}.`);
-      for (const qualifier of Object.keys(feature.metadata ?? {})) {
+      for (const qualifier of Object.keys(feature.metadata ?? {}).filter(key => !key.startsWith('_'))) {
         if (!rule.mandatory.includes(qualifier) && !rule.optional.includes(qualifier) && !(protein && (FEATURE_TABLE.flatFileOnly as readonly string[]).includes(qualifier))) report('warning', 'wrong-key-qualifier', `/${qualifier} is not allowed on ${feature.type}.`);
       }
     }

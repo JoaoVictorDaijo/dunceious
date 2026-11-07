@@ -119,10 +119,19 @@ it('offers exactly four formats with their destinations', () => {
 
 it('includes invalid edited organisms in the bulk repair selection according to the real report', () => {
   const onEditDetails = vi.fn();
-  render(<Subject value={[writeDetails(records[0], { organism: 'invalid\norganism' }), writeDetails(records[1], { organism: 'valid organism' })]} onEditDetails={onEditDetails} />); open(); format('GenBank');
+  render(<Subject value={[writeDetails(records[0], { organism: '   ' }), writeDetails(records[1], { organism: 'valid organism' })]} onEditDetails={onEditDetails} />); open(); format('GenBank');
   expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
   fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
   expect(onEditDetails).toHaveBeenCalledWith(new Set(['a']));
+});
+it('blocks GenBank export of organism text containing a line break', () => {
+  const onExport = vi.fn();
+  render(<Subject value={[writeDetails(records[0], { organism: 'invalid\norganism' })]} selected={['a']} onExport={onExport} />); open(); format('GenBank');
+  expect(screen.getByRole('alert').textContent).toContain('non-printable control characters');
+  const button = screen.getByRole('button', { name: /^Export \d+ sequences?$/ }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(onExport).not.toHaveBeenCalled();
 });
 it('blocks GenBank only when the actual serializer cannot represent the chosen annotations', () => {
   const value = [{ ...records[0], features: [{ name: 'unknown', type: 'gene', start: 0, end: 4, strand: 1 as const, metadata: { _gffStrand: '?' } }] }];

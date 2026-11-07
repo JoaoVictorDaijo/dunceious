@@ -147,3 +147,33 @@ it('keeps ordered repeated code-break rows outside scalar metadata', () => {
   expect(change.mock.calls[0][0].feature.translationExceptions).toEqual(['(pos:1..3,aa:Sec)', '(pos:4..6,aa:Sec)']);
   expect(change.mock.calls[0][0].feature.metadata.transl_except).toBeUndefined();
 });
+
+it.each(['CDS', 'misc_feature'])('keeps the final segment of a %s and explains why removal is disabled', type => {
+  function Subject() {
+    const [state, setState] = useState<EditingFeatureState>({ ...editing, feature: { ...editing.feature, type,
+      segments: [{ start: 1, end: 3 }, { start: 5, end: 8 }] } });
+    return <FeatureEditorModal editing={state} records={[{ id: 'synthetic', name: 'synthetic', sequence: 'AACGTACGTA', features: [] }]}
+      featureColors={{}} onChange={setState} onSave={vi.fn()} onDiscard={vi.fn()} />;
+  }
+  render(<Subject />);
+  const remove = screen.getByRole('button', { name: 'Remove segment 1' }) as HTMLButtonElement;
+  expect(remove.disabled).toBe(false);
+  fireEvent.click(remove);
+  expect(screen.getAllByRole('button', { name: /Remove segment/ })).toHaveLength(1);
+  expect(screen.getByText('Segments (1)')).toBeTruthy();
+  const last = screen.getByRole('button', { name: 'Remove segment 1' }) as HTMLButtonElement;
+  expect(last.disabled).toBe(true);
+  expect(document.getElementById(last.getAttribute('aria-describedby')!)?.textContent).toBe('A location must contain at least one segment.');
+  fireEvent.click(last);
+  expect(screen.getByText('Segments (1)')).toBeTruthy();
+});
+
+it('allows removing the last local segment when a remote part remains', () => {
+  const change = show({ ...editing, feature: { ...editing.feature, segments: [{ start: 1, end: 8 }],
+    remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 1 }] } });
+  const remove = screen.getByRole('button', { name: 'Remove segment 1' }) as HTMLButtonElement;
+  expect(remove.disabled).toBe(false);
+  fireEvent.click(remove);
+  expect(change.mock.calls[0][0].feature).toMatchObject({ segments: [],
+    remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 0 }] });
+});
