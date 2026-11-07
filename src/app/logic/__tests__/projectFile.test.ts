@@ -294,3 +294,18 @@ it('discards a forged nucleotide cache hiding a definite internal stop before pu
   expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
   expect(isFeatureBroken(feature, loaded.project.records[0])).toBe(true);
 });
+
+it.each([[1, 1], [0], [0, 2], [-1, 0], [0, 0.5], 'bad'])('refuses malformed writtenOrder %j with a named reason', writtenOrder => {
+  const records = [{ ...record, features: [{ type: 'gene', name: 'mixed', start: 0, end: 4, strand: 1,
+    segments: [{ start: 0, end: 2, strand: 1 }, { start: 2, end: 4, strand: -1 }], writtenOrder }] }];
+  expect(parseProject(JSON.stringify({ ...state, format: 2, records }))).toEqual({ ok: false,
+    message: 'Feature mixed has invalid writtenOrder: expected a complete permutation of segment indices.' });
+});
+it('accepts a complete reversed permutation and exports it', () => {
+  const records: SeqRecord[] = [{ ...record, features: [{ type: 'gene', name: 'mixed', start: 0, end: 4, strand: 1,
+    segments: [{ start: 0, end: 2, strand: 1 }, { start: 2, end: 4, strand: -1 }], writtenOrder: [1, 0] }] }];
+  const opened = parseProject(serializeProject({ ...state, records }));
+  expect(opened.ok).toBe(true);
+  if (!opened.ok) throw new Error(opened.message);
+  expect(exportToGenBank(opened.project.records).text).toContain('complement(join(3..4,complement(1..2)))');
+});

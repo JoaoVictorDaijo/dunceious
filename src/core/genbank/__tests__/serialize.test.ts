@@ -22,6 +22,8 @@ import { describe, it, expect } from 'vitest';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { parseGenBank } from '../index';
 import { exportToGenBank } from '../serialize';
+import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
+import { conceptualTranslation } from '@/src/domain/bio/translation';
 import { parseLocation } from '../locationParser';
 import { featureCoordPatch } from '@/src/app/logic/viewModel';
 import { readFileSync } from 'node:fs';
@@ -302,4 +304,83 @@ it.each([
   const roundtrip = parsed.records[0].features.find(f => f.name === 'roundtrip');
   expect(roundtrip).toMatchObject({ start, end, segments });
   expect(roundtrip?.betweenBases).toBe(betweenBases);
+});
+
+it.each([
+  [{ start: 9, end: 6, partialStart: true as const }, 1 as const, 'join(<10..12,1..6)', 'LK'],
+  [{ start: 9, end: 6, partialEnd: true as const, strand: -1 as const }, -1 as const, 'join(complement(1..>6),complement(10..12))', 'LFQ'],
+])('preserves wrapped partial markers through GenBank reimport: %s', (segment, strand, location, residues) => {
+  const r = record({ sequence: 'AAATAACCCCTG', isCircular: true, fileDetails: { organism: 'synthetic construct' }, features: [
+    { type: 'CDS', name: 'partial', start: 9, end: 6, strand, segments: [segment] },
+    { type: 'source', name: 'source', start: 0, end: 12, strand: 1, metadata: { organism: 'synthetic construct', mol_type: 'genomic DNA' } },
+  ] });
+  expect(conceptualTranslation(r.features[0], r)).toMatchObject({ status: 'ok', residues });
+  const text = exportToGenBank([r]).text;
+  expect(text).toContain(location);
+  const imported = parseGenBank(text);
+  expect(imported.findings.filter(f => f.tier === 'refuse')).toEqual([]);
+  expect(conceptualTranslation(imported.records[0].features.find(f => f.type === 'CDS')!, imported.records[0])).toMatchObject({ status: 'ok', residues });
+});
+
+
+it.each([
+  { segment: { start: 12, end: 6, partialStart: true as const }, strand: 1 as const,
+    location: '<1..6', residues: 'LK', kept: { start: 0, end: 6, partialStart: true } },
+  { segment: { start: 9, end: 0, partialEnd: true as const }, strand: 1 as const,
+    location: '10..>12', residues: 'M', kept: { start: 9, end: 12, partialEnd: true } },
+  { segment: { start: 12, end: 6, partialStart: true as const, strand: -1 as const }, strand: -1 as const,
+    location: 'complement(<1..6)', residues: 'FQ', kept: { start: 0, end: 6, partialStart: true, strand: -1 } },
+  { segment: { start: 9, end: 0, partialEnd: true as const, strand: -1 as const }, strand: -1 as const,
+    location: 'complement(10..>12)', residues: 'Q', kept: { start: 9, end: 12, partialEnd: true, strand: -1 } },
+])('retains empty-piece partial markers at $location through selection and reimport', ({ segment, strand, location, residues, kept }) => {
+  const r = record({ sequence: 'CTGAAACCCCTG', isCircular: true, features: [
+    { type: 'CDS', name: 'partial', start: segment.start, end: segment.end, strand, segments: [segment], metadata: { translation: residues } },
+    { type: 'source', name: 'source', start: 0, end: 12, strand: 1, metadata: { organism: 'synthetic construct', mol_type: 'genomic DNA' } },
+  ] });
+  expect(conceptualTranslation(r.features[0], r)).toMatchObject({ status: 'ok', residues });
+  const selected = sliceRecordsBySelection([r], 0, 12);
+  expect(selected.losses).toEqual([]);
+  expect(selected.records[0].features[0].segments).toEqual([kept]);
+  expect(selected.records[0].features[0].metadata?.translation).toBe(residues);
+  expect(conceptualTranslation(selected.records[0].features[0], selected.records[0])).toMatchObject({ status: 'ok', residues });
+  for (const records of [[r], selected.records]) {
+    const text = exportToGenBank(records).text;
+    expect(text).toContain(`CDS             ${location}`);
+    const imported = parseGenBank(text);
+    expect(imported.findings.filter(f => f.tier === 'refuse')).toEqual([]);
+    const cds = imported.records[0].features.find(f => f.type === 'CDS')!;
+    const { strand: _strand, ...bounds } = kept;
+    expect(cds.segments).toEqual([bounds]);
+    expect(conceptualTranslation(cds, imported.records[0])).toMatchObject({ status: 'ok', residues });
+  }
+});
+
+
+it.each([
+  { input: '5^6', rebased: '3^4', strand: 1 as const },
+  { input: 'complement(5^6)', rebased: 'complement(3^4)', strand: -1 as const },
+])('exports the selected standalone site $input at its rebased boundary', ({ input, rebased, strand }) => {
+  const r = record({ sequence: 'ATGAAATAA', features: [
+    { type: 'misc_feature', name: 'site', ...parseLocation(input), locationString: input },
+    { type: 'source', name: 'source', start: 0, end: 9, strand: 1, metadata: { organism: 'synthetic construct', mol_type: 'genomic DNA' } },
+  ] });
+  for (const scenario of [
+    { start: 2, end: 8, boundary: 3, location: rebased, retained: undefined },
+    { start: 0, end: 8, boundary: 5, location: input, retained: input },
+  ]) {
+    const selected = sliceRecordsBySelection([r], scenario.start, scenario.end);
+    expect(selected.losses).toEqual([]);
+    const site = selected.records[0].features[0];
+    expect(site).toMatchObject({ start: scenario.boundary, end: scenario.boundary, strand, betweenBases: true,
+      segments: [{ start: scenario.boundary, end: scenario.boundary }] });
+    const text = exportToGenBank(selected.records).text;
+    expect(text).toContain(`misc_feature    ${scenario.location}`);
+    expect(site.locationString).toBe(scenario.retained);
+    const imported = parseGenBank(text);
+    expect(imported.findings).toEqual([]);
+    expect(imported.records[0].features.find(f => f.name === 'site')).toMatchObject({
+      start: scenario.boundary, end: scenario.boundary, strand, betweenBases: true,
+      segments: [{ start: scenario.boundary, end: scenario.boundary }],
+    });
+  }
 });

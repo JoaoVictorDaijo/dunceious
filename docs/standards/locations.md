@@ -247,8 +247,9 @@ between-base site in another record (`AB123.1:2^3`) as unsupported (`guardRemote
 `src/core/genbank/locationValidation.ts` refuses unreadable or partially parsed locations,
 out-of-range local coordinates, mixed join/order syntax, non-adjoining between-base sites,
 and reversed fuzzy markers. Nested joins and nested complements are evaluated recursively.
-`guardOrderLocation`, `guardBetweenBaseSite`, `guardRemoteLocation`, `guardOneOfPosition` and
-`guardSiteInCompound` named legal but unsupported forms separately. #306 removed the first three:
-`order()` (LOC-2), between-base sites (LOC-5) and remote locations (LOC-8) are read. The one-of
-and compound-site guards remain until their semantics are supported. Remote intervals are not
+Legal but unsupported one-of positions and span-end sites are refused separately.
+`order()` (LOC-2), between-base sites (LOC-5), including compound site parts, and remote
+locations (LOC-8) are read. Selection export keeps each compound site only when both
+neighbouring bases are selected; otherwise the selection-loss notice names its omission.
+Remote intervals are not
 local segments, so they are never tested against local sequence bounds. Existing saved project handling is unchanged.

@@ -63,7 +63,7 @@ export function validateRecord(record: SeqRecord, lines: string[], finding: Find
     }
     if (feature.type === 'CDS') {
       if (!validCodonStart(feature.metadata?.codon_start)) report('warning', 'invalid-frame', `/codon_start=${feature.metadata?.codon_start ?? ''} is invalid; translation is suppressed.`);
-      if (!isNcbiGeneticCode(featureTranslTable(feature))) report('warning', 'unknown-genetic-code', `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code; translation is suppressed.`);
+      if (!isNcbiGeneticCode(featureTranslTable(feature))) report('warning', 'unknown-genetic-code', `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code; residues assume table 1 (Standard) and are unverified.`);
     }
   }
 }

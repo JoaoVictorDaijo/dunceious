@@ -270,7 +270,7 @@ function takeListAttribute(feature: BioFeature, key: string): string | undefined
   return raw;
 }
 
-/** Reads `insdc_remote` back into remote parts; a value that does not parse as one is dropped. */
+/** Reads `insdc_remote` back into remote parts; nonremote values are skipped, but malformed location descriptors reject the file. */
 function takeRemoteParts(feature: BioFeature): RemotePart[] | undefined {
   const raw = takeListAttribute(feature, 'insdc_remote');
   if (raw === undefined) return undefined;

@@ -289,3 +289,33 @@ it('keeps an assumed lane for mapped invalid-code deferrals without claiming a D
  expect(assignTranslationLanes([f], 'ATGTGATAA', 'dna').forward).toBe(1);
  expect(computeBrokenFeatureMap([f], 'ATGTGATAA', 'dna').has(f)).toBe(false);
 });
+
+
+it('keeps ORF stored stop claims distinct from DNA and assumed-code status', () => {
+  const plain = cds({ type: 'ORF', end: 9 });
+  const curated = cds({ type: 'ORF', end: 9, metadata: { translation: 'MUP' } });
+  const stopped = cds({ type: 'orf', end: 9, metadata: { translation: 'M*P' } });
+  const unknown = cds({ type: 'ORF', end: 9, metadata: { transl_table: '99' } });
+  const map = computeBrokenFeatureMap([plain, curated, stopped, unknown], 'ATGTGACCC');
+  expect(map.get(plain)).toBe(true);
+  expect(map.get(curated)).toBe(false);
+  expect(map.get(stopped)).toBe(true);
+  expect(map.get(unknown)).toBe(false);
+});
+
+it('names uncheckable stored residues and assumed tails in invalid-code warnings', () => {
+  const feature = cds({ end: 9, metadata: { transl_table: '99', translation: 'MU' } });
+  expect(geneticCodeWarning(feature, 'ATGTGACCC')).toBe("⚠ /transl_table=99 is not an NCBI genetic code. The first 2 residues are the annotation's /translation and can't be checked; the rest assume table 1.");
+  expect(geneticCodeWarning(feature, 'ATGTGA')).toBe("⚠ /transl_table=99 is not an NCBI genetic code. The residues shown are the annotation's /translation and can't be checked against the DNA.");
+  expect(geneticCodeWarning(feature, 'ATGTGA', 'protein')).toBe('⚠ /transl_table=99 is not an NCBI genetic code.');
+  expect(geneticCodeWarning(cds({ metadata: { codon_start: '4' } }))).toBe('⚠ /codon_start=4 is invalid; codons are not translated');
+});
+
+it.each([1, -1] as const)('reserves space for curated length differences on strand %s', strand => {
+  const f = cds({ start: strand === 1 ? 0 : 9, end: strand === 1 ? 6 : 15, strand, metadata: { translation: 'MKKK' } });
+  const neighbour = cds({ start: strand === 1 ? 9 : 0, end: strand === 1 ? 15 : 6, strand });
+  const lanes = assignTranslationLanes([f, neighbour], 'ATGAAA' + 'AAA'.repeat(4));
+  expect(strand === 1 ? lanes.forward : lanes.reverse).toBe(2);
+  expect(lanes.laneOf.get(f)?.get(0)).toBe(0);
+  expect(lanes.laneOf.get(neighbour)?.get(0)).toBe(1);
+});

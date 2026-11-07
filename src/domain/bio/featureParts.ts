@@ -40,7 +40,11 @@ export function featureParts(feature: FeatureGeometry, record: LocationRecord): 
   const parts = feature.segments?.length || feature.remoteParts?.length ? feature.segments ?? [] : [{ start: feature.start, end: feature.end }];
   return parts.flatMap(part => {
     if (part.start <= part.end || !record.isCircular) return [{ ...part }];
-    const split = splitWrapAround(part.start, part.end, record.length).map(span => ({ ...span, strand: part.strand }));
+    // Empty origin-side pieces have no bases; their markers belong to the surviving outer edge.
+    const split = splitWrapAround(part.start, part.end, record.length).map((span, i, spans) => ({ ...span, strand: part.strand,
+      ...(i === 0 && part.partialStart && { partialStart: true as const }),
+      ...(i === spans.length - 1 && part.partialEnd && { partialEnd: true as const }),
+    }));
     return part.strand === -1 ? split.reverse() : split;
   });
 }

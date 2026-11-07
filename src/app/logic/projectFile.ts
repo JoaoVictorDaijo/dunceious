@@ -91,7 +91,6 @@ function validRecord(value: unknown): boolean {
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.betweenBases === undefined || feature.betweenBases === true)
-    && (feature.writtenOrder === undefined || (Array.isArray(feature.writtenOrder) && feature.writtenOrder.every(Number.isInteger)))
     && (feature.remoteParts === undefined || (Array.isArray(feature.remoteParts) && feature.remoteParts.every(part => isObject(part)
       && coordinates(part) && typeof part.accession === 'string' && (part.strand === 1 || part.strand === -1) && Number.isInteger(part.index))))
     && (feature.metadata === undefined || stringMap(feature.metadata))
@@ -164,6 +163,11 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   const ids = new Set<string>();
   for (const record of value.records as SeqRecord[]) {
     for (const feature of record.features) {
+      const order = feature.writtenOrder;
+      if (order !== undefined && (!Array.isArray(order) || order.length !== (feature.segments?.length ?? 0)
+        || new Set(order).size !== order.length || !order.every(index => Number.isInteger(index) && index >= 0 && index < order.length))) {
+        return { ok: false, message: `Feature ${feature.name} has invalid writtenOrder: expected a complete permutation of segment indices.` };
+      }
       if (hasPartialStrands(feature)) return { ok: false, message: `Feature ${feature.name} has a strand on some of its pieces but not others.` };
       const scalar = feature.metadata?.transl_except ?? feature.unknownQualifiers?.transl_except;
       if (scalar !== undefined) return { ok: false, message: `CDS ${feature.name}, /transl_except ${JSON.stringify(scalar)}: canonical translationExceptions array required; scalar qualifiers are invalid project data` };
