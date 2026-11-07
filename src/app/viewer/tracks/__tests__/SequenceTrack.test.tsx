@@ -23,6 +23,7 @@ import * as d3 from 'd3';
 import * as bio from '@/src/domain/bio';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, fireEvent, screen, act, installCanvasRecorder, stubResizeObserver, type CanvasRecorder } from '@/src/app/testing/renderHarness';
+import { checkTranslation } from '@/src/domain/bio/translation';
 import TooltipLayer from '@/src/app/components/TooltipLayer';
 import { SequenceTrack, type SequenceTrackProps } from '@/src/app/viewer/tracks/SequenceTrack';
 import { parseFasta } from '@/src/core/formats/fasta';
@@ -506,4 +507,37 @@ it('dismisses open and pending evidence on pan and recomputation, while keeping 
  act(() => vi.advanceTimersByTime(400));
  expect(screen.queryByRole('tooltip')).toBeNull();
  vi.useRealTimers();
+});
+
+it.each([undefined, 'MU'])('renders mapped invalid-code exceptions as unapplied; stored=%s', translation => {
+ const recorder = installCanvasRecorder();
+ const raw = '(pos:4..6,aa:Sec)';
+ const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '999', ...(translation ? { translation } : {}) }, translationExceptions: [raw] }, record);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} />);
+ expect(recorder.texts().slice(-3)).toEqual(translation ? ['M', 'U', '*'] : ['M', '*', '*']);
+ const targets = container.querySelectorAll('[data-codon-target]');
+ expect(targets).toHaveLength(3);
+ for (const target of targets) {
+   expect(target.getAttribute('data-tip')).toContain(raw);
+   expect(target.getAttribute('data-tip')).toContain('was not applied');
+ }
+ expect(container.querySelector('[data-translation-chip]')).toBeNull();
+ expect(recorder.texts()).not.toContain('!');
+ expect(recorder.fillRects().some(([, , , height]) => height === 3)).toBe(false);
+});
+it('renders all-conflicts-dropped as a DNA hidden stop with each original notice', () => {
+ const recorder = installCanvasRecorder();
+ const entries = ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'];
+ const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', moleculeType: 'dna' as const };
+ const f = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '11', translation: 'MU' }, translationExceptions: entries }, record);
+ const { container } = render(<SequenceTrack {...props(record.sequence, [f])} record={{ ...record, features: [f] }} />);
+ expect(recorder.texts().slice(-3)).toEqual(['M', 'U', '_']);
+ expect(recorder.fillRects()).toContainEqual([60, 15, 60, 3]);
+ const target = container.querySelectorAll('[data-codon-target]')[1];
+ for (const raw of entries) expect(target.getAttribute('data-tip')).toContain(raw);
+ expect(target.getAttribute('data-tip')).toContain('conflicting residues');
+ expect(target.getAttribute('data-tip')).not.toContain('annotated exception specifies');
 });

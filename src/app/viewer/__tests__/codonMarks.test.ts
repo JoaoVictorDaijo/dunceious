@@ -21,6 +21,9 @@
 
 import { expect, it } from 'vitest';
 import { cachedCodonMarks, codonMarks } from '../codonMarks';
+import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
+import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
+import { checkTranslation, checkedTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature } from '@/src/domain/bio/types';
 
 it.each([
@@ -53,7 +56,7 @@ it('keeps compatible ambiguity and end uncertainty ordinary, and gates protein r
  expect(view.comparison?.differing).toEqual([]);
  expect(codonMarks(feature, { sequence: 'ATGTAN', moleculeType: 'protein' }).cells).toEqual([]);
 });
-it('explains unusable exceptions without verified marks or a computed tail', () => {
+it('defensively explains malformed direct inputs that strict imports refuse', () => {
  const feature: BioFeature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1,
    segments: [{ start: 0, end: 9 }], metadata: { translation: 'M', transl_table: '11' },
    translationExceptions: ['(pos:4..5,aa:Sec)'] };
@@ -80,4 +83,70 @@ it('reuses biological evidence across display-only transposition with the same s
  expect(original.cells[1]).toMatchObject({ residue: 'K', state: 'difference', indices: [3, 4, 5] });
  const edited = { ...mapped, metadata: { ...metadata, translation: 'MR' } };
  expect(cachedCodonMarks(edited, record).cells[1].state).toBe('ordinary');
+});
+
+it.each([
+ ['conflicts', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'], 'conflicting residues'],
+ ['foreign identity', ['(pos:X.1:4..6,aa:Sec)'], 'accession'],
+] as const)('uses DNA after normalized %s drops, keeping raw notice evidence', (_kind, entries, reason) => {
+ const record = { sequence: 'ATGTGATAA', moleculeType: 'dna' as const, accession: 'R', version: 'R.1' };
+ const f: BioFeature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation: 'MU', transl_table: '11' }, translationExceptions: [...entries] };
+ const normalized = checkTranslation(f, record);
+ expect(normalized.translationExceptions).toEqual([]);
+ const view = codonMarks(normalized, record);
+ expect(view.cells.map(c => [c.residue, c.state])).toEqual([['M', 'ordinary'], ['U', 'hidden-stop'], ['_', 'terminal']]);
+ expect(view.comparison?.differing).toEqual([1]);
+ for (const raw of entries) expect(view.cells[1].description).toContain(raw);
+ expect(view.summary).toContain(reason);
+ expect(checkedTranslation(normalized, record).exceptions?.every(e => e.status === 'dropped')).toBe(true);
+});
+it.each([undefined, 'MU'])('keeps mapped invalid-code exceptions unapplied in the explicit assumed view; stored=%s', translation => {
+ const record = { sequence: 'ATGTGATAA', moleculeType: 'dna' as const };
+ const raw = '(pos:4..6,aa:Sec)';
+ const f: BioFeature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { transl_table: '999', ...(translation ? { translation } : {}) }, translationExceptions: [raw] };
+ const normalized = checkTranslation(f, record);
+ expect(checkedTranslation(normalized, record)).toMatchObject({ status: 'unavailable', reason: 'invalid-code',
+   exceptions: [{ raw, status: 'deferred', bases: [3, 4, 5], codonIndex: 1, possible: 'U' }] });
+ const view = codonMarks(normalized, record);
+ expect(view.assumed?.residues).toBe('M**');
+ expect(view.summary).toContain('was not applied');
+ expect(view.summary).toContain(raw);
+ expect(view.cells.map(c => [c.residue, c.state])).toEqual(translation ? [['M', 'unverified'], ['U', 'unverified']] : []);
+ expect(view.comparison).toBeUndefined();
+});
+
+it('blocks malformed and unmapped deferrals from an invalid-code assumed view', () => {
+ const f: BioFeature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { transl_table: '999' } };
+ for (const status of ['malformed', 'deferred'] as const) {
+   const view = codonMarks(f, { sequence: 'ATGTGATAA', moleculeType: 'dna' }, { status: 'unavailable', reason: 'invalid-code',
+     exceptions: [{ feature: 'c', occurrence: 0, raw: '(pos:4..6,aa:Sec)', status, reason: 'geometry unavailable' }] });
+   expect(view.assumed).toBeUndefined();
+   expect(view.cells).toEqual([]);
+   expect(view.comparison).toBeUndefined();
+ }
+});
+
+it('projects the recomputed clipped JSON product after reopen without source exceptions or stale full protein', () => {
+ const source = { id: 'r', name: 'r', sequence: 'N'.repeat(100) + 'ATGTGATAGCCCTAA', moleculeType: 'dna' as const,
+   features: [{ type: 'CDS', name: 'c', start: 100, end: 115, strand: 1 as const, segments: [{ start: 100, end: 115 }],
+     metadata: { translation: 'MUOP', _translationSource: 'imported', transl_table: '11' },
+     translationExceptions: ['(pos:104..106,aa:Sec)', '(pos:107..109,aa:Pyl)'] }] };
+ const snapshot = JSON.stringify(source);
+ const sliced = sliceRecordsBySelection([source], 100, 105);
+ expect(sliced.losses.filter(loss => loss.occurrence !== undefined).map(loss => loss.raw)).toEqual(['(pos:104..106,aa:Sec)', '(pos:107..109,aa:Pyl)']);
+ const loaded = parseProject(serializeProject({ records: sliced.records, featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false }));
+ expect(loaded.ok).toBe(true);
+ if (!loaded.ok) throw new Error(loaded.message);
+ const record = loaded.project.records[0];
+ const f = record.features[0];
+ expect(record.sequence).toBe('ATGTG');
+ expect(f.metadata?.translation).toBe('M');
+ expect(Number(f.metadata?.codon_start ?? '1')).toBe(1);
+ expect(f.translationExceptions).toEqual([]);
+ const view = codonMarks(f, record);
+ expect(view.cells.map(c => [c.residue, c.state])).toEqual([['M', 'ordinary']]);
+ expect(view.comparison).toEqual({ differing: [], storedExtra: '', storedShortBy: 0 });
+ expect(JSON.stringify(source)).toBe(snapshot);
 });

@@ -23,7 +23,7 @@ import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { otherReadings, startTables, tableOneReadings } from '@/src/domain/bio/assumedTranslation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { definesOneSequence } from '@/src/domain/bio/locationFlags';
-import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord, ConceptualTranslation } from '@/src/domain/bio/types';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isFeatureBroken, isNcbiGeneticCode } from '@/src/domain/bio';
 
 /** Feature types rendered as translated coding sequences (CDS/ORF, upper- and lower-case forms). */
@@ -32,6 +32,13 @@ export const CDS_ORF_TYPES = ['CDS', 'ORF', 'orf', 'cds', 'SO:0000316'];
 /** A CDS/ORF whose location defines one coding sequence; an `order()` CDS has none (LOC-7). */
 export const isTranslatedFeature = (feature: BioFeature): boolean =>
   (isCds(feature) || ['ORF', 'orf'].includes(feature.type)) && definesOneSequence(feature);
+
+/** A mapped deferral withholds a code-dependent substitution, not the explicitly assumed DNA view. */
+export function allowsAssumedCode(result: ConceptualTranslation): boolean {
+  return result.status === 'unavailable' && result.reason === 'invalid-code'
+    && (result.exceptions ?? []).every(e => e.status !== 'malformed'
+      && (e.status !== 'deferred' || (e.codonIndex !== undefined && !!e.bases?.length)));
+}
 
 /** Invalid codes cannot verify stored residues or establish the assumed view as a DNA result. */
 export function geneticCodeWarning(feature: BioFeature, codingSeq?: string, moleculeType?: SeqRecord['moleculeType']): string | null {
@@ -173,7 +180,7 @@ export const assignTranslationLanes = (
         if (isCds(f)) {
           const result = checkedTranslation(f, { sequence: seq, moleculeType, ...topology });
           if (result.status === 'unavailable' && !storedTranslation(f)
-            && (result.reason !== 'invalid-code' || result.exceptions?.some(e => e.status === 'malformed' || e.status === 'deferred'))) return;
+            && !allowsAssumedCode(result)) return;
         }
         const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, topology);
         const spans = new Map<Frame, { start: number; end: number }[]>();

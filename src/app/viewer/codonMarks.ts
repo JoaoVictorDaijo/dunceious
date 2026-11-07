@@ -23,6 +23,7 @@ import type { BioFeature, SeqRecord, ConceptualTranslation, CodonProvenance } fr
 import { checkedTranslation, compareTranslation, storedTranslation, translationDescription, translationReason } from '@/src/domain/bio/translation';
 import { definesOneSequence } from '@/src/domain/bio/locationFlags';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { allowsAssumedCode } from './cds';
 import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import { extractCodingSequence, featureTranslTable } from '@/src/domain/bio/sequence';
@@ -70,14 +71,16 @@ export function codonMarks(feature: BioFeature, record: TranslationRecord, evide
   const stored = storedTranslation(feature);
   const coding = extractCodingSequence(resolvedTranslationFeature(feature), record.sequence, { isCircular: record.isCircular });
   if (!coding.codingSeq) return empty;
-  const summary = translationDescription(feature, record, evidence);
+  const deferred = evidence.exceptions?.filter(e => e.status === 'deferred') ?? [];
+  const summary = [translationDescription(feature, record, evidence),
+    ...deferred.map(e => `Translation exception ${e.raw} was not applied: ${e.reason ?? 'translation unavailable'}.`)].filter(Boolean).join(' ');
   if (evidence.status === 'unavailable') {
     for (let i = 0; i < (stored?.length ?? 0); i++) {
       const indices = coding.alignedIndices.slice(i * 3, i * 3 + 3);
       if (!indices.length) break;
       cells.push({ codonIndex: i, indices, residue: stored![i], state: 'unverified', description: `${codonPrefix(feature, i, indices)} Annotated ${named(stored![i])}. Cannot check against DNA: ${translationReason(evidence, feature)}. ${summary}` });
     }
-    return { ...empty, cells, summary, assumed: evidence.reason === 'invalid-code' && !evidence.exceptions?.some(e => e.status === 'malformed' || e.status === 'deferred') ? assumedTranslation(feature, coding.codingSeq) : undefined };
+    return { ...empty, cells, summary, assumed: allowsAssumedCode(evidence) ? assumedTranslation(feature, coding.codingSeq) : undefined };
   }
   const comparison = stored ? compareTranslation(stored, evidence) : undefined;
   for (const c of evidence.codons) {

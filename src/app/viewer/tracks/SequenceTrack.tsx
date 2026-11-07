@@ -156,7 +156,7 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
           ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, logicalKey: `${featureIndex}-${i}`, order: spans.length, feature, frame, codon,
           residue, codeSensitive: isAssumed && !!assumed?.codeSensitive[i], initiation: i === 0 && initiation,
           state: !isCds(feature) && ['_', '*'].includes(residue) && i < Math.floor(coding.codingSeq.length / 3) - 1 ? 'early-stop' : state, label: piece === label,
-          description: isAssumed ? `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code.` : description ? description : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`,
+          description: isAssumed ? `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code. ${evidence.get(feature)?.summary ?? ''}` : description ? description : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`,
         }));
       };
       for (const cell of cells) add(cell.codonIndex, cell.residue, cell.state, cell.description);

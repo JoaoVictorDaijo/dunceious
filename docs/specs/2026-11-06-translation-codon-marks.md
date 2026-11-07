@@ -28,18 +28,16 @@ Dependencies, in order:
   and present through `integration/murilo-review` in this checkout: one protein in
   `metadata.translation`, read-only import provenance, recomputation after coding edits,
   conceptual comparison, counts and early-stop diagnostics.
-- **PR 2, “CDS translation exceptions under NCBI code-break rules”**, in
-  [the exception spec](2026-11-06-translation-transl-except.md) on `fix/cds-transl-except`
-  (reviewed at `2b694fb`): consume its named **Exception evidence on every result**
-  interface, carrying ordered occurrence evidence and diagnostics on both
-  `ConceptualTranslation` variants. PR 3 never parses exceptions independently.
-  Until PR 2 implements this interface, the merged PR 1 returns exactly
-  `unavailable: 'unsupported-exception'`. Owner answers 4–6 below settle comparison,
-  drop-and-compute and malformed GenBank-import refusal; the former incomplete-preview alternatives
-  are superseded. Reconcile concrete status/type names with PR 2's final interface before
-  implementation; dropped occurrences must stay explainable, never appear applied.
-  Malformed GFF3/project import scope, foreign-accession disposition and clipped protein/frame
-  remain conditional as listed under Open decisions; PR 3 chooses none of these held policies.
+- **PR 2, “CDS translation exceptions under NCBI code-break rules”**, implemented by
+  merged [PR #309](https://github.com/JoaoVictorDaijo/dunceious/pull/309), reviewed at
+  `b47d01f` and integrated at `0c28ee1`: consume the
+  [final decisions A–F/H](2026-11-06-translation-transl-except.md#L80) and its ordered
+  occurrence evidence on both `ConceptualTranslation` variants. PR 3 never parses
+  exceptions independently. The shared geometry evaluator runs before invalid-code,
+  owns shape/membership/conflict decisions and preserves mapped bases/codon indices.
+  All conflicting occurrences and foreign identities are dropped with notices; usable
+  remaining entries drive the protein. Malformed GenBank/GFF3/project input is refused
+  before publication. Clipped JSON recomputes the kept product in the preserved frame.
 - **PR #295**, `fix/assumed-genetic-code`: its #288 presentation-only assumption,
   shared marker and hover machinery are already present in this checkout. Reuse them
   rather than creating a second assumed-code implementation. #261 supplies
@@ -86,8 +84,8 @@ code changes in this documentation task. Item numbers match the owner's answers.
    PR 3 shows that usable computed result plus the notice, with ordinary verified comparison,
    counts and marks when eligible. With stored S, the stored-first display still applies;
    the conceptual result drives comparison. This is not an incomplete preview. Never
-   paint a dropped entry as an applied substitution. PR 2 owns conflict resolution and
-   which occurrences survive; PR 3 consumes the surviving evidence without choosing a winner.
+   paint a dropped entry as an applied substitution. PR 2 drops every conflicting occurrence and keeps identical duplicates; PR 3 consumes
+   the remaining DNA-derived result and notices without choosing a winner.
    **Backed by: owner decision 2026-11-06.**
 6. “Reject import; prohibit silent guesses and automatic corrections, requiring strict
    compliance.” Malformed syntax/shape refuses the GenBank file and cannot be saved in the
@@ -95,32 +93,34 @@ code changes in this documentation task. Item numbers match the owner's answers.
    short TERM on bases other than T/TA, or unknown residue name. Refusal names CDS, raw
    value and broken rule. Correct names in any capitalisation pass. This overrides #286's
    qualifier-warning-only policy for `/transl_except` alone on those routes. GenBank-refused
-   inputs never reach PR 3. Malformed GFF3/project disposition remains held under
-   [PR 2’s Import scope decision](https://github.com/JoaoVictorDaijo/dunceious/blob/2b694fb/docs/specs/2026-11-06-translation-transl-except.md#L534-L542):
-   refusal makes them unreachable; retention requires unavailable evidence and explicit
-   diagnostics, never a verified translation. Otherwise-valid unusable entries follow answer 5.
-   Ambiguous classifications require an owner decision, not a guessed correction.
+   inputs never reach PR 3. Final PR 2 decision B applies the same strict refusal to
+   GFF3 and project imports, naming the CDS, occurrence, literal and rule. Malformed
+   loaded records are unreachable; direct pure-function inputs remain defensive unavailable
+   results. Otherwise-valid unusable entries follow answer 5.
    **Backed by: owner decision 2026-11-06.**
-7. “ok”: only this record's exact accession is accepted for local mapping. Whether a break
-   naming another accession is dropped with a notice or refuses import remains on hold
-   for the owner (Claude notice n1); no local substitution or foreign fetch is allowed.
-   **Backed by: owner decision 2026-11-06** for exact-accession eligibility only.
+7. “ok”: only this record's exact accession/version is accepted for local mapping.
+   Final PR 2 decision C drops another identity with a visible notice and computes from
+   the remaining entries; no local substitution, alias stripping or foreign fetch is allowed.
+   **Backed by: owner decisions 2026-11-06 and 2026-11-07 (C).**
 8. “export anyways, but warn informing a annotation is being broke. in the exported the
    annotation start will have those identifiers to explain annotation continues/annotation
    is not finished”. Selection export proceeds with a warning and INSDC `<`/`>` markers
    at clipped CDS ends. Never copy the old full protein into a clipped CDS. The clipped
-   `/translation` and frame (`/codon_start`) remain held PR 2 dependencies. PR 2’s settled
-   [selection export rule](https://github.com/JoaoVictorDaijo/dunceious/blob/2b694fb/docs/specs/2026-11-06-translation-transl-except.md#L324-L353)
-   removes an exception whose codon the selection destroys, with a warning naming the
-   source record, CDS, original occurrence/raw value and removal reason. PR 3 consumes
-   that exported evidence after reimport; this removal rule is not an open decision.
+   `/translation` and frame (`/codon_start`) follow final PR 2 decision D: mark cut ends
+   partial, derive frame from removed biological bases and compute the kept-part protein
+   under ordinary eligibility/internal-stop guards. Its selection evaluator removes breaks
+   whose codons are destroyed, naming source record, CDS, original occurrence/raw value
+   and reason. PR 3 consumes that exported evidence after reimport. Project JSON is the
+   current annotation-selection route; GenBank/GFF3 and reversed selection remain future work.
    **Backed by: owner decision 2026-11-06** for warning, partial markers and no stale full protein.
 9. “The text inconsistency must be resolved using data from the original file to ensure
    validity without breaking line formatting or losing details”. Do not block representable
    values: losslessly encode GenBank qualifier quotes by doubling them and wrap so no
    continuation line begins with `/`. PR 2 owns round-trip acceptance proving no loss;
    PR 3 displays the preserved raw evidence as escaped text. A truly unrepresentable value
-   needs an owner decision with a concrete example, not silent normalization.
+   follows final PR 2 decisions F/H: GenBank refuses Cc/Zl/Zp with the literal and rule;
+   printable non-ASCII is preserved with value-specific ASCII 32–126 warnings. GFF3/project
+   retain logical text. General over-long-token wrapping remains #308, without silent normalization.
    **Backed by: owner decision 2026-11-06.**
 10. “ok”: draw unverified stored cells normally with hover/focus explanation, not lighter
     merely because verification is unavailable. This settles the former visual suggestion.
@@ -189,13 +189,14 @@ reinterpret any unavailable reason. Each provenance entry contains:
 
 This is derived evidence, not a second stored protein. Include a dropped terminal stop
 in provenance with no protein index; otherwise its slot could become a false length
-mismatch. PR 2 must supply the applied exception evidence from its own mapper, including
+mismatch. PR 2 supplies exception evidence from its shared geometry evaluator, including
 partial TERM. Consume PR 2's named **Exception evidence on every result** interface: feature identity,
 occurrence index/raw value, mapped bases and pre-removal codon index, replacement,
 application status and reason (including dropped/unusable evidence under answer 5),
-diagnostics and terminal-removal flag. Keep failed/deferred evidence on unavailable results
-too, and dropped-entry notices on successful results. Concrete helper names remain PR 2's
-implementation choice; do not invent another mapper here.
+diagnostics. PR 3 adds the terminal-removal flag in evidence-only codon provenance during
+the existing conceptual traversal; occurrence evidence retains the pre-removal slot. Keep failed/deferred evidence on unavailable results
+too, and dropped-entry notices on successful results. Consume `geometryCodeBreakEvidence` through the checked conceptual result; do not invent
+another mapper here.
 
 **`conceptualTranslation`** remains the sole effective translator. **`initiatorResidue`**
 remains the sole Starts-row lookup (currently in `src/domain/bio/sequence.ts`, exported
@@ -235,16 +236,15 @@ comes from the approved mockup (white base plus strand alpha .28); no named ligh
 helper exists in the inspected code. Factor shared styling within app when implementing.
 The merged `SequenceTrack` already uses `storedTranslation` for stored-length reads; preserve it.
 
-### Extension points checked against the merged PR 1 code
+### Extension points reconciled with final PR 2
 
-Inspected this checkout at `db5f958` (merge of `integration/murilo-review`), rather than
-assuming the earlier PR 1 draft or unmerged #295 source is still the implementation.
-These are planned extensions, not claims that the new marks already exist:
+Final PR 2 at `b47d01f` is the behavior baseline. PR 3 adds presentation evidence
+without changing its residues, possible sets, eligibility, occurrence status or normalization.
 
 | Actual function / type | Current behavior and required extension |
 |---|---|
-| `ConceptualTranslation` in `src/domain/bio/types.ts`; `conceptualTranslation` in `src/domain/bio/translation.ts` | The successful type already has `alignedIndices`; preserve it. The translator currently rejects any present `transl_except` before geometry, then computes contextual sets, retained padded fragments and removes a definite terminal stop. PR 2 replaces that exception gate. Add ordinary/contextual/effective provenance during this same traversal, before terminal removal, preserving real bases for removed stops and retained fragments. Never reconstruct them from the shortened `alignedIndices` alone. |
-| `compareTranslation` in `translation.ts` | Currently checks literal equality, stored X and membership in `possible`; definite `*` wins over X. PR 2 must supply OTHER/Xaa sense sets and the owner-approved B/Z/J set-overlap comparison. PR 3 consumes `differing`, `storedExtra`, `storedShortBy`; it does not implement comparison in canvas. |
+| `ConceptualTranslation` in `src/domain/bio/types.ts`; `conceptualTranslation` in `src/domain/bio/translation.ts` | The successful type already has `alignedIndices`; preserve it. The shared evaluator classifies every occurrence before invalid-code; eligible products apply only surviving `applied` evidence after contextual translation, retain padded fragments and remove a definite terminal stop. Add ordinary/contextual/effective provenance during this same traversal, before terminal removal, preserving real bases for removed stops and retained fragments. Never reconstruct them from the shortened `alignedIndices` alone. |
+| `compareTranslation` in `translation.ts` | Checks stored B/Z/J set overlap and OTHER/Xaa sense sets; definite `*` wins over stored X. PR 3 consumes `differing`, `storedExtra`, `storedShortBy`; it does not implement comparison in canvas. |
 | `checkTranslation`, `checkedTranslation` in `translation.ts` | `checkTranslation` serializes conceptual/comparison evidence into `_translationCheck`; `checkedTranslation` reads it, falling back to computation if absent/unparseable. Extend the cached result with provenance and PR 2 occurrence diagnostics, including successful-result drop notices. Preserve import/save/load invalidation ownership; no pan-time retranslation. |
 | `translationReason`, `translationDescription`, `translationWarning` in `translation.ts` | Reuse the primary unavailable reason and shared difference/length wording. Extend description/reason inputs for PR 2 diagnostics and dropped-entry explanations without calling a usable computed result unavailable; retain `/exception` file-warning suppression in `translationWarning`. |
 | `SequenceTrack` in `src/app/viewer/tracks/SequenceTrack.tsx` | Its translation `useEffect` currently combines `translateFeature` fallback, `checkedTranslation` and stored letters, then loops only full triplets. Replace this cell-selection/drawing path with the provenance projection: no valid-code computed tail after short S, no unavailable fallback presented as verified, normal unverified stored cells when the independent geometry gate passes, retained partial/terminal targets and discrepancy chips. The current early return for `unknown-completeness` needs the separate geometry decision described above, rather than suppressing every stored cell automatically. Preserve the ORF path separately. |
@@ -279,16 +279,24 @@ cells, no computed tail or length chip; feature details explain why the tail can
 checked. A dropped otherwise-valid break does not itself make C unavailable: under answer 5,
 consume the computed result from remaining valid entries and show its drop notice in
 feature details/warning and relevant explanations. The notice names the raw occurrence
-and reason; do not imply that every requested exception was applied. Malformed GenBank
-entries are refused under answer 6. For each held GFF3/project route, if PR 2 chooses
-refusal, malformed entries never reach this projection. If PR 2 retains them, consume its
-unavailable result and diagnostics: show normal unverified stored cells only when the
-geometry gate passes, each explaining why verification is unavailable; without S show no
-cells or computed/assumed tail. Feature warning/details name the route, CDS, original
-occurrence/raw value and broken rule. Never treat the valid subset as a verified result,
-mark a malformed occurrence applied, or emit a verified count, mismatch/length chip,
-terminal glyph or early-stop claim. Preserve any primary eligibility failure and its
-occurrence diagnostics; invalid-code assumptions cannot bypass this malformed-break gate.
+and reason; do not imply that every requested exception was applied. Every conflict is
+removed before protein eligibility; a remaining raw DNA stop is an effective stop, not an
+applied conflicting substitution. Final PR 2 decision B refuses malformed GenBank/GFF3/project
+imports before any record/attachment publication. Such refused inputs have no PR 3 targets.
+Defensive direct inputs with malformed or unmapped deferred evidence cannot acquire an assumed
+tail, verified count, discrepancy chip, terminal glyph or early-stop claim.
+
+**Final-contract adaptation — mapped invalid-code deferrals.** Geometry remains available even
+when a table is invalid. The conceptual result keeps primary `invalid-code` and changes its
+geometry-usable occurrences to `deferred`, preserving mapped `bases` and `codonIndex`.
+The #295 ordinary table-1 assumption is allowed only when every deferred occurrence has
+those mapped fields and no occurrence is malformed. It never applies a code break under an
+assumed genetic code: each explanation names the raw qualifier and says it was not applied.
+Dropped conflicts and foreign entries contribute notices only. Unmapped deferrals remain
+blocked. Stored cells keep normal unverified styling; no verified count, length chip or
+stop claim follows from an assumed reading. This replaces the provisional blanket block on
+all deferred evidence and leaves owner decisions 10–12 unchanged.
+
 Missing completeness is never inferred from a false partial-end accessor.
 
 For each eligible codon let S be the stored residue if present, O its ordinary code reading,
@@ -629,14 +637,16 @@ mockup plus owner decisions establish its mapping to the expected named marks.
 | `ATGTGGTAA`, table 99, S=`M` | Stored first M; assumed tail W,stop | Normal unverified stored M with cannot-check explanation; solid assumed W, dashed red `*`; no short chip | G table 1 tail; PR 1 invalid-code unavailable and #295 tail contract |
 | `ATGTGGTAA`, table 99, S=`MW` | Stored M/W cannot be compared under unknown code | Normal unverified stored cells with hover/focus cannot-check explanations, no lighter fill or curated/verified stop claims | G has no id 99; no reference translation of an invalid id claimed |
 | GenBank `ATGTGATAA`, S=`MU`, exceptions `(pos:4..6,aa:Sec)` and `(pos:5..7,aa:Val)` | Second entry crosses codons and is malformed | Import refuses the file, naming CDS, raw `(pos:5..7,aa:Val)` and off-frame rule; no PR 3 preview or cells from this refused import | F single-codon rule; owner answer 6 strict refusal; PR 2 import boundary owns this check |
-| GFF3 attachment: record r DNA `ATGTGATAA`, row `r\t.\tCDS\t1\t9\t.\t+\t0\tID=c;translation=MU;transl_except=(pos:4..6%2Caa:Sec),(pos:5..7%2Caa:Val)`; independently, format-2 project open with the same CDS c, MU/imported and ordered exception array containing those two decoded literals, plus a forged successful MU cache | Second occurrence is off-frame; the valid Sec occurrence cannot certify the whole result | Conditional on PR 2’s route-specific owner outcome: refusal publishes no result/targets from that input; retention discards project cache, supplies unavailable evidence and exposes route/c/occurrence 1/raw value/off-frame diagnostic in feature warning/details. With valid local geometry, only normal unverified MU cells with keyboard/hover reasons; no verified marks, counts, length chip, terminal glyph or early-stop claim. Repeat each route without S: feature diagnostics only, no computed cells/tail | F single-codon rule; PR 2 Import scope remains held. PR 2 owns real ingress/refusal/cache validation; PR 3 consumes each retained route’s evidence through the real projection/renderer, rejecting a false verified MU preview |
+| GFF3 attachment: record r DNA `ATGTGATAA`, row `r\t.\tCDS\t1\t9\t.\t+\t0\tID=c;translation=MU;transl_except=(pos:4..6%2Caa:Sec),(pos:5..7%2Caa:Val)`; independently, format-2 project open with the same CDS c, MU/imported and ordered exception array containing those two decoded literals, plus a forged successful MU cache | Second occurrence is off-frame; the valid Sec occurrence cannot certify the whole result | Refuse the whole project/attachment before publication, naming route/c/occurrence 1/raw value/off-frame rule; no cells, targets or verified subset result, with or without S. Project cache is untrusted and cannot bypass refusal | F single-codon rule; final PR 2 decision B owns strict ingress/refusal/cache validation; no retained malformed loaded-record path |
 | `ATGTGATAAGGG`, CDS `1..9`, S absent / `MU`; `(pos:4..6,aa:Sec)` plus `(pos:10..12,aa:Gly)` | Both entries have valid full-triplet shape; second is inside record but outside CDS; remaining Sec gives conceptual MU, terminal TAA removed | Computed MU with visible drop notice naming outside-CDS entry; lighter applied U explanation, normal M, terminal `_`, no early stop or mismatch. With S=MU retain stored MU and zero differences; never show a Gly substitution | G ATG=M, TGA ordinarily stop, TAA terminal; F Sec=U; owner answer 5 drop-and-compute |
 | `ATGAAACCCTAA`, `(pos:4..6,aa:OTHER)` / `aa:Xaa`, S=`MWP`, `MUP`, `MOP`, `MBP`, `MZP`, `MJP` | Effective MXP; middle possible set all sense residues, including U/O; stored ambiguity expands by answer 4 | Zero differences and no stop edge; retain each literal stored letter, explain unspecified exception rather than claim a specific confirmed residue. Without S show computed X and exception explanation | G AAA=K; F OTHER/Xaa unknown residue; owner answer 4 supplies comparison set/overlap |
 | Same DNA without the exception, S=`MXP`; separately `(pos:4..6,aa:TERM)`, S=`MXP` | Ordinary MKP: X compatible; TERM gives M*P: definite stop beats X | No difference in first case; lighter X with stop edge and count 1 in TERM case | G AAA=K, CCC=P; F TERM stop; owner answer 4 preserves definite-stop precedence |
-| `ATGTGATAA`, valid-shape break naming a different accession | No local substitution is permitted | Conditional PR 2 dependency: no PR 3 result if import is refused; if dropped, computed result plus visible notice. Do not select a branch until the owner settles it | Owner answer 7 exact-accession eligibility; notice n1 holds disposition |
-| Source r has CDS c `101..115` on coding `ATGTGATAGCCCTAA`, S=`MUOP`, breaks `(pos:104..106,aa:Sec)` and `(pos:107..109,aa:Pyl)`; select bases 101..105 | Output ATGTG, CDS `1..>5`; Sec codon loses base 106, Pyl codon wholly excluded: both exceptions removed; no stale full MUOP | PR 2 export warning names r/c, original occurrences 0/1, literals and loss reasons; after reimport PR 3 must not show either exception as applied. Only clipped `/translation` and frame remain conditional; consume their final evidence without assuming a clipped protein | Owner answer 8 and PR 2’s settled selection export rule; PR 2 owns loss delivery and source preservation, PR 3 owns reimported evidence display |
+| `ATGTGATAA`, valid-shape break naming a different accession | No local substitution is permitted | Drop the occurrence with an identity notice; computed DNA result M* plus terminal `_`, no applied-substitution mark. With S=MU, retain lighter U plus hidden-stop edge and one definite mismatch; without S, use verified early-stop `!` | Owner answer 7 and final PR 2 decision C; G table 11 TGA stop |
+| Source r has CDS c `101..115` on coding `ATGTGATAGCCCTAA`, S=`MUOP`, breaks `(pos:104..106,aa:Sec)` and `(pos:107..109,aa:Pyl)`; select bases 101..105 | Output ATGTG, CDS `1..>5`; Sec codon loses base 106, Pyl codon wholly excluded: both exceptions removed; no stale full MUOP | PR 2 export warning names r/c, original occurrences 0/1, literals and loss reasons; after reimport PR 3 must not show either exception as applied. After JSON reimport consume newly computed M in frame 1; the unresolved TG fragment is dropped, no stale MUOP, applied exception, terminal glyph or length chip | Owner answer 8 and final PR 2 decision D; PR 2 owns loss delivery and source preservation, PR 3 owns reimported evidence display |
 | `ATGAAAGCTTAA`, `(pos:4..6,aa:TERM)`, S=`M*A`; separately `MKA` and `MXA` | 2: O=I=K, C=stop; conceptual M*A | Verified `!` for `*` (count 0); lighter K/X + stop edge (differing=[1], count 1). All say AAA ordinarily K, exception specifies stop | G AAA=K, GCT=A; F TERM=* overrides codon; terminal TAA removed |
 | `ATGAAACCCTAA`, `(pos:4..6,aa:TERM)`, S=`MXP`; controls S=`M*P` / `MKP` | Ordinary MKP; effective M*P, possible M,*,P, internalStops=[1]; differing=[1] / [] / [1], no tails | X/K lighter with stop edge, stored * verified `!`; shared codon count 1 / 0 / 1, 3 positions and 1 internal stop. X tooltip names AAA→K and TERM→stop. Remove TERM: MKP, X wildcard count 0/no stop; Sec + S=MUP: no mismatch/stop | G AAA=K, CCC=P; F TERM/Sec overrides; exact PR 2 shared MXP fixture |
+| `ATGTGATAA`, S=`MU`, Sec and Pyl both at 4..6; control no S | Both occurrences dropped, DNA M*, internalStops=[1] | Retained U hidden-stop edge and one mismatch; no S gives `!`; both raw drop notices, never a substitution mark | Final PR 2 decision E; G TGA stop |
+| `ATGTGATAA`, table 999, valid Sec at 4..6, S absent; control S=MU | Primary invalid-code, mapped deferred occurrence at bases 4..6/codon 2; ordinary table-1 view M** | Explicit assumed M and dashed `*` targets, qualifier says not applied. Stored MU stays normal/unverified and only the tail assumes table 1; no U substitution or verified stop/count/chip | Final geometry evidence contract; approved mapped-deferral adaptation and #295 |
 | `GTGAAATAA`, `(pos:1..3,aa:Val)`, S=`VK` | 1: O=V, I=M, C=V | Lighter V exception mark, no mismatch; tooltip explains initiated M overridden by Val | G GTG ordinary V/Starts M; F Val=V; PR 2 applies exceptions after initiation |
 | `ATGAAAGGGTAA`, S=`M` | Conceptual MKG, differing=[], storedShortBy=2 | `−2 positions`; length-only tooltip, no zero-codon clause; one file warning | G M,K,G then terminal stop; hand lengths 3−1=2 |
 | `ATGTAAGGGTAA`, S=`M` | Conceptual M*G, internalStops=[1], differing=[], storedShortBy=2 | M plus `−2 positions`; no unmatched codon 2/3 cells/targets or `!`; feature/hub/chip expose 3 positions, 1 internal stop at codon 2/bases 4..6 | G M,stop,G,terminal stop; PR 1 excludes unmatched tails from codon display |
@@ -692,40 +702,17 @@ to the invoking control. Repeat via the feature-summary action with the endpoint
 and at overview zoom. This rejects an inaccessible tooltip-only tail, a silently truncated
 list and a details action that loses the requested feature or final residue.
 
-## Open decisions and unresolved acceptance gaps
+## Resolved dependencies and remaining verification limits
 
-There are no remaining PR 3 presentation decisions: owner answers 10–12 settled them.
-The following PR 2 dependencies stay conditional under Claude notice n1; the spec does
-not choose a default for these held policies.
+Owner decisions 10–12 remain unchanged. PR 2's final A–F/H decisions settle move identity,
+strict import refusal, foreign-identity drops, clipped JSON product/frame, all-conflicts-drop
+and text disposition; none is conditional in PR 3. The approved mapped-deferral adaptation
+above permits only an explicitly assumed ordinary reading and never an exception substitution.
 
-1. **Foreign-accession code break — owner question:** when a syntactically valid break
-   names another accession, should import refuse the file, or drop the entry with a visible
-   notice and compute from the remaining valid breaks? Exact-accession-only eligibility
-   is settled; foreign mapping/fetching is not an option. PR 3 either receives no record
-   (refusal) or computed evidence plus the drop notice. **Backed by:** owner answer 7
-   settles eligibility only; disposition is on hold for the owner, per notice n1.
-2. **Clipped protein and frame — owner question:** what clipped `/translation` and frame
-   (`/codon_start`) should selection export write? Export with warning, partial markers,
-   no stale full protein and removal of exceptions on selection-destroyed codons with named
-   warnings is settled by PR 2’s selection export rule. Only the clipped protein/frame
-   policy remains held; PR 3 consumes that final interface after reimport.
-   **Backed by:** owner answer 8, notice n1 and PR 2 at `2b694fb`; no protein/frame default selected here.
-3. **Malformed GFF3/project imports — owner question:** PR 2’s Import scope decision holds
-   refusal versus retention independently for these routes. Refusal produces no PR 3 result;
-   retention follows the unavailable/diagnostic display path above, never verified translation.
-   GenBank/editor refusal is settled. The route-specific fixture protects either eventual
-   outcome without selecting it here.
-
-No additional ambiguous malformed-versus-unusable case or truly unrepresentable qualifier
-value was established in this PR 3 review. If PR 2 identifies one, record its concrete
-input, biological consequence, options and scientific basis as an owner question before
-implementation; do not silently classify or normalize it.
-
-The joined boundary fixture is specified exactly in verification below. No benchmark
-or live accessibility/browser validation has yet been run; performance is an acceptance
-requirement, not an achieved measurement. PR 2's named occurrence-evidence interface must
-be reconciled with its final reviewed model before implementation, especially dropped
-occurrence status and notices on successful results.
+No browser benchmark or live accessibility validation has been run. Deep-lane vertical canvas
+clipping remains a #300 integration dependency; exact uncapped horizontal rendering is retained,
+without a dense-scene performance claim. If a new biological contract ambiguity arises, record
+its concrete input and consequence as an owner question rather than guessing a disposition.
 
 ## Verification boundary and coverage decision
 
@@ -738,7 +725,7 @@ Assumed-table policy belongs to #295; this PR protects its integration in the sh
 | Guarantee/source | Existing protection inspected | Decision |
 |---|---|---|
 | Initiation lookup, RNA normalization / #261 | `initiatorResidue.test.ts` matches literal Starts rows for tables 1/11; lowercase `gug`→M while context-free GTG→V | Reuse lookup coverage; add projection-level complete/partial/phase and stored override distinction. Do not retest every codon lookup. |
-| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. Include OTHER/Xaa sense-set compatibility for U/O and stored B/Z/J without literal-X false mismatches, normal unverified hover/focus explanations, and normal terminal `_` explanations. Include usable computed evidence plus a visible dropped-entry notice; reject applied marks for dropped entries. GenBank mixed-entry refusal belongs to PR 2. For held malformed GFF3/project routes, use the route-specific fixture: refusal is unreachable here; retained inputs show unavailable diagnostics and only geometry-eligible stored cells, never a verified subset result. PR 2 owns ingress validation. |
+| Mark classification and precedence / owner + PR 1 model | None found for new mark states | Add pure projection checks using the independent table, grouped by competing causes; reject false differences for compatible ambiguity, ordinary-residue wildcard X, valid initiators and applied exceptions. Include exact MXP stop-over-X count 1, retained X over initiated M/exception U, retained mixed terminal uncertainty, I→C exception overrides, cause-specific TERM explanations, unavailable allowed/denied claims and length-only/combined differences. No-S/short-S unavailable inputs must expose reasons without invented tails/counts. Include OTHER/Xaa sense-set compatibility for U/O and stored B/Z/J without literal-X false mismatches, normal unverified hover/focus explanations, and normal terminal `_` explanations. Include usable computed evidence plus a visible dropped-entry notice; reject applied marks for dropped entries. All-route malformed refusal belongs to final PR 2 decision B; refused inputs never reach loaded-record rendering. Defensive pure-input tests preserve unavailable evidence. Cover mapped invalid-code deferrals with ordinary assumed readings and unapplied-qualifier text; malformed/unmapped deferrals remain blocked. PR 2 owns ingress validation. |
 | Lane, reverse, joined/origin geometry / OP-8 | `SequenceTrack.test.tsx` “splits a splice-crossing codon without painting the intron” asserts exact rectangles; origin case tests both strands. Its aligned-CDS assertion currently paints across a gap and contradicts this contract. | Strengthen the recorder boundary with differing/stop-edge states and hit targets on all pieces. Replace the contrary gap assertion with real-column splits; check gap-only search hits and pointer misses plus real-base hits. Assert one logical keyboard stop; no gaps/intron painting. Include retained padded fragments, dropped fragments and partial TERM targets on actual bases only; no geometry for unknown-strand/order/remote inputs. |
 | Search + stop edge + chip compositing / mockup | Existing active-search priority test draws overlapping active/other search backgrounds; none found for lighter cells/chips | Add canvas-recorder checks for white base, lighter S, base-facing edge on both strands, exact partial hit outline, longer/shorter chips. Extend `assignTranslationLanes` checks for separate overlapping-CDS lanes and real targets, including equal letters with distinct provenance (owner answer 12). Browser visual check owns legibility and collisions; spy alone cannot prove appearance. |
 | Separate lanes for overlapping CDSs / owner answer 12 | `cds.test.ts` “shares a lane for overlapping features in the same frame” explicitly asserts the contrary policy; non-overlap, different-frame, strand and circular-join-gap packing assertions also exist | Replace the same-frame-sharing expectation with separate feature lanes, preserving non-overlap lane reuse, strand independence and whole-record stability. Exercise differing and equal letters with distinct provenance through the real renderer/targets; a packer-only assertion cannot prove both explanations are reachable. |

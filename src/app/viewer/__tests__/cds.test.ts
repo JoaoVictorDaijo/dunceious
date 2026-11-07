@@ -283,3 +283,9 @@ it.each(['1', '99'])('lets an invalid frame suppress translation and broken stat
   expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
   expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
 });
+
+it('keeps an assumed lane for mapped invalid-code deferrals without claiming a DNA stop', () => {
+ const f = cds({ start: 0, end: 9, metadata: { transl_table: '999' }, translationExceptions: ['(pos:4..6,aa:Sec)'] });
+ expect(assignTranslationLanes([f], 'ATGTGATAA', 'dna').forward).toBe(1);
+ expect(computeBrokenFeatureMap([f], 'ATGTGATAA', 'dna').has(f)).toBe(false);
+});

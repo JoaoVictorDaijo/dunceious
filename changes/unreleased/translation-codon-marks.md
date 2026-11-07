@@ -4,3 +4,4 @@
 
 ### Fixed
 - Translation paint and pointer targets split at alignment gaps. Evidence and geometry changes dismiss stale explanations.
+- Invalid-code codons retain an explicitly assumed view when exception geometry is known, while explaining that those exceptions were not applied. Dropped conflicts and foreign-accession breaks never receive substitution marks.
