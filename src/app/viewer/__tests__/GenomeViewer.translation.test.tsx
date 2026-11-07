@@ -35,8 +35,8 @@ afterEach(() => { vi.restoreAllMocks(); });
 function setup(showTranslation = true, moleculeType: SeqRecord['moleculeType'] = 'dna') {
   const records: SeqRecord[] = ['first', 'second'].map(id => ({
     id, name: id, sequence: 'A'.repeat(1000), moleculeType, features: [
-      { type: 'CDS', name: 'fwd', start: 0, end: 300, strand: 1 },
-      { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1 },
+      { type: 'CDS', name: 'fwd', start: 0, end: 300, strand: 1, segments: [{ start: 0, end: 300 }] },
+      { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1, segments: [{ start: 0, end: 300 }] },
     ],
   }));
   return render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}

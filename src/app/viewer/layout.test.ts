@@ -113,7 +113,7 @@ describe('computeRecordLayouts', () => {
   });
 
   it('applies the translation band only for non-protein records', () => {
-    const features = [{ type: 'CDS', name: 'c', start: 0, end: 3, strand: 1 as const }];
+    const features = [{ type: 'CDS', name: 'c', start: 0, end: 3, strand: 1 as const, segments: [{ start: 0, end: 3 }] }];
     const dna = computeRecordLayouts([rec({ id: 'd', sequence: 'ACGT', moleculeType: 'dna', features })], { ...ALL, showAnnotations: false })[0];
     const pro = computeRecordLayouts([rec({ id: 'p', sequence: 'MKV', moleculeType: 'protein', features })], { ...ALL, showAnnotations: false })[0];
     // One forward lane above the bases, no reverse lane below.
@@ -137,9 +137,9 @@ it('packs a circular aligned feature using the aligned coordinate length', () =>
 
 describe('translation row visibility', () => {
   const coding = [
-    { type: 'CDS', name: 'f0', start: 0, end: 30, strand: 1 as const },
-    { type: 'CDS', name: 'f1', start: 10, end: 40, strand: 1 as const },
-    { type: 'CDS', name: 'r', start: 0, end: 30, strand: -1 as const },
+    { type: 'CDS', name: 'f0', start: 0, end: 30, strand: 1 as const, segments: [{ start: 0, end: 30 }] },
+    { type: 'CDS', name: 'f1', start: 10, end: 40, strand: 1 as const, segments: [{ start: 10, end: 40 }] },
+    { type: 'CDS', name: 'r', start: 0, end: 30, strand: -1 as const, segments: [{ start: 0, end: 30 }] },
   ];
   const opts = { showAnnotations: false, translationVisible: true, showTracks: false };
 
@@ -269,7 +269,8 @@ it('avoids whole-sequence length recovery for many aligned CDS features', () => 
   const seq = 'ATG--TAGGAG';
   const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
     type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
-    biological: { start: 0, end: 9, strand: 1 },
+    segments: [{ start: 0, end: seq.length }],
+    biological: { start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }] },
   }));
   const record = rec({ id: 'scan', sequence: 'ATGTAGGAG', alignedSequence: seq, features });
   const replacement = vi.spyOn(String.prototype, 'replace');
