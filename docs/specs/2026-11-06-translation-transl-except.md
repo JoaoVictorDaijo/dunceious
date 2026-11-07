@@ -378,7 +378,11 @@ All three import routes refuse malformed assertions under decision B. Ordinary f
 slash fragments remain lossless and must not be blocked when their tokens fit the line.
 
 For a fully retained codon, transform each real base through the forward JSON selection with the CDS;
-serialize complement as needed and recompute against exported sequence. A selection-destroyed
+serialize complement as needed, then revalidate the transformed assertion with the shared geometry
+evaluator against the clipped CDS and adjusted codon_start before recomputing against exported
+sequence. All named bases surviving is insufficient: removing other multipart visits can change
+their codon membership. Drop a newly unusable inherited assertion with its original source
+occurrence and literal value in the notice, independently of genetic-code eligibility. A selection-destroyed
 codon cannot retain its old exception; drop it and report which annotation was broken. Mark
 cut ends with `<`/`>` on the actual interval endpoints; reverse strand biological 5′ partial
 appears at the high coordinate. Never copy the full source protein. Export proceeds with warning,
@@ -641,8 +645,10 @@ call geometryCodeBreakEvidence for every check that needs only local nucleotide 
 shape, codon membership, conflicts, cut losses and rebasing. Conflicts drop all occurrences before
 protein eligibility is considered, including with table 999. Selection returns a rebased logical
 value alongside original occurrence/raw/base evidence; it never uses a deferred protein result to
-choose coordinates. Conceptual translation consumes geometry results and retains invalid-code as
-its primary reason. **Backed by: owner structural direction, 2026-11-07.**
+choose coordinates. Selection revalidates those candidate values against its final clipped geometry
+and adjusted frame before cleanup and protein computation. Conceptual translation consumes geometry
+results and retains invalid-code as its primary reason.
+**Backed by: owner structural direction, 2026-11-07.**
 
 **W2 — Explicit move comparison.** Compare ordered parts once before cleanup, never coordinate
 strand sets or frame-trimmed visits. Match unchanged raw assertions against distinct previous
@@ -657,6 +663,17 @@ without treating arbitrary splice reshaping as a move.
 - Table 999, 100 N + ATGTGATAA, CDS 101..109, Sec 104..106, selection [100,109):
   retain Sec 4..6 through project reopen, primary invalid-code. Cut [100,105) removes it with
   lost entry base 106 in the notice; no protein is computed. Source values stay unchanged.
+- Circular TGATAANNNATG, CDS join(10..12,1..6), frame 1, Sec 1..3, selection [0,10):
+  the kept CDS extracts ATGATAA (ATG/ATA plus one incomplete base), so its product is MI.
+  Drop the now off-frame Sec with source occurrence 0 and its literal value; JSON reopens and
+  source MU/imported stays unchanged. Selection [0,9) leaves TGATAA, keeps the still-valid
+  Sec 1..3 and computes U. Table 999 still drops the newly off-frame break, primary invalid-code.
+- In that circular fixture, first add Met 10..12 and qualify Sec as R.1:1..3 on record R.1.
+  Selection [0,10) drops Met with lost entry bases 11,12 and Sec with off-frame reason;
+  the second notice keeps original occurrence 1 and the qualified literal despite prior filtering.
+- Linear ATGTGATAA, CDS 1..9, frame 1, Sec 4..6, selection [1,9): TGTGATAA,
+  CDS <1..8 and adjusted codon_start 3. Keep Sec 3..5 and compute U; JSON reopens with no
+  exception loss. This control requires validation against the adjusted frame, not source frame 1.
 - Table 999, ATGTGATAA, conflicting Sec/Pyl at 4..6: GenBank import, GFF3 attachment,
   project load and Save remove both with conflict notices; primary invalid-code remains.
   Identical Sec duplicates retain both raw occurrences, no conflict notice.

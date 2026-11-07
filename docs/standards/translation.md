@@ -271,6 +271,11 @@ with a notice; strict project reopen refuses them. The source record is never mu
 Clipped CDSs use the shared CDS predicate (CDS, cds, SO:0000316) for both frame adjustment and
 recomputation, mark cut ends, retain INSDC frame through the existing removed-base formula and store
 only a newly computed kept-part protein under ordinary eligibility/internal-stop guards (D).
+After clipping/rebasing, the shared geometry evaluator rechecks each candidate against the kept
+CDS and adjusted codon_start before protein computation. Keeping every named base does not ensure
+codon membership when other multipart visits were cut. Newly unusable breaks are removed with
+their original occurrence and literal value in the selection loss notice, independently of table
+eligibility. Already malformed in-memory source assertions retain the literal-preservation policy above.
 GenBank/GFF3 selection export and reversed selection remain future work.
 
 GenBank refuses Unicode controls Cc and line/paragraph separators Zl/Zp, naming literal value and

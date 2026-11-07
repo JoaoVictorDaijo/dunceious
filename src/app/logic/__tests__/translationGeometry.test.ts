@@ -152,3 +152,46 @@ it('preserves protein-record raw breaks without nucleotide geometry or conflict 
   expect(geometryCodeBreakEvidence(checked, record).every(e => e.codonIndex === undefined)).toBe(true);
   expect(conceptualTranslation(checked, record)).toMatchObject({ status: 'unavailable', reason: 'protein-record' });
 });
+
+it.each([
+  { name: 'all named bases survive but codon membership changes', end: 10, table: '1', values: ['(pos:1..3,aa:Sec)'], kept: [], protein: 'MI', removed: [{ occurrence: 0, raw: '(pos:1..3,aa:Sec)', reason: expect.stringContaining('off-frame') }] },
+  { name: 'clipped break still names a codon', end: 9, table: '1', values: ['(pos:1..3,aa:Sec)'], kept: ['(pos:1..3,aa:Sec)'], protein: 'U', removed: [] },
+  { name: 'original occurrence and qualified literal survive prior filtering', end: 10, table: '1', values: ['(pos:10..12,aa:Met)', '(pos:R.1:1..3,aa:Sec)'], kept: [], protein: 'MI', removed: [{ occurrence: 0, raw: '(pos:10..12,aa:Met)', reason: expect.stringContaining('lost entry bases 11, 12') }, { occurrence: 1, raw: '(pos:R.1:1..3,aa:Sec)', reason: expect.stringContaining('off-frame') }] },
+  { name: 'post-transform validation is independent of table eligibility', end: 10, table: '999', values: ['(pos:1..3,aa:Sec)'], kept: [], protein: undefined, removed: [{ occurrence: 0, raw: '(pos:1..3,aa:Sec)', reason: expect.stringContaining('off-frame') }] },
+])('revalidates circular selection before storing its protein: $name', row => {
+  const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', moleculeType: 'dna', sequence: 'TGATAANNNATG', isCircular: true, features: [{ type: 'CDS', name: 'c', start: 9, end: 6, strand: 1, operator: 'join', segments: parts([9,12],[0,6]), locationString: 'join(10..12,1..6)', metadata: { codon_start: '1', transl_table: row.table, translation: 'MU', _translationSource: 'imported' }, translationExceptions: row.values }] };
+  const snapshot = JSON.stringify(source);
+  if (row.table === '1') expect(conceptualTranslation(source.features[0], source)).toMatchObject({ residues: 'MU' });
+  const selected = sliceRecordsBySelection([source], 0, row.end);
+  expect(selected.records[0].features[0].translationExceptions).toEqual(row.kept);
+  expect(selected.losses.filter(loss => loss.occurrence !== undefined)).toMatchObject(row.removed);
+  expect(selected.losses.filter(loss => loss.occurrence !== undefined)).toHaveLength(row.removed.length);
+  expect(selected.records[0].features[0].metadata?.translation).toBe(row.protein);
+  expect(selected.records[0].features[0].metadata?._translationSource).toBe(row.protein === undefined ? 'removed' : 'computed');
+  expect(selected.records[0].features[0].metadata?.codon_start).toBe('1');
+  const opened = parseProject(serializeProject(state(selected.records)), () => {});
+  expect(opened.ok).toBe(true);
+  if (!opened.ok) throw new Error(opened.message);
+  expect(opened.project.records[0].features[0].translationExceptions).toEqual(row.kept);
+  if (row.protein !== undefined) expect(conceptualTranslation(opened.project.records[0].features[0], opened.project.records[0])).toMatchObject({ status: 'ok', residues: row.protein });
+  else expect(conceptualTranslation(opened.project.records[0].features[0], opened.project.records[0])).toMatchObject({ status: 'unavailable', reason: 'invalid-code' });
+  expect(JSON.stringify(source)).toBe(snapshot);
+});
+
+it('validates a retained break using the adjusted selection frame', () => {
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGTGATAA', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: parts([0,9]), metadata: { codon_start: '1', translation: 'MU', _translationSource: 'imported' }, translationExceptions: [sec] }] };
+  const snapshot = JSON.stringify(source);
+  const selected = sliceRecordsBySelection([source], 1, 9);
+  expect(selected.records[0].sequence).toBe('TGTGATAA');
+  expect(selected.records[0].features[0]).toMatchObject({
+    translationExceptions: ['(pos:3..5,aa:Sec)'],
+    segments: [{ start: 0, end: 8, partialStart: true }],
+    metadata: { codon_start: '3', translation: 'U', _translationSource: 'computed' },
+  });
+  const opened = parseProject(serializeProject(state(selected.records)), () => {});
+  expect(opened.ok).toBe(true);
+  if (!opened.ok) throw new Error(opened.message);
+  expect(conceptualTranslation(opened.project.records[0].features[0], opened.project.records[0])).toMatchObject({ status: 'ok', residues: 'U' });
+  expect(selected.losses.filter(loss => loss.occurrence !== undefined)).toEqual([]);
+  expect(JSON.stringify(source)).toBe(snapshot);
+});

@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SelectionLoss } from './types';
+import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
@@ -236,6 +236,7 @@ export function sliceRecordsBySelection(
   const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
 
     const slicedFeatures = record.features
       .map(feature => {
@@ -243,10 +244,10 @@ export function sliceRecordsBySelection(
         if (!result) return null;
         const clipped = (feature.segments?.length ? feature.segments : [feature]).some(part => part.start < selStart || part.end > selEnd);
         if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
-        if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, selStart, selEnd, losses);
+        if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
         if (clipped && isCds(result)) {
-          const product = conceptualTranslation(result, { ...record, sequence: slicedSeq, isCircular: false });
+          const product = conceptualTranslation(result, selectedRecord);
           result.metadata = { ...result.metadata, _translationSource: product.status === 'ok' && !product.internalStops.length ? 'computed' : 'removed' };
           if (product.status === 'ok' && !product.internalStops.length) result.metadata.translation = product.residues;
           else delete result.metadata.translation;
@@ -276,13 +277,27 @@ export function sliceRecordsBySelection(
   return { records: sliced, losses };
 }
 
-function selectedCodeBreaks(feature: BioFeature, record: SeqRecord, selStart: number, selEnd: number, losses: SelectionLoss[]): string[] {
-  const evidence = geometryCodeBreakEvidence(feature, record, { start: selStart, end: selEnd });
-  return evidence.flatMap(item => {
-    if (item.status !== 'applied') {
-      losses.push({ record: record.id, feature: feature.name, occurrence: item.occurrence, raw: item.raw, reason: item.reason ?? item.status });
-      return item.status === 'dropped' ? [] : [item.raw];
+function selectedCodeBreaks(
+  feature: BioFeature,
+  record: SeqRecord,
+  selectedFeature: BioFeature,
+  selectedRecord: SeqRecord,
+  selection: Pick<SelectionArea, 'start' | 'end'>,
+  losses: SelectionLoss[],
+): string[] {
+  const candidates = geometryCodeBreakEvidence(feature, record, selection).flatMap(source => {
+    if (source.status === 'applied') return [{ source, value: source.rebased! }];
+    losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
+    return source.status === 'dropped' ? [] : [{ source, value: source.raw }];
+  });
+  const evaluated = geometryCodeBreakEvidence({ ...selectedFeature, translationExceptions: candidates.map(item => item.value) }, selectedRecord);
+  return candidates.flatMap(({ source, value }, index) => {
+    const transformed = evaluated[index];
+    // Surviving bases can cease to be a codon when clipping removes other visits in a multipart CDS.
+    if (source.status === 'applied' && transformed.status !== 'applied') {
+      losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
+      return [];
     }
-    return [item.rebased!];
+    return [value];
   });
 }

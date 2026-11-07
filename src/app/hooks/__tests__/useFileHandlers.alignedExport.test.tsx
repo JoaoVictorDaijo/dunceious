@@ -229,3 +229,22 @@ it('delivers printable non-ASCII qualifier warnings from the export report', () 
   expect(vi.mocked(downloadBlob).mock.calls[0][0]).toContain('/note="é µ ±"');
   expect(log).toHaveBeenCalledWith(expect.stringMatching(/WARNING:.*note="é µ ±".*ASCII 32–126/));
 });
+
+it('exports a clipped circular CDS with post-transform losses before download and reopens the computed protein', async () => {
+  const { parseProject } = await import('@/src/app/logic/projectFile');
+  const source: SeqRecord = { id: 'r', name: 'r', moleculeType: 'dna', sequence: 'TGATAANNNATG', isCircular: true, features: [{ type: 'CDS', name: 'c', start: 9, end: 6, strand: 1, operator: 'join', segments: [{ start: 9, end: 12 }, { start: 0, end: 6 }], locationString: 'join(10..12,1..6)', metadata: { codon_start: '1', translation: 'MU', _translationSource: 'imported' }, translationExceptions: ['(pos:1..3,aa:Sec)'] }] };
+  const snapshot = JSON.stringify(source);
+  const events: string[] = [];
+  vi.mocked(downloadBlob).mockImplementation(() => { events.push('download'); });
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [source], { start: 0, end: 10, recordIds: ['r'] }, {},
+    { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, message => events.push(message)));
+  result.current.exportSelectionJson();
+  const opened = parseProject(vi.mocked(downloadBlob).mock.calls[0][0] as string, () => {});
+  expect(opened.ok).toBe(true);
+  if (!opened.ok) throw new Error(opened.message);
+  expect(opened.project.records[0]).toMatchObject({ sequence: 'TGATAANNNA', features: [{ translationExceptions: [], metadata: { translation: 'MI', _translationSource: 'computed', codon_start: '1' } }] });
+  expect(events.slice(0, events.indexOf('download')).join(' ')).toMatch(/r: CDS c.*occurrence 0.*1\.\.3.*off-frame/);
+  expect(opened.project.records[0].features[0].locationString).toBeUndefined();
+  expect(JSON.stringify(source)).toBe(snapshot);
+});
