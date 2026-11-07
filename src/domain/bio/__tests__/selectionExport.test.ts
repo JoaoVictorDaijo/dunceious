@@ -533,3 +533,32 @@ it('preserves remote-part positions when splitting a wrapped selection segment',
   expect(selected.writtenOrder).toBeUndefined();
   expect(selected.remoteParts).toEqual([{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 2 }]);
 });
+
+
+it.each([1, -1] as const)('selects origin-site neighbours circularly without inventing partial ends, strand %s', strand => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', isCircular: true,
+    features: [{ type: 'misc_feature', name: 'origin', ...parseLocation('join(1..3,9^1)'), locationString: 'join(1..3,9^1)', strand }] };
+  const full = sliceRecordsBySelection([record], 0, 9);
+  expect(full.records[0].features[0].segments).toEqual([{ start: 0, end: 3 }, { start: 9, end: 9 }]);
+  expect(full.losses).toEqual([]);
+  const withoutNine = sliceRecordsBySelection([record], 0, 8);
+  expect(withoutNine.records[0].features[0].segments).toEqual([{ start: 0, end: 3 }]);
+  expect(withoutNine.records[0].features[0].locationString).toBeUndefined();
+  expect(withoutNine.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+  const withoutOne = sliceRecordsBySelection([record], 1, 9);
+  expect(withoutOne.records[0].features[0].segments).toEqual([{ start: 0, end: 2, partialStart: true }]);
+  expect(withoutOne.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+});
+
+it('uses circular neighbour membership for a standalone origin site too', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', isCircular: true,
+    features: [{ type: 'misc_feature', name: 'origin', ...parseLocation('9^1') }] };
+  const full = sliceRecordsBySelection([record], 0, 9);
+  expect(full.records[0].features[0].segments).toEqual([{ start: 9, end: 9 }]);
+  expect(full.losses).toEqual([]);
+  for (const [start, end] of [[0, 8], [1, 9]]) {
+    const selected = sliceRecordsBySelection([record], start, end);
+    expect(selected.records[0].features).toEqual([]);
+    expect(selected.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+  }
+});

@@ -117,6 +117,13 @@ export function clipAndRebaseInterval(
   return out.end > out.start ? out : null;
 }
 
+/** INSDC FT 11.4 §3.4.2.1: an origin site adjoins the record's last and first bases. */
+function siteNeighboursSelected(boundary: number, length: number, circular: boolean, selStart: number, selEnd: number): boolean {
+  const left = boundary === 0 && circular ? length - 1 : boundary - 1;
+  const right = boundary === length && circular ? 0 : boundary;
+  return left >= 0 && right < length && left >= selStart && left < selEnd && right >= selStart && right < selEnd;
+}
+
 /**
  * Clips a `BioFeature` (including its `segments` array) to the selection window
  * and rebases all coordinates to be selection-local.
@@ -131,7 +138,7 @@ function clipFeature(
 ): BioFeature | null {
   if (isBetweenBasesSite(feature)) {
     // A site lies between two bases (LOC-5); it stays only when both of them are selected.
-    if (!(feature.start > selStart && feature.start < selEnd)) return null;
+    if (!siteNeighboursSelected(feature.start, seq.length, circular, selStart, selEnd)) return null;
     const boundary = feature.start - selStart;
     return { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
   }
@@ -141,7 +148,7 @@ function clipFeature(
   const kept: number[] = [];
   const newSegments = segments.flatMap((segment, i) => {
     const clipped = segment.start === segment.end
-      ? segment.start > selStart && segment.start < selEnd ? { start: segment.start - selStart, end: segment.end - selStart } : null
+      ? siteNeighboursSelected(segment.start, seq.length, circular, selStart, selEnd) ? { start: segment.start - selStart, end: segment.end - selStart } : null
       : clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
     if (clipped) kept.push(i);
     return clipped ? [{ ...segment, ...clipped,
@@ -152,10 +159,12 @@ function clipFeature(
   if (!newSegments.length) return null;
   // INSDC FT 11.4 §3.4.2.2: the first/last visit, not the genomic envelope, defines each end.
   const perPart = segments.some(part => part.strand !== undefined);
-  const order = segments.map((_, i) => i);
+  const order = segments.flatMap((part, i) => part.start < part.end ? [i] : []);
   if (!perPart && feature.strand === -1) order.reverse();
   const selected = order.filter(i => kept.includes(i));
-  for (const [index, first] of [[selected[0], true], [selected.at(-1)!, false]] as const) {
+  for (const first of [true, false]) {
+    const index = first ? selected[0] : selected.at(-1);
+    if (index === undefined) continue;
     const original = segments[index];
     const retained = newSegments[kept.indexOf(index)];
     const reverse = (original.strand ?? feature.strand) === -1;
@@ -176,11 +185,11 @@ function clipFeature(
   if (writtenOrder) result.writtenOrder = writtenOrder;
   else delete result.writtenOrder;
   if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
-  if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
+  if (selStart !== 0 || kept.length !== segments.length || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
     delete result.locationString;
   }
 
-  const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
+  const clipped = segments.some(segment => segment.start < segment.end && (segment.start < selStart || segment.end > selEnd));
   if (!clipped) return result;
   if (feature.metadata) {
     result.metadata = { ...feature.metadata };
@@ -268,12 +277,12 @@ export function sliceRecordsBySelection(
         const result = clipFeature(feature, seq, selStart, selEnd, record.isCircular === true);
         const parts = featureParts(feature, { length: seq.length, isCircular: record.isCircular });
         for (const part of parts) {
-          if (part.start === part.end && !(part.start > selStart && part.start < selEnd)) {
+          if (part.start === part.end && !siteNeighboursSelected(part.start, seq.length, record.isCircular === true, selStart, selEnd)) {
             losses.push({ record: record.id, feature: feature.name, reason: 'Between-base site omitted; both neighbouring bases must be selected' });
           }
         }
         if (!result) return null;
-        const clipped = parts.some(part => part.start < selStart || part.end > selEnd);
+        const clipped = parts.some(part => part.start < part.end && (part.start < selStart || part.end > selEnd));
         if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
