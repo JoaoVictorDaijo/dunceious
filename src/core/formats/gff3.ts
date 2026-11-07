@@ -331,6 +331,8 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const [encodedId, source, type, from, to, score, strand, phase, raw] = cols;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
+    const bareException = raw.split(';').find(attribute => !attribute.includes('=') && decode(attribute).trim() === 'transl_except');
+    if (bareException !== undefined) throw new Error(`${metadata.insdc_type || type} ${metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${from}`}, attribute ${JSON.stringify(bareException)} requires transl_except=(pos:<location>,aa:<residue>) syntax`);
     const site = metadata.insdc_site === 'true' && from === to;
     delete metadata.insdc_site;
     const start = site ? Number(from) : Number(from) - 1;

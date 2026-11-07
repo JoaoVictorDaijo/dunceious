@@ -181,7 +181,7 @@ function clipFeature(
     delete result.metadata._gffPhaseState;
     delete result.metadata.phase;
   }
-  if (feature.type === 'CDS' || feature.type === 'SO:0000316') {
+  if (isCds(feature)) {
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
@@ -243,7 +243,7 @@ export function sliceRecordsBySelection(
         const result = clipFeature(feature, seq, selStart, selEnd);
         if (!result) return null;
         const clipped = (feature.segments?.length ? feature.segments : [feature]).some(part => part.start < selStart || part.end > selEnd);
-        if (clipped && ['CDS', 'cds', 'SO:0000316'].includes(feature.type)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
+        if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, selStart, selEnd, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
         if (clipped && isCds(result)) {

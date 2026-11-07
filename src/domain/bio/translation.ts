@@ -19,13 +19,14 @@
  */
 
 
-import type { BioFeature, SeqRecord, ConceptualTranslation } from './types';
+import type { BioFeature, SeqRecord, ConceptualTranslation, TranslationExceptionEvidence } from './types';
 export type { ConceptualTranslation } from './types';
 import { codeBreakEvidence, codeBreakMessage, SENSE_RESIDUES } from './translationExceptions';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { extractCodingSequence, featureTranslTable, initiatorResidue, isNcbiGeneticCode } from './sequence';
 import { definesOneSequence, isFivePrimePartialLocation, isThreePrimePartialLocation } from './locationFlags';
 import { invalidLocationPart } from './featureParts';
+import { validCodonStart } from './codonStart';
 import { getFeatureStrand } from './strand';
 
 type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular' | 'accession' | 'version'> & { biologicalLength?: number };
@@ -48,8 +49,8 @@ function reading(set: string): string {
 
 /** Contextual NCBI CDS product, independent of every stored protein assertion. */
 export function conceptualTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
-  let exceptions = codeBreakEvidence(feature, record);
-  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason, ...(exceptions.length ? { exceptions } : {}) });
+  let exceptions = geometryCodeBreakEvidence(feature, record);
+  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason, ...(exceptions.length ? { exceptions: exceptions.map(e => e.status === 'applied' ? { ...e, status: 'deferred', reason: `translation unavailable: ${reason}` } : e) } : {}) });
   if (record.moleculeType === 'protein') return unavailable('protein-record');
   const table = featureTranslTable(feature);
   if (!isNcbiGeneticCode(table)) return unavailable('invalid-code');
@@ -84,7 +85,6 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
   if (feature.translationExceptions?.length) {
-    exceptions = codeBreakEvidence(feature, record, seq, entryIndices(record, alignedIndices));
     if (exceptions.some(e => e.status === 'malformed' || e.status === 'deferred')) return unavailable('unsupported-exception');
     const sets = new Map<number, Set<string>>();
     for (const evidence of exceptions) if (evidence.status === 'applied') {
@@ -192,6 +192,7 @@ const recordGaps = new WeakMap<object, { sequence: string; gaps: number[] }>();
 
 /** Cache only gap positions, never a genome-sized entry map for each CDS. */
 function entryIndices(record: TranslationRecord, indices: number[]): number[] {
+  if (!indices.length) return indices;
   let cached = recordGaps.get(record);
   if (!cached || cached.sequence !== record.sequence) {
     cached = { sequence: record.sequence, gaps: Array.from(record.sequence.matchAll(/-/g), match => match.index) };
@@ -211,7 +212,20 @@ function entryIndices(record: TranslationRecord, indices: number[]): number[] {
 }
 
 export function malformedCodeBreakMessage(feature: BioFeature, record?: TranslationRecord): string | undefined {
-  const evidence = record ? conceptualTranslation(feature, record).exceptions : codeBreakEvidence(feature, {});
+  const evidence = record ? geometryCodeBreakEvidence(feature, record) : codeBreakEvidence(feature, {});
   const malformed = evidence?.find(item => item.status === 'malformed');
   return malformed && codeBreakMessage(malformed);
+}
+
+/** INSDC codon membership/shape needs local geometry and frame, independently of genetic-code eligibility. */
+export function geometryCodeBreakEvidence(feature: BioFeature, record: TranslationRecord): TranslationExceptionEvidence[] {
+  const syntax = codeBreakEvidence(feature, record);
+  if (!syntax.length || record.moleculeType === 'protein') return syntax;
+  const strand = getFeatureStrand(feature);
+  if ((strand !== 1 && strand !== -1) || !definesOneSequence(feature) || !validCodonStart(feature.metadata?.codon_start)) return syntax;
+  const source = feature.biological ?? feature;
+  const length = feature.biological ? record.biologicalLength ?? record.sequence.replace(/-/g, '').length : record.sequence.length;
+  if (!feature.segments?.length || (source.segments?.length ? source.segments : [source]).some(part => invalidLocationPart(part, { length, isCircular: record.isCircular }))) return syntax;
+  const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(feature), record.sequence, record);
+  return codeBreakEvidence(feature, record, codingSeq.toUpperCase().replace(/U/g, 'T'), entryIndices(record, alignedIndices));
 }

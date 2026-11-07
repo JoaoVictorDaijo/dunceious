@@ -239,7 +239,8 @@ X/U/O. They use “aa” only without internal stops. Declared protein records, 
 biological strands, nonlocal/multipart order locations and unknown completeness cannot
 establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed GFF3/project input refuses import atomically with the CDS/value/rule (owner B).
 Nonmatching exact identities drop with notice and computation uses the remaining entries (C).
-Plain moves shift valid code-break positions with the CDS (A); reverse/reframe removes newly
+Plain moves compare complete oriented extraction visits before frame trimming, including
+frame-skipped bases, and shift valid code-break positions with the CDS (A); reverse/reframe removes newly
 unusable inherited breaks with notices before Save completes. Malformed new authoring refuses Save.
 
 Comparison preserves supplied proteins. Stored X is compatible with an ordinary residue,
@@ -265,7 +266,8 @@ and refuse malformed assertions without migration. Selection JSON validates shap
 and preserves each position's strand. Malformed in-memory assertions stay literal and unavailable,
 with a notice; strict project reopen refuses them. The source record is never mutated.
 
-Clipped CDSs mark cut ends, retain INSDC frame through the existing removed-base formula and store
+Clipped CDSs use the shared CDS predicate (CDS, cds, SO:0000316) for both frame adjustment and
+recomputation, mark cut ends, retain INSDC frame through the existing removed-base formula and store
 only a newly computed kept-part protein under ordinary eligibility/internal-stop guards (D).
 GenBank/GFF3 selection export and reversed selection remain future work.
 
@@ -276,3 +278,16 @@ and INSDC's printable ASCII 32–126 rule through ExportReport, preview and down
 General free-text wrapping limitations remain #308. Compact exceptions wrap after commas and their
 continuations concatenate without added characters. No fitting comma retains the overlong-token
 limitation. The writer defensively refuses malformed code breaks; no biological repairs are made.
+
+### Geometry validation and unavailable products
+
+`geometryCodeBreakEvidence` validates syntax and shape from local geometry/frame without
+requiring a supported genetic code or computing amino acids. All import boundaries consume
+that evidence independently of the conceptual translator's primary reason. Thus table 999
+retains invalid-code while off-frame, partial-codon and contrary-orientation assertions still
+refuse import. Unknown/unavailable geometry is deferred rather than guessed; a valid but empty
+coding visit list is known geometry, so obsolete inherited complete breaks are removed before Save.
+A shape-valid assertion on an unavailable product is deferred application, never a verified residue.
+
+Bare GFF3 transl_except attributes are refused even without '='; diagnostics name the feature,
+literal attribute and required structured value syntax. The whole attachment remains atomic.

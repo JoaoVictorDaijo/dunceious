@@ -323,3 +323,16 @@ it('refuses a malformed GFF3 attachment atomically and visibly through the real 
   expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/import refused.*CDS bad.*5\.\.7.*off-frame/));
   expect(h.log.mock.calls.flat().join(' ')).not.toContain('Annotation import complete');
 });
+
+it('refuses a bare transl_except after a valid GFF3 row without publishing either feature', async () => {
+  const h = setup();
+  const records: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGTGATAA', features: [] }];
+  act(() => h.result.current.setRecords(records));
+  const promise = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'bad.gff3', content: 'a\t.\tCDS\t1\t9\t.\t+\t0\tID=good;transl_except=(pos:4..6%2Caa:Sec)\na\t.\tCDS\t1\t9\t.\t+\t0\tID=bad;transl_except' });
+  const refused = expect(promise).rejects.toThrow(/CDS bad.*transl_except.*requires.*=/);
+  act(() => h.worker.release(h.worker.requests.length - 1));
+  await refused;
+  expect(h.result.current.records).toEqual(records);
+  expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/CDS bad.*transl_except.*requires/));
+  expect(h.log.mock.calls.flat().join(' ')).not.toContain('Annotation import complete');
+});

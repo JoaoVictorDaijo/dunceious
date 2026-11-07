@@ -267,3 +267,80 @@ it('refuses controls in unknown qualifiers before the writer allowlist can omit 
   records[0].features[0].unknownQualifiers = { _custom: '\u0085' };
   expect(() => exportToGenBank(records)).toThrow(/_custom=.*Cc.*Zl.*Zp/);
 });
+
+it('does not shift a splice reshape whose frame-skipped visit has a different displacement', () => {
+  const source = { type: 'CDS', name: 'c', start: 0, end: 12, strand: 1 as const, segments: [{ start: 0, end: 1 }, { start: 3, end: 12 }], metadata: { codon_start: '2' }, translationExceptions: ['(pos:7..9,aa:Sec)'] };
+  const record = { id: 'r', name: 'r', sequence: 'AAAATGTGATAAATGTGATAA', features: [source] };
+  const notices: string[] = [];
+  const saved = saveEditedFeature([record], 'r', 0, { ...source, start: 1, end: 21, segments: [{ start: 1, end: 2 }, { start: 12, end: 21 }] }, message => notices.push(message));
+  expect(saved[0].features[0].translationExceptions).toEqual([]);
+  expect(notices.join(' ')).toMatch(/7\.\.9.*removed before Save/);
+  expect(source.translationExceptions).toEqual(['(pos:7..9,aa:Sec)']);
+});
+it.each(['CDS', 'cds', 'SO:0000316'])('preserves the clipped INSDC frame for %s', async type => {
+  const { sliceRecordsBySelection } = await import('@/src/domain/bio/intervals');
+  const record = { id: 'r', name: 'r', sequence: 'ATGCCCTAA', features: [{ type, name: 'c', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 9 }] }] };
+  const selected = sliceRecordsBySelection([record], 1, 9).records[0];
+  expect(selected).toMatchObject({ sequence: 'TGCCCTAA', features: [{ segments: [{ start: 0, end: 8, partialStart: true }], metadata: { codon_start: '3', translation: 'P', _translationSource: 'computed' } }] });
+});
+it.each(['(pos:5..7,aa:Sec)', '(pos:4..5,aa:Sec)', '(pos:complement(4..6),aa:Sec)'])('validates shape independently of table eligibility for %s', async raw => {
+  const { handleBioMessage } = await import('@/src/workers/handlers/bio');
+  const { applyAnnotations } = await import('../bioResponse');
+  const { parseProject, serializeProject } = await import('../projectFile');
+  const feature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 9 }], metadata: { transl_table: '999' }, translationExceptions: [raw] };
+  const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', features: [feature] };
+  expect(conceptualTranslation(feature, record)).toMatchObject({ status: 'unavailable', reason: 'invalid-code', exceptions: [{ status: 'malformed' }] });
+  const input = `LOCUS       r 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /gene="c"
+                     /transl_table=999
+                     /transl_except=${raw}
+ORIGIN
+        1 atgtgataa
+//
+`;
+  expect(handleBioMessage({ type: 'PARSE_GENBANK', filename: 'r.gb', content: gb() + input })).toMatchObject({ type: 'PARSE_REFUSED', findings: expect.arrayContaining([expect.objectContaining({ tier: 'refuse', message: expect.stringContaining(raw) })]) });
+  const records = [{ id: 'a', name: 'a', sequence: 'ATGTGATAA', features: [] }, { id: 'r', name: 'r', sequence: 'ATGTGATAA', features: [] }];
+  const gff = 'a\t.\tCDS\t1\t9\t.\t+\t0\tID=valid;transl_except=(pos:4..6%2Caa:Sec)\nr\t.\tCDS\t1\t9\t.\t+\t0\tID=c;transl_table=999;transl_except=' + raw.replace(',', '%2C');
+  if (raw === '(pos:4..5,aa:Sec)') expect(() => parseGFF3(gff)).toThrow(/CDS c.*4\.\.5.*incomplete codon/);
+  else {
+    const attached = applyAnnotations(records, parseGFF3(gff).features);
+    expect(attached.next).toBe(records);
+    expect(attached).toMatchObject({ totalAdded: 0, refusal: expect.stringContaining(raw) });
+  }
+  expect(parseProject(serializeProject({ records: [record], featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false }))).toMatchObject({ ok: false, message: expect.stringContaining(raw) });
+});
+it('removes inherited breaks with a before-save notice when the new coding visit list is empty', () => {
+  const feature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 9 }], translationExceptions: ['(pos:4..6,aa:Sec)'] };
+  const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', features: [feature] };
+  const notices: string[] = [];
+  const saved = saveEditedFeature([record], 'r', 0, { ...feature, end: 1, segments: [{ start: 0, end: 1 }], metadata: { codon_start: '2' } }, message => notices.push(message));
+  expect(saved[0].features[0].translationExceptions).toEqual([]);
+  expect(notices.join(' ')).toMatch(/4\.\.6.*removed before Save/);
+  expect(saved[0].features[0].metadata?.translation).toBeUndefined();
+});
+
+it('keeps invalid-table input eligible for import when its code-break shape is valid', async () => {
+  const { handleBioMessage } = await import('@/src/workers/handlers/bio');
+  const { applyAnnotations } = await import('../bioResponse');
+  const { parseProject, serializeProject } = await import('../projectFile');
+  const input = gb().replace('/translation="MUOP"', '/transl_table=999\n                     /translation="MUOP"');
+  const imported = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'valid-shape.gb', content: input });
+  expect(imported.type).toBe('PARSE_SUCCESS');
+  const record = { id: 'r', name: 'r', sequence: 'ATGTGATAA', features: [] };
+  const attached = applyAnnotations([record], parseGFF3('r\t.\tCDS\t1\t9\t.\t+\t0\tID=c;transl_table=999;transl_except=(pos:4..6%2Caa:Sec)').features);
+  expect(attached.refusal).toBeUndefined();
+  expect(attached.totalAdded).toBe(1);
+  expect(conceptualTranslation(attached.next[0].features[0], attached.next[0])).toMatchObject({ status: 'unavailable', reason: 'invalid-code', exceptions: [{ status: 'deferred' }] });
+  const project = parseProject(serializeProject({ records: attached.next, featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false }), () => {});
+  expect(project.ok).toBe(true);
+});
+
+it('preserves shape-valid move offsets even when protein computation has an invalid code', () => {
+  const feature = { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 9 }], metadata: { transl_table: '999' }, translationExceptions: ['(pos:4..6,aa:Sec)'] };
+  const record = { id: 'r', name: 'r', sequence: 'ATGTGATAAATGTGATAA', features: [feature] };
+  const saved = saveEditedFeature([record], 'r', 0, { ...feature, start: 9, end: 18, segments: [{ start: 9, end: 18 }] });
+  expect(saved[0].features[0].translationExceptions).toEqual(['(pos:13..15,aa:Sec)']);
+  expect(conceptualTranslation(saved[0].features[0], saved[0])).toMatchObject({ status: 'unavailable', reason: 'invalid-code' });
+});

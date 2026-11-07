@@ -84,13 +84,16 @@ All six former open decisions are resolved. **Backed by: owner decision (accepte
 
 A. **Plain move:** shift valid code-break positions by the same CDS displacement, preserving
 relative offset, identity and every position's strand. Recognize moves from a uniform displacement
-of extracted biological visits, modulo entry length for circular records; splice reshaping is not
+of complete extracted biological visits before codon_start trimming (including skipped leading
+bases and orientation), modulo entry length for circular records; splice reshaping is not
 a plain move. Never repair an already malformed assertion.
 Reverse/reframe removes newly unusable inherited breaks with the before-save notice.
 **Backed by: owner decision (accepted suggestion), 2026-11-07.**
 
 B. **Import scope:** malformed syntax/shape refuses GenBank, GFF3 and project imports, naming
-CDS, occurrence, literal and rule. GFF3 syntax is checked by the parser; geometry is checked
+CDS, occurrence, literal and rule. Bare GFF3 transl_except without an equals sign refuses
+with feature name, literal attribute and required transl_except=(pos:...,aa:...) syntax.
+GFF3 syntax is checked by the parser; geometry is checked
 against receiving records before attachment, atomically for the whole attachment. Scalar transl_except in project metadata or unknown qualifiers is refused under the canonical-array
 rule; no migration or compatibility handling is added for old project files.
 **Backed by: owner decision (accepted suggestion), 2026-11-07.**
@@ -102,7 +105,8 @@ identity rule; never fetch or strip a different version to manufacture a match.
 
 D. **Clipped selection JSON:** mark cut ends partial, derive codon_start from removed biological
 bases using `((oldOffset−removed) mod 3 + 3) mod 3 + 1`, and store the newly computed kept-part
-protein under the ordinary eligibility/internal-stop guard. Never retain the full source protein.
+protein under the ordinary eligibility/internal-stop guard. Both frame adjustment and
+recomputation use the shared isCds predicate for CDS, cds and SO:0000316. Never retain the full source protein.
 For ATGAAATAA cut to bases 2..9, TGAAATAA with `<1..8` and codon_start 3 gives K.
 GenBank/GFF3 selection export and reversed selection are future work; project JSON is the only
 current annotation-selection export route.
@@ -227,6 +231,10 @@ items joined by literal commas, list once on first CDS row. **Backed by:**
 ### Answer 5/6 boundary
 
 Classify syntax/vocabulary first, then shape when geometry is available, then usability.
+Geometry-only shape validation is independent of genetic-code eligibility: an invalid table
+retains the translator primary reason invalid-code but cannot suppress malformed-shape import
+refusal. Valid empty coding visits still establish that an inherited complete break is outside
+the remaining coding region; remove it with its literal value and before-save notice.
 No off-frame rounding, residue-name fallback, guessed coordinates or silent correction.
 A whole three-base range entirely outside the CDS is not declared off-frame against an
 invented CDS offset. If geometry is unavailable, defer mapping explicitly; never guess.
@@ -600,3 +608,23 @@ owner policy. No broader NCBI normalization claim is inferred.
   unchanged with a value-specific ASCII 32–126 warning. GFF3/project retain every logical value.
 - No-exception CDS translation does not iterate unrelated record bases (non-timing iterator spy).
   Exception mapping caches gap positions per record instead of allocating an entry per base per CDS.
+
+## Complete visits and unavailable products — boundary cases
+
+- On AAAATGTGATAAATGTGATAA, join(1,4..12), codon_start 2 and Sec 7..9 →
+  join(2,13..21) is a splice reshape: skipped leading bases move by one, remaining visits by
+  nine. Do not shift Sec to 16..18; remove the outside assertion with its before-save notice.
+  Existing genuine linear and circular move controls remain required.
+- All accepted CDS spellings (CDS, cds, SO:0000316), ATGCCCTAA 1..9 selected at 2..9:
+  TGCCCTAA, partial 5′ end, codon_start 3, P/computed; never CP.
+- With transl_table 999, local ATGTGATAA 1..9, off-frame Sec 5..7, partial Sec 4..5 or
+  explicit contrary complement(4..6) remains malformed. GenBank refuses the file, GFF3
+  refuses atomically and project open refuses, each with CDS/literal/rule. Translator primary
+  reason remains invalid-code. Valid Sec 4..6 with that table still imports without verified
+  computation; an invalid code alone is not a malformed-code-break refusal. A genuine move
+  with that invalid table still shifts the shape-valid break, without computing a protein.
+- Shortening ATGTGATAA CDS 1..9, Sec 4..6, to 1..1 with codon_start 2 gives no coding
+  visits. Remove the inherited break with its literal and before-save notice; no product.
+- A valid GFF3 row followed by ID=bad;transl_except without '=' refuses the whole
+  attachment via the worker error route, naming CDS bad, the bare attribute and required syntax.
+  Receiving records remain unchanged; no annotation-complete message or partial publication.
