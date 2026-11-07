@@ -89,9 +89,10 @@ it does not prescribe Dunceious's name-selection algorithm.
 Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
 nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
 `old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
-value ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
+value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
 resynchronising at the next feature/data boundary. Value validation is limited to CDS
-`codon_start` and `transl_table`, with `gap_type` read only for the conditional requirement.
+`codon_start`, `transl_table` and `transl_except`; malformed translation exceptions strictly refuse import.
+`gap_type` is read only for the conditional requirement.
 
 Protein keys, allowed/mandatory maps and recognised qualifier names follow the NCBI C++ Toolkit
 at **2b8ccee**, pinned in [`sources.json`](sources.json) as `ncbi-protein-seqfeatdata`,

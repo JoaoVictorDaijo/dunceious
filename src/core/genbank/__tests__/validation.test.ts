@@ -192,3 +192,8 @@ it.each([
     expect.objectContaining({ tier: 'refuse', code: 'length-mismatch', record: { name: 'B', index: 2 } }),
   ]));
 });
+
+it('discloses the unverified table-1 assumption for an unknown genetic code', () => {
+  const result = parseGenBank(gb('atgtga', '     CDS             1..6\n                     /transl_table=99\n', 'X 6 bp DNA'));
+  expect(result.findings.find(f => f.code === 'unknown-genetic-code')?.message).toBe('/transl_table=99 is not an NCBI genetic code; residues assume table 1 (Standard) and are unverified.');
+});
