@@ -19,7 +19,7 @@
  */
 
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { conceptualTranslation, compareTranslation } from '../translation';
 import type { BioFeature } from '../types';
 const f = (sequence: string, values: string[]): BioFeature => ({ type: 'CDS', name: 'c', start: 0, end: sequence.length, strand: 1, segments: [{ start: 0, end: sequence.length }], translationExceptions: values });
@@ -62,15 +62,26 @@ it.each([
 });
 it.each(['R', 'R.1', 'R.2', 'X.1'])('resolves exact qualified identity %s', identity => {
   const result = conceptualTranslation(f('ATGTGATAA', [`(pos:${identity}:4..6,aa:Sec)`]), { sequence: 'ATGTGATAA', accession: 'R', version: 'R.1' });
-  expect(result).toMatchObject(['R', 'R.1'].includes(identity) ? { status: 'ok', residues: 'MU' } : { status: 'unavailable', exceptions: [{ status: 'deferred' }] });
+  expect(result).toMatchObject(['R', 'R.1'].includes(identity) ? { status: 'ok', residues: 'MU' } : { status: 'ok', residues: 'M*', exceptions: [{ status: 'dropped' }] });
 });
 it('retains the pre-trimming terminal slot evidence', () => {
   expect(run('ATGTA', ['(pos:4..5,aa:TERM)'])).toMatchObject({ residues: 'M', exceptions: [{ bases: [3, 4], codonIndex: 1, possible: '*' }] });
 });
-it('does not choose conflicting survivors', () => {
-  expect(run('ATGTGATAA', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'])).toMatchObject({ status: 'unavailable', exceptions: [{ status: 'deferred' }, { status: 'deferred' }] });
+it('drops all conflicting survivors and reads ordinary DNA', () => {
+  expect(run('ATGTGATAA', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'])).toMatchObject({ status: 'ok', residues: 'M*', exceptions: [{ status: 'dropped' }, { status: 'dropped' }] });
 });
 
 it('rejects explicit contrary orientation even for a single terminal base', () => {
   expect(run('ATGT', ['(pos:complement(4),aa:TERM)'])).toMatchObject({ status: 'unavailable', exceptions: [{ status: 'malformed', reason: expect.stringContaining('orientation') }] });
+});
+
+it('does not iterate over unrelated record bases when the CDS has no exceptions', () => {
+  const sequence = 'ATGAAATAA' + 'N'.repeat(9000);
+  const original = String.prototype[Symbol.iterator];
+  const iterator = vi.spyOn(String.prototype, Symbol.iterator).mockImplementation(function(this: string) {
+    if (String(this) === sequence) throw new Error('whole-record iteration');
+    return original.call(this);
+  });
+  try { expect(conceptualTranslation(f('ATGAAATAA', []), { sequence })).toMatchObject({ residues: 'MK' }); }
+  finally { iterator.mockRestore(); }
 });

@@ -187,11 +187,17 @@ codon, unsupported short stop or unknown residue), overriding #286's warning-onl
 policy for this qualifier. Recognized INSDC names are case-insensitive, including one-letter
 forms. Otherwise-valid unusable entries are dropped with visible notice and computation uses
 the valid entries. OTHER/Xaa compares as any sense residue including U/O, never a definite stop.
-No silent rounding, X fallback or automatic correction is allowed. Plain-move handling,
-GFF3/project refusal scope, other-accession disposition, conflict survivors and clipped
-translation/frame policy remain [awaiting owner](../specs/2026-11-06-translation-transl-except.md#open-decisions).
-The implementation follows these approved rules with the held seams below. NCBI parser/validator execution
-remains unverified.
+No silent rounding, X fallback or automatic correction is allowed. Owner decisions A–F and H
+(2026-11-07) resolve the import, editing, selection and export policies described below.
+
+**Executed reference probes (orchestrator, 2026-11-07).** table2asn 1.29.324,
+`-i X.fsa -f X.tbl -o results/X.sqn -V vb`, codon_start 1: split Sec MU, reverse Sec MUP,
+partial TERM M, duplicate Sec MU (collapsed by NCBI). Diagnostics were ShortIntron for split,
+PartialProblemHasStop for partial TERM, none for reverse/duplicate. Off-frame Sec gave MU with
+Critical CDSrange/TranslExceptPhase; the app refuses it under decision 6. Conflicting Sec/Pyl
+gave MO with DuplicateTranslExcept; the app drops both and computes DNA M* under decision E.
+Pinned download gzip SHA-256 and the exact evidence scope are in the
+[PR 2 spec](../specs/2026-11-06-translation-transl-except.md#executed-reference-evidence--2026-11-07).
 
 **Reference tools.** Biopython 1.88, Tested: not applied (C3 → `M*P*`; `cds=True` raises on the
 in-frame TGA).
@@ -206,9 +212,9 @@ Otherwise-valid outside/repeated-visit assertions are removed with visible notic
 the retained assertions. Stored imported proteins remain supplied data. Exact qualified identifiers
 match only the record's accession or version fields; no display-name alias or remote fetching occurs.
 OTHER/Xaa permits every sense residue including U/O, while definite stops remain incompatible.
-Identical assertions preserve multiplicity and apply once; conflicts remain unavailable pending owner.
-The independent runtime NCBI conformance gate remains pending; literal hand-derived tests are executed
-separately and do not claim NCBI parser execution.
+Identical assertions preserve multiplicity and apply once; conflicting assertions all drop with
+notices and their codon reads from DNA (owner E). Literal hand-derived regression tests supplement
+the supplied NCBI execution evidence; no broader reference-tool coverage is inferred.
 
 Preferring a stored `/translation` does not establish that it remains valid after an edit;
 [#253](https://github.com/JoaoVictorDaijo/dunceious/issues/253) tracks that separate fidelity issue.
@@ -231,9 +237,12 @@ A retained terminal stop/residue mixture is X and marks the end uncertain.
 Counts are translation positions without the terminal stop, including internal stops and
 X/U/O. They use “aa” only without internal stops. Declared protein records, unresolved
 biological strands, nonlocal/multipart order locations and unknown completeness cannot
-establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed assertions retained through
-GFF3/project files and nonmatching accession identities make computation unavailable pending owner
-policy. Plain moves carrying code breaks temporarily refuse Save; reverse/reframe removes newly
+establish a CDS count or early-stop claim. Usable `/transl_except` assertions adjust that product. Malformed GFF3/project input refuses import atomically with the CDS/value/rule (owner B).
+Nonmatching exact identities drop with notice and computation uses the remaining entries (C).
+Plain moves compare ordered logical parts once before cleanup, including repeated and frame-skipped
+parts: same count, strand, length and order, one coordinate offset, unchanged codon_start. Only
+circular origin-contiguous same-strand splits normalize into one wrapping part. Unchanged surviving
+assertions match previous occurrences independently of row index, with duplicate multiplicity (A); reverse/reframe removes newly
 unusable inherited breaks with notices before Save completes. Malformed new authoring refuses Save.
 
 Comparison preserves supplied proteins. Stored X is compatible with an ordinary residue,
@@ -241,7 +250,7 @@ but not a definite DNA stop; ambiguous codons accept members of their contextual
 set. Length differences count positions, including stops. Residue or length discrepancies
 count once per CDS in the per-file warning; `/exception` suppresses that warning without
 hiding the explanation. These wildcard and warning policies are Dunceious choices, validated
-against the design's literal, hand-derived cases. No external validator execution is claimed.
+against the design's literal, hand-derived cases. External validator evidence is limited to the executed probes above.
 
 The only stored protein is `metadata.translation`, with `_translationSource` imported,
 computed or removed. The derived `_translationCheck` is disposable string-valued JSON,
@@ -251,19 +260,53 @@ an imported protein qualifier remains supplied data. Protein GenBank export and 
 phase editor have owner decisions dated 2026-11-06: keep supplied `/translation` on
 protein CDS export; make phase read-only and edit frame via `/codon_start`. The phase editor displays a read-only derived phase; frame edits use `/codon_start`.
 
-### Exception interchange and held policies
+### Exception interchange and export policy
 
-GenBank and GFF3 preserve repeated exception values in the canonical ordered array. GFF3 splits
-raw comma lists before decoding and emits the list once on the first multipart row. Project
-format 2 preserves the array, strips derived translation checks on save, and recomputes them on load.
-Selection JSON rebases retained codons on copies, drops cut-destroyed codons, marks cut ends and
-reports every loss before download. Clipped protein omission and the existing frame formula remain
-unchanged pending owner policy. There is no reversed or GenBank/GFF3 selection-export action.
+GenBank and GFF3 preserve ordered exception arrays; GFF3 splits raw lists before decoding and
+emits the array once on the first multipart row. Format 2 projects preserve arrays, discard caches
+and refuse malformed assertions without migration. Selection JSON validates shape before rebasing
+and preserves each position's strand. Malformed in-memory assertions stay literal and unavailable,
+with a notice; strict project reopen refuses them. The source record is never mutated.
 
-Non-printable GenBank text remains held: existing newline folding remains lossy; other control
-characters refuse export with the logical value. General free-text wrapping limits remain #308.
-Malformed code breaks reaching the writer refuse export defensively. Compact exception values wrap
-only after commas; their physical continuations concatenate without inserted characters. Readers
-that insert whitespace after those commas still retain parseable locations. A token with no fitting
-comma retains the existing overlong-line limitation. Another accession and
-conflicting residues retain assertions with unavailable computation; neither is silently dropped.
+Clipped CDSs use the shared CDS predicate (CDS, cds, SO:0000316) for both frame adjustment and
+recomputation, mark cut ends, retain INSDC frame through the existing removed-base formula and store
+only a newly computed kept-part protein under ordinary eligibility/internal-stop guards (D).
+After clipping/rebasing, the shared geometry evaluator rechecks each candidate against the kept
+CDS and adjusted codon_start before protein computation. Keeping every named base does not ensure
+codon membership when other multipart visits were cut. Newly unusable breaks are removed with
+their original occurrence and literal value in the selection loss notice, independently of table
+eligibility. Already malformed in-memory source assertions retain the literal-preservation policy above.
+GenBank/GFF3 selection export and reversed selection remain future work.
+
+GenBank refuses Unicode controls Cc and line/paragraph separators Zl/Zp, naming literal value and
+rule (F). Printable non-ASCII values such as é/µ/± export unchanged with a warning naming the value
+and INSDC's printable ASCII 32–126 rule through ExportReport, preview and download logs.
+**Backed by: INSDC + owner decision (warn but allow), 2026-11-07.** GFF3/project retain all text.
+General free-text wrapping limitations remain #308. Compact exceptions wrap after commas and their
+continuations concatenate without added characters. No fitting comma retains the overlong-token
+limitation. The writer defensively refuses malformed code breaks; no biological repairs are made.
+
+### Geometry validation and unavailable products
+
+`geometryCodeBreakEvidence` owns syntax, shape, membership, conflict classification and optional
+selection rebasing/cut-loss evidence from local nucleotide geometry/frame without
+requiring a supported genetic code or computing amino acids. All import boundaries consume
+that evidence independently of the conceptual translator's primary reason. Thus table 999
+retains invalid-code while off-frame, partial-codon and contrary-orientation assertions still
+refuse import. Unknown/unavailable geometry is deferred rather than guessed; a valid but empty
+coding visit list is known geometry, so obsolete inherited complete breaks are removed before Save.
+A shape-valid assertion on an unavailable product is deferred application, never a verified residue.
+
+Bare GFF3 transl_except attributes are refused even without '='; diagnostics name the feature,
+literal attribute and required structured value syntax. The whole attachment remains atomic.
+
+All geometry consumers use that shared evaluator directly for break decisions. Invalid table 999
+cannot suppress conflicts or selection rebasing; conceptual translation alone decides whether a
+protein may be computed. Selection evidence keeps original raw values/occurrence indices and a
+separate rebased logical value. Conflicts are classified before the invalid-code primary return.
+Protein records remain unmapped supplied data under PR 1's guard, including remote-qualified raw
+values; their amino-acid coordinates are not treated as nucleotide coordinates.
+
+GenBank/GFF3 writers trust normalized ingress/Save state, with no new writer cleanup. GFF3 preserves
+raw arrays; GenBank retains its defensive malformed/text errors and whole-record invalid-table
+omission. This record-level omission is separate from geometry decisions about individual breaks.

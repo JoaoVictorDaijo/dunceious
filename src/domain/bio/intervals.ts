@@ -18,8 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { SelectionLoss } from './types';
-import { parseCodeBreak } from './translationExceptions';
+import type { SelectionArea, SelectionLoss } from './types';
+import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite } from './locationFlags';
@@ -171,7 +171,6 @@ function clipFeature(
     delete result.locationString;
   }
 
-  // TODO(#253): settle clipped product/frame policy; retain omission and the existing frame formula.
   const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
   if (!clipped) return result;
   if (feature.metadata) {
@@ -181,7 +180,7 @@ function clipFeature(
     delete result.metadata._gffPhaseState;
     delete result.metadata.phase;
   }
-  if (feature.type === 'CDS' || feature.type === 'SO:0000316') {
+  if (isCds(feature)) {
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
@@ -237,37 +236,22 @@ export function sliceRecordsBySelection(
   const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
 
     const slicedFeatures = record.features
       .map(feature => {
         const result = clipFeature(feature, seq, selStart, selEnd);
         if (!result) return null;
         const clipped = (feature.segments?.length ? feature.segments : [feature]).some(part => part.start < selStart || part.end > selEnd);
-        if (clipped && ['CDS', 'cds', 'SO:0000316'].includes(feature.type)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
-        if (feature.translationExceptions) result.translationExceptions = feature.translationExceptions.flatMap((raw, occurrence) => {
-          const parsed = parseCodeBreak(raw, feature.strand);
-          if (typeof parsed === 'string') return [raw];
-          if (parsed.positions.some(p => p.identity && p.identity !== record.accession && p.identity !== record.version)) return [raw];
-          const missing = parsed.positions.filter(p => p.base < selStart || p.base >= selEnd);
-          if (missing.length) {
-            losses.push({ record: record.id, feature: feature.name, occurrence, raw, reason: `${missing.length === parsed.positions.length ? 'wholly excluded codon' : 'selection destroys codon'}; lost entry bases ${missing.map(p => p.base + 1).join(', ')}` });
-            return [];
-          }
-          const positions = parsed.positions.map(p => ({ ...p, base: p.base - selStart }));
-          const minus = positions.every(p => p.strand === -1);
-          const ordered = minus ? [...positions].reverse() : positions;
-          const chunks: string[] = [];
-          for (let i = 0; i < ordered.length;) {
-            let end = i;
-            while (end + 1 < ordered.length && ordered[end + 1].base === ordered[end].base + 1) end++;
-            chunks.push(i === end ? String(ordered[i].base + 1) : `${ordered[i].base + 1}..${ordered[end].base + 1}`);
-            i = end + 1;
-          }
-          let location = chunks.length === 1 ? chunks[0] : `join(${chunks.join(',')})`;
-          if (minus) location = `complement(${location})`;
-          return [`(pos:${location},aa:${raw.match(/aa:\s*([A-Za-z]+)/i)![1]})`];
-        });
+        if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
+        if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
+        if (clipped && isCds(result)) {
+          const product = conceptualTranslation(result, selectedRecord);
+          result.metadata = { ...result.metadata, _translationSource: product.status === 'ok' && !product.internalStops.length ? 'computed' : 'removed' };
+          if (product.status === 'ok' && !product.internalStops.length) result.metadata.translation = product.residues;
+          else delete result.metadata.translation;
+        }
         return result;
       })
       .filter((f): f is BioFeature => f !== null);
@@ -291,4 +275,29 @@ export function sliceRecordsBySelection(
     };
   });
   return { records: sliced, losses };
+}
+
+function selectedCodeBreaks(
+  feature: BioFeature,
+  record: SeqRecord,
+  selectedFeature: BioFeature,
+  selectedRecord: SeqRecord,
+  selection: Pick<SelectionArea, 'start' | 'end'>,
+  losses: SelectionLoss[],
+): string[] {
+  const candidates = geometryCodeBreakEvidence(feature, record, selection).flatMap(source => {
+    if (source.status === 'applied') return [{ source, value: source.rebased! }];
+    losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
+    return source.status === 'dropped' ? [] : [{ source, value: source.raw }];
+  });
+  const evaluated = geometryCodeBreakEvidence({ ...selectedFeature, translationExceptions: candidates.map(item => item.value) }, selectedRecord);
+  return candidates.flatMap(({ source, value }, index) => {
+    const transformed = evaluated[index];
+    // Surviving bases can cease to be a codon when clipping removes other visits in a multipart CDS.
+    if (source.status === 'applied' && transformed.status !== 'applied') {
+      losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
+      return [];
+    }
+    return [value];
+  });
 }

@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
+import { malformedCodeBreakMessage, checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
@@ -165,7 +165,11 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   for (const record of value.records as SeqRecord[]) {
     for (const feature of record.features) {
       if (hasPartialStrands(feature)) return { ok: false, message: `Feature ${feature.name} has a strand on some of its pieces but not others.` };
+      const scalar = feature.metadata?.transl_except ?? feature.unknownQualifiers?.transl_except;
+      if (scalar !== undefined) return { ok: false, message: `CDS ${feature.name}, /transl_except ${JSON.stringify(scalar)}: canonical translationExceptions array required; scalar qualifiers are invalid project data` };
       delete feature.biological;
+      const malformed = malformedCodeBreakMessage(withLegacyLocation(feature, record), record);
+      if (malformed) return { ok: false, message: malformed };
     }
     if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();

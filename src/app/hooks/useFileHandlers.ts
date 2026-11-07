@@ -345,7 +345,7 @@ export function useFileHandlers(
       const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
       addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
     }
-    for (const warning of result.report.translationWarnings) addLog(`WARNING: ${warning}`);
+    for (const warning of [...result.report.translationWarnings, ...result.report.qualifierWarnings]) addLog(`WARNING: ${warning}`);
     for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
     if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
     if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);

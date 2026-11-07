@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { conceptualTranslation } from '@/src/domain/bio/translation';
+import { geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
 import { codeBreakMessage } from '@/src/domain/bio/translationExceptions';
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import { validCodonStart, isGenBankResidue } from '@/src/domain/bio/genbankValidation';
@@ -53,12 +53,12 @@ export function validateRecord(record: SeqRecord, lines: string[], finding: Find
       }
     }
     if (feature.translationExceptions?.length) {
-      const result = conceptualTranslation(feature, record);
-      for (const evidence of result.exceptions ?? []) {
-        if (evidence.status === 'malformed') report('refuse', 'malformed-qualifier', codeBreakMessage(evidence));
-        else if (evidence.status === 'dropped' || evidence.status === 'deferred') report('warning', 'unusable-code-break', codeBreakMessage(evidence));
+      const evidence = geometryCodeBreakEvidence(feature, record);
+      for (const item of evidence) {
+        if (item.status === 'malformed') report('refuse', 'malformed-qualifier', codeBreakMessage(item));
+        else if (item.status === 'dropped' || item.status === 'deferred') report('warning', 'unusable-code-break', codeBreakMessage(item));
       }
-      const dropped = new Set(result.exceptions?.filter(e => e.status === 'dropped').map(e => e.occurrence));
+      const dropped = new Set(evidence.filter(e => e.status === 'dropped').map(e => e.occurrence));
       feature.translationExceptions = feature.translationExceptions.filter((_, i) => !dropped.has(i));
     }
     if (feature.type === 'CDS') {

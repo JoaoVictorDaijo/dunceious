@@ -81,23 +81,28 @@ export function codeBreakEvidence(feature: BioFeature, record: Pick<SeqRecord, '
     if (typeof parsed === 'string') return fail('malformed', parsed);
     evidence.bases = parsed.positions.map(p => p.base);
     evidence.possible = parsed.possible;
-    // TODO(#253): choose refusal or drop for another exact accession; retain and withhold computation.
-    if (parsed.positions.some(p => p.identity && p.identity !== record.accession && p.identity !== record.version)) return fail('deferred', 'another exact accession/version; awaiting owner');
+    if (parsed.positions.length < 3 && parsed.possible !== '*') return fail('malformed', 'incomplete codon: short code break requires TERM');
+    if (parsed.positions.some(p => p.identity && p.identity !== record.accession && p.identity !== record.version)) return fail('dropped', 'another exact accession/version');
     if (!baseMap || codingSeq === undefined) return fail('deferred', 'CDS geometry is unavailable');
     const offsets = evidence.bases.map(base => baseMap.flatMap((b, i) => b === base ? [i] : []));
-    if (offsets.some(visits => visits.length > 1)) return fail('dropped', 'repeated base visits do not identify one codon');
     if (offsets.every(visits => !visits.length) && evidence.bases.length === 3) return fail('dropped', 'whole codon is outside CDS');
     const geometry = feature.biological ?? feature;
     const parts = geometry.segments?.length ? geometry.segments : [geometry];
     if (parsed.positions.some(position => parts.some(part =>
       (part.start <= part.end ? position.base >= part.start && position.base < part.end : position.base >= part.start || position.base < part.end)
       && (part.strand ?? feature.strand) !== position.strand))) return fail('malformed', 'contrary-orientation code break');
+    if (parsed.positions.length < 3 && !((baseMap.length - parsed.positions.length) % 3 === 0
+      && /^(T|TA)$/.test(codingSeq.slice(-parsed.positions.length))
+      && evidence.bases.every((base, i) => base === baseMap[baseMap.length - parsed.positions.length + i]))) return fail('malformed', 'incomplete codon: short TERM requires terminal T or TA');
+    if (offsets.some(visits => visits.length > 1)) {
+      if (!offsets[0].some(start => start % 3 === 0 && evidence.bases!.every((base, i) => baseMap[start + i] === base))) return fail('malformed', 'off-frame or contrary-orientation code break');
+      return fail('dropped', 'repeated base visits do not identify one codon');
+    }
     if (offsets.some(visits => !visits.length)) return fail('malformed', 'incomplete codon in CDS');
     const indices = offsets.map(visits => visits[0]);
     const first = indices[0];
     if (first % 3 !== 0 || indices.some((offset, i) => offset !== first + i)) return fail('malformed', 'off-frame or contrary-orientation code break');
     evidence.codonIndex = first / 3;
-    if (indices.length < 3 && !(parsed.possible === '*' && first + indices.length === baseMap.length && /^(T|TA)$/.test(codingSeq.slice(first)))) return fail('malformed', 'incomplete codon: short TERM requires terminal T or TA');
     const warnings: string[] = [];
     if (/aa:\s*OTHER\s*\)$/i.test(raw) && !feature.metadata?.note) warnings.push('OTHER/Xaa requires an explanatory note');
     if (indices.length < 3 && !feature.metadata?.note) warnings.push('terminal T/TA polyadenylation requires an explanatory note');
@@ -107,4 +112,29 @@ export function codeBreakEvidence(feature: BioFeature, record: Pick<SeqRecord, '
 
 export function codeBreakMessage(evidence: TranslationExceptionEvidence): string {
   return `CDS ${evidence.feature}, /transl_except occurrence ${evidence.occurrence} ${JSON.stringify(evidence.raw)}: ${evidence.reason ?? evidence.status}`;
+}
+
+/** Preserve biological visit order and each position's strand when transforming entry coordinates. */
+export function transformCodeBreak(raw: string, strand: 1 | -1, offset: number, keepIdentity = true, circularLength?: number): string {
+  const parsed = parseCodeBreak(raw, strand);
+  if (typeof parsed === 'string') return raw;
+  const positions = parsed.positions.map(position => {
+    const base = position.base + offset;
+    return { ...position, base: circularLength ? ((base % circularLength) + circularLength) % circularLength : base };
+  });
+  const chunks: string[] = [];
+  for (let i = 0; i < positions.length;) {
+    let end = i;
+    const first = positions[i];
+    while (end + 1 < positions.length && positions[end + 1].strand === first.strand
+      && positions[end + 1].identity === first.identity && positions[end + 1].base === positions[end].base + first.strand) end++;
+    const last = positions[end];
+    const identity = keepIdentity && first.identity ? `${first.identity}:` : '';
+    const span = i === end ? `${first.base + 1}` : `${Math.min(first.base, last.base) + 1}..${Math.max(first.base, last.base) + 1}`;
+    const location = identity + span;
+    chunks.push(first.strand === -1 ? `complement(${location})` : location);
+    i = end + 1;
+  }
+  const location = chunks.length === 1 ? chunks[0] : `join(${chunks.join(',')})`;
+  return `(pos:${location},aa:${raw.match(/aa:\s*([A-Za-z]+)/i)![1]})`;
 }

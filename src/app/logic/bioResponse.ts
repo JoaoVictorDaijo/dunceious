@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, translationWarning } from '@/src/domain/bio/translation';
+import { malformedCodeBreakMessage, checkTranslation, translationWarning } from '@/src/domain/bio/translation';
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
@@ -115,7 +115,7 @@ export function applyAnnotations(
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
   details: Record<string, GffSourceRegion> = {},
   idMap?: BatchIdMap,
-): { next: SeqRecord[]; totalAdded: number; unmatched: string[] } {
+): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; refusal?: string } {
   let totalAdded = 0;
   const next = [...prev];
   const unmatched: string[] = [];
@@ -161,6 +161,11 @@ export function applyAnnotations(
         tracks: [...(record.tracks ?? []), ...items.filter((i): i is QuantitativeTrack => 'data' in i)],
       };
       totalAdded += items.length;
+    }
+    for (const item of items) {
+      if ('data' in item) continue;
+      const refusal = malformedCodeBreakMessage(item, record);
+      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], refusal };
     }
     next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
