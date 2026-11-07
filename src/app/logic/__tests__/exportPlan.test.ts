@@ -26,6 +26,8 @@ import { parseGenBank } from '@/src/core/genbank';
 import { parseGFF3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToFasta } from '@/src/core/formats/fasta';
+import { checkTranslation } from '@/src/domain/bio/translation';
+import { saveEditedFeature } from '../featureManager';
 import { initialExportSelection, describeExport, serializeExport } from '../exportPlan';
 
 const records: SeqRecord[] = ['a', 'b', 'c'].map(id => ({ id, name: id, sequence: 'ACGT', features: [
@@ -149,7 +151,7 @@ it('preserves origin-crossing GenBank joins through export filtering and re-impo
   expect(result.text).toContain('join(2427..3308,1..1758)');
   expect(result.text).toContain('join(2992..3308,1..964)');
   expect(result.report.writtenDetails.organism).toBe(1);
-  const parsed = parseGenBank(result.text)[0];
+  const parsed = parseGenBank(result.text).records[0];
   expect(parsed.isCircular).toBe(true);
   expect(parsed.features.filter(feature => feature.type === 'CDS').map(feature => feature.locationString)).toEqual(['join(2427..3308,1..1758)', 'join(2992..3308,1..964)', '2021..2587']);
   expect(parsed.features.some(feature => feature.type === 'mat_peptide')).toBe(false);
@@ -170,4 +172,70 @@ it('round-trips origin-crossing GFF3 parts with valid intervals and source quali
   expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'pol')?.segments).toEqual([{ start: 2426, end: 3308 }, { start: 0, end: 1758 }]);
   expect(parsed.features.J02442.find(feature => feature.metadata?.gene === 'env')?.segments).toEqual([{ start: 2991, end: 3308 }, { start: 0, end: 964 }]);
   expect(parsed.details.J02442).toMatchObject({ details: { organism: 'Hepatitis B virus', host: 'human', location: 'Brazil', collectionDate: '2020' } });
+});
+
+it('warns on separate lines for each location skip reason', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', fileDetails: { organism: 'synthetic construct' }, features: [
+    { name: 'edge', type: 'gene', start: 0, end: 0, strand: 1 },
+    { name: 'invalid', type: 'gene', start: 8, end: 2, strand: 1 },
+  ] };
+  const { summary } = describeExport([record], 'genbank');
+  expect(summary.split('\n')).toContain("1 feature not written: a site at a linear sequence's edge has no GenBank location");
+  expect(summary.split('\n')).toContain('1 feature not written: its location is invalid (outside the sequence or reversed)');
+});
+
+it('previews the damaged GenBank omission and separate unaligned FASTA file', () => {
+  const rows = [{ id: 'bad', name: 'bad', sequence: 'AC-GT', features: [] }];
+  expect(describeExport(rows, 'genbank').summary).toContain('bad not exported: its sequence contains gap characters');
+  expect(describeExport([{ ...rows[0], sequence: 'ACGT' }], 'fasta', { residues: 'aligned', fileName: 'picked.fasta' }).summary)
+    .toContain("1 sequences aren't in the alignment and will be saved separately in picked_unaligned.fasta");
+});
+
+it('uses the same damaged-record reasons in preview and export even when annotations are filtered', () => {
+  const bad: SeqRecord = { id: 'bad', name: 'bad', sequence: 'ACGT', features: [{ type: 'CDS', name: 'invalid', start: 0, end: 4, strand: 1, metadata: { codon_start: '' } }] };
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACGT', features: [] };
+  const options = { types: new Set(['gene']) };
+  const preview = describeExport([bad, good], 'genbank', options);
+  const output = serializeExport([bad, good], 'genbank', options);
+  expect(preview.report).toEqual(output.report);
+  expect(preview.summary).toContain('bad not exported: CDS invalid has an invalid /codon_start');
+  expect(output.text.match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+4 bp/)]);
+  expect(serializeExport([bad], 'genbank', options).text).toBe('');
+});
+
+it('carries the saved internal-stop removal warning in project export and preview', () => {
+  const original: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAAATGTGATAA', features: [{
+    type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+    metadata: { translation: 'MK', _translationSource: 'imported' },
+  }] };
+  const feature = original.features[0];
+  const changed = saveEditedFeature([original], 'r', 0, { ...feature, start: 9, end: 18, segments: [{ start: 9, end: 18 }] });
+  const output = serializeExport(changed, 'project');
+  const preview = describeExport(changed, 'project');
+  expect(output.report.translationWarnings).toHaveLength(1);
+  expect(output.report.translationWarnings[0]).toContain('c: Translation removed after edit: internal stop at codon 2; fix the CDS or mark it /pseudo');
+  expect(preview.report).toEqual(output.report);
+  expect(preview.summary).toContain('internal stop at codon 2; fix the CDS or mark it /pseudo');
+  const saved = JSON.parse(output.text);
+  expect(saved.format).toBe(2);
+  expect(saved.records[0].features[0].metadata.translation).toBeUndefined();
+  expect(saved.records[0].features[0].metadata._translationSource).toBe('removed');
+  expect(serializeExport([original], 'project').report.translationWarnings).toEqual([]);
+  expect(describeExport([original], 'project').summary).not.toContain('Translation removed');
+});
+
+it('previews the actual normalized export without restoring a dropped foreign qualifier', () => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence: 'ATGAAATAA', moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation: 'MK', transl_table: '11' }, translationExceptions: ['(pos:X.1:4..6,aa:Sec)'] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ const record = { ...source, features: [feature] };
+ const snapshot = JSON.stringify(record);
+ const preview = describeExport([record], 'genbank');
+ const output = serializeExport([record], 'genbank');
+ expect(preview.report).toEqual(output.report);
+ expect(output.text).toContain('/translation="MK"');
+ expect(output.text).not.toContain('/transl_except=');
+ expect(output.text).not.toContain('X.1');
+ expect(JSON.stringify(record)).toBe(snapshot);
 });

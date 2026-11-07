@@ -18,10 +18,19 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { translationSummary } from '@/src/app/viewer/translationPresentation';
+import { TOOLTIP_INVALIDATE } from '../TooltipLayer';
+import { displayLocation } from '@/src/app/logic/displayLocation';
+import { checkedTranslation, isCds, storedTranslation, translationReason } from '@/src/domain/bio/translation';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
+import { assumedTranslation } from '@/src/domain/bio/assumedTranslation';
+import { extractCodingSequence, featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
+import { CDS_ORF_TYPES, geneticCodeWarning, isTranslatedFeature } from '@/src/app/viewer/cds';
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
-import { featureLength } from '@/src/app/logic/viewModel';
+import { featureLengthText } from '@/src/app/logic/viewModel';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 export type TrackHover = { record: SeqRecord; feature: BioFeature; color: string; x: number; y: number };
@@ -37,14 +46,53 @@ export function TrackTooltipProvider({ children }: { children: ReactNode }) {
     if (current.current?.feature === next?.feature && current.current?.record === next?.record) return;
     current.current = next; setHover(next);
   }, []);
+  useLayoutEffect(() => {
+    const close = () => { current.current = null; owner.current = null; setHover(null); };
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener(TOOLTIP_INVALIDATE, close);
+    document.addEventListener('keydown', key);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener(TOOLTIP_INVALIDATE, close);
+      document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, []);
   return <TrackTooltipContext.Provider value={update}>{children}{hover && createPortal(<TrackTooltip hover={hover} />, document.body)}</TrackTooltipContext.Provider>;
 }
+function unverifiedCount(protein: string): string {
+  const residues = protein.endsWith('*') ? protein.slice(0, -1) : protein;
+  const stops = [...residues].filter(r => r === '*').length;
+  return stops
+    ? `${residues.length.toLocaleString('en-US')} positions, ${stops.toLocaleString('en-US')} stop${stops === 1 ? '' : 's'}`
+    : `${residues.length.toLocaleString('en-US')} aa`;
+}
+
 function TrackTooltip({ hover }: { hover: TrackHover }) {
   const { feature, record, color } = hover;
-  const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments);
   const strand = getFeatureStrand(feature);
-  const aminoAcids = feature.metadata?.translation?.replace(/\s/g, '').length ?? Math.floor(Math.max(0, length - (Number(feature.metadata?.codon_start || 1) - 1)) / 3);
-  const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
+  const frameWarning = record.moleculeType !== 'protein' && CDS_ORF_TYPES.includes(feature.type) && !validCodonStart(feature.metadata?.codon_start)
+    ? geneticCodeWarning(feature) : null;
+  const location = displayLocation(feature, record);
+  const conceptual = checkedTranslation(feature, { ...record, biologicalLength: record.sequence.length });
+  const metric = conceptual.status === 'ok'
+    ? conceptual.internalStops.length ? `${conceptual.residues.length} positions, ${conceptual.internalStops.length} internal stop${conceptual.internalStops.length === 1 ? '' : 's'}` : `${conceptual.residues.length} aa`
+    : `can't verify: ${translationReason(conceptual, feature)}`;
+  const geometry = formatInsdcLocation({ ...feature, ...feature.biological }, { length: record.sequence.length, isCircular: record.isCircular });
+  const invalidGeometry = geometry.kind === 'no-insdc-form' && geometry.reason === 'invalid-geometry';
+  const translated = record.moleculeType !== 'protein' && isTranslatedFeature(feature);
+  const invalidCode = translated && !isNcbiGeneticCode(featureTranslTable(feature));
+  const assumed = !invalidGeometry && !frameWarning && invalidCode && (strand === 1 || strand === -1) && !storedTranslation(feature) ? assumedTranslation(feature, extractCodingSequence(feature, record.sequence, { isCircular: record.isCircular, biologicalLength: record.sequence.length }).codingSeq) : undefined;
+  const count = !invalidGeometry && !frameWarning && invalidCode && (strand === 1 || strand === -1)
+    ? unverifiedCount(storedTranslation(feature) || assumed?.residues || '') : null;
+  const invalidReason = `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`;
+  const countReason = frameWarning || !invalidCode ? null : count === null ? geneticCodeWarning(feature)
+    : storedTranslation(feature)
+      ? `Count not verified: ${invalidReason}; the count is the annotation's /translation and can't be checked against the DNA.`
+      : `Count not verified: ${invalidReason}; table 1 assumed.`;
+  const reasonId = useId();
   const tip = useRef<HTMLDivElement>(null);
   const ref = useCallback((element: HTMLDivElement | null) => {
     tip.current = element;
@@ -55,8 +103,15 @@ function TrackTooltip({ hover }: { hover: TrackHover }) {
   }, [hover]);
   return <div ref={ref} role="tooltip" className="pointer-events-none fixed z-[100] max-w-xs rounded-xl border border-slate-800 bg-slate-900 p-3 text-xs text-slate-200 shadow-xl">
     <div className="mb-1 flex items-center gap-2"><span className="rounded-sm px-1.5 font-mono text-[11px]" style={{ background: color }}>{feature.type}</span><strong data-tooltip-feature>{feature.name}</strong></div>
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3"><dt>Location</dt><dd className="break-all font-mono">{location}</dd><dt>Length</dt><dd className="font-mono">{length.toLocaleString('en-US')} {record.moleculeType === 'protein' ? 'aa' : 'bp'}{feature.type === 'CDS' && record.moleculeType !== 'protein' && ` · ${aminoAcids.toLocaleString('en-US')} aa`}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
-    <p className="mt-2 text-slate-400">Click to jump to the row</p>
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3"><dt>Location</dt><dd className="break-all font-mono">{location}</dd><dt>Length</dt><dd className="font-mono">{featureLengthText(record, feature)}{!invalidGeometry && (frameWarning
+      ? ` · ${frameWarning}`
+      : invalidCode
+      ? count !== null && <> · <span data-unverified-count="" className="italic underline decoration-dotted underline-offset-2" aria-describedby={reasonId}>{count}</span></>
+      : isCds(feature) && record.moleculeType !== 'protein' && ` · ${metric}${conceptual.status === 'ok' && conceptual.threePrimeIndeterminate ? ' · end uncertain' : ''}`)}</dd><dt>Strand</dt><dd>{strand === 1 ? 'forward (+)' : strand === -1 ? 'reverse (−)' : 'unknown'}</dd><dt>Sequence</dt><dd className="font-mono">{record.id}</dd></dl>
+    <p className="mt-2 text-slate-400" title="Translation positions without the terminal stop; internal stops and X/U/O included.">Click to jump to the row</p>
+    {!invalidGeometry && isCds(feature) && conceptual.status === 'ok' && <p className="mt-2 text-[10px] text-slate-400">Translation positions without the terminal stop; internal stops and X/U/O included.</p>}
+    {isCds(feature) && <p className="mt-2 text-[10px] text-slate-400">{translationSummary(feature, conceptual)}</p>}
+    {countReason && <p id={reasonId} data-count-reason="" className="mt-2 text-[10px] text-slate-400">{countReason}</p>}
   </div>;
 }
 export function trackFeatureColor(feature: BioFeature, colors?: Record<string, string>) { return feature.color || getFeatureColor(feature.type, colors); }

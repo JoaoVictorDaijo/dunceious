@@ -18,10 +18,14 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
+import { malformedCodeBreakMessage } from '@/src/domain/bio/translation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
+import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
+import { parseLocation } from '../genbank/locationParser';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
+import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -71,34 +75,13 @@ function attributeValues(metadata: Record<string, string>, key: string): string[
   return [metadata[key]];
 }
 
-type PartialPart = [number, number, string, string];
-
-function partialParts(feature: BioFeature): PartialPart[] {
-  return Array.from((feature.locationString ?? '').matchAll(/([<>]?)([0-9]+)(?:\.\.([<>]?)([0-9]+))?/g), match =>
-    [Number(match[2]) - 1, Number(match[4] ?? match[2]), match[1], match[3] ?? ''] as PartialPart);
-}
-
-function restorePartialLocation(feature: BioFeature): void {
-  const saved = feature.metadata?._gffPartialEnds;
-  if (!saved) return;
-  const partials: PartialPart[] = JSON.parse(saved);
-  delete feature.metadata!._gffPartialEnds;
-  const mixed = feature.segments!.some(part => part.strand !== undefined);
-  const locations = feature.segments!.map(part => {
-    const markers = partials.find(([start, end]) => start === part.start && end === part.end);
-    const location = `${markers?.[2] ?? ''}${part.start + 1}..${markers?.[3] ?? ''}${part.end}`;
-    return mixed && part.strand === -1 ? `complement(${location})` : location;
-  });
-  const location = locations.length > 1 ? `join(${locations.join(',')})` : locations[0];
-  feature.locationString = !mixed && feature.strand === -1 ? `complement(${location})` : location;
-}
-
 function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
   return JSON.stringify([feature.start, feature.end, feature.strand, segments, feature.metadata?.codon_start]);
 }
 
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') return segments.map(() => '.');
+  if (!validCodonStart(feature.metadata?.codon_start)) return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
   const legacy = !feature.metadata?._gffPhaseState && feature.metadata?.codon_start === undefined;
   if (imported && (legacy || feature.metadata?._gffPhaseState === phaseState(feature, segments))) {
@@ -182,25 +165,55 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
     for (const [featureIndex, feature] of record.features.entries()) {
+      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
       if (feature.type === 'source') continue;
+      const remote = feature.remoteParts ?? [];
+      // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
+      if (remote.length && !feature.segments?.length) {
+        report.remoteOnlyOmitted++;
+        continue;
+      }
       const segments = feature.segments?.length ? feature.segments : splitWrapAround(feature.start, feature.end, length);
       const phases = partPhases(feature, segments);
       const so = soTypeFor(feature.type);
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
       addQualifiers(attrs, metadata, referenceIds, report);
+      if (feature.translationExceptions?.length) attrs.transl_except = feature.translationExceptions;
       const searchNote = searchHitNote(feature);
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
-      const partials = partialParts(feature);
+      if (isOrderLocation(feature) && segments.length + remote.length > 1) attrs.insdc_operator = 'order';
+      // GFF3 cannot tell join(complement(a),complement(b)) from complement(join(a,b)) (LOC-3).
+      if (segments.some(segment => segment.strand !== undefined)) attrs.insdc_interval_strands = 'true';
+      // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
+      if (feature.writtenOrder) attrs.insdc_written_order = feature.writtenOrder.map(String);
+      if (remote.length) {
+        // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
+        attrs.insdc_remote = remote.map(part => {
+          const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
+          return `${part.index}:${part.strand === -1 ? `complement(${span})` : span}`;
+        });
+        report.remotePartsCarried++;
+      }
+      if (isBetweenBasesSite(feature)) {
+        // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
+        attrs.insdc_site = 'true';
+        const direction = getFeatureStrand(feature);
+        const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
+        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(feature.start), String(feature.start), metadata.score ?? '.', strand, '.', attributeText(attrs)].join('\t'));
+        continue;
+      }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
-        const markers = partials.find(([start, end]) => start === segment.start && end === segment.end);
-        if (markers?.[2]) partAttrs.insdc_partial_start = markers[2];
-        if (markers?.[3]) partAttrs.insdc_partial_end = markers[3];
+        if (index > 0) delete partAttrs.transl_except;
+        const site = segment.start === segment.end;
+        if (site) partAttrs.insdc_site = 'true';
+        if (segment.partialStart) partAttrs.insdc_partial_start = '<';
+        if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
         const direction = segment.strand ?? getFeatureStrand(feature);
         const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
+        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
       });
     }
   }
@@ -231,11 +244,52 @@ function parseAttributes(raw: string): Record<string, string> {
     const key = decode(attribute.slice(0, equals));
     if (key.startsWith('_')) continue;
     const values = attribute.slice(equals + 1).split(',').map(decode);
+    if (key === 'transl_except') {
+      lists[key] = [...(lists[key] ?? []), ...values];
+      result[key] = lists[key].join(',');
+      continue;
+    }
     result[key] = values.join(',');
     if (values.length > 1) lists[key] = values;
   }
   if (Object.keys(lists).length) result._gffLists = JSON.stringify(lists);
   return result;
+}
+
+/** Reads and removes one of Dunceious's own `insdc_*` list attributes. */
+function takeListAttribute(feature: BioFeature, key: string): string | undefined {
+  const metadata = feature.metadata!;
+  const raw = metadata[key];
+  delete metadata[key];
+  if (metadata._gffLists) {
+    const lists = JSON.parse(metadata._gffLists);
+    delete lists[key];
+    if (Object.keys(lists).length) metadata._gffLists = JSON.stringify(lists);
+    else delete metadata._gffLists;
+  }
+  return raw;
+}
+
+/** Reads `insdc_remote` back into remote parts; nonremote values are skipped, but malformed location descriptors reject the file. */
+function takeRemoteParts(feature: BioFeature): RemotePart[] | undefined {
+  const raw = takeListAttribute(feature, 'insdc_remote');
+  if (raw === undefined) return undefined;
+  const parts = raw.split(',').flatMap(value => {
+    const item = value.match(/^(\d+):(.+)$/);
+    const [part] = item ? parseLocation(item[2]).remoteParts ?? [] : [];
+    return part ? [{ ...part, index: Number(item![1]) }] : [];
+  });
+  return parts.length ? parts : undefined;
+}
+
+/** Reads and removes `insdc_written_order`; a value that is not a permutation of the rows is dropped. */
+function takeWrittenOrder(feature: BioFeature): number[] | undefined {
+  const raw = takeListAttribute(feature, 'insdc_written_order');
+  if (raw === undefined) return undefined;
+  const order = raw.split(',').map(Number);
+  const length = feature.segments!.length;
+  const valid = order.length === length && new Set(order).size === length && order.every(i => Number.isInteger(i) && i >= 0 && i < length);
+  return valid ? order : undefined;
 }
 
 function normalizeCircularParts(feature: BioFeature, length: number): void {
@@ -275,16 +329,22 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const cols = line.split('\t');
     if (cols.length < 9) continue;
     const [encodedId, source, type, from, to, score, strand, phase, raw] = cols;
-    const start = Number(from) - 1;
-    const end = Number(to);
-    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) continue;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
-    const partialStart = /^[<>]$/.test(metadata.insdc_partial_start ?? '') ? metadata.insdc_partial_start : '';
-    const partialEnd = /^[<>]$/.test(metadata.insdc_partial_end ?? '') ? metadata.insdc_partial_end : '';
+    const bareException = raw.split(';').find(attribute => !attribute.includes('=') && decode(attribute).trim() === 'transl_except');
+    if (bareException !== undefined) throw new Error(`${metadata.insdc_type || type} ${metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${from}`}, attribute ${JSON.stringify(bareException)} requires transl_except=(pos:<location>,aa:<residue>) syntax`);
+    const site = metadata.insdc_site === 'true' && from === to;
+    delete metadata.insdc_site;
+    const start = site ? Number(from) : Number(from) - 1;
+    const end = Number(to);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || (site ? start < 1 : start < 0 || end <= start)) continue;
+    // GFF3 has no partial ends; the insdc_partial_* attributes carry INSDC's '<' and '>' per row.
+    const marks = {
+      ...(metadata.insdc_partial_start === '<' && { partialStart: true as const }),
+      ...(metadata.insdc_partial_end === '>' && { partialEnd: true as const }),
+    };
     delete metadata.insdc_partial_start;
     delete metadata.insdc_partial_end;
-    if (partialStart || partialEnd) metadata._gffPartialEnds = JSON.stringify([[start, end, partialStart, partialEnd]]);
     metadata.source = decodeSource(source);
     metadata.phase = phase;
     if (score !== '.') metadata.score = score;
@@ -296,15 +356,21 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const feature: BioFeature = {
       type: metadata.insdc_type || type,
       name: metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${start + 1}`,
-      start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end }], metadata,
+      start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end, ...marks }], metadata,
+      ...(site && { betweenBases: true as const }),
     };
+    if (metadata.transl_except !== undefined) {
+      feature.translationExceptions = attributeValues(metadata, 'transl_except');
+      takeListAttribute(feature, 'transl_except');
+    }
+    const malformed = malformedCodeBreakMessage(feature);
+    if (malformed) throw new Error(malformed);
     rows.push({ seqid, feature });
   }
 
   return rows;
 }
 
-// FIXME(annotation-hub): GFF3 cannot distinguish same-strand inner-complement joins from whole-feature complements.
 /** Candidates retain geometry so the import reducer can verify the loaded sequence's length. */
 export function parseGFF3(content: string): {
   features: Record<string, BioFeature[]>;
@@ -346,17 +412,16 @@ export function parseGFF3(content: string): {
     if (circular.has(seqid) && feature.end > lengths.get(seqid)!) {
       const length = lengths.get(seqid)!;
       const end = feature.end - length;
+      const [{ partialStart, partialEnd }] = feature.segments!;
       feature.segments = splitWrapAround(feature.start, end, length);
       feature.end = end;
-      if (metadata._gffPartialEnds) {
-        const [[, , left, right]]: PartialPart[] = JSON.parse(metadata._gffPartialEnds);
-        metadata._gffPartialEnds = JSON.stringify(feature.segments.map((part, index, parts) =>
-          [part.start, part.end, index === 0 ? left : '', index === parts.length - 1 ? right : '']));
-      }
+      if (partialStart) feature.segments[0].partialStart = true;
+      if (partialEnd) feature.segments[feature.segments.length - 1].partialEnd = true;
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }
     metadata._gffPhases ??= JSON.stringify([metadata.phase]);
+    if (metadata.translation !== undefined) metadata._translationSource = 'imported';
     const id = metadata.ID;
     const key = id ? JSON.stringify([seqid, id]) : undefined;
     const previous = key ? byId.get(key) : undefined;
@@ -367,11 +432,7 @@ export function parseGFF3(content: string): {
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         previous.strand = 1;
       }
-      if (metadata._gffPartialEnds) {
-        previous.metadata!._gffPartialEnds = JSON.stringify([
-          ...JSON.parse(previous.metadata!._gffPartialEnds ?? '[]'), ...JSON.parse(metadata._gffPartialEnds),
-        ]);
-      }
+      if (feature.translationExceptions) previous.translationExceptions = [...(previous.translationExceptions ?? []), ...feature.translationExceptions];
       previous.segments!.push(...feature.segments!);
       previous.start = Math.min(previous.start, feature.start);
       previous.end = Math.max(previous.end, feature.end);
@@ -384,8 +445,22 @@ export function parseGFF3(content: string): {
   }
   for (const [seqid, values] of Object.entries(features)) {
     for (const feature of values) {
-      if (circular.has(seqid)) normalizeCircularParts(feature, lengths.get(seqid)!);
-      restorePartialLocation(feature);
+      const remoteParts = takeRemoteParts(feature);
+      if (remoteParts) feature.remoteParts = remoteParts;
+      const intervals = feature.segments!.length + (remoteParts?.length ?? 0);
+      if (intervals > 1) {
+        delete feature.betweenBases;
+        feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
+      }
+      delete feature.metadata!.insdc_operator;
+      const perInterval = feature.metadata!.insdc_interval_strands === 'true';
+      delete feature.metadata!.insdc_interval_strands;
+      const writtenOrder = takeWrittenOrder(feature);
+      if (writtenOrder) feature.writtenOrder = writtenOrder;
+      if (writtenOrder || perInterval) {
+        // The rows are in evaluation order, each read on its own strand, as the parser stores them.
+        feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
+      } else if (circular.has(seqid) && !remoteParts) normalizeCircularParts(feature, lengths.get(seqid)!);
       if (feature.type !== 'CDS' && feature.type !== 'SO:0000316') continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

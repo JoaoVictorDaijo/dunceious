@@ -18,14 +18,21 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useRef, useState } from 'react';
+import { translationDescription } from '@/src/domain/bio/translation';
+import { saveEditedFeature } from '@/src/app/logic/featureManager';
+import React, { useId, useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
+import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
+import { invalidLocationPart } from '@/src/domain/bio/featureParts';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import { featureCoordPatch } from '@/src/app/logic/viewModel';
+import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { keptWrittenOrder } from '@/src/domain/bio/featureEnvelope';
+import { featureCoordPatch, remoteIntervalsText } from '@/src/app/logic/viewModel';
+import { keptRemoteParts } from '@/src/domain/bio/intervals';
 import { readSearchHit, withSearchHit } from '@/src/domain/bio/searchHit';
 import {
-  metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
+  normalizeQualifierKey, metadataFromRows, qualifierIssue, qualifierRows, type QualifierIssue, type QualifierRow,
 } from '@/src/app/logic/qualifiers';
 
 const ISSUE_TEXT: Record<QualifierIssue, string> = {
@@ -66,11 +73,18 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
 }) => {
   const { feature, recordId, featureIndex } = editing;
   const isNew = featureIndex === -1;
+  const lastSegmentReasonId = useId();
+  const cannotRemoveSegment = feature.segments?.length === 1 && !feature.remoteParts?.length;
   const searchHit = readSearchHit(feature);
   // A wrap-around feature has start > end (it crosses the genome origin on a
   // circular molecule).  We surface this prominently so users know the
   // coordinates are intentionally inverted, not a data error.
-  const isCircularWrap = feature.start > feature.end;
+  const record = records.find(record => record.id === recordId);
+  const locationRecord = { length: record?.sequence.length ?? 0, isCircular: record?.isCircular };
+  const location = formatInsdcLocation(feature, locationRecord);
+  const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
+  const perPart = feature.segments?.some(part => part.strand !== undefined);
+  const isCircularWrap = Boolean(record?.isCircular) && feature.start > feature.end;
 
   const setFeature = (patch: Partial<BioFeature>) =>
     onChange({ ...editing, feature: { ...feature, ...patch } });
@@ -78,17 +92,21 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   // drop it or the exported file would silently keep the old interval.
   const setGeometry = (patch: Partial<BioFeature>) => setFeature({ ...patch, locationString: undefined });
 
-  const [rows, setRows] = useState<QualifierRow[]>(() => qualifierRows(feature.metadata));
+  const [rows, setRows] = useState<QualifierRow[]>(() => qualifierRows(feature.metadata).concat((feature.translationExceptions ?? []).map((value, i) => ({ id: qualifierRows(feature.metadata).length + i, key: 'transl_except', value }))));
   const nextRowId = useRef(rows.length);
   const commitRows = (next: QualifierRow[]) => {
     setRows(next);
-    setFeature({ metadata: metadataFromRows(feature.metadata, next) });
+    setFeature({ metadata: metadataFromRows(feature.metadata, next), translationExceptions: next.filter(row => normalizeQualifierKey(row.key) === 'transl_except').map(row => row.value) });
   };
-  const updateRow = (id: number, patch: Partial<QualifierRow>) =>
-    commitRows(rows.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  const updateRow = (id: number, patch: Partial<QualifierRow>) => {
+    if (patch.key !== undefined && ['translation', 'phase'].includes(normalizeQualifierKey(patch.key))) return;
+    commitRows(rows.map(r => (r.id === id && !['translation', 'phase'].includes(r.key) ? { ...r, ...patch } : r)));
+  };
 
   if (feature.type === 'source' || records.find(record => record.id === recordId)?.features[featureIndex]?.type === 'source') return null;
 
+  const previewNotices: string[] = [];
+  const preview = saveEditedFeature(records, recordId, featureIndex, feature, message => previewNotices.push(message)).find(r => r.id === recordId)?.features[featureIndex === -1 ? records.find(r => r.id === recordId)!.features.length : featureIndex];
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto custom-scrollbar-pro animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out my-auto">
@@ -237,17 +255,31 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           </div>
 
+          {isBetweenBasesSite(feature) && (
+            <p data-location-note="site" className="text-[11px] text-slate-400">
+              Between-base site after base {feature.start}: it covers no bases. Give it different start and end to make it a span.
+            </p>
+          )}
+
+          {feature.remoteParts?.length ? (
+            <p data-location-note="remote" className="text-[11px] text-slate-400">
+              {remoteIntervalsText(feature.remoteParts)} {feature.remoteParts.length === 1 ? 'is' : 'are'} kept as written and can't be edited here.
+            </p>
+          ) : null}
+
           {/* Segments editor (multi-segment features) */}
-          {feature.segments && feature.segments.length > 1 && (
+          {feature.segments && feature.segments.length > 0 && (
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
                   Segments ({feature.segments.length})
+                  {isOrderLocation(feature) && <span className="ml-2 normal-case font-medium text-slate-600">order(): placed in this order, not joined</span>}
                 </label>
                 <button
                   onClick={() => {
                     const newSegs = [...feature.segments!, { start: feature.end, end: feature.end + 100 }];
-                    setGeometry({ segments: newSegs });
+                    // An appended segment is written last.
+                    setGeometry({ segments: newSegs, writtenOrder: feature.writtenOrder && [...feature.writtenOrder, feature.writtenOrder.length] });
                   }}
                   data-tip="Append a new segment after the last one"
                   className="text-[10px] font-bold text-env uppercase hover:text-env/80 transition-colors"
@@ -255,6 +287,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                   <i className="fas fa-plus mr-1"></i> Add Segment
                 </button>
               </div>
+              {cannotRemoveSegment && <p id={lastSegmentReasonId} className="mb-2 text-xs text-slate-400">A location must contain at least one segment.</p>}
               <div className="max-h-48 overflow-y-auto stack-y-2 pr-2 custom-scrollbar-pro bg-black/20 p-3 rounded-xl border border-slate-800/50">
                 {feature.segments.map((seg, idx) => (
                   <div key={idx} className="flex items-center gap-3 bg-slate-900/80 p-2 rounded-lg border border-slate-800/50 group">
@@ -280,14 +313,25 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                       }}
                       className="flex-1 bg-transparent border-b border-slate-800 text-[10px] font-mono text-slate-300 outline-hidden focus:border-env"
                     />
+                    {perPart && <select aria-label={`Segment ${idx + 1} strand`} value={seg.strand ?? ''} onChange={e => {
+                      const segments = feature.segments!.map((part, index) => index === idx ? { ...part, strand: Number(e.target.value) as 1 | -1 } : part);
+                      setGeometry({ segments });
+                    }}>
+                      <option value="" disabled>Choose strand</option><option value="1">Forward (+)</option><option value="-1">Reverse (−)</option>
+                    </select>}
+                    {invalidLocationPart(seg, locationRecord) && <span role="alert">Invalid location</span>}
                     <button
                       onClick={() => {
                         const newSegs = feature.segments!.filter((_, i) => i !== idx);
-                        setGeometry({ segments: newSegs });
+                        const kept = feature.segments!.map((_, i) => i).filter(i => i !== idx);
+                        setGeometry({ segments: newSegs, writtenOrder: keptWrittenOrder(feature.writtenOrder, kept),
+                          remoteParts: feature.remoteParts && keptRemoteParts(feature.remoteParts, feature.segments!.length, kept) });
                       }}
+                      disabled={cannotRemoveSegment}
+                      aria-describedby={cannotRemoveSegment ? lastSegmentReasonId : undefined}
                       aria-label={`Remove segment ${idx + 1}`}
                       data-tip="Remove this segment"
-                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      className="text-slate-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-600 transition-opacity"
                     >
                       <i className="fas fa-times text-[10px]"></i>
                     </button>
@@ -297,6 +341,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           )}
 
+          {invalid && <p role="alert">{location.kind === 'no-insdc-form' ? location.display : ''}. Set valid coordinates and a strand on every piece.</p>}
           {/* GenBank location string — kept verbatim from the source until coordinates change */}
           {feature.locationString && (
             <div>
@@ -310,7 +355,8 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             </div>
           )}
 
-          {/* Qualifiers — every /key="value" pair is editable */}
+          {previewNotices.map((notice, i) => <p key={i} role="status" className="text-xs text-amber-400">{notice}</p>)}
+          {preview && <p role="status" className="text-xs text-amber-400">{translationDescription(preview, records.find(r => r.id === recordId)!)}</p>}
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -339,6 +385,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         <input
                           type="text"
                           value={row.key}
+                          readOnly={['translation', 'phase'].includes(row.key)}
                           placeholder="qualifier"
                           aria-label="Qualifier name"
                           spellCheck={false}
@@ -347,6 +394,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         />
                         <button
                           onClick={() => commitRows(rows.filter(r => r.id !== row.id))}
+                          disabled={['translation', 'phase'].includes(row.key)}
                           aria-label={`Remove qualifier ${row.key || 'draft'}`}
                           data-tip="Remove this qualifier"
                           className="w-6 h-6 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
@@ -355,12 +403,15 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                         </button>
                       </div>
                       <textarea
-                        value={row.value}
+                        value={row.key === 'phase' && /^[123]$/.test(feature.metadata?.codon_start ?? '') ? String(Number(feature.metadata!.codon_start) - 1) : row.value}
+                        readOnly={['translation', 'phase'].includes(row.key)}
                         rows={Math.min(4, Math.max(1, Math.ceil(row.value.length / 48)))}
                         aria-label={`Value of ${row.key || 'qualifier'}`}
                         onChange={e => updateRow(row.id, { value: e.target.value })}
                         className="mt-1 w-full resize-none bg-transparent text-[11px] text-slate-400 focus:text-slate-200 outline-hidden break-words"
                       />
+                      {row.key === 'phase' && <p className="text-[11px] text-slate-400">Read-only · Edit frame through /codon_start</p>}
+                      {row.key === 'translation' && <p className="text-[11px] text-slate-400">{feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported'} · Read-only</p>}
                       {issue && <p className="text-[11px] text-amber-500/90 mt-1">{ISSUE_TEXT[issue]}</p>}
                     </div>
                   );
@@ -380,6 +431,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             Discard
           </button>
           <button
+            disabled={invalid || previewNotices.some(notice => notice.includes('Save refused'))}
             onClick={onSave}
             data-tip={isNew ? 'Add this annotation to the record' : 'Save the changes to this annotation'}
             className="flex-1 py-4 rounded-2xl bg-env-strong hover:bg-env-strong/90 text-white text-xs font-bold uppercase transition-all shadow-xl tracking-widest"

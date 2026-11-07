@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { assignTranslationLanes, computeBrokenFeatureMap, codonFrame, geneticCodeWarning } from '../cds';
 import type { BioFeature } from '@/src/domain/bio/types';
 
@@ -29,6 +29,7 @@ const cds = (over: Partial<BioFeature>): BioFeature => ({
   end: 0,
   strand: 1,
   ...over,
+  segments: over.segments ?? [{ start: over.start ?? 0, end: over.end ?? 0 }],
 });
 
 describe('computeBrokenFeatureMap', () => {
@@ -55,7 +56,7 @@ describe('computeBrokenFeatureMap', () => {
   it('claims no early stop under unknown, empty or malformed table qualifiers', () => {
     for (const value of ['7', '', '11x']) {
       const f = cds({ start: 0, end: 9, metadata: { transl_table: value } });
-      expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').get(f), value).toBe(false);
+      expect(computeBrokenFeatureMap([f], 'ATGTAGGAG').has(f), value).toBe(false);
     }
   });
 
@@ -98,15 +99,19 @@ describe('computeBrokenFeatureMap', () => {
     expect(computeBrokenFeatureMap([f], 'MFVTAGFLV', 'protein').size).toBe(0);
   });
 
-  it('trusts the stored /translation over recomputation for broken detection', () => {
-    // ATG TGA CCC recomputes to M _ P — an internal stop — but /transl_except
-    // recodes the TGA to selenocysteine, so the annotated protein is not broken.
+  it('uses the DNA despite a curated stored protein', () => {
+    // A supplied U does not apply /transl_except or suppress the DNA's definite stop.
     const seq = 'ATGTGACCC';
     const recomputed = cds({ start: 0, end: 9 });
     expect(computeBrokenFeatureMap([recomputed], seq).get(recomputed)).toBe(true);
-    const annotated = cds({ start: 0, end: 9, translation: 'MUP' });
-    expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(false);
+    const annotated = cds({ start: 0, end: 9, metadata: { translation: 'MUP' } });
+    expect(computeBrokenFeatureMap([annotated], seq).get(annotated)).toBe(true);
   });
+  it('leaves stop status unset when an actual transl_except is not applied', () => {
+    const feature = cds({ start: 0, end: 9, metadata: { translation: 'MUP', transl_except: '(pos:4..6,aa:Sec)' } });
+    expect(computeBrokenFeatureMap([feature], 'ATGTGACCC').has(feature)).toBe(false);
+  });
+
 });
 
 describe('codonFrame', () => {
@@ -143,10 +148,10 @@ describe('assignTranslationLanes', () => {
     expect([lanes.laneOf.get(a)?.get(0), lanes.laneOf.get(b)?.get(1)]).toEqual([0, 0]);
   });
 
-  it('shares a lane for overlapping features in the same frame', () => {
+  it('keeps independent lanes for overlapping features in the same frame', () => {
     const ab = cds({ start: 0, end: 30 });
     const a = cds({ start: 0, end: 15 });
-    expect(assignTranslationLanes([ab, a], seq).forward).toBe(1);
+    expect(assignTranslationLanes([ab, a], seq).forward).toBe(2);
   });
 
   it('splits overlapping features in different frames', () => {
@@ -193,7 +198,7 @@ describe('geneticCodeWarning', () => {
     for (const type of ['CDS', 'cds', 'ORF', 'orf']) {
       for (const transl_table of ['7', '', '11x']) {
         expect(geneticCodeWarning(cds({ type, metadata: { transl_table } }))).toBe(
-          `⚠ /transl_table=${transl_table} is not an NCBI genetic code; codons are not translated`,
+          `⚠ /transl_table=${transl_table} is not an NCBI genetic code. Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.`,
         );
       }
       expect(geneticCodeWarning(cds({ type }))).toBeNull();
@@ -201,4 +206,116 @@ describe('geneticCodeWarning', () => {
     }
     expect(geneticCodeWarning(cds({ type: 'gene', metadata: { transl_table: '7' } }))).toBeNull();
   });
+});
+
+it('assigns no translation lane to a descending linear feature', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1 };
+  const lanes = assignTranslationLanes([feature], 'ACGTACGTGA', 'dna', { isCircular: false });
+  expect(lanes.forward).toBe(0);
+  expect(lanes.reverse).toBe(0);
+  expect(lanes.laneOf.size).toBe(0);
+});
+
+
+describe.each([
+  ['broken map', computeBrokenFeatureMap],
+  ['translation lanes', assignTranslationLanes],
+] as const)('%s source validation', (_name, compute) => {
+  it('uses the known source length across many aligned features without recovering it', () => {
+    const seq = 'ATG--TAGGAG';
+    const features = Array.from({ length: 24 }, () => cds({ start: 0, end: seq.length,
+      biological: { start: 0, end: 9, strand: 1 } }));
+    const replacement = vi.spyOn(String.prototype, 'replace');
+    try {
+      compute(features, seq, 'dna', { isCircular: false, biologicalLength: 9 });
+      expect(replacement.mock.calls.filter(([pattern], i) =>
+        String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq)).toHaveLength(0);
+    } finally {
+      replacement.mockRestore();
+    }
+  });
+
+  it.each([
+    ['valid', { start: 0, end: 9, strand: 1 as const }, false, true],
+    ['out of bounds', { start: 0, end: 10, strand: 1 as const }, false, false],
+    ['linear wrap', { start: 6, end: 3, strand: 1 as const }, false, false],
+    ['circular wrap', { start: 6, end: 3, strand: 1 as const }, true, true],
+  ])('preserves %s source validation', (_label, biological, isCircular, allowed) => {
+    const feature = cds({ start: 0, end: 11, biological });
+    const result = compute([feature], 'ATG--TAGGAG', 'dna', { isCircular, biologicalLength: 9 });
+    if (result instanceof Map) {
+      expect(result.get(feature)).toBe(allowed ? true : undefined);
+      expect(result.has(feature)).toBe(allowed);
+    }
+    else expect(result.laneOf.has(feature)).toBe(allowed);
+  });
+});
+
+// LOC-2/LOC-7: an order() location defines no single sequence, so a CDS written with it has no
+// coding sequence to translate or check for stops; the same intervals under join do.
+describe('order() CDS', () => {
+  const segments = [{ start: 0, end: 3 }, { start: 6, end: 9 }];
+  const cds = (operator: 'join' | 'order'): BioFeature => ({ type: 'CDS', name: operator, start: 0, end: 9, strand: 1, operator, segments });
+  it('is neither translated nor flagged for an early stop', () => {
+    const order = cds('order');
+    expect(computeBrokenFeatureMap([order], 'ATGGGGTAG').has(order)).toBe(false);
+    expect(assignTranslationLanes([order], 'ATGGGGTAG').laneOf.has(order)).toBe(false);
+  });
+
+  it('is translated under join', () => {
+    const join = cds('join');
+    expect(computeBrokenFeatureMap([join], 'ATGGGGTAG').has(join)).toBe(true);
+    expect(assignTranslationLanes([join], 'ATGGGGTAG').laneOf.has(join)).toBe(true);
+  });
+});
+
+it('keeps assumed whole and tail stops out of broken status while retaining stored internal stops', () => {
+  for (const translation of [undefined, 'M', 'MK*G']) {
+    const f = cds({ start: 0, end: 18, metadata: { ...(translation ? { translation } : {}), transl_table: '99' } });
+    expect(computeBrokenFeatureMap([f], 'ATGAAATGAGGATAATGG').has(f)).toBe(false);
+  }
+});
+
+
+it.each(['1', '99'])('lets an invalid frame suppress translation and broken status under table %s', transl_table => {
+  const feature = cds({ start: 0, end: 9,  metadata: { ...{ codon_start: '0', transl_table }, translation: 'M*K' } });
+  expect(geneticCodeWarning(feature, 'ATGTGAAAA')).toBe('⚠ /codon_start=0 is invalid; codons are not translated');
+  expect(computeBrokenFeatureMap([feature], 'ATGTGAAAA').has(feature)).toBe(false);
+  expect(assignTranslationLanes([feature], 'ATGTGAAAA').laneOf.has(feature)).toBe(false);
+});
+
+it('keeps an assumed lane for mapped invalid-code deferrals without claiming a DNA stop', () => {
+ const f = cds({ start: 0, end: 9, metadata: { transl_table: '999' }, translationExceptions: ['(pos:4..6,aa:Sec)'] });
+ expect(assignTranslationLanes([f], 'ATGTGATAA', 'dna').forward).toBe(1);
+ expect(computeBrokenFeatureMap([f], 'ATGTGATAA', 'dna').has(f)).toBe(false);
+});
+
+
+it('keeps ORF stored stop claims distinct from DNA and assumed-code status', () => {
+  const plain = cds({ type: 'ORF', end: 9 });
+  const curated = cds({ type: 'ORF', end: 9, metadata: { translation: 'MUP' } });
+  const stopped = cds({ type: 'orf', end: 9, metadata: { translation: 'M*P' } });
+  const unknown = cds({ type: 'ORF', end: 9, metadata: { transl_table: '99' } });
+  const map = computeBrokenFeatureMap([plain, curated, stopped, unknown], 'ATGTGACCC');
+  expect(map.get(plain)).toBe(true);
+  expect(map.get(curated)).toBe(false);
+  expect(map.get(stopped)).toBe(true);
+  expect(map.get(unknown)).toBe(false);
+});
+
+it('names uncheckable stored residues and assumed tails in invalid-code warnings', () => {
+  const feature = cds({ end: 9, metadata: { transl_table: '99', translation: 'MU' } });
+  expect(geneticCodeWarning(feature, 'ATGTGACCC')).toBe("⚠ /transl_table=99 is not an NCBI genetic code. The first 2 residues are the annotation's /translation and can't be checked; the rest assume table 1.");
+  expect(geneticCodeWarning(feature, 'ATGTGA')).toBe("⚠ /transl_table=99 is not an NCBI genetic code. The residues shown are the annotation's /translation and can't be checked against the DNA.");
+  expect(geneticCodeWarning(feature, 'ATGTGA', 'protein')).toBe('⚠ /transl_table=99 is not an NCBI genetic code.');
+  expect(geneticCodeWarning(cds({ metadata: { codon_start: '4' } }))).toBe('⚠ /codon_start=4 is invalid; codons are not translated');
+});
+
+it.each([1, -1] as const)('reserves space for curated length differences on strand %s', strand => {
+  const f = cds({ start: strand === 1 ? 0 : 9, end: strand === 1 ? 6 : 15, strand, metadata: { translation: 'MKKK' } });
+  const neighbour = cds({ start: strand === 1 ? 9 : 0, end: strand === 1 ? 15 : 6, strand });
+  const lanes = assignTranslationLanes([f, neighbour], 'ATGAAA' + 'AAA'.repeat(4));
+  expect(strand === 1 ? lanes.forward : lanes.reverse).toBe(2);
+  expect(lanes.laneOf.get(f)?.get(0)).toBe(0);
+  expect(lanes.laneOf.get(neighbour)?.get(0)).toBe(1);
 });

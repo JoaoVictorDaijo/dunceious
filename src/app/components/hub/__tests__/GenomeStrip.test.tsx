@@ -141,7 +141,7 @@ describe('genome strips', () => {
 });
 
 it('shows CDS hover details once per feature and exposes the same keyboard details', () => {
-  const cds = { ...record.features[0], type: 'CDS', name: 'enzyme', end: 30, metadata: { codon_start: '2' } };
+  const cds = { ...record.features[0], type: 'CDS', name: 'enzyme', end: 30, segments: [{ start: 0, end: 30 }], metadata: { codon_start: '2' } };
   render(<TrackTooltipProvider><GenomeStrip record={{ ...record, features: [cds] }} large onPick={noop} /></TrackTooltipProvider>);
   const strip = screen.getByRole('button', { name: /Genome strip/ });
   mockBounds(strip, 25);
@@ -362,4 +362,12 @@ it('picks and reports the topmost slim feature, and keeps pinned or visible feat
   bounds();
   fireEvent.click(screen.getByRole('button', { name: 'Genome strip for crowded: 7 annotations' }), { clientX: 450, clientY: 5 });
   expect(pick).toHaveBeenLastCalledWith(crowded.features[1]);
+});
+
+it.each([undefined, 'order(1..3,7..9)'])('shares location text between screen-reader status and hover card %s', locationString => {
+  const feature = { name: 'joined', type: 'gene', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], locationString };
+  render(<TrackTooltipProvider><GenomeStrip large onPick={noop} record={{ id: 'r', name: 'r', sequence: 'ACGTACGTAC', features: [feature] }} /></TrackTooltipProvider>);
+  fireEvent.focus(screen.getByRole('button', { name: 'Genome strip for r: 1 annotation' }));
+  expect(screen.getByRole('status').textContent).toContain(locationString ?? 'join(1..3,7..9)');
+  expect(screen.getByRole('tooltip').textContent).toContain(locationString ?? 'join(1..3,7..9)');
 });

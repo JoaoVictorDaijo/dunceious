@@ -18,15 +18,25 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { translationWarning } from '@/src/domain/bio/translation';
+import { refusedGenBankIds, importLog, type ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
+import { unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
+import { isProteinSession } from '@/src/domain/bio/sequence';
 import { SeqRecord } from '@/src/domain/bio/types';
 import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaAndLog, type GapRemoval } from '@/src/app/logic/bioResponse';
+import { applyParseSuccess, applyAnnotations, logAttachedTranslationWarning, applyFastaAndLog, remotePartsWarning, type GapRemoval } from '@/src/app/logic/bioResponse';
 
-/** One FASTA file loaded as sequences whose records lost '-' gap characters. */
-export interface GapNotice { fileName: string; records: GapRemoval[] }
+/** A pending FASTA consent preview; token identifies one exactly-once choice. */
+export interface GapNotice { token: number; fileName: string; records: GapRemoval[] }
+
+type SequenceResponse = Extract<BioWorkerResponse, { type: 'FASTA_SUCCESS' | 'PARSE_SUCCESS' | 'PARSE_REFUSED' }>;
 
 export interface UseBioWorkerReturn {
+  genBankRefusals: ImportDiagnosticFile[];
+  dismissGenBankRefusals: () => void;
+  importNotes: ImportDiagnosticFile[];
+  clearImportNotes: () => void;
   getRecords: () => SeqRecord[];
   requestBio: (request: BioWorkerRequest, shouldCommit?: () => boolean) => Promise<BioWorkerResponse | 'stale'>;
   applyAlignmentOverlay: (records: FastaAlignedRecord[]) => number;
@@ -38,20 +48,10 @@ export interface UseBioWorkerReturn {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
   /** Ref to the underlying Worker instance — used by file-upload handlers. */
   bioWorkerRef: React.MutableRefObject<Worker | null>;
-  /** Files whose records lost '-' since the user last dismissed the notice. */
-  gapNotices: GapNotice[];
-  dismissGapNotices: () => void;
-}
-
-/** The reply a FASTA request settles with, and the gap notice its batch load raised. */
-function fastaReply(msg: ParseFastaSuccessResponse, result: ReturnType<typeof applyFastaAndLog>): { reply: BioWorkerResponse; notice?: GapNotice } {
-  if (result.kind === 'batch') {
-    const reply = { ...msg, idMap: result.idMap };
-    return result.gapsRemoved.length > 0 ? { reply, notice: { fileName: msg.filename, records: result.gapsRemoved } } : { reply };
-  }
-  // A refused file must fail its request, so a dropped batch attaches no annotations.
-  if (result.kind === 'reject-no-residues') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
-  return { reply: msg };
+  /** Arrival-ordered confirmations hold files before records are committed. */
+  pendingConfirmations: GapNotice[];
+  confirmGapRemoval: (token: number, load: boolean) => void;
+  invalidateImports: (reason: string) => void;
 }
 
 /**
@@ -63,7 +63,13 @@ function fastaReply(msg: ParseFastaSuccessResponse, result: ReturnType<typeof ap
  *
  * @param addLog - Callback to append a timestamped message to the activity log.
  */
-export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn {
+export function useBioWorker(addLog: (msg: string) => void, options: {
+  getWorkspaceRevision?: () => number;
+  isAlignmentLocked?: () => boolean;
+  onMismatch?: (error: { incoming: 'nucleotide' | 'protein'; loaded: 'nucleotide' | 'protein'; fileName: string }) => void;
+} = {}): UseBioWorkerReturn {
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
   const [records, setRecordsState] = useState<SeqRecord[]>([]);
   const recordsRef = useRef(records);
   const recordsGeneration = useRef(0);
@@ -87,8 +93,11 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   const [transposedRecords, setTransposedRecords] = useState<SeqRecord[]>([]);
   const [consensus, setConsensus] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [gapNotices, setGapNotices] = useState<GapNotice[]>([]);
-  const dismissGapNotices = useCallback(() => setGapNotices([]), []);
+  const [genBankRefusals, setGenBankRefusals] = useState<ImportDiagnosticFile[]>([]);
+  const [importNotes, setImportNotes] = useState<ImportDiagnosticFile[]>([]);
+  const [pendingConfirmations, setPendingConfirmations] = useState<GapNotice[]>([]);
+  const confirmationCounter = useRef(0);
+  const queued = useRef(new Map<number, ParseFastaSuccessResponse>());
 
   const bioWorkerRef = useRef<Worker | null>(null);
 
@@ -116,6 +125,136 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     });
   }, []);
 
+  const refuse = (msg: SequenceResponse, reason: string) => {
+    addLog(`${msg.filename} was not loaded: ${reason}`);
+    const rows = msg.type === 'FASTA_SUCCESS' ? msg.alignedData : msg.records;
+    return { ...msg, idMap: msg.type === 'FASTA_SUCCESS' ? Object.fromEntries(rows.map(row => [row.id, null])) : refusedGenBankIds(msg.records) };
+  };
+  const settle = (msg: BioWorkerResponse, error?: string) => {
+    if (msg.requestId === undefined) return;
+    const pending = pendingRequests.current.get(msg.requestId);
+    pendingRequests.current.delete(msg.requestId);
+    if (error || msg.type === 'ERROR') pending?.reject(new Error(error ?? (msg.type === 'ERROR' ? msg.error : 'Import invalidated')));
+    else pending?.resolve(msg);
+  };
+  const invalidReason = (msg: SequenceResponse) => {
+    const pending = msg.requestId === undefined ? undefined : pendingRequests.current.get(msg.requestId);
+    if (pending?.shouldCommit && !pending.shouldCommit()
+      || msg.workspaceRevision !== undefined && msg.workspaceRevision !== optionsRef.current.getWorkspaceRevision?.()) return 'the workspace was replaced';
+    return undefined;
+  };
+  const commit = (msg: SequenceResponse) => {
+    const invalid = invalidReason(msg);
+    if (invalid) { addLog(`${msg.filename} was not loaded: ${invalid}`); settle(msg, invalid); return; }
+    if (optionsRef.current.isAlignmentLocked?.()) { settle(refuse(msg, 'the workspace is locked')); return; }
+    const loaded = isProteinSession(recordsRef.current) ? 'protein' : 'nucleotide';
+    if (msg.type !== 'FASTA_SUCCESS') {
+      const categories = msg.type === 'PARSE_REFUSED' ? msg.categories : msg.records.map(r => r.moleculeType === 'protein' ? 'protein' : 'nucleotide');
+      const mismatches = recordsRef.current.length ? [...new Set(categories.filter(category => category !== loaded))] : [];
+      const findings = [...(msg.findings ?? []), ...mismatches.map(category => ({
+        tier: 'refuse' as const, code: 'category-mismatch', record: { name: msg.records[0]?.id ?? msg.filename, index: 1 },
+        message: `This file contains ${category} records, but the session now holds ${loaded} sequences.`,
+      }))];
+      if (msg.type === 'PARSE_REFUSED' || mismatches.length) {
+        const file = { filename: msg.filename, findings };
+        setGenBankRefusals(previous => [...previous, file]);
+        addLog(importLog(file, true));
+        settle({ ...msg, type: 'PARSE_REFUSED', findings, categories, idMap: refusedGenBankIds(msg.records) });
+        return;
+      }
+    } else if (recordsRef.current.length && msg.incomingCategory && msg.incomingCategory !== loaded) {
+      optionsRef.current.onMismatch?.({ incoming: msg.incomingCategory, loaded, fileName: msg.filename });
+      settle(refuse(msg, `the session now holds ${loaded} sequences`));
+      return;
+    }
+    if (msg.type === 'PARSE_SUCCESS') {
+      const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
+      const assigned = result.next.slice(recordsRef.current.length).map(r => r.id);
+      const findings = (msg.findings ?? []).map(f => f.code === 'duplicate-locus'
+        ? { ...f, message: `${f.record.name} was imported as ${assigned[f.record.index - 1]} because its LOCUS name is repeated.` } : f);
+      setRecords(result.next);
+      if (findings.length) {
+        const file = { filename: msg.filename, findings, recordIds: assigned };
+        setImportNotes(previous => [...previous, file]);
+        addLog(importLog(file, false));
+      }
+      addLog(`Batch ingestion complete: ${result.count} records added.`);
+      const proteinWarning = translationWarning(msg.records);
+      if (proteinWarning) addLog(proteinWarning);
+      const remoteWarning = remotePartsWarning(msg.records);
+      if (remoteWarning) {
+        addLog(remoteWarning);
+        console.warn(remoteWarning);
+      }
+      settle({ ...msg, idMap: result.idMap });
+    } else if (msg.type === 'FASTA_SUCCESS') {
+      const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
+      setRecords(result.next);
+      settle(result.kind === 'batch' || result.kind === 'aligned-load'
+        ? { ...msg, idMap: result.idMap } : result.kind === 'overlay' ? msg : refuse(msg, result.kind));
+    }
+  };
+  const confirmGapRemoval = (token: number, load: boolean) => {
+    const msg = queued.current.get(token);
+    if (!msg) return;
+    queued.current.delete(token);
+    setPendingConfirmations(previous => previous.filter(entry => entry.token !== token));
+    if (load) commit(msg);
+    else settle(refuse(msg, 'gap removal declined'));
+  };
+  const invalidateImports = (reason: string) => {
+    if (reason === 'the workspace was replaced') { setImportNotes([]); setGenBankRefusals([]); }
+    for (const msg of queued.current.values()) {
+      addLog(`${msg.filename} was not loaded: ${reason}`);
+      settle(msg, reason);
+    }
+    queued.current.clear();
+    setPendingConfirmations([]);
+  };
+
+  const receiveSequence = (msg: SequenceResponse) => {
+    const invalid = invalidReason(msg);
+    if (invalid) {
+      addLog(`${msg.filename} was not loaded: ${invalid}`);
+      settle(msg, invalid);
+    } else if (msg.type === 'FASTA_SUCCESS' && !msg.asAlignment
+      && msg.alignedData.some(row => /[-.]/.test(row.sequence))
+      && msg.alignedData.every(row => row.sequence.replace(/[-.]/g, '').length > 0)) {
+      const token = ++confirmationCounter.current;
+      queued.current.set(token, msg);
+      setPendingConfirmations(previous => [...previous, { token, fileName: msg.filename,
+        records: msg.alignedData.map(row => ({ id: row.id, removed: (row.sequence.match(/[-.]/g) ?? []).length })).filter(row => row.removed > 0) }]);
+    } else commit(msg);
+    setIsProcessing(false);
+  };
+
+  const receiveAnnotations = (msg: Extract<BioWorkerResponse, { type: 'ANNOTATIONS_SUCCESS' }>) => {
+    if (optionsRef.current.isAlignmentLocked?.()) {
+      addLog('Annotations were not loaded: the workspace is locked');
+      setIsProcessing(false);
+      settle({ ...msg, annotations: {}, details: {} });
+      return;
+    }
+    const annotationResponse = msg;
+    let annotationRefusal: string | undefined;
+    setRecords(prev => {
+      const { next, totalAdded, unmatched, refusal } = applyAnnotations(prev, annotationResponse.annotations, annotationResponse.details, annotationResponse.idMap);
+      if (refusal) { annotationRefusal = refusal; addLog(`ERROR: Annotation import refused: ${refusal}`); return prev; }
+      logAttachedTranslationWarning(prev, next, addLog);
+      if (unmatched.length > 0) {
+        addLog(
+          `WARNING: Some IDs in file did not match active records: [${unmatched
+            .slice(0, 5)
+            .join(', ')}${unmatched.length > 5 ? '...' : ''}]`,
+        );
+      }
+      addLog(`Annotation import complete: ${totalAdded} features added across records.`);
+      return next;
+    });
+    setIsProcessing(false);
+    settle(msg, annotationRefusal);
+  };
+
   // ── Worker setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     const worker = new Worker(
@@ -125,12 +264,13 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     bioWorkerRef.current = worker;
     let active = true;
 
+
     worker.onmessage = (e: MessageEvent<BioWorkerResponse>) => {
       if (!active) return;
-      let msg = e.data;
+      const msg = e.data;
       const pending = msg.requestId === undefined ? undefined : pendingRequests.current.get(msg.requestId);
       if (msg.type === 'SUCCESS' && !pending) return;
-      if (pending?.shouldCommit && !pending.shouldCommit()) {
+      if (msg.type !== 'FASTA_SUCCESS' && msg.type !== 'PARSE_SUCCESS' && msg.type !== 'PARSE_REFUSED' && pending?.shouldCommit && !pending.shouldCommit()) {
         pendingRequests.current.delete(msg.requestId!);
         pending.resolve('stale');
         return;
@@ -138,42 +278,20 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
       if (msg.type === 'SUCCESS') {
         setTransposedRecords(msg.records);
+        for (const record of msg.records) for (const display of record.displayTracks ?? []) {
+          if (display.unplaced.length) addLog(`Track ${display.track.name}: ${unplacedSummary(display)} (${display.unplaced.map(row => `${row.index + 1}: ${row.reason}`).join(', ')}).`);
+        }
         setConsensus(msg.consensus);
         setIsProcessing(false);
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
 
-      } else if (msg.type === 'PARSE_SUCCESS') {
-        const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
-        setRecords(result.next);
-        addLog(`Batch ingestion complete: ${result.count} records added.`);
-        msg = { ...msg, idMap: result.idMap };
-        setIsProcessing(false);
+      } else if (msg.type === 'PARSE_SUCCESS' || msg.type === 'PARSE_REFUSED' || msg.type === 'FASTA_SUCCESS') {
+        receiveSequence(msg);
+        return;
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
-        const annotationResponse = msg;
-        const annotations = msg.annotations;
-        setRecords(prev => {
-          const { next, totalAdded, unmatched } = applyAnnotations(prev, annotations, annotationResponse.details, annotationResponse.idMap);
-          if (unmatched.length > 0) {
-            addLog(
-              `WARNING: Some IDs in file did not match active records: [${unmatched
-                .slice(0, 5)
-                .join(', ')}${unmatched.length > 5 ? '...' : ''}]`,
-            );
-          }
-          addLog(`Annotation import complete: ${totalAdded} features added across records.`);
-          return next;
-        });
-        setIsProcessing(false);
-
-      } else if (msg.type === 'FASTA_SUCCESS') {
-        const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
-        setRecords(result.next);
-        const outcome = fastaReply(msg, result);
-        msg = outcome.reply;
-        const notice = outcome.notice;
-        if (notice) setGapNotices(notices => [...notices, notice]);
-        setIsProcessing(false);
+        receiveAnnotations(msg);
+        return;
 
       } else if (msg.type === 'ERROR') {
         setIsProcessing(false);
@@ -189,12 +307,14 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
 
     worker.onerror = event => {
       if (!active) return;
+      invalidateImports(event.message || 'Worker failed.');
       for (const pending of pendingRequests.current.values()) pending.reject(new Error(event.message || 'Worker failed.'));
       pendingRequests.current.clear();
       setIsProcessing(false);
       addLog(`Processing Error: ${event.message || 'Worker failed.'}`);
     };
     return () => {
+      invalidateImports('Worker terminated.');
       active = false;
       worker.onmessage = null;
       worker.onerror = null;
@@ -206,6 +326,21 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     // addLog identity is stable (defined once in useAppLogger) so it is safe
     // to omit from deps without triggering stale-closure bugs.
   }, []);
+
+  useEffect(() => {
+    if ([...queued.current.values()].some(msg => invalidReason(msg))) invalidateImports('the workspace was replaced');
+  });
+
+  useEffect(() => {
+    const ids = new Set(records.map(r => r.id));
+    setImportNotes(previous => {
+      const next = previous.flatMap(file => {
+        const findings = file.findings.filter(f => ids.has(file.recordIds?.[f.record.index - 1] ?? ''));
+        return findings.length ? [findings.length === file.findings.length ? file : { ...file, findings }] : [];
+      });
+      return next.length === previous.length && next.every((file, i) => file === previous[i]) ? previous : next;
+    });
+  }, [records]);
 
   // ── Auto-dispatch PROCESS_RECORDS when records change ─────────────────────
   useEffect(() => {
@@ -225,6 +360,10 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   }, [records, requestBio]);
 
   return {
+    genBankRefusals,
+    dismissGenBankRefusals: () => setGenBankRefusals([]),
+    importNotes,
+    clearImportNotes: () => setImportNotes([]),
     getRecords,
     requestBio,
     applyAlignmentOverlay,
@@ -235,7 +374,8 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     isProcessing,
     setIsProcessing,
     bioWorkerRef,
-    gapNotices,
-    dismissGapNotices,
+    pendingConfirmations,
+    confirmGapRemoval,
+    invalidateImports,
   };
 }

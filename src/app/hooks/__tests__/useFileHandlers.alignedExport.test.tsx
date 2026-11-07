@@ -19,6 +19,8 @@
  */
 
 // @vitest-environment jsdom
+import { processTransposition } from '@/src/domain/bio/coordinate';
+import { trackFocusTarget } from '@/src/app/logic/focusTarget';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@/src/app/testing/renderHarness';
 import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
@@ -38,11 +40,11 @@ const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSeq
   features: [{ type: 'gene', name: 'gapped', start: 2, end: 7, strand: 1, locationString: '3..7',
     segments: [{ start: 2, end: 7 }] }] };
 
-function setup() {
-  return renderHook(() => useFileHandlers({ current: null }, [record, { ...record, id: 'other' }], { start: 3, end: 8, recordIds: ['r'] }, {},
+function setup(rows: SeqRecord[] = [record, { ...record, id: 'other' }], log = vi.fn()) {
+  return renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 8, recordIds: ['r'] }, {},
     { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
     { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(),
-      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+      setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
 }
 
 describe('exports with aligned annotations', () => {
@@ -102,4 +104,147 @@ describe('exports with aligned annotations', () => {
     expect(project.format).toBe(2);
     expect(project.records).toEqual([record, { ...record, id: 'other' }]);
   });
+});
+
+it('downloads both mixed files from viewer/Sidebar selection and Hub export paths', () => {
+  const aligned: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const raw: SeqRecord = { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] };
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [aligned, raw], { start: 1, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, vi.fn()));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nC--G', 'selection_export.fasta', 'text/plain'],
+    ['>u [Slice: 1-5]\nTTTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportRecords(['a', 'u'], 'fasta', { residues: 'aligned', fileName: 'mixed.fasta' });
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a\nAC--GT', 'mixed.fasta', 'text/plain'], ['>u\nTTTTTTTT', 'mixed_unaligned.fasta', 'text/plain'],
+  ]);
+  vi.mocked(downloadBlob).mockClear();
+  result.current.exportSelection('original');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 1-5]\nCG\n\n>u [Slice: 1-5]\nTTTT', 'selection_export.fasta', 'text/plain'],
+  ]);
+  result.current.handleExportRecord('a', 'aligned');
+  expect(vi.mocked(downloadBlob).mock.calls[1]).toEqual(['>a\nAC--GT', 'a.fasta', 'text/plain']);
+});
+
+it('counts only unaligned rows actually saved inside the selection window', () => {
+  const rows: SeqRecord[] = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'long', name: 'long', sequence: 'TTTTTTTT', features: [] },
+    { id: 'short', name: 'short', sequence: 'AA', features: [] },
+  ];
+  const log = vi.fn();
+  const { result } = renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 5, recordIds: [] }, {},
+    { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(),
+      setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
+  result.current.exportSelection('aligned');
+  expect(vi.mocked(downloadBlob).mock.calls).toEqual([
+    ['>a [Slice: 3-5]\n-G', 'selection_export.fasta', 'text/plain'],
+    ['>long [Slice: 3-5]\nTT', 'selection_export_unaligned.fasta', 'text/plain'],
+  ]);
+  expect(log).toHaveBeenCalledWith("1 sequences aren't in the alignment, so they have no alignment columns and were saved separately in selection_export_unaligned.fasta");
+  expect(log).toHaveBeenCalledWith('No residues in the exported window; left out: short');
+});
+
+
+it('exports hub-focused aligned track support from source records without display fields', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-06T12:00:00Z'));
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--ACGT', features: [], tracks: [{ id: 'q', name: 'q', data: [{ start: 0, end: 1, value: 7 }] }] };
+  const display = processTransposition([source])[0];
+  expect(display).not.toBe(source);
+  expect(display.displayTracks).toHaveLength(1);
+  // Independently enumerate residue columns; focus must select the first supplied residue.
+  const columns: number[] = [];
+  for (let column = 0; column < source.alignedSequence!.length; column++) {
+    if (source.alignedSequence![column] !== '-') columns.push(column);
+  }
+  const target = trackFocusTarget(source, source.tracks![0])!;
+  expect([target.start, target.end]).toEqual([columns[0], columns[0] + 1]);
+  const state = { showAnnotations: true, showTranslation: false, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON };
+  const { result } = renderHook(() => useFileHandlers({current:null}, [source], {start:target.start,end:target.end,recordIds:['r']}, {}, state,
+    {setRecords:vi.fn(),setFeatureColors:vi.fn(),setActiveSelection:vi.fn(),setShowAnnotations:vi.fn(),setShowTranslation:vi.fn(),setShowConservation:vi.fn(),setAlignmentComparison:vi.fn(),setIsProcessing:vi.fn()},vi.fn()));
+  result.current.exportSelectionJson();
+  const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[0][0] as string);
+  expect(saved).toEqual({ format:2, version:__APP_VERSION__, exportedAt:'2026-11-06T12:00:00.000Z', featureColors:{}, ...state, activeSelection:null, selectionRange:{start:2,end:3}, records:[{id:'r',name:'r',sequence:'A',alignedSequence:'A',features:[],tracks:[{id:'q',name:'q',data:[{start:0,end:1,value:7}]}]}] });
+  expect(source.tracks![0].data).toEqual([{start:0,end:1,value:7}]);
+  vi.useRealTimers();
+});
+
+it.each([false, true])('logs every GenBank omission once and counts actual downloads, allInvalid=%s', allInvalid => {
+  const log = vi.fn();
+  const bad = (id: string, sequence: string, metadata: Record<string, string> = {}): SeqRecord => ({ id, name: id, sequence, features: [{ type: 'CDS', name: 'broken', start: 0, end: sequence.length, strand: 1, metadata }] });
+  const rows = [bad('gap', 'AC-GT'), bad('symbol', 'AC*GT'), bad('frame', 'ACRGT', { codon_start: '' }), bad('code', 'ACRGT', { transl_table: '99' })];
+  if (!allInvalid) rows.push({ id: 'good', name: 'good', sequence: 'ACRGT', features: [] });
+  const h = setup(rows, log);
+  h.result.current.exportRecords(rows.map(r => r.id), 'genbank', { fileName: 'chosen.gb' });
+  expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(allInvalid ? 0 : 1);
+  if (!allInvalid) {
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('chosen.gb');
+    expect(String(vi.mocked(downloadBlob).mock.calls[0][0]).match(/^LOCUS.*$/gm)).toEqual([expect.stringMatching(/^LOCUS\s+good\s+5 bp/)]);
+  }
+  expect(log.mock.calls.map(([message]) => message)).toEqual([
+    'gap not exported: its sequence contains gap characters',
+    'symbol not exported: its sequence contains non-residue characters',
+    'frame not exported: CDS broken has an invalid /codon_start',
+    'code not exported: CDS broken has an invalid /transl_table',
+    `Exported ${allInvalid ? 0 : 1} sequences as genbank.`,
+  ]);
+});
+
+it.each([105, 115])('delivers selection JSON biological loss details before download, end %s', end => {
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'N'.repeat(100) + 'ATGTGATAGCCCTAA', features: [{ type: 'CDS', name: 'c', start: 100, end: 115, strand: 1, segments: [{ start: 100, end: 115 }], locationString: '101..115', translationExceptions: ['(pos:104..106,aa:Sec)', '(pos:107..109,aa:Pyl)'], metadata: { translation: 'MUOP', _translationSource: 'imported' } }] };
+  const before = JSON.stringify(source);
+  const events: string[] = [];
+  vi.mocked(downloadBlob).mockImplementation(() => { events.push('download'); });
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [source], { start: 100, end, recordIds: ['r'] }, {},
+    { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, message => events.push(message)));
+  result.current.exportSelectionJson();
+  const saved = JSON.parse(vi.mocked(downloadBlob).mock.calls[0][0] as string).records[0];
+  expect(saved.sequence).toBe(end === 105 ? 'ATGTG' : 'ATGTGATAGCCCTAA');
+  expect(saved.features[0].locationString).toBeUndefined();
+  if (end === 105) {
+    expect(saved.features[0]).toMatchObject({ translationExceptions: [], segments: [{ start: 0, end: 5, partialEnd: true }] });
+    expect(saved.features[0].metadata.translation).toBe('M');
+    expect(events.slice(0, events.indexOf('download')).join(' ')).toMatch(/r: CDS c.*occurrence 0.*104\.\.106.*106.*occurrence 1.*107\.\.109.*wholly excluded/);
+  } else {
+    expect(saved.features[0]).toMatchObject({ translationExceptions: ['(pos:4..6,aa:Sec)', '(pos:7..9,aa:Pyl)'], metadata: { translation: 'MUOP' } });
+    expect(events[0]).toBe('download');
+  }
+  expect(JSON.stringify(source)).toBe(before);
+});
+
+it('delivers printable non-ASCII qualifier warnings from the export report', () => {
+  const log = vi.fn();
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', features: [{ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata: { note: 'é µ ±' } }] };
+  const { result } = setup([source], log);
+  result.current.exportRecords(['r'], 'genbank');
+  expect(vi.mocked(downloadBlob).mock.calls[0][0]).toContain('/note="é µ ±"');
+  expect(log).toHaveBeenCalledWith(expect.stringMatching(/WARNING:.*note="é µ ±".*ASCII 32–126/));
+});
+
+it('exports a clipped circular CDS with post-transform losses before download and reopens the computed protein', async () => {
+  const { parseProject } = await import('@/src/app/logic/projectFile');
+  const source: SeqRecord = { id: 'r', name: 'r', moleculeType: 'dna', sequence: 'TGATAANNNATG', isCircular: true, features: [{ type: 'CDS', name: 'c', start: 9, end: 6, strand: 1, operator: 'join', segments: [{ start: 9, end: 12 }, { start: 0, end: 6 }], locationString: 'join(10..12,1..6)', metadata: { codon_start: '1', translation: 'MU', _translationSource: 'imported' }, translationExceptions: ['(pos:1..3,aa:Sec)'] }] };
+  const snapshot = JSON.stringify(source);
+  const events: string[] = [];
+  vi.mocked(downloadBlob).mockImplementation(() => { events.push('download'); });
+  const { result } = renderHook(() => useFileHandlers({ current: null }, [source], { start: 0, end: 10, recordIds: ['r'] }, {},
+    { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
+    { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(), setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, message => events.push(message)));
+  result.current.exportSelectionJson();
+  const opened = parseProject(vi.mocked(downloadBlob).mock.calls[0][0] as string, () => {});
+  expect(opened.ok).toBe(true);
+  if (!opened.ok) throw new Error(opened.message);
+  expect(opened.project.records[0]).toMatchObject({ sequence: 'TGATAANNNA', features: [{ translationExceptions: [], metadata: { translation: 'MI', _translationSource: 'computed', codon_start: '1' } }] });
+  expect(events.slice(0, events.indexOf('download')).join(' ')).toMatch(/r: CDS c.*occurrence 0.*1\.\.3.*off-frame/);
+  expect(opened.project.records[0].features[0].locationString).toBeUndefined();
+  expect(JSON.stringify(source)).toBe(snapshot);
 });

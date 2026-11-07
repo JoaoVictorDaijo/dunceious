@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { HubFocusOrigin } from '@/src/app/components/AnnotationHubPanel';
 import { useHubState } from '@/src/app/hooks/useHubState';
 import { featureIndexOf } from '@/src/app/logic/featureIndex';
@@ -51,6 +51,7 @@ export function useShowroomView(
   // viewport to frame it once and is cleared when handled, so a remount does not replay it.
   const [focusedRegion, setFocusedRegion] = useState<FocusTarget | null>(null);
   const [focusRequest, setFocusRequest] = useState<FocusTarget | null>(null);
+  const detailsInvoker = useRef<HTMLElement | null>(null);
   const [details, setDetails] = useState<{ record: SeqRecord; feature: BioFeature | null } | null>(null);
 
   const setTab = useCallback((next: ShowroomTab) => {
@@ -88,11 +89,13 @@ export function useShowroomView(
     // An annotation the record does not own (-1) would silently open the record's own panel
     // instead, which looks like the wrong panel opened for no reason. Open nothing.
     if (feature && index < 0) return;
+    detailsInvoker.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDetails({ record, feature: record.features[index] ?? null });
   }, [records, transposedRecords]);
   const closeDetails = useCallback(() => setDetails(null), []);
 
   return {
+    detailsInvoker,
     tab, setTab,
     hubState,
     hubFocus, showHubReturn, dismissHubReturn, returnToHub,

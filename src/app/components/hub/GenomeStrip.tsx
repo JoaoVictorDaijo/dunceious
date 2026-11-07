@@ -18,9 +18,11 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { packTrack, rulerTicks, trackMetrics, type TrackPart } from '@/src/app/logic/trackLayout';
+import { invalidateTooltips } from '../TooltipLayer';
 import { trackFeatureColor, useTrackTooltip } from './TrackTooltip';
 import type { TrackWindow } from './trackWindow';
 type StripPart = TrackPart & { x: number; endX: number; y: number; color: string; path: string };
@@ -144,7 +146,13 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, b
     hoveredRef.current = null;
     setPointer(null);
   }, [record]);
-  useEffect(() => {
+  const tooltipRevision = useRef({ record, geometry });
+  useLayoutEffect(() => {
+    if (tooltipRevision.current.record !== record || tooltipRevision.current.geometry !== geometry) {
+      tooltipRevision.current = { record, geometry };
+      invalidateTooltips(); showTooltip(null, owner.current); setFocused(false); setPointer(null);
+      return;
+    }
     if (!active) { showTooltip(null, owner.current); return; }
     const bounds = svg.current?.getBoundingClientRect();
     const part = geometry.parts.find(part => part.feature === active)!;
@@ -193,7 +201,7 @@ function GenomeStrip({ record, highlight, pinned, large = false, slim = false, b
       </div>
     </div>
     {large && !slim && !bare && <div ref={ruler} data-track-ruler className="relative h-4 font-mono text-[9.5px] text-slate-500">{rulerTicks(record.sequence.length).map(tick => <span data-track-tick key={tick.position} className="absolute whitespace-nowrap -translate-x-1/2" style={{ left: `${tick.position}%` }}>{tick.label}</span>)}<span hidden data-track-window-label className="absolute right-0 whitespace-nowrap bg-white text-slate-600" /></div>}
-    {large && interactive && focused && <span role="status" aria-live="polite" className="sr-only">{current.name} · {current.locationString || `${current.start + 1}..${current.end}`}</span>}
+    {large && interactive && focused && <span role="status" aria-live="polite" className="sr-only">{current.name} · {displayLocation(current, record)}</span>}
   </div>;
 }
 export default memo(GenomeStrip);

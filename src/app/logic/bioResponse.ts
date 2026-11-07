@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { malformedCodeBreakMessage, checkTranslation, translationWarning } from '@/src/domain/bio/translation';
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
@@ -78,6 +79,18 @@ export function resolveAccession(incomingAccession: string | undefined): string 
   return incomingAccession?.trim() || undefined;
 }
 
+/**
+ * One warning per file naming the annotations with intervals in other records (INSDC FT 11.4
+ * §3.4.2.1(e)), whose sequence Dunceious doesn't load or show (#245).
+ */
+export function remotePartsWarning(records: SeqRecord[]): string | null {
+  const remote = records.flatMap(record => record.features).filter(feature => feature.remoteParts?.length);
+  if (remote.length === 0) return null;
+  const names = remote.map(feature => `${feature.name}: ${[...new Set(feature.remoteParts!.map(part => part.accession))].join(', ')}`).join('; ');
+  const count = remote.length === 1 ? '1 annotation has intervals' : `${remote.length} annotations have intervals`;
+  return `WARNING: ${count} in other records, which Dunceious doesn't load (${names}). Their sequence and translation aren't shown.`;
+}
+
 export function applyParseSuccess(
   prev: SeqRecord[], incoming: SeqRecord[], filename?: string,
 ): { next: SeqRecord[]; count: number; idMap: BatchIdMap } {
@@ -102,7 +115,7 @@ export function applyAnnotations(
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
   details: Record<string, GffSourceRegion> = {},
   idMap?: BatchIdMap,
-): { next: SeqRecord[]; totalAdded: number; unmatched: string[] } {
+): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; refusal?: string } {
   let totalAdded = 0;
   const next = [...prev];
   const unmatched: string[] = [];
@@ -149,17 +162,22 @@ export function applyAnnotations(
       };
       totalAdded += items.length;
     }
-    next[index] = record;
+    for (const item of items) {
+      if ('data' in item) continue;
+      const refusal = malformedCodeBreakMessage(item, record);
+      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], refusal };
+    }
+    next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
   return { next, totalAdded, unmatched };
 }
 
-/** A record loaded as a sequence whose '-' gap characters were removed, by workspace ID. */
+/** A record loaded as a sequence whose gap characters were removed, by workspace ID. */
 export interface GapRemoval { id: string; removed: number }
 
 /**
  * Alignment overlays change only aligned residues; batch loads capture file provenance.
- * A batch load removes '-' so a stored sequence holds residues only, as NCBI does for
+ * A batch load removes '-' and '.' so a stored sequence holds residues only, as NCBI does for
  * sequences outside an alignment ("do not use "?" or "-" characters. These will be
  * stripped from the sequence.", https://www.ncbi.nlm.nih.gov/genbank/fastaformat/).
  * The removals are reported; a file with a record left without residues is refused whole.
@@ -172,7 +190,7 @@ export function applyFastaResponse(
   asAlignment: boolean | undefined,
   filename?: string,
 ):
-  | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
+  | ({ next: SeqRecord[]; kind: 'batch' | 'aligned-load'; length?: number; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
   | ({ next: SeqRecord[]; kind: 'reject-no-residues'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
@@ -181,7 +199,7 @@ export function applyFastaResponse(
   | ({ next: SeqRecord[]; kind: 'reject-dot-gap'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-residues'; ids: string[] }) {
   if (!asAlignment) {
-    const residues = alignedData.map(d => d.sequence.replace(/-/g, ''));
+    const residues = alignedData.map(d => d.sequence.replace(/[-.]/g, ''));
     const empty = alignedData.filter((_, i) => residues[i].length === 0).map(d => d.id);
     if (empty.length > 0) return { next: prev, kind: 'reject-no-residues', ids: empty };
     // Ungap before writeDetails so the generated source feature spans residues only.
@@ -195,6 +213,20 @@ export function applyFastaResponse(
       .map((d, i) => ({ id: added[i].id, removed: d.sequence.length - residues[i].length }))
       .filter(gap => gap.removed > 0);
     return { ...loaded, kind: 'batch', gapsRemoved };
+  }
+
+  if (prev.length === 0) {
+    if (alignedData.length === 0 || alignedData.some(d => !d.sequence.length)) return { next: prev, kind: 'reject-empty' };
+    const lengths = [...new Set(alignedData.map(d => d.sequence.length))];
+    if (lengths.length > 1) return { next: prev, kind: 'reject-length', lengths };
+    const dots = alignedData.filter(d => d.sequence.includes('.')).map(d => d.id);
+    if (dots.length) return { next: prev, kind: 'reject-dot-gap', ids: dots };
+    const empty = alignedData.filter(d => !d.sequence.replace(/-/g, '').length).map(d => d.id);
+    if (empty.length) return { next: prev, kind: 'reject-no-residues', ids: empty };
+    const result = applyFastaResponse(prev, alignedData, false, filename);
+    if (result.kind !== 'batch') return result;
+    return { ...result, kind: 'aligned-load', length: lengths[0],
+      next: result.next.map((record, i) => ({ ...record, alignedSequence: alignedData[i].sequence })) };
   }
 
   const currentIds = new Set(prev.map(r => r.id));
@@ -235,17 +267,18 @@ export function applyFastaAndLog(
 ): ReturnType<typeof applyFastaResponse> {
   const result = applyFastaResponse(records, alignedData, asAlignment, filename);
   switch (result.kind) {
+    case 'aligned-load': addLog(`Loaded ${result.count} aligned sequences (${result.length} columns) from ${filename ?? 'the FASTA file'}`); break;
     case 'batch': {
       addLog(`Batch ingestion complete: ${result.count} records added.`);
       const gaps = result.gapsRemoved;
       if (gaps.length > 0) {
-        addLog(`Removed alignment gaps ("-") from ${gaps.length} record${gaps.length === 1 ? '' : 's'} in ${filename ?? 'the FASTA file'}: ${gaps.map(gap => `${gap.id} (${gap.removed})`).join(', ')}.`);
+        addLog(`Removed alignment gaps ("${alignedData.some(d => d.sequence.includes('.')) ? '- and .' : '-'}") from ${gaps.length} record${gaps.length === 1 ? '' : 's'} in ${filename ?? 'the FASTA file'}: ${gaps.map(gap => `${gap.id} (${gap.removed})`).join(', ')}.`);
       }
       break;
     }
     case 'reject-no-residues': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records with no residues: [${result.ids.join(', ')}].`); break;
-    case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
-    case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
+    case 'overlay': addLog(`External alignment applied successfully (${result.length} columns).`); break;
+    case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]. Unaligned missing IDs: [${records.filter(r => !r.alignedSequence && result.missing.includes(r.id)).map(r => r.id).join(', ')}]`); break;
     case 'reject-length': addLog(`ERROR: Aligned sequences must have identical lengths. Found: ${result.lengths.join(', ')}`); break;
     case 'reject-empty': addLog('ERROR: Aligned sequences cannot be empty.'); break;
     case 'reject-dot-gap': addLog(`ERROR: Alignment gaps must be written as "-"; "." found in: [${result.ids.join(', ')}]`); break;
@@ -258,4 +291,11 @@ export function applyFastaAndLog(
     }
   }
   return result;
+}
+
+/** One file warning counts only the annotations introduced by this attachment. */
+export function logAttachedTranslationWarning(previous: SeqRecord[], next: SeqRecord[], addLog: (message: string) => void): void {
+  const attached = next.map(r => ({ ...r, features: r.features.filter(f => !previous.find(p => p.id === r.id)?.features.includes(f)) }));
+  const warning = translationWarning(attached);
+  if (warning) addLog(warning);
 }
