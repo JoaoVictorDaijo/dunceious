@@ -18,12 +18,13 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { DetailKey, SequenceDetails, SeqRecord } from '@/src/domain/bio/types';
+import type { DetailKey, SequenceDetails, SeqRecord, SelectionLoss } from '@/src/domain/bio/types';
 import { DETAIL_QUALIFIER, readDetails, isDetailEdited, validateDetail } from '@/src/domain/bio/details';
 
 export interface ExportReport {
   featuresWithoutInsdcLocation: { linearEdgeSite: number; invalidGeometry: number };
   translationWarnings: string[];
+  qualifierWarnings: string[];
   gapRecordsOmitted: string[];
   genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
@@ -46,7 +47,7 @@ export interface ExportResult { text: string; unalignedText?: string; report: Ex
 export function emptyReport(): ExportReport {
   return {
     featuresWithoutInsdcLocation: { linearEdgeSite: 0, invalidGeometry: 0 },
-    translationWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
+    translationWarnings: [], qualifierWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,
@@ -66,4 +67,8 @@ export function detailsForExport(record: SeqRecord, report: ExportReport): Seque
     } else report.writtenDetails[key]++;
   }
   return details;
+}
+
+export function describeSelectionLoss(loss: SelectionLoss): string {
+  return `${loss.record}: CDS ${loss.feature}${loss.occurrence === undefined ? '' : `, /transl_except occurrence ${loss.occurrence} ${JSON.stringify(loss.raw)}`}: ${loss.reason}`;
 }

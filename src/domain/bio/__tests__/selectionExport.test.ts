@@ -105,25 +105,25 @@ function makeRecord(overrides: Partial<SeqRecord> = {}): SeqRecord {
 
 describe('sliceRecordsBySelection – sequence slicing', () => {
   it('slices the sequence to the selection window', () => {
-    const [result] = sliceRecordsBySelection([makeRecord()], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord()], 10, 20).records;
     expect(result.sequence).toBe('CCCCCCCCCC');
   });
 
   it('clears alignedSequence in the output', () => {
     const record = makeRecord({ alignedSequence: 'AAAA----CCCCGGGG' });
-    const [result] = sliceRecordsBySelection([record], 10, 20);
+    const [result] = sliceRecordsBySelection([record], 10, 20).records;
     expect(result.alignedSequence).toBeUndefined();
   });
 
   it('uses alignedSequence as source when present', () => {
     // aligned seq has gaps; slicing [4, 8) → '----'
     const record = makeRecord({ alignedSequence: 'AAAA----CCCCGGGG' });
-    const [result] = sliceRecordsBySelection([record], 4, 8);
+    const [result] = sliceRecordsBySelection([record], 4, 8).records;
     expect(result.sequence).toBe('----');
   });
 
   it('clamps slice to sequence boundaries', () => {
-    const [result] = sliceRecordsBySelection([makeRecord()], 25, 50);
+    const [result] = sliceRecordsBySelection([makeRecord()], 25, 50).records;
     expect(result.sequence).toBe('GGGGG');
   });
 });
@@ -135,26 +135,26 @@ describe('sliceRecordsBySelection – sequence slicing', () => {
 describe('sliceRecordsBySelection – feature rebasing', () => {
   it('rebases a fully contained feature', () => {
     const feature: BioFeature = { type: 'CDS', name: 'f1', start: 12, end: 18, strand: 1 };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toEqual([{ ...feature, start: 2, end: 8 }]);
   });
 
   it('clips a feature that extends beyond the selection', () => {
     const feature: BioFeature = { type: 'CDS', name: 'f1', start: 5, end: 15, strand: 1 };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features[0]).toMatchObject({ start: 0, end: 5 });
   });
 
   it('removes a feature entirely outside the selection', () => {
     const feature: BioFeature = { type: 'CDS', name: 'f1', start: 0, end: 8, strand: 1 };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toHaveLength(0);
   });
 
   it('removes a feature that becomes zero-length after clipping', () => {
     // Feature ends exactly at selStart → no overlap
     const feature: BioFeature = { type: 'CDS', name: 'f1', start: 0, end: 10, strand: 1 };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toHaveLength(0);
   });
 
@@ -163,7 +163,7 @@ describe('sliceRecordsBySelection – feature rebasing', () => {
       type: 'CDS', name: 'f1', start: 12, end: 18, strand: 1,
       segments: [{ start: 12, end: 14, strand: -1 }, { start: 16, end: 18, strand: 1 }],
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features[0].segments!.map(s => s.strand)).toEqual([-1, 1]);
   });
 });
@@ -185,7 +185,7 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
         { start: 18, end: 25 },
       ],
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toHaveLength(1);
     const f = result.features[0];
     // Parent bounds clipped to [10,20) → rebased [0, 10)
@@ -211,7 +211,7 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
         { start: 22, end: 30 }, // entirely after → dropped
       ],
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toHaveLength(1);
     // The kept interval faced a dropped interval on each side, so both its ends are marked.
     expect(result.features[0].segments).toEqual([{ start: 2, end: 8, partialStart: true, partialEnd: true }]);
@@ -229,7 +229,7 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
         { start: 22, end: 25 }, // after  [10,20)
       ],
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features).toEqual([]);
   });
 
@@ -238,14 +238,14 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
       type: 'gene', name: 'joined', start: 0, end: 30, strand: 1,
       segments: [{ start: 0, end: 8 }, { start: 12, end: 18 }, { start: 22, end: 30 }],
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features[0]).toMatchObject({ start: 2, end: 8 });
   });
 
   it.each([{ segments: undefined }, { segments: [{ start: 25, end: 30 }, { start: 0, end: 5 }] }])(
     'retains origin-crossing parts when selecting the full circular sequence: %j', ({ segments }) => {
       const feature: BioFeature = { type: 'gene', name: 'origin', start: 25, end: 5, strand: 1, segments };
-      const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 0, 30);
+      const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 0, 30).records;
       expect(result.features).toHaveLength(1);
       expect(result.features[0]).toMatchObject({
         start: 0, end: 30, segments: [{ start: 25, end: 30 }, { start: 0, end: 5 }],
@@ -255,7 +255,7 @@ describe('sliceRecordsBySelection – multi-segment feature rebasing', () => {
 
   it('preserves undefined segments on a simple feature', () => {
     const feature: BioFeature = { type: 'CDS', name: 'simple', start: 12, end: 18, strand: 1 };
-    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord({ features: [feature] })], 10, 20).records;
     expect(result.features[0].segments).toBeUndefined();
   });
 });
@@ -272,7 +272,7 @@ describe('sliceRecordsBySelection – track data clipping', () => {
         data: [{ start: 12, end: 18, value: 5 }],
       }],
     });
-    const [result] = sliceRecordsBySelection([record], 10, 20);
+    const [result] = sliceRecordsBySelection([record], 10, 20).records;
     expect(result.tracks![0].data).toEqual([{ start: 2, end: 8, value: 5 }]);
   });
 
@@ -287,7 +287,7 @@ describe('sliceRecordsBySelection – track data clipping', () => {
         ],
       }],
     });
-    const [result] = sliceRecordsBySelection([record], 10, 20);
+    const [result] = sliceRecordsBySelection([record], 10, 20).records;
     expect(result.tracks![0].data).toHaveLength(1);
     expect(result.tracks![0].data[0].value).toBe(2);
   });
@@ -300,7 +300,7 @@ describe('sliceRecordsBySelection – track data clipping', () => {
         data: [{ start: 5, end: 10, value: 9 }], // ends at selStart → zero-length
       }],
     });
-    const [result] = sliceRecordsBySelection([record], 10, 20);
+    const [result] = sliceRecordsBySelection([record], 10, 20).records;
     expect(result.tracks![0].data).toHaveLength(0);
   });
 
@@ -311,7 +311,7 @@ describe('sliceRecordsBySelection – track data clipping', () => {
         data: [{ start: 11, end: 14, value: 42 }],
       }],
     });
-    const [result] = sliceRecordsBySelection([record], 10, 20);
+    const [result] = sliceRecordsBySelection([record], 10, 20).records;
     expect(result.tracks![0].data[0].value).toBe(42);
   });
 });
@@ -323,7 +323,7 @@ describe('sliceRecordsBySelection – track data clipping', () => {
 describe('sliceRecordsBySelection – output structure', () => {
   it('preserves non-positional record fields', () => {
     const record = makeRecord({ definition: 'Test record', accession: 'ACC001' });
-    const [result] = sliceRecordsBySelection([record], 5, 15);
+    const [result] = sliceRecordsBySelection([record], 5, 15).records;
     expect(result.id).toBe('r1');
     expect(result.name).toBe('Record 1');
     expect(result.definition).toBe('Test record');
@@ -332,12 +332,12 @@ describe('sliceRecordsBySelection – output structure', () => {
 
   it('returns the same number of records as input', () => {
     const records = [makeRecord({ id: 'r1' }), makeRecord({ id: 'r2' })];
-    const results = sliceRecordsBySelection(records, 10, 20);
+    const results = sliceRecordsBySelection(records, 10, 20).records;
     expect(results).toHaveLength(2);
   });
 
   it('handles records with no tracks gracefully', () => {
-    const [result] = sliceRecordsBySelection([makeRecord()], 10, 20);
+    const [result] = sliceRecordsBySelection([makeRecord()], 10, 20).records;
     expect(result.tracks).toBeUndefined();
   });
 });
@@ -348,10 +348,10 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
       type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1,
        metadata: { ...{ translation: 'MKP', codon_start: '1', _gffPhases: '["0"]', phase: '0' }, translation: 'MKP' },
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9);
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 3, 9).records;
     const selected = result.features[0];
-    expect(selected?.metadata?.translation).toBeUndefined();
-    expect(selected.metadata?.translation).toBeUndefined();
+    expect(selected?.metadata?.translation).toBe('KP');
+    expect(selected.metadata?.translation).toBe('KP');
     expect(selected.metadata?._gffPhases).toBeUndefined();
     expect(selected.metadata?.phase).toBeUndefined();
     expect(translateFeature(selected, extractCodingSequence(selected, result.sequence).codingSeq)).toBe('KP');
@@ -368,7 +368,7 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
       type: 'CDS', name: 'coding', start: 0, end: 9, strand,
       metadata: { codon_start: codonStart },
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], start, end);
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], start, end).records;
     expect(result.features[0].metadata?.codon_start).toBe(want);
   });
 
@@ -377,7 +377,7 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
       type: 'SO:0000316', name: 'coding', start: 0, end: 9, strand: 1,
       metadata: { codon_start: '1', _gffPhaseState: 'imported' },
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 1, 9);
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'ATGAAACCC', features: [feature] })], 1, 9).records;
     expect(result.features[0].metadata?.codon_start).toBe('3');
     expect(result.features[0].metadata?._gffPhaseState).toBeUndefined();
   });
@@ -387,7 +387,7 @@ describe('sliceRecordsBySelection – clipped CDS translation', () => {
       type: 'CDS', name: 'joined', start: 0, end: 15, strand: 1,
       segments: [{ start: 0, end: 4 }, { start: 10, end: 15 }], metadata: { codon_start: '1' },
     };
-    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'A--TNNNNNNGAAAC', features: [feature] })], 10, 15);
+    const [result] = sliceRecordsBySelection([makeRecord({ sequence: 'A--TNNNNNNGAAAC', features: [feature] })], 10, 15).records;
     expect(result.features[0].metadata?.codon_start).toBe('2');
   });
 });
@@ -398,7 +398,7 @@ describe('sliceRecordsBySelection – operators and sites', () => {
   const slice = (feature: Partial<BioFeature>, start: number, end: number) => sliceRecordsBySelection([{
     id: 'r', name: 'r', sequence: 'A'.repeat(40),
     features: [{ type: 'misc_feature', name: 'f', start: 0, end: 0, strand: 1, ...feature }],
-  }], start, end)[0].features;
+  }], start, end).records[0].features;
 
   it('keeps the order() operator on the clipped feature', () => {
     const [clipped] = slice({ operator: 'order', start: 2, end: 30, segments: [{ start: 2, end: 5 }, { start: 10, end: 13 }, { start: 25, end: 30 }] }, 0, 20);
@@ -422,7 +422,7 @@ describe('sliceRecordsBySelection – partial ends', () => {
   const clip = (feature: Partial<BioFeature>, sequence: string, start: number, end: number) => sliceRecordsBySelection([{
     id: 'r', name: 'r', sequence,
     features: [{ type: 'CDS', name: 'c', start: 0, end: 0, strand: 1, ...feature }],
-  }], start, end)[0].features[0];
+  }], start, end).records[0].features[0];
 
   it('keeps the > of 4..>12 and its residue reading when the selection starts inside it (#226 repro)', () => {
     const cds = clip({ start: 3, end: 12, segments: [{ start: 3, end: 12, partialEnd: true }], locationString: '4..>12', metadata: { transl_table: '27' } }, 'AAAATGCCCTGA', 3, 12);
@@ -448,7 +448,7 @@ describe('sliceRecordsBySelection – written order', () => {
       type: 'misc_feature', name: 'n', start: 0, end: 40, strand: 1, operator: 'join',
       segments: [{ start: 0, end: 5, strand: 1 }, { start: 29, end: 40, strand: -1 }, { start: 9, end: 20, strand: -1 }],
       writtenOrder: [0, 2, 1],
-    }] }], 8, 40)[0].features;
+    }] }], 8, 40).records[0].features;
     expect(clipped.segments!.map(({ start, end }) => [start, end])).toEqual([[21, 32], [1, 12]]);
     expect(clipped.writtenOrder).toEqual([1, 0]);
   });
@@ -461,7 +461,7 @@ describe('sliceRecordsBySelection – remote parts', () => {
       type: 'misc_feature', name: 'n', start: 0, end: 30, strand: 1, operator: 'join',
       segments: [{ start: 0, end: 5 }, { start: 20, end: 30 }],
       remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 2 }],
-    }] }], 10, 40)[0].features;
+    }] }], 10, 40).records[0].features;
     expect(clipped.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
   });
 });
@@ -470,6 +470,6 @@ describe('sliceRecordsBySelection – remote parts', () => {
 // not be dropped with the segment array.
 it('keeps the cut-end markers of a feature without segments', () => {
   const [clipped] = sliceRecordsBySelection([{ id: 'r', name: 'r', sequence: 'A'.repeat(30),
-    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 20, strand: 1 }] }], 5, 15)[0].features;
+    features: [{ type: 'misc_feature', name: 'f', start: 0, end: 20, strand: 1 }] }], 5, 15).records[0].features;
   expect(clipped.segments).toEqual([{ start: 0, end: 10, partialStart: true, partialEnd: true }]);
 });

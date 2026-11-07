@@ -131,3 +131,19 @@ it('exposes the imported protein read-only and previews its replacement', () => 
   expect(screen.getByText('Imported · Read-only')).toBeTruthy();
   expect(screen.getByRole('status').textContent).toContain('Translation computed at creation');
 });
+
+it('makes phase read-only and directs frame edits to codon_start', () => {
+  const change = show({ ...editing, feature: { ...editing.feature, type: 'CDS', metadata: { phase: '1', codon_start: '2' } } });
+  expect((screen.getByLabelText('Value of phase') as HTMLTextAreaElement).readOnly).toBe(true);
+  expect((screen.getByDisplayValue('phase') as HTMLInputElement).readOnly).toBe(true);
+  expect((screen.getByRole('button', { name: 'Remove qualifier phase' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(/Edit frame through/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Value of codon_start'), { target: { value: '3' } });
+  expect(change.mock.calls[0][0].feature.metadata).toMatchObject({ phase: '1', codon_start: '3' });
+});
+it('keeps ordered repeated code-break rows outside scalar metadata', () => {
+  const change = show({ ...editing, feature: { ...editing.feature, type: 'CDS', translationExceptions: ['(pos:1..3,aa:Sec)', '(pos:4..6,aa:Pyl)'] } });
+  fireEvent.change(screen.getAllByLabelText('Value of transl_except')[1], { target: { value: '(pos:4..6,aa:Sec)' } });
+  expect(change.mock.calls[0][0].feature.translationExceptions).toEqual(['(pos:1..3,aa:Sec)', '(pos:4..6,aa:Sec)']);
+  expect(change.mock.calls[0][0].feature.metadata.transl_except).toBeUndefined();
+});

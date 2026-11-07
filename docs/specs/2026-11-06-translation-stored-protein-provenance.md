@@ -1,6 +1,6 @@
 ---
 title: "Stored CDS translations: one read-only protein, recomputed after edits, curated differences shown"
-status: proposed
+status: implemented
 date: 2026-11-06
 areas: ["translation", "viewer", "annotations", "genbank", "project-file"]
 prs: [291]
@@ -683,46 +683,21 @@ record makes each warning-count assertion exclude unrelated features.
 
 ## Open decisions
 
-- **Protein GenBank export of an untouched CDS `/translation` (round-6 Important finding).**
-  The INSDC and NCBI GenPept sources above establish nucleotide derivation and omission on
-  mapped nucleotide CDSs, but do not settle preservation of a supplied qualifier on an
-  arbitrary protein-coordinate CDS. Options:
-  - **A — deliberate serializer filter (recommended):** in `serializeRecord`'s metadata
-    emission loop, skip `key === 'translation'` when `r.moleculeType === 'protein'` and
-    `isCds(feature)` holds, before emitting an otherwise allowed nonempty value. Count that
-    omitted key exactly once in `report.droppedAttributes`, in addition to unrelated drops;
-    do not delete it from the feature or alter `_translationSource`. Use the existing export
-    report/log and preview to expose the loss. An absent key contributes zero; after an
-    invalidating edit the removal warning reports the earlier loss, without inventing a
-    dropped attribute for absent metadata. Keep the existing empty-value reporting rule.
-    Prefer this narrow filter over changing the whole protein allowlist, so this decision
-    does not silently change other protein-feature qualifiers. Nucleotide CDS export keeps
-    its specified behavior.
-  - **B — preserve:** retain the current allowed nonempty qualifier on an untouched protein
-    CDS as imported data, without claiming nucleotide verification; its contribution to
-    `droppedAttributes` is zero. After invalidation omit the removed key, also contributing
-    zero, and expose the removal warning as specified at the save boundary.
+- **Resolved — protein GenBank export of an untouched CDS `/translation`.** Owner answer 1,
+  2026-11-06: “Export genbank with trasnlation.” Choose former option B: keep the current
+  nonempty supplied qualifier on a protein-record CDS, without nucleotide verification;
+  no dropped-attribute count for this key. Invalidating edits still remove it under the
+  existing protein-record guard. **Backed by: owner decision 2026-11-06**, overriding the
+  suggested serializer filter. Historical conditional acceptance text above records the
+  original alternatives; this entry selects preservation.
 
-  **Recommendation: A**, following the mapped-CDS GenPept convention conservatively while
-  preserving the original data in GFF3/project export. This extension to arbitrary attached
-  CDSs is an application policy, not a demonstrated standard requirement. Owner choice is
-  required before implementing this boundary; neither option is authorized yet. The protein
-  acceptance fixture above is conditional on that choice and must be fixed to the selected
-  outcome when the decision is recorded.
-
-- **GFF3 phase editor (finding 8).** The standard and existing extraction/export contract
-  settle `phase=p ↔ codon_start=p+1` for the first evaluated interval, not which UI field is
-  editable. NCBI's INSDC/ASN.1 frame machinery (`sequence.cpp:3670`, Toolkit `912b751`)
-  consumes the CDS frame and does not settle a GFF3 qualifier editor. The source surveys
-  above do not document a phase-edit UI policy. Options: (A) accept phase edits, normalize
-  to `codon_start`, and reject conflicting simultaneous phase/frame edits; (B) make the
-  redundant phase row read-only and direct edits through `codon_start`, showing the derived
-  phase there. **Recommendation: B**, since extraction and export already use `codon_start`
-  and one editable authority prevents conflicts. Owner choice required before implementing
-  the editor; neither option is authorized by this spec yet. Both must satisfy the literal
-  save/export acceptance case above. For multipart CDSs the control changes only the first
-  evaluated phase and regenerates downstream phases; arbitrary independent row-phase editing
-  is not implied.
+- **Resolved — GFF3 phase editor (finding 8).** Owner answer 2, 2026-11-06: choose former
+  option B. Phase is read-only; edit frame through `/codon_start`, showing derived phase
+  and regenerating multipart downstream phases. **Backed by: owner decision 2026-11-06**.
+  This small editor follow-up is carried by
+  [PR 2](2026-11-06-translation-transl-except.md#save-provenance-and-pr-1-phase-follow-up),
+  not claimed as implemented by PR #291. Historical conditional cases select the codon_start
+  path (2→3 gives CP and phases `[2,0]`).
 
 ## Left to the builder
 

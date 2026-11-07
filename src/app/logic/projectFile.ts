@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
+import { malformedCodeBreakMessage, checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
@@ -47,6 +47,10 @@ export interface ProjectFile extends ProjectState { format: 2 }
 export function serializeProject(state: ProjectState): string {
   const records = state.records.map(record => ({ ...record, features: record.features.map(feature => {
     const { biological: _biological, ...stored } = feature;
+    if (stored.metadata) {
+      stored.metadata = { ...stored.metadata };
+      delete stored.metadata._translationCheck;
+    }
     return stored;
   }) }));
   return JSON.stringify({ ...state, records, format: 2, version: state.version ?? __APP_VERSION__ }, null, 2);
@@ -83,6 +87,7 @@ function validRecord(value: unknown): boolean {
   if (!value.features.every(feature => isObject(feature) && coordinates(feature)
     && typeof feature.type === 'string' && typeof feature.name === 'string'
     && (feature.strand === 1 || feature.strand === -1)
+    && (feature.translationExceptions === undefined || Array.isArray(feature.translationExceptions) && feature.translationExceptions.every(item => typeof item === 'string'))
     && ['color', 'translation', 'locationString'].every(key => feature[key] === undefined || typeof feature[key] === 'string')
     && (feature.operator === undefined || feature.operator === 'join' || feature.operator === 'order')
     && (feature.betweenBases === undefined || feature.betweenBases === true)
@@ -160,7 +165,11 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   for (const record of value.records as SeqRecord[]) {
     for (const feature of record.features) {
       if (hasPartialStrands(feature)) return { ok: false, message: `Feature ${feature.name} has a strand on some of its pieces but not others.` };
+      const scalar = feature.metadata?.transl_except ?? feature.unknownQualifiers?.transl_except;
+      if (scalar !== undefined) return { ok: false, message: `CDS ${feature.name}, /transl_except ${JSON.stringify(scalar)}: canonical translationExceptions array required; scalar qualifiers are invalid project data` };
       delete feature.biological;
+      const malformed = malformedCodeBreakMessage(withLegacyLocation(feature, record), record);
+      if (malformed) return { ok: false, message: malformed };
     }
     if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();

@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { parseLocation } from '../genbank/locationParser';
@@ -178,6 +179,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const metadata = feature.metadata ?? {};
       const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
       addQualifiers(attrs, metadata, referenceIds, report);
+      if (feature.translationExceptions?.length) attrs.transl_except = feature.translationExceptions;
       const searchNote = searchHitNote(feature);
       if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
       if (so.original) attrs.insdc_type = so.original;
@@ -204,6 +206,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       }
       segments.forEach((segment, index) => {
         const partAttrs = { ...attrs };
+        if (index > 0) delete partAttrs.transl_except;
         const site = segment.start === segment.end;
         if (site) partAttrs.insdc_site = 'true';
         if (segment.partialStart) partAttrs.insdc_partial_start = '<';
@@ -241,6 +244,11 @@ function parseAttributes(raw: string): Record<string, string> {
     const key = decode(attribute.slice(0, equals));
     if (key.startsWith('_')) continue;
     const values = attribute.slice(equals + 1).split(',').map(decode);
+    if (key === 'transl_except') {
+      lists[key] = [...(lists[key] ?? []), ...values];
+      result[key] = lists[key].join(',');
+      continue;
+    }
     result[key] = values.join(',');
     if (values.length > 1) lists[key] = values;
   }
@@ -323,6 +331,8 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const [encodedId, source, type, from, to, score, strand, phase, raw] = cols;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
+    const bareException = raw.split(';').find(attribute => !attribute.includes('=') && decode(attribute).trim() === 'transl_except');
+    if (bareException !== undefined) throw new Error(`${metadata.insdc_type || type} ${metadata.Name || metadata.name || metadata.ID || metadata.id || `${type}_${from}`}, attribute ${JSON.stringify(bareException)} requires transl_except=(pos:<location>,aa:<residue>) syntax`);
     const site = metadata.insdc_site === 'true' && from === to;
     delete metadata.insdc_site;
     const start = site ? Number(from) : Number(from) - 1;
@@ -349,6 +359,12 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
       start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end, ...marks }], metadata,
       ...(site && { betweenBases: true as const }),
     };
+    if (metadata.transl_except !== undefined) {
+      feature.translationExceptions = attributeValues(metadata, 'transl_except');
+      takeListAttribute(feature, 'transl_except');
+    }
+    const malformed = malformedCodeBreakMessage(feature);
+    if (malformed) throw new Error(malformed);
     rows.push({ seqid, feature });
   }
 
@@ -416,6 +432,7 @@ export function parseGFF3(content: string): {
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         previous.strand = 1;
       }
+      if (feature.translationExceptions) previous.translationExceptions = [...(previous.translationExceptions ?? []), ...feature.translationExceptions];
       previous.segments!.push(...feature.segments!);
       previous.start = Math.min(previous.start, feature.start);
       previous.end = Math.max(previous.end, feature.end);

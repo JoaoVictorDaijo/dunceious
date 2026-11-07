@@ -19,15 +19,17 @@
  */
 
 
-import type { BioFeature, SeqRecord, ConceptualTranslation } from './types';
+import type { BioFeature, SeqRecord, ConceptualTranslation, TranslationExceptionEvidence, SelectionArea } from './types';
 export type { ConceptualTranslation } from './types';
+import { codeBreakEvidence, codeBreakMessage, transformCodeBreak, SENSE_RESIDUES } from './translationExceptions';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
 import { extractCodingSequence, featureTranslTable, initiatorResidue, isNcbiGeneticCode } from './sequence';
 import { definesOneSequence, isFivePrimePartialLocation, isThreePrimePartialLocation } from './locationFlags';
 import { invalidLocationPart } from './featureParts';
+import { validCodonStart } from './codonStart';
 import { getFeatureStrand } from './strand';
 
-type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number };
+type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular' | 'accession' | 'version'> & { biologicalLength?: number };
 
 
 export const isCds = (feature: Pick<BioFeature, 'type'>): boolean => ['CDS', 'cds', 'SO:0000316'].includes(feature.type);
@@ -47,7 +49,8 @@ function reading(set: string): string {
 
 /** Contextual NCBI CDS product, independent of every stored protein assertion. */
 export function conceptualTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
-  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason });
+  const exceptions = geometryCodeBreakEvidence(feature, record);
+  const unavailable = (reason: Extract<ConceptualTranslation, { status: 'unavailable' }>['reason']): ConceptualTranslation => ({ status: 'unavailable', reason, ...(exceptions.length ? { exceptions: exceptions.map(e => e.status === 'applied' ? { ...e, status: 'deferred', reason: `translation unavailable: ${reason}` } : e) } : {}) });
   if (record.moleculeType === 'protein') return unavailable('protein-record');
   const table = featureTranslTable(feature);
   if (!isNcbiGeneticCode(table)) return unavailable('invalid-code');
@@ -81,9 +84,16 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     const set = readings(seq.slice(full * 3).padEnd(3, 'N'), false);
     if (set.length === 1 && set !== '*') { possible.push(set); residues.push(set); }
   }
+  if (feature.translationExceptions?.length) {
+    if (exceptions.some(e => e.status === 'malformed' || e.status === 'deferred')) return unavailable('unsupported-exception');
+    for (const evidence of exceptions) if (evidence.status === 'applied') {
+      possible[evidence.codonIndex!] = evidence.possible!;
+      residues[evidence.codonIndex!] = reading(evidence.possible!);
+    }
+  }
   if (possible.at(-1) === '*') { possible.pop(); residues.pop(); }
   const threePrimeIndeterminate = !!possible.at(-1)?.includes('*') && possible.at(-1) !== '*';
-  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3) };
+  return { status: 'ok', residues: residues.join(''), possible, internalStops: possible.flatMap((p, i) => p === '*' ? [i] : []), threePrimeIndeterminate, alignedIndices: alignedIndices.slice(0, residues.length * 3), ...(exceptions.length ? { exceptions } : {}) };
 }
 
 export function compareTranslation(stored: string, conceptual: Extract<ConceptualTranslation, { status: 'ok' }>) {
@@ -91,7 +101,8 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
   for (let i = 0; i < Math.min(stored.length, conceptual.residues.length); i++) {
     const actual = stored[i]; const expected = conceptual.residues[i];
     if (actual === expected) continue;
-    if (expected !== '*' && (actual === 'X' || conceptual.possible[i].includes(actual))) continue;
+    const actualSet = ({ B: 'DN', Z: 'EQ', J: 'IL', X: SENSE_RESIDUES } as Record<string, string>)[actual] ?? actual;
+    if (expected !== '*' && [...actualSet].some(residue => conceptual.possible[i].includes(residue))) continue;
     differing.push(i);
   }
   return { differing, storedExtra: stored.slice(conceptual.residues.length), storedShortBy: Math.max(0, conceptual.residues.length - stored.length) };
@@ -101,24 +112,34 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
   if (!isCds(feature)) return feature;
   const conceptual = conceptualTranslation(feature, record);
+  const dropped = new Set(geometryCodeBreakEvidence(feature, record).filter(e => e.status === 'dropped').map(e => e.occurrence));
+  if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
   return { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } };
 }
 export function translationWarning(records: SeqRecord[]): string | null {
   let count = 0;
+  const notices: string[] = [];
   for (const record of records) for (const f of record.features) {
-    if (!isCds(f) || f.metadata?.exception !== undefined) continue;
+    if (!isCds(f)) continue;
+    const checked = checkedTranslation(f, record);
+    for (const e of checked.exceptions ?? []) {
+      if (e.status !== 'applied') notices.push(codeBreakMessage(e));
+      for (const warning of e.warnings ?? []) notices.push(`${codeBreakMessage(e)}: ${warning}`);
+    }
+    if (f.metadata?.exception !== undefined) continue;
     const stored = storedTranslation(f); const result = conceptualTranslation(f, record);
     if (!stored || result.status !== 'ok') continue;
     const c = compareTranslation(stored, result);
     if (c.differing.length || c.storedExtra || c.storedShortBy) count++;
   }
-  return count ? `WARNING: ${count} CDS have a /translation that differs from their DNA` : null;
+  if (count) notices.push(`${count} CDS have a /translation that differs from their DNA`);
+  return notices.length ? `WARNING: ${notices.join('; ')}` : null;
 }
 export function translationReason(result: ConceptualTranslation, feature: BioFeature): string {
   if (result.status === 'ok') return result.internalStops.length ? `internal stop at codon ${result.internalStops[0] + 1}; fix the CDS or mark it /pseudo` : '';
-  return ({ 'protein-record': 'nucleotide translation is not applicable to a protein record', 'invalid-code': `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`, 'unsupported-exception': "/transl_except can't be applied yet", 'unknown-strand': 'biological strand is unknown', 'nonlocal-location': 'location does not define one locally available sequence', 'unknown-completeness': 'CDS end completeness cannot be established', empty: 'CDS has no translatable coding bases' })[result.reason];
+  return ({ 'protein-record': 'nucleotide translation is not applicable to a protein record', 'invalid-code': `/transl_table=${feature.metadata?.transl_table ?? ''} is not an NCBI genetic code`, 'unsupported-exception': result.exceptions?.find(e => e.status === 'malformed' || e.status === 'deferred')?.reason ?? "/transl_except can't be applied yet", 'unknown-strand': 'biological strand is unknown', 'nonlocal-location': 'location does not define one locally available sequence', 'unknown-completeness': 'CDS end completeness cannot be established', empty: 'CDS has no translatable coding bases' })[result.reason];
 }
 
 /** Fill omitted interval orientations only in the per-interval evaluation path (LOC-3). */
@@ -142,6 +163,10 @@ export function checkedTranslation(feature: BioFeature, record: TranslationRecor
 export function translationDescription(feature: BioFeature, record: TranslationRecord): string {
   const result = checkedTranslation(feature, record);
   const clauses = [feature.metadata?._translationMessage ?? ''];
+  for (const e of result.exceptions ?? []) {
+    if (e.status !== 'applied') clauses.push(codeBreakMessage(e));
+    clauses.push(...(e.warnings ?? []));
+  }
   if (result.status === 'unavailable') clauses.push(`Can't verify: ${translationReason(result, feature)}`);
   const stored = storedTranslation(feature);
   if (stored && result.status === 'ok') {
@@ -153,4 +178,61 @@ export function translationDescription(feature: BioFeature, record: TranslationR
     if (feature.metadata?.exception) clauses.push(`/exception: ${feature.metadata.exception}`);
   }
   return clauses.filter(Boolean).join('. ');
+}
+
+const recordGaps = new WeakMap<object, { sequence: string; gaps: number[] }>();
+
+/** Cache only gap positions, never a genome-sized entry map for each CDS. */
+function entryIndices(record: TranslationRecord, indices: number[]): number[] {
+  if (!indices.length) return indices;
+  let cached = recordGaps.get(record);
+  if (!cached || cached.sequence !== record.sequence) {
+    cached = { sequence: record.sequence, gaps: Array.from(record.sequence.matchAll(/-/g), match => match.index) };
+    recordGaps.set(record, cached);
+  }
+  const gaps = cached.gaps;
+  if (!gaps.length) return indices;
+  return indices.map(index => {
+    let low = 0, high = gaps.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (gaps[middle] < index) low = middle + 1;
+      else high = middle;
+    }
+    return index - low;
+  });
+}
+
+export function malformedCodeBreakMessage(feature: BioFeature, record?: TranslationRecord): string | undefined {
+  const evidence = record ? geometryCodeBreakEvidence(feature, record) : codeBreakEvidence(feature, {});
+  const malformed = evidence?.find(item => item.status === 'malformed');
+  return malformed && codeBreakMessage(malformed);
+}
+
+/** INSDC codon membership/shape needs local geometry and frame, independently of genetic-code eligibility. */
+export function geometryCodeBreakEvidence(feature: BioFeature, record: TranslationRecord, selection?: Pick<SelectionArea, 'start' | 'end'>): TranslationExceptionEvidence[] {
+  const syntax = codeBreakEvidence(feature, record);
+  if (!syntax.length) return syntax;
+  if (record.moleculeType === 'protein') return syntax.map(e => e.status === 'dropped' ? { ...e, status: 'deferred', reason: 'code breaks require nucleotide coordinates' } : e);
+  const strand = getFeatureStrand(feature);
+  if ((strand !== 1 && strand !== -1) || !definesOneSequence(feature) || !validCodonStart(feature.metadata?.codon_start)) return syntax;
+  const source = feature.biological ?? feature;
+  const length = feature.biological ? record.biologicalLength ?? record.sequence.replace(/-/g, '').length : record.sequence.length;
+  if (!feature.segments?.length || (source.segments?.length ? source.segments : [source]).some(part => invalidLocationPart(part, { length, isCircular: record.isCircular }))) return syntax;
+  const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(feature), record.sequence, record);
+  const mapped = codeBreakEvidence(feature, record, codingSeq.toUpperCase().replace(/U/g, 'T'), entryIndices(record, alignedIndices));
+  const sets = new Map<number, Set<string>>();
+  for (const evidence of mapped) if (evidence.status === 'applied') {
+    const values = sets.get(evidence.codonIndex!) ?? new Set<string>();
+    values.add(evidence.possible!);
+    sets.set(evidence.codonIndex!, values);
+  }
+  return mapped.map(evidence => {
+    if (evidence.status !== 'applied') return evidence;
+    if (sets.get(evidence.codonIndex!)!.size > 1) return { ...evidence, status: 'dropped', reason: 'conflicting residues for one codon' };
+    if (!selection) return evidence;
+    const missing = evidence.bases!.filter(base => base < selection.start || base >= selection.end);
+    if (missing.length) return { ...evidence, status: 'dropped', reason: `${missing.length === evidence.bases!.length ? 'wholly excluded codon' : 'selection destroys codon'}; lost entry bases ${missing.map(base => base + 1).join(', ')}` };
+    return { ...evidence, rebased: transformCodeBreak(evidence.raw, feature.strand, -selection.start, false) };
+  });
 }

@@ -92,8 +92,9 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     };
 
     const qualifierFindings: Omit<GenBankFinding, 'record'>[] = [];
-    const { qualifiers, lastIdx } = parseQualifiers(lines, i + 1, (tier, code, message, line) => qualifierFindings.push({ tier, code, message, line }));
+    const { qualifiers, lastIdx, translationExceptions } = parseQualifiers(lines, i + 1, (tier, code, message, line) => qualifierFindings.push({ tier, code, message, line }));
     i = lastIdx;
+    if (translationExceptions) feature.translationExceptions = translationExceptions;
 
     for (const [key, value] of Object.entries(qualifiers)) {
       if (NAME_QUALIFIERS.includes(key)) {

@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { SelectionArea, SelectionLoss } from './types';
+import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite } from './locationFlags';
@@ -178,7 +180,7 @@ function clipFeature(
     delete result.metadata._gffPhaseState;
     delete result.metadata.phase;
   }
-  if (feature.type === 'CDS' || feature.type === 'SO:0000316') {
+  if (isCds(feature)) {
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
@@ -229,13 +231,29 @@ export function sliceRecordsBySelection(
   records: SeqRecord[],
   selStart: number,
   selEnd: number
-): SeqRecord[] {
-  return records.map(record => {
+): { records: SeqRecord[]; losses: SelectionLoss[] } {
+  const losses: SelectionLoss[] = [];
+  const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
 
     const slicedFeatures = record.features
-      .map(f => clipFeature(f, seq, selStart, selEnd))
+      .map(feature => {
+        const result = clipFeature(feature, seq, selStart, selEnd);
+        if (!result) return null;
+        const clipped = (feature.segments?.length ? feature.segments : [feature]).some(part => part.start < selStart || part.end > selEnd);
+        if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
+        if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
+        if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
+        if (clipped && isCds(result)) {
+          const product = conceptualTranslation(result, selectedRecord);
+          result.metadata = { ...result.metadata, _translationSource: product.status === 'ok' && !product.internalStops.length ? 'computed' : 'removed' };
+          if (product.status === 'ok' && !product.internalStops.length) result.metadata.translation = product.residues;
+          else delete result.metadata.translation;
+        }
+        return result;
+      })
       .filter((f): f is BioFeature => f !== null);
 
     const slicedTracks = record.tracks?.map(track => ({
@@ -255,5 +273,31 @@ export function sliceRecordsBySelection(
       features: slicedFeatures,
       tracks: slicedTracks,
     };
+  });
+  return { records: sliced, losses };
+}
+
+function selectedCodeBreaks(
+  feature: BioFeature,
+  record: SeqRecord,
+  selectedFeature: BioFeature,
+  selectedRecord: SeqRecord,
+  selection: Pick<SelectionArea, 'start' | 'end'>,
+  losses: SelectionLoss[],
+): string[] {
+  const candidates = geometryCodeBreakEvidence(feature, record, selection).flatMap(source => {
+    if (source.status === 'applied') return [{ source, value: source.rebased! }];
+    losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
+    return source.status === 'dropped' ? [] : [{ source, value: source.raw }];
+  });
+  const evaluated = geometryCodeBreakEvidence({ ...selectedFeature, translationExceptions: candidates.map(item => item.value) }, selectedRecord);
+  return candidates.flatMap(({ source, value }, index) => {
+    const transformed = evaluated[index];
+    // Surviving bases can cease to be a codon when clipping removes other visits in a multipart CDS.
+    if (source.status === 'applied' && transformed.status !== 'applied') {
+      losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
+      return [];
+    }
+    return [value];
   });
 }

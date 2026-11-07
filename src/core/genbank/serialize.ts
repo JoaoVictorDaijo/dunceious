@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { isCds } from '@/src/domain/bio/translation';
+import { parseCodeBreak, codeBreakMessage } from '@/src/domain/bio/translationExceptions';
+import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
@@ -28,7 +29,7 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
-import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier } from './qualifierRules';
+import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier, assertGenBankQualifierText, type QualifierSyntax } from './qualifierRules';
 
 /**
  * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
@@ -122,6 +123,7 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     features.unshift({ type: 'source', name: 'source', start: 0, end: length, strand: 1 });
   }
   for (const feature of features) {
+    assertFeatureQualifierText(feature);
       if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     const text = featureLocation(feature, r, report);
@@ -158,6 +160,7 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
       }
       if (/^[012]$/.test(phase ?? '')) metadata.codon_start = String(Number(phase) + 1);
     }
+    gb += serializeCodeBreaks(feature, r, report);
     for (const [key, value] of Object.entries(metadata)) {
       if (key.startsWith('_')) continue;
       const syntax = rules.get(key);
@@ -165,10 +168,10 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
         report.droppedAttributes++;
         continue;
       }
-      gb += formatQualifier(key, value, syntax).map(line => line + '\n').join('');
+      gb += serializeQualifier(key, value, syntax, feature, r, report);
     }
     const searchNote = searchHitNote(feature);
-    if (searchNote) gb += formatQualifier('note', searchNote, 'quoted').map(line => line + '\n').join('');
+    if (searchNote) gb += serializeQualifier('note', searchNote, 'quoted', feature, r, report);
   }
   gb += 'ORIGIN\n';
   const residues = r.sequence.toLowerCase();
@@ -177,4 +180,28 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
   return gb + '//\n';
+}
+
+function serializeCodeBreaks(feature: BioFeature, r: SeqRecord, report: ExportReport): string {
+  if (!feature.translationExceptions?.length) return '';
+  let text = '';
+  const malformed = conceptualTranslation(feature, r).exceptions?.find(e => e.status === 'malformed');
+  if (malformed) throw new Error(codeBreakMessage(malformed));
+  for (const [occurrence, raw] of (feature.translationExceptions ?? []).entries()) {
+    const parsed = parseCodeBreak(raw, feature.strand);
+    if (typeof parsed === 'string') throw new Error(codeBreakMessage({ feature: feature.name, occurrence, raw, status: 'malformed', reason: parsed }));
+    text += serializeQualifier('transl_except', raw, 'unquoted', feature, r, report);
+  }
+  return text;
+}
+
+function assertFeatureQualifierText(feature: BioFeature): void {
+  const metadata = Object.entries(feature.metadata ?? {}).filter(([key]) => !key.startsWith('_'));
+  for (const [key, value] of [...Object.entries(feature.unknownQualifiers ?? {}), ...metadata]) assertGenBankQualifierText(key, value);
+}
+
+function serializeQualifier(key: string, value: string, syntax: QualifierSyntax, feature: BioFeature, record: SeqRecord, report: ExportReport): string {
+  const lines = formatQualifier(key, value, syntax);
+  if (/[^\u0020-\u007e]/u.test(value)) report.qualifierWarnings.push(`${record.id}: ${feature.name}, /${key}=${JSON.stringify(value)}: INSDC requires printable ASCII 32–126; exported unchanged by owner policy`);
+  return lines.map(line => line + '\n').join('');
 }

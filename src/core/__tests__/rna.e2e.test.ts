@@ -86,7 +86,7 @@ describe('RNA ingestion and export', () => {
       options: { minIdentity: 80, strand: 'fwd', maxResults: 100 },
     });
     expect(hit).toMatchObject({ start: 3, end: 6, sequence: 'AUG', segments: [{ start: 3, end: 6 }] });
-    const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end);
+    const [selected] = sliceRecordsBySelection([transposed], hit.start, hit.end).records;
     expect(selected).toMatchObject({ moleculeType: 'rna', sequence: 'AUG', alignedSequence: undefined });
     expect(selected.features[0]).toMatchObject({ start: 0, end: 3, segments: [{ start: 0, end: 3 }] });
     for (const reimported of [parseFasta(exportToFasta([selected]).text)[0], parseGenBank(exportToGenBank([selected]).text).records[0]]) {

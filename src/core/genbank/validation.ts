@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
+import { codeBreakMessage } from '@/src/domain/bio/translationExceptions';
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import { validCodonStart, isGenBankResidue } from '@/src/domain/bio/genbankValidation';
 import { featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
@@ -49,6 +51,15 @@ export function validateRecord(record: SeqRecord, lines: string[], finding: Find
       for (const qualifier of Object.keys(feature.metadata ?? {})) {
         if (!rule.mandatory.includes(qualifier) && !rule.optional.includes(qualifier) && !(protein && (FEATURE_TABLE.flatFileOnly as readonly string[]).includes(qualifier))) report('warning', 'wrong-key-qualifier', `/${qualifier} is not allowed on ${feature.type}.`);
       }
+    }
+    if (feature.translationExceptions?.length) {
+      const evidence = geometryCodeBreakEvidence(feature, record);
+      for (const item of evidence) {
+        if (item.status === 'malformed') report('refuse', 'malformed-qualifier', codeBreakMessage(item));
+        else if (item.status === 'dropped' || item.status === 'deferred') report('warning', 'unusable-code-break', codeBreakMessage(item));
+      }
+      const dropped = new Set(evidence.filter(e => e.status === 'dropped').map(e => e.occurrence));
+      feature.translationExceptions = feature.translationExceptions.filter((_, i) => !dropped.has(i));
     }
     if (feature.type === 'CDS') {
       if (!validCodonStart(feature.metadata?.codon_start)) report('warning', 'invalid-frame', `/codon_start=${feature.metadata?.codon_start ?? ''} is invalid; translation is suppressed.`);

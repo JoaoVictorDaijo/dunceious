@@ -175,10 +175,9 @@ it('continues wrapping text after an overlong URL token', () => {
   expect(annotations(text)[0].metadata?.note).toBe(note);
 });
 
-it('normalizes line breaks before writing qualifier text', () => {
-  const { text } = exportToGenBank([record({ features: [feature({ note: 'first line  \r\n  second line' })] })]);
-  expect(text).toContain('/note="first line second line"');
-  expect(annotations(text)[0].metadata?.note).toBe('first line second line');
+it('refuses line breaks in qualifier text without altering the logical value', () => {
+  const note = 'first line  \r\n  second line';
+  expect(() => exportToGenBank([record({ features: [feature({ note })] })])).toThrow(/note=.*first line.*non-printable/);
 });
 
 it('counts empty quoted qualifiers as dropped attributes', () => {

@@ -20,6 +20,7 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { describeSelectionLoss } from '@/src/core/exportReport';
 import { detectMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
@@ -344,7 +345,7 @@ export function useFileHandlers(
       const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
       addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
     }
-    for (const warning of result.report.translationWarnings) addLog(`WARNING: ${warning}`);
+    for (const warning of [...result.report.translationWarnings, ...result.report.qualifierWarnings]) addLog(`WARNING: ${warning}`);
     for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
     if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
     if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
@@ -365,7 +366,9 @@ export function useFileHandlers(
       const aligned = record.alignedSequence;
       const biologicalStart = aligned ? getOriginalPos(aligned, start) : start;
       const biologicalEnd = aligned ? getOriginalPos(aligned, end) : end;
-      return sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd)
+      const sliced = sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd);
+      for (const loss of sliced.losses) addLog(`WARNING: ${describeSelectionLoss(loss)}`);
+      return sliced.records
         .map(sliced => ({
           ...sliced,
           alignedSequence: aligned?.substring(start, end),
