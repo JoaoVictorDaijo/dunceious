@@ -48,14 +48,14 @@ ORIGIN
 
 describe('circular GenBank import', () => {
   it('imports circular topology and every feature from a complete record', () => {
-    const [record] = parseGenBank(CIRCULAR_GB);
+    const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.sequence).toHaveLength(6000);
     expect(record.isCircular).toBe(true);
     expect(record.features).toHaveLength(5);
   });
 
   it('keeps the forward gene envelope, written intervals and raw location across the origin', () => {
-    const [record] = parseGenBank(CIRCULAR_GB);
+    const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.features.find(f => f.type === 'gene' && f.name === 'wrapGene')).toMatchObject({
       start: 5499, end: 300, strand: 1, locationString: 'join(5500..6000,1..300)',
       segments: [{ start: 5499, end: 6000 }, { start: 0, end: 300 }],
@@ -63,14 +63,14 @@ describe('circular GenBank import', () => {
   });
 
   it('imports a forward wrapping CDS with its annotated translation', () => {
-    const [record] = parseGenBank(CIRCULAR_GB);
+    const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.features.find(f => f.type === 'CDS' && f.name === 'WrapProtein')).toMatchObject({
-      start: 5499, end: 300, strand: 1, translation: 'MWRAP',
+      start: 5499, end: 300, strand: 1, metadata: { translation: 'MWRAP' },
     });
   });
 
   it('keeps a whole-feature reverse wrap in written segment order', () => {
-    const [record] = parseGenBank(CIRCULAR_GB);
+    const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.features.find(f => f.name === 'CompWrapProtein')).toMatchObject({
       start: 4699, end: 100, strand: -1,
       segments: [{ start: 4699, end: 5000 }, { start: 0, end: 100 }],
@@ -78,7 +78,7 @@ describe('circular GenBank import', () => {
   });
 
   it('keeps an internal feature linear', () => {
-    const [record] = parseGenBank(CIRCULAR_GB);
+    const [record] = parseGenBank(CIRCULAR_GB).records;
     expect(record.features.find(f => f.name === 'innerGene')).toMatchObject({ start: 999, end: 2000 });
   });
 });

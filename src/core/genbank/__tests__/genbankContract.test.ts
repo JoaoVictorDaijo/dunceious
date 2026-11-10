@@ -27,7 +27,7 @@ import { parseGFF3 } from '../../formats/gff3';
 const feature = (metadata: Record<string, string> = {}): BioFeature => ({ type: 'CDS', name: 'primer F3', start: 0, end: 4, strand: 1, metadata });
 const record = (extra: Partial<SeqRecord> = {}): SeqRecord => ({ id: 'local', name: 'local', sequence: 'ACGT', features: [], ...extra });
 const source = (metadata: Record<string, string>): BioFeature => ({ ...feature(metadata), type: 'source', name: 'source' });
-const annotations = (text: string) => parseGenBank(text)[0].features.filter(f => f.type !== 'source');
+const annotations = (text: string) => parseGenBank(text).records[0].features.filter(f => f.type !== 'source');
 
 describe('GenBank format contract', () => {
   it('writes exact syntax for numeric qualifiers, flags and escaped quotes', () => {
@@ -100,7 +100,7 @@ describe('GenBank format contract', () => {
   });
 
   it('does not derive a database accession from LOCUS', () => {
-    const [parsed] = parseGenBank('LOCUS       local 4 bp DNA\nORIGIN\n        1 acgt\n//');
+    const [parsed] = parseGenBank('LOCUS       local 4 bp DNA\nORIGIN\n        1 acgt\n//').records;
     expect(parsed.accession).toBeUndefined();
     expect(parsed.version).toBeUndefined();
     expect(exportToGenBank([parsed]).text).toContain('ACCESSION   .');
@@ -129,7 +129,7 @@ FEATURES             Location/Qualifiers
                      near a farm"
 ORIGIN
         1 acgt
-//`);
+//`).records;
     const before = r.features[0].metadata!.note;
     expect(before).toBe('isolate "A" from camel sampled in Saudi Arabia near a farm');
     expect(annotations(exportToGenBank([r]).text)[0].metadata!.note).toBe(before);
@@ -152,7 +152,7 @@ it('writes source first even when source is last in the workspace features', () 
 
 
 it("does not invent a standard_name for an unnamed 5'UTR", () => {
-  const [input] = parseGenBank("LOCUS       local 4 bp DNA\nFEATURES             Location/Qualifiers\n     5'UTR           1..4\nORIGIN\n        1 acgt\n//");
+  const [input] = parseGenBank("LOCUS       local 4 bp DNA\nFEATURES             Location/Qualifiers\n     5'UTR           1..4\nORIGIN\n        1 acgt\n//").records;
   expect(exportToGenBank([input]).text).not.toContain('/standard_name');
 });
 
@@ -162,7 +162,7 @@ it('does not synthesize nucleotide standard_name for protein features', () => {
 });
 
 it('keeps the local accession absent through export and re-import', () => {
-  expect(parseGenBank(exportToGenBank([record()]).text)[0].accession).toBeUndefined();
+  expect(parseGenBank(exportToGenBank([record()]).text).records[0].accession).toBeUndefined();
 });
 
 it('continues wrapping text after an overlong URL token', () => {
@@ -175,10 +175,9 @@ it('continues wrapping text after an overlong URL token', () => {
   expect(annotations(text)[0].metadata?.note).toBe(note);
 });
 
-it('normalizes line breaks before writing qualifier text', () => {
-  const { text } = exportToGenBank([record({ features: [feature({ note: 'first line  \r\n  second line' })] })]);
-  expect(text).toContain('/note="first line second line"');
-  expect(annotations(text)[0].metadata?.note).toBe('first line second line');
+it('refuses line breaks in qualifier text without altering the logical value', () => {
+  const note = 'first line  \r\n  second line';
+  expect(() => exportToGenBank([record({ features: [feature({ note })] })])).toThrow(/note=.*first line.*non-printable/);
 });
 
 it('counts empty quoted qualifiers as dropped attributes', () => {

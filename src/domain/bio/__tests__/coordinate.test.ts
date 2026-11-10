@@ -18,9 +18,10 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { pickTrackData, trackPosition, trackValueRange } from '../quantitativeTracks';
 import { describe, it, expect } from 'vitest';
 import { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from '../coordinate';
-import type { SeqRecord } from '../types';
+import type { BioFeature, SeqRecord } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,6 +138,7 @@ describe('processTransposition coordinate boundaries', () => {
 
   it('preserves wrap order and mixed segment strands through gaps', () => {
     const record = makeRecord('circular', 'ACGT', '--AC--GT--');
+    record.isCircular = true;
     record.features = [{
       type: 'CDS', name: 'mixed', start: 3, end: 1, strand: -1,
       segments: [{ start: 3, end: 1, strand: -1 }, { start: 1, end: 2, strand: 1 }],
@@ -144,8 +146,8 @@ describe('processTransposition coordinate boundaries', () => {
     expect(processTransposition([record])[0].features[0]).toMatchObject({
       start: 7, end: 3,
       segments: [
-        { start: 7, end: 8, strand: -1 },
         { start: 2, end: 3, strand: -1 },
+        { start: 7, end: 8, strand: -1 },
         { start: 3, end: 4, strand: 1 },
       ],
     });
@@ -216,6 +218,7 @@ describe('processTransposition', () => {
     // Sequence of length 6, wrap-around feature: [4, 2)
     // Gapless alignment: start stays 4, end stays 2
     const record = makeRecord('r1', 'ACGTAC', 'ACGTAC');
+    record.isCircular = true;
     record.features = [{ type: 'gene', name: 'wrap', start: 4, end: 2, strand: 1 }];
     const [result] = processTransposition([record]);
     // Overall start/end in aligned coords
@@ -277,6 +280,7 @@ describe('continuous aligned parts', () => {
 
   it('splits only at the circular origin despite internal gaps in both parts', () => {
     const record = makeRecord('r', 'ACGTAC', '--A-CGT-A-C--');
+    record.isCircular = true;
     record.features = [{ type: 'gene', name: 'wrap', start: 4, end: 2, strand: 1 }];
     expect(processTransposition([record])[0].features[0]).toMatchObject({
       start: 8, end: 5, segments: [{ start: 8, end: 11 }, { start: 2, end: 5 }],
@@ -317,6 +321,81 @@ describe('transposeInterval', () => {
         expect(transposeInterval(feature.start, feature.end, aligned), `${aligned}: ${feature.start}, ${feature.end}`)
           .toEqual({ start: batch[index].start, end: batch[index].end });
       });
+    }
+  });
+});
+
+it('keeps source geometry, sites and reverse wrap evaluation order', () => {
+  const feature: BioFeature = { name: 'wrap', type: 'gene', start: 8, end: 2, strand: -1, segments: [{ start: 8, end: 2, strand: -1 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', alignedSequence: 'AC-GTACGTGA', isCircular: true, features: [feature] };
+  const [aligned] = processTransposition([record]);
+  expect(aligned.features[0].segments).toEqual([{ start: 0, end: 2, strand: -1 }, { start: 9, end: 11, strand: -1 }]);
+  expect(aligned.features[0].biological).toEqual({ start: 8, end: 2, strand: -1, segments: feature.segments });
+  const sites = { ...feature, start: 3, end: 6, segments: [{ start: 3, end: 3 }, { start: 6, end: 6 }] };
+  expect(processTransposition([{ ...record, features: [sites] }])[0].features[0].segments).toEqual([{ start: 4, end: 4 }, { start: 7, end: 7 }]);
+  expect(processTransposition([{ ...record, alignedSequence: undefined, features: [{ ...feature, biological: { start: 0, end: 1, strand: 1 } }] }])[0].features[0]).not.toHaveProperty('biological');
+});
+
+
+describe('quantitative display mapping', () => {
+  // Independent inverse indices: each biological residue owns one non-gap column.
+  function oracle(aligned: string, start: number, end: number) {
+    const columns: number[] = [];
+    let residue = 0;
+    for (let column = 0; column < aligned.length; column++) {
+      if (aligned[column] === '-') continue;
+      if (residue >= start && residue < end) columns.push(column);
+      residue++;
+    }
+    const pieces: { start: number; end: number }[] = [];
+    for (const column of columns) {
+      const last = pieces[pieces.length - 1];
+      if (last && last.end === column) last.end++;
+      else pieces.push({ start: column, end: column + 1 });
+    }
+    return pieces;
+  }
+
+  it.each(['--ACGT', 'AC--GT', '--AC--GT--', 'ACGT'])('maps runs without mutating stored tracks: %s', aligned => {
+    const track = { id: 'q', name: 'q', data: [{ start: 0, end: 4, value: 2 }, { start: 3, end: 4, value: 8 }, { start: 0, end: 1, value: 3 }] };
+    const source = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: aligned, features: [], tracks: [track] };
+    const [record] = processTransposition([source]);
+    expect(record.tracks![0]).toBe(track);
+    const display = record.displayTracks![0];
+    for (const [index, datum] of track.data.entries()) {
+      const pieces = oracle(aligned, datum.start, datum.end);
+      for (const piece of pieces) {
+        const picked = pickTrackData(display, piece.start).find(p => p.source.index === index)!;
+        expect({ start: picked.start, end: picked.end }).toEqual(piece);
+        expect(picked.source).toEqual({ start: datum.start, end: datum.end, index });
+      }
+    }
+    for (let column = 0; column < aligned.length; column++) {
+      if (aligned[column] === '-') expect(pickTrackData(display, column)).toEqual([]);
+    }
+  });
+
+  it('places an unaligned track identically, including fractional pointer positions', () => {
+    const [record] = processTransposition([{ id: 'r', name: 'r', sequence: 'ACGT', features: [], tracks: [{ id: 'q', name: 'q', data: [{ start: 0, end: 1, value: 2 }] }] }]);
+    expect(pickTrackData(record.displayTracks![0], 0.9)[0]).toMatchObject({ start: 0, end: 1, envelope: { start: 0, end: 1 } });
+    expect(trackPosition(record.displayTracks![0], 0.9)).toBe(0);
+  });
+
+  it('refuses invalid, out-of-range and empty intervals in precedence order without clamping', () => {
+    const data = [[1,99,2], [2,2,2], [3,1,2], [-1,-1,2], [0.5,0.5,2], [1,1,Infinity], [9,9,2], [0,1,7]].map(([start,end,value]) => ({start,end,value}));
+    const [record] = processTransposition([{ id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: 'ACGT--', features: [], tracks: [{ id: 'q', name: 'q', data }] }]);
+    const display = record.displayTracks![0];
+    expect(display.placed).toEqual([7]);
+    expect(display.unplaced.map(p => p.reason)).toEqual(['out-of-range','empty','invalid','invalid','invalid','invalid','out-of-range']);
+    expect(trackValueRange(display)).toEqual({ min: 0, max: 7 });
+  });
+
+  it('ignores strand and topology and keeps empty tracks empty', () => {
+    for (const isCircular of [true, false]) {
+      const [record] = processTransposition([{ id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: 'AC--GT', isCircular, features: [{ type: 'gene', name: 'reverse', start: 0, end: 4, strand: -1 }], tracks: [{ id: 'q', name: 'q', data: [{ start: 0, end: 4, value: 2 }, { start: 3, end: 1, value: 4 }] }, { id: 'empty', name: 'empty', data: [] }] }]);
+      expect(pickTrackData(record.displayTracks![0], 4)[0]).toMatchObject(oracle('AC--GT', 0, 4)[1]);
+      expect(record.displayTracks![0].unplaced).toEqual([{ index: 1, reason: 'invalid' }]);
+      expect(pickTrackData(record.displayTracks![1], 0)).toEqual([]);
     }
   });
 });

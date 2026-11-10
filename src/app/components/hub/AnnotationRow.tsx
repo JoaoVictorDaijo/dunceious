@@ -18,14 +18,16 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
 import { getFeatureColor } from '@/src/app/viewer/colors';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { HubEditChip } from './HubEditMarks';
+import { invalidateTooltips } from '../TooltipLayer';
 import { useTrackTooltip } from './TrackTooltip';
-import { featureLength } from '@/src/app/logic/viewModel';
+import { featureLength, featureLengthText } from '@/src/app/logic/viewModel';
 
 interface AnnotationRowProps {
   record: SeqRecord;
@@ -49,15 +51,19 @@ interface AnnotationRowProps {
 export default function AnnotationRow({ record, feature, rowKey, kind, selected, current, lastFocused, featureColors, locked, onSelect, onInspect, onEdit, onFocus, onDelete, onCurrent, onHover }: AnnotationRowProps) {
   const tooltip = useTrackTooltip();
   const owner = useRef({});
-  useEffect(() => () => tooltip(null, owner.current), [tooltip]);
+  useLayoutEffect(() => {
+    invalidateTooltips(); tooltip(null, owner.current);
+    return () => { invalidateTooltips(); tooltip(null, owner.current); };
+  }, [tooltip, feature, record, rowKey]);
   const strand = getFeatureStrand(feature);
   const color = feature.color || getFeatureColor(feature.type, featureColors);
   const product = feature.metadata?.product;
   const detail = kind === 'features'
     ? [feature.name, product !== feature.name ? product : undefined, isolateOf(record)].filter(Boolean).join(' · ')
     : product !== feature.name ? product : undefined;
-  const location = feature.locationString || `${feature.start + 1}..${feature.end}`;
+  const location = displayLocation(feature, record);
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
+  const lengthText = featureLengthText(record, feature);
   return <div data-row-key={rowKey} data-state={current ? 'current' : lastFocused ? 'last-focused' : selected ? 'selected' : 'idle'} aria-current={current} tabIndex={0} onClick={event => { if (!(event.target as HTMLElement).closest('button, input')) onCurrent(); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onCurrent(); } }}
     onMouseEnter={event => { onHover(feature); tooltip({ record, feature, color, x: event.clientX, y: event.clientY }, owner.current); }} onMouseLeave={() => { onHover(null); tooltip(null, owner.current); }}
     className={`hub-row-grid group relative h-full border-b border-slate-100 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 ${selected || current || lastFocused ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'} ${current || lastFocused ? 'shadow-[inset_0_0_0_1.5px_theme(colors.slate.400)]' : ''}`}>
@@ -82,7 +88,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     </div>
     </div>
     <span data-tip={location} aria-label={`Location: ${location}`} className="min-w-0 truncate font-mono text-slate-600">{location}</span>
-    <span className="text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}</span>
+    <span data-tip={lengthText} className="text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}{lengthText.includes('not joined') && <span className="block font-sans text-[10px] text-slate-400">not joined</span>}</span>
 
   </div>;
 }

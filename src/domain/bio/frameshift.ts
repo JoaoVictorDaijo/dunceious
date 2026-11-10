@@ -28,8 +28,9 @@
  * continues without a gap in a different frame. A wider gap is an intron.
  */
 
-import type { FeatureSegment } from './types';
+import type { FeatureSegment, LocationOperator } from './types';
 import { writtenOrderSegments } from './featureEnvelope';
+import { isJoinedLocation } from './locationFlags';
 
 /** Bases re-read (negative) or skipped (positive) between two consecutive codons. */
 export type FrameShift = -2 | -1 | 1 | 2;
@@ -59,12 +60,14 @@ export interface SegmentFrameshift {
 }
 
 /**
- * Frameshift junctions of a multi-segment feature, read in the order the location writes its
+ * Frameshift junctions of a joined feature, read in the order the location writes its
  * intervals (genomic order on both strands), so the step between a segment's end and the next
- * segment's start is the same shift read forward or in reverse.
+ * segment's start is the same shift read forward or in reverse. An `order()` location has none:
+ * INSDC writes slippage with `join`, and `order` implies nothing about joining.
  */
-export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string }): SegmentFrameshift[] {
-  const segments = writtenOrderSegments(feature) ?? [];
+export function segmentFrameshifts(feature: { strand: 1 | -1; segments?: FeatureSegment[]; locationString?: string; operator?: LocationOperator; writtenOrder?: number[] }): SegmentFrameshift[] {
+  if (!isJoinedLocation(feature)) return [];
+  const segments = (writtenOrderSegments(feature) ?? []).filter(segment => segment.start !== segment.end);
   const junctions: SegmentFrameshift[] = [];
   for (let i = 0; i + 1 < segments.length; i++) {
     const shift = frameShift(segments[i].end - 1, segments[i + 1].start, 1);

@@ -18,11 +18,15 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { formatInsdcLocation, siteLabel } from '@/src/domain/bio/insdcLocation';
+import { displayLocation } from '@/src/app/logic/displayLocation';
+import { checkedTranslation, compareTranslation, isCds, storedTranslation, translationDescription } from '@/src/domain/bio/translation';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isNestedComplementLocation } from '@/src/domain/bio/locationFlags';
-import React, { useId, useState } from 'react';
+import { TranslationExtras } from './TranslationExtras';
+import React, { useId, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUiEffects } from './uiEffects';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
@@ -31,10 +35,11 @@ import { featureFocusTarget, type FocusTarget } from '@/src/app/logic/focusTarge
 
 export interface RecordDetailsModalProps {
   record: SeqRecord;
+  returnFocusTo?: HTMLElement | null;
   feature: BioFeature | null;
   onClose: () => void;
   onFocusFeature: (target: FocusTarget) => void;
-  onExportRecord: (recordId: string) => void;
+  onExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   onCopyLog: (msg: string) => void;
   /** Switch the annotation's bases on or off in the viewer. */
   onSetBasesMode?: (mode: 'nothing' | 'record' | 'query') => void;
@@ -54,12 +59,7 @@ const KEY_SEQUENCE: Record<string, string> = { CDS: 'For a CDS this is the codin
  */
 function locationLabel(start: number, end: number, record: SeqRecord): string {
   if (start !== end) return `${start + 1}..${end}`;
-  const n = record.sequence.length;
-  if (start === 0 || start === n) {
-    if (record.isCircular) return `${n}^1`;
-    return start === 0 ? 'before base 1' : `after base ${n}`;
-  }
-  return `${start}^${start + 1}`;
+  return siteLabel(start, { length: record.sequence.length, isCircular: record.isCircular });
 }
 
 /** What the sequence box shows, in INSDC terms only (LOC-7): never "exons" or "spliced". */
@@ -72,6 +72,9 @@ function sequenceCaption(record: SeqRecord, feature: BioFeature, views: FeatureS
     ? `Zero-length site ${span}: the location covers no ${residues}.`
     : `Record ${residues} ${span}${protein ? '' : ', forward (+) strand, 5′ → 3′'}${n > 1 ? `, including the ${residues} between the ${n} intervals` : ''}.`;
   const partial = views.partial && <> <Flag>Partial:</Flag> at least one end lies beyond the annotated base (&lt; or &gt;), so this sequence is incomplete.</>;
+  if (views.remote) {
+    return <><Flag>Intervals in other records:</Flag> {views.remote} {views.remote.startsWith('1 ') ? 'is' : 'are'} not in this record, so no feature sequence is shown; Dunceious doesn't load other records' bases. {region}{partial}</>;
+  }
   if (views.feature === null) {
     return <><Flag>order() location:</Flag> INSDC gives the order of these {n} intervals but does not imply they form one sequence, so only the region spanned is shown. {region}{partial}</>;
   }
@@ -109,6 +112,7 @@ const Flag = ({ children }: { children: React.ReactNode }) => <span className="t
  */
 const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   record,
+  returnFocusTo,
   feature,
   onClose,
   onFocusFeature,
@@ -119,15 +123,30 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   onRemoveSearchDetails,
 }) => {
   const { copyText, hoverTips, portalTarget } = useUiEffects();
+  const conceptual = feature && isCds(feature) ? checkedTranslation(feature, record) : undefined;
+  const stored = feature ? storedTranslation(feature) : undefined;
+  const comparison = stored && conceptual?.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
+  useLayoutEffect(() => {
+    const invoking = returnFocusTo;
+    return () => {
+      if (invoking?.isConnected) { invoking.focus(); return; }
+      const label = feature ? `Inspect ${feature.name} on ${record.id}` : undefined;
+      const fallback = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find(button => button.getAttribute('aria-label') === label);
+      fallback?.focus();
+    };
+  }, [returnFocusTo]);
   const searchHit = feature ? readSearchHit(feature) : null;
   const current = feature ? isSearchHitCurrent(feature) : false;
-  const joined = !searchHit && (feature?.segments?.length ?? 0) > 1;
+  const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
   const viewGroup = useId();
+  const diagnosticsHeading = useId();
   const shown: SequenceView = views?.feature != null && view === 'feature' ? 'feature' : 'region';
   const displaySeq = !views ? record.sequence : shown === 'feature' ? views.feature ?? '' : views.region;
+  const formatted = feature ? formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }) : null;
+  const invalidLocation = formatted?.kind === 'no-insdc-form' && formatted.reason === 'invalid-geometry';
   const unit = record.moleculeType === 'protein' ? 'aa' : 'bp';
   const shownLabel = shown === 'feature' ? 'feature sequence' : 'region';
   const logLabel = feature ? `${feature.name} in ${record.id}` : record.id;
@@ -145,9 +164,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleCopyTranslation = async () => {
     const translated = feature;
-    if (!translated?.translation) return;
+    if (!(translated && storedTranslation(translated))) return;
     try {
-      if (await copyText(translated.translation)) onCopyLog(`Translation for ${translated.name} copied.`);
+      if (await copyText(storedTranslation(translated)!)) onCopyLog(`Translation for ${translated.name} copied.`);
     } catch {
       onCopyLog(`Copy failed for the translation of ${translated.name}.`);
     }
@@ -160,8 +179,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
     onCopyLog(`Focusing on ${feature.name}`);
   };
 
-  const handleExport = () => {
-    onExportRecord(record.id);
+  const handleExport = (mode: 'original' | 'aligned' = 'original') => {
+    onExportRecord(record.id, mode);
     onClose();
   };
 
@@ -204,8 +223,8 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               </div>
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locus</label>
-                <p className="text-sm font-mono font-bold text-slate-700">
-                  {feature.locationString || locationLabel(feature.start, feature.end, record)}
+                <p className="text-sm font-mono font-bold text-slate-700 break-all">
+                  {displayLocation(feature, record)}
                 </p>
               </div>
               <div className="stack-y-1">
@@ -215,12 +234,15 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               {views && <div className="stack-y-1" data-feature-lengths="">
+                {invalidLocation ? <p>Invalid location</p> : <>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {fmt(views.featureLength)} {unit}
-                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">Partial</span></>}
+                  {views.partial && <>{' '}<span className="ml-1 align-middle text-[9px] font-sans font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-sm px-1.5 py-0.5">{views.partialLabel}</span></>}
                   {' '}<span className="text-[11px] font-sans font-semibold text-slate-500">
-                    {views.feature === null
+                    {views.remote
+                      ? `in this record, plus ${views.remote}`
+                      : views.feature === null
                       ? `in ${views.intervals} intervals (not joined)`
                       : `feature sequence · ${views.intervals > 1 ? `sum of ${views.intervals} location intervals` : '1 location interval'}`}
                   </span>
@@ -228,8 +250,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 <p className="text-[11px] font-mono text-slate-500">
                   {fmt(views.regionLength)} {unit} <span className="font-sans">region spanned · {locationLabel(views.regionStart, views.regionEnd, record)}</span>
                 </p>
+                </>}
               </div>}
-              {onSetBasesMode && (searchHit || joined) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
+              {onSetBasesMode && (searchHit || multiInterval) ? <div className="col-span-2 stack-y-2 text-xs text-slate-600">
                 <label className="flex items-center gap-3">Bases inside
                   <select aria-label="Bases inside" value={feature.metadata?._showBases === 'query' && current ? 'query' : feature.metadata?._showBases === '1' ? 'record' : 'nothing'}
                     onChange={e => onSetBasesMode(e.target.value as 'nothing' | 'record' | 'query')} className="border rounded-sm p-2">
@@ -237,7 +260,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                     {searchHit && <option value="query" disabled={!current}>Query aligned to record</option>}
                   </select>
                 </label>
-                {joined && <p>The query layer isn't available for joined annotations.</p>}
+                {multiInterval && <p>The query layer isn't available for annotations with more than one interval.</p>}
                 {searchHit && !current && <p>The search alignment no longer matches this annotation's region.</p>}
                 {searchHit && onRemoveSearchDetails && <button type="button" onClick={onRemoveSearchDetails} className="text-rose-600">Remove search details</button>}
               </div> : onSetShowBases && (
@@ -270,15 +293,25 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Accession</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {record.accession?.trim() || record.id || 'N/A'}
+                  {record.accession?.trim() || '—'}
                 </p>
+              </div>
+              <div className="stack-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identifier</label>
+                <p className="text-sm font-mono font-bold text-slate-700">{record.id}</p>
               </div>
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
-                  {(record.alignedSequence || record.sequence).length.toLocaleString()} bp
+                  {fmt(record.sequence.length)} {unit}
                 </p>
               </div>
+              {record.alignedSequence !== undefined && (
+                <div className="stack-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Alignment length</label>
+                  <p className="text-sm font-mono font-bold text-slate-700">{fmt(record.alignedSequence.length)} columns</p>
+                </div>
+              )}
               <div className="stack-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Features</label>
                 <p className="text-sm font-bold text-slate-700">{record.features.length} annotations</p>
@@ -300,7 +333,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                       return (
                         <label
                           key={option}
-                          data-tip={disabled ? 'An order() location does not define one joined sequence' : undefined}
+                          data-tip={disabled ? (views.remote ? 'Some intervals are in other records' : 'An order() location does not define one joined sequence') : undefined}
                           className={`px-2.5 py-1 rounded-md transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-sky-500/60 ${shown === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'} ${disabled ? 'line-through opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <input type="radio" name={viewGroup} value={option} checked={shown === option} disabled={disabled}
@@ -320,25 +353,31 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </button>
               </div>
             </div>
-            {feature && views && (
+            {feature && views && !invalidLocation && (
               <p data-sequence-caption="" className="text-[10px] text-slate-500 leading-relaxed">{sequenceCaption(record, feature, views, shown)}</p>
             )}
             <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-inner group relative">
               <div className={`max-h-[200px] overflow-y-auto custom-scrollbar-pro pr-2 ${views ? 'pt-6' : ''}`}>
-                <p className="text-[11px] font-mono text-slate-400 break-all leading-relaxed selection:bg-sky-500/30 selection:text-sky-200">
+                <p data-feature-sequence="" className="text-[11px] font-mono text-slate-400 break-all leading-relaxed selection:bg-sky-500/30 selection:text-sky-200">
                   {displaySeq}
                 </p>
               </div>
               <div className={`absolute top-2 right-2 ${views ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}`}>
                 <span className={`text-[10px] font-bold uppercase tracking-widest bg-slate-900/80 px-2 py-1 rounded-sm border ${views ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-800'}`}>
-                  {views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${displaySeq.length} bp`}
+                  {invalidLocation ? 'Invalid location' : views ? `${fmt(displaySeq.length)} ${unit} ${shownLabel}` : `${fmt(displaySeq.length)} ${unit}`}
                 </span>
               </div>
             </div>
           </div>
 
+          {comparison?.storedExtra && conceptual?.status === 'ok' && <TranslationExtras extra={comparison.storedExtra} offset={conceptual.residues.length} autoFocus />}
+          {feature && isCds(feature) && <section aria-labelledby={diagnosticsHeading}>
+            <h3 id={diagnosticsHeading} className="font-semibold">Translation diagnostics</h3>
+            <p className="text-xs text-slate-500">{storedTranslation(feature) ? feature.metadata?._translationSource === 'computed' ? 'Computed from the DNA' : 'Imported' : ''} · {translationDescription(feature, record, conceptual)}</p>
+            <ol className="text-xs break-words">{conceptual?.exceptions?.map(e => <li key={e.occurrence}>{e.occurrence + 1}: {e.raw} — {e.status}{e.reason ? `: ${e.reason}` : ''}</li>)}</ol>
+          </section>}
           {/* Translation (feature only) */}
-          {feature?.translation && (
+          {(feature && storedTranslation(feature)) && (
             <div className="stack-y-3 pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Protein Translation</label>
@@ -350,20 +389,21 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                   <i className="fas fa-copy"></i> Copy AA
                 </button>
               </div>
+              {invalidLocation && <p className="text-xs text-amber-800">Stored translation. The location is invalid, so it isn't checked against the sequence.</p>}
               <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-inner">
                 <p className="text-[11px] font-mono text-emerald-400 break-all leading-relaxed">
-                  {feature.translation}
+                  {storedTranslation(feature)}
                 </p>
               </div>
             </div>
           )}
 
           {/* Additional metadata */}
-          {((feature?.metadata) || (record.metadata && !feature)) && (
+          {((feature?.metadata || feature?.unknownQualifiers) || (record.metadata && !feature)) && (
             <div className="stack-y-3 pt-4 border-t border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Additional Metadata</label>
               <div className="grid grid-cols-1 gap-2">
-                {Object.entries(feature?.metadata || record.metadata || {}).filter(([key]) => !key.startsWith('_')).map(([key, value]) => (
+                {Object.entries(feature ? { ...feature.metadata, ...feature.unknownQualifiers } : record.metadata || {}).filter(([key]) => !key.startsWith('_') || feature?.unknownQualifiers?.[key] !== undefined).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{key}</span>
                     <span className={`text-[11px] font-bold text-slate-700 max-w-[300px] ${hoverTips ? 'truncate' : 'min-w-0 break-words whitespace-normal'}`} data-tip={hoverTips ? String(value) : undefined}>
@@ -394,15 +434,10 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
               <i className="fas fa-search-location"></i> Focus
             </button>
           )}
-          {!feature && (
-            <button
-              onClick={handleExport}
-              data-tip="Download this record as FASTA"
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
-            >
-              <i className="fas fa-download"></i> Export FASTA
-            </button>
-          )}
+          {!feature && <div className="flex gap-2">
+            <button onClick={() => handleExport('original')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (no gaps)</button>
+            {record.alignedSequence && <button onClick={() => handleExport('aligned')} className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-[10px] font-bold">FASTA (aligned)</button>}
+          </div>}
         </div>
       </div>
     </div>

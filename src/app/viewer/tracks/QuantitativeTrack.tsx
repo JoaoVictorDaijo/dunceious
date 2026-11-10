@@ -19,13 +19,15 @@
  */
 
 import * as d3 from 'd3';
-import React, { memo, useEffect, useMemo, useRef } from 'react';
-import type { TrackDatum } from '../layout';
+import React, { memo, useEffect, useRef } from 'react';
+import type { DisplayTrack } from '@/src/domain/bio/types';
+import { packTrackRows } from '@/src/domain/bio/quantitativeTracks';
+import { trackGeometry } from './trackGeometry';
 
 export const TRACK_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
 export const QuantitativeTrack: React.FC<{
-  data: { start: number; end: number; value: number }[];
+  display: DisplayTrack;
   viewportWidth: number;
   height: number;
   xScale: d3.ScaleLinear<number, number>;
@@ -34,177 +36,80 @@ export const QuantitativeTrack: React.FC<{
   maxVal: number;
   color?: string;
   kind?: 'line' | 'interval';
-  packedRows?: TrackDatum[][];
-}> = memo(({ data, viewportWidth, height, xScale, scrollX, minVal, maxVal, color = '#6366f1', kind = 'line', packedRows: externalPackedRows }) => {
+  packedRows?: number[][];
+  highlighted?: number[];
+}> = memo(({ display, viewportWidth, height, xScale, scrollX, minVal, maxVal, color = '#6366f1', kind = 'line', packedRows, highlighted = [] }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const packedRows = useMemo(() => {
-    if (kind !== 'interval') return [];
-    if (externalPackedRows) return externalPackedRows;
-    const rows: TrackDatum[][] = [];
-    const sorted = [...data].sort((a, b) => a.start - b.start);
-    
-    sorted.forEach(interval => {
-      let placed = false;
-      for (let i = 0; i < rows.length; i++) {
-        const lastInRow = rows[i][rows[i].length - 1];
-        if (interval.start >= lastInRow.end + 1) {
-          rows[i].push(interval);
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        rows.push([interval]);
-      }
-    });
-    return rows;
-  }, [data, kind, externalPackedRows]);
-
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = viewportWidth * dpr;
     canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
-
     ctx.clearRect(0, 0, viewportWidth, height);
-
-    const range = Math.max(0.00001, maxVal - minVal);
-    const getY = (val: number) => {
-      const normalized = (val - minVal) / range;
-      return height - (normalized * (height - 10)) - 5;
-    };
-
-    // Draw Grid
+    const getY = (value: number) => height - (value - minVal) / Math.max(0.00001, maxVal - minVal) * (height - 10) - 5;
     ctx.strokeStyle = '#f1f5f9';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 4; i++) {
-      const y = 5 + (i * (height - 10) / 4);
-      ctx.moveTo(0, y);
-      ctx.lineTo(viewportWidth, y);
+      const y = 5 + i * (height - 10) / 4;
+      ctx.moveTo(0, y); ctx.lineTo(viewportWidth, y);
     }
     ctx.stroke();
-
-    // Draw Zero Line if range spans zero
     if (minVal < 0 && maxVal > 0) {
-      const zeroY = getY(0);
       ctx.strokeStyle = '#e2e8f0';
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, zeroY);
-      ctx.lineTo(viewportWidth, zeroY);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, getY(0)); ctx.lineTo(viewportWidth, getY(0)); ctx.stroke();
       ctx.setLineDash([]);
     }
-
-    if (!data || data.length === 0) {
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'italic 8px sans-serif';
-      ctx.textAlign = 'center';
+    if (!display.track.data.length) {
+      ctx.fillStyle = '#94a3b8'; ctx.font = 'italic 8px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('No track data available', viewportWidth / 2, height / 2 + 4);
       return;
     }
-
-    const vStart = xScale.invert(scrollX) - 10;
-    const vEnd = xScale.invert(scrollX + viewportWidth) + 10;
-
-    if (kind === 'line') {
-      const visibleData = data.filter(d => d.end >= vStart && d.start <= vEnd);
-      
-      if (visibleData.length === 0) return;
-
-      // Sort by start position for drawing
-      const sorted = [...visibleData].sort((a, b) => a.start - b.start);
-
-      const zeroY = getY(0);
-
+    const geometry = trackGeometry(display, x => xScale(x) - scrollX, [xScale.invert(scrollX), xScale.invert(scrollX + viewportWidth)]);
+    const rows = kind === 'interval' ? packedRows ?? packTrackRows(display) : [];
+    const lanes = new Map<number, number>();
+    rows.forEach((row, lane) => row.forEach(index => lanes.set(index, lane)));
+    const colors = d3.scaleSequential(d3.interpolateViridis).domain([minVal, maxVal]);
+    ctx.save();
+    ctx.beginPath();
+    for (const mask of geometry.mask) ctx.rect(mask.x, 0, mask.width, height);
+    ctx.clip();
+    for (const shape of geometry.shapes) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(shape.x, 0, shape.width, height); ctx.clip();
+      const y = kind === 'line' ? getY(shape.value) : 5 + (lanes.get(shape.index) ?? 0) * 16;
+      const bottom = kind === 'line' ? getY(0) : y + 14;
+      ctx.fillStyle = kind === 'line' ? `${color}15` : colors(shape.value);
       ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
-      ctx.lineJoin = 'round';
-
-      let first = true;
-      sorted.forEach(d => {
-        const x = xScale(d.start + (d.end - d.start) / 2) - scrollX;
-        const y = getY(d.value);
-
-        if (first) {
-          ctx.moveTo(x, y);
-          first = false;
-        } else {
-          ctx.lineTo(x, y);
-        }
-      });
-      ctx.stroke();
-
-      // Area fill
-      if (sorted.length > 0) {
-        const lastX = xScale(sorted[sorted.length - 1].start + (sorted[sorted.length - 1].end - sorted[sorted.length - 1].start) / 2) - scrollX;
-        const firstX = xScale(sorted[0].start + (sorted[0].end - sorted[0].start) / 2) - scrollX;
-        
-        ctx.lineTo(lastX, zeroY);
-        ctx.lineTo(firstX, zeroY);
-        ctx.closePath();
-        ctx.fillStyle = `${color}15`;
-        ctx.fill();
+      // Square ends preserve narrow support without expanding every interval across every run.
+      ctx.rect(shape.x, Math.min(y, bottom), shape.width, Math.abs(bottom - y));
+      ctx.fill();
+      if (kind === 'line') {
+        ctx.lineCap = 'butt'; ctx.lineWidth = 2.5; ctx.strokeStyle = color;
+        ctx.beginPath(); ctx.moveTo(shape.x, y); ctx.lineTo(shape.x + shape.width, y); ctx.stroke();
       }
-    } else {
-      // Interval logic with packing and coloring
-      if (packedRows.length === 0) return;
-
-      const rowHeight = 16;
-      const colorScale = d3.scaleSequential(d3.interpolateViridis).domain([minVal, maxVal]);
-
-      packedRows.forEach((row, rowIndex) => {
-        const yOffset = 5 + rowIndex * rowHeight;
-        const visibleInRow = row.filter(d => d.end >= vStart && d.start <= vEnd);
-        
-        visibleInRow.forEach(d => {
-          const x1 = xScale(d.start) - scrollX;
-          const x2 = xScale(d.end) - scrollX;
-          const w = Math.max(1, x2 - x1);
-          
-          const fillColor = colorScale(d.value);
-          ctx.fillStyle = fillColor;
-          
-          // Draw rounded rect
-          const radius = 2;
-          ctx.beginPath();
-          ctx.moveTo(x1 + radius, yOffset);
-          ctx.lineTo(x1 + w - radius, yOffset);
-          ctx.quadraticCurveTo(x1 + w, yOffset, x1 + w, yOffset + radius);
-          ctx.lineTo(x1 + w, yOffset + rowHeight - 2 - radius);
-          ctx.quadraticCurveTo(x1 + w, yOffset + rowHeight - 2, x1 + w - radius, yOffset + rowHeight - 2);
-          ctx.lineTo(x1 + radius, yOffset + rowHeight - 2);
-          ctx.quadraticCurveTo(x1, yOffset + rowHeight - 2, x1, yOffset + rowHeight - 2 - radius);
-          ctx.lineTo(x1, yOffset + radius);
-          ctx.quadraticCurveTo(x1, yOffset, x1 + radius, yOffset);
-          ctx.closePath();
-          ctx.fill();
-          
-          // Outline
-          ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-
-          // Add value label if wide enough
-          if (w > 30 && rowHeight > 10) {
-            ctx.fillStyle = d3.hsl(fillColor).l > 0.6 ? '#000' : '#fff';
-            ctx.font = '7px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(d.value.toFixed(1), x1 + w/2, yOffset + rowHeight/2 + 2);
-          }
-        });
-      });
+      if (highlighted.includes(shape.index)) {
+        ctx.strokeStyle = color; ctx.lineWidth = 1;
+        for (const mask of geometry.mask) {
+          const start = Math.max(shape.x, mask.x);
+          const end = Math.min(shape.x + shape.width, mask.x + mask.width);
+          if (end <= start) continue;
+          ctx.strokeRect(start + Math.min(0.5, (end - start) / 2), Math.min(y, bottom) + 0.5, Math.max(0, end - start - 1), Math.max(0, Math.abs(bottom - y) - 1));
+        }
+      }
+      if (kind === 'interval' && shape.width > 30) {
+        const fill = colors(shape.value);
+        ctx.fillStyle = d3.hsl(fill).l > 0.6 ? '#000' : '#fff';
+        ctx.font = '7px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(shape.value.toFixed(1), shape.x + shape.width / 2, y + 10);
+      }
+      ctx.restore();
     }
-  }, [data, viewportWidth, height, xScale, scrollX, minVal, maxVal, color, kind, packedRows]);
-
-  return <canvas ref={canvasRef} style={{ width: viewportWidth, height: height, position: 'absolute', top: 0, left: 0, display: 'block' }} />;
+    ctx.restore();
+  }, [display, viewportWidth, height, xScale, scrollX, minVal, maxVal, color, kind, packedRows, highlighted]);
+  return <canvas ref={canvasRef} style={{ width: viewportWidth, height, position: 'absolute', top: 0, left: 0, display: 'block' }} />;
 });

@@ -49,6 +49,8 @@ import type { GffSourceRegion } from '../core/formats/gff3';
 
 export interface BioRequestContext {
   requestId?: number;
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
 }
 
 export interface ProcessRecordsRequest extends BioRequestContext {
@@ -60,12 +62,16 @@ export interface ProcessRecordsRequest extends BioRequestContext {
 export type BatchIdMap = Record<string, string | null>;
 
 export interface ParseGenBankRequest extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_GENBANK';
   filename: string;
   content: string;
 }
 
 export interface ParseFastaRequest extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_FASTA';
   filename: string;
   content: string;
@@ -97,8 +103,20 @@ export interface ProcessRecordsSuccessResponse extends BioRequestContext {
   consensus: string;
 }
 
+export interface ParseGenBankRefusedResponse extends BioRequestContext {
+  type: 'PARSE_REFUSED';
+  filename: string;
+  records: SeqRecord[];
+  findings: import('@/src/domain/bio/types').GenBankFinding[];
+  categories: ('nucleotide' | 'protein')[];
+  idMap?: BatchIdMap;
+}
+
 export interface ParseGenBankSuccessResponse extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_SUCCESS';
+  findings?: import('@/src/domain/bio/types').GenBankFinding[];
   /** Workspace assignments supplied by the main-thread acknowledgment. */
   idMap?: BatchIdMap;
   filename: string;
@@ -113,6 +131,8 @@ export type FastaAlignedRecord = Pick<SeqRecord, 'id' | 'name' | 'sequence' | 'f
 };
 
 export interface ParseFastaSuccessResponse extends BioRequestContext {
+  workspaceRevision?: number;
+  incomingCategory?: 'nucleotide' | 'protein';
   type: 'FASTA_SUCCESS';
   idMap?: BatchIdMap;
   filename: string;
@@ -135,6 +155,7 @@ export interface WorkerErrorResponse extends BioRequestContext {
 /** Union of all messages the bio worker can post back. */
 export type BioWorkerResponse =
   | ProcessRecordsSuccessResponse
+  | ParseGenBankRefusedResponse
   | ParseGenBankSuccessResponse
   | ParseFastaSuccessResponse
   | AnnotationsSuccessResponse

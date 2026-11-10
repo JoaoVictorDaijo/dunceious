@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   saveEditedFeature,
   removeFeature,
@@ -26,6 +26,7 @@ import {
   newFeatureFromSelection,
   annotationCoords,
 } from '../featureManager';
+import { computeRecordLayouts } from '@/src/app/viewer/layout';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 
 import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
@@ -169,7 +170,7 @@ it('does not revive an imported phase after deleting codon_start in the editor',
   const saved = saveEditedFeature(input, 'r1', 0, { ...feature, metadata });
   const cds = saved[0].features[0];
   expect(extractCodingSequence(cds, saved[0].sequence).codingSeq).toBe('AATGAAACCC');
-  const gb = parseGenBank(exportToGenBank(saved).text)[0];
+  const gb = parseGenBank(exportToGenBank(saved).text).records[0];
   const gbCds = gb.features.find(f => f.type === 'CDS')!;
   expect(extractCodingSequence(gbCds, gb.sequence).codingSeq).toBe('AATGAAACCC');
   expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('0');
@@ -194,4 +195,92 @@ it('retains an untouched legacy project phase when saving an unrelated feature n
   const saved = saveEditedFeature([rec({ id: 'r1', sequence: 'AATGAAACCC', features: [feature] })], 'r1', 0, { ...feature, name: 'renamed' });
   expect(exportToGenBank(saved).text).toContain('/codon_start=2');
   expect(exportToGff3(saved).text.split('\n').find(line => line.split('\t')[2] === 'CDS')?.split('\t')[7]).toBe('1');
+});
+
+describe('stored CDS product at save (spec oracle)', () => {
+  const coding = (metadata: Record<string, string> = {}): BioFeature => ({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }], metadata });
+  it('stores MK at first save and exports it from the one field', () => {
+    const [r] = saveEditedFeature([rec({ id: 'r', sequence: 'ATGAAATAA' })], 'r', -1, coding());
+    expect(r.features[0].metadata).toMatchObject({ translation: 'MK', _translationSource: 'computed' });
+    expect(r.features[0]).not.toHaveProperty('translation');
+    expect(exportToGenBank([r]).text).toContain('/translation="MK"');
+    expect(exportToGff3([r]).text).toContain('translation=MK');
+  });
+  it('removes an internal-stop product after moving, warning at codon 2', () => {
+    const f = coding({ translation: 'MK', _translationSource: 'imported' }); const logs: string[] = [];
+    const [r] = saveEditedFeature([rec({ id: 'r', sequence: 'ATGAAATAAATGTGATAA', features: [f] })], 'r', 0,
+      { ...f, start: 9, end: 18, segments: [{ start: 9, end: 18 }] }, m => logs.push(m));
+    expect(r.features[0].metadata?.translation).toBeUndefined();
+    expect(r.features[0].metadata?._translationSource).toBe('removed');
+    expect(logs).toHaveLength(1); expect(logs[0]).toContain('codon 2');
+    expect(exportToGenBank([r]).text).not.toContain('/translation=');
+    expect(exportToGenBank([r]).report.translationWarnings).toHaveLength(1);
+    expect(exportToGff3([r]).report.translationWarnings[0]).toContain('codon 2');
+  });
+  it.each(['.', '?'])('known biological orientation invalidates %s even with numeric +1 unchanged', _gffStrand => {
+    const f = coding({ translation: 'MV', _translationSource: 'imported', _gffStrand });
+    const r = rec({ id: 'r', sequence: 'ATGAAATAA', features: [f] });
+    expect(saveEditedFeature([r], 'r', 0, { ...f, name: 'rename' })[0].features[0].metadata?.translation).toBe('MV');
+    const metadata = { ...f.metadata }; delete metadata._gffStrand;
+    expect(saveEditedFeature([r], 'r', 0, { ...f, metadata })[0].features[0].metadata).toMatchObject({ translation: 'MK', _translationSource: 'computed' });
+  });
+  it('keeps imported protein data until invalidation and never computes nucleotide residues on protein', () => {
+    const f = coding({ translation: 'QQQ', _translationSource: 'imported' });
+    const r = rec({ id: 'p', moleculeType: 'protein', sequence: 'GCTAAAGCT', features: [f] });
+    expect(saveEditedFeature([r], 'p', 0, { ...f, name: 'rename' })[0].features[0].metadata?.translation).toBe('QQQ');
+    const [changed] = saveEditedFeature([r], 'p', 0, { ...f, end: 6, segments: [{ start: 0, end: 6 }] });
+    expect(changed.features[0].metadata).toMatchObject({ _translationSource: 'removed' });
+    expect(changed.features[0].metadata?.translation).toBeUndefined();
+    expect(exportToGff3([changed]).text).not.toContain('translation=');
+  });
+});
+
+it('recomputes an effective frame and regenerates multipart GFF3 phases', () => {
+  const parsed = parseGFF3('r\tx\tCDS\t1\t5\t.\t+\t1\tID=c;translation=MP\nr\tx\tCDS\t9\t13\t.\t+\t2\tID=c;translation=MP');
+  const f = parsed.features.r[0];
+  const r = rec({ id: 'r', sequence: 'AATGCNNNCCTAA', features: [f] });
+  const [changed] = saveEditedFeature([r], 'r', 0, { ...f, metadata: { ...f.metadata, codon_start: '3' } });
+  expect(changed.features[0].metadata).toMatchObject({ translation: 'CP', _translationSource: 'computed' });
+  const text = exportToGff3([changed]).text;
+  expect(text.split('\n').filter(l => l.split('\t')[2] === 'CDS').map(l => l.split('\t')[7])).toEqual(['2', '0']);
+});
+
+it.each([
+  ['ATGTAAGGGTAA', {}, 'codon 2'],
+  ['ATGAAATAA', { transl_table: '99' }, 'not an NCBI genetic code'],
+  ['ATGAAATAA', { transl_except: '(pos:4..6,aa:Sec)' }, "can't be applied yet"],
+] as const)('denies invalid new CDS products for %s with %j', (sequence, metadata, reason) => {
+  const logs: string[] = [];
+  const [r] = saveEditedFeature([rec({ id: 'r', sequence })], 'r', -1,
+    { type: 'CDS', name: 'c', start: 0, end: sequence.length, strand: 1, metadata }, m => logs.push(m));
+  expect(r.features[0].metadata?.translation).toBeUndefined();
+  expect(r.features[0].metadata?._translationSource).toBe('removed');
+  expect(logs).toHaveLength(1); expect(logs[0]).toContain(reason);
+});
+
+it.each(['CDS', 'misc_feature'])('refuses an empty-part %s edit without changing the record or translation lane', type => {
+  const original = feat({ type, name: 'protected', end: 9, segments: [{ start: 0, end: 9 }],
+    metadata: type === 'CDS' ? { translation: 'MK', _translationSource: 'imported' } : { note: 'keep' } });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: [original] });
+  const options = { showAnnotations: false, translationVisible: true, showTracks: false };
+  const before = computeRecordLayouts([record], options)[0];
+  expect(before.translationLanes.forward).toBe(type === 'CDS' ? 1 : 0);
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', 0, { ...original, segments: [], remoteParts: [] }, log);
+  expect(saved).toBe(record);
+  expect(saved.features[0]).toBe(original);
+  expect(saved.features[0].metadata).toEqual(type === 'CDS' ? { translation: 'MK', _translationSource: 'imported' } : { note: 'keep' });
+  expect(computeRecordLayouts([saved], options)[0].translationLanes).toBe(before.translationLanes);
+  expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: protected: a location must contain at least one segment; Save refused');
+});
+
+it.each([0, -1])('keeps a remote-only location saveable at feature index %i', featureIndex => {
+  const original = feat({ name: 'remote', segments: [{ start: 0, end: 5 }],
+    remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 1 }] });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: featureIndex === -1 ? [] : [original] });
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', featureIndex, { ...original, segments: [],
+    remoteParts: [{ ...original.remoteParts![0], index: 0 }] }, log);
+  expect(saved.features[0]).toMatchObject({ segments: [], remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 0 }] });
+  expect(log).not.toHaveBeenCalled();
 });

@@ -51,16 +51,21 @@ the CONTIG alternative. No additional tested parser equivalence is claimed.
 **Applications.** Unknown for exact header and malformed-input handling in the surveyed tools;
 [format support](tools.md#format-support) does not settle it.
 
-**Dunceious.** Mixed. Canonical terminated entries split correctly, but an unterminated final
-piece is accepted (`src/core/genbank/recordSplitter.ts:24`). Header parsing reads the locus ID,
-joins DEFINITION continuations and keeps only the primary ACCESSION
-(`src/core/genbank/headerParser.ts:46`). Topology scans the whole LOCUS line, as does molecule
-classification (`src/domain/bio/sequence.ts:382`), so name substrings can change biology:
-[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243); declared molecule fields also
-use OP-2. ORIGIN import strips digits/spacing but also silently drops punctuation, retains any
-letter plus `-`/`*`, ignores declared length and does not assemble CONTIG
-(`src/core/genbank/toSeqRecord.ts:30`): [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
-Display-name truncation, SOURCE fallback and the legacy geography flag remain local policies.
+**Dunceious.** The reader returns records and exhaustive refusal/warning findings. It refuses
+unterminated entries, absent LOCUS/sequence, CONTIG-only data, unreadable length/unit,
+length discrepancies, non-residues and mixed nucleotide/protein categories. The category uses
+the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology retain the known
+[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
+ORIGIN retains characters for validation, removing only the leading count and whitespace.
+The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
+revision, alignment lock and validated molecule category before committing records or findings.
+App accumulates refused files in one dialog; accepted warnings stay in the StatusBar import
+notes until cleared or their assigned workspace records are removed. Replaced-workspace
+responses show no diagnostics. Display naming and SOURCE fallback remain local policies.
+The GenBank writer uses `genBankExportProblem` to omit records with any non-residue
+(including `-`, `.` and `*`), names each omission in the export report/log and Hub preview,
+and never strips characters to repair feature coordinates.
+LOCUS length and ORIGIN use the residue-only `sequence`.
 
 ## FMT-3. INSDC feature-table and qualifier fidelity
 
@@ -80,16 +85,30 @@ Documented related NCBI naming practice is type-specific
 ([NCBI GFF3](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/));
 it does not prescribe Dunceious's name-selection algorithm.
 
-**Dunceious.** Deviates: [#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242).
-The basic line layout, doubled quotes and translation concatenation are supported, but the
-parser keeps only the last occurrence (`src/core/genbank/qualifierParser.ts:32`). The writer
-drops empty quoted replacements and can exceed column 80 for unbroken tokens
-(`src/core/genbank/qualifierRules.ts:149`); a whitelist does not prove value syntax,
-feature applicability or deprecation compliance. Protein vocabulary conformance is Unknown.
-Feature names follow parsed-object insertion order: every encountered gene/product/label/locus_tag
-overwrites the prior name; `standard_name` is fallback when none is truthy
-(`src/core/genbank/featureParser.ts:87`). This is not a fixed array priority. General free-text
-whitespace normalization and the exact display-name algorithm remain unsupported local choices.
+**Dunceious.** `insdcFeatureTable.ts` is generated offline from the pinned INSDC 11.4
+Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
+nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
+`old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
+value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
+resynchronising at the next feature/data boundary. Value validation is limited to CDS
+`codon_start`, `transl_table` and `transl_except`; malformed translation exceptions strictly refuse import.
+`gap_type` is read only for the conditional requirement.
+
+Protein keys, allowed/mandatory maps and recognised qualifier names follow the NCBI C++ Toolkit
+at **2b8ccee**, pinned in [`sources.json`](sources.json) as `ncbi-protein-seqfeatdata`,
+`ncbi-protein-feature_item` and `ncbi-protein-seqfeat`. Protein tag problems warn. The key map
+maps `source` to `biosrc`, with no mandatory qualifiers. `coded_by` belongs to the CDS map;
+qualifiers occurring in any subtype map take precedence over flat-file-only exemptions.
+
+Unknown and underscore-prefixed input qualifiers live in `unknownQualifiers`, separate from
+computational metadata. Project files preserve them, the details view shows them, and GenBank
+export counts their omission. Name selection remains local policy: gene/product/label/locus_tag
+in input insertion order, with standard_name fallback. `/label` still names a feature even
+though it is inert metadata. The writer retains its documented wrapping/empty-value limitations.
+`genBankExportProblem` supplies the writer omission reasons for invalid residues, frames
+and genetic codes (empty values included). Preview and download share the same serializer
+report. Annotation filtering cannot hide the invalid CDS that makes a record ineligible;
+the whole record is left out, and the Hub preview counts only written records and details.
 
 ## FMT-4. Ordinary FASTA syntax and wrapping
 
@@ -114,16 +133,21 @@ wrapping (`src/core/formats/fasta.ts:69`), including the original-residue single
 residues or metadata. Molecule inference uses OP-1. The private Slice field and filenames remain
 application policy; aligned slicing uses FMT-6.
 
-A FASTA loaded as sequences (not as an alignment) has `-` removed from each record before it is
-stored, and the change is reported per record in the log and a dialog
-(`src/app/logic/bioResponse.ts:168`); a record left without residues, including a header-only
-record, refuses the whole file. This is an
-owner decision ([#267](https://github.com/JoaoVictorDaijo/dunceious/issues/267)) that follows NCBI's
-rule for sequences outside an alignment: "do not use "?" or "-" characters. These will be
-stripped from the sequence." ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),
-observed 2026-10-23). Biopython 1.88 `FastaIterator` and EMBOSS 6.6.0 `seqret` keep `-` as format
+A FASTA loaded as sequences (not as an alignment) has both `-` and `.` removed only after
+confirmation, before records are stored. The dialog previews per-record removal counts; Load
+without gaps accepts, and Don't load or Escape commits nothing from that file. A record left
+without residues, including a header-only record, refuses the whole file. Files without gaps
+load immediately. Removal is logged per record. Refused dropped files map every incoming ID to
+null so annotations cannot attach through workspace aliases, and the remaining batch continues;
+workspace replacement, worker failure and unmount invalidate it.
+
+This is an owner decision ([#286](https://github.com/JoaoVictorDaijo/dunceious/issues/286),
+2026-11-06), extending the gap-removal decision in #267. It follows NCBI's rule for sequences
+outside an alignment ([NCBI FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/),
+updated 2025-06-18). Biopython 1.88 `FastaIterator` and EMBOSS 6.6.0 `seqret` keep `-` as format
 converters; Dunceious differs because its stored sequence is the residue coordinate space of
-features (OP-4). `?` and other characters remain under #244, and saved projects are not rewritten.
+features (OP-4). `?` and other characters remain under #244; damaged saved projects are refused,
+not rewritten.
 
 ## FMT-5. NCBI FASTA definition-line modifiers
 
@@ -168,11 +192,21 @@ refused as an unsupported gap symbol (owner decision,
 [#249](https://github.com/JoaoVictorDaijo/dunceious/issues/249)). The remote path shares this
 check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
 **Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9). Longest-prefix reconciliation has
-no established reference contract. Selection
-export slices aligned-or-raw strings (`src/app/hooks/useFileHandlers.ts:336`); equal widths are
-conditional on the input and not independently checked there. `[Slice: start-end]` is private
-metadata without externally established endpoints. Remote provider validation is narrower and
-separately described in FMT-12.
+no established reference contract.
+
+A pre-aligned FASTA can also load an empty workspace: equal-width, nonempty rows containing
+no `.` and at least one residue per row become ungapped `sequence` plus `alignedSequence`.
+IDs are deduplicated with batch provenance and an annotation ID map. Import-start workspace
+identity prevents late loads or overlays from entering a replacement workspace.
+
+Every FASTA export offers aligned gaps or ungapped residues. In a gapped export only aligned
+rows enter the requested file; unaligned rows are saved beside it in a second `_unaligned`
+file, with a preview and log explanation. They are never padded into an invented alignment.
+Selection windows use aligned columns for aligned rows and own positions for unaligned rows;
+ungapped mode removes gaps from that same window. Gapped windows clip to alignment width and
+are unavailable wholly outside it. Gap-only aligned slices are retained and named; empty
+ungapped slices are omitted and named. `[Slice: start-end]` uses private zero-based, half-open
+endpoints. Remote provider validation is narrower and separately described in FMT-12.
 
 ## FMT-7. BED fields, coordinates and scores
 
@@ -281,7 +315,7 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
 phase carries across parts. Imported values are checked for count and 0/1/2, not continuity.
-Malformed `codon_start` is clamped/defaulted. Arbitrary part order, mixed strands, slippage
+Invalid `codon_start` suppresses phase export (`.`); absence defaults to frame 1. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
 
@@ -362,7 +396,10 @@ establish Dunceious migration or retention semantics.
 **Dunceious.** Unknown against external authority: `src/app/logic/projectFile.ts:41` writes
 private state with format 2; `src/app/logic/projectFile.ts:87` validates local shapes and rejects
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
-rejection and shape checks are implementation evidence only. Owner choices remain whether to
+rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
+(2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
+aligned rows with unequal widths. The format remains 2, and each existing aligned-row residue
+check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source
 selects an alternative or a new schema.
 

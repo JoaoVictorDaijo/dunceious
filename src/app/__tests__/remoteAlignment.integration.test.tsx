@@ -122,7 +122,7 @@ describe('remote alignment application integration', () => {
     await start(); vi.useFakeTimers();
     await act(async () => finish({ kind: 'ok', data: 'FINISHED' }));
     expect(captured.sidebar!.records.map(record => [record.id, record.alignedSequence])).toEqual([['seq1', 'A-C'], ['seq1_1', 'AGC']]);
-    expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 bp).'))).toBe(true);
+    expect(captured.sidebar!.logs.some(log => log.includes('External alignment applied successfully (3 columns).'))).toBe(true);
     expect(captured.sidebar!.isAlignmentLocked).toBe(false);
     expect(screen.getByRole('button', { name: /Aligned/ })).toBeTruthy();
     await act(async () => vi.advanceTimersByTimeAsync(4000));
@@ -159,6 +159,8 @@ describe('file reads started before the lock', () => {
     const event = { target: { files: [new File(['unused'], 'pending.fa')], value: 'x' } } as unknown as React.ChangeEvent<HTMLInputElement>;
     act(() => captured.sidebar![handler](event));
     const reader = read.mock.contexts[0] as FileReader;
+    // A fast independent response can clear processing while this read remains pending.
+    await act(async () => LocalWorker.instances[0].onmessage?.({ data: { type: 'PARSE_SUCCESS', filename: 'fast.gb', records: [] } }));
     await beginAlignment();
     const post = vi.spyOn(LocalWorker.instances[0], 'postMessage');
     Object.defineProperty(reader, 'result', { value: handler === 'onProjectUpload' ? JSON.stringify({ records: [] }) : '>wrong\nATC' });

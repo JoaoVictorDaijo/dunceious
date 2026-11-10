@@ -22,9 +22,11 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveAccession,
   applyParseSuccess,
+  logAttachedTranslationWarning,
   applyAnnotations,
   applyFastaResponse,
   applyFastaAndLog,
+  remotePartsWarning,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
@@ -380,8 +382,8 @@ describe('applyFastaResponse residue integrity (#249)', () => {
 
 
 it('echoes the GenBank filename from the real worker handler', () => {
-  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
-  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb' });
+  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide' });
 });
 
 it('keeps imported provenance and file values intact during an alignment overlay', () => {
@@ -554,4 +556,93 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
       'ERROR: only.fa was not loaded: records with no residues: [b].',
     ]);
   });
+});
+
+// Owner decision 9 (Murilo, #245): one warning per file names the features with remote parts.
+describe('remotePartsWarning', () => {
+  const remote = (name: string, accession: string): BioFeature => ({ type: 'CDS', name, start: 0, end: 1, strand: 1,
+    remoteParts: [{ accession, start: 0, end: 3, strand: 1, index: 1 }] });
+  it('is null without remote parts', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [] }])).toBeNull();
+  });
+  it('names each feature and its accessions', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [remote('cds1', 'J00194.1'), remote('cds2', 'AB000001.2')] }]))
+      .toBe("WARNING: 2 annotations have intervals in other records, which Dunceious doesn't load (cds1: J00194.1; cds2: AB000001.2). Their sequence and translation aren't shown.");
+  });
+});
+
+ describe('empty workspace pre-aligned import', () => {
+  const rows = (text: string) => {
+    const reply = handleBioMessage({ type: 'PARSE_FASTA', filename: 'aligned.fa', content: text, asAlignment: true });
+    if (reply.type !== 'FASTA_SUCCESS') throw new Error(reply.type);
+    return reply.alignedData;
+  };
+  it('loads residues, alignment, provenance and the batch map', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>b\nACTTGT'), true, 'aligned.fa');
+    expect(result.kind).toBe('aligned-load');
+    expect(result.next.map(r => [r.id, r.sequence, r.alignedSequence, r.importedFrom])).toEqual([
+      ['a', 'ACGT', 'AC--GT', 'aligned.fa'], ['b', 'ACTTGT', 'ACTTGT', 'aligned.fa'],
+    ]);
+    expect(result).toMatchObject({ idMap: { a: 'a', b: 'b' } });
+  });
+  it.each([
+    ['>a\nAC--GT\n>b\nACTGT', 'reject-length'],
+    ['>a\nAC..GT', 'reject-dot-gap'],
+    ['>a\n', 'reject-empty'],
+    ['>a\n------', 'reject-no-residues'],
+  ])('refuses %s without loading anything', (text, kind) => {
+    expect(applyFastaResponse([], rows(text), true)).toMatchObject({ kind, next: [] });
+  });
+  it('deduplicates IDs and reports ambiguity', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>a\nACTTGT'), true);
+    expect(result.next.map(r => r.id)).toEqual(['a', 'a_1']);
+    expect(result).toMatchObject({ idMap: { a: null } });
+  });
+  it('removes and counts dot gaps on batch imports', () => {
+    const result = applyFastaResponse([], rows('>a\nAC..GT'), false);
+    expect(result.next[0].sequence).toBe('ACGT');
+    expect(result).toMatchObject({ gapsRemoved: [{ id: 'a', removed: 2 }] });
+  });
+});
+
+it.each(['M', 'MKV', 'MVV', 'MK'])('checks GFF3 protein %s only after DNA attachment', translation => {
+  const parsed = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const result = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], parsed.features);
+  const f = result.next[0].features[0];
+  expect(f.metadata?.translation).toBe(translation);
+  expect(f.metadata?._translationSource).toBe('imported');
+  const checked = JSON.parse(f.metadata!._translationCheck);
+  expect(checked.residues).toBe('MK');
+  expect(checked.comparison).toEqual({ differing: translation === 'MVV' ? [1] : [], storedExtra: translation.slice(2), storedShortBy: translation === 'M' ? 1 : 0 });
+});
+
+it.each(['M', 'MKV', 'MK'])('counts imported discrepancies once on both paths for %s', async translation => {
+  const { translationWarning } = await import('@/src/domain/bio/translation');
+  const content = `LOCUS       r       9 bp    DNA             linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /translation="${translation}"
+ORIGIN
+        1 atgaaataa
+//`;
+  const message = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'literal.gb', content });
+  if (message.type !== 'PARSE_SUCCESS') throw new Error(`unexpected ${message.type}`);
+  const expected = translation === 'MK' ? null : 'WARNING: 1 CDS have a /translation that differs from their DNA';
+  expect(translationWarning(message.records)).toBe(expected);
+  expect(message.records[0].features[0]).not.toHaveProperty('translation');
+  const annotations = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const attached = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], annotations.features).next;
+  expect(translationWarning(attached)).toBe(expected);
+  attached[0].features[0].metadata!.exception = 'RNA editing';
+  expect(translationWarning(attached)).toBeNull();
+});
+
+it('warns for this attachment once, excluding preexisting discrepant CDSs', () => {
+  const original = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=old;translation=MV');
+  const previous = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], original.features).next;
+  const incoming = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=new;translation=M');
+  const next = applyAnnotations(previous, incoming.features).next;
+  const logs: string[] = [];
+  logAttachedTranslationWarning(previous, next, message => logs.push(message));
+  expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
 });

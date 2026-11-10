@@ -18,21 +18,28 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { indexCodonPieces, visibleCodonPieces } from '../codonIndex';
+import { cachedCodonMarks, codonPrefix, type CodonMark } from '../codonMarks';
+import { invalidateTooltips } from '@/src/app/components/TooltipLayer';
+import { isCds, resolvedTranslationFeature, storedTranslation } from '@/src/domain/bio/translation';
+import { assumedInitiationContext, assumedTranslation } from '@/src/domain/bio/assumedTranslation';
+import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { matchLineSymbol } from '@/src/core/search/hitColumns';
 import { visibleMarks, insertionDescription, SEARCH_QUERY_LANE_HEIGHT } from '../hitMarks';
 import * as d3 from 'd3';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import React, { memo, useLayoutEffect, useMemo, useRef } from 'react';
 import type { BioFeature, SearchResult, SeqRecord } from '@/src/domain/bio/types';
 import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
-import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, translateFeature } from '@/src/domain/bio';
+import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { CDS_ORF_TYPES, computeBrokenFeatureMap, codonFrame, codonSpans, geneticCodeWarning, type TranslationLanes } from '../cds';
+import { isTranslatedFeature, codonFrame, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
+  onViewDetails?: (feature: BioFeature) => void;
   completedSearch?: CompletedSearch | null;
   seq: string;
   moleculeType?: 'dna' | 'rna' | 'protein';
@@ -63,8 +70,26 @@ const INDEL_FILL = '#475569';
 const residueStyle = (char: string, column: number, comparison: ActiveComparison | null | undefined) =>
   comparisonStyle(char, comparison?.referenceSeq[column], comparison);
 
+interface CodonPiece {
+  key: string;
+  order: number;
+  start: number;
+  end: number;
+  feature: BioFeature;
+  frame: 0 | 1 | 2;
+  codon: string;
+  residue: string;
+  codeSensitive: boolean;
+  initiation: boolean;
+  description?: string;
+  state?: CodonMark['state'];
+  logicalKey?: string;
+  label?: boolean;
+  chip?: { text: string; extra: number };
+}
+
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
-  seq, record, completedSearch, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
+  seq, record, onViewDetails, completedSearch, moleculeType, xScale, viewportWidth, y, zoomLevel, scrollX, showTranslation, features, translationLanes,
   conservationScores, showConservation, searchResults, allSearchResults, currentSearchIdx, comparison
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -78,18 +103,28 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
   const bandTop = y - queryHeight - (translationVisible ? forwardHeight : 0);
 
 
+  const hasGaps = useMemo(() => seq.includes('-'), [seq]);
   const residueCount = useMemo(() => seq.replace(/-/g, '').length, [seq]);
-  // Shown on the translation band itself, so the reason for the `?` residues is there even
-  // when annotations are hidden.
+  // Keep the source warning accessible even when annotations are hidden.
   const codeWarnings = useMemo(() => features.flatMap(f => {
-    const warning = geneticCodeWarning(f);
     const strand = getFeatureStrand(f);
-    return warning && typeof strand === 'number' ? [{ feature: f, strand, warning }] : [];
-  }), [features]);
+    if (typeof strand !== 'number' || !geneticCodeWarning(f)) return [];
+    const warning = geneticCodeWarning(f, extractCodingSequence(resolvedTranslationFeature(f), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length }).codingSeq)!;
+    return [{ feature: f, strand, warning, suppressed: !validCodonStart(f.metadata?.codon_start) }];
+  }), [features, seq, record]);
+  const evidence = useMemo(() => new Map(features.filter(isCds).map(feature => {
+    return [feature, cachedCodonMarks(feature, { sequence: record?.sequence ?? seq, moleculeType, isCircular: record?.isCircular, accession: record?.accession, version: record?.version })] as const;
+  })), [features, record?.sequence, record?.isCircular, record?.accession, record?.version, moleculeType, hasGaps ? undefined : seq]);
+  const assumedViews = useMemo(() => new Map(features.flatMap(feature => {
+    if (!isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || isNcbiGeneticCode(featureTranslTable(feature)) || moleculeType === 'protein') return [];
+    const coding = extractCodingSequence(feature, seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
+    const assumed = isCds(feature) ? evidence.get(feature)?.assumed : assumedTranslation(feature, coding.codingSeq);
+    return assumed ? [[feature, { ...coding, assumed }] as const] : [];
+  })), [features, seq, record, moleculeType, evidence]);
   const activeResult = currentSearchIdx >= 0 ? allSearchResults[currentSearchIdx] : undefined;
   const activeInRow = activeResult && searchResults.includes(activeResult) ? activeResult : undefined;
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel));
-  const vEnd = Math.min(seq.length, Math.ceil((scrollX + viewportWidth) / zoomLevel));
+  const vEnd = Math.ceil((scrollX + viewportWidth) / zoomLevel);
   const marks = useMemo(() => record && completedSearch
     ? visibleMarks(searchResults, activeInRow, record, completedSearch, vStart, vEnd)
     : { marks: [], insertions: [] }, [record, completedSearch, searchResults, activeInRow, vStart, vEnd]);
@@ -99,15 +134,71 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
 
   // Frames and frameshifts are read in biological bases, so an alignment gap
   // between two codons is neither a frame change nor a skipped base.
-  const originalPositions = useMemo(() => (seq.includes('-') ? alignedToOriginalPositions(seq) : null), [seq]);
+  const originalPositions = useMemo(() => (hasGaps ? alignedToOriginalPositions(seq) : null), [seq, hasGaps]);
 
-  // Pre-compute broken-protein status for each CDS/ORF feature.
-  const brokenFeatureMap = useMemo(
-    () => (translationVisible ? computeBrokenFeatureMap(features, seq, moleculeType) : new Map<BioFeature, boolean>()),
-    [features, seq, moleculeType, translationVisible],
-  );
+  const codonIndex = useMemo(() => {
+    const spans: CodonPiece[] = [];
+    features.forEach((feature, featureIndex) => {
+      if (!isTranslatedFeature(feature) || typeof getFeatureStrand(feature) !== 'number' || moleculeType === 'protein') return;
+      const coding = extractCodingSequence(resolvedTranslationFeature(feature), seq, { isCircular: record ? record.isCircular : true, biologicalLength: record?.sequence.length });
+      const assumed = assumedViews.get(feature)?.assumed;
+      const initiation = assumedInitiationContext(feature);
+      const stored = storedTranslation(feature);
+      const cells = evidence.get(feature)?.cells ?? (!isCds(feature) ? [...(assumed ? stored ?? '' : translateFeature(feature, coding.codingSeq, featureTranslTable(feature)))].map((residue, codonIndex) => ({ codonIndex, residue, state: 'ordinary' as const, indices: [], description: '' })) : []);
+      const add = (i: number, residue: string, state: CodonMark['state'], description: string, isAssumed = false) => {
+        const indices = coding.alignedIndices.slice(i * 3, i * 3 + 3);
+        if (!indices.length) return;
+        const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
+        const frame = codonFrame(firstBase, feature.strand);
+        const codon = coding.codingSeq.slice(i * 3, i * 3 + 3);
+        const pieces = codonSpans(indices, originalPositions);
+        const label = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
+        const prefix = codonPrefix(feature, i, indices.map(n => originalPositions ? originalPositions[n] : n));
+        let explanation = description;
+        if (isAssumed) explanation = `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code. ${evidence.get(feature)?.exceptionDescriptions.get(i)?.text ?? ''} ${evidence.get(feature)?.summary ?? ''}`;
+        else if (!explanation) explanation = assumed
+          ? `${prefix} Annotated ${residue}. Cannot check against DNA: /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code.`
+          : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`;
+        pieces.forEach((piece, pieceIndex) => spans.push({
+          ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, logicalKey: `${featureIndex}-${i}`, order: spans.length, feature, frame, codon,
+          residue, codeSensitive: isAssumed && !!assumed?.codeSensitive[i], initiation: i === 0 && initiation,
+          state: !assumed && !isCds(feature) && ['_', '*'].includes(residue) && i < Math.floor(coding.codingSeq.length / 3) - 1 ? 'early-stop' : state, label: piece === label,
+          description: explanation,
+        }));
+      };
+      for (const cell of cells) add(cell.codonIndex, cell.residue, cell.state, cell.description);
+      if (assumed) for (let i = stored?.length ?? 0; i < assumed.residues.length; i++) add(i, assumed.residues[i], 'ordinary', '', true);
+      const view = evidence.get(feature);
+      const comparison = view?.comparison;
+      const n = comparison?.storedExtra.length || comparison?.storedShortBy || 0;
+      if (n && coding.alignedIndices.length) {
+        const endpoint = coding.alignedIndices.at(-1)! + (feature.strand === 1 ? 1 : 0);
+        const start = feature.strand === 1 ? endpoint : endpoint - 30;
+        const end = feature.strand === 1 ? endpoint + 30 : endpoint;
+        const last = coding.alignedIndices[Math.floor((coding.alignedIndices.length - 1) / 3) * 3];
+        const extra = comparison!.storedExtra.length;
+        const text = `${extra ? '+' : '−'}${n} position${n === 1 ? '' : 's'}`;
+        const detail = extra ? `Stored residues past the last translated position: ${comparison!.storedExtra.slice(0, 30)}. Preview; complete list in feature details.` : `${n} DNA-derived position${n === 1 ? '' : 's'} ${n === 1 ? 'has' : 'have'} no annotated residue.`;
+        spans.push({ start, end, key: `chip-${featureIndex}`, logicalKey: `chip-${featureIndex}`, order: spans.length, feature,
+          frame: codonFrame(originalPositions ? originalPositions[last] : last, feature.strand), codon: '', residue: '', codeSensitive: false, initiation: false,
+          description: `${view?.summary}. ${detail} Terminal stop excluded.`, chip: { text, extra } });
+      }
 
-  useEffect(() => {
+    });
+    spans.sort((a, b) => a.start - b.start || a.end - b.end);
+    return indexCodonPieces(spans);
+  }, [assumedViews, evidence, originalPositions, features, seq, record, moleculeType]);
+  // Keep biological tab order while querying geometry in genomic order.
+  const visiblePieces = useMemo(() => visibleCodonPieces(codonIndex, vStart, vEnd)
+    .sort((a, b) => a.order - b.order), [codonIndex, vStart, vEnd]);
+
+  useLayoutEffect(() => {
+    invalidateTooltips();
+    return () => invalidateTooltips();
+  }, [evidence, codonIndex, scrollX, zoomLevel, viewportWidth, translationLanes, y, translationVisible]);
+
+
+  useLayoutEffect(() => {
     const prepareCanvas = (canvas: HTMLCanvasElement | null, height: number) => {
       const ctx = canvas?.getContext('2d');
       if (!canvas || !ctx) return null;
@@ -324,69 +415,52 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       queryCtx.fillText(insertion.bases, x, 10);
     }
 
-    // 2. Render Translation (CDS/ORF annotation features only)
-    if (translationVisible) {
-      features.filter(f => CDS_ORF_TYPES.includes(f.type) && typeof getFeatureStrand(f) === 'number').forEach(f => {
-        const { codingSeq, alignedIndices } = extractCodingSequence(f, seq);
-        const isBroken = brokenFeatureMap.get(f) ?? false;
-        const translTable = featureTranslTable(f);
-
-        const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
-        const lanes = translationLanes.laneOf.get(f);
-        if (!ctx || !lanes) return;
-        // Lane 0 hugs the nucleotide row: the bottom of the forward band, the top of the reverse one.
-        const laneY = (lane: number) => AA_ROW_HEIGHT * (f.strand === 1 ? translationLanes.forward - 1 - lane : lane);
-
-        const baseColor = f.strand === 1 ? '#475569' : '#be185d';
-
-        // Prefer the annotated /translation (alt-start Met, transl_except recoding)
-        // over recomputation; one residue per codon, aligned to `alignedIndices`.
-        const protein = translateFeature(f, codingSeq, translTable);
-
-        ctx.font = `600 9px ${MONO_STACK}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        for (let j = 0; j < codingSeq.length - 2; j += 3) {
-          const aa = protein[j / 3] ?? '?';
-          const startIdx = alignedIndices[j];
-          const endIdx = alignedIndices[j + 2];
-
-          if (startIdx === undefined || endIdx === undefined) continue;
-
-          const pieces = codonSpans(alignedIndices.slice(j, j + 3), originalPositions);
-          const labelPiece = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
-          const firstBase = originalPositions ? originalPositions[startIdx] : startIdx;
-          // Each codon sits in the row of its own frame, so a ribosomal frameshift
-          // inside a join steps rows exactly where translation changes frame.
-          const aaY = laneY(lanes.get(codonFrame(firstBase, f.strand)) ?? 0);
-
-          // An early stop is a stop codon that is NOT the last codon in the sequence
-          const isEarlyStop = isBroken && (aa === '_' || aa === '*') && j < codingSeq.length - 3;
-
-          for (const piece of pieces) {
-            const aX = xScale(piece.start) - scrollX;
-            const aW = xScale(piece.end) - xScale(piece.start);
-            if (aX + aW < 0 || aX > viewportWidth) continue;
-
-            ctx.globalAlpha = 0.9;
-            ctx.fillStyle = isEarlyStop ? '#ef4444' : baseColor;
-            ctx.fillRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
-
-            // The nucleotide cells' white hairline: it parts codons in a row and,
-            // where a frameshift stacks two frames, the rows themselves.
-            ctx.globalAlpha = 1.0;
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(aX, aaY, Math.max(1, aW), AA_ROW_HEIGHT);
-
-            ctx.fillStyle = '#fff';
-            if (piece === labelPiece) ctx.fillText(isEarlyStop ? '!' : aa, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
-          }
-        }
-      });
+    if (translationVisible) for (const span of visiblePieces) {
+      if (span.chip) continue;
+      const f = span.feature;
+      const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
+      const lanes = translationLanes.laneOf.get(f);
+      if (!ctx || !lanes) continue;
+      const lane = lanes.get(span.frame) ?? 0;
+      const aaY = AA_ROW_HEIGHT * (f.strand === 1 ? translationLanes.forward - 1 - lane : lane);
+      const aX = xScale(span.start) - scrollX;
+      const aW = xScale(span.end) - xScale(span.start);
+      const baseColor = f.strand === 1 ? '#475569' : '#be185d';
+      const lighter = ['difference', 'hidden-stop', 'substitution'].includes(span.state ?? '');
+      const early = span.state === 'early-stop';
+      const dashed = span.codeSensitive || (assumedViews.has(f) && span.residue === '?');
+      ctx.save();
+      ctx.font = `600 9px ${MONO_STACK}`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (dashed) {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = span.residue === '*' ? '#ef4444' : baseColor;
+        ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+        ctx.strokeRect(aX + 0.5, aaY + 0.5, aW - 1, AA_ROW_HEIGHT - 1);
+        ctx.setLineDash([]);
+      } else {
+        if (lighter) { ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(aX, aaY, aW, AA_ROW_HEIGHT); }
+        ctx.globalAlpha = lighter ? 0.28 : 0.9;
+        ctx.fillStyle = early ? '#ef4444' : baseColor;
+        ctx.fillRect(aX, aaY, aW, AA_ROW_HEIGHT);
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.5;
+        ctx.strokeRect(aX, aaY, aW, AA_ROW_HEIGHT);
+      }
+      ctx.globalAlpha = 1;
+      if (span.state === 'hidden-stop') { ctx.fillStyle = '#ef4444'; ctx.fillRect(aX, aaY + (f.strand === 1 ? AA_ROW_HEIGHT - 3 : 0), aW, 3); }
+      for (let column = span.start; column < span.end; column++) {
+        const hit = highlightMap.get(column);
+        if (!hit) continue;
+        ctx.strokeStyle = hit.strand === 1 ? hit.isActive ? '#92400e' : '#d97706' : hit.isActive ? '#9d174d' : '#db2777';
+        ctx.lineWidth = hit.isActive ? 2 : 1;
+        ctx.strokeRect(xScale(column) - scrollX, aaY, zoomLevel, AA_ROW_HEIGHT);
+      }
+      ctx.fillStyle = dashed ? span.residue === '*' ? '#ef4444' : baseColor : lighter ? baseColor : '#fff';
+      if (span.label) ctx.fillText(early ? '!' : span.residue, aX + aW / 2, aaY + AA_ROW_HEIGHT / 2);
+      ctx.restore();
     }
-  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, brokenFeatureMap, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow]);
+
+  }, [seq, xScale, viewportWidth, zoomLevel, scrollX, translationVisible, translationLanes, forwardHeight, reverseHeight, moleculeType, features, assumedViews, originalPositions, searchResults, allSearchResults, currentSearchIdx, comparison, marks, activeMarks, activeInRow, record, visiblePieces]);
 
   const canvasStyle: React.CSSProperties = {
     width: viewportWidth, position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
@@ -409,14 +483,42 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     <canvas ref={canvasRef} data-hit-marks={activeMarks.marks.map(m => m.cls === 'deletion' ? '-' : matchLineSymbol(m.cls)).join('')}
       data-hit-insertions={activeMarks.insertions.map(i => i.afterColumn).join(',')} className={motionClass} data-sequence-band="" data-state={showTranslation && moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'}
       style={{ ...canvasStyle, height: NT_ROW_HEIGHT, transform: `translateY(${y}px)` }} />
-    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning }) =>
+    {translationVisible && codeWarnings.flatMap(({ feature, strand, warning, suppressed }) =>
       // A feature crossing the origin of a circular record has two spans, end of record and start.
       (feature.start > feature.end ? [[feature.start, seq.length], [0, feature.end]] : [[feature.start, feature.end]])
         .map(([start, end]) => <button key={`code-${start}-${end}-${strand}-${feature.name}`} type="button"
           data-genetic-code-warning="" aria-label={warning} data-tip={warning}
+          className={suppressed ? 'border border-dashed border-amber-500 text-amber-600' : undefined}
           style={{ position: 'absolute', left: xScale(start) - scrollX, width: Math.max(3, xScale(end) - xScale(start)),
             top: strand === 1 ? bandTop : y + NT_ROW_HEIGHT, height: strand === 1 ? forwardHeight : reverseHeight,
-            background: 'transparent', zIndex: 1 }} />))}
+            background: suppressed ? 'rgba(245, 158, 11, 0.1)' : 'transparent', zIndex: 1 }}>
+          {suppressed && <span aria-hidden="true">⚠</span>}
+        </button>))}
+    {translationVisible && [...visiblePieces.reduce((groups, span) => { const key = span.logicalKey!; groups.set(key, [...(groups.get(key) ?? []), span]); return groups; }, new Map<string, CodonPiece[]>())].map(([key, pieces]) => {
+      const span = pieces[0];
+      const lanes = translationLanes.laneOf.get(span.feature);
+      if (!lanes) return null;
+      const lane = lanes.get(span.frame) ?? 0;
+      const top = span.feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
+      if (span.chip) {
+        const endpoint = xScale(span.feature.strand === 1 ? span.start : span.end) - scrollX;
+        if (endpoint < 0 || endpoint > viewportWidth) return null;
+        const width = span.chip.text.length * 6 + 14;
+        return <button key={key} type="button" data-translation-chip="" data-tip={span.description}
+          aria-label={span.chip.extra ? `${span.feature.name}: show all ${span.chip.extra} extra stored translation positions in feature details` : span.description}
+          onClick={() => onViewDetails?.(span.feature)} className="rounded border bg-white font-mono text-[9px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-950"
+          style={{ position: 'absolute', left: span.feature.strand === 1 ? endpoint + 4 : endpoint - width - 4, top: top + 1, width, height: AA_ROW_HEIGHT - 2, color: span.feature.strand === 1 ? '#475569' : '#be185d', zIndex: 2 }}>{span.chip.text}</button>;
+      }
+      const left = Math.max(0, Math.min(...pieces.map(piece => xScale(piece.start) - scrollX)));
+      const right = Math.min(viewportWidth, Math.max(...pieces.map(piece => xScale(piece.end) - scrollX)));
+      return <button key={key} type="button" data-codon-target="" data-assumed-codon={assumedViews.has(span.feature) && span.state !== 'unverified' ? '' : undefined}
+        aria-label={span.description} data-tip={span.description} className="group" style={{ position: 'absolute', left, top, width: right - left, height: AA_ROW_HEIGHT, background: 'transparent', pointerEvents: 'none', zIndex: 2 }}>
+        {pieces.map(piece => <span key={piece.key} className="group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-slate-950"
+          style={{ position: 'absolute', left: Math.max(0, xScale(piece.start) - scrollX) - left, top: 0,
+            width: Math.min(viewportWidth, xScale(piece.end) - scrollX) - Math.max(0, xScale(piece.start) - scrollX), height: AA_ROW_HEIGHT,
+            background: 'transparent', pointerEvents: 'auto', zIndex: 2 }} />)}
+      </button>;
+    })}
     {moleculeType !== 'protein' && <>
       <canvas ref={forwardRef} data-translation-band="forward" className="translation-band" aria-hidden={!translationVisible}
         style={{ ...canvasStyle, height: forwardHeight, opacity: translationVisible ? 1 : 0,

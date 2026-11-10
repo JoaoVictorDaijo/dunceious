@@ -18,9 +18,19 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { checkTranslation, conceptualTranslation, isCds, translationReason, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
+import { codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
+import { invalidLocationPart } from '@/src/domain/bio/featureParts';
+import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { getOriginalPos } from '@/src/domain/bio';
+
+function refuseEmptyLocationEdit(feature: BioFeature, addLog: (message: string) => void): boolean {
+  if (feature.segments?.length !== 0 || feature.remoteParts?.length) return false;
+  addLog(`WARNING: ${feature.name}: a location must contain at least one segment; Save refused`);
+  return true;
+}
 
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
 export function saveEditedFeature(
@@ -28,13 +38,16 @@ export function saveEditedFeature(
   recordId: string,
   featureIndex: number,
   feature: BioFeature,
+  addLog: (message: string) => void = () => {},
 ): SeqRecord[] {
   return records.map(r => {
     if (r.id !== recordId) return r;
+    if (refuseEmptyLocationEdit(feature, addLog)) return r;
     const newFeatures = [...r.features];
     const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
     const marked: BioFeature = { ...feature, ...featureEnvelope(feature), hubEdit };
     const previous = r.features[featureIndex];
+    if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
     if (previous && (previous.start !== feature.start || previous.end !== feature.end
       || previous.strand !== feature.strand || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments)
       || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
@@ -43,8 +56,60 @@ export function saveEditedFeature(
       delete marked.metadata._gffPhases;
       delete marked.metadata._gffPhaseState;
     }
-    if (featureIndex === -1) newFeatures.push(marked);
-    else newFeatures[featureIndex] = marked;
+    const changed = !previous || !isCds(previous) || previous.start !== marked.start || previous.end !== marked.end
+      || getFeatureStrand(previous) !== getFeatureStrand(marked)
+      || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
+      || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
+      || JSON.stringify(previous.translationExceptions) !== JSON.stringify(marked.translationExceptions)
+      || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
+    marked.metadata = { ...marked.metadata };
+    const previousEvidence = previous ? geometryCodeBreakEvidence(previous, r) : [];
+    const matched = matchPreviousOccurrences(previous?.translationExceptions ?? [], marked.translationExceptions ?? []);
+    const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, r) : undefined;
+    if (previous && displacement !== undefined) {
+      marked.translationExceptions = marked.translationExceptions?.map((raw, i) => matched[i] !== undefined && previousEvidence[matched[i]!]?.status === 'applied'
+        ? transformCodeBreak(raw, previous.strand, displacement, true, r.isCircular ? r.sequence.length : undefined) : raw);
+    }
+    const evaluated = geometryCodeBreakEvidence(marked, r);
+    const dropped = new Set<number>();
+    for (const evidence of evaluated) {
+      const previousOccurrence = matched[evidence.occurrence];
+      const inherited = previousOccurrence !== undefined && previousEvidence[previousOccurrence]?.status === 'applied';
+      if (evidence.status === 'malformed' && !inherited) {
+        addLog(`WARNING: ${codeBreakMessage(evidence)}; Save refused`);
+        return r;
+      }
+      if (evidence.status === 'dropped' || (evidence.status === 'malformed' && inherited)) {
+        addLog(`WARNING: ${codeBreakMessage(evidence)}; removed before Save`);
+        dropped.add(evidence.occurrence);
+      }
+    }
+    if (dropped.size) marked.translationExceptions = marked.translationExceptions?.filter((_, i) => !dropped.has(i));
+    if (!isCds(marked)) {
+      if (marked.metadata.translation !== undefined) addLog(`Translation removed from ${marked.name}: feature is not a CDS`);
+      delete marked.metadata.translation; delete marked.metadata._translationSource; delete marked.metadata._translationCheck;
+    } else if (changed) {
+      const result = conceptualTranslation(marked, r);
+      const reason = translationReason(result, marked);
+      if (result.status === 'ok' && !result.internalStops.length) {
+        marked.metadata.translation = result.residues;
+        marked.metadata._translationSource = 'computed';
+        marked.metadata._translationMessage = previous ? 'Translation recomputed after edit' : 'Translation computed at creation';
+      } else {
+        delete marked.metadata.translation;
+        marked.metadata._translationSource = 'removed';
+        marked.metadata._translationMessage = `${previous ? 'Translation removed after edit' : 'No translation stored at creation'}: ${reason}`;
+        addLog(`WARNING: ${marked.name}: ${reason}`);
+      }
+    } else {
+      for (const key of ['translation', '_translationSource', '_translationMessage']) {
+        delete marked.metadata[key];
+        if (previous.metadata?.[key] !== undefined) marked.metadata[key] = previous.metadata[key];
+      }
+    }
+    const checked = checkTranslation(marked, r);
+    if (featureIndex === -1) newFeatures.push(checked);
+    else newFeatures[featureIndex] = checked;
     return { ...r, features: newFeatures, annotationsEdited: true };
   });
 }
@@ -124,4 +189,47 @@ export function annotationCoords(
     }
   }
   return { start: finalStart, end: finalEnd, segments: finalSegments };
+}
+
+/** Compare ordered logical parts; only origin-contiguous splits describe one circular part. */
+function plainMoveOffset(previous: BioFeature, next: BioFeature, record: SeqRecord): number | undefined {
+  if (getFeatureStrand(previous) !== getFeatureStrand(next) || previous.metadata?.codon_start !== next.metadata?.codon_start) return;
+  const before = moveParts(previous, record), after = moveParts(next, record);
+  if (!before?.length || !after || before.length !== after.length) return;
+  const shift = (value: number) => record.isCircular ? ((value % record.sequence.length) + record.sequence.length) % record.sequence.length : value;
+  const offset = shift(after[0].start - before[0].start);
+  if (!offset) return;
+  if (before.every((part, i) => part.strand === after[i].strand && part.length === after[i].length
+    && shift(after[i].start - part.start) === offset && shift(after[i].end - part.end) === offset)) return offset;
+}
+
+function moveParts(feature: BioFeature, record: SeqRecord) {
+  const strand = getFeatureStrand(feature);
+  if (strand !== 1 && strand !== -1) return;
+  const parts = feature.segments?.length ? feature.segments : [feature];
+  if (parts.some(part => invalidLocationPart(part, { length: record.sequence.length, isCircular: record.isCircular }))) return;
+  const ordered = !parts.some(part => part.strand !== undefined) && strand === -1 ? [...parts].reverse() : parts;
+  const normalized: { start: number; end: number; strand: 1 | -1; length: number }[] = [];
+  const length = record.sequence.length;
+  for (const part of ordered) {
+    const current = { start: part.start, end: part.end, strand: part.strand ?? strand, length: part.end >= part.start ? part.end - part.start : length - part.start + part.end };
+    const last = normalized.at(-1);
+    if (record.isCircular && last?.strand === current.strand
+      && (current.strand === 1 ? last.end === length && current.start === 0 : last.start === 0 && current.end === length)) {
+      if (current.strand === 1) last.end = current.end;
+      else last.start = current.start;
+      last.length += current.length;
+    } else normalized.push(current);
+  }
+  return normalized;
+}
+
+function matchPreviousOccurrences(previous: string[], next: string[]): (number | undefined)[] {
+  const occurrences = new Map<string, number[]>();
+  previous.forEach((raw, index) => {
+    const values = occurrences.get(raw) ?? [];
+    values.push(index);
+    occurrences.set(raw, values);
+  });
+  return next.map(raw => occurrences.get(raw)?.shift());
 }
