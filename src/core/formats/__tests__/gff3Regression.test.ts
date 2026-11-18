@@ -214,6 +214,27 @@ it('keeps remote position, written order and parent orientation when splitting a
     ['1', '2', '-'], ['9', '12', '-'], ['5', '5', '+'], ['6', '7', '-'],
   ]);
   const [feature] = parseGFF3(text).features.s;
-  expect(feature).toMatchObject({ strand: 1, writtenOrder: [2, 3, 0, 1],
+  // INSDC written order: complement(join(complement(join(5,complement(6..7))),9..12,1..2)).
+  expect(feature).toMatchObject({ strand: 1, writtenOrder: [3, 2, 0, 1],
     remoteParts: [{ accession: 'AB123.1', start: 2, end: 4, strand: 1, index: 4 }] });
+});
+
+it('ranks split minus pieces in INSDC written order under an outer complement', () => {
+  const [source] = parseGenBank(`LOCUS       s 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    complement(join(complement(4..5),9..12))
+ORIGIN
+        1 ATGAAACCCTAA
+//`).records;
+  const [feature] = source.features;
+  const [minus, plus] = feature.segments!;
+  delete feature.locationString;
+  feature.segments = [{ ...minus, end: 2 }, plus];
+
+  const { text } = exportToGff3([source]);
+  // complement(join(complement(4..5),9..12,1..2)) writes 4..5, 9..12, 1..2.
+  expect(rows(text).slice(1).map(row => [row[3], row[4], row[6]])).toEqual([
+    ['1', '2', '-'], ['9', '12', '-'], ['4', '5', '+'],
+  ]);
+  expect(parseGFF3(text).features.s[0].writtenOrder).toEqual([2, 1, 0]);
 });

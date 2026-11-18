@@ -182,6 +182,7 @@ function appendFeatureRows(
     const ranks = split.map((): string[] => []);
     for (const i of order.map((_, i) => i).sort((a, b) => order[a] - order[b])) {
       ranks[i] = split[i].map(() => String(nextRank++));
+      if (stored[i].strand === -1) ranks[i].reverse();
     }
     attrs.insdc_written_order = ranks.flat();
   }
