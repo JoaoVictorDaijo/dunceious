@@ -19,7 +19,7 @@
  */
 
 
-import { hasMixedLocalStrands } from './featureParts';
+import { singleLocalStrand } from './featureParts';
 import type { BioFeature, SeqRecord, TranslationExceptionEvidence } from './types';
 
 export const SENSE_RESIDUES = 'ACDEFGHIKLMNPQRSTVWYUO';
@@ -65,7 +65,7 @@ export function parseCodeBreak(raw: string, feature: Pick<BioFeature, 'strand' |
   try {
     const positions = location(1);
     // Bare locations are forward in INSDC. The single-strand convention inherits the CDS direction.
-    if (feature.strand === -1 && !hasMixedLocalStrands(feature) && !text.includes('complement(')) {
+    if (singleLocalStrand(feature) === -1 && !text.includes('complement(')) {
       positions.reverse();
       for (const position of positions) position.strand = -1;
     }

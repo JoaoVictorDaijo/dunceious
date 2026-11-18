@@ -265,3 +265,14 @@ it('preserves both open boundaries on an attached full-length GFF3 source region
   expect(genbank).toContain('     source          <1..>9\n');
   expect(reopenGenBank(genbank).features[0].segments).toEqual([{ start: 0, end: 9, partialStart: true, partialEnd: true }]);
 });
+
+it.each(['selection', 'edit'] as const)('keeps forward Sec after a minus-majority CDS becomes forward-only by %s', operation => {
+  const record = reopenGenBank(genBank('ATGTGACCCGGGTTT', 'join(1..6,complement(10..12),complement(13..15))', '/transl_except=(pos:4..6,aa:Sec)'));
+  const feature = record.features[0];
+  const result = operation === 'selection' ? sliceRecordsBySelection([record], 0, 6).records : saveEditedFeature([record], 'r', 0, {
+    ...feature, segments: [{ start: 0, end: 6, strand: 1 }], locationString: undefined, writtenOrder: undefined,
+  });
+  const cds = result[0].features.find(part => part.type === 'CDS')!;
+  expect(cds.translationExceptions).toEqual(['(pos:4..6,aa:Sec)']);
+  expect(conceptualTranslation(cds, result[0])).toMatchObject({ status: 'ok', residues: 'MU' });
+});

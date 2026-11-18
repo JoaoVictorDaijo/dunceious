@@ -50,12 +50,16 @@ export function hasPartialStrands(feature: FeatureGeometry): boolean {
   return parts.some(part => part.strand !== undefined) && parts.some(part => part.strand === undefined);
 }
 
-/** Only local intervals determine whether a code break can inherit a single strand. */
-export function hasMixedLocalStrands(feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): boolean {
+/** Only local intervals determine the direction a bare code break can inherit. */
+export function singleLocalStrand(feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): 1 | -1 | undefined {
   const geometry = feature.biological ?? feature;
   const parts = geometry.segments ?? [];
   const strand = parts[0]?.strand ?? geometry.strand;
-  return parts.some(part => (part.strand ?? geometry.strand) !== strand);
+  return parts.every(part => (part.strand ?? geometry.strand) === strand) ? strand : undefined;
+}
+
+export function hasMixedLocalStrands(feature: Parameters<typeof singleLocalStrand>[0]): boolean {
+  return singleLocalStrand(feature) === undefined;
 }
 
 export function invalidLocationPart(part: Pick<FeatureSegment, 'start' | 'end'>, record: LocationRecord): boolean {

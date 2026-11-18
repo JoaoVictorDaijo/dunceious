@@ -196,7 +196,7 @@ forward strand, and `complement(...)` specifies the opposite strand. A bare posi
 on a minus interval is contrary-orientation and refuses import. GenBank export writes
 forward positions bare and reverse positions with `complement(...)`. GenBank, GFF3 and
 project import, edit validation and selection rebasing use the same classification.
-Single-strand CDS still interpret a bare position on the CDS strand and retain the
+Single-strand CDS interpret a bare position on the strand of their current local intervals and retain the
 original qualifier text in GenBank export. The mixed-strand rule follows
 [INSDC Feature Table §3.4.2.2 and the `/transl_except` qualifier](https://www.insdc.org/submitting-standards/feature-table/)
 and the explicit reverse Sec example in
