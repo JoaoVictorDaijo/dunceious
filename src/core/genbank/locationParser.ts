@@ -132,7 +132,7 @@ function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
   });
   const boundary = siteBoundary(el);
   if (boundary !== null) return { start: boundary, end: boundary };
-  const pair = el.match(/^([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)$/);
+  const pair = el.match(/^([<>]?)(\d+)\.\.([<>]?)(\d+)$/);
   if (pair) return { start: Number(pair[2]) - 1, end: Number(pair[4]), ...marks(pair[1], pair[3]) };
   const single = el.match(/^([<>]?)(\d+)$/);
   if (single) {
