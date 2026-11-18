@@ -86,3 +86,11 @@ it('preserves inert qualifiers and empty invalid frame/code values through a pro
   }) }))).toEqual(records);
   expect(genBankExportProblem(restored.project.records[0])).toContain('invalid /codon_start');
 });
+
+it.each(['', ' \t\r\n'])('refuses a GenBank file with no records (%j)', content => {
+  expect(handleBioMessage({ type: 'PARSE_GENBANK', filename: 'empty.gb', content })).toMatchObject({
+    type: 'PARSE_REFUSED',
+    records: [],
+    findings: [expect.objectContaining({ tier: 'refuse', code: 'no-records', message: 'No GenBank record found.' })],
+  });
+});

@@ -44,6 +44,7 @@ export function parseGenBank(content: string): { records: SeqRecord[]; findings:
   const names = new Set<string>();
   let offset = 0;
   const pieces = splitRecords(content);
+  if (!pieces.length) findings.push({ tier: 'refuse', code: 'no-records', message: 'No GenBank record found.' });
   const records = pieces.map((piece, index) => {
     const position = content.indexOf(piece, offset);
     const lineOffset = content.slice(0, position).split('\n').length - 1;

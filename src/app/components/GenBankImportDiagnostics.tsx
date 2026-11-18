@@ -42,7 +42,7 @@ export function GenBankRefusalDialog({ files, onClose }: { files: ImportDiagnost
       <h2 id="genbank-refusal-title" className="mb-4 text-lg font-bold text-rose-300">Can't open this GenBank file</h2>
       {files.map((file, index) => <section key={index} className="mb-4">
         <h3 className="font-bold">{file.filename} wasn't loaded</h3>
-        <ul className="list-disc space-y-2 pl-5">{file.findings.slice(0, 20).map((f, i) => <li key={i}>Record {f.record.index} ({f.record.name}){f.feature ? ` · ${f.feature.key} ${f.feature.name}` : ''}{f.line ? ` · line ${f.line}` : ''}: {f.message}</li>)}</ul>
+        <ul className="list-disc space-y-2 pl-5">{file.findings.slice(0, 20).map((f, i) => <li key={i}>{f.record && `Record ${f.record.index} (${f.record.name})${f.feature ? ` · ${f.feature.key} ${f.feature.name}` : ''}${f.line ? ` · line ${f.line}` : ''}: `}{f.message}</li>)}</ul>
         {file.findings.length > 20 && <p>and {file.findings.length - 20} more</p>}
       </section>)}
       <div className="flex justify-end gap-4"><button onClick={() => void navigator.clipboard.writeText(importDetails(files))}>Copy details</button><button ref={close} onClick={onClose}>Close</button></div>
@@ -61,7 +61,7 @@ export function GenBankImportNotes({ files, onClear }: { files: ImportDiagnostic
       {files.map((file, i) => <section key={i}><h3>{file.filename}</h3>{[...new Set(file.findings.map(f => f.code))].map(code => {
         const group = file.findings.filter(f => f.code === code);
         const key = `${i}:${code}`;
-        return <div key={code}><h4>{code}: {group.length}</h4><ul>{(expanded.has(key) ? group : group.slice(0, 5)).map((f, index) => <li key={index}>{f.record.name} {f.feature?.name}: {f.message}</li>)}</ul>{group.length > 5 && !expanded.has(key) && <button onClick={() => setExpanded(new Set([...expanded, key]))}>Show all {group.length}</button>}</div>;
+        return <div key={code}><h4>{code}: {group.length}</h4><ul>{(expanded.has(key) ? group : group.slice(0, 5)).map((f, index) => <li key={index}>{f.record?.name} {f.feature?.name}: {f.message}</li>)}</ul>{group.length > 5 && !expanded.has(key) && <button onClick={() => setExpanded(new Set([...expanded, key]))}>Show all {group.length}</button>}</div>;
       })}</section>)}
       <div className="mt-3 flex gap-4"><button onClick={() => void navigator.clipboard.writeText(importDetails(files))}>Copy details</button><button onClick={onClear}>Clear notes</button><button onClick={() => setOpen(false)}>Close</button></div>
     </div>}
