@@ -24,7 +24,7 @@ import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedP
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite, isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from './locationFlags';
-import { expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
+import { expandedRemoteParts, expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
 
 export { splitWrapAround } from './featureParts';
 
@@ -228,10 +228,7 @@ function selectionGeometry(feature: BioFeature, length: number, isCircular: bool
   if (!isCircular || !feature.segments?.some(part => part.start > part.end)) return feature;
   const expanded = feature.segments.map(part => featureParts({ ...feature, segments: [part], remoteParts: undefined }, { length, isCircular }));
   const writtenOrder = expandedWrittenOrder(feature.writtenOrder, feature.segments, expanded);
-  const remotes = [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index);
-  const remoteParts = remotes.map((part, i) => ({ ...part,
-    index: part.index + expanded.slice(0, part.index - i).reduce((extra, pieces) => extra + pieces.length - 1, 0),
-  }));
+  const remoteParts = expandedRemoteParts(feature.remoteParts ?? [], expanded);
   return { ...feature, segments: expanded.flat(), writtenOrder,
     ...(feature.remoteParts && { remoteParts }) };
 }

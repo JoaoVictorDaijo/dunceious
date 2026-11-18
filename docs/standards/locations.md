@@ -91,6 +91,9 @@ view-model and details-window copy tests check the nested results against the IN
 Display and export share `formatInsdcLocation`. Without retained text, display uses equivalent
 per-part complements in evaluation order; GenBank export rebuilds the nested written form when
 re-parsing it recovers the written ranks and the evaluated intervals, strands and partial endpoints.
+Remote parts retain their evaluation positions without contributing to the local written ranks or
+envelope. GFF3 and project files can represent permutations that INSDC location operators cannot
+express. For those permutations GenBank export preserves evaluation order in a flat location.
 
 ## LOC-4. Uncertain bounds
 
@@ -176,7 +179,9 @@ features contribute both origin-side pieces in written order when the record len
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
 GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
 follow evaluation order and `insdc_written_order` carries each row's written rank, including
-when an explicit minus-strand wrap splits into two rows. A selection of the full, unchanged circular
+when an explicit minus-strand wrap splits into two rows. With remote parts, import derives the
+envelope from the local written order without rotating the rows relative to the remote positions.
+A selection of the full, unchanged circular
 sequence keeps the record topology and feature geometry.
 
 ## LOC-7. The sequence of a multi-interval feature

@@ -20,11 +20,11 @@
 
 import { parseCodeBreak, codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
 import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
-import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, FeatureSegment, RemotePart, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { hasMixedLocalStrands, splitFeaturePart } from '@/src/domain/bio/featureParts';
-import { expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
+import { expandedRemoteParts, expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from '@/src/domain/bio/locationFlags';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -73,21 +73,33 @@ function nestedLocation(order: number[], leaves: [string, string][], operator: s
 
 function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string | null {
   const stored = feature.segments;
-  // Written ranks describe local intervals only.
-  if (!stored?.some(part => part.strand !== undefined) || feature.remoteParts?.length) return null;
+  if (!stored?.some(part => part.strand !== undefined)) return null;
   const landmark = { length: record.sequence.length, isCircular: record.isCircular };
   const split = stored.map(part => splitFeaturePart(part, landmark));
   const segments = split.flat();
   const ranks = expandedWrittenOrder(feature.writtenOrder, stored, split);
   if (ranks.every((rank, i) => rank === i)) return null;
-  const order: number[] = [];
-  ranks.forEach((rank, i) => { order[rank] = i; });
+  const remoteParts = expandedRemoteParts(feature.remoteParts ?? [], split);
+  const parts: (FeatureSegment | RemotePart)[] = [...segments];
+  for (const part of remoteParts) parts.splice(part.index, 0, part);
+
+  // Only local written ranks are fixed. Group remote leaves with a neighbouring local leaf in
+  // evaluation order so inserting them cannot break a reconstructable local permutation.
+  const written = ranks.map((): number[] => []);
+  let localIndex = 0;
+  parts.forEach((part, i) => {
+    const anchor = 'accession' in part ? Math.max(0, localIndex - 1) : localIndex++;
+    written[ranks[anchor]].push(i);
+  });
   const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
-  const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
-    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, landmark);
+  const oriented = (segment: FeatureSegment | RemotePart, strand: 1 | -1) => {
+    const geometry = 'accession' in segment
+      ? { ...segment, strand, segments: [], remoteParts: [{ ...segment, strand, index: 0 }] }
+      : { ...segment, strand, segments: [{ ...segment, strand: undefined }] };
+    const location = formatInsdcLocation(geometry, landmark);
     return location.kind === 'insdc' ? location.text : location.display;
   };
-  const location = nestedLocation(order, segments.map(segment => [
+  const location = nestedLocation(written.flat(), parts.map(segment => [
     oriented(segment, strandOf(segment)), oriented(segment, strandOf(segment) === 1 ? -1 : 1),
   ]), feature.operator ?? 'join');
   if (!location) return null;
@@ -95,13 +107,20 @@ function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string |
   const reread = parseLocation(location);
   const reverseWhole = reread.strand === -1 && reread.segments.every(part => part.strand === undefined);
   const evaluated = reverseWhole ? reread.segments.slice().reverse() : reread.segments;
-  const same = evaluated.length === segments.length && evaluated.every((part, i) =>
-    part.start === segments[i].start && part.end === segments[i].end
-    && Boolean(part.partialStart) === Boolean(segments[i].partialStart)
-    && Boolean(part.partialEnd) === Boolean(segments[i].partialEnd)
-    && (part.strand ?? reread.strand) === strandOf(segments[i])
+  const sameInterval = (actual: FeatureSegment, expected: FeatureSegment) =>
+    actual.start === expected.start && actual.end === expected.end
+    && Boolean(actual.partialStart) === Boolean(expected.partialStart)
+    && Boolean(actual.partialEnd) === Boolean(expected.partialEnd)
+    && (actual.strand ?? reread.strand) === strandOf(expected);
+  const sameLocal = evaluated.length === segments.length && evaluated.every((part, i) =>
+    sameInterval(part, segments[i])
     && (reverseWhole ? evaluated.length - 1 - i : reread.writtenOrder?.[i] ?? i) === ranks[i]);
-  return same ? location : null;
+  const rereadRemote = reread.remoteParts ?? [];
+  if (reverseWhole) rereadRemote.reverse();
+  const sameRemote = rereadRemote.length === remoteParts.length && rereadRemote.every((part, i) =>
+    part.accession === remoteParts[i].accession && sameInterval(part, remoteParts[i])
+    && (reverseWhole ? parts.length - 1 - part.index : part.index) === remoteParts[i].index);
+  return sameLocal && sameRemote ? location : null;
 }
 
 function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportReport): string | null {

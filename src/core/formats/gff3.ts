@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { expandedWrittenOrder, featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { expandedRemoteParts, expandedWrittenOrder, featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { isCds, malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
@@ -186,11 +186,9 @@ function appendFeatureRows(
   if (writtenOrder.some((rank, i) => rank !== i)) attrs.insdc_written_order = writtenOrder.map(String);
   if (remote.length) {
     // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
-    attrs.insdc_remote = [...remote].sort((a, b) => a.index - b.index).map((part, precedingRemotes) => {
+    attrs.insdc_remote = expandedRemoteParts(remote, split).map(part => {
       const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
-      const precedingLocal = part.index - precedingRemotes;
-      const index = split.slice(0, precedingLocal).reduce((n, pieces) => n + pieces.length - 1, part.index);
-      return `${index}:${part.strand === -1 ? `complement(${span})` : span}`;
+      return `${part.index}:${part.strand === -1 ? `complement(${span})` : span}`;
     });
     report.remotePartsCarried++;
   }
@@ -535,7 +533,11 @@ export function parseGFF3(content: string): {
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         feature.strand = parentStrand === '-' ? -1 : parentStrand === '+' ? 1 : majorityStrand([...feature.segments, ...remoteParts ?? []]);
         if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature));
-      } else if (circular.has(seqid) && !remoteParts) normalizeCircularParts(feature, lengths.get(seqid)!);
+      } else if (circular.has(seqid)) {
+        // Rotating local rows would change their position relative to the remote intervals.
+        if (remoteParts) Object.assign(feature, featureEnvelope(feature));
+        else normalizeCircularParts(feature, lengths.get(seqid)!);
+      }
       if (!isCds(feature)) continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

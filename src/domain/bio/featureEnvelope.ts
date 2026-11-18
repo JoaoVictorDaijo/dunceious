@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment } from './types';
+import type { BioFeature, FeatureSegment, RemotePart } from './types';
 import { isNestedComplementLocation } from './locationFlags';
 import { splitWrapAround, type LocationRecord } from './featureParts';
 
@@ -61,6 +61,13 @@ export function expandedWrittenOrder(order: number[] | undefined, stored: Featur
     if (stored[i].strand === -1) ranks[i].reverse();
   }
   return ranks.flat();
+}
+
+/** Remote indices count stored intervals, including any new local pieces at the origin. */
+export function expandedRemoteParts(remote: RemotePart[], split: FeatureSegment[][]): RemotePart[] {
+  return [...remote].sort((a, b) => a.index - b.index).map((part, i) => ({
+    ...part, index: part.index + split.slice(0, part.index - i).reduce((extra, pieces) => extra + pieces.length - 1, 0),
+  }));
 }
 
 /** Cover both sides of a written origin join, including out-of-order interior parts (LOC-6). */

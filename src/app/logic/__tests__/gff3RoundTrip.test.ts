@@ -289,3 +289,41 @@ it.each(['GFF3', 'project'])('omits the one-part ordered CDS from GenBank after 
     genBankFeaturesOmitted: ['r: CDS c: CDS omitted; one part of an order() CDS gives no defined product or frame'],
   });
 });
+
+it.each([
+  { location: 'join(complement(9..12),AB123.1:1..2,4..5)', remoteIndex: 2, remoteStrand: 1, ranks: [1, 0, 2],
+    segments: [{ start: 0, end: 2, strand: -1 }, { start: 8, end: 12, strand: -1 }, { start: 3, end: 5, strand: 1 }] },
+  { location: 'join(complement(9..12),complement(AB123.1:1..2),4^5,4..5)', remoteIndex: 2, remoteStrand: -1, ranks: [1, 0, 2, 3],
+    segments: [{ start: 0, end: 2, strand: -1 }, { start: 8, end: 12, strand: -1 }, { start: 4, end: 4, strand: 1 }, { start: 3, end: 5, strand: 1 }] },
+] as const)('keeps the edited local wrap and remote evaluation position in $location', ({ location, remoteIndex, remoteStrand, ranks, segments }) => {
+  const record = reopenGenBank(genBank('ATGAAACCCTAA', location, '', true, 'misc_feature'));
+  const original = record.features[0];
+  const [edited] = saveEditedFeature([record], 'r', 0, {
+    ...original, locationString: undefined, segments: [{ ...original.segments![0], end: 2 }, ...original.segments!.slice(1)],
+  });
+  expect(edited.features[0]).toMatchObject({ start: 8, end: 5 });
+  const projected = reopenProject(edited);
+  const selected = sliceRecordsBySelection([projected], 0, 12);
+  expect(selected.losses).toEqual([]);
+  const gb = reopenGenBank(exportToGenBank(selected.records).text);
+  const gff = attachGff(projected, exportToGff3(selected.records).text);
+  for (const reopened of [gb, gff]) {
+    expect(reopened.features.find(feature => feature.type === 'misc_feature')).toMatchObject({
+      start: 8, end: 5, segments, writtenOrder: ranks,
+      remoteParts: [{ accession: 'AB123.1', start: 0, end: 2, index: remoteIndex, strand: remoteStrand }],
+    });
+  }
+});
+
+it.each([
+  { location: 'join(9..12,AB123.1:1..2,1..5)', strand: 1, segments: [{ start: 8, end: 12 }, { start: 0, end: 5 }] },
+  { location: 'complement(join(9..12,AB123.1:1..2,12^1,1..5))', strand: -1,
+    segments: [{ start: 8, end: 12 }, { start: 12, end: 12 }, { start: 0, end: 5 }] },
+] as const)('recovers the local circular envelope in GFF3 for $location', ({ location, strand, segments }) => {
+  const record = reopenGenBank(genBank('ATGAAACCCTAA', location, '', true, 'misc_feature'));
+  const reopened = attachGff(record, exportToGff3([record]).text);
+  expect(reopened.features.find(feature => feature.type === 'misc_feature')).toMatchObject({
+    start: 8, end: 5, strand, segments,
+    remoteParts: [{ accession: 'AB123.1', start: 0, end: 2, index: 1, strand }],
+  });
+});
