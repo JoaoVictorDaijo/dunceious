@@ -21,7 +21,8 @@
 import { malformedCodeBreakMessage, checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import { isPartialLocation } from '@/src/domain/bio/locationFlags';
-import { parseLocation, siteFitsRecord } from '@/src/core/genbank/locationParser';
+import { parseLocation } from '@/src/core/genbank/locationParser';
+import { validateLocation } from '@/src/core/genbank/locationValidation';
 import { hasPartialStrands } from '@/src/domain/bio/featureParts';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
@@ -131,9 +132,9 @@ function matchesLegacyParts(stored: FeatureSegment[] | undefined, parsed: Featur
 function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (feature.locationString === undefined) return feature;
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
-  let parsed: ReturnType<typeof parseLocation>;
-  try { parsed = parseLocation(feature.locationString); }
-  catch { throw new Error(description + ' could not be read.'); }
+  const problem = validateLocation(feature.locationString, record.sequence.length, record.isCircular === true);
+  if (problem) throw new Error(description + ' ' + problem.message + '.');
+  const parsed = parseLocation(feature.locationString);
 
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {
     throw new Error(description + ' disagrees with its stored operator.');
@@ -149,7 +150,6 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
     next = { ...feature, ...parsed };
   }
   if (!next.betweenBases && parsed.betweenBases) {
-    if (!siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) throw geometryError();
     const legacy = parseLocation(feature.locationString.replace('^', '..'));
     const oldGeometry = next.start === legacy.start && next.end === legacy.end
       && matchesLegacyParts(next.segments, legacy.segments);

@@ -165,7 +165,7 @@ describe('project locations saved before operators and sites', () => {
   });
 
   it('refuses inconsistent legacy origin-site geometry on a linear record', () => {
-    expect(() => load({ start: 29, end: 1, locationString: '30^1' })).toThrow(/Feature f.*30\^1.*stored geometry/);
+    expect(() => load({ start: 29, end: 1, locationString: '30^1' })).toThrow(/Feature f.*30\^1.*between-base positions do not adjoin/);
   });
 
   it.each([{ operator: 'splice' }, { betweenBases: 'yes' }])('refuses the invalid location field %o', field => {
@@ -263,7 +263,7 @@ it('refuses an unsupported legacy single-base range in retained location text', 
   const legacy: SeqRecord = { ...record, sequence: 'ACGT', alignedSequence: undefined,
     features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' }] };
   expect(parseProject(serializeProject({ ...state, records: [legacy] }))).toEqual({ ok: false,
-    message: 'Feature f location "2.3" could not be read.' });
+    message: 'Feature f location "2.3" uses a one-of position, which Dunceious cannot place yet.' });
 });
 
 it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
@@ -323,5 +323,16 @@ it('refuses an unreadable retained location alongside a valid structured CDS', (
     locationString: 'join(1..3,2^>3)',
   }] }];
   expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
-    message: 'Feature unreadable location "join(1..3,2^>3)" could not be read.' });
+    message: 'Feature unreadable location "join(1..3,2^>3)" cannot be read.' });
+});
+
+it.each([
+  { location: '9^1', reason: 'between-base positions do not adjoin', start: 9, end: 9, betweenBases: true as const, segments: [{ start: 9, end: 9 }] },
+  { location: 'join(1..3,order(4..9))', reason: 'mixes join and order', start: 0, end: 9, segments: [{ start: 0, end: 3 }, { start: 3, end: 9 }] },
+])('refuses invalid retained location $location even when structured parts agree', ({ location, reason, ...geometry }) => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGAAATAA', alignedSequence: undefined, isCircular: false,
+    features: [{ ...geometry, type: 'misc_feature', name: 'invalid', strand: 1, locationString: location }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toMatchObject({
+    ok: false, message: `Feature invalid location "${location}" ${reason}.`,
+  });
 });

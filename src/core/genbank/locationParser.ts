@@ -199,15 +199,3 @@ export function parseLocation(loc: string): LocationData {
     ...(remoteParts.length > 0 && { remoteParts }),
   };
 }
-
-/**
- * INSDC FT 11.4 §3.4.2.1 against the record: `n^n+1` needs both bases inside it, and `n^1` is
- * allowed only on a circular molecule whose length is n. `parseLocation` cannot check this, as it
- * does not know the record.
- */
-export function siteFitsRecord(location: string, length: number, circular: boolean): boolean {
-  const site = location.replace(/\s/g, '').match(/^(?:complement\()?(\d+)\^(\d+)\)?$/);
-  if (!site) return false;
-  const [n, m] = [parseInt(site[1]), parseInt(site[2])];
-  return m === n + 1 ? n >= 1 && m <= length : m === 1 && n === length && circular;
-}
