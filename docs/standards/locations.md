@@ -183,7 +183,10 @@ geometry editing and retained-location validation share this rule, including whe
 outer complement reverses sequence evaluation order. Explicit wrapped intervals in multipart
 features contribute both origin-side pieces in written order when the record length is known.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
-GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
+GFF3 export writes separate in-bounds rows sharing one ID. Import applies the same envelope rule
+with or without a part reaching the landmark end. Sorted rows that touch both sides of the
+origin can be rotated at the largest internal gap before computing the envelope.
+For explicit per-part strands, rows
 follow evaluation order and `insdc_written_order` carries each row's written rank, including
 when an explicit minus-strand wrap splits into two rows. With remote parts, import derives the
 envelope from the local written order without rotating the rows relative to the remote positions.

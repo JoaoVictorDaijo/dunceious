@@ -358,6 +358,34 @@ ORIGIN
 });
 
 it.each([
+  ['join(7..9,1..3,3^4)', 1],
+  ['complement(join(7..9,1..3,3^4))', -1],
+])('reopens the circular envelope with a gap before the origin for %s', (location, strand) => {
+  const record = reopenGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    ${location}
+ORIGIN
+        1 agtgaaataaca
+//
+`);
+  expect(record.features[0]).toMatchObject({ start: 6, end: 3 });
+  const { text } = exportToGff3([record]);
+  const reopened = attachGff(record, text);
+  const feature = reopened.features.find(part => part.type === 'misc_feature')!;
+  expect(feature).toMatchObject({
+    start: 6, end: 3, strand, segments: [{ start: 6, end: 9 }, { start: 0, end: 3 }, { start: 3, end: 3 }],
+  });
+  expect(featureFocusTarget(reopened, feature)).toMatchObject({ start: 6, end: 3 });
+  expect(featureSequenceViews(reopened, feature)).toMatchObject({ region: 'ATAACAAGT', regionLength: 9 });
+
+  const [header, directive, landmark, high, low, site] = text.trimEnd().split('\n');
+  for (const rows of [[low, site, high], [site, high, low]]) {
+    const rotated = parseGFF3([header, directive, landmark, ...rows].join('\n'));
+    expect(rotated.features.x[0]).toMatchObject({ start: 0, end: 9 });
+  }
+});
+
+it.each([
   { location: 'join(9..12,AB123.1:1..2,1..5)', strand: 1, segments: [{ start: 8, end: 12 }, { start: 0, end: 5 }] },
   { location: 'complement(join(9..12,AB123.1:1..2,12^1,1..5))', strand: -1,
     segments: [{ start: 8, end: 12 }, { start: 12, end: 12 }, { start: 0, end: 5 }] },

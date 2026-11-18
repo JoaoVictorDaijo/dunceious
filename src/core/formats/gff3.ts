@@ -349,27 +349,23 @@ function takeWrittenOrder(feature: BioFeature): number[] | undefined {
   return valid ? order : undefined;
 }
 
-function normalizeCircularParts(feature: BioFeature, length: number): void {
+function rotateCircularParts(feature: BioFeature, length: number): void {
   const segments = feature.segments!;
   const hasOrigin = segments.some(part => part.start === 0) && segments.some(part => part.end === length);
-  if (segments.length < 2 || !hasOrigin) return;
+  if (!hasOrigin || segments.some((part, i) => i > 0 && part.start < segments[i - 1].start)) return;
   let cut = 0;
-  const crossesOrigin = segments.some((part, i) => i > 0 && part.start < segments[i - 1].start);
-  if (!crossesOrigin) {
-    let largestGap = 0;
-    for (let i = 1; i < segments.length; i++) {
-      const gap = segments[i].start - segments[i - 1].end;
-      if (gap > largestGap) {
-        largestGap = gap;
-        cut = i;
-      }
+  let largestGap = 0;
+  for (let i = 1; i < segments.length; i++) {
+    const gap = segments[i].start - segments[i - 1].end;
+    if (gap > largestGap) {
+      largestGap = gap;
+      cut = i;
     }
   }
-  const ordered = [...segments.slice(cut), ...segments.slice(0, cut)];
+  if (cut === 0) return;
   const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
   feature.metadata!._gffPhases = JSON.stringify([...phases.slice(cut), ...phases.slice(0, cut)]);
-  feature.segments = ordered;
-  Object.assign(feature, featureEnvelope({ ...feature, start: ordered[0].start, end: ordered[ordered.length - 1].end }));
+  feature.segments = [...segments.slice(cut), ...segments.slice(0, cut)];
 }
 
 function readRows(content: string, lengths: Map<string, number>): { seqid: string; feature: BioFeature; rowNumber: number }[] {
@@ -551,12 +547,11 @@ export function parseGFF3(content: string): {
         // The rows are in evaluation order, each read on its own strand, as the parser stores them.
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         feature.strand = parentStrand === '-' ? -1 : parentStrand === '+' ? 1 : majorityStrand([...feature.segments, ...remoteParts ?? []]);
-        if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature));
-      } else if (circular.has(seqid)) {
+      } else if (circular.has(seqid) && !remoteParts) {
         // Rotating local rows would change their position relative to the remote intervals.
-        if (remoteParts) Object.assign(feature, featureEnvelope(feature));
-        else normalizeCircularParts(feature, lengths.get(seqid)!);
+        rotateCircularParts(feature, lengths.get(seqid)!);
       }
+      if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature));
       if (!isCds(feature)) continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
