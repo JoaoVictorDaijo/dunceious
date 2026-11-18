@@ -27,7 +27,7 @@ import { GenBankRefusalDialog, GenBankImportNotes } from '../GenBankImportDiagno
 import type { ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
 
 const file = (filename: string, n: number): ImportDiagnosticFile => ({ filename, findings: Array.from({ length: n }, (_, i) => ({ tier: 'warning', code: 'invalid-frame', record: { name: 'R', index: 1 }, feature: { key: 'CDS', name: `feature${i + 1}` }, message: `problem${i + 1}` })) });
-it('shows concurrent files, limits visible rows, focuses Close and copies all details', () => {
+it('lists all findings across concurrent files, focuses Close and copies all details', () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
   const close = vi.fn();
@@ -36,7 +36,7 @@ it('shows concurrent files, limits visible rows, focuses Close and copies all de
   view.rerender(<GenBankRefusalDialog files={[file('a.gb', 22), file('b.gb', 1)]} onClose={close} />);
   expect(screen.getByRole('alertdialog').textContent).toContain("a.gb wasn't loaded");
   expect(screen.getByRole('alertdialog').textContent).toContain("b.gb wasn't loaded");
-  expect(screen.getByText('and 2 more')).toBeDefined();
+  expect(screen.getByText(/feature22.*problem22/)).toBeTruthy();
   fireEvent.click(screen.getByText('Copy details'));
   expect(writeText.mock.calls[0][0]).toContain('feature22');
   expect(writeText.mock.calls[0][0]).toContain('b.gb');
@@ -73,4 +73,21 @@ it.each(['4', '2junk'])('shows the frame reason in the Hub instead of an amino-a
   expect(tooltip).toContain(`/codon_start=${frame} is invalid`);
   expect(tooltip).not.toContain('NaN aa');
   expect(tooltip).not.toContain('2 aa');
+});
+
+it.each(['refusal', 'notes'])('exposes selectable complete %s details after clipboard permission is denied', async kind => {
+  const writeText = vi.fn().mockRejectedValue(new DOMException('Write permission denied.', 'NotAllowedError'));
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+  const files = [file('denied.gb', 22)];
+  if (kind === 'refusal') render(<GenBankRefusalDialog files={files} onClose={vi.fn()} />);
+  else {
+    render(<GenBankImportNotes files={files} onClear={vi.fn()} />);
+    fireEvent.click(screen.getByText('22 import notes'));
+  }
+  fireEvent.click(screen.getByText('Copy details'));
+  expect((await screen.findByRole('alert')).textContent).toContain('Copy failed');
+  const details = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Complete import details' });
+  expect(details.readOnly).toBe(true);
+  details.select();
+  expect(details.value.slice(details.selectionStart, details.selectionEnd)).toContain('feature22: problem22');
 });
