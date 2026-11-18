@@ -19,10 +19,31 @@
  */
 
 import type { BioFeature, FeatureSegment } from './types';
-import { splitWrapAround } from './intervals';
 
 export type FeatureGeometry = Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'> & Partial<Pick<BioFeature, 'operator' | 'betweenBases' | 'remoteParts'>>;
 export type LocationRecord = { length: number; isCircular?: boolean };
+
+/**
+ * Splits a potentially wrap-around interval `[start, end)` on a circular
+ * sequence of length `seqLength` into one or two linear segments.
+ *
+ * A wrap-around interval is one where `start > end` (e.g., a feature that
+ * spans the origin of a circular sequence).
+ */
+export const splitWrapAround = (
+  start: number,
+  end: number,
+  seqLength: number
+): FeatureSegment[] => {
+  if (start <= end) {
+    return [{ start, end }];
+  }
+  // Wrap-around: covers [start, seqLength) and [0, end)
+  const segments: FeatureSegment[] = [];
+  if (start < seqLength) segments.push({ start, end: seqLength });
+  if (end > 0) segments.push({ start: 0, end });
+  return segments;
+};
 
 export function hasPartialStrands(feature: FeatureGeometry): boolean {
   const parts = feature.segments ?? [];

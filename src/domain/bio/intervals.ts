@@ -18,13 +18,15 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { featureParts } from './featureParts';
+import { featureParts, splitWrapAround } from './featureParts';
 import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite, isOrderLocation } from './locationFlags';
 import { expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
+
+export { splitWrapAround } from './featureParts';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -67,28 +69,6 @@ export const clipSegments = (
   }
 
   return result;
-};
-
-/**
- * Splits a potentially wrap-around interval `[start, end)` on a circular
- * sequence of length `seqLength` into one or two linear segments.
- *
- * A wrap-around interval is one where `start > end` (e.g., a feature that
- * spans the origin of a circular sequence).
- */
-export const splitWrapAround = (
-  start: number,
-  end: number,
-  seqLength: number
-): FeatureSegment[] => {
-  if (start <= end) {
-    return [{ start, end }];
-  }
-  // Wrap-around: covers [start, seqLength) and [0, end)
-  const segments: FeatureSegment[] = [];
-  if (start < seqLength) segments.push({ start, end: seqLength });
-  if (end > 0) segments.push({ start: 0, end });
-  return segments;
 };
 
 // ---------------------------------------------------------------------------

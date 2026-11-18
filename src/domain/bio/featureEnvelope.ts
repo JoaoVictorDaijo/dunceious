@@ -20,6 +20,7 @@
 
 import type { BioFeature, FeatureSegment } from './types';
 import { isNestedComplementLocation } from './locationFlags';
+import { splitWrapAround, type LocationRecord } from './featureParts';
 
 /** A permutation of 0..length-1: one written position per stored segment. */
 function isWrittenOrder(order: number[] | undefined, length: number): order is number[] {
@@ -61,10 +62,17 @@ export function expandedWrittenOrder(order: number[], stored: FeatureSegment[], 
 }
 
 /** Cover both sides of a written origin join, including out-of-order interior parts (LOC-6). */
-export function featureEnvelope(feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'writtenOrder' | 'locationString'>): FeatureSegment {
-  const parts = writtenOrderSegments(feature);
-  if (!parts?.length) return { start: feature.start, end: feature.end };
-  if (parts.length === 1) return { start: parts[0].start, end: parts[0].end };
+export function featureEnvelope(
+  feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'writtenOrder' | 'locationString'>,
+  record?: LocationRecord,
+): FeatureSegment {
+  const written = writtenOrderSegments(feature);
+  if (!written?.length) return { start: feature.start, end: feature.end };
+  if (written.length === 1) return { start: written[0].start, end: written[0].end };
+  const parts = record?.isCircular
+    ? written.flatMap(part => splitWrapAround(part.start, part.end, record.length))
+    : written;
+  if (!parts.length) return { start: feature.start, end: feature.end };
 
   const minStart = Math.min(...parts.map(part => part.start));
   const maxEnd = Math.max(...parts.map(part => part.end));

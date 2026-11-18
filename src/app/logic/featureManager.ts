@@ -32,13 +32,13 @@ function refuseEmptyLocationEdit(feature: BioFeature, addLog: (message: string) 
   return true;
 }
 
-function prepareEditedFeature(feature: BioFeature, previous: BioFeature | undefined, hubEdit: 'added' | 'edited') {
+function prepareEditedFeature(feature: BioFeature, previous: BioFeature | undefined, hubEdit: 'added' | 'edited', record: SeqRecord) {
   const boundsChanged = !previous || previous.start !== feature.start || previous.end !== feature.end
     || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments);
   const orderChanged = JSON.stringify(previous?.writtenOrder) !== JSON.stringify(feature.writtenOrder);
   const marked = {
     ...feature,
-    ...(boundsChanged || orderChanged ? featureEnvelope(feature) : {}),
+    ...(boundsChanged || orderChanged ? featureEnvelope(feature, { length: record.sequence.length, isCircular: record.isCircular }) : {}),
     hubEdit,
     metadata: { ...feature.metadata },
   };
@@ -145,7 +145,7 @@ export function saveEditedFeature(
     const newFeatures = [...record.features];
     const previous = record.features[featureIndex];
     const hubEdit = featureIndex === -1 || previous?.hubEdit === 'added' ? 'added' : 'edited';
-    const marked = prepareEditedFeature(feature, previous, hubEdit);
+    const marked = prepareEditedFeature(feature, previous, hubEdit, record);
     const changed = translationInputsChanged(previous, marked);
     if (!reconcileCodeBreaks(marked, previous, record, addLog)) return record;
     updateEditedTranslation(marked, previous, record, changed, addLog);

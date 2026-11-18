@@ -38,7 +38,7 @@ export interface FocusTarget {
 
 /** Frames the feature's whole envelope, so every part of a joined feature is in view. */
 export function featureFocusTarget(record: SeqRecord, feature: BioFeature): FocusTarget {
-  const bounds = featureEnvelope(feature);
+  const bounds = featureEnvelope(feature, { length: record.sequence.length, isCircular: record.isCircular });
   const { start, end } = record.alignedSequence
     ? transposeInterval(bounds.start, bounds.end, record.alignedSequence)
     : bounds;

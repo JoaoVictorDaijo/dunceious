@@ -23,6 +23,8 @@ import { expect, it } from 'vitest';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { conceptualTranslation, checkTranslation, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
 import { parseLocation } from '@/src/core/genbank/locationParser';
+import { featureFocusTarget } from '../focusTarget';
+import { featureSequenceViews } from '../viewModel';
 import { saveEditedFeature } from '../featureManager';
 import { parseProject, serializeProject } from '../projectFile';
 import { applyAnnotations, logAttachedTranslationWarning } from '../bioResponse';
@@ -323,9 +325,12 @@ ORIGIN
   for (const record of [genbank, gff3.next[0]]) {
     const feature = record.features.find(feature => feature.type === 'CDS')!;
     expect(feature.writtenOrder).toEqual([2, 1, 0]);
+    expect(feature).toMatchObject({ start: 3, end: 2 });
     expect(conceptualTranslation(feature, record)).toMatchObject({ residues: 'GI' });
   }
   const [restored] = project.project.records;
-  expect(restored.features[0].writtenOrder).toEqual([1, 0]);
+  expect(restored.features[0]).toMatchObject({ writtenOrder: [1, 0], start: 3, end: 2 });
+  expect(featureFocusTarget(restored, restored.features[0])).toMatchObject({ start: 3, end: 2 });
+  expect(featureSequenceViews(restored, restored.features[0])).toMatchObject({ region: 'AAACCAATACC', regionLength: 11 });
   expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'GI' });
 });

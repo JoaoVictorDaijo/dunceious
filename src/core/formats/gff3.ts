@@ -519,6 +519,7 @@ export function parseGFF3(content: string): {
         // The rows are in evaluation order, each read on its own strand, as the parser stores them.
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         feature.strand = parentStrand === '-' ? -1 : parentStrand === '+' ? 1 : majorityStrand([...feature.segments, ...remoteParts ?? []]);
+        if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature));
       } else if (circular.has(seqid) && !remoteParts) normalizeCircularParts(feature, lengths.get(seqid)!);
       if (!isCds(feature)) continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);

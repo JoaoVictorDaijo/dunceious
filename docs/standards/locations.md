@@ -169,7 +169,8 @@ descent in written order splits the high and low sides. The envelope starts at t
 start on the high side and ends at the maximum end on the low side. If the sides meet or
 overlap, the envelope uses the linear minimum start and maximum end. GenBank import,
 geometry editing and retained-location validation share this rule, including when a nested
-outer complement reverses sequence evaluation order.
+outer complement reverses sequence evaluation order. Explicit wrapped intervals in multipart
+features contribute both origin-side pieces in written order when the record length is known.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
 GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
 follow evaluation order and `insdc_written_order` carries each row's written rank, including
