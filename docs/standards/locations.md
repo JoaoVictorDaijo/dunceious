@@ -48,9 +48,10 @@ multipart ordered location as `order(...)`. Readers ask
 `isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
 count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
 sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its
-intervals are drawn as separate bars that highlight together on hover. GFF3 has no operator, so
-export writes `insdc_operator=order` on each row and import reads it back. Projects saved before
-the field existed get it from their location text on load. Tested against O1 (Biopython 1.88
+intervals are drawn as separate bars that highlight together on hover. GFF3 export writes the
+private attribute `insdc_operator=order` on each row and import reads it back, including for a
+single retained interval. Projects saved before the field existed get it from their location
+text on load. Tested against O1 (Biopython 1.88
 write-back).
 
 ## LOC-3. `complement()`, whole feature or per interval
@@ -162,12 +163,14 @@ form: the editor blocks Save, project import keeps it, and GenBank export skips 
 warning. Invalid geometry yields no derived feature or region sequence and no translation
 lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
 piece once any piece has one. A wrap is inferred only when the first
-interval starts after the last ends **and** one interval starts at base 1
-(`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
-in written order, including when a nested outer complement reverses sequence evaluation order.
-`featureEnvelope` reads that order from `writtenOrder` (LOC-3), so an edit that clears the text no
-longer infers a false wrap; GFF3 carries it as `insdc_written_order`. GFF3 export writes
-the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
+interval starts after the last ends **and** one interval starts at base 1. For an inferred wrap,
+`featureEnvelope` uses the first written start and last written end. GenBank import, geometry
+editing and retained-location validation share this rule, including when a nested outer
+complement reverses sequence evaluation order.
+`featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
+GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
+follow evaluation order and `insdc_written_order` carries each row's written rank, including
+when an explicit minus-strand wrap splits into two rows.
 
 ## LOC-7. The sequence of a multi-interval feature
 
@@ -260,4 +263,5 @@ Legal but unsupported one-of positions and span-end sites are refused separately
 locations (LOC-8) are read. Selection export keeps each compound site only when both
 neighbouring bases are selected; otherwise the selection-loss notice names its omission.
 Remote intervals are not
-local segments, so they are never tested against local sequence bounds. Existing saved project handling is unchanged.
+local segments, so they are never tested against local sequence bounds. Saved projects follow the
+[project validation contract](formats.md#fmt-14-private-project-schema).
