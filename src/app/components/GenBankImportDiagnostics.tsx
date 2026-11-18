@@ -54,10 +54,10 @@ export function GenBankRefusalDialog({ files, onClose }: { files: ImportDiagnost
     <div ref={dialog} role="alertdialog" aria-modal="true" aria-labelledby="genbank-refusal-title" className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-rose-500/40 bg-slate-900 p-6 text-slate-200" onKeyDown={event => {
       if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
       if (event.key === 'Tab') {
-        const buttons = dialog.current?.querySelectorAll('button, textarea');
-        if (!buttons?.length) return;
-        if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons[buttons.length - 1].focus(); }
-        else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) { event.preventDefault(); buttons[0].focus(); }
+        const controls = dialog.current?.querySelectorAll<HTMLElement>('button, textarea');
+        if (!controls?.length) return;
+        if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls[controls.length - 1].focus(); }
+        else if (!event.shiftKey && document.activeElement === controls[controls.length - 1]) { event.preventDefault(); controls[0].focus(); }
       }
     }}>
       <h2 id="genbank-refusal-title" className="mb-4 text-lg font-bold text-rose-300">Can't open this GenBank file</h2>
