@@ -168,7 +168,7 @@ function appendFeatureRows(
   const searchNote = searchHitNote(feature);
   if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
   if (so.original) attrs.insdc_type = so.original;
-  if (isOrderLocation(feature) && segments.length + remote.length > 1) attrs.insdc_operator = 'order';
+  if (isOrderLocation(feature)) attrs.insdc_operator = 'order';
   // GFF3 cannot tell join(complement(a),complement(b)) from complement(join(a,b)) (LOC-3).
   if (segments.some(segment => segment.strand !== undefined)) {
     attrs.insdc_interval_strands = 'true';
@@ -509,10 +509,9 @@ export function parseGFF3(content: string): {
       const remoteParts = takeRemoteParts(feature);
       if (remoteParts) feature.remoteParts = remoteParts;
       const intervals = feature.segments!.length + (remoteParts?.length ?? 0);
-      if (intervals > 1) {
-        delete feature.betweenBases;
-        feature.operator = feature.metadata!.insdc_operator === 'order' ? 'order' : 'join';
-      }
+      if (intervals > 1) delete feature.betweenBases;
+      if (feature.metadata!.insdc_operator === 'order') feature.operator = 'order';
+      else if (intervals > 1) feature.operator = 'join';
       delete feature.metadata!.insdc_operator;
       const perInterval = feature.metadata!.insdc_interval_strands === 'true';
       delete feature.metadata!.insdc_interval_strands;

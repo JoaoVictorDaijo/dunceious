@@ -21,6 +21,7 @@
 import { expect, it } from 'vitest';
 import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { parseGenBank } from '@/src/core/genbank';
+import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { applyAnnotations } from '../bioResponse';
@@ -105,4 +106,24 @@ it('still reads private partial-end markers in existing CDS files', () => {
   const record = attachGff({ id: 'r', name: 'r', sequence: 'GTGAAATAA', features: [] },
     'r\ts\tCDS\t1\t9\t.\t+\t0\tID=c;transl_table=11;insdc_partial_start=%3C');
   expect(conceptualTranslation(record.features[0], record)).toMatchObject({ residues: 'VK' });
+});
+
+it('keeps translation unavailable after exporting and reattaching a clipped order CDS', () => {
+  const { records } = parseGenBank(`LOCUS       x 12 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             order(1..6,10..12)
+ORIGIN
+        1 ATGAAACCCTAA
+//`);
+  const [selected] = sliceRecordsBySelection(records, 0, 6).records;
+  const { text } = exportToGff3([selected]);
+  const attached = attachGff(selected, text);
+  const feature = attached.features.find(feature => feature.type === 'CDS')!;
+
+  expect(conceptualTranslation(feature, attached)).toMatchObject({
+    status: 'unavailable', reason: 'nonlocal-location',
+  });
+  expect(feature.operator).toBe('order');
+  expect(feature.metadata?.translation).toBeUndefined();
+  expect(text).toContain('insdc_operator=order');
 });
