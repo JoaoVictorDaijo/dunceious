@@ -23,8 +23,10 @@ import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { describeSelectionLoss } from '@/src/core/exportReport';
 import { parseGenBank, exportToGenBank } from '@/src/core/genbank';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
+import { extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { saveEditedFeature } from '../featureManager';
 import { applyAnnotations } from '../bioResponse';
 import { parseProject, serializeProject } from '../projectFile';
 
@@ -146,4 +148,44 @@ it('preserves the order marker of a legacy one-part ordered CDS reopened from a 
   expect(conceptualTranslation(feature, attached)).toMatchObject({
     status: 'unavailable', reason: 'nonlocal-location',
   });
+});
+
+function genBank(sequence: string, location: string, qualifier = '', circular = false, type = 'CDS'): string {
+  return `LOCUS       r ${sequence.length} bp DNA ${circular ? 'circular' : 'linear'}
+FEATURES             Location/Qualifiers
+     ${type.padEnd(16)}${location}
+                     /gene="test"
+${qualifier ? '                     ' + qualifier + '\n' : ''}     source          1..${sequence.length}
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+ORIGIN
+        1 ${sequence}
+//
+`;
+}
+
+function reopenGenBank(text: string): SeqRecord {
+  const { records, findings } = parseGenBank(text);
+  expect(findings.filter(finding => finding.tier === 'refuse')).toEqual([]);
+  return records[0];
+}
+
+it.each([
+  ['join(complement(9..12),4..5)', [1, 0, 2], [8, 5], 'ATTTAGAA'],
+  ['complement(join(complement(join(4..5,6..7)),9..12))', [3, 2, 0, 1], [3, 2], 'ATTTAGAAAC'],
+])('preserves written and evaluation order after splitting a minus wrap in %s', (location, ranks, span, bases) => {
+  const record = reopenGenBank(genBank('ATGAAACCCTAA', location, '', true, 'misc_feature'));
+  const feature = record.features[0];
+  const [edited] = saveEditedFeature([record], 'r', 0, {
+    ...feature, locationString: undefined,
+    segments: [{ ...feature.segments![0], end: 2 }, ...feature.segments!.slice(1)],
+  }, () => {});
+  const gff = attachGff(edited, exportToGff3([edited]).text);
+  const gb = reopenGenBank(exportToGenBank([edited]).text);
+  for (const reopened of [gff, gb]) {
+    const imported = reopened.features.find(f => f.type === 'misc_feature')!;
+    expect(imported.writtenOrder).toEqual(ranks);
+    expect([imported.start, imported.end]).toEqual(span);
+    expect(extractFeatureSequence(imported, reopened.sequence).featureSeq).toBe(bases);
+  }
 });

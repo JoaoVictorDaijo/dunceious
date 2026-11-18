@@ -227,8 +227,7 @@ function removedTranscriptionBases(
 function selectionGeometry(feature: BioFeature, length: number, isCircular: boolean): BioFeature {
   if (!isCircular || !feature.segments?.some(part => part.start > part.end)) return feature;
   const expanded = feature.segments.map(part => featureParts({ ...feature, segments: [part], remoteParts: undefined }, { length, isCircular }));
-  const order = feature.writtenOrder ?? feature.segments.map((_, i) => i);
-  const writtenOrder = expandedWrittenOrder(order, feature.segments, expanded);
+  const writtenOrder = expandedWrittenOrder(feature.writtenOrder, feature.segments, expanded);
   const remotes = [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index);
   const remoteParts = remotes.map((part, i) => ({ ...part,
     index: part.index + expanded.slice(0, part.index - i).reduce((extra, pieces) => extra + pieces.length - 1, 0),

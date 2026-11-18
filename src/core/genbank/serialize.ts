@@ -33,43 +33,73 @@ import { searchHitNote } from '../formats/searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier, assertGenBankQualifierText, type QualifierSyntax } from './qualifierRules';
 
 /**
- * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
- * that evaluation reads in reverse sat inside one `complement(join(...))` (INSDC FT 11.4 §3.4.2.2),
- * so each such run is written back that way, its strands flipped. The result is re-parsed and used
- * only when it gives the stored segments back; otherwise the evaluated form is written.
+ * An INSDC join evaluates contiguous written blocks in order; a complement reverses
+ * their order and flips their strands (§3.4.2.2). Find the junctions where a written
+ * prefix covers consecutive evaluation ranks at either end of the current block.
  */
+function nestedLocation(order: number[], leaves: [string, string][], operator: string): string | null {
+  const render = (start: number, end: number, firstRank: number, reversed: boolean): string | null => {
+    if (end - start === 1) return leaves[order[start]][reversed ? 1 : 0];
+    let minRank = Infinity, maxRank = -Infinity;
+    let blockStart = start;
+    let nextRank = reversed ? firstRank + end - start - 1 : firstRank;
+    const parts: string[] = [];
+    for (let i = start; i < end; i++) {
+      minRank = Math.min(minRank, order[i]);
+      maxRank = Math.max(maxRank, order[i]);
+      const size = i - blockStart + 1;
+      const blockRank = reversed ? nextRank - size + 1 : nextRank;
+      if (minRank !== blockRank || maxRank !== blockRank + size - 1) continue;
+      if (size === end - start) return null;
+      const body = render(blockStart, i + 1, blockRank, reversed);
+      if (!body) {
+        const flipped = render(blockStart, i + 1, blockRank, !reversed);
+        if (!flipped) return null;
+        parts.push(`complement(${flipped})`);
+      } else parts.push(body);
+      blockStart = i + 1;
+      nextRank += reversed ? -size : size;
+      minRank = Infinity;
+      maxRank = -Infinity;
+    }
+    return blockStart === end ? `${operator}(${parts.join(',')})` : null;
+  };
+  const direct = render(0, order.length, 0, false);
+  if (direct) return direct;
+  const reversed = render(0, order.length, 0, true);
+  return reversed && `complement(${reversed})`;
+}
+
 function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string | null {
+  const stored = feature.segments;
+  // Written ranks describe local intervals only.
+  if (!stored?.some(part => part.strand !== undefined) || feature.remoteParts?.length) return null;
+  const landmark = { length: record.sequence.length, isCircular: record.isCircular };
+  const split = stored.map(part => splitFeaturePart(part, landmark));
+  const segments = split.flat();
+  const ranks = expandedWrittenOrder(feature.writtenOrder, stored, split);
+  if (ranks.every((rank, i) => rank === i)) return null;
+  const order: number[] = [];
+  ranks.forEach((rank, i) => { order[rank] = i; });
+  const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
   const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
-    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, { length: record.sequence.length, isCircular: record.isCircular });
+    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, landmark);
     return location.kind === 'insdc' ? location.text : location.display;
   };
-  const stored = feature.segments;
-  // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
-  if (!stored?.some(part => part.strand !== undefined) || feature.writtenOrder?.length !== stored.length || feature.remoteParts?.length) return null;
-  const split = stored.map(part => splitFeaturePart(part, { length: record.sequence.length, isCircular: record.isCircular }));
-  const segments = split.flat();
-  const order = expandedWrittenOrder(feature.writtenOrder, stored, split);
-  const operator = feature.operator ?? 'join';
-  const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
-  const evaluationAt: number[] = [];
-  order.forEach((position, i) => { evaluationAt[position] = i; });
-  const parts: string[] = [];
-  for (let first = 0; first < segments.length;) {
-    let last = first;
-    while (last + 1 < segments.length && evaluationAt[last + 1] === evaluationAt[last] - 1) last++;
-    if (last === first) {
-      const segment = segments[evaluationAt[first]];
-      parts.push(oriented(segment, strandOf(segment)));
-    } else {
-      const inner = evaluationAt.slice(first, last + 1).map(i => oriented(segments[i], strandOf(segments[i]) === 1 ? -1 : 1));
-      parts.push(`complement(${operator}(${inner.join(',')}))`);
-    }
-    first = last + 1;
-  }
-  const location = parts.length === 1 ? parts[0] : `${operator}(${parts.join(',')})`;
+  const location = nestedLocation(order, segments.map(segment => [
+    oriented(segment, strandOf(segment)), oriented(segment, strandOf(segment) === 1 ? -1 : 1),
+  ]), feature.operator ?? 'join');
+  if (!location) return null;
+
   const reread = parseLocation(location);
-  const same = reread.segments.length === segments.length && reread.segments.every((part, i) =>
-    part.start === segments[i].start && part.end === segments[i].end && (part.strand ?? reread.strand) === strandOf(segments[i]));
+  const reverseWhole = reread.strand === -1 && reread.segments.every(part => part.strand === undefined);
+  const evaluated = reverseWhole ? reread.segments.slice().reverse() : reread.segments;
+  const same = evaluated.length === segments.length && evaluated.every((part, i) =>
+    part.start === segments[i].start && part.end === segments[i].end
+    && Boolean(part.partialStart) === Boolean(segments[i].partialStart)
+    && Boolean(part.partialEnd) === Boolean(segments[i].partialEnd)
+    && (part.strand ?? reread.strand) === strandOf(segments[i])
+    && (reverseWhole ? evaluated.length - 1 - i : reread.writtenOrder?.[i] ?? i) === ranks[i]);
   return same ? location : null;
 }
 

@@ -176,9 +176,8 @@ function appendFeatureRows(
     if (majorityStrand([...segments, ...remote]) !== feature.strand) attrs.insdc_parent_strand = feature.strand === -1 ? '-' : '+';
   }
   // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
-  if (feature.writtenOrder?.length === stored.length) {
-    attrs.insdc_written_order = expandedWrittenOrder(feature.writtenOrder, stored, split).map(String);
-  }
+  const writtenOrder = expandedWrittenOrder(feature.writtenOrder, stored, split);
+  if (writtenOrder.some((rank, i) => rank !== i)) attrs.insdc_written_order = writtenOrder.map(String);
   if (remote.length) {
     // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
     attrs.insdc_remote = [...remote].sort((a, b) => a.index - b.index).map((part, precedingRemotes) => {
