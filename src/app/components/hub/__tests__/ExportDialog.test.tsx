@@ -451,3 +451,17 @@ it('names an omitted GFF3 CDS and excludes it from the preview counts', () => {
   expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
   expect(screen.getByText('1 edited or added')).toBeDefined();
 });
+
+it('excludes an edited feature wholly in another record from the GFF3 preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'misc_feature', name: 'remote', start: 0, end: 0, strand: 1, hubEdit: 'edited', segments: [],
+      remoteParts: [{ start: 9, end: 20, strand: 1, accession: 'AB123.1', index: 0 }] },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});

@@ -262,7 +262,12 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
 
     const landmark = { seqid: id, length, isCircular: record.isCircular };
     for (const [featureIndex, feature] of features.entries()) {
+      const before = lines.length;
       appendFeatureRows(lines, feature, ids[featureIndex], landmark, referenceIds, report);
+      if (lines.length > before) {
+        report.gff3Written.annotations++;
+        if (feature.hubEdit === 'edited' || feature.hubEdit === 'added') report.gff3Written.edited++;
+      }
     }
   }
   return { text: lines.join('\n') + '\n', report };

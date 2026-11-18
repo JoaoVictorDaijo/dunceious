@@ -40,6 +40,7 @@ export interface ExportReport {
   remotePartsCarried: number;
   /** GFF3: features with no interval in this record, which GFF3 has no row for. */
   remoteOnlyOmitted: number;
+  gff3Written: { annotations: number; edited: number };
   gff3FeaturesOmitted: { reason: string; edited: boolean }[];
 }
 
@@ -52,7 +53,7 @@ export function emptyReport(): ExportReport {
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,
-    remotePartsCarried: 0, remoteOnlyOmitted: 0, gff3FeaturesOmitted: [],
+    remotePartsCarried: 0, remoteOnlyOmitted: 0, gff3Written: { annotations: 0, edited: 0 }, gff3FeaturesOmitted: [],
   };
 }
 

@@ -138,20 +138,20 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     const values = pickIds(label);
     return { label, values, active: quickPick === label };
   });
-  const gff3Omissions = report?.gff3FeaturesOmitted;
+  const gff3Written = report?.gff3Written;
   const exportedAnnotationCount = useMemo(() => {
     if (format === 'fasta') return 0;
+    if (format === 'gff3') return gff3Written?.annotations ?? 0;
     const eligible = exportRecordsForOptions(writtenRecords, format, options);
-    const count = eligible.reduce((total, record) => total + annotationFeatures(record).filter(feature =>
+    return eligible.reduce((total, record) => total + annotationFeatures(record).filter(feature =>
       format !== 'genbank' || feature.locationString
       || formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }).kind === 'insdc').length, 0);
-    return count - (gff3Omissions?.length ?? 0);
-  }, [writtenRecords, format, options, gff3Omissions]);
+  }, [writtenRecords, format, options, gff3Written]);
   const exportedEditCount = useMemo(() => {
     if (format === 'fasta') return 0;
-    const count = exportRecordsForOptions(writtenRecords, format, options).reduce((total, record) => total + hubEditCounts(record.features).total, 0);
-    return count - (gff3Omissions?.filter(omitted => omitted.edited).length ?? 0);
-  }, [writtenRecords, format, options, gff3Omissions]);
+    if (format === 'gff3') return gff3Written?.edited ?? 0;
+    return exportRecordsForOptions(writtenRecords, format, options).reduce((total, record) => total + hubEditCounts(record.features).total, 0);
+  }, [writtenRecords, format, options, gff3Written]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded-sm" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
 
