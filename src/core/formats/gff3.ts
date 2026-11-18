@@ -28,7 +28,7 @@ import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
-import { splitFeaturePart, type LocationRecord } from '@/src/domain/bio/featureParts';
+import { splitFeaturePart } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -147,25 +147,22 @@ function addPartialRanges(attrs: Record<string, string | string[]>, segment: Fea
   if (segment.partialEnd) attrs.end_range = [String(segment.end), '.'];
 }
 
+interface FeatureRows {
+  feature: BioFeature;
+  featureId: string;
+  stored: FeatureSegment[];
+  split: FeatureSegment[][];
+  segments: FeatureSegment[];
+}
+
 function appendFeatureRows(
   lines: string[],
-  feature: BioFeature,
-  featureId: string,
-  landmark: LocationRecord & { seqid: string },
+  { feature, featureId, stored, split, segments }: FeatureRows,
+  landmark: { seqid: string },
   oldIds: Map<string, string | null>,
   report: ExportReport,
 ): void {
-  if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
-  if (feature.type === 'source') return;
   const remote = feature.remoteParts ?? [];
-  // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
-  if (remote.length && !feature.segments?.length) {
-    report.remoteOnlyOmitted++;
-    return;
-  }
-  const stored = feature.segments?.length ? feature.segments : [{ start: feature.start, end: feature.end }];
-  const split = stored.map(segment => splitFeaturePart(segment, landmark));
-  const segments = split.flat();
   const phases = partPhases(feature, segments);
   const so = soTypeFor(feature.type);
   const metadata = feature.metadata ?? {};
@@ -217,36 +214,46 @@ function appendFeatureRows(
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
-  const plans = records.map(record => {
-    let number = 0;
-    const localIds = new Map<string, string | null>();
-    const features = record.features.filter(feature => {
-      const codonStart = feature.metadata?.codon_start;
-      if (!isCds(feature) || validCodonStart(codonStart)) return true;
-      report.gff3FeaturesOmitted.push({
-        reason: `${record.id}: CDS ${feature.name} omitted; invalid /codon_start=${JSON.stringify(codonStart)}`,
-        edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
-      });
-      return false;
-    });
-    const ids = features.map(feature => {
-      const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
-      const old = feature.metadata?.ID;
-      if (old) {
-        localIds.set(old, localIds.has(old) && localIds.get(old) !== id ? null : id);
-      }
-      return id;
-    });
-    return { record, features, ids, localIds };
-  });
-  for (const { record, features, ids, localIds } of plans) {
-    const referenceIds = localIds;
+  for (const record of records) {
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
+    const landmark = { seqid: id, length, isCircular: record.isCircular };
+    const sourceId = `${record.id}.0`;
+    const sources = record.features.filter(feature => feature.type === 'source');
+    const referenceIds = new Map<string, string | null>();
+    const originalSourceId = sources[0]?.metadata?.ID;
+    if (originalSourceId) referenceIds.set(originalSourceId, sourceId);
+
+    let number = 0;
+    const rows: FeatureRows[] = [];
+    for (const feature of record.features) {
+      const codonStart = feature.metadata?.codon_start;
+      if (isCds(feature) && !validCodonStart(codonStart)) {
+        report.gff3FeaturesOmitted.push({
+          reason: `${record.id}: CDS ${feature.name} omitted; invalid /codon_start=${JSON.stringify(codonStart)}`,
+          edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
+        });
+        continue;
+      }
+      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
+      if (feature.type === 'source') continue;
+      const featureId = `${record.id}.${++number}`;
+      if (feature.remoteParts?.length && !feature.segments?.length) {
+        report.remoteOnlyOmitted++;
+        continue;
+      }
+      const stored = feature.segments?.length ? feature.segments : [{ start: feature.start, end: feature.end }];
+      const split = stored.map(segment => splitFeaturePart(segment, landmark));
+      const segments = split.flat();
+      if (!segments.length && !isBetweenBasesSite(feature)) continue;
+      rows.push({ feature, featureId, stored, split, segments });
+      const originalId = feature.metadata?.ID;
+      if (originalId) referenceIds.set(originalId, referenceIds.has(originalId) ? null : featureId);
+    }
+
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);
-    const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
-    const sources = record.features.filter(feature => feature.type === 'source');
+    const attributes: Record<string, string | string[]> = { ID: sourceId, gbkey: 'Src' };
     const sourceMetadata = { ...sources[0]?.metadata };
     const sourceParts = sources.flatMap(feature => feature.segments ?? []);
     for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
@@ -260,14 +267,10 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
-    const landmark = { seqid: id, length, isCircular: record.isCircular };
-    for (const [featureIndex, feature] of features.entries()) {
-      const before = lines.length;
-      appendFeatureRows(lines, feature, ids[featureIndex], landmark, referenceIds, report);
-      if (lines.length > before) {
-        report.gff3Written.annotations++;
-        if (feature.hubEdit === 'edited' || feature.hubEdit === 'added') report.gff3Written.edited++;
-      }
+    for (const row of rows) {
+      appendFeatureRows(lines, row, landmark, referenceIds, report);
+      report.gff3Written.annotations++;
+      if (row.feature.hubEdit === 'edited' || row.feature.hubEdit === 'added') report.gff3Written.edited++;
     }
   }
   return { text: lines.join('\n') + '\n', report };

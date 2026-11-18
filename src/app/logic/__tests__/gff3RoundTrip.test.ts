@@ -399,3 +399,42 @@ it('reports a landmark bound that matches no source endpoint', () => {
   });
   expect(exportToGff3(attached.next).text).not.toContain('end_range=12,.');
 });
+
+it('drops and counts a GFF3 Parent pointing to an omitted remote-only feature', () => {
+  const record = reopenGenBank(genBank('ATGAAATAA', 'AB123.1:10..20', '', false, 'misc_feature'));
+  record.features[0].metadata = { ID: 'remote' };
+  record.features.push({ name: 'dependent', type: 'gene', start: 0, end: 9, strand: 1, metadata: { Parent: 'remote' } });
+
+  const { text, report } = exportToGff3([record]);
+  expect(text).not.toContain('Parent=');
+  expect(report).toMatchObject({ droppedAttributes: 1, remoteOnlyOmitted: 1, gff3Written: { annotations: 1 } });
+});
+
+it('resolves a GFF3 relationship when its only emitted target shares an ID with an omitted feature', () => {
+  const record = reopenGenBank(genBank('ATGAAATAA', 'AB123.1:10..20', '', false, 'misc_feature'));
+  record.features[0].metadata = { ID: 'shared' };
+  record.features.push(
+    { name: 'target', type: 'gene', start: 0, end: 9, strand: 1, metadata: { ID: 'shared' } },
+    { name: 'dependent', type: 'gene', start: 3, end: 6, strand: 1, metadata: { Derives_from: 'shared' } },
+  );
+
+  const { text, report } = exportToGff3([record]);
+  expect(text).toContain('ID=r.2;Name=target');
+  expect(text).toContain('ID=r.3;Name=dependent;Derives_from=r.2');
+  expect(report).toMatchObject({ droppedAttributes: 0, remoteOnlyOmitted: 1, gff3Written: { annotations: 2 } });
+});
+
+it('resolves a GFF3 source relationship only for the source represented by the landmark row', () => {
+  const record = reopenGenBank(twoSources('7..12'));
+  record.features[0].metadata!.ID = 'first';
+  record.features[1].metadata!.ID = 'second';
+  record.features.push({
+    name: 'dependent', type: 'gene', start: 6, end: 9, strand: 1,
+    metadata: { Parent: 'second', Derives_from: 'first' },
+  });
+
+  const { text, report } = exportToGff3([record]);
+  expect(text).not.toContain('Parent=');
+  expect(text).toContain('Derives_from=x.0');
+  expect(report.droppedAttributes).toBe(1);
+});
