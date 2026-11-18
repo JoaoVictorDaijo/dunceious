@@ -54,3 +54,12 @@ it.each([
   expect(annotation).toHaveProperty('type', 'ANNOTATIONS_SUCCESS');
   expect(annotation).toHaveProperty('annotations', {});
 });
+
+it.each([
+  ['##gff-version 3\nx\t.\tsequence_feature\t1\t3\t.\t+\t.\tID=c;insdc_type=misc_feature;insdc_remote=1:AB123.1:2%5E3\n',
+    'GFF3 row 2: unsupported between-base site in remote descriptor "1:AB123.1:2^3"'],
+  ['##gff-version 3\nx\t.\tsequence_feature\t1\t3\t.\t+\t.\tID=c\nx\t.\tsequence_feature\t7\t9\t.\t-\t.\tID=c;insdc_remote=0:complement(AB123.1:2%5E3)\n',
+    'GFF3 row 3: unsupported between-base site in remote descriptor "0:complement(AB123.1:2^3)"'],
+])('refuses an insdc_remote site with a literal row and descriptor', (content, error) => {
+  expect(handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'remote.gff3', content })).toMatchObject({ type: 'ERROR', error });
+});

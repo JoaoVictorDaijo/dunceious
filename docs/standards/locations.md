@@ -147,7 +147,8 @@ back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) wit
 `insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
 both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
 adjoin or lie outside the record. The shared location parser reserves `^` for exact sites,
-including when it reads the GFF3 `insdc_remote` attribute. Local site parts inside
+including when it reads the GFF3 `insdc_remote` attribute. GFF3 import refuses remote
+sites and reports the row and descriptor, matching GenBank's unsupported-site rule. Local site parts inside
 `join`/`order` export and re-import as zero-length intervals.
 Linear-edge sites are skipped and counted in `featuresWithoutInsdcLocation.linearEdgeSite`.
 A site used as a span end remains unsupported and is refused on import. Tested against S1 (Biopython 1.88: `[10:10]`,

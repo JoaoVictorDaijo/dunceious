@@ -23,6 +23,7 @@ import { isCds, malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
 import { parseLocation } from '../genbank/locationParser';
+import { guardRemoteSite } from '../genbank/locationValidation';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -393,6 +394,14 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const name = label || `${type}_${from}`;
     if ((isCds({ type }) || isCds({ type: featureType })) && !/^[012]$/.test(phase)) {
       throw new Error(`GFF3 row ${rowNumber}, ${featureType} ${name}: CDS phase must be 0, 1 or 2 (found ${JSON.stringify(phase)})`);
+    }
+    if (metadata.insdc_remote !== undefined) {
+      for (const value of attributeValues(metadata, 'insdc_remote')) {
+        const descriptor = value.replace(/\s/g, '').match(/^\d+:(.+)$/)?.[1];
+        if (descriptor && guardRemoteSite(descriptor)) {
+          throw new Error(`GFF3 row ${rowNumber}: unsupported between-base site in remote descriptor ${JSON.stringify(value)}`);
+        }
+      }
     }
     const bareException = raw.split(';').find(attribute => !attribute.includes('=') && decode(attribute).trim() === 'transl_except');
     if (bareException !== undefined) throw new Error(`${featureType} ${name}, attribute ${JSON.stringify(bareException)} requires transl_except=(pos:<location>,aa:<residue>) syntax`);
