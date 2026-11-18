@@ -275,6 +275,6 @@ export function geometryCodeBreakEvidence(feature: BioFeature, record: Translati
     if (!selection) return evidence;
     const missing = evidence.bases!.filter(base => base < selection.start || base >= selection.end);
     if (missing.length) return { ...evidence, status: 'dropped', reason: `${missing.length === evidence.bases!.length ? 'wholly excluded codon' : 'selection destroys codon'}; lost entry bases ${missing.map(base => base + 1).join(', ')}` };
-    return { ...evidence, rebased: transformCodeBreak(evidence.raw, feature.strand, -selection.start, false) };
+    return { ...evidence, rebased: transformCodeBreak(evidence.raw, feature, -selection.start, false) };
   });
 }

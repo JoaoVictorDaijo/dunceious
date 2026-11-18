@@ -50,6 +50,14 @@ export function hasPartialStrands(feature: FeatureGeometry): boolean {
   return parts.some(part => part.strand !== undefined) && parts.some(part => part.strand === undefined);
 }
 
+/** Only local intervals determine whether a code break can inherit a single strand. */
+export function hasMixedLocalStrands(feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): boolean {
+  const geometry = feature.biological ?? feature;
+  const parts = geometry.segments ?? [];
+  const strand = parts[0]?.strand ?? geometry.strand;
+  return parts.some(part => (part.strand ?? geometry.strand) !== strand);
+}
+
 export function invalidLocationPart(part: Pick<FeatureSegment, 'start' | 'end'>, record: LocationRecord): boolean {
   return !Number.isInteger(part.start) || !Number.isInteger(part.end)
     || part.start < 0 || part.end < 0 || part.start > record.length || part.end > record.length

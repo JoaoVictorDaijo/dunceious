@@ -18,12 +18,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { parseCodeBreak, codeBreakMessage } from '@/src/domain/bio/translationExceptions';
+import { parseCodeBreak, codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
 import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
-import { splitFeaturePart } from '@/src/domain/bio/featureParts';
+import { hasMixedLocalStrands, splitFeaturePart } from '@/src/domain/bio/featureParts';
 import { expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -219,10 +219,12 @@ function serializeCodeBreaks(feature: BioFeature, r: SeqRecord, report: ExportRe
   let text = '';
   const malformed = conceptualTranslation(feature, r).exceptions?.find(e => e.status === 'malformed');
   if (malformed) throw new Error(codeBreakMessage(malformed));
-  for (const [occurrence, raw] of (feature.translationExceptions ?? []).entries()) {
-    const parsed = parseCodeBreak(raw, feature.strand);
+  const mixed = hasMixedLocalStrands(feature);
+  for (const [occurrence, raw] of feature.translationExceptions.entries()) {
+    const parsed = parseCodeBreak(raw, feature);
     if (typeof parsed === 'string') throw new Error(codeBreakMessage({ feature: feature.name, occurrence, raw, status: 'malformed', reason: parsed }));
-    text += serializeQualifier('transl_except', raw, 'unquoted', feature, r, report);
+    const value = mixed ? transformCodeBreak(raw, feature, 0) : raw;
+    text += serializeQualifier('transl_except', value, 'unquoted', feature, r, report);
   }
   return text;
 }

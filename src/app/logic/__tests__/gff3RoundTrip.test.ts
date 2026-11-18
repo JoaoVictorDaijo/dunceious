@@ -85,7 +85,7 @@ it('reattaches a mixed-strand GenBank selenocysteine exception', () => {
     'LOCUS       r 9 bp DNA linear',
     'FEATURES             Location/Qualifiers',
     '     CDS             join(1..3,complement(4..6),complement(7..9))',
-    '                     /transl_except=(pos:4..6,aa:Sec)',
+    '                     /transl_except=(pos:complement(4..6),aa:Sec)',
     'ORIGIN',
     '        1 atgtcatta',
     '//',
@@ -188,4 +188,64 @@ it.each([
     expect([imported.start, imported.end]).toEqual(span);
     expect(extractFeatureSequence(imported, reopened.sequence).featureSeq).toBe(bases);
   }
+});
+
+function reopenProject(record: SeqRecord): SeqRecord {
+  const result = parseProject(serializeProject({
+    records: [record], featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false,
+  }));
+  if (!result.ok) throw new Error(result.message);
+  return result.project.records[0];
+}
+
+it.each([
+  ['(pos:4..6,aa:Sec)', 'MKU'],
+  ['(pos:complement(10..12),aa:Sec)', 'MU*'],
+])('preserves explicit mixed-strand code break %s after extending across the origin', (exception, residues) => {
+  const record = reopenGenBank(genBank('CATTGATAATTT', 'join(complement(10..12),4..9)', '/transl_except=' + exception, true));
+  const feature = record.features[0];
+  const [edited] = saveEditedFeature([record], 'r', 0, {
+    ...feature, locationString: undefined,
+    segments: [{ ...feature.segments![0], end: 3 }, feature.segments![1]],
+  }, () => {});
+  const selected = sliceRecordsBySelection([edited], 0, 12);
+  expect(selected.losses).toEqual([]);
+  const exported = exportToGenBank(selected.records);
+  expect(exported.text.split('\n').filter(line => line.includes('/transl_except='))).toEqual([
+    '                     /transl_except=' + exception,
+  ]);
+  for (const reopened of [edited, reopenGenBank(exported.text), attachGff(edited, exportToGff3([edited]).text), reopenProject(edited)]) {
+    expect(conceptualTranslation(reopened.features.find(f => f.type === 'CDS')!, reopened)).toMatchObject({ status: 'ok', residues });
+  }
+});
+
+it.each([
+  ['ATGTGATAA', '1..9'],
+  ['TTATCACAT', 'complement(1..9)'],
+])('keeps the single-strand bare code break on %s at %s', (sequence, location) => {
+  const record = reopenGenBank(genBank(sequence, location, '/transl_except=(pos:4..6,aa:Sec)'));
+  const { text } = exportToGenBank([record]);
+  expect(text.split('\n').filter(line => line.includes('/transl_except='))).toEqual([
+    '                     /transl_except=(pos:4..6,aa:Sec)',
+  ]);
+  const reopened = reopenGenBank(text);
+  expect(conceptualTranslation(reopened.features.find(f => f.type === 'CDS')!, reopened)).toMatchObject({ status: 'ok', residues: 'MU' });
+});
+
+it('refuses a bare code break on the minus part of a mixed-strand CDS', () => {
+  const { findings } = parseGenBank(genBank('ATGTCATTA', 'join(1..3,complement(4..6),complement(7..9))', '/transl_except=(pos:4..6,aa:Sec)'));
+  expect(findings.filter(finding => finding.tier === 'refuse')).toEqual([
+    expect.objectContaining({ code: 'malformed-qualifier', message: expect.stringContaining('contrary-orientation code break') }),
+  ]);
+});
+
+
+it('rebases a bare forward exception on a linear mixed CDS with a minus majority', () => {
+  const record = reopenGenBank(genBank('CTGATTTTTAC', 'join(2..4,complement(5..7),complement(8..10))', '/transl_except=(pos:2..4,aa:Sec)'));
+  const selected = sliceRecordsBySelection([record], 1, 10);
+  expect(selected.losses).toEqual([]);
+  const exported = exportToGenBank(selected.records);
+  expect(exported.text).toContain('/transl_except=(pos:1..3,aa:Sec)\n');
+  const reopened = reopenGenBank(exported.text);
+  expect(conceptualTranslation(reopened.features.find(f => f.type === 'CDS')!, reopened)).toMatchObject({ status: 'ok', residues: 'UK' });
 });

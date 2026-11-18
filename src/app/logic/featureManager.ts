@@ -74,7 +74,7 @@ function reconcileCodeBreaks(
   const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, record) : undefined;
   if (previous && displacement !== undefined) {
     marked.translationExceptions = marked.translationExceptions?.map((raw, i) => matched[i] !== undefined && previousEvidence[matched[i]!]?.status === 'applied'
-      ? transformCodeBreak(raw, previous.strand, displacement, true, record.isCircular ? record.sequence.length : undefined) : raw);
+      ? transformCodeBreak(raw, previous, displacement, true, record.isCircular ? record.sequence.length : undefined) : raw);
   }
   const evaluated = geometryCodeBreakEvidence(marked, record);
   const dropped = new Set<number>();
