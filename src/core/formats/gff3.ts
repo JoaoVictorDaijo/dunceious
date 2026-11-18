@@ -111,7 +111,7 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   return result;
 }
 
-/** INSDC parsing uses the majority interval strand, with ties resolved to plus. */
+/** Dunceious shares this feature-level fallback with the GenBank reader; local intervals govern sequence orientation. */
 function majorityStrand(parts: FeatureSegment[]): 1 | -1 {
   return parts.filter(part => part.strand === -1).length > parts.length / 2 ? -1 : 1;
 }

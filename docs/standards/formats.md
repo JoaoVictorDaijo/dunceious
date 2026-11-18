@@ -41,8 +41,9 @@ the private `insdc_parent_strand` attribute when the exported intervals' majorit
 from the stored feature strand. Splitting an interval at the circular origin can change that
 majority. The value `+` or `-` records the feature-level orientation. On import of per-interval
 locations, that value restores the feature strand while each interval keeps its own strand.
-Without a recognized value, import uses the majority across local and remote intervals, with ties
-resolved to `+`. The attribute is consumed during import.
+Without a recognized value, import uses Dunceious's shared feature-level fallback, the majority
+across local and remote intervals with ties resolved to `+`. Local intervals determine sequence
+orientation. The attribute is consumed during import.
 
 
 ## FMT-2. GenBank entries, headers and sequence layout
