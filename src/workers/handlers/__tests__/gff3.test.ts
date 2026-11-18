@@ -26,3 +26,15 @@ it('passes detail candidates through the annotation worker response', () => {
   expect(result).toMatchObject({ type: 'ANNOTATIONS_SUCCESS', details: { seq_1: { start: 0, end: 1000, details: { host: 'camel' } } } });
 });
 
+
+it.each(['CDS', 'SO:0000316'])('refuses a %s with undefined phase and identifies its GFF3 row', type => {
+  const response = handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'bad.gff3',
+    content: `##gff-version 3\nr\ts\tgene\t1\t10\t.\t+\t.\tID=g\nr\ts\t${type}\t1\t10\t.\t+\t.\tID=c` });
+  expect(response).toMatchObject({ type: 'ERROR', error: expect.stringMatching(/row 3.* c.*phase.*0, 1 or 2/) });
+});
+
+it('refuses conflicting CDS translations and names both rows and values', () => {
+  const response = handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'bad.gff3', content:
+    '##gff-version 3\nr\ts\tCDS\t1\t3\t.\t+\t0\tID=c\nr\ts\tCDS\t4\t6\t.\t+\t0\tID=c;translation=MQ\nr\ts\tCDS\t7\t9\t.\t+\t0\tID=c;translation=MK' });
+  expect(response).toMatchObject({ type: 'ERROR', error: expect.stringMatching(/CDS c.*translation.*"MQ".*row 3.*"MK".*row 4/) });
+});
