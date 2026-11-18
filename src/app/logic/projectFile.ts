@@ -133,7 +133,10 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
   if (feature.locationString === undefined) return feature;
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
   const problem = validateLocation(feature.locationString, record.sequence.length, record.isCircular === true);
-  if (problem) throw new Error(description + ' ' + problem.message + '.');
+  if (problem) {
+    const reason = problem.message === 'cannot be read' ? 'could not be read' : problem.message;
+    throw new Error(description + ' ' + reason + '.');
+  }
   const parsed = parseLocation(feature.locationString);
 
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {

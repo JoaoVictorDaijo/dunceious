@@ -323,7 +323,7 @@ it('refuses an unreadable retained location alongside a valid structured CDS', (
     locationString: 'join(1..3,2^>3)',
   }] }];
   expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
-    message: 'Feature unreadable location "join(1..3,2^>3)" cannot be read.' });
+    message: 'Feature unreadable location "join(1..3,2^>3)" could not be read.' });
 });
 
 it.each([
