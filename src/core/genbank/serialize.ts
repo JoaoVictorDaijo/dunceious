@@ -181,7 +181,7 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
   }
   for (const feature of features) {
     assertFeatureQualifierText(feature);
-      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
+    if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     const text = featureLocation(feature, r, report);
     if (text === null) continue;
@@ -234,13 +234,17 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     const searchNote = searchHitNote(feature);
     if (searchNote) gb += serializeQualifier('note', searchNote, 'quoted', feature, r, report);
   }
-  gb += 'ORIGIN\n';
-  const residues = r.sequence.toLowerCase();
+  return gb + serializeOrigin(r.sequence) + '//\n';
+}
+
+function serializeOrigin(sequence: string): string {
+  let text = 'ORIGIN\n';
+  const residues = sequence.toLowerCase();
   for (let i = 0; i < residues.length; i += 60) {
     const groups = residues.slice(i, i + 60).match(/.{1,10}/g) ?? [];
-    gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
+    text += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
-  return gb + '//\n';
+  return text;
 }
 
 function serializeCodeBreaks(feature: BioFeature, r: SeqRecord, report: ExportReport): string {
