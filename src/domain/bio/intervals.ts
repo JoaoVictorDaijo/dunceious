@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { featureParts, splitWrapAround } from './featureParts';
+import { featureParts, splitFeaturePart, splitWrapAround, storedLocalParts } from './featureParts';
 import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
 import { validCodonStart } from './codonStart';
@@ -227,9 +227,12 @@ function removedTranscriptionBases(
 
 /** Splitting a stored wrap also expands its positions in written order and among remote parts. */
 function selectionGeometry(feature: BioFeature, length: number, isCircular: boolean): BioFeature {
-  if (!isCircular || !feature.segments?.some(part => part.start > part.end)) return feature;
-  const expanded = feature.segments.map(part => featureParts({ ...feature, segments: [part], remoteParts: undefined }, { length, isCircular }));
-  const writtenOrder = expandedWrittenOrder(feature.writtenOrder, feature.segments, expanded);
+  const stored = storedLocalParts(feature);
+  if (!isCircular || !stored?.some(part => part.start > part.end)) {
+    return stored === feature.segments ? feature : { ...feature, segments: stored };
+  }
+  const expanded = stored.map(part => splitFeaturePart(part, { length, isCircular }));
+  const writtenOrder = expandedWrittenOrder(feature.writtenOrder, stored, expanded);
   const remoteParts = expandedRemoteParts(feature.remoteParts ?? [], expanded);
   return { ...feature, segments: expanded.flat(), writtenOrder,
     ...(feature.remoteParts && { remoteParts }) };

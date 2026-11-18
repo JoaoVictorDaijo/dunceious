@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { hasPartialStrands, invalidLocationPart, splitFeaturePart, type FeatureGeometry, type LocationRecord } from './featureParts';
+import { hasPartialStrands, invalidLocationPart, splitFeaturePart, usesIntervalStrands, type FeatureGeometry, type LocationRecord } from './featureParts';
 import type { FeatureSegment } from './types';
 
 export interface LocationEnds { fivePrimePartial?: boolean; threePrimePartial?: boolean }
@@ -42,7 +42,7 @@ export function formatInsdcLocation(feature: FeatureGeometry, record: LocationRe
     return { kind: 'no-insdc-form', reason: 'invalid-geometry', display: `${stored.map(part => `${part.start + 1}..${part.end}`).join(',')} (invalid location)` };
   }
   const remote = feature.remoteParts ?? [];
-  const perPart = feature.segments?.some(part => part.strand !== undefined) || remote.some(part => part.strand !== feature.strand);
+  const perPart = usesIntervalStrands(feature);
   const logical: (FeatureSegment & { accession?: string })[] = feature.segments?.length || remote.length
     ? [...feature.segments ?? []]
     : [{ start: feature.start, end: feature.end }];

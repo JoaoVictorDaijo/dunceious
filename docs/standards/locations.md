@@ -86,7 +86,10 @@ shapes are stored in evaluation order with `writtenOrder`, the written position 
 and GenBank export rebuilds the nested written form from it. An outer complement with nested
 strand evaluation keeps its local written ranks even when they are in evaluation order.
 Both GenBank and GFF3 expand
-the written ranks when an interval splits at the origin, including implicit identity ranks. GFF3 rows cannot tell
+the written ranks when an interval splits at the origin, including implicit identity ranks.
+An opposite-strand remote interval makes each local interval inherit its own direction from the
+feature, so export and selection resolve those directions before splitting and ranking the pieces.
+GFF3 rows cannot tell
 `join(complement(a),complement(b))` from `complement(join(a,b))`, so export marks per-interval
 strands with `insdc_interval_strands=true` and import reads each row on its own strand. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.

@@ -28,7 +28,7 @@ import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
-import { splitFeaturePart } from '@/src/domain/bio/featureParts';
+import { splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -242,7 +242,8 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
         report.remoteOnlyOmitted++;
         continue;
       }
-      const stored = feature.segments?.length ? feature.segments : [{ start: feature.start, end: feature.end }];
+      const local = storedLocalParts(feature);
+      const stored = local?.length ? local : [{ start: feature.start, end: feature.end }];
       const split = stored.map(segment => splitFeaturePart(segment, landmark));
       const segments = split.flat();
       if (!segments.length && !isBetweenBasesSite(feature)) continue;

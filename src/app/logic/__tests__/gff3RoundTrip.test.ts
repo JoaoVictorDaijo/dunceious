@@ -317,6 +317,46 @@ it.each([
   }
 });
 
+it('preserves written order and the remote position after flipping an inherited strand and wrapping a part', () => {
+  const record = reopenGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     source          1..12
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+     misc_feature    join(9..12,AB123.1:1..2,4..5)
+ORIGIN
+        1 ACGTACGTACGT
+//
+`);
+  const [edited] = saveEditedFeature([record], 'x', 1, {
+    ...record.features[1], strand: -1, locationString: undefined,
+    segments: [{ start: 8, end: 2 }, { start: 3, end: 5 }],
+  });
+  expect(edited.features[1]).toMatchObject({ start: 8, end: 5 });
+
+  const projected = reopenProject(edited);
+  const selected = sliceRecordsBySelection([projected], 0, 12);
+  const genbank = reopenGenBank(exportToGenBank(selected.records).text);
+  const gff = attachGff(record, exportToGff3(selected.records).text);
+  const expected = {
+    start: 8, end: 5, writtenOrder: [1, 0, 2],
+    segments: [{ start: 0, end: 2, strand: -1 }, { start: 8, end: 12, strand: -1 }, { start: 3, end: 5, strand: -1 }],
+    remoteParts: [{ accession: 'AB123.1', start: 0, end: 2, strand: 1, index: 2 }],
+  };
+  for (const reopened of [genbank, gff]) {
+    const feature = reopened.features.find(part => part.type === 'misc_feature')!;
+    expect.soft(feature).toMatchObject(expected);
+    expect.soft(featureFocusTarget(reopened, feature)).toMatchObject({ start: 8, end: 5 });
+    expect.soft(featureSequenceViews(reopened, feature)).toMatchObject({ feature: null, region: 'ACGTACGTA', regionLength: 9 });
+  }
+  const [clipped] = sliceRecordsBySelection([edited], 0, 10).records;
+  expect(clipped.features[1]).toMatchObject({
+    start: 0, end: 10, writtenOrder: [1, 0, 2],
+    segments: [{ start: 0, end: 2, strand: -1 }, { start: 8, end: 10, strand: -1, partialEnd: true }, { start: 3, end: 5, strand: -1 }],
+    remoteParts: [{ accession: 'AB123.1', start: 0, end: 2, strand: 1, index: 2 }],
+  });
+});
+
 it.each([
   { location: 'join(9..12,AB123.1:1..2,1..5)', strand: 1, segments: [{ start: 8, end: 12 }, { start: 0, end: 5 }] },
   { location: 'complement(join(9..12,AB123.1:1..2,12^1,1..5))', strand: -1,

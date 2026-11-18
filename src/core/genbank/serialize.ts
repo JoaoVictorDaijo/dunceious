@@ -23,7 +23,7 @@ import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
-import { hasMixedLocalStrands, splitFeaturePart } from '@/src/domain/bio/featureParts';
+import { hasMixedLocalStrands, splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
 import { expandedRemoteParts, expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from '@/src/domain/bio/locationFlags';
@@ -72,7 +72,7 @@ function nestedLocation(order: number[], leaves: [string, string][], operator: s
 }
 
 function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string | null {
-  const stored = feature.segments;
+  const stored = storedLocalParts(feature);
   if (!stored?.some(part => part.strand !== undefined)) return null;
   const landmark = { length: record.sequence.length, isCircular: record.isCircular };
   const split = stored.map(part => splitFeaturePart(part, landmark));

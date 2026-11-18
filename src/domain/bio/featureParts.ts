@@ -50,6 +50,18 @@ export function hasPartialStrands(feature: FeatureGeometry): boolean {
   return parts.some(part => part.strand !== undefined) && parts.some(part => part.strand === undefined);
 }
 
+/** A remote part on the other strand makes inherited local directions interval-specific. */
+export function usesIntervalStrands(feature: FeatureGeometry): boolean {
+  return Boolean(feature.segments?.some(part => part.strand !== undefined)
+    || feature.remoteParts?.some(part => part.strand !== feature.strand));
+}
+
+export function storedLocalParts(feature: FeatureGeometry): FeatureSegment[] | undefined {
+  const parts = feature.segments;
+  if (!parts || !usesIntervalStrands(feature) || parts.every(part => part.strand !== undefined)) return parts;
+  return parts.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
+}
+
 /** Only local intervals determine the direction a bare code break can inherit. */
 export function singleLocalStrand(feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): 1 | -1 | undefined {
   const geometry = feature.biological ?? feature;
