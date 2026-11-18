@@ -364,7 +364,7 @@ it('names GenBank gap omissions and distinguishes chosen records from written co
   render(<Subject value={value} selected={['clean', 'damaged']} onExport={onExport} />); open(); format('GenBank');
   expect(screen.getByText('damaged not exported: its sequence contains gap characters')).toBeTruthy();
   expect(screen.queryByText(/Sequences and annotations with valid qualifiers/)).toBeNull();
-  expect(screen.queryByText(/Display names stay in Dunceious/)).toBeNull();
+  expect(screen.getByText('Display names stay in Dunceious.')).toBeTruthy();
   expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
   expect(screen.getByText('2 chosen')).toBeTruthy();
   expect(screen.getByText('1 written')).toBeTruthy();
@@ -413,4 +413,27 @@ it.each([false, true])('previews general GenBank omissions with matching counts 
   const button = screen.getByRole('button', { name: `Export ${allInvalid ? '0 sequences' : '1 sequence'}` }) as HTMLButtonElement;
   expect(button.disabled).toBe(allInvalid);
   if (allInvalid) { fireEvent.click(button); expect(onExport).not.toHaveBeenCalled(); }
+});
+
+it('shows qualifier and translation warnings, attribute omissions and adjusted IDs before GenBank download', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'gene', name: 'gene', start: 0, end: 9, strand: 1, metadata: { note: 'café', custom: 'left out' } },
+    { type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1, metadata: { _translationSource: 'removed', _translationMessage: 'Translation removed after edit' } },
+  ] }];
+  // Workspace IDs are normalized before the Hub opens; inject only the serializer's report entry.
+  const serialize = exportPlan.describeExport;
+  const spy = vi.spyOn(exportPlan, 'describeExport').mockImplementation((...args) => {
+    const preview = serialize(...args);
+    if (args[1] === 'genbank') preview.report.adjustedIds.push({ from: 'original id', to: 'a' });
+    return preview;
+  });
+  try {
+    render(<Subject value={value} selected={['a']} />); open(); format('GenBank');
+    expect(screen.getByText(/café.*ASCII/)).toBeTruthy();
+    expect(screen.getByText('coding: Translation removed after edit')).toBeTruthy();
+    expect(screen.getByText(/^1 non-GenBank attributes left out\.$/)).toBeTruthy();
+    expect(screen.getByText('ID: original id → a').closest('details')).toBeNull();
+  } finally {
+    spy.mockRestore();
+  }
 });

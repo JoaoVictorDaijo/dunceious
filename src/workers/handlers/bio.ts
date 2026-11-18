@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation } from '@/src/domain/bio/translation';
+import { checkedTranslation, checkTranslation, hasTranslationMismatch, isCds } from '@/src/domain/bio/translation';
 import { processTransposition, calculateConsensus } from '@/src/domain/bio';
 import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '@/src/domain/bio/types';
@@ -50,7 +50,20 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
         const categories = [...msg.content.matchAll(/^LOCUS\s+.*?\s\d+\s+(bp|aa)(?=\s|$)/gmi)].map(m => m[1].toLowerCase() === 'aa' ? 'protein' as const : 'nucleotide' as const);
         return { type: 'PARSE_REFUSED', filename: msg.filename, ...parsed, categories };
       }
-      parsed.records = parsed.records.map(record => ({ ...record, features: record.features.map(f => checkTranslation(f, record)) }));
+      parsed.records = parsed.records.map((record, index) => {
+        const features = record.features.map(feature => {
+          const checked = checkTranslation(feature, record);
+          if (isCds(checked) && hasTranslationMismatch(checked, checkedTranslation(checked, record))) {
+            parsed.findings.push({
+              tier: 'warning', code: 'translation-mismatch', record: { name: record.id, index: index + 1 },
+              feature: { key: checked.type, name: checked.name },
+              message: 'Stored /translation differs from the DNA-derived protein.',
+            });
+          }
+          return checked;
+        });
+        return { ...record, features };
+      });
       return { type: 'PARSE_SUCCESS', filename: msg.filename, ...parsed };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };

@@ -96,8 +96,8 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   if (format === 'project') return { report, summary: ['Every value, original file detail, edit state, display name, modifier and colour is kept.', ...report.translationWarnings].join(' ') };
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
-  const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];
-  notes.push(...report.translationWarnings, ...report.qualifierWarnings);
+  const introduction = format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.';
+  const notes = [...report.translationWarnings, ...report.qualifierWarnings];
   for (const omitted of report.genBankRecordsOmitted) notes.push(omitted.reason);
   if (report.unalignedRows.length) notes.push(`${report.unalignedRows.length} sequences aren't in the alignment and will be saved separately in ${(options.fileName ?? 'sequences.fasta').replace(/(\.[^.]*)?$/, '_unaligned$1')}`);
   if (written) notes.push(`${written} detail ${written === 1 ? 'value' : 'values'} written.`);
@@ -113,5 +113,7 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   const { linearEdgeSite, invalidGeometry } = report.featuresWithoutInsdcLocation;
   if (linearEdgeSite) warnings.push(`${linearEdgeSite} ${linearEdgeSite === 1 ? 'feature' : 'features'} not written: ${linearEdgeSite === 1 ? 'a site' : 'sites'} at a linear sequence's edge ${linearEdgeSite === 1 ? 'has' : 'have'} no GenBank location`);
   if (invalidGeometry) warnings.push(`${invalidGeometry} ${invalidGeometry === 1 ? 'feature' : 'features'} not written: ${invalidGeometry === 1 ? 'its location is' : 'their location is'} invalid (outside the sequence or reversed)`);
-  return { report, summary: [notes.join(' '), ...warnings].join('\n') };
+  return { report, summary: (format === 'genbank'
+    ? [introduction, ...warnings, ...notes]
+    : [[introduction, ...notes].join(' '), ...warnings]).join('\n') };
 }

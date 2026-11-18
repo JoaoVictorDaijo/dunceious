@@ -239,3 +239,17 @@ it('previews the actual normalized export without restoring a dropped foreign qu
  expect(output.text).not.toContain('X.1');
  expect(JSON.stringify(record)).toBe(snapshot);
 });
+
+it('refuses whole-record GenBank export for a Sequence Ontology CDS with an empty code', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', features: [] };
+  const toRecord = (code: string) => {
+    const parsed = parseGFF3(`r	s	SO:0000316	1	9	.	+	0	ID=c;transl_table=${code}`);
+    return { ...record, features: parsed.features.r };
+  };
+  const invalid = toRecord('');
+  expect(invalid.features[0]).toMatchObject({ type: 'SO:0000316', metadata: { transl_table: '' } });
+  expect(exportToGenBank([invalid])).toMatchObject({ text: '', report: {
+    genBankRecordsOmitted: [{ id: 'r', reason: 'r not exported: CDS c has an invalid /transl_table' }],
+  } });
+  expect(exportToGenBank([toRecord('1')]).text).toContain('/transl_table=1');
+});

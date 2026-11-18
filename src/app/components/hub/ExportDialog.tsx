@@ -88,6 +88,9 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     catch (error) { return { report: null, summary: '', error: error instanceof Error ? error.message : String(error) }; }
   }, [chosen, format, options, fileName]);
   const report = preview.report;
+  const summaryLines = preview.summary.split('\n');
+  const omissionReasons = new Set(report?.genBankRecordsOmitted.map(omitted => omitted.reason));
+  const previewLines = format === 'genbank' ? summaryLines.slice(1).filter(line => !omissionReasons.has(line)) : summaryLines;
   const writtenRecords = useMemo(() => format === 'genbank'
     ? chosen.filter(record => !report?.genBankRecordsOmitted.some(omitted => omitted.id === record.id)) : chosen, [chosen, format, report]);
   const writtenCount = writtenRecords.length;
@@ -176,12 +179,13 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
             <h3 className="mb-2 flex items-center gap-2 font-semibold"><i aria-hidden="true" className="fas fa-circle-info text-env" />What this file will contain</h3><p className="mb-2 flex flex-wrap gap-2">{hasOmissions ? <><CountPill>{chosen.length} chosen</CountPill><CountPill>{writtenCount} written</CountPill></> : <CountPill>{chosen.length} {chosen.length === 1 ? 'sequence' : 'sequences'}</CountPill>}<span title={report && Object.values(report.featuresWithoutInsdcLocation).some(Boolean) ? `${Object.values(report.featuresWithoutInsdcLocation).reduce((a, b) => a + b, 0)} features skipped` : undefined}><CountPill>{exportedAnnotationCount} annotations</CountPill></span><CountPill>{exportedEditCount} edited or added</CountPill></p>
             {preview.error ? <p role="alert" className="text-rose-700">{preview.error}</p> : <>
               {format === 'genbank' && report?.genBankRecordsOmitted.map(omitted => <p key={omitted.id} data-export-gap-omission={report.gapRecordsOmitted.includes(omitted.id) ? '' : undefined} className="mb-2 text-amber-800">{omitted.reason}</p>)}
-              {(format === 'genbank' ? preview.summary.split('\n').slice(1) : preview.summary.split('\n')).map((line, index) => <p key={line} data-export-warning className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{countedText(line)}</p>)}
+              {previewLines.map((line, index) => <p key={`${index}:${line}`} data-export-warning className={index ? 'mt-2 text-amber-800' : 'text-slate-600'}>{format === 'genbank' ? line : countedText(line)}</p>)}
+              {format === 'genbank' && report?.adjustedIds.map(({ from, to }, index) => <p key={index}>ID: {from} → {to}</p>)}
               {Boolean(report?.missingOrganism) && <button className="mt-1 text-amber-800 underline" onClick={() => { onClose(); onEditDetails(missingIds); }}>Edit details</button>}
               {report && format === 'genbank' && <table aria-label="Detail qualifiers" className="w-full text-[11px]"><tbody>{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <tr key={key}><th scope="row" className="py-0.5 text-left font-medium">{EXPORT_DETAIL_LABELS[key]}</th><td className="font-mono text-slate-500">/{key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]}</td><td className="py-0.5 text-right font-mono">{report.writtenDetails[key]} written · {Math.max(0, writtenCount - report.writtenDetails[key] - report.invalidDetailsOmitted[key])} empty · <span className={report.invalidDetailsOmitted[key] ? 'text-amber-800' : undefined}>{report.invalidDetailsOmitted[key]} invalid, left out</span></td></tr>)}</tbody></table>}
               {report && format !== 'project' && <details className="mt-2"><summary className="cursor-pointer text-slate-600">Details and omissions{format === 'genbank' && report.droppedAttributes > 0 && ` · ${report.droppedAttributes} non-GenBank attributes left out`}</summary>
                 <ul className="mt-2 stack-y-1 text-[11px] text-slate-600">{(Object.keys(EXPORT_DETAIL_LABELS) as DetailKey[]).map(key => <li key={key} data-export-detail={key}>{EXPORT_DETAIL_LABELS[key]} · {format === 'fasta' ? DETAIL_TO_MODIFIER[key] : key === 'location' ? 'geo_loc_name / country' : DETAIL_QUALIFIER[key]} · <CountPill>{report.writtenDetails[key]}</CountPill> written{Boolean(report.invalidDetailsOmitted[key]) && <> · <CountPill>{report.invalidDetailsOmitted[key]}</CountPill> invalid {report.invalidDetailsOmitted[key] === 1 ? 'value' : 'values'} left out</>}</li>)}
-                  {report.adjustedIds.map((id, index) => <li key={index}>ID: {id.from} → {id.to}</li>)}
+                  {format !== 'genbank' && report.adjustedIds.map((id, index) => <li key={index}>ID: {id.from} → {id.to}</li>)}
                 </ul>
               </details>}
             </>}

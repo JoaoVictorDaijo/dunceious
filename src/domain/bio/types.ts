@@ -238,6 +238,7 @@ export interface GenBankFinding {
 export interface SelectionLoss {
   record: string;
   feature: string;
+  key: string;
   reason: string;
   occurrence?: number;
   raw?: string;
@@ -263,6 +264,7 @@ export interface CodonProvenance {
   fragment: string;
   triplet: string;
   alignedIndices: number[];
+  baseStrands?: (1 | -1)[];
   ordinary: string;
   contextual: string;
   effective: string;

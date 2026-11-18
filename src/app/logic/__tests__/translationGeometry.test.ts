@@ -28,6 +28,7 @@ import { parseProject, serializeProject } from '../projectFile';
 import { applyAnnotations, logAttachedTranslationWarning } from '../bioResponse';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { describeSelectionLoss } from '@/src/core/exportReport';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
 
@@ -208,4 +209,63 @@ it.each([
   expect(saved.features[0].metadata?.translation).toBeUndefined();
   expect(conceptualTranslation(saved.features[0], saved)).toMatchObject({ status: 'unavailable', reason: 'nonlocal-location' });
   expect(exportToGenBank([saved]).text).toContain(location);
+});
+
+it.each([
+  { sequence: 'ATGAAACCCTAA', protein: 'MKP', idKept: false },
+  { sequence: 'ATGAAATAA', protein: 'MK', idKept: true },
+])('keeps an inherited protein version only for the same protein on Save or selection: $protein', ({ sequence, protein, idKept }) => {
+  const imported = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'protein.gb', content: `LOCUS       r ${sequence.length} bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..${sequence.length}
+                     /gene="c"
+                     /protein_id="AAA12345.1"
+                     /translation="${protein}"
+ORIGIN
+        1 ${sequence.toLowerCase()}
+//` });
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error(`Unexpected ${imported.type}`);
+  const [record] = imported.records;
+  const [feature] = record.features;
+  const saveNotices: string[] = [];
+  const saved = saveEditedFeature([record], 'r', 0, { ...feature, end: 6, segments: parts([0, 6]), locationString: undefined }, m => saveNotices.push(m));
+  expect(saved[0].features[0].metadata?.translation).toBe('MK');
+  const selection = sliceRecordsBySelection([record], 0, 6);
+  const reopened = parseProject(serializeProject(state(selection.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const notice = /\/protein_id.*AAA12345\.1/;
+  expect(saveNotices.some(message => notice.test(message))).toBe(!idKept);
+  expect(selection.losses.some(loss => notice.test(loss.reason))).toBe(!idKept);
+  for (const records of [saved, reopened.project.records]) {
+    const { text } = exportToGenBank(records);
+    expect(text).toContain('/translation="MK"');
+    expect(text.includes('/protein_id="AAA12345.1"')).toBe(idKept);
+  }
+  expect(feature.metadata).toMatchObject({ translation: protein, protein_id: 'AAA12345.1' });
+});
+
+it('keeps a one-interval selection of an ordered CDS unavailable after project reopen', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAACCCTAA', features: [
+    { ...parseLocation('order(1..6,10..12)'), type: 'CDS', name: 'ordered' },
+  ] };
+  const selection = sliceRecordsBySelection([record], 0, 6);
+  const reopened = parseProject(serializeProject(state(selection.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const [selected] = reopened.project.records;
+  const [feature] = selected.features;
+  expect(feature).toMatchObject({ operator: 'order', segments: [{ start: 0, end: 6, partialEnd: true }] });
+  expect(feature.metadata?.translation).toBeUndefined();
+  expect(conceptualTranslation(feature, selected)).toMatchObject({ status: 'unavailable', reason: 'nonlocal-location' });
+});
+
+it('uses the original feature key in a between-base selection loss', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATG', features: [
+    { ...parseLocation('1^2'), type: 'misc_feature', name: 'cut' },
+  ] };
+  const { losses } = sliceRecordsBySelection([record], 0, 1);
+  expect(losses.map(describeSelectionLoss)).toEqual([
+    'r: misc_feature cut: Between-base site omitted; both neighbouring bases must be selected',
+  ]);
 });

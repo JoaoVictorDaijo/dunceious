@@ -19,6 +19,7 @@
  */
 
 import type { SeqRecord } from './types';
+import { isCds } from './translation';
 import { featureTranslTable, isNcbiGeneticCode } from './sequence';
 export { validCodonStart } from './codonStart';
 import { validCodonStart } from './codonStart';
@@ -31,7 +32,7 @@ export function isGenBankResidue(character: string, protein = false): boolean {
 /** Omission reason for the GenBank writer and its preview; never repairs coordinates. */
 export function genBankExportProblem(record: SeqRecord): string | null {
   if ([...record.sequence].some(c => !isGenBankResidue(c, record.moleculeType === 'protein'))) return `${record.id} not exported: its sequence contains non-residue characters`;
-  for (const feature of record.features.filter(f => f.type === 'CDS')) {
+  for (const feature of record.features.filter(isCds)) {
     if (!validCodonStart(feature.metadata?.codon_start)) return `${record.id} not exported: CDS ${feature.name} has an invalid /codon_start`;
     if (!isNcbiGeneticCode(featureTranslTable(feature))) return `${record.id} not exported: CDS ${feature.name} has an invalid /transl_table`;
   }
