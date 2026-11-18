@@ -234,7 +234,7 @@ A file starts with `##gff-version 3` and includes `##sequence-region` per record
 | FASTA, modifiers off | ✓ | ✗ | ✗ |
 | FASTA, modifiers on | ✓ | ✗ | ✓ non-deprecated modifiers |
 
-Known limitations: feature metadata stores one string per qualifier key; repeated GenBank qualifiers except transl_except keep only the last value, so preservation refers to workspace values, not every occurrence in the original file. GFF3 cannot distinguish an unusual all-inner-complement join (`join(complement(...),complement(...))`) from a whole-feature complement with the same strand columns. Geometry, strand and phases survive, but exact extracted residue order is not guaranteed for that case; use project JSON for full fidelity.
+Known limitations: feature metadata stores one string per qualifier key; repeated GenBank qualifiers except transl_except keep only the last value, so preservation refers to workspace values, not every occurrence in the original file. Dunceious round-trips all-inner-complement joins (`join(complement(...),complement(...))`) in GFF3 using the `insdc_interval_strands=true` attribute to preserve evaluation order. That distinction depends on retaining the custom attribute when exchanging files with other tools.
 
 ### Remote alignment (EMBL-EBI)
 
