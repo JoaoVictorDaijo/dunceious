@@ -36,7 +36,7 @@ export interface HeaderData {
   name: string;
   /** Full DEFINITION text (multi-line values are space-joined) */
   definition: string;
-  /** True when the LOCUS line contains the word "circular" */
+  /** True when the LOCUS topology field is circular */
   isCircular: boolean;
   /** Molecule type derived from the LOCUS line unit field */
   moleculeType: 'dna' | 'rna' | 'protein';
@@ -56,14 +56,15 @@ export function parseHeader(lines: string[]): HeaderData {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (line.startsWith('LOCUS')) {
-      const parts = line.split(/\s+/);
-      id = parts[1] || 'Unknown';
+    if (/^LOCUS\s/.test(line)) {
+      const [, locus, length, unit, moleculeOrTopology, topology] = line.trimEnd().split(/\s+/);
+      id = locus || 'Unknown';
       name = id;
-      isCircular = line.toLowerCase().includes('circular');
-
-      const unit = line.match(/\s\d+\s+(bp|aa)(?=\s|$)/i)?.[1].toLowerCase();
-      moleculeType = unit === 'aa' ? 'protein' : classifyLocusMoleculeType(line) === 'rna' ? 'rna' : 'dna';
+      if (/^\d+$/.test(length) && /^(bp|aa)$/i.test(unit)) {
+        const topologyField = /^(linear|circular)$/i.test(moleculeOrTopology) ? moleculeOrTopology : topology;
+        isCircular = /^circular$/i.test(topologyField);
+        moleculeType = classifyLocusMoleculeType(line);
+      }
       continue;
     }
 
@@ -99,7 +100,7 @@ export function parseHeader(lines: string[]): HeaderData {
     }
 
     // Stop scanning at FEATURES or ORIGIN (data sections)
-    if (line.startsWith('FEATURES') || line.startsWith('ORIGIN')) break;
+    if (/^(?:FEATURES|ORIGIN)(?:\s|$)/.test(line)) break;
   }
 
   return { id, name, definition, accession: accession ?? version?.replace(/\.\d+$/, ''), version, isCircular, moleculeType };

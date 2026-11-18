@@ -90,12 +90,13 @@ function evaluatedIntervals(feature: Partial<Pick<BioFeature, 'strand' | 'segmen
   const perSegment = (feature.segments ?? []).some(segment => segment.strand !== undefined)
     || (feature.remoteParts ?? []).some(part => part.strand !== strand);
   const ordered = !perSegment && strand === -1 ? [...segments].reverse() : segments;
-  return ordered.map(segment => ({ segment, strand: segment.strand ?? strand }));
+  return ordered.filter(segment => segment.start !== segment.end)
+    .map(segment => ({ segment, strand: segment.strand ?? strand }));
 }
 
 /**
- * Whether the 5′ end of the sequence a location defines is partial: the marker on the interval read
- * first, `<` on its start when read forward or `>` on its end when complemented.
+ * Whether the first residue-bearing interval is partial at its 5′ end: `<` on its start when
+ * read forward or `>` on its end when complemented.
  */
 export function isFivePrimePartialLocation(feature: Partial<Pick<BioFeature, 'strand' | 'segments' | 'remoteParts'>>): boolean {
   const first = evaluatedIntervals(feature)[0];
@@ -103,7 +104,7 @@ export function isFivePrimePartialLocation(feature: Partial<Pick<BioFeature, 'st
 }
 
 /**
- * Whether the 3′ end is partial: the marker on the interval translated last, `>` on its end when
+ * Whether the 3′ end is partial: the marker on the last residue-bearing interval, `>` on its end when
  * read forward or `<` on its start when complemented. A marker on any other end leaves the 3′ end
  * complete, as the NCBI validator (table2asn 1.29.324) reads it.
  */

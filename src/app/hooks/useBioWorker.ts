@@ -170,7 +170,7 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     if (msg.type === 'PARSE_SUCCESS') {
       const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
       const assigned = result.next.slice(recordsRef.current.length).map(r => r.id);
-      const findings = (msg.findings ?? []).map(f => f.code === 'duplicate-locus'
+      const findings = (msg.findings ?? []).map(f => f.code === 'duplicate-locus' && f.record
         ? { ...f, message: `${f.record.name} was imported as ${assigned[f.record.index - 1]} because its LOCUS name is repeated.` } : f);
       setRecords(result.next);
       if (findings.length) {
@@ -335,7 +335,7 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     const ids = new Set(records.map(r => r.id));
     setImportNotes(previous => {
       const next = previous.flatMap(file => {
-        const findings = file.findings.filter(f => ids.has(file.recordIds?.[f.record.index - 1] ?? ''));
+        const findings = file.findings.filter(f => f.record && ids.has(file.recordIds?.[f.record.index - 1] ?? ''));
         return findings.length ? [findings.length === file.findings.length ? file : { ...file, findings }] : [];
       });
       return next.length === previous.length && next.every((file, i) => file === previous[i]) ? previous : next;

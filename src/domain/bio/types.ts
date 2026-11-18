@@ -229,7 +229,7 @@ export interface SearchHitProvenance {
 export interface GenBankFinding {
   tier: 'refuse' | 'warning';
   code: string;
-  record: { name: string; index: number };
+  record?: { name: string; index: number };
   feature?: { key: string; name: string };
   line?: number;
   message: string;

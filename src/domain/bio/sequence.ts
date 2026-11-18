@@ -398,9 +398,9 @@ export const detectMoleculeType = (seq: string): 'dna' | 'rna' | 'protein' => {
  * (mRNA, rRNA, tRNA, ncRNA…); everything else is DNA.
  */
 export const classifyLocusMoleculeType = (locusLine: string): 'dna' | 'rna' | 'protein' => {
-  const lower = locusLine.toLowerCase();
-  if (/\baa\b/.test(lower)) return 'protein';
-  if (lower.includes('rna')) return 'rna';
+  const [, , , unit, molecule] = locusLine.trim().split(/\s+/);
+  if (/^aa$/i.test(unit)) return 'protein';
+  if (/^bp$/i.test(unit) && /rna$/i.test(molecule)) return 'rna';
   return 'dna';
 };
 

@@ -130,12 +130,15 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 site that is the whole location, its `complement()`, or a local part inside a compound location.
 `parseLocation` reads `n^n+1`, and `n^1` at the end of a circular record, as the empty interval at
 boundary n (`start === end`). Whole-site features carry `BioFeature.betweenBases` and readers ask
-`isBetweenBasesSite`; a site inside a compound remains a zero-length segment. The site has length 0, no feature
+`isBetweenBasesSite`; a site inside a compound remains a zero-length segment. CDS completeness
+uses the first and last residue-bearing intervals in biological order. The site has length 0, no feature
 sequence, and is drawn as a rule on the boundary with a caret under it. GenBank export writes it
 back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) with
 `insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
 both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
-adjoin or lie outside the record. Local site parts inside `join`/`order` export and re-import as zero-length intervals.
+adjoin or lie outside the record. The shared location parser reserves `^` for exact sites,
+including when it reads the GFF3 `insdc_remote` attribute. Local site parts inside
+`join`/`order` export and re-import as zero-length intervals.
 Linear-edge sites are skipped and counted in `featuresWithoutInsdcLocation.linearEdgeSite`.
 A site used as a span end remains unsupported and is refused on import. Tested against S1 (Biopython 1.88: `[10:10]`,
 written back as `10^11`).

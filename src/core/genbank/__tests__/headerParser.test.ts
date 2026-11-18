@@ -43,6 +43,14 @@ describe('parseHeader – LOCUS line', () => {
     expect(parseHeader(lines).isCircular).toBe(true);
   });
 
+  it.each([
+    ['LOCUS       X                         10 bp ss-mRNA    circular PLN 01-JAN-2000', 'rna', true],
+    ['LOCUS X 10 bp circular', 'dna', true],
+    ['LOCUS X 10 aa linear', 'protein', false],
+  ])('classifies the declared molecule and topology fields in %s', (locus, moleculeType, isCircular) => {
+    expect(parseHeader([locus])).toMatchObject({ moleculeType, isCircular });
+  });
+
   it('defaults id to "Unknown" when no LOCUS line', () => {
     expect(parseHeader([]).id).toBe('Unknown');
   });

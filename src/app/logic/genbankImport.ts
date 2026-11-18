@@ -38,11 +38,14 @@ export function refusedGenBankIds(records: SeqRecord[]): BatchIdMap {
 }
 
 export function importDetails(files: ImportDiagnosticFile[]): string {
-  return files.map(file => `${file.filename}\n${file.findings.map(f => `Record ${f.record.index} (${f.record.name})${f.feature ? ` / ${f.feature.key} ${f.feature.name}` : ''}${f.line ? ` / line ${f.line}` : ''}: ${f.message}`).join('\n')}`).join('\n\n');
+  return files.map(file => `${file.filename}\n${file.findings.map(f => f.record
+    ? `Record ${f.record.index} (${f.record.name})${f.feature ? ` / ${f.feature.key} ${f.feature.name}` : ''}${f.line ? ` / line ${f.line}` : ''}: ${f.message}`
+    : f.message).join('\n')}`).join('\n\n');
 }
 
 export function importLog(file: ImportDiagnosticFile, refused: boolean): string {
-  const records = new Set(file.findings.map(f => f.record.index)).size;
+  const records = new Set(file.findings.flatMap(f => f.record ? [f.record.index] : [])).size;
   const groups = [...new Set(file.findings.map(f => f.code))].join(', ');
-  return refused ? `${file.filename} not opened: ${file.findings.length} problems in ${records} records (${groups})` : `${file.filename} opened with ${file.findings.length} import notes (${groups})`;
+  const scope = records ? ` in ${records} records` : '';
+  return refused ? `${file.filename} not opened: ${file.findings.length} problems${scope} (${groups})` : `${file.filename} opened with ${file.findings.length} import notes (${groups})`;
 }

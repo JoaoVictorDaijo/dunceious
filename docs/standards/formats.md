@@ -54,9 +54,9 @@ the CONTIG alternative. No additional tested parser equivalence is claimed.
 **Dunceious.** The reader returns records and exhaustive refusal/warning findings. It refuses
 unterminated entries, absent LOCUS/sequence, CONTIG-only data, unreadable length/unit,
 length discrepancies, non-residues and mixed nucleotide/protein categories. The category uses
-the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology retain the known
-[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
-ORIGIN retains characters for validation, removing only the leading count and whitespace.
+the length unit (`bp`/`aa`). DNA/RNA subtype and topology come from their own LOCUS fields.
+The reader recognizes the ORIGIN keyword at a field boundary and validates the original
+residue characters against the ASCII alphabet before normalizing their case.
 The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
 revision, alignment lock and validated molecule category before committing records or findings.
 App accumulates refused files in one dialog; accepted warnings stay in the StatusBar import
@@ -89,8 +89,11 @@ it does not prescribe Dunceious's name-selection algorithm.
 Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
 nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
 `old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
-value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
-resynchronising at the next feature/data boundary. Value validation is limited to CDS
+value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). A slash at the start of a
+continuation line remains text while a quoted qualifier is open. Embedded quotes use doubled
+quotes, and text after the closing quote is refused. Malformed qualifier and feature lines
+are reported with line numbers. The reader resumes at the next feature or data boundary.
+Value validation is limited to CDS
 `codon_start`, `transl_table` and `transl_except`; malformed translation exceptions strictly refuse import.
 `gap_type` is read only for the conditional requirement.
 

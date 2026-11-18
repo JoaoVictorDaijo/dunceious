@@ -21,7 +21,7 @@
 import { geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
 import { codeBreakMessage } from '@/src/domain/bio/translationExceptions';
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
-import { validCodonStart, isGenBankResidue } from '@/src/domain/bio/genbankValidation';
+import { validCodonStart } from '@/src/domain/bio/genbankValidation';
 import { featureTranslTable, isNcbiGeneticCode } from '@/src/domain/bio/sequence';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import type { FindingSink } from './findings';
@@ -35,8 +35,6 @@ export function validateRecord(record: SeqRecord, lines: string[], finding: Find
   else if (!length) finding('refuse', 'missing-length', `${record.id}'s LOCUS line has no readable sequence length and unit.`);
   if (!record.sequence.length) finding('refuse', lines.some(l => /^CONTIG\b/.test(l)) ? 'contig-only' : 'no-sequence', lines.some(l => /^CONTIG\b/.test(l)) ? 'Sequence is given as CONTIG (assembled from other records), which Dunceious cannot read yet.' : `${record.id} has no sequence.`);
   const protein = length?.[2].toLowerCase() === 'aa';
-  const invalid = [...record.sequence].findIndex(c => !isGenBankResidue(c, protein));
-  if (invalid !== -1) finding('refuse', 'invalid-residue', `The sequence contains "${record.sequence[invalid]}" at ${protein ? 'residue' : 'base'} ${invalid + 1}.`);
   if (length && Number(length[1]) !== record.sequence.length) finding('refuse', 'length-mismatch', `LOCUS says ${length[1]} ${length[2]}, but ORIGIN has ${record.sequence.length} residues.`);
   const table: Readonly<Record<string, KeyRule>> = protein ? FEATURE_TABLE.protein : FEATURE_TABLE.nucleotide;
   for (const feature of record.features) {
