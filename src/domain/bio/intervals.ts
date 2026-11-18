@@ -188,11 +188,10 @@ function clipFeature(
   if (writtenOrder) result.writtenOrder = writtenOrder;
   else delete result.writtenOrder;
   if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
-  if (selStart !== 0 || kept.length !== segments.length || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
+  const clipped = segments.some(segment => segment.start < segment.end && (segment.start < selStart || segment.end > selEnd));
+  if (selStart !== 0 || clipped || kept.length !== segments.length || result.start !== feature.start || result.end !== feature.end) {
     delete result.locationString;
   }
-
-  const clipped = segments.some(segment => segment.start < segment.end && (segment.start < selStart || segment.end > selEnd));
   if (!clipped) return result;
   if (feature.metadata) {
     result.metadata = { ...feature.metadata };
@@ -272,6 +271,9 @@ export function sliceRecordsBySelection(
   const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+    if (record.isCircular && slicedSeq === record.sequence && selStart <= 0 && selEnd >= seq.length) {
+      return { ...record, alignedSequence: undefined };
+    }
     const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
 
     const slicedFeatures = record.features
@@ -286,6 +288,12 @@ export function sliceRecordsBySelection(
           }
         }
         if (!result) return null;
+        const remoteCount = feature.remoteParts?.length ?? 0;
+        if (isCds(feature) && isOrderLocation(feature) && parts.length + remoteCount > 1
+          && result.segments?.length === 1 && remoteCount === 0) {
+          losses.push({ ...loss, reason: 'CDS omitted; one part of an order() CDS gives no defined product or frame' });
+          return null;
+        }
         const clipped = parts.some(part => part.start < part.end && (part.start < selStart || part.end > selEnd));
         if (clipped && isCds(feature)) losses.push({ ...loss, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);

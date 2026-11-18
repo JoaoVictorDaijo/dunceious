@@ -43,16 +43,19 @@ if Dunceious ever offers it, it must be labelled as such.
 
 **Dunceious.** Conforms ([#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225)). The
 parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`). Selection
-projects retain this operator even when just one interval survives. GenBank writes a rebuilt
+projects retain this operator on surviving features. GenBank writes a rebuilt
 multipart ordered location as `order(...)`. Readers ask
 `isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
 count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
 sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its
 intervals are drawn as separate bars that highlight together on hover. GFF3 export writes the
 private attribute `insdc_operator=order` on each row and import reads it back, including for a
-single retained interval. Projects saved before the field existed get it from their location
-text on load. Tested against O1 (Biopython 1.88
+single interval reopened from a project with an explicit operator. Projects saved before
+the field existed get it from their location text on load. Tested against O1 (Biopython 1.88
 write-back).
+
+**Owner decision 2026-11-18.** Every selection export omits a CDS clipped down to one part of an
+`order()` location and names the feature in the notice because the retained part gives no defined product or frame.
 
 ## LOC-3. `complement()`, whole feature or per interval
 
@@ -170,7 +173,8 @@ complement reverses sequence evaluation order.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
 GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
 follow evaluation order and `insdc_written_order` carries each row's written rank, including
-when an explicit minus-strand wrap splits into two rows.
+when an explicit minus-strand wrap splits into two rows. A selection of the full, unchanged circular
+sequence keeps the record topology and feature geometry.
 
 ## LOC-7. The sequence of a multi-interval feature
 

@@ -372,8 +372,6 @@ export function useFileHandlers(
         .map(sliced => ({
           ...sliced,
           alignedSequence: aligned?.substring(start, end),
-          // Source location text cannot describe coordinates rebased to a selection.
-          features: sliced.features.map(feature => ({ ...feature, locationString: undefined })),
         }));
     });
     const project = {

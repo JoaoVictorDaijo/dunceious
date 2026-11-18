@@ -245,7 +245,7 @@ ORIGIN
   expect(feature.metadata).toMatchObject({ translation: protein, protein_id: 'AAA12345.1' });
 });
 
-it('keeps a one-interval selection of an ordered CDS unavailable after project reopen', () => {
+it('omits a clipped one-part order CDS from a reopened project', () => {
   const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAACCCTAA', features: [
     { ...parseLocation('order(1..6,10..12)'), type: 'CDS', name: 'ordered' },
   ] };
@@ -254,10 +254,11 @@ it('keeps a one-interval selection of an ordered CDS unavailable after project r
   expect(reopened.ok).toBe(true);
   if (!reopened.ok) throw new Error(reopened.message);
   const [selected] = reopened.project.records;
-  const [feature] = selected.features;
-  expect(feature).toMatchObject({ operator: 'order', segments: [{ start: 0, end: 6, partialEnd: true }] });
-  expect(feature.metadata?.translation).toBeUndefined();
-  expect(conceptualTranslation(feature, selected)).toMatchObject({ status: 'unavailable', reason: 'nonlocal-location' });
+  expect(selected.sequence).toBe('ATGAAA');
+  expect(selected.features).toEqual([]);
+  expect(selection.losses.map(describeSelectionLoss)).toEqual([
+    'r: CDS ordered: CDS omitted; one part of an order() CDS gives no defined product or frame',
+  ]);
 });
 
 it('uses the original feature key in a between-base selection loss', () => {
@@ -268,4 +269,21 @@ it('uses the original feature key in a between-base selection loss', () => {
   expect(losses.map(describeSelectionLoss)).toEqual([
     'r: misc_feature cut: Between-base site omitted; both neighbouring bases must be selected',
   ]);
+});
+
+it.each([
+  [1, 'AAATAACCCATG', 'join(10..12,1..6)', 9, 6],
+  [-1, 'CATGGGTTATTT', 'complement(join(7..12,1..3))', 6, 3],
+] as const)('reopens a whole circular selection on strand %i', (strand, sequence, locationString, start, end) => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence, isCircular: true, features: [
+    { ...parseLocation(locationString), locationString, type: 'CDS', name: 'wrapped' },
+  ] };
+  const selected = sliceRecordsBySelection([record], 0, 12);
+  const reopened = parseProject(serializeProject(state(selected.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const [restored] = reopened.project.records;
+  expect(restored.isCircular).toBe(true);
+  expect(restored.features[0]).toMatchObject({ strand, start, end, locationString });
+  expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'MK' });
 });

@@ -20,11 +20,13 @@
 
 import { expect, it } from 'vitest';
 import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
-import { parseGenBank } from '@/src/core/genbank';
+import { describeSelectionLoss } from '@/src/core/exportReport';
+import { parseGenBank, exportToGenBank } from '@/src/core/genbank';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { applyAnnotations } from '../bioResponse';
+import { parseProject, serializeProject } from '../projectFile';
 
 function attachGff(record: SeqRecord, text: string): SeqRecord {
   const { features, details } = parseGFF3(text);
@@ -108,22 +110,40 @@ it('still reads private partial-end markers in existing CDS files', () => {
   expect(conceptualTranslation(record.features[0], record)).toMatchObject({ residues: 'VK' });
 });
 
-it('keeps translation unavailable after exporting and reattaching a clipped order CDS', () => {
+it('omits a clipped one-part order CDS from GFF3 and GenBank', () => {
   const { records } = parseGenBank(`LOCUS       x 12 bp DNA linear
 FEATURES             Location/Qualifiers
      CDS             order(1..6,10..12)
+                     /gene="ordered"
 ORIGIN
         1 ATGAAACCCTAA
 //`);
-  const [selected] = sliceRecordsBySelection(records, 0, 6).records;
-  const { text } = exportToGff3([selected]);
-  const attached = attachGff(selected, text);
-  const feature = attached.features.find(feature => feature.type === 'CDS')!;
+  const { records: selected, losses } = sliceRecordsBySelection(records, 0, 6);
+  const gff = parseGFF3(exportToGff3(selected).text);
+  const gb = parseGenBank(exportToGenBank(selected).text);
+  expect(gff.features.x?.some(feature => feature.type === 'CDS') ?? false).toBe(false);
+  expect(gb.records[0].sequence).toBe('ATGAAA');
+  expect(gb.records[0].features.some(feature => feature.type === 'CDS')).toBe(false);
+  expect(losses.map(describeSelectionLoss)).toEqual([
+    'x: CDS ordered: CDS omitted; one part of an order() CDS gives no defined product or frame',
+  ]);
+});
 
+it('preserves the order marker of a legacy one-part ordered CDS reopened from a project', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAA', features: [{
+    type: 'CDS', name: 'ordered', start: 0, end: 6, strand: 1, operator: 'order',
+    segments: [{ start: 0, end: 6, partialEnd: true }],
+  }] };
+  const project = parseProject(serializeProject({
+    records: [record], featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false,
+  }));
+  if (!project.ok) throw new Error(project.message);
+  const { text } = exportToGff3(project.project.records);
+  expect(text).toContain('insdc_operator=order');
+  const attached = attachGff(record, text);
+  const feature = attached.features.find(feature => feature.type === 'CDS')!;
+  expect(feature.operator).toBe('order');
   expect(conceptualTranslation(feature, attached)).toMatchObject({
     status: 'unavailable', reason: 'nonlocal-location',
   });
-  expect(feature.operator).toBe('order');
-  expect(feature.metadata?.translation).toBeUndefined();
-  expect(text).toContain('insdc_operator=order');
 });
