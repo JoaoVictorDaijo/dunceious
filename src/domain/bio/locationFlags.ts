@@ -20,6 +20,8 @@
 
 import type { BioFeature, FeatureSegment } from './types';
 
+export const SINGLE_ORDER_CDS_OMISSION = 'CDS omitted; one part of an order() CDS gives no defined product or frame';
+
 /**
  * `order()` (INSDC FT 11.4 §3.4.2.2): nothing is implied about joining the intervals (LOC-2).
  * The raw text answers only for features loaded before `operator` existed.

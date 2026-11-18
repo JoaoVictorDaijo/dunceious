@@ -276,3 +276,16 @@ it.each(['selection', 'edit'] as const)('keeps forward Sec after a minus-majorit
   expect(cds.translationExceptions).toEqual(['(pos:4..6,aa:Sec)']);
   expect(conceptualTranslation(cds, result[0])).toMatchObject({ status: 'ok', residues: 'MU' });
 });
+
+it.each(['GFF3', 'project'])('omits the one-part ordered CDS from GenBank after reopening %s', format => {
+  const seed = reopenGenBank(genBank('ATGAAATAA', '1..9', '', false, 'misc_feature'));
+  const record = attachGff(seed, '##gff-version 3\nr\t.\tCDS\t1\t9\t.\t+\t0\tID=c;insdc_operator=order\n');
+  record.features.unshift(seed.features.find(feature => feature.type === 'source')!);
+  const restored = format === 'project' ? reopenProject(record) : record;
+  const result = exportToGenBank([restored]);
+  const reopened = reopenGenBank(result.text);
+  expect(reopened.features.map(feature => feature.type)).toEqual(['source']);
+  expect(result.report).toMatchObject({
+    genBankFeaturesOmitted: ['r: CDS c: CDS omitted; one part of an order() CDS gives no defined product or frame'],
+  });
+});

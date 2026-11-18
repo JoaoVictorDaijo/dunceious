@@ -18,7 +18,6 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { useUiEffects } from '@/src/app/components/uiEffects';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -138,20 +137,20 @@ export default function ExportDialog({ featureColors, records, state, onClose, o
     const values = pickIds(label);
     return { label, values, active: quickPick === label };
   });
+  const genBankWritten = report?.genBankWritten;
   const gff3Written = report?.gff3Written;
   const exportedAnnotationCount = useMemo(() => {
     if (format === 'fasta') return 0;
     if (format === 'gff3') return gff3Written?.annotations ?? 0;
-    const eligible = exportRecordsForOptions(writtenRecords, format, options);
-    return eligible.reduce((total, record) => total + annotationFeatures(record).filter(feature =>
-      format !== 'genbank' || feature.locationString
-      || formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular }).kind === 'insdc').length, 0);
-  }, [writtenRecords, format, options, gff3Written]);
+    if (format === 'genbank') return genBankWritten?.annotations ?? 0;
+    return writtenRecords.reduce((total, record) => total + annotationFeatures(record).length, 0);
+  }, [writtenRecords, format, genBankWritten, gff3Written]);
   const exportedEditCount = useMemo(() => {
     if (format === 'fasta') return 0;
     if (format === 'gff3') return gff3Written?.edited ?? 0;
-    return exportRecordsForOptions(writtenRecords, format, options).reduce((total, record) => total + hubEditCounts(record.features).total, 0);
-  }, [writtenRecords, format, options, gff3Written]);
+    if (format === 'genbank') return genBankWritten?.edited ?? 0;
+    return writtenRecords.reduce((total, record) => total + hubEditCounts(record.features).total, 0);
+  }, [writtenRecords, format, genBankWritten, gff3Written]);
   const swatch = (type: string) => <span key={type} data-type-swatch aria-hidden="true" className="inline-block h-[9px] w-[9px] shrink-0 rounded-sm" style={{ backgroundColor: getFeatureColor(type, featureColors) }} />;
   const setType = (type: string, checked: boolean) => setTypes(prev => { const next = new Set(prev ?? availableTypes); if (checked) next.add(type); else next.delete(type); return next; });
 

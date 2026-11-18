@@ -23,7 +23,7 @@ import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
-import { isBetweenBasesSite, isOrderLocation } from './locationFlags';
+import { isBetweenBasesSite, isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from './locationFlags';
 import { expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
 
 export { splitWrapAround } from './featureParts';
@@ -273,7 +273,7 @@ export function sliceRecordsBySelection(
         const remoteCount = feature.remoteParts?.length ?? 0;
         if (isCds(feature) && isOrderLocation(feature) && parts.length + remoteCount > 1
           && result.segments?.length === 1 && remoteCount === 0) {
-          losses.push({ ...loss, reason: 'CDS omitted; one part of an order() CDS gives no defined product or frame' });
+          losses.push({ ...loss, reason: SINGLE_ORDER_CDS_OMISSION });
           return null;
         }
         const clipped = parts.some(part => part.start < part.end && (part.start < selStart || part.end > selEnd));

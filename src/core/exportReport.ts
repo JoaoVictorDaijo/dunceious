@@ -26,6 +26,8 @@ export interface ExportReport {
   translationWarnings: string[];
   qualifierWarnings: string[];
   gapRecordsOmitted: string[];
+  genBankWritten: { annotations: number; edited: number };
+  genBankFeaturesOmitted: string[];
   genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
   emptyRowsOmitted: string[];
@@ -49,6 +51,7 @@ export interface ExportResult { text: string; unalignedText?: string; report: Ex
 export function emptyReport(): ExportReport {
   return {
     featuresWithoutInsdcLocation: { linearEdgeSite: 0, invalidGeometry: 0 },
+    genBankWritten: { annotations: 0, edited: 0 }, genBankFeaturesOmitted: [],
     translationWarnings: [], qualifierWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },

@@ -26,6 +26,7 @@ import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { hasMixedLocalStrands, splitFeaturePart } from '@/src/domain/bio/featureParts';
 import { expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
+import { isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from '@/src/domain/bio/locationFlags';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
@@ -111,7 +112,12 @@ function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportR
     report.featuresWithoutInsdcLocation[location.reason === 'linear-edge-site' ? 'linearEdgeSite' : 'invalidGeometry']++;
     return null;
   }
-  return writtenNestedLocation(feature, record) ?? location.text;
+  const text = writtenNestedLocation(feature, record) ?? location.text;
+  if (isCds(feature) && isOrderLocation(feature) && !isOrderLocation({ locationString: text })) {
+    report.genBankFeaturesOmitted.push(`${record.id}: CDS ${feature.name}: ${SINGLE_ORDER_CDS_OMISSION}`);
+    return null;
+  }
+  return text;
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
@@ -160,6 +166,10 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     const text = featureLocation(feature, r, report);
     if (text === null) continue;
+    if (feature.type !== 'source') {
+      report.genBankWritten.annotations++;
+      if (feature.hubEdit === 'edited' || feature.hubEdit === 'added') report.genBankWritten.edited++;
+    }
     gb += `     ${feature.type.padEnd(15)} ${text}\n`;
     const metadata = { ...feature.metadata };
     if (!isCds(feature)) delete metadata.translation;

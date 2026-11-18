@@ -465,3 +465,16 @@ it('excludes an edited feature wholly in another record from the GFF3 preview co
   expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
   expect(screen.getByText('1 edited or added')).toBeDefined();
 });
+
+it('shows the named GenBank omission of a one-part ordered CDS and counts only written features', () => {
+  const value: SeqRecord[] = [{ id: 'x', name: 'x', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, operator: 'order', hubEdit: 'edited' },
+  ] }];
+  render(<Subject value={value} selected={['x']} />);
+  open();
+  format('GenBank');
+
+  expect(screen.getByText('x: CDS c: CDS omitted; one part of an order() CDS gives no defined product or frame')).toBeTruthy();
+  expect(exportSummary()).toBe('1 sequence · 0 annotations → sequences.gb');
+  expect(screen.getByText('0 edited or added')).toBeTruthy();
+});

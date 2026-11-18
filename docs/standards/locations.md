@@ -56,6 +56,8 @@ write-back).
 
 **Owner decision 2026-11-18.** Every selection export omits a CDS clipped down to one part of an
 `order()` location and names the feature in the notice because the retained part gives no defined product or frame.
+GenBank export also omits and names a one-part ordered CDS when formatting would drop the
+operator. The preview and export log report the same reason.
 
 ## LOC-3. `complement()`, whole feature or per interval
 
