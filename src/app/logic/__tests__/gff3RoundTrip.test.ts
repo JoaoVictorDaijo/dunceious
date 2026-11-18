@@ -260,5 +260,8 @@ it('preserves both open boundaries on an attached full-length GFF3 source region
   expect(source.split('\t')[8].split(';')).toEqual(expect.arrayContaining(['partial=true', 'start_range=.,1', 'end_range=9,.']));
   const reread = parseGFF3(text);
   expect(reread.details.r.feature.segments).toEqual([{ start: 0, end: 9, partialStart: true, partialEnd: true }]);
-  expect(exportToGenBank(attached.next).text).toContain('     source          <1..>9\n');
+  const selected = sliceRecordsBySelection(attached.next, 0, 9);
+  const genbank = exportToGenBank(selected.records).text;
+  expect(genbank).toContain('     source          <1..>9\n');
+  expect(reopenGenBank(genbank).features[0].segments).toEqual([{ start: 0, end: 9, partialStart: true, partialEnd: true }]);
 });

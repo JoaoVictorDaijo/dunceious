@@ -59,14 +59,13 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature): SeqRecord {
   }
   if (listsAdded) merged._gffLists = JSON.stringify(lists);
   const parts = source.segments?.length ? source.segments : [{ start: source.start, end: source.end }];
-  let geometryChanged = false;
   const segments = parts.map(part => {
     const markStart = bounds?.partialStart && part.start === bounds.start && !part.partialStart;
     const markEnd = bounds?.partialEnd && part.end === bounds.end && !part.partialEnd;
     if (!markStart && !markEnd) return part;
-    geometryChanged = true;
     return { ...part, ...(markStart && { partialStart: true as const }), ...(markEnd && { partialEnd: true as const }) };
   });
+  const geometryChanged = segments.some((part, i) => part !== parts[i]);
   const mergedSource = { ...source, metadata: merged, ...(geometryChanged && { segments, locationString: undefined }) };
   return { ...updated, features: updated.features.map((feature, index) => index === sourceIndex ? mergedSource : feature) };
 }
