@@ -259,13 +259,11 @@ it('refuses damaged residues and unequal alignment widths, and accepts valid ali
   expect(parseProject(serializeProject(state)).ok).toBe(true);
 });
 
-// Codex review of #306, round 3: a saved location the parser cannot read (here the obsolete 2.3)
-// leaves the feature as saved instead of failing the whole project load.
-it('loads a project whose saved location text cannot be parsed, keeping the feature as saved', () => {
-  const legacy = { ...record, sequence: 'ACGT', alignedSequence: undefined,
-    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
-  const result = parseProject(serializeProject({ ...state, records: [legacy] }));
-  expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+it('refuses an unsupported legacy single-base range in retained location text', () => {
+  const legacy: SeqRecord = { ...record, sequence: 'ACGT', alignedSequence: undefined,
+    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' }] };
+  expect(parseProject(serializeProject({ ...state, records: [legacy] }))).toEqual({ ok: false,
+    message: 'Feature f location "2.3" could not be read.' });
 });
 
 it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
@@ -317,4 +315,13 @@ it('refuses a structured CDS join paired with retained order text', () => {
   }] }];
   expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
     message: 'Feature contradiction location "order(1..3,7..9)" disagrees with its stored operator.' });
+});
+
+it('refuses an unreadable retained location alongside a valid structured CDS', () => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGAAATAA', alignedSequence: undefined, features: [{
+    type: 'CDS', name: 'unreadable', strand: 1, start: 0, end: 9, segments: [{ start: 0, end: 9 }],
+    locationString: 'join(1..3,2^>3)',
+  }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
+    message: 'Feature unreadable location "join(1..3,2^>3)" could not be read.' });
 });

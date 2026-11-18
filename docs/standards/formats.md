@@ -411,8 +411,9 @@ private state with format 2; `src/app/logic/projectFile.ts:87` validates local s
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
 rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
 (2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
-aligned rows with unequal widths. After recovering supported legacy location fields, project load
-refuses a parseable retained location that disagrees with the stored operator or geometry. The format
+aligned rows with unequal widths. Project load refuses unreadable retained locations and names the
+feature and location text. After recovering supported legacy location fields, it also refuses a
+retained location that disagrees with the stored operator or geometry. The format
 remains 2, and each existing aligned-row residue
 check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source

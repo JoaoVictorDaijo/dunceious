@@ -129,12 +129,12 @@ function matchesLegacyParts(stored: FeatureSegment[] | undefined, parsed: Featur
  * segments then, so a feature that has them is re-read from its text whole (#245).
  */
 function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature {
-  if (!feature.locationString) return feature;
-  let parsed: ReturnType<typeof parseLocation>;
-  // Text saved before import validation may not parse; the feature then stays as it was saved.
-  try { parsed = parseLocation(feature.locationString); } catch { return feature; }
-
+  if (feature.locationString === undefined) return feature;
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
+  let parsed: ReturnType<typeof parseLocation>;
+  try { parsed = parseLocation(feature.locationString); }
+  catch { throw new Error(description + ' could not be read.'); }
+
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {
     throw new Error(description + ' disagrees with its stored operator.');
   }
