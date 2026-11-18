@@ -26,7 +26,7 @@ import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
-import { splitFeaturePart } from '@/src/domain/bio/featureParts';
+import { splitFeaturePart, type LocationRecord } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -140,6 +140,89 @@ function addQualifiers(
   }
 }
 
+function appendFeatureRows(
+  lines: string[],
+  feature: BioFeature,
+  featureId: string,
+  landmark: LocationRecord & { seqid: string },
+  oldIds: Map<string, string | null>,
+  report: ExportReport,
+): void {
+  if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
+  if (feature.type === 'source') return;
+  const remote = feature.remoteParts ?? [];
+  // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
+  if (remote.length && !feature.segments?.length) {
+    report.remoteOnlyOmitted++;
+    return;
+  }
+  const stored = feature.segments?.length ? feature.segments : [{ start: feature.start, end: feature.end }];
+  const split = stored.map(segment => splitFeaturePart(segment, landmark));
+  const segments = split.flat();
+  const phases = partPhases(feature, segments);
+  const so = soTypeFor(feature.type);
+  const metadata = feature.metadata ?? {};
+  const attrs: Record<string, string | string[]> = { ID: featureId, Name: feature.name };
+  addQualifiers(attrs, metadata, oldIds, report);
+  if (feature.translationExceptions?.length) attrs.transl_except = feature.translationExceptions;
+  const searchNote = searchHitNote(feature);
+  if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
+  if (so.original) attrs.insdc_type = so.original;
+  if (isOrderLocation(feature) && segments.length + remote.length > 1) attrs.insdc_operator = 'order';
+  // GFF3 cannot tell join(complement(a),complement(b)) from complement(join(a,b)) (LOC-3).
+  if (segments.some(segment => segment.strand !== undefined)) {
+    attrs.insdc_interval_strands = 'true';
+    // Splitting one interval can change the majority without changing the stored parent orientation.
+    if (majorityStrand([...segments, ...remote]) !== feature.strand) attrs.insdc_parent_strand = feature.strand === -1 ? '-' : '+';
+  }
+  // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
+  if (feature.writtenOrder?.length === stored.length) {
+    const order = feature.writtenOrder;
+    let nextRank = 0;
+    const ranks = split.map((): string[] => []);
+    for (const i of order.map((_, i) => i).sort((a, b) => order[a] - order[b])) {
+      ranks[i] = split[i].map(() => String(nextRank++));
+    }
+    attrs.insdc_written_order = ranks.flat();
+  }
+  if (remote.length) {
+    // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
+    attrs.insdc_remote = [...remote].sort((a, b) => a.index - b.index).map((part, precedingRemotes) => {
+      const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
+      const precedingLocal = part.index - precedingRemotes;
+      const index = split.slice(0, precedingLocal).reduce((n, pieces) => n + pieces.length - 1, part.index);
+      return `${index}:${part.strand === -1 ? `complement(${span})` : span}`;
+    });
+    report.remotePartsCarried++;
+  }
+  if (isBetweenBasesSite(feature)) {
+    // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
+    attrs.insdc_site = 'true';
+    const direction = getFeatureStrand(feature);
+    const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
+    lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(feature.start), String(feature.start), metadata.score ?? '.', strand, phases[0], attributeText(attrs)].join('\t'));
+    return;
+  }
+  const ncbiPartial = isCds(feature) && segments.some(segment => segment.partialStart || segment.partialEnd);
+  if (ncbiPartial) attrs.partial = 'true';
+  segments.forEach((segment, index) => {
+    const partAttrs = { ...attrs };
+    if (index > 0) delete partAttrs.transl_except;
+    const site = segment.start === segment.end;
+    if (site) partAttrs.insdc_site = 'true';
+    if (ncbiPartial) {
+      if (segment.partialStart) partAttrs.start_range = ['.', String(segment.start + 1)];
+      if (segment.partialEnd) partAttrs.end_range = [String(segment.end), '.'];
+    } else {
+      if (segment.partialStart) partAttrs.insdc_partial_start = '<';
+      if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
+    }
+    const direction = segment.strand ?? getFeatureStrand(feature);
+    const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
+    lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
+  });
+}
+
 export function exportToGff3(records: SeqRecord[]): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
@@ -170,81 +253,9 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
+    const landmark = { seqid: id, length, isCircular: record.isCircular };
     for (const [featureIndex, feature] of record.features.entries()) {
-      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
-      if (feature.type === 'source') continue;
-      const remote = feature.remoteParts ?? [];
-      // GFF3 rows are in this record only; a feature wholly in other entries has none (#245).
-      if (remote.length && !feature.segments?.length) {
-        report.remoteOnlyOmitted++;
-        continue;
-      }
-      const stored = feature.segments?.length ? feature.segments : [{ start: feature.start, end: feature.end }];
-      const circular = { length, isCircular: record.isCircular };
-      const split = stored.map(segment => splitFeaturePart(segment, circular));
-      const segments = split.flat();
-      const phases = partPhases(feature, segments);
-      const so = soTypeFor(feature.type);
-      const metadata = feature.metadata ?? {};
-      const attrs: Record<string, string | string[]> = { ID: ids[featureIndex], Name: feature.name };
-      addQualifiers(attrs, metadata, referenceIds, report);
-      if (feature.translationExceptions?.length) attrs.transl_except = feature.translationExceptions;
-      const searchNote = searchHitNote(feature);
-      if (searchNote) attrs.Note = [...(Array.isArray(attrs.Note) ? attrs.Note : attrs.Note ? [attrs.Note] : []), searchNote];
-      if (so.original) attrs.insdc_type = so.original;
-      if (isOrderLocation(feature) && segments.length + remote.length > 1) attrs.insdc_operator = 'order';
-      // GFF3 cannot tell join(complement(a),complement(b)) from complement(join(a,b)) (LOC-3).
-      if (segments.some(segment => segment.strand !== undefined)) {
-        attrs.insdc_interval_strands = 'true';
-        // Splitting one interval can change the majority without changing the stored parent orientation.
-        if (majorityStrand([...segments, ...remote]) !== feature.strand) attrs.insdc_parent_strand = feature.strand === -1 ? '-' : '+';
-      }
-      // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
-      if (feature.writtenOrder?.length === stored.length) {
-        const order = feature.writtenOrder;
-        let nextRank = 0;
-        const ranks = split.map((): string[] => []);
-        for (const i of order.map((_, i) => i).sort((a, b) => order[a] - order[b])) {
-          ranks[i] = split[i].map(() => String(nextRank++));
-        }
-        attrs.insdc_written_order = ranks.flat();
-      }
-      if (remote.length) {
-        // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
-        attrs.insdc_remote = [...remote].sort((a, b) => a.index - b.index).map((part, precedingRemotes) => {
-          const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
-          const precedingLocal = part.index - precedingRemotes;
-          const index = split.slice(0, precedingLocal).reduce((n, pieces) => n + pieces.length - 1, part.index);
-          return `${index}:${part.strand === -1 ? `complement(${span})` : span}`;
-        });
-        report.remotePartsCarried++;
-      }
-      if (isBetweenBasesSite(feature)) {
-        // GFF3 1.26: a zero-length feature has start equal to end, the site to the right of that base.
-        attrs.insdc_site = 'true';
-        const direction = getFeatureStrand(feature);
-        const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(feature.start), String(feature.start), metadata.score ?? '.', strand, phases[0], attributeText(attrs)].join('\t'));
-        continue;
-      }
-      const ncbiPartial = isCds(feature) && segments.some(segment => segment.partialStart || segment.partialEnd);
-      if (ncbiPartial) attrs.partial = 'true';
-      segments.forEach((segment, index) => {
-        const partAttrs = { ...attrs };
-        if (index > 0) delete partAttrs.transl_except;
-        const site = segment.start === segment.end;
-        if (site) partAttrs.insdc_site = 'true';
-        if (ncbiPartial) {
-          if (segment.partialStart) partAttrs.start_range = ['.', String(segment.start + 1)];
-          if (segment.partialEnd) partAttrs.end_range = [String(segment.end), '.'];
-        } else {
-          if (segment.partialStart) partAttrs.insdc_partial_start = '<';
-          if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
-        }
-        const direction = segment.strand ?? getFeatureStrand(feature);
-        const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-        lines.push([id, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
-      });
+      appendFeatureRows(lines, feature, ids[featureIndex], landmark, referenceIds, report);
     }
   }
   return { text: lines.join('\n') + '\n', report };

@@ -36,6 +36,14 @@ lives in `src/core/formats/soTypes.ts`; the original key is kept in an `insdc_ty
 (`src/core/formats/gff3.ts:179`), where NCBI uses `gbkey`. Features crossing the origin are
 written as split rows; see LOC-6.
 
+For a feature with explicit interval strands (`insdc_interval_strands=true`), Dunceious writes
+the private `insdc_parent_strand` attribute when the exported intervals' majority strand differs
+from the stored feature strand. Splitting an interval at the circular origin can change that
+majority. The value `+` or `-` records the feature-level orientation. On import of per-interval
+locations, that value restores the feature strand while each interval keeps its own strand.
+Without a recognized value, import uses the majority across local and remote intervals, with ties
+resolved to `+`. The attribute is consumed during import.
+
 
 ## FMT-2. GenBank entries, headers and sequence layout
 
