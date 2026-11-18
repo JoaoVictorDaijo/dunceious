@@ -27,6 +27,8 @@ import { extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { saveEditedFeature } from '../featureManager';
+import { featureFocusTarget } from '../focusTarget';
+import { featureSequenceViews } from '../viewModel';
 import { applyAnnotations } from '../bioResponse';
 import { parseProject, serializeProject } from '../projectFile';
 
@@ -326,4 +328,33 @@ it.each([
     start: 8, end: 5, strand, segments,
     remoteParts: [{ accession: 'AB123.1', start: 0, end: 2, index: 1, strand }],
   });
+});
+
+it.each([
+  { location: 'complement(join(AB123.1:1..2,complement(join(9..12,1..2))))', circular: true,
+    span: { start: 8, end: 2 }, region: 'CTAAAT', ranks: [0, 1] },
+  { location: 'complement(join(AB123.1:1..2,complement(join(complement(9..12),12^1,complement(1..2)))))', circular: true,
+    span: { start: 8, end: 2 }, region: 'CTAAAT', ranks: [0, 1, 2] },
+  { location: 'complement(join(complement(join(2..4,5^6,7..9))))', circular: false,
+    span: { start: 1, end: 9 }, region: 'TGAAACCC', ranks: [0, 1, 2] },
+  { location: 'complement(join(complement(join(complement(2..4),complement(7..9)))))', circular: false,
+    span: { start: 1, end: 9 }, region: 'TGAAACCC', ranks: [0, 1] },
+] as const)('keeps nested identity ranks for focus, region and project reopen in $location', ({ location, circular, span, region, ranks }) => {
+  const record = reopenGenBank(genBank('ATGAAACCCTAA', location, '', circular, 'misc_feature'));
+  const annotation = record.features[0];
+  expect(featureFocusTarget(record, annotation)).toMatchObject(span);
+  expect(featureSequenceViews(record, annotation)).toMatchObject({
+    region, regionLength: region.length, regionStart: span.start, regionEnd: span.end,
+  });
+  expect(annotation.writtenOrder).toEqual(ranks);
+
+  const legacy = { ...record, features: [{ ...annotation, writtenOrder: undefined }, ...record.features.slice(1)] };
+  const reopened = reopenProject(legacy);
+  const selected = sliceRecordsBySelection([reopened], 0, 12).records[0];
+  expect(selected.features[0].writtenOrder).toEqual(ranks);
+  expect(featureFocusTarget(selected, selected.features[0])).toMatchObject(span);
+
+  const roundTrip = attachGff(record, exportToGff3([record]).text);
+  const converted = roundTrip.features.find(feature => feature.type === 'misc_feature')!;
+  expect(featureFocusTarget(roundTrip, converted)).toMatchObject(span);
 });

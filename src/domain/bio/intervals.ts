@@ -164,13 +164,15 @@ function clipFeature(
     segments: feature.segments?.length || feature.start > feature.end || newSegments.some(s => s.partialStart || s.partialEnd)
       ? newSegments : undefined,
   };
-  const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
-  if (writtenOrder) result.writtenOrder = writtenOrder;
-  else delete result.writtenOrder;
   if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
   const clipped = segments.some(segment => segment.start < segment.end && (segment.start < selStart || segment.end > selEnd));
   if (selStart !== 0 || clipped || kept.length !== segments.length || result.start !== feature.start || result.end !== feature.end) {
     delete result.locationString;
+  }
+  if (!result.locationString) {
+    const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
+    if (writtenOrder) result.writtenOrder = writtenOrder;
+    else delete result.writtenOrder;
   }
   if (!clipped) return result;
   if (feature.metadata) {

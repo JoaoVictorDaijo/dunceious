@@ -59,7 +59,7 @@ export interface LocationData {
   end: number;
   operator?: LocationOperator;
   betweenBases?: true;
-  /** Written position of each stored segment, when it differs from the stored (evaluation) order. */
+  /** Written position of each stored segment in evaluation order. */
   writtenOrder?: number[];
   remoteParts?: RemotePart[];
 }
@@ -184,7 +184,8 @@ export function parseLocation(loc: string): LocationData {
     // The parent strand is the majority (ties resolve to +1).
     segments = evaluated.map(interval => ({ ...strip(interval), strand: interval.strand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
-    if (evaluated.some((interval, i) => interval.written !== i)) writtenOrder = evaluated.map(interval => interval.written);
+    // An outer complement can leave the local order unchanged after its inner reversals.
+    if (outerComplement || evaluated.some((interval, i) => interval.written !== i)) writtenOrder = evaluated.map(interval => interval.written);
   } else {
     segments = written.map(strip);
     strand = strands[0] ?? 1;
