@@ -32,6 +32,106 @@ function refuseEmptyLocationEdit(feature: BioFeature, addLog: (message: string) 
   return true;
 }
 
+function prepareEditedFeature(feature: BioFeature, previous: BioFeature | undefined, hubEdit: 'added' | 'edited') {
+  const boundsChanged = !previous || previous.start !== feature.start || previous.end !== feature.end
+    || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments);
+  const orderChanged = JSON.stringify(previous?.writtenOrder) !== JSON.stringify(feature.writtenOrder);
+  const marked = {
+    ...feature,
+    ...(boundsChanged || orderChanged ? featureEnvelope(feature) : {}),
+    hubEdit,
+    metadata: { ...feature.metadata },
+  };
+  if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) {
+    marked.segments = [{ start: marked.start, end: marked.end }];
+  }
+  if (previous && (boundsChanged || previous.strand !== feature.strand
+    || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
+    delete marked.metadata.phase;
+    delete marked.metadata._gffPhases;
+    delete marked.metadata._gffPhaseState;
+  }
+  return marked;
+}
+
+function translationInputsChanged(previous: BioFeature | undefined, marked: BioFeature): boolean {
+  return !previous || !isCds(previous) || previous.start !== marked.start || previous.end !== marked.end
+    || getFeatureStrand(previous) !== getFeatureStrand(marked)
+    || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
+    || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
+    || JSON.stringify(previous.translationExceptions ?? []) !== JSON.stringify(marked.translationExceptions ?? [])
+    || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
+}
+
+function reconcileCodeBreaks(
+  marked: BioFeature,
+  previous: BioFeature | undefined,
+  record: SeqRecord,
+  addLog: (message: string) => void,
+): boolean {
+  const previousEvidence = previous ? geometryCodeBreakEvidence(previous, record) : [];
+  const matched = matchPreviousOccurrences(previous?.translationExceptions ?? [], marked.translationExceptions ?? []);
+  const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, record) : undefined;
+  if (previous && displacement !== undefined) {
+    marked.translationExceptions = marked.translationExceptions?.map((raw, i) => matched[i] !== undefined && previousEvidence[matched[i]!]?.status === 'applied'
+      ? transformCodeBreak(raw, previous.strand, displacement, true, record.isCircular ? record.sequence.length : undefined) : raw);
+  }
+  const evaluated = geometryCodeBreakEvidence(marked, record);
+  const dropped = new Set<number>();
+  for (const evidence of evaluated) {
+    const previousOccurrence = matched[evidence.occurrence];
+    const inherited = previousOccurrence !== undefined && previousEvidence[previousOccurrence]?.status === 'applied';
+    if (evidence.status === 'malformed' && !inherited) {
+      addLog(`WARNING: ${codeBreakMessage(evidence)}; Save refused`);
+      return false;
+    }
+    if (evidence.status === 'dropped' || (evidence.status === 'malformed' && inherited)) {
+      addLog(`WARNING: ${codeBreakMessage(evidence)}; removed before Save`);
+      dropped.add(evidence.occurrence);
+    }
+  }
+  if (dropped.size) marked.translationExceptions = marked.translationExceptions?.filter((_, i) => !dropped.has(i));
+  return true;
+}
+
+function updateEditedTranslation(
+  marked: ReturnType<typeof prepareEditedFeature>,
+  previous: BioFeature | undefined,
+  record: SeqRecord,
+  changed: boolean,
+  addLog: (message: string) => void,
+): void {
+  if (!isCds(marked)) {
+    if (marked.metadata.translation !== undefined) addLog(`Translation removed from ${marked.name}: feature is not a CDS`);
+    delete marked.metadata.translation;
+    delete marked.metadata._translationSource;
+    delete marked.metadata._translationCheck;
+  } else if (changed) {
+    const result = conceptualTranslation(marked, record);
+    const reason = translationReason(result, marked);
+    if (result.status === 'ok' && !result.internalStops.length) {
+      marked.metadata.translation = result.residues;
+      marked.metadata._translationSource = 'computed';
+      marked.metadata._translationMessage = previous ? 'Translation recomputed after edit' : 'Translation computed at creation';
+    } else {
+      delete marked.metadata.translation;
+      marked.metadata._translationSource = 'removed';
+      marked.metadata._translationMessage = `${previous ? 'Translation removed after edit' : 'No translation stored at creation'}: ${reason}`;
+      addLog(`WARNING: ${marked.name}: ${reason}`);
+    }
+  } else {
+    for (const key of ['translation', '_translationSource', '_translationMessage']) {
+      delete marked.metadata[key];
+      const inherited = previous?.metadata?.[key];
+      if (inherited !== undefined) marked.metadata[key] = inherited;
+    }
+  }
+  if (previous && isCds(previous) && (changed || !isCds(marked))) {
+    const notice = removeChangedProteinId(previous, marked, record);
+    if (notice) addLog(`WARNING: ${record.id}: ${marked.type} ${marked.name}: ${notice}`);
+  }
+}
+
 /** Insert (featureIndex === -1) or replace a feature on the matching record. */
 export function saveEditedFeature(
   records: SeqRecord[],
@@ -40,83 +140,20 @@ export function saveEditedFeature(
   feature: BioFeature,
   addLog: (message: string) => void = () => {},
 ): SeqRecord[] {
-  return records.map(r => {
-    if (r.id !== recordId) return r;
-    if (refuseEmptyLocationEdit(feature, addLog)) return r;
-    const newFeatures = [...r.features];
-    const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
-    const previous = r.features[featureIndex];
-    const boundsChanged = !previous || previous.start !== feature.start || previous.end !== feature.end
-      || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments);
-    const orderChanged = JSON.stringify(previous?.writtenOrder) !== JSON.stringify(feature.writtenOrder);
-    const marked: BioFeature = { ...feature, ...(boundsChanged || orderChanged ? featureEnvelope(feature) : {}), hubEdit };
-    if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
-    if (previous && (boundsChanged || previous.strand !== feature.strand
-      || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
-      marked.metadata = { ...feature.metadata };
-      delete marked.metadata.phase;
-      delete marked.metadata._gffPhases;
-      delete marked.metadata._gffPhaseState;
-    }
-    const changed = !previous || !isCds(previous) || previous.start !== marked.start || previous.end !== marked.end
-      || getFeatureStrand(previous) !== getFeatureStrand(marked)
-      || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
-      || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
-      || JSON.stringify(previous.translationExceptions ?? []) !== JSON.stringify(marked.translationExceptions ?? [])
-      || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
-    marked.metadata = { ...marked.metadata };
-    const previousEvidence = previous ? geometryCodeBreakEvidence(previous, r) : [];
-    const matched = matchPreviousOccurrences(previous?.translationExceptions ?? [], marked.translationExceptions ?? []);
-    const displacement = previous && marked.translationExceptions?.length ? plainMoveOffset(previous, marked, r) : undefined;
-    if (previous && displacement !== undefined) {
-      marked.translationExceptions = marked.translationExceptions?.map((raw, i) => matched[i] !== undefined && previousEvidence[matched[i]!]?.status === 'applied'
-        ? transformCodeBreak(raw, previous.strand, displacement, true, r.isCircular ? r.sequence.length : undefined) : raw);
-    }
-    const evaluated = geometryCodeBreakEvidence(marked, r);
-    const dropped = new Set<number>();
-    for (const evidence of evaluated) {
-      const previousOccurrence = matched[evidence.occurrence];
-      const inherited = previousOccurrence !== undefined && previousEvidence[previousOccurrence]?.status === 'applied';
-      if (evidence.status === 'malformed' && !inherited) {
-        addLog(`WARNING: ${codeBreakMessage(evidence)}; Save refused`);
-        return r;
-      }
-      if (evidence.status === 'dropped' || (evidence.status === 'malformed' && inherited)) {
-        addLog(`WARNING: ${codeBreakMessage(evidence)}; removed before Save`);
-        dropped.add(evidence.occurrence);
-      }
-    }
-    if (dropped.size) marked.translationExceptions = marked.translationExceptions?.filter((_, i) => !dropped.has(i));
-    if (!isCds(marked)) {
-      if (marked.metadata.translation !== undefined) addLog(`Translation removed from ${marked.name}: feature is not a CDS`);
-      delete marked.metadata.translation; delete marked.metadata._translationSource; delete marked.metadata._translationCheck;
-    } else if (changed) {
-      const result = conceptualTranslation(marked, r);
-      const reason = translationReason(result, marked);
-      if (result.status === 'ok' && !result.internalStops.length) {
-        marked.metadata.translation = result.residues;
-        marked.metadata._translationSource = 'computed';
-        marked.metadata._translationMessage = previous ? 'Translation recomputed after edit' : 'Translation computed at creation';
-      } else {
-        delete marked.metadata.translation;
-        marked.metadata._translationSource = 'removed';
-        marked.metadata._translationMessage = `${previous ? 'Translation removed after edit' : 'No translation stored at creation'}: ${reason}`;
-        addLog(`WARNING: ${marked.name}: ${reason}`);
-      }
-    } else {
-      for (const key of ['translation', '_translationSource', '_translationMessage']) {
-        delete marked.metadata[key];
-        if (previous.metadata?.[key] !== undefined) marked.metadata[key] = previous.metadata[key];
-      }
-    }
-    if (previous && isCds(previous) && (changed || !isCds(marked))) {
-      const notice = removeChangedProteinId(previous, marked, r);
-      if (notice) addLog(`WARNING: ${r.id}: ${marked.type} ${marked.name}: ${notice}`);
-    }
-    const checked = checkTranslation(marked, r);
+  return records.map(record => {
+    if (record.id !== recordId || refuseEmptyLocationEdit(feature, addLog)) return record;
+    const newFeatures = [...record.features];
+    const previous = record.features[featureIndex];
+    const hubEdit = featureIndex === -1 || previous?.hubEdit === 'added' ? 'added' : 'edited';
+    const marked = prepareEditedFeature(feature, previous, hubEdit);
+    const changed = translationInputsChanged(previous, marked);
+    if (!reconcileCodeBreaks(marked, previous, record, addLog)) return record;
+    updateEditedTranslation(marked, previous, record, changed, addLog);
+
+    const checked = checkTranslation(marked, record);
     if (featureIndex === -1) newFeatures.push(checked);
     else newFeatures[featureIndex] = checked;
-    return { ...r, features: newFeatures, annotationsEdited: true };
+    return { ...record, features: newFeatures, annotationsEdited: true };
   });
 }
 
