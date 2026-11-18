@@ -270,7 +270,7 @@ describe('translation across continuous aligned CDS parts', () => {
       segments: [{ start: 0, end: 5, strand: -1 }, { start: 7, end: 12, strand: 1 }],
       metadata: { codon_start: '2' },
     }, 'C-A-T--A-A-A');
-    expect(result).toEqual({ codingSeq: 'TGAAA', alignedIndices: [2, 0, 7, 9, 11] });
+    expect(result).toEqual({ codingSeq: 'TGAAA', alignedIndices: [2, 0, 7, 9, 11], baseStrands: [-1, -1, 1, 1, 1] });
   });
 
   it('still identifies an internal stop after removing gaps', () => {
@@ -309,7 +309,9 @@ describe('feature extraction and CDS frame', () => {
     expect(extractFeatureSequence(feature, '-GG-G-G-TT')).toEqual({
       featureSeq: 'AACCGG', alignedIndices: [9, 8, 6, 4, 1, 2],
     });
-    expect(extractCodingSequence(feature, '-GG-G-G-TT')).toEqual({ codingSeq, alignedIndices });
+    expect(extractCodingSequence(feature, '-GG-G-G-TT')).toEqual({
+      codingSeq, alignedIndices, baseStrands: [-1, -1, -1, -1, 1, 1].slice(Number(codon_start) - 1),
+    });
   });
 
   it('complements IUPAC and RNA residues with source indices in reverse order', () => {

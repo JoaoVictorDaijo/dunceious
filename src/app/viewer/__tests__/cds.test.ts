@@ -316,6 +316,7 @@ it.each([1, -1] as const)('reserves space for curated length differences on stra
   const neighbour = cds({ start: strand === 1 ? 9 : 0, end: strand === 1 ? 15 : 6, strand });
   const lanes = assignTranslationLanes([f, neighbour], 'ATGAAA' + 'AAA'.repeat(4));
   expect(strand === 1 ? lanes.forward : lanes.reverse).toBe(2);
-  expect(lanes.laneOf.get(f)?.get(0)).toBe(0);
-  expect(lanes.laneOf.get(neighbour)?.get(0)).toBe(1);
+  const frameZero = strand === 1 ? 0 : -1;
+  expect(lanes.laneOf.get(f)?.get(frameZero)).toBe(0);
+  expect(lanes.laneOf.get(neighbour)?.get(frameZero)).toBe(1);
 });

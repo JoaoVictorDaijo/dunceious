@@ -264,6 +264,7 @@ export interface CodonProvenance {
   fragment: string;
   triplet: string;
   alignedIndices: number[];
+  baseStrands?: (1 | -1)[];
   ordinary: string;
   contextual: string;
   effective: string;

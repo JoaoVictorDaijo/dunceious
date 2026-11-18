@@ -179,8 +179,8 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
         addLog(importLog(file, false));
       }
       addLog(`Batch ingestion complete: ${result.count} records added.`);
-      const proteinWarning = translationWarning(msg.records);
-      if (proteinWarning) addLog(proteinWarning);
+      const exceptionWarning = translationWarning(msg.records, { includeMismatches: false });
+      if (exceptionWarning) addLog(exceptionWarning);
       const remoteWarning = remotePartsWarning(msg.records);
       if (remoteWarning) {
         addLog(remoteWarning);

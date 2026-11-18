@@ -169,6 +169,16 @@ export function extractFeatureSequence(
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
   topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { featureSeq: string; alignedIndices: number[] } {
+  const { featureSeq, alignedIndices } = extractLocatedSequence(feature, seq, alphabet, topology);
+  return { featureSeq, alignedIndices };
+}
+
+function extractLocatedSequence(
+  feature: LocatedFeature,
+  seq: string,
+  alphabet: 'dna' | 'rna' | 'protein',
+  topology: { isCircular?: boolean; biologicalLength?: number },
+): { featureSeq: string; alignedIndices: number[]; baseStrands?: (1 | -1)[] } {
   if (feature.remoteParts?.length) return { featureSeq: '', alignedIndices: [] };
   const record = { length: seq.length, isCircular: topology.isCircular };
   const source = feature.biological ?? feature;
@@ -186,6 +196,8 @@ export function extractFeatureSequence(
   // Mixed-strand (trans-spliced) features carry a per-segment strand: orient
   // each segment individually, in join order, with no whole-feature flip.
   const perSegmentStrand = segments.some(s => s.strand !== undefined);
+  const baseStrands: (1 | -1)[] | undefined = oriented && perSegmentStrand
+    && segments.some(s => (s.strand ?? 1) !== feature.strand) ? [] : undefined;
 
   if (perSegmentStrand) {
     segments.forEach(seg => {
@@ -203,7 +215,10 @@ export function extractFeatureSequence(
         segIndices.reverse();
       }
       featureSeq += segSeq;
-      for (const index of segIndices) alignedIndices.push(index);
+      for (const index of segIndices) {
+        alignedIndices.push(index);
+        baseStrands?.push(seg.strand ?? 1);
+      }
     });
   } else {
     segments.forEach(seg => {
@@ -222,7 +237,7 @@ export function extractFeatureSequence(
     }
   }
 
-  return { featureSeq, alignedIndices };
+  return { featureSeq, alignedIndices, baseStrands };
 }
 
 /**
@@ -235,15 +250,15 @@ export function extractFeatureSequence(
  *
  * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
  * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
- * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
+ * @returns        Coding residues and aligned indices, plus per-base strands when orientation varies from the feature strand.
  */
 export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
   seq: string,
   topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
-): { codingSeq: string; alignedIndices: number[] } {
+): { codingSeq: string; alignedIndices: number[]; baseStrands?: (1 | -1)[] } {
   if (!validCodonStart(feature.metadata?.codon_start)) return { codingSeq: '', alignedIndices: [] };
-  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq, 'dna', topology);
+  const { featureSeq, alignedIndices, baseStrands } = extractLocatedSequence(feature, seq, 'dna', topology);
   let codingSeq = featureSeq;
 
   const codonStart = Number(feature.metadata?.codon_start ?? '1');
@@ -251,9 +266,10 @@ export function extractCodingSequence(
   if (offset > 0) {
     codingSeq = codingSeq.slice(offset);
     alignedIndices.splice(0, offset);
+    baseStrands?.splice(0, offset);
   }
 
-  return { codingSeq, alignedIndices };
+  return { codingSeq, alignedIndices, ...(baseStrands && { baseStrands }) };
 }
 
 /**

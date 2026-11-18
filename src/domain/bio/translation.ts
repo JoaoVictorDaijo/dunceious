@@ -76,7 +76,7 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   const length = feature.biological ? record.biologicalLength ?? record.sequence.replace(/-/g, '').length : record.sequence.length;
   if (!feature.segments?.length || (source.segments?.length ? source.segments : [source]).some(part => invalidLocationPart(part, { length, isCircular: record.isCircular }))) return unavailable('unknown-completeness');
   const resolved = resolvedTranslationFeature(feature);
-  const { codingSeq, alignedIndices } = extractCodingSequence(resolved, record.sequence, { isCircular: record.isCircular, biologicalLength: record.biologicalLength });
+  const { codingSeq, alignedIndices, baseStrands } = extractCodingSequence(resolved, record.sequence, { isCircular: record.isCircular, biologicalLength: record.biologicalLength });
   if (!codingSeq) return unavailable('empty');
   const seq = codingSeq.toUpperCase().replace(/U/g, 'T');
   const code = NCBI_GENETIC_CODES[table];
@@ -114,6 +114,7 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
     codonIndex, proteinIndex: codonIndex, fragment: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3),
     triplet: codingSeq.slice(codonIndex * 3, codonIndex * 3 + 3).padEnd(3, 'N'),
     alignedIndices: alignedIndices.slice(codonIndex * 3, codonIndex * 3 + 3),
+    ...(baseStrands && { baseStrands: baseStrands.slice(codonIndex * 3, codonIndex * 3 + 3) }),
     ordinary: ordinary[codonIndex], contextual: contextual[codonIndex], effective,
     terminalRemoved: effective === '*' && codonIndex === possible.length - 1,
   }));
@@ -145,7 +146,15 @@ export function checkTranslation(feature: BioFeature, record: TranslationRecord)
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
   return { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } };
 }
-export function translationWarning(records: SeqRecord[]): string | null {
+export function hasTranslationMismatch(feature: BioFeature, result: ConceptualTranslation): boolean {
+  if (feature.metadata?.exception !== undefined || result.status !== 'ok') return false;
+  const stored = storedTranslation(feature);
+  if (!stored) return false;
+  const { differing, storedExtra, storedShortBy } = compareTranslation(stored, result);
+  return Boolean(differing.length || storedExtra || storedShortBy);
+}
+
+export function translationWarning(records: SeqRecord[], { includeMismatches = true } = {}): string | null {
   let count = 0;
   const notices: string[] = [];
   for (const record of records) for (const f of record.features) {
@@ -155,11 +164,7 @@ export function translationWarning(records: SeqRecord[]): string | null {
       if (e.status !== 'applied') notices.push(codeBreakMessage(e));
       for (const warning of e.warnings ?? []) notices.push(`${codeBreakMessage(e)}: ${warning}`);
     }
-    if (f.metadata?.exception !== undefined) continue;
-    const stored = storedTranslation(f); const result = conceptualTranslation(f, record);
-    if (!stored || result.status !== 'ok') continue;
-    const c = compareTranslation(stored, result);
-    if (c.differing.length || c.storedExtra || c.storedShortBy) count++;
+    if (includeMismatches && hasTranslationMismatch(f, checked)) count++;
   }
   if (count) notices.push(`${count} CDS have a /translation that differs from their DNA`);
   return notices.length ? `WARNING: ${notices.join('; ')}` : null;
