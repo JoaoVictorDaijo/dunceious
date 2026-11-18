@@ -35,7 +35,11 @@ it.each(['', '0', '4', '2junk'])('suppresses every invalid-frame computation (%s
   const f = feature(frame);
   expect(extractCodingSequence(f, 'ATGAAATAA')).toEqual({ codingSeq: '', alignedIndices: [] });
   expect(isFeatureBroken({ ...f, metadata: { ...f.metadata, translation: 'M*K' } }, 'ATGAAATAA')).toBe(false);
-  expect(exportToGff3([record(undefined, [f])]).text.split('\n').filter(l => l.split('\t')[2] === 'CDS').map(l => l.split('\t')[7])).toEqual(['.']);
+  const { text, report } = exportToGff3([record(undefined, [f])]);
+  expect(text.split('\n').filter(line => line.split('\t')[2] === 'CDS')).toEqual([]);
+  expect(report.gff3FeaturesOmitted).toEqual([
+    { reason: `X: CDS C omitted; invalid /codon_start=${JSON.stringify(frame)}`, edited: false },
+  ]);
   expect(genBankExportProblem(record(undefined, [f]))).toContain('invalid /codon_start');
 });
 it('accepts valid frame and residue writer inputs, refuses invalid residues and code', () => {

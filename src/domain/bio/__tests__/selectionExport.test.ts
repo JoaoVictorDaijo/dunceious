@@ -499,7 +499,9 @@ it('retains explicit circular segments through selection project round trip', ()
   const parsed = parseProject(text);
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) throw new Error(parsed.message);
-  expect(parsed.project.records[0].features[0].segments).toEqual([{ start: 8, end: 10 }, { start: 0, end: 2 }]);
+  expect(parsed.project.records[0]).toMatchObject({
+    isCircular: true, features: [{ start: 8, end: 2, segments: [{ start: 8, end: 2 }], writtenOrder: [0] }],
+  });
 });
 
 it('retains compound sites and reports any site whose neighbours are not both selected', () => {
@@ -529,7 +531,13 @@ it('preserves remote-part positions when splitting a wrapped selection segment',
     segments: [{ start: 8, end: 2 }], writtenOrder: [0],
     remoteParts: [{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 1 }] };
   const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGTGA', isCircular: true, features: [feature] };
-  const selected = sliceRecordsBySelection([record], 0, 10).records[0].features[0];
+  const full = sliceRecordsBySelection([record], 0, 10).records[0].features[0];
+  expect(full).toMatchObject({
+    segments: [{ start: 8, end: 2 }], writtenOrder: [0],
+    remoteParts: [{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 1 }],
+  });
+  const selected = sliceRecordsBySelection([record], 0, 9).records[0].features[0];
+  expect(selected.segments).toEqual([{ start: 8, end: 9, partialEnd: true }, { start: 0, end: 2 }]);
   expect(selected.writtenOrder).toBeUndefined();
   expect(selected.remoteParts).toEqual([{ start: 0, end: 3, strand: 1, accession: 'AB123.1', index: 2 }]);
 });
