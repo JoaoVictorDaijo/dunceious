@@ -104,7 +104,7 @@ function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string |
   ]), feature.operator ?? 'join');
   if (!location) return null;
 
-  const reread = parseLocation(location);
+  const reread = parseLocation(location, landmark);
   const reverseWhole = reread.strand === -1 && reread.segments.every(part => part.strand === undefined);
   const evaluated = reverseWhole ? reread.segments.slice().reverse() : reread.segments;
   const sameInterval = (actual: FeatureSegment, expected: FeatureSegment) =>

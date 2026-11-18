@@ -85,6 +85,7 @@ export function featureEnvelope(
 
   const minStart = Math.min(...parts.map(part => part.start));
   const maxEnd = Math.max(...parts.map(part => part.end));
+  if (record && !record.isCircular) return { start: minStart, end: maxEnd };
   const originJoin = parts[0].start > parts[parts.length - 1].end && minStart === 0;
   // An explicit wrap can leave a gap at the origin.
   if (feature.start > feature.end || originJoin) {

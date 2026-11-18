@@ -425,6 +425,28 @@ ORIGIN
 });
 
 it.each([
+  ['join(7..9,1..3,3^4)', 1],
+  ['complement(join(7..9,1..3,3^4))', -1],
+] as const)('uses linear extrema for the descending join %s', (location, strand) => {
+  const record = reopenGenBank(genBank('AGTGAAATAACA', location, '', false, 'misc_feature'));
+  const feature = record.features[0];
+  const [selected] = sliceRecordsBySelection([record], 0, 12).records;
+  const [edited] = saveEditedFeature([record], 'r', 0, {
+    ...feature, locationString: undefined,
+    segments: [{ start: 6, end: 9 }, { start: 0, end: 2 }, { start: 3, end: 3 }],
+  });
+  const gb = reopenGenBank(exportToGenBank([edited]).text);
+  const gff = attachGff(record, exportToGff3([record]).text);
+  const projected = reopenProject(record);
+  for (const reopened of [record, selected, edited, gb, gff, projected]) {
+    const annotation = reopened.features.find(part => part.type === 'misc_feature')!;
+    expect.soft(annotation).toMatchObject({ start: 0, end: 9, strand });
+    expect.soft(featureFocusTarget(reopened, annotation)).toMatchObject({ start: 0, end: 9 });
+    expect.soft(featureSequenceViews(reopened, annotation)).toMatchObject({ region: 'AGTGAAATA', regionLength: 9 });
+  }
+});
+
+it.each([
   { location: 'join(9..12,AB123.1:1..2,1..5)', strand: 1, segments: [{ start: 8, end: 12 }, { start: 0, end: 5 }] },
   { location: 'complement(join(9..12,AB123.1:1..2,12^1,1..5))', strand: -1,
     segments: [{ start: 8, end: 12 }, { start: 12, end: 12 }, { start: 0, end: 5 }] },

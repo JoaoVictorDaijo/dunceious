@@ -131,12 +131,13 @@ function matchesLegacyParts(stored: FeatureSegment[] | undefined, parsed: Featur
 function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (feature.locationString === undefined) return feature;
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
-  const problem = validateLocation(feature.locationString, record.sequence.length, record.isCircular === true);
+  const landmark = { length: record.sequence.length, isCircular: record.isCircular === true };
+  const problem = validateLocation(feature.locationString, landmark.length, landmark.isCircular);
   if (problem) {
     const reason = problem.message === 'cannot be read' ? 'could not be read' : problem.message;
     throw new Error(description + ' ' + reason + '.');
   }
-  const parsed = parseLocation(feature.locationString);
+  const parsed = parseLocation(feature.locationString, landmark);
 
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {
     throw new Error(description + ' disagrees with its stored operator.');
@@ -149,7 +150,7 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
     || !matchesLegacyParts(feature.segments, parsed.segments));
   let geometry = feature;
   if (legacyRemoteGeometry) {
-    const legacy = parseLocation(feature.locationString.replace(/\s/g, '').replace(/(^|[(,])[^():,]+:/g, '$1'));
+    const legacy = parseLocation(feature.locationString.replace(/\s/g, '').replace(/(^|[(,])[^():,]+:/g, '$1'), landmark);
     if (feature.start !== legacy.start || feature.end !== legacy.end || feature.strand !== legacy.strand
       || feature.writtenOrder?.some((rank, i) => rank !== (legacy.writtenOrder?.[i] ?? i))
       || !matchesLegacyParts(feature.segments, legacy.segments)) throw geometryError();

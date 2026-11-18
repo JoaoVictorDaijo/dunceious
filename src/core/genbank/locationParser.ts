@@ -48,6 +48,7 @@
  */
 
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
+import type { LocationRecord } from '@/src/domain/bio/featureParts';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 
 export interface LocationData {
@@ -138,7 +139,7 @@ function locationOperator(text: string): LocationOperator | undefined {
   return match[1] === 'complement' ? locationOperator(match[2]) : match[1] as LocationOperator;
 }
 
-export function parseLocation(loc: string): LocationData {
+export function parseLocation(loc: string, record?: LocationRecord): LocationData {
   const cleanLoc = loc.replace(/\s/g, '');
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
@@ -191,7 +192,7 @@ export function parseLocation(loc: string): LocationData {
     strand = strands[0] ?? 1;
   }
 
-  const { start, end } = featureEnvelope({ start: 0, end: 0, segments, writtenOrder });
+  const { start, end } = featureEnvelope({ start: 0, end: 0, segments, writtenOrder }, record);
 
   return {
     segments, strand, start, end,

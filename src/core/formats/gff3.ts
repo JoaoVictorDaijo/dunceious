@@ -562,7 +562,7 @@ export function parseGFF3(content: string): {
         // Rotating local rows would change their position relative to the remote intervals.
         rotateCircularParts(feature, lengths.get(seqid)!);
       }
-      if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature));
+      if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature, { length: lengths.get(seqid)!, isCircular: true }));
       if (!isCds(feature)) continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);

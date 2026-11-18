@@ -174,8 +174,9 @@ GFF3 rows beyond the end only for circular references
 form: the editor blocks Save, project import keeps it, and GenBank export skips it with a
 warning. Invalid geometry yields no derived feature or region sequence and no translation
 lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
-piece once any piece has one. A wrap is inferred only when the first
-interval starts after the last ends **and** one interval starts at base 1. For an inferred wrap, the first
+piece once any piece has one. On a linear record, the envelope uses the minimum start and maximum
+end of the local intervals. On a circular record, a wrap is inferred only when the first interval
+starts after the last ends **and** one interval starts at base 1. For an inferred wrap, the first
 descent in written order splits the high and low sides. The envelope starts at the minimum
 start on the high side and ends at the maximum end on the low side. If the sides meet or
 overlap, the envelope uses the linear minimum start and maximum end. GenBank import,
