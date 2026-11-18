@@ -77,3 +77,12 @@ it('keeps arbitrary written order and places partial ends in evaluation order', 
   expect(formatInsdcLocation({ start: 69610, end: 1200, strand: 1, segments: [{ start: 69610, end: 70000 }, { start: 1000, end: 1200 }] }, { length: 70000 })).toEqual({ kind: 'insdc', text: 'join(69611..70000,1001..1200)' });
   expect(formatInsdcLocation({ start: 0, end: 30, strand: 1, segments: [{ start: 20, end: 30, strand: -1 }, { start: 0, end: 10, strand: 1 }] }, { length: 40 }, { fivePrimePartial: true, threePrimePartial: true })).toEqual({ kind: 'insdc', text: 'join(complement(21..>30),1..>10)' });
 });
+
+it.each([
+  [{ segments: [{ start: 0, end: 2 }, { start: 8, end: 4 }], strand: 1 }, 'join(1..2,9..10,1..4,AB123.1:3..4)'],
+  [{ segments: [{ start: 0, end: 2 }, { start: 8, end: 10 }], strand: -1 }, 'join(complement(1..2),complement(9..10),AB123.1:3..4)'],
+] as const)('formats local geometry %j alongside a remote part', (edit, text) => {
+  const feature = { start: 0, end: 10, strand: edit.strand, segments: [...edit.segments],
+    remoteParts: [{ accession: 'AB123.1', start: 2, end: 4, strand: 1 as const, index: 2 }] };
+  expect(formatInsdcLocation(feature, record)).toEqual({ kind: 'insdc', text });
+});

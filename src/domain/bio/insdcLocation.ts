@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { featureParts, hasPartialStrands, invalidLocationPart, type FeatureGeometry, type LocationRecord } from './featureParts';
+import { hasPartialStrands, invalidLocationPart, splitFeaturePart, type FeatureGeometry, type LocationRecord } from './featureParts';
+import type { FeatureSegment } from './types';
 
 export interface LocationEnds { fivePrimePartial?: boolean; threePrimePartial?: boolean }
 export type InsdcLocation =
@@ -40,11 +41,17 @@ export function formatInsdcLocation(feature: FeatureGeometry, record: LocationRe
   if (hasPartialStrands(feature) || stored.some(part => invalidLocationPart(part, record))) {
     return { kind: 'no-insdc-form', reason: 'invalid-geometry', display: `${stored.map(part => `${part.start + 1}..${part.end}`).join(',')} (invalid location)` };
   }
-  const parts: (ReturnType<typeof featureParts>[number] & { accession?: string })[] = featureParts(feature, record);
-  for (const part of [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index)) {
-    parts.splice(Math.min(part.index, parts.length), 0, { ...part, strand: part.strand });
+  const remote = feature.remoteParts ?? [];
+  const perPart = feature.segments?.some(part => part.strand !== undefined) || remote.some(part => part.strand !== feature.strand);
+  const logical: (FeatureSegment & { accession?: string })[] = feature.segments?.length || remote.length
+    ? [...feature.segments ?? []]
+    : [{ start: feature.start, end: feature.end }];
+  // Remote indices count logical intervals, even when a local interval needs two descriptors.
+  for (const part of [...remote].sort((a, b) => a.index - b.index)) {
+    logical.splice(Math.min(part.index, logical.length), 0, part);
   }
-  const perPart = featureParts(feature, record).some(part => part.strand !== undefined) || (feature.remoteParts ?? []).some(part => part.strand !== feature.strand);
+  const parts = logical.flatMap<(typeof logical)[number]>(part => part.accession ? [part]
+    : splitFeaturePart({ ...part, strand: perPart ? part.strand ?? feature.strand : undefined }, record));
   const markers = parts.map(() => ({ start: '', end: '' }));
   const evaluation = parts.map((part, index) => ({ index, strand: perPart ? part.strand : feature.strand }));
   if (!perPart && feature.strand === -1) evaluation.reverse();
