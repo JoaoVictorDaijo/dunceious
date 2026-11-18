@@ -104,6 +104,19 @@ function siteNeighboursSelected(boundary: number, length: number, circular: bool
   return left >= 0 && right < length && left >= selStart && left < selEnd && right >= selStart && right < selEnd;
 }
 
+function projectClippedPart(segment: FeatureSegment, clipped: FeatureSegment, selStart: number, selEnd: number): FeatureSegment {
+  const { gffStartRange, gffEndRange, ...part } = segment;
+  const retained = clipped.start !== segment.start || clipped.end !== segment.end ? clipped : undefined;
+  const startRange = projectGffRange(gffStartRange, clipped.start + selStart, -selStart, retained);
+  const endRange = projectGffRange(gffEndRange, clipped.end + selStart, -selStart, retained);
+  return { ...part, ...clipped,
+    ...(segment.start < selStart && { partialStart: true as const }),
+    ...(segment.end > selEnd && { partialEnd: true as const }),
+    ...(startRange && { gffStartRange: startRange }),
+    ...(endRange && { gffEndRange: endRange }),
+  };
+}
+
 /**
  * Clips a `BioFeature` (including its `segments` array) to the selection window
  * and rebases all coordinates to be selection-local.
@@ -134,16 +147,7 @@ function clipFeature(
       : clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
     if (!clipped) return [];
     kept.push(i);
-    const { gffStartRange, gffEndRange, ...part } = segment;
-    const changed = clipped.start !== segment.start || clipped.end !== segment.end;
-    const startRange = projectGffRange(gffStartRange, clipped.start + selStart, -selStart, changed ? clipped : undefined);
-    const endRange = projectGffRange(gffEndRange, clipped.end + selStart, -selStart, changed ? clipped : undefined);
-    return [{ ...part, ...clipped,
-      ...(segment.start < selStart && { partialStart: true as const }),
-      ...(segment.end > selEnd && { partialEnd: true as const }),
-      ...(startRange && { gffStartRange: startRange }),
-      ...(endRange && { gffEndRange: endRange }),
-    }];
+    return [projectClippedPart(segment, clipped, selStart, selEnd)];
   });
   if (!newSegments.length) return null;
   // INSDC FT 11.4 §3.4.2.2: the first/last visit, not the genomic envelope, defines each end.
