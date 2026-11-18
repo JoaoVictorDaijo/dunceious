@@ -169,9 +169,8 @@ does not settle six-frame row numbering or lane packing.
 
 **Dunceious.** Extracts the oriented feature before applying its offset. The display frame in
 `src/app/viewer/cds.ts` uses the first base's zero-based genomic index modulo 3 on the forward
-strand or that index plus 1 modulo 3 on the reverse strand. Dunceious's display convention,
-approved in the integration review, uses the first biological base of a mixed-strand codon
-to set its lane and frame. All pieces stay in one lane so they read as one codon. The tooltip
+strand or that index plus 1 modulo 3 on the reverse strand. Dunceious uses the first
+biological base of a mixed-strand codon to set its lane and frame. All pieces stay in one lane so they read as one codon. The tooltip
 names each contributing base's strand. GFF3 phase remains a separate per-part value.
 
 ## OP-9. Source qualifier and span fidelity
