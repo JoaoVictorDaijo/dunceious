@@ -166,10 +166,12 @@ form: the editor blocks Save, project import keeps it, and GenBank export skips 
 warning. Invalid geometry yields no derived feature or region sequence and no translation
 lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
 piece once any piece has one. A wrap is inferred only when the first
-interval starts after the last ends **and** one interval starts at base 1. For an inferred wrap,
-`featureEnvelope` uses the first written start and last written end. GenBank import, geometry
-editing and retained-location validation share this rule, including when a nested outer
-complement reverses sequence evaluation order.
+interval starts after the last ends **and** one interval starts at base 1. For an inferred wrap, the first
+descent in written order splits the high and low sides. The envelope starts at the minimum
+start on the high side and ends at the maximum end on the low side. If the sides meet or
+overlap, the envelope uses the linear minimum start and maximum end. GenBank import,
+geometry editing and retained-location validation share this rule, including when a nested
+outer complement reverses sequence evaluation order.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
 GFF3 export writes separate in-bounds rows sharing one ID. For explicit per-part strands, rows
 follow evaluation order and `insdc_written_order` carries each row's written rank, including

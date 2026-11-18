@@ -49,7 +49,7 @@ export function keptWrittenOrder(order: number[] | undefined, kept: number[]): n
   return ranked.some((position, i) => position !== i) ? ranked : undefined;
 }
 
-/** A written origin join keeps its first start and last end, even with scattered interior parts. */
+/** Cover both sides of a written origin join, including out-of-order interior parts (LOC-6). */
 export function featureEnvelope(feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'writtenOrder' | 'locationString'>): FeatureSegment {
   const parts = writtenOrderSegments(feature);
   if (!parts?.length) return { start: feature.start, end: feature.end };
@@ -57,18 +57,14 @@ export function featureEnvelope(feature: Pick<BioFeature, 'start' | 'end' | 'seg
 
   const minStart = Math.min(...parts.map(part => part.start));
   const maxEnd = Math.max(...parts.map(part => part.end));
-  const firstStart = parts[0].start;
-  const lastEnd = parts[parts.length - 1].end;
-  if (firstStart > lastEnd && minStart === 0) return { start: firstStart, end: lastEnd };
-
+  const originJoin = parts[0].start > parts[parts.length - 1].end && minStart === 0;
   // An explicit wrap can leave a gap at the origin.
-  if (feature.start > feature.end) {
+  if (feature.start > feature.end || originJoin) {
     const split = parts.findIndex((part, i) => i > 0 && part.start < parts[i - 1].start);
     if (split > 0) {
-      return {
-        start: Math.min(...parts.slice(0, split).map(part => part.start)),
-        end: Math.max(...parts.slice(split).map(part => part.end)),
-      };
+      const start = Math.min(...parts.slice(0, split).map(part => part.start));
+      const end = Math.max(...parts.slice(split).map(part => part.end));
+      if (start > end) return { start, end };
     }
   }
   return { start: minStart, end: maxEnd };

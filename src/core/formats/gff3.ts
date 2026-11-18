@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { isCds, malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
@@ -353,8 +354,7 @@ function normalizeCircularParts(feature: BioFeature, length: number): void {
   const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
   feature.metadata!._gffPhases = JSON.stringify([...phases.slice(cut), ...phases.slice(0, cut)]);
   feature.segments = ordered;
-  feature.start = ordered[0].start;
-  feature.end = ordered[ordered.length - 1].end;
+  Object.assign(feature, featureEnvelope({ ...feature, start: ordered[0].start, end: ordered[ordered.length - 1].end }));
 }
 
 function readRows(content: string, lengths: Map<string, number>): { seqid: string; feature: BioFeature; rowNumber: number }[] {

@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { featureFocusTarget } from '../focusTarget';
+import { featureSequenceViews } from '../viewModel';
 import { describe, it, expect, vi } from 'vitest';
 import {
   saveEditedFeature,
@@ -322,7 +324,7 @@ ORIGIN
 //`).records;
   const [feature] = record.features;
   const expected = {
-    start: 9, end: 6, operator: 'join', strand: 1,
+    start: 0, end: 12, operator: 'join', strand: 1,
     segments: [{ start: 9, end: 12 }, { start: 0, end: 3 }, { start: 6, end: 9 }, { start: 3, end: 6 }],
     locationString: 'join(10..12,1..3,7..9,4..6)',
     metadata: { translation: 'MQAF', _translationSource: 'imported', note: 'checked' },
@@ -336,4 +338,19 @@ ORIGIN
 
   expect.soft(saved.features[0]).toMatchObject(expected);
   expect(opened).toMatchObject({ ok: true, project: { records: [{ features: [expected] }] } });
+});
+
+it('covers every annotated base in the region and focus of a shuffled circular join', () => {
+  const [record] = parseGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    join(10..12,1..2,7..8,3..4)
+ORIGIN
+        1 ACGTACGTACGT
+//`).records;
+  const [feature] = record.features;
+  expect(feature).toMatchObject({ start: 9, end: 8 });
+  expect(featureSequenceViews(record, feature)).toMatchObject({ region: 'CGTACGTACGT', regionLength: 11 });
+  expect(featureFocusTarget(record, feature)).toMatchObject({ start: 9, end: 8 });
+  const gff = parseGFF3(exportToGff3([record]).text);
+  expect(gff.features.x.find(feature => feature.type === 'misc_feature')).toMatchObject({ start: 9, end: 8 });
 });
