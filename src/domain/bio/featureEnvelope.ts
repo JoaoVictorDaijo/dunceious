@@ -49,6 +49,17 @@ export function keptWrittenOrder(order: number[] | undefined, kept: number[]): n
   return ranked.some((position, i) => position !== i) ? ranked : undefined;
 }
 
+/** A split minus interval visits its pieces in reverse written order (INSDC FT 11.4 §3.4.2.2). */
+export function expandedWrittenOrder(order: number[], stored: FeatureSegment[], split: FeatureSegment[][]): number[] {
+  let nextRank = 0;
+  const ranks = split.map((): number[] => []);
+  for (const i of order.map((_, i) => i).sort((a, b) => order[a] - order[b])) {
+    ranks[i] = split[i].map(() => nextRank++);
+    if (stored[i].strand === -1) ranks[i].reverse();
+  }
+  return ranks.flat();
+}
+
 /** Cover both sides of a written origin join, including out-of-order interior parts (LOC-6). */
 export function featureEnvelope(feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'writtenOrder' | 'locationString'>): FeatureSegment {
   const parts = writtenOrderSegments(feature);

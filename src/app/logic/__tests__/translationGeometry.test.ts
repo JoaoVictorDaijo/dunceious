@@ -287,3 +287,45 @@ it.each([
   expect(restored.features[0]).toMatchObject({ strand, start, end, locationString });
   expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'MK' });
 });
+
+it('reopens a split minus interval in written order through GenBank and GFF3', () => {
+  const response = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'r.gb', content: `LOCUS       r 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     CDS             complement(join(complement(4..5),9..12))
+                     /translation="Y"
+     source          1..12
+                     /mol_type="genomic DNA"
+                     /organism="synthetic construct"
+ORIGIN
+        1 CCGAAACCAATA
+//` });
+  if (response.type !== 'PARSE_SUCCESS') throw new Error(JSON.stringify(response));
+  const [imported] = response.records;
+  const [original] = imported.features;
+  const [first, second] = original.segments!;
+  const [edited] = saveEditedFeature([imported], imported.id, 0, {
+    ...original, locationString: undefined, segments: [{ ...first, end: 2 }, second],
+  });
+  expect(conceptualTranslation(edited.features[0], edited)).toMatchObject({ residues: 'GI' });
+  const { text } = exportToGenBank([edited]);
+  const reopened = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'r.gb', content: text });
+  if (reopened.type !== 'PARSE_SUCCESS') throw new Error(JSON.stringify(reopened));
+  const [genbank] = reopened.records;
+  const { features, details } = parseGFF3(exportToGff3([edited]).text);
+  const gff3 = applyAnnotations([{ ...edited, features: [] }], features, details);
+  expect(gff3.refusal).toBeUndefined();
+  const project = parseProject(serializeProject(state([edited])));
+  if (!project.ok) throw new Error(project.message);
+
+  expect(genbank.features.find(feature => feature.type === 'CDS')).toMatchObject({
+    locationString: 'complement(join(complement(4..5),9..12,1..2))',
+  });
+  for (const record of [genbank, gff3.next[0]]) {
+    const feature = record.features.find(feature => feature.type === 'CDS')!;
+    expect(feature.writtenOrder).toEqual([2, 1, 0]);
+    expect(conceptualTranslation(feature, record)).toMatchObject({ residues: 'GI' });
+  }
+  const [restored] = project.project.records;
+  expect(restored.features[0].writtenOrder).toEqual([1, 0]);
+  expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'GI' });
+});

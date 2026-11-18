@@ -23,7 +23,8 @@ import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
-import { featureParts } from '@/src/domain/bio/featureParts';
+import { splitFeaturePart } from '@/src/domain/bio/featureParts';
+import { expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
@@ -37,14 +38,17 @@ import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier, assertGenBa
  * so each such run is written back that way, its strands flipped. The result is re-parsed and used
  * only when it gives the stored segments back; otherwise the evaluated form is written.
  */
-function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[], record: SeqRecord): string | null {
+function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string | null {
   const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
     const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, { length: record.sequence.length, isCircular: record.isCircular });
     return location.kind === 'insdc' ? location.text : location.display;
   };
-  const order = feature.writtenOrder;
+  const stored = feature.segments;
   // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
-  if (order?.length !== segments.length || feature.remoteParts?.length) return null;
+  if (!stored?.some(part => part.strand !== undefined) || feature.writtenOrder?.length !== stored.length || feature.remoteParts?.length) return null;
+  const split = stored.map(part => splitFeaturePart(part, { length: record.sequence.length, isCircular: record.isCircular }));
+  const segments = split.flat();
+  const order = expandedWrittenOrder(feature.writtenOrder, stored, split);
   const operator = feature.operator ?? 'join';
   const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
   const evaluationAt: number[] = [];
@@ -77,9 +81,7 @@ function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportR
     report.featuresWithoutInsdcLocation[location.reason === 'linear-edge-site' ? 'linearEdgeSite' : 'invalidGeometry']++;
     return null;
   }
-  const parts = featureParts(feature, { length, isCircular: record.isCircular });
-  const nested = parts.some(part => part.strand !== undefined) ? writtenNestedLocation(feature, parts, record) : null;
-  return nested ?? location.text;
+  return writtenNestedLocation(feature, record) ?? location.text;
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {

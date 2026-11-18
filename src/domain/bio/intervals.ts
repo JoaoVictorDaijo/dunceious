@@ -24,7 +24,7 @@ import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedP
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite, isOrderLocation } from './locationFlags';
-import { keptWrittenOrder } from './featureEnvelope';
+import { expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -247,9 +247,8 @@ function removedTranscriptionBases(
 function selectionGeometry(feature: BioFeature, length: number, isCircular: boolean): BioFeature {
   if (!isCircular || !feature.segments?.some(part => part.start > part.end)) return feature;
   const expanded = feature.segments.map(part => featureParts({ ...feature, segments: [part], remoteParts: undefined }, { length, isCircular }));
-  const positions = expanded.flatMap((parts, i) => parts.map((_, j) =>
-    (feature.writtenOrder?.[i] ?? i) * (expanded.length + 1) + (feature.segments![i].strand === -1 ? parts.length - 1 - j : j)));
-  const writtenOrder = positions.map(position => positions.filter(other => other < position).length);
+  const order = feature.writtenOrder ?? feature.segments.map((_, i) => i);
+  const writtenOrder = expandedWrittenOrder(order, feature.segments, expanded);
   const remotes = [...feature.remoteParts ?? []].sort((a, b) => a.index - b.index);
   const remoteParts = remotes.map((part, i) => ({ ...part,
     index: part.index + expanded.slice(0, part.index - i).reduce((extra, pieces) => extra + pieces.length - 1, 0),

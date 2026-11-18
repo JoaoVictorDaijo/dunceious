@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { expandedWrittenOrder, featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { isCds, malformedCodeBreakMessage } from '@/src/domain/bio/translation';
 import { validCodonStart } from '@/src/domain/bio/codonStart';
 import type { BioFeature, FeatureSegment, RemotePart, SeqRecord, SequenceDetails } from '@/src/domain/bio/types';
@@ -177,14 +177,7 @@ function appendFeatureRows(
   }
   // GFF3 rows have no nesting; the written order of a nested location travels with them (#241).
   if (feature.writtenOrder?.length === stored.length) {
-    const order = feature.writtenOrder;
-    let nextRank = 0;
-    const ranks = split.map((): string[] => []);
-    for (const i of order.map((_, i) => i).sort((a, b) => order[a] - order[b])) {
-      ranks[i] = split[i].map(() => String(nextRank++));
-      if (stored[i].strand === -1) ranks[i].reverse();
-    }
-    attrs.insdc_written_order = ranks.flat();
+    attrs.insdc_written_order = expandedWrittenOrder(feature.writtenOrder, stored, split).map(String);
   }
   if (remote.length) {
     // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.

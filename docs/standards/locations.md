@@ -81,7 +81,8 @@ full ([#241](https://github.com/JoaoVictorDaijo/dunceious/issues/241); checked a
 text applied by hand, no reference tool). The whole-feature J2 shape remains in written order
 with a parent strand; extraction reverse-complements the joined result once. Other per-strand
 shapes are stored in evaluation order with `writtenOrder`, the written position of each interval,
-and GenBank export rebuilds the nested written form from it. GFF3 rows cannot tell
+and GenBank export rebuilds the nested written form from it. Both GenBank and GFF3 expand
+the written ranks when an interval splits at the origin. GFF3 rows cannot tell
 `join(complement(a),complement(b))` from `complement(join(a,b))`, so export marks per-interval
 strands with `insdc_interval_strands=true` and import reads each row on its own strand. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
