@@ -20,10 +20,10 @@
 
 import { featureParts } from './featureParts';
 import type { SelectionArea, SelectionLoss } from './types';
-import { conceptualTranslation, isCds, geometryCodeBreakEvidence } from './translation';
+import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
 import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
-import { isBetweenBasesSite } from './locationFlags';
+import { isBetweenBasesSite, isOrderLocation } from './locationFlags';
 import { keptWrittenOrder } from './featureEnvelope';
 
 /**
@@ -177,6 +177,7 @@ function clipFeature(
 
   const result: BioFeature = {
     ...feature,
+    ...(isOrderLocation(feature) && { operator: 'order' }),
     start: Math.min(...newSegments.map(segment => segment.start)),
     end: Math.max(...newSegments.map(segment => segment.end)),
     // A segment that gained a cut-end marker must be kept, or the marker is lost with it (LOC-4).
@@ -277,22 +278,30 @@ export function sliceRecordsBySelection(
       .map(original => {
         const feature = selectionGeometry(original, seq.length, record.isCircular === true);
         const result = clipFeature(feature, seq, selStart, selEnd, record.isCircular === true);
+        const loss = selectionFeature(record, feature);
         const parts = featureParts(feature, { length: seq.length, isCircular: record.isCircular });
         for (const part of parts) {
           if (part.start === part.end && !siteNeighboursSelected(part.start, seq.length, record.isCircular === true, selStart, selEnd)) {
-            losses.push({ record: record.id, feature: feature.name, reason: 'Between-base site omitted; both neighbouring bases must be selected' });
+            losses.push({ ...loss, reason: 'Between-base site omitted; both neighbouring bases must be selected' });
           }
         }
         if (!result) return null;
         const clipped = parts.some(part => part.start < part.end && (part.start < selStart || part.end > selEnd));
-        if (clipped && isCds(feature)) losses.push({ record: record.id, feature: feature.name, reason: 'CDS clipped; annotation continues beyond the selection' });
+        if (clipped && isCds(feature)) losses.push({ ...loss, reason: 'CDS clipped; annotation continues beyond the selection' });
         if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
         if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
         if (clipped && isCds(result)) {
           const product = conceptualTranslation(result, selectedRecord);
           result.metadata = { ...result.metadata, _translationSource: product.status === 'ok' && !product.internalStops.length ? 'computed' : 'removed' };
-          if (product.status === 'ok' && !product.internalStops.length) result.metadata.translation = product.residues;
-          else delete result.metadata.translation;
+          if (product.status === 'ok' && !product.internalStops.length) {
+            result.metadata.translation = product.residues;
+            result.metadata._translationMessage = 'Translation recomputed after selection clipping';
+          } else {
+            delete result.metadata.translation;
+            result.metadata._translationMessage = `Translation removed after selection clipping: ${translationReason(product, result)}`;
+          }
+          const notice = removeChangedProteinId(original, result, record);
+          if (notice) losses.push({ ...loss, reason: notice });
         }
         return result;
       })
@@ -319,6 +328,10 @@ export function sliceRecordsBySelection(
   return { records: sliced, losses };
 }
 
+function selectionFeature(record: SeqRecord, feature: BioFeature): Pick<SelectionLoss, 'record' | 'feature' | 'key'> {
+  return { record: record.id, feature: feature.name, key: feature.type };
+}
+
 function selectedCodeBreaks(
   feature: BioFeature,
   record: SeqRecord,
@@ -327,9 +340,10 @@ function selectedCodeBreaks(
   selection: Pick<SelectionArea, 'start' | 'end'>,
   losses: SelectionLoss[],
 ): string[] {
+  const loss = selectionFeature(record, feature);
   const candidates = geometryCodeBreakEvidence(feature, record, selection).flatMap(source => {
     if (source.status === 'applied') return [{ source, value: source.rebased! }];
-    losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
+    losses.push({ ...loss, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
     return source.status === 'dropped' ? [] : [{ source, value: source.raw }];
   });
   const evaluated = geometryCodeBreakEvidence({ ...selectedFeature, translationExceptions: candidates.map(item => item.value) }, selectedRecord);
@@ -337,7 +351,7 @@ function selectedCodeBreaks(
     const transformed = evaluated[index];
     // Surviving bases can cease to be a codon when clipping removes other visits in a multipart CDS.
     if (source.status === 'applied' && transformed.status !== 'applied') {
-      losses.push({ record: record.id, feature: feature.name, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
+      losses.push({ ...loss, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
       return [];
     }
     return [value];

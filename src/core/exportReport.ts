@@ -70,5 +70,5 @@ export function detailsForExport(record: SeqRecord, report: ExportReport): Seque
 }
 
 export function describeSelectionLoss(loss: SelectionLoss): string {
-  return `${loss.record}: CDS ${loss.feature}${loss.occurrence === undefined ? '' : `, /transl_except occurrence ${loss.occurrence} ${JSON.stringify(loss.raw)}`}: ${loss.reason}`;
+  return `${loss.record}: ${loss.key} ${loss.feature}${loss.occurrence === undefined ? '' : `, /transl_except occurrence ${loss.occurrence} ${JSON.stringify(loss.raw)}`}: ${loss.reason}`;
 }

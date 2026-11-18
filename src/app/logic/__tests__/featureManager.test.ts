@@ -284,3 +284,28 @@ it.each([0, -1])('keeps a remote-only location saveable at feature index %i', fe
   expect(saved.features[0]).toMatchObject({ segments: [], remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 0 }] });
   expect(log).not.toHaveBeenCalled();
 });
+
+it('preserves the curated imported protein on a note-only Save with empty code-break rows', () => {
+  const [record] = parseGenBank(`LOCUS       curated 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /translation="MQ"
+ORIGIN
+        1 atgaaataa
+//`).records;
+  const [feature] = record.features;
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...feature, metadata: { ...feature.metadata, note: 'checked' }, translationExceptions: [],
+  });
+  expect(saved.features[0].metadata).toMatchObject({ translation: 'MQ', _translationSource: 'imported', note: 'checked' });
+});
+
+it('removes an inherited protein version when an annotation stops being a CDS', () => {
+  const feature = feat({ type: 'CDS', name: 'c', end: 9, segments: [{ start: 0, end: 9 }],
+    metadata: { translation: 'MK', protein_id: 'AAA12345.1' } });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: [feature] });
+  const notice = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', 0, { ...feature, type: 'misc_feature' }, notice);
+  expect(saved.features[0].metadata).not.toHaveProperty('protein_id');
+  expect(notice).toHaveBeenCalledWith(expect.stringContaining('/protein_id "AAA12345.1" removed'));
+});

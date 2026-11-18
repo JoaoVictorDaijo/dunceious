@@ -238,6 +238,7 @@ export interface GenBankFinding {
 export interface SelectionLoss {
   record: string;
   feature: string;
+  key: string;
   reason: string;
   occurrence?: number;
   raw?: string;

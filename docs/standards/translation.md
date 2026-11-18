@@ -271,6 +271,9 @@ with a notice; strict project reopen refuses them. The source record is never mu
 Clipped CDSs use the shared CDS predicate (CDS, cds, SO:0000316) for both frame adjustment and
 recomputation, mark cut ends, retain INSDC frame through the existing removed-base formula and store
 only a newly computed kept-part protein under ordinary eligibility/internal-stop guards (D).
+An inherited versioned `/protein_id` is removed with a notice when a Save or selection clip
+changes the protein. INSDC assigns a new version to a changed amino-acid sequence.
+If the protein stays the same, its identifier is retained.
 After clipping/rebasing, the shared geometry evaluator rechecks each candidate against the kept
 CDS and adjusted codon_start before protein computation. Keeping every named base does not ensure
 codon membership when other multipart visits were cut. Newly unusable breaks are removed with

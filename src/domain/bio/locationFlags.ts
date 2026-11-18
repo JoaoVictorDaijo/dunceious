@@ -38,10 +38,9 @@ export function isJoinedLocation(feature: Pick<BioFeature, 'operator' | 'segment
   return (feature.segments?.length ?? 0) > 1 && !isOrderLocation(feature) && !feature.remoteParts?.length;
 }
 
-/** One interval, or intervals under `join`, all in this record: the location defines one sequence (LOC-7). */
+/** An ordered location never defines a joined sequence, even if clipping leaves only one interval. */
 export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString' | 'remoteParts'>): boolean {
-  if (feature.remoteParts?.length) return false;
-  return (feature.segments?.length ?? 0) <= 1 || isJoinedLocation(feature);
+  return !feature.remoteParts?.length && !isOrderLocation(feature);
 }
 
 /** An INSDC `n^n+1` site (LOC-5): zero bases at the boundary `start`, which must equal `end`. */

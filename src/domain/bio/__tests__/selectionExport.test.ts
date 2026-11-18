@@ -517,9 +517,9 @@ it('retains compound sites and reports any site whose neighbours are not both se
   expect(clipped.records[0].features[0].segments).toEqual([{ start: 1, end: 4, partialStart: true }]);
   expect(clipped.records[0].features).toHaveLength(1);
   expect(clipped.losses).toEqual([
-    { record: 'r', feature: 'compound', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
-    { record: 'r', feature: 'sites', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
-    { record: 'r', feature: 'sites', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+    { record: 'r', feature: 'compound', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+    { record: 'r', feature: 'sites', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
+    { record: 'r', feature: 'sites', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' },
   ]);
 });
 
@@ -544,10 +544,10 @@ it.each([1, -1] as const)('selects origin-site neighbours circularly without inv
   const withoutNine = sliceRecordsBySelection([record], 0, 8);
   expect(withoutNine.records[0].features[0].segments).toEqual([{ start: 0, end: 3 }]);
   expect(withoutNine.records[0].features[0].locationString).toBeUndefined();
-  expect(withoutNine.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+  expect(withoutNine.losses).toEqual([{ record: 'r', feature: 'origin', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
   const withoutOne = sliceRecordsBySelection([record], 1, 9);
   expect(withoutOne.records[0].features[0].segments).toEqual([{ start: 0, end: 2, partialStart: true }]);
-  expect(withoutOne.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+  expect(withoutOne.losses).toEqual([{ record: 'r', feature: 'origin', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
 });
 
 it('uses circular neighbour membership for a standalone origin site too', () => {
@@ -559,6 +559,6 @@ it('uses circular neighbour membership for a standalone origin site too', () => 
   for (const [start, end] of [[0, 8], [1, 9]]) {
     const selected = sliceRecordsBySelection([record], start, end);
     expect(selected.records[0].features).toEqual([]);
-    expect(selected.losses).toEqual([{ record: 'r', feature: 'origin', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
+    expect(selected.losses).toEqual([{ record: 'r', feature: 'origin', key: 'misc_feature', reason: 'Between-base site omitted; both neighbouring bases must be selected' }]);
   }
 });

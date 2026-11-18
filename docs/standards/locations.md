@@ -42,8 +42,9 @@ if Dunceious ever offers it, it must be labelled as such.
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
 **Dunceious.** Conforms ([#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225)). The
-parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`), so edits and
-selection export keep it, and a rebuilt location is written as `order(...)`. Readers ask
+parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`). Selection
+projects retain this operator even when just one interval survives. GenBank writes a rebuilt
+multipart ordered location as `order(...)`. Readers ask
 `isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
 count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
 sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its

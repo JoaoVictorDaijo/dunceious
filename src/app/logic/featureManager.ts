@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslation, conceptualTranslation, isCds, translationReason, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
+import { checkTranslation, conceptualTranslation, isCds, translationReason, geometryCodeBreakEvidence, removeChangedProteinId } from '@/src/domain/bio/translation';
 import { codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
 import { invalidLocationPart } from '@/src/domain/bio/featureParts';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
@@ -60,7 +60,7 @@ export function saveEditedFeature(
       || getFeatureStrand(previous) !== getFeatureStrand(marked)
       || JSON.stringify(previous.segments) !== JSON.stringify(marked.segments)
       || JSON.stringify(previous.remoteParts) !== JSON.stringify(marked.remoteParts) || previous.operator !== marked.operator
-      || JSON.stringify(previous.translationExceptions) !== JSON.stringify(marked.translationExceptions)
+      || JSON.stringify(previous.translationExceptions ?? []) !== JSON.stringify(marked.translationExceptions ?? [])
       || ['codon_start', 'transl_table', 'transl_except'].some(key => previous.metadata?.[key] !== marked.metadata?.[key]);
     marked.metadata = { ...marked.metadata };
     const previousEvidence = previous ? geometryCodeBreakEvidence(previous, r) : [];
@@ -106,6 +106,10 @@ export function saveEditedFeature(
         delete marked.metadata[key];
         if (previous.metadata?.[key] !== undefined) marked.metadata[key] = previous.metadata[key];
       }
+    }
+    if (previous && isCds(previous) && (changed || !isCds(marked))) {
+      const notice = removeChangedProteinId(previous, marked, r);
+      if (notice) addLog(`WARNING: ${r.id}: ${marked.type} ${marked.name}: ${notice}`);
     }
     const checked = checkTranslation(marked, r);
     if (featureIndex === -1) newFeatures.push(checked);

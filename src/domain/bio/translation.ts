@@ -36,6 +36,20 @@ export const isCds = (feature: Pick<BioFeature, 'type'>): boolean => ['CDS', 'cd
 export const storedTranslation = (feature: { metadata?: Record<string, unknown> }): string | undefined =>
   typeof feature.metadata?.translation === 'string' ? feature.metadata.translation.replace(/\s/g, '') || undefined : undefined;
 
+/** A versioned INSDC protein accession identifies one amino-acid sequence. */
+export function removeChangedProteinId(previous: BioFeature, next: BioFeature, record: TranslationRecord): string | undefined {
+  const id = next.metadata?.protein_id;
+  if (!id || id !== previous.metadata?.protein_id || !/\.\d+$/.test(id)) return;
+  let before = storedTranslation(previous);
+  if (before === undefined) {
+    const result = conceptualTranslation(previous, record);
+    if (result.status === 'ok' && !result.internalStops.length) before = result.residues;
+  }
+  if (before === storedTranslation(next)) return;
+  delete next.metadata!.protein_id;
+  return `/protein_id ${JSON.stringify(id)} removed: the CDS protein changed`;
+}
+
 const bases: Record<string, string> = { A: 'A', C: 'C', G: 'G', T: 'T', R: 'AG', Y: 'CT', S: 'CG', W: 'AT', K: 'GT', M: 'AC', B: 'CGT', D: 'AGT', H: 'ACT', V: 'ACG', N: 'ACGT' };
 function expansions(codon: string): string[] {
   let result = [''];
