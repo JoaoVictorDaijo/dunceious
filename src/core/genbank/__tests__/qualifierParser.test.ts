@@ -135,7 +135,13 @@ describe('INSDC qualifier values', () => {
 
   it('unescapes doubled quotes while preserving literal embedded quotes', () => {
     expect(parse('/note="isolate ""A"" from camel"').note).toBe('isolate "A" from camel');
-    expect(parse('/note="literal "A" inside"').note).toBe('literal "A" inside');
+  });
+
+  it('refuses unescaped text after the first closing quote', () => {
+    const findings: string[] = [];
+    const result = parseQualifiers([indent + '/note="literal "A" inside"'], 0, (_tier, code) => findings.push(code));
+    expect(result.qualifiers).not.toHaveProperty('note');
+    expect(findings).toEqual(['malformed-qualifier']);
   });
 
   it('joins three text lines with spaces without stripping embedded quotes', () => {

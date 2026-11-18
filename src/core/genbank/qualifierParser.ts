@@ -22,13 +22,13 @@ import type { FindingSink } from './findings';
 
 const INDENT21 = ' '.repeat(21);
 
-function quotedValueIsClosed(value: string): boolean {
-  for (let i = 1; i < value.length; i++) {
+function closingQuoteIndex(value: string, start: number): number {
+  for (let i = start; i < value.length; i++) {
     if (value[i] !== '"') continue;
     if (value[i + 1] === '"') i++;
-    else return true;
+    else return i;
   }
-  return false;
+  return -1;
 }
 
 /** Text continuations need a word boundary; translation continuations contain only residues. */
@@ -52,28 +52,29 @@ export function parseQualifiers(
     const [, key, rawValue = ''] = match;
     let value = rawValue;
     const quoted = value.startsWith('"');
-    let interrupted = false;
+    let closingQuote = quoted ? closingQuoteIndex(value, 1) : -1;
     while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) {
       const next = lines[i + 1].trim();
-      const openQuote = quoted && !quotedValueIsClosed(value);
-      if (openQuote && /^\/\w+="(?!")/.test(next)) {
-        interrupted = true;
-        while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) i++;
-        break;
-      }
+      const openQuote = quoted && closingQuote === -1;
       if (!openQuote && next.startsWith('/')) break;
-      value += key === 'transl_except' ? lines[i + 1].slice(21) : (key === 'translation' ? '' : ' ') + next;
+      const continuation = key === 'transl_except' ? lines[i + 1].slice(21) : (key === 'translation' ? '' : ' ') + next;
+      if (openQuote) {
+        const closing = closingQuoteIndex(continuation, 0);
+        if (closing !== -1) closingQuote = value.length + closing;
+      }
+      value += continuation;
       i++;
     }
-    if (interrupted || (quoted && !quotedValueIsClosed(value))) {
-      finding?.('refuse', 'malformed-qualifier', `/${key} has no closing quote; the rest of this feature was not checked.`, qualifierLine);
+    if (quoted && (closingQuote === -1 || value.slice(closingQuote + 1).trim())) {
+      const problem = closingQuote === -1 ? 'has no closing quote' : 'has text after its closing quote';
+      finding?.('refuse', 'malformed-qualifier', `/${key} ${problem}; the rest of this feature was not checked.`, qualifierLine);
+      i++;
+      while (i < lines.length && lines[i].startsWith(INDENT21)) i++;
       break;
     }
     if (key !== 'transl_except' && Object.hasOwn(qualifiers, key)) finding?.('warning', 'repeated-qualifier', `/${key} is repeated; the last value is kept.`, i + 1);
     if (quoted) {
-      value = value.slice(1);
-      if (value.endsWith('"')) value = value.slice(0, -1);
-      value = value.replace(/""/g, '"');
+      value = value.slice(1, closingQuote).replace(/""/g, '"');
     }
     if (key === 'transl_except') translationExceptions.push(value);
     else qualifiers[key] = value;

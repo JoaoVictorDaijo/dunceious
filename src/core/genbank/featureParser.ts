@@ -51,12 +51,17 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     }
     if (!inFeatures) continue;
 
-    if (/^(ORIGIN|CONTIG|\/\/)/.test(line)) break;
+    if (/^(?:ORIGIN|CONTIG|BASE COUNT)(?:\s|$)|^\/\//.test(line)) break;
 
     // Feature key line: exactly 5 spaces, then a non-space key token.
     // Keys such as 5'UTR are valid in GenBank and are not matched by \w+.
     const featureMatch = line.match(/^ {5}(\S+)(?: +(.*))?$/);
-    if (!featureMatch) continue;
+    if (!featureMatch) {
+      if (!line.trim()) continue;
+      finding?.('refuse', 'malformed-feature', `Feature table line "${line.trim()}" cannot be read.`, i + 1);
+      while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) i++;
+      continue;
+    }
 
     const featureLine = i + 1;
     const [, type, initialLoc] = featureMatch;
