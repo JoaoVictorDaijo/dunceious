@@ -42,6 +42,14 @@ function prepareEditedFeature(feature: BioFeature, previous: BioFeature | undefi
     hubEdit,
     metadata: { ...feature.metadata },
   };
+  if (boundsChanged) marked.segments = feature.segments?.map(part => {
+    const { gffStartRange, gffEndRange, ...geometry } = part;
+    return {
+      ...geometry,
+      ...(gffStartRange?.boundary === part.start && { gffStartRange }),
+      ...(gffEndRange?.boundary === part.end && { gffEndRange }),
+    };
+  });
   if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) {
     marked.segments = [{ start: marked.start, end: marked.end }];
   }

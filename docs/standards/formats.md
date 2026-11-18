@@ -338,8 +338,12 @@ biological cases or authorize a fallback policy.
 **Owner decision 2026-11-18.** GFF3 export omits a CDS with invalid `/codon_start` and names the feature and invalid value in the export notice.
 
 GFF3 export writes genomic partial endpoints on every feature type as `partial=true` with
-`start_range=.,start` and/or `end_range=end,.` on the affected rows, following
+`start_range` and/or `end_range` on the affected rows, following
 [NCBI's partial-boundary convention](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
+Each unchanged endpoint retains its imported open range. Rebasing a selection or splitting a
+circular GFF3 row translates the finite ambiguity limit into the new coordinates if it stays
+inside the retained interval. A moved or clipped boundary uses `start_range=.,start` or
+`end_range=end,.`.
 The full-length `gbkey=Src` region carries any source interval's marks at the record boundaries.
 Attaching that region to a sequence preserves its open bounds on every matching source endpoint
 and reports a bound with no matching source endpoint in the attachment log.

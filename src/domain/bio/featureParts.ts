@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature, FeatureSegment } from './types';
+import type { BioFeature, FeatureSegment, GffBoundaryRange } from './types';
 
 export type FeatureGeometry = Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'> & Partial<Pick<BioFeature, 'operator' | 'betweenBases' | 'remoteParts'>>;
 export type LocationRecord = { length: number; isCircular?: boolean };
@@ -62,6 +62,17 @@ export function storedLocalParts(feature: FeatureGeometry): FeatureSegment[] | u
   return parts.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
 }
 
+/** An NCBI GFF3 range can follow a retained boundary into a new coordinate frame. */
+export function projectGffRange(
+  range: GffBoundaryRange | undefined, boundary: number, offset: number, retained?: FeatureSegment,
+): GffBoundaryRange | undefined {
+  if (range?.boundary !== boundary || typeof range.limit !== 'string' || !/^\d+$/.test(range.limit)) return undefined;
+  if (!retained && offset === 0) return range;
+  const limit = Number(range.limit) + offset;
+  if (!Number.isSafeInteger(limit) || (retained && (limit <= retained.start || limit > retained.end))) return undefined;
+  return offset === 0 ? range : { boundary: boundary + offset, limit: String(limit) };
+}
+
 /** Only local intervals determine the direction a bare code break can inherit. */
 export function singleLocalStrand(feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): 1 | -1 | undefined {
   const geometry = feature.biological ?? feature;
@@ -93,6 +104,8 @@ export function splitFeaturePart(part: FeatureSegment, record: LocationRecord): 
   const split = splitWrapAround(part.start, part.end, record.length).map((span, i, spans) => ({ ...span, strand: part.strand,
     ...(i === 0 && part.partialStart && { partialStart: true as const }),
     ...(i === spans.length - 1 && part.partialEnd && { partialEnd: true as const }),
+    ...(i === 0 && span.start === part.start && part.gffStartRange && { gffStartRange: part.gffStartRange }),
+    ...(i === spans.length - 1 && span.end === part.end && part.gffEndRange && { gffEndRange: part.gffEndRange }),
   }));
   return part.strand === -1 ? split.reverse() : split;
 }

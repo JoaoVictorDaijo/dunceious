@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { featureParts, splitFeaturePart, splitWrapAround, storedLocalParts } from './featureParts';
+import { featureParts, projectGffRange, splitFeaturePart, splitWrapAround, storedLocalParts } from './featureParts';
 import type { SelectionArea, SelectionLoss } from './types';
 import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
 import { validCodonStart } from './codonStart';
@@ -132,11 +132,18 @@ function clipFeature(
     const clipped = segment.start === segment.end
       ? siteNeighboursSelected(segment.start, seq.length, circular, selStart, selEnd) ? { start: segment.start - selStart, end: segment.end - selStart } : null
       : clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
-    if (clipped) kept.push(i);
-    return clipped ? [{ ...segment, ...clipped,
+    if (!clipped) return [];
+    kept.push(i);
+    const { gffStartRange, gffEndRange, ...part } = segment;
+    const changed = clipped.start !== segment.start || clipped.end !== segment.end;
+    const startRange = projectGffRange(gffStartRange, clipped.start + selStart, -selStart, changed ? clipped : undefined);
+    const endRange = projectGffRange(gffEndRange, clipped.end + selStart, -selStart, changed ? clipped : undefined);
+    return [{ ...part, ...clipped,
       ...(segment.start < selStart && { partialStart: true as const }),
       ...(segment.end > selEnd && { partialEnd: true as const }),
-    }] : [];
+      ...(startRange && { gffStartRange: startRange }),
+      ...(endRange && { gffEndRange: endRange }),
+    }];
   });
   if (!newSegments.length) return null;
   // INSDC FT 11.4 §3.4.2.2: the first/last visit, not the genomic envelope, defines each end.

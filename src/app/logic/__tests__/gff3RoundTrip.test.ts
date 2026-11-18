@@ -82,6 +82,45 @@ it.each([
   expect(conceptualTranslation(feature, reread)).toMatchObject({ residues });
 });
 
+it.each([
+  { row: 'x\tRefSeq\tCDS\t2\t10\t.\t+\t0\tID=g;transl_table=11;partial=true;start_range=.,4',
+    imported: 'start_range=.,4', oppositeEdit: { end: 11 }, boundaryEdit: { start: 2 },
+    edited: 'start_range=.,3', reset: { start: 1 }, resetRange: 'start_range=.,2',
+    clip: [2, 12], clipped: 'start_range=.,1', rebased: 'start_range=.,3',
+    excludeLimit: [0, 3], regenerated: 'start_range=.,2' },
+  { row: 'x\tRefSeq\tCDS\t1\t9\t.\t-\t0\tID=g;transl_table=11;partial=true;end_range=7,.',
+    imported: 'end_range=7,.', oppositeEdit: { start: 1 }, boundaryEdit: { end: 8 },
+    edited: 'end_range=8,.', reset: { end: 9 }, resetRange: 'end_range=9,.',
+    clip: [0, 8], clipped: 'end_range=8,.', rebased: 'end_range=6,.',
+    excludeLimit: [7, 12], regenerated: 'end_range=2,.' },
+])('retains the imported ambiguity $imported until that boundary moves', fixture => {
+  const { row, imported, oppositeEdit, boundaryEdit, edited, reset, resetRange, clip, clipped, rebased, excludeLimit, regenerated } = fixture;
+  const record = attachGff({ id: 'x', name: 'x', sequence: 'AGTGAAATAACA', features: [] }, row);
+  const result = reopenProject(record);
+  const edit = (input: SeqRecord, bounds: { start?: number; end?: number }) => {
+    const feature = input.features[0];
+    return saveEditedFeature([input], 'x', 0, { ...feature, segments: [{ ...feature.segments![0], ...bounds }] });
+  };
+  const moved = edit(result, boundaryEdit);
+  expect(exportToGff3([result]).text).toContain(';' + imported);
+  expect(exportToGff3(edit(result, oppositeEdit)).text).toContain(';' + imported);
+  expect(exportToGff3(moved).text).toContain(';' + edited);
+  expect(exportToGff3(edit(moved[0], reset)).text).toContain(';' + resetRange);
+  expect(exportToGff3(sliceRecordsBySelection([result], clip[0], clip[1]).records).text).toContain(';' + clipped);
+  expect(exportToGff3(sliceRecordsBySelection([result], 1, 12).records).text).toContain(';' + rebased);
+  expect(exportToGff3(sliceRecordsBySelection([result], excludeLimit[0], excludeLimit[1]).records).text).toContain(';' + regenerated);
+});
+
+it('keeps landmark and wrapped GFF3 boundary uncertainty on the corresponding rows', () => {
+  const record = attachGff({ id: 'x', name: 'x', sequence: 'AGTGAAATAACA', features: [] }, [
+    'x\tRefSeq\tregion\t1\t12\t.\t+\t.\tgbkey=Src;Is_circular=true;partial=true;start_range=.,2',
+    'x\tRefSeq\tCDS\t9\t16\t.\t-\t0\tID=g;transl_table=11;partial=true;start_range=.,10;end_range=14,.',
+  ].join('\n'));
+  const { text } = exportToGff3([record]);
+  const rows = text.trimEnd().split('\n').slice(2).map(row => row.split('\t')[8].split(';').filter(attr => /^(start|end)_range=/.test(attr)));
+  expect(rows).toEqual([['start_range=.,2'], ['start_range=.,10'], ['end_range=2,.']]);
+});
+
 it('reattaches a mixed-strand GenBank selenocysteine exception', () => {
   const { records, findings } = parseGenBank([
     'LOCUS       r 9 bp DNA linear',

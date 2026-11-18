@@ -64,6 +64,7 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: st
     if (feature.type !== 'source') return feature;
     const parts = feature.segments?.length || feature.remoteParts?.length
       ? feature.segments ?? [] : [{ start: feature.start, end: feature.end }];
+    let marksChanged = false;
     const segments = parts.map(part => {
       const matchStart = bounds?.partialStart && part.start === bounds.start;
       const matchEnd = bounds?.partialEnd && part.end === bounds.end;
@@ -71,12 +72,21 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: st
       keptEnd ||= Boolean(matchEnd);
       const markStart = matchStart && !part.partialStart;
       const markEnd = matchEnd && !part.partialEnd;
-      if (!markStart && !markEnd) return part;
-      return { ...part, ...(markStart && { partialStart: true as const }), ...(markEnd && { partialEnd: true as const }) };
+      marksChanged ||= Boolean(markStart || markEnd);
+      const startRange = matchStart && !part.gffStartRange && bounds.gffStartRange;
+      const endRange = matchEnd && !part.gffEndRange && bounds.gffEndRange;
+      if (!markStart && !markEnd && !startRange && !endRange) return part;
+      return { ...part,
+        ...(markStart && { partialStart: true as const }),
+        ...(markEnd && { partialEnd: true as const }),
+        ...(startRange && { gffStartRange: startRange }),
+        ...(endRange && { gffEndRange: endRange }),
+      };
     });
-    const geometryChanged = segments.some((part, i) => part !== parts[i]);
-    if (!geometryChanged && index !== sourceIndex) return feature;
-    return { ...feature, ...(index === sourceIndex && { metadata: merged }), ...(geometryChanged && { segments, locationString: undefined }) };
+    const segmentsChanged = segments.some((part, i) => part !== parts[i]);
+    if (!segmentsChanged && index !== sourceIndex) return feature;
+    return { ...feature, ...(index === sourceIndex && { metadata: merged }), ...(segmentsChanged && { segments }),
+      ...(marksChanged && { locationString: undefined }) };
   });
   if (bounds?.partialStart && !keptStart) warnings.push(`${record.id}: Open source region start at base ${bounds.start + 1} could not be kept because no source interval starts there.`);
   if (bounds?.partialEnd && !keptEnd) warnings.push(`${record.id}: Open source region end at base ${bounds.end} could not be kept because no source interval ends there.`);

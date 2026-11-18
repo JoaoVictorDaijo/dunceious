@@ -19,6 +19,13 @@
  */
 
 
+/** NCBI GFF3 open range, tied to one nominal 0-based segment boundary. */
+export interface GffBoundaryRange {
+  boundary: number;
+  /** The finite 1-based endpoint as written. */
+  limit: string;
+}
+
 /**
  * A contiguous sub-range in the app's canonical coordinate model:
  * 0-based, half-open `[start, end)` — `start` inclusive, `end` exclusive.
@@ -36,6 +43,8 @@ export interface FeatureSegment {
   partialStart?: true;
   /** `>` after the end number: the interval ends somewhere after `end`. */
   partialEnd?: true;
+  gffStartRange?: GffBoundaryRange;
+  gffEndRange?: GffBoundaryRange;
 }
 
 /**

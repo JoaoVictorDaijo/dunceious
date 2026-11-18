@@ -28,7 +28,7 @@ import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
-import { splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
+import { projectGffRange, splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
 import { searchHitNote } from './searchHitNote';
@@ -141,10 +141,11 @@ function addQualifiers(
   }
 }
 
+/** NCBI GFF3 applies ambiguity to the genomic columns independently of strand. */
 function addPartialRanges(attrs: Record<string, string | string[]>, segment: FeatureSegment): void {
   if (segment.partialStart || segment.partialEnd) attrs.partial = 'true';
-  if (segment.partialStart) attrs.start_range = ['.', String(segment.start + 1)];
-  if (segment.partialEnd) attrs.end_range = [String(segment.end), '.'];
+  if (segment.partialStart) attrs.start_range = ['.', projectGffRange(segment.gffStartRange, segment.start, 0)?.limit ?? String(segment.start + 1)];
+  if (segment.partialEnd) attrs.end_range = [projectGffRange(segment.gffEndRange, segment.end, 0)?.limit ?? String(segment.end), '.'];
 }
 
 interface FeatureRows {
@@ -257,12 +258,14 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     const attributes: Record<string, string | string[]> = { ID: sourceId, gbkey: 'Src' };
     const sourceMetadata = { ...sources[0]?.metadata };
     const sourceParts = sources.flatMap(feature => feature.segments ?? []);
+    const sourceStarts = sourceParts.filter(part => part.start === 0 && part.partialStart);
+    const sourceEnds = sourceParts.filter(part => part.end === length && part.partialEnd);
     for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
     addQualifiers(attributes, sourceMetadata, referenceIds, report);
     addPartialRanges(attributes, {
       start: 0, end: length,
-      ...(sourceParts.some(part => part.start === 0 && part.partialStart) && { partialStart: true as const }),
-      ...(sourceParts.some(part => part.end === length && part.partialEnd) && { partialEnd: true as const }),
+      ...(sourceStarts.length > 0 && { partialStart: true as const, gffStartRange: sourceStarts.find(part => part.gffStartRange)?.gffStartRange }),
+      ...(sourceEnds.length > 0 && { partialEnd: true as const, gffEndRange: sourceEnds.find(part => part.gffEndRange)?.gffEndRange }),
     });
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
@@ -411,11 +414,13 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const end = Number(to);
     if (!Number.isInteger(start) || !Number.isInteger(end) || (site ? start < 1 : start < 0 || end <= start)) continue;
     // NCBI ranges mark genomic columns 4 and 5. Translation interprets them on each part's strand.
-    const openStart = /^\.,\d+$/.test(metadata.start_range ?? '');
-    const openEnd = /^\d+,\.$/.test(metadata.end_range ?? '');
+    const startLimit = /^\.,(\d+)$/.exec(metadata.start_range ?? '')?.[1];
+    const endLimit = /^(\d+),\.$/.exec(metadata.end_range ?? '')?.[1];
     const marks = {
-      ...((openStart || metadata.insdc_partial_start === '<') && { partialStart: true as const }),
-      ...((openEnd || metadata.insdc_partial_end === '>') && { partialEnd: true as const }),
+      ...((startLimit || metadata.insdc_partial_start === '<') && { partialStart: true as const }),
+      ...((endLimit || metadata.insdc_partial_end === '>') && { partialEnd: true as const }),
+      ...(startLimit && startLimit !== String(start + 1) && { gffStartRange: { boundary: start, limit: startLimit } }),
+      ...(endLimit && endLimit !== String(end) && { gffEndRange: { boundary: end, limit: endLimit } }),
     };
     delete metadata.insdc_partial_start;
     delete metadata.insdc_partial_end;
@@ -433,8 +438,8 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
       start, end, strand: strand === '-' ? -1 : 1, segments: [{ start, end, ...marks }], metadata,
       ...(site && { betweenBases: true as const }),
     };
-    if (openStart) takeListAttribute(feature, 'start_range');
-    if (openEnd) takeListAttribute(feature, 'end_range');
+    if (startLimit) takeListAttribute(feature, 'start_range');
+    if (endLimit) takeListAttribute(feature, 'end_range');
     if (metadata.transl_except !== undefined) {
       feature.translationExceptions = attributeValues(metadata, 'transl_except');
       takeListAttribute(feature, 'transl_except');
@@ -488,11 +493,17 @@ export function parseGFF3(content: string): {
     if (circular.has(seqid) && feature.end > lengths.get(seqid)!) {
       const length = lengths.get(seqid)!;
       const end = feature.end - length;
-      const [{ partialStart, partialEnd }] = feature.segments!;
+      const [original] = feature.segments!;
       feature.segments = splitWrapAround(feature.start, end, length);
       feature.end = end;
-      if (partialStart) feature.segments[0].partialStart = true;
-      if (partialEnd) feature.segments[feature.segments.length - 1].partialEnd = true;
+      const first = feature.segments[0];
+      const last = feature.segments[feature.segments.length - 1];
+      if (original.partialStart) first.partialStart = true;
+      if (original.partialEnd) last.partialEnd = true;
+      const startRange = projectGffRange(original.gffStartRange, first.start, 0, first);
+      const endRange = projectGffRange(original.gffEndRange, last.end + length, -length, last);
+      if (startRange) first.gffStartRange = startRange;
+      if (endRange) last.gffEndRange = endRange;
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }
