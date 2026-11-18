@@ -426,8 +426,11 @@ rejection and shape checks are implementation evidence only. The owner-confirmed
 (2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
 aligned rows with unequal widths. Project load checks retained locations with the
 [GenBank location validator](locations.md#genbank-import-enforcement) using the record's bounds and
-topology, and names the feature and literal location text on refusal. After recovering supported legacy location fields, it also refuses a
-retained location that disagrees with the stored operator or geometry. The format
+topology, and names the feature and literal location text on refusal. It compares the stored
+envelope before filling missing legacy fields and refuses conflicting stored geometry or operators.
+The legacy remote-location migration is the exception: if the stored geometry matches the
+location with its accession prefixes removed, load separates those remote intervals from the
+local parts and corrects the envelope that counted them locally. The format
 remains 2, and each existing aligned-row residue
 check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source

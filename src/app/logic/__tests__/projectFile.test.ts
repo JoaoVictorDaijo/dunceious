@@ -143,9 +143,6 @@ it('refuses partly stranded pieces naming the feature, retains invalid geometry,
   expect(JSON.parse(serializeProject({ ...state, records: [{ ...record, features: [invalid] }] })).records[0].features[0]).not.toHaveProperty('biological');
 });
 
-// Projects saved before features carried `operator` and `betweenBases` hold order() and n^n+1 only
-// in locationString, which the first edit clears. Loading reads both from that text (INSDC FT 11.4
-// §3.4.2.1-2), so an edit cannot turn order() into join() or keep a site two bases wide.
 describe('project locations saved before operators and sites', () => {
   const load = (feature: Record<string, unknown>, extra: Partial<SeqRecord> = {}) => {
     const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, ...extra,
@@ -159,8 +156,8 @@ describe('project locations saved before operators and sites', () => {
     expect(load({ start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(1..3,11..13)' }).operator).toBe('order');
   });
 
-  it('re-reads a site saved with the two-base geometry as zero bases', () => {
-    expect(load({ start: 9, end: 11, segments: [{ start: 9, end: 11 }], locationString: '10^11' }))
+  it('recovers an omitted site marker and segment when the saved envelope agrees', () => {
+    expect(load({ start: 10, end: 10, locationString: '10^11' }))
       .toMatchObject({ start: 10, end: 10, segments: [{ start: 10, end: 10 }], betweenBases: true });
   });
 
@@ -173,6 +170,17 @@ describe('project locations saved before operators and sites', () => {
       features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 0, end: 1, ...field } as never] }] }));
     expect(result.ok).toBe(false);
   });
+});
+
+it('refuses a saved interval that disagrees with a retained between-base site', () => {
+  const records = [{ id: 'x', name: 'x', sequence: 'ACGT', features: [{
+    type: 'misc_feature', name: 'cut', strand: 1, start: 1, end: 3,
+    segments: [{ start: 1, end: 3 }], locationString: '2^3',
+  }] }];
+  const result = parseProject(JSON.stringify({
+    format: 2, records, featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false,
+  }));
+  expect(result).toEqual({ ok: false, message: 'Feature cut location "2^3" disagrees with its stored geometry.' });
 });
 
 // LOC-4 for projects saved before the partial flags existed: the text still holds < and >, and the

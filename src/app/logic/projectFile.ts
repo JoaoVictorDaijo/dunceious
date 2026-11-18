@@ -20,7 +20,6 @@
 
 import { malformedCodeBreakMessage, checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { isPartialLocation } from '@/src/domain/bio/locationFlags';
 import { parseLocation } from '@/src/core/genbank/locationParser';
 import { validateLocation } from '@/src/core/genbank/locationValidation';
 import { hasPartialStrands } from '@/src/domain/bio/featureParts';
@@ -105,22 +104,22 @@ function validRecord(value: unknown): boolean {
     && track.data.every(item => isObject(item) && coordinates(item) && typeof item.value === 'number' && Number.isFinite(item.value))));
 }
 
-/** Same intervals, in the same order: the stored geometry is still the one the text was read as. */
-function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): boolean {
-  return a?.length === b.length && a.every((part, i) => part.start === b[i].start && part.end === b[i].end);
-}
-
 function samePart(a: FeatureSegment, b: FeatureSegment): boolean {
   return a.start === b.start && a.end === b.end && a.strand === b.strand
     && a.partialStart === b.partialStart && a.partialEnd === b.partialEnd;
 }
 
+function recoverPartialEnds(part: FeatureSegment, parsed?: FeatureSegment): FeatureSegment {
+  return {
+    ...part,
+    ...(part.partialStart === undefined && parsed?.partialStart && { partialStart: true as const }),
+    ...(part.partialEnd === undefined && parsed?.partialEnd && { partialEnd: true as const }),
+  };
+}
+
 function matchesLegacyParts(stored: FeatureSegment[] | undefined, parsed: FeatureSegment[]): boolean {
-  if (!stored?.length) return true;
-  return stored.length === parsed.length && stored.every((part, i) => samePart({
-    ...part, partialStart: part.partialStart ?? parsed[i].partialStart,
-    partialEnd: part.partialEnd ?? parsed[i].partialEnd,
-  }, parsed[i]));
+  return stored === undefined || stored.length === parsed.length
+    && stored.every((part, i) => samePart(recoverPartialEnds(part, parsed[i]), parsed[i]));
 }
 
 /**
@@ -144,36 +143,32 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
   }
   const geometryError = () => new Error(description + ' disagrees with its stored geometry.');
 
-  let next = feature;
-  if (parsed.remoteParts && !feature.remoteParts) {
+  const envelopeMatches = feature.start === parsed.start && feature.end === parsed.end;
+  const remoteMissing = parsed.remoteParts && feature.remoteParts === undefined;
+  const legacyRemoteGeometry = remoteMissing && (!envelopeMatches
+    || !matchesLegacyParts(feature.segments, parsed.segments));
+  let geometry = feature;
+  if (legacyRemoteGeometry) {
     const legacy = parseLocation(feature.locationString.replace(/\s/g, '').replace(/(^|[(,])[^():,]+:/g, '$1'));
     if (feature.start !== legacy.start || feature.end !== legacy.end || feature.strand !== legacy.strand
       || feature.writtenOrder?.some((rank, i) => rank !== (legacy.writtenOrder?.[i] ?? i))
       || !matchesLegacyParts(feature.segments, legacy.segments)) throw geometryError();
-    next = { ...feature, ...parsed };
-  }
-  if (!next.betweenBases && parsed.betweenBases) {
-    const legacy = parseLocation(feature.locationString.replace('^', '..'));
-    const oldGeometry = next.start === legacy.start && next.end === legacy.end
-      && matchesLegacyParts(next.segments, legacy.segments);
-    if (oldGeometry) next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments };
-    next = { ...next, betweenBases: true };
-  }
-  if (!next.segments?.length && parsed.segments.length === 1) {
-    next = { ...next, segments: [{ start: next.start, end: next.end }] };
-  }
-  if (!next.operator && parsed.operator) next = { ...next, operator: parsed.operator };
-  if (!next.writtenOrder && parsed.writtenOrder && sameIntervals(next.segments, parsed.segments)) next = { ...next, writtenOrder: parsed.writtenOrder };
-  if (!isPartialLocation(next) && isPartialLocation(parsed) && sameIntervals(next.segments, parsed.segments)) {
-    next = { ...next, segments: next.segments!.map((part, i) => ({ ...part,
-      ...(parsed.segments[i].partialStart && { partialStart: true as const }),
-      ...(parsed.segments[i].partialEnd && { partialEnd: true as const }) })) };
-  }
+    geometry = { ...feature, ...parsed };
+  } else if (!envelopeMatches || feature.strand !== parsed.strand) throw geometryError();
+
+  const stored = geometry.segments ?? (parsed.segments.length === 1 ? [{ start: geometry.start, end: geometry.end }] : undefined);
+  const next = {
+    ...geometry,
+    ...(stored && { segments: stored.map((part, i) => recoverPartialEnds(part, parsed.segments[i])) }),
+    ...(feature.betweenBases === undefined && parsed.betweenBases && { betweenBases: true as const }),
+    ...(feature.operator === undefined && parsed.operator && { operator: parsed.operator }),
+    ...(feature.writtenOrder === undefined && parsed.writtenOrder && { writtenOrder: parsed.writtenOrder }),
+    ...(remoteMissing && { remoteParts: parsed.remoteParts }),
+  };
   const parts = next.segments ?? [];
   const remote = [...next.remoteParts ?? []].sort((a, b) => a.index - b.index);
   const parsedRemote = parsed.remoteParts ?? [];
-  if (next.start !== parsed.start || next.end !== parsed.end || next.strand !== parsed.strand
-    || next.betweenBases !== parsed.betweenBases
+  if (next.betweenBases !== parsed.betweenBases
     || parts.length !== parsed.segments.length || !parts.every((part, i) => samePart(part, parsed.segments[i]))
     || parts.some((_, i) => (next.writtenOrder?.[i] ?? i) !== (parsed.writtenOrder?.[i] ?? i))
     || remote.length !== parsedRemote.length || !remote.every((part, i) =>
