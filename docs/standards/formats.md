@@ -339,8 +339,9 @@ biological cases or authorize a fallback policy.
 GFF3 export writes genomic partial endpoints on every feature type as `partial=true` with
 `start_range=.,start` and/or `end_range=end,.` on the affected rows, following
 [NCBI's partial-boundary convention](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
-The full-length `gbkey=Src` region carries the source feature's marks at the record boundaries.
-Attaching that region to a sequence preserves its open bounds on the matching source endpoints.
+The full-length `gbkey=Src` region carries any source interval's marks at the record boundaries.
+Attaching that region to a sequence preserves its open bounds on every matching source endpoint
+and reports a bound with no matching source endpoint in the attachment log.
 Import also reads the private `insdc_partial_*` attributes from older Dunceious exports.
 
 ## FMT-12. Dated EBI submission and result contracts

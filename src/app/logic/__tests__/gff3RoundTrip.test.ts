@@ -358,3 +358,44 @@ it.each([
   const converted = roundTrip.features.find(feature => feature.type === 'misc_feature')!;
   expect(featureFocusTarget(roundTrip, converted)).toMatchObject(span);
 });
+
+const twoSources = (secondLocation: string) => `LOCUS       x 12 bp DNA linear
+FEATURES             Location/Qualifiers
+     source          1..6
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+     source          ${secondLocation}
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+ORIGIN
+        1 atgaaaccctaa
+//
+`;
+const openSourceEnd = '##gff-version 3\nx\t.\tregion\t1\t12\t.\t+\t.\tID=landmark;gbkey=Src;partial=true;end_range=12,.\n';
+
+it('attaches an open landmark end to the second source endpoint', () => {
+  const record = reopenGenBank(twoSources('7..12'));
+  const { features, details } = parseGFF3(openSourceEnd);
+  const attached = applyAnnotations([record], features, details);
+  expect(attached.refusal).toBeUndefined();
+  expect(attached.next[0].features.map(feature => feature.segments)).toEqual([
+    [{ start: 0, end: 6 }], [{ start: 6, end: 12, partialEnd: true }],
+  ]);
+  expect(exportToGenBank(attached.next).text).toContain('     source          7..>12\n');
+});
+
+it('writes the open endpoint of the second source on the GFF3 landmark', () => {
+  const record = reopenGenBank(twoSources('7..>12'));
+  expect(exportToGff3([record]).text).toContain('partial=true;end_range=12,.');
+});
+
+it('reports a landmark bound that matches no source endpoint', () => {
+  const record = reopenGenBank(twoSources('7..11'));
+  const { features, details } = parseGFF3(openSourceEnd);
+  const attached = applyAnnotations([record], features, details);
+  expect(attached.refusal).toBeUndefined();
+  expect(attached).toMatchObject({
+    warnings: ['x: Open source region end at base 12 could not be kept because no source interval ends there.'],
+  });
+  expect(exportToGff3(attached.next).text).not.toContain('end_range=12,.');
+});

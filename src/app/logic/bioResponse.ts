@@ -37,7 +37,7 @@ function readSourceLists(text: string | undefined): Record<string, unknown> {
   }
 }
 
-function mergeSourceRegion(record: SeqRecord, incoming: BioFeature): SeqRecord {
+function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: string[]): SeqRecord {
   const metadata = incoming.metadata ?? {};
   const bounds = incoming.segments?.[0];
   const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists');
@@ -58,16 +58,29 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature): SeqRecord {
     }
   }
   if (listsAdded) merged._gffLists = JSON.stringify(lists);
-  const parts = source.segments?.length ? source.segments : [{ start: source.start, end: source.end }];
-  const segments = parts.map(part => {
-    const markStart = bounds?.partialStart && part.start === bounds.start && !part.partialStart;
-    const markEnd = bounds?.partialEnd && part.end === bounds.end && !part.partialEnd;
-    if (!markStart && !markEnd) return part;
-    return { ...part, ...(markStart && { partialStart: true as const }), ...(markEnd && { partialEnd: true as const }) };
+  let keptStart = false;
+  let keptEnd = false;
+  const features = updated.features.map((feature, index) => {
+    if (feature.type !== 'source') return feature;
+    const parts = feature.segments?.length || feature.remoteParts?.length
+      ? feature.segments ?? [] : [{ start: feature.start, end: feature.end }];
+    const segments = parts.map(part => {
+      const matchStart = bounds?.partialStart && part.start === bounds.start;
+      const matchEnd = bounds?.partialEnd && part.end === bounds.end;
+      keptStart ||= Boolean(matchStart);
+      keptEnd ||= Boolean(matchEnd);
+      const markStart = matchStart && !part.partialStart;
+      const markEnd = matchEnd && !part.partialEnd;
+      if (!markStart && !markEnd) return part;
+      return { ...part, ...(markStart && { partialStart: true as const }), ...(markEnd && { partialEnd: true as const }) };
+    });
+    const geometryChanged = segments.some((part, i) => part !== parts[i]);
+    if (!geometryChanged && index !== sourceIndex) return feature;
+    return { ...feature, ...(index === sourceIndex && { metadata: merged }), ...(geometryChanged && { segments, locationString: undefined }) };
   });
-  const geometryChanged = segments.some((part, i) => part !== parts[i]);
-  const mergedSource = { ...source, metadata: merged, ...(geometryChanged && { segments, locationString: undefined }) };
-  return { ...updated, features: updated.features.map((feature, index) => index === sourceIndex ? mergedSource : feature) };
+  if (bounds?.partialStart && !keptStart) warnings.push(`${record.id}: Open source region start at base ${bounds.start + 1} could not be kept because no source interval starts there.`);
+  if (bounds?.partialEnd && !keptEnd) warnings.push(`${record.id}: Open source region end at base ${bounds.end} could not be kept because no source interval ends there.`);
+  return { ...updated, features };
 }
 
 /**
@@ -125,10 +138,11 @@ export function applyAnnotations(
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
   details: Record<string, GffSourceRegion> = {},
   idMap?: BatchIdMap,
-): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; refusal?: string } {
+): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; warnings: string[]; refusal?: string } {
   let totalAdded = 0;
   const next = [...prev];
   const unmatched: string[] = [];
+  const warnings: string[] = [];
   for (const id of new Set([...Object.keys(annotations), ...Object.keys(details)])) {
     let matches: SeqRecord[];
     if (idMap && Object.hasOwn(idMap, id)) {
@@ -160,7 +174,7 @@ export function applyAnnotations(
           }
           record = { ...writeDetails(record, fills), fileDetails };
         }
-        record = mergeSourceRegion(record, candidate.feature);
+        record = mergeSourceRegion(record, candidate.feature, warnings);
         if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
       } else items.push(candidate.feature);
     }
@@ -175,11 +189,11 @@ export function applyAnnotations(
     for (const item of items) {
       if ('data' in item) continue;
       const refusal = malformedCodeBreakMessage(item, record);
-      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], refusal };
+      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal };
     }
     next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
-  return { next, totalAdded, unmatched };
+  return { next, totalAdded, unmatched, warnings };
 }
 
 /** A record loaded as a sequence whose gap characters were removed, by workspace ID. */

@@ -245,14 +245,15 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);
     const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
-    const source = record.features.find(feature => feature.type === 'source');
-    const sourceMetadata = { ...source?.metadata };
+    const sources = record.features.filter(feature => feature.type === 'source');
+    const sourceMetadata = { ...sources[0]?.metadata };
+    const sourceParts = sources.flatMap(feature => feature.segments ?? []);
     for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
     addQualifiers(attributes, sourceMetadata, referenceIds, report);
     addPartialRanges(attributes, {
       start: 0, end: length,
-      ...(source?.segments?.some(part => part.start === 0 && part.partialStart) && { partialStart: true as const }),
-      ...(source?.segments?.some(part => part.end === length && part.partialEnd) && { partialEnd: true as const }),
+      ...(sourceParts.some(part => part.start === 0 && part.partialStart) && { partialStart: true as const }),
+      ...(sourceParts.some(part => part.end === length && part.partialEnd) && { partialEnd: true as const }),
     });
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
