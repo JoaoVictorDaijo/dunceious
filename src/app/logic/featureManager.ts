@@ -45,11 +45,13 @@ export function saveEditedFeature(
     if (refuseEmptyLocationEdit(feature, addLog)) return r;
     const newFeatures = [...r.features];
     const hubEdit = featureIndex === -1 || r.features[featureIndex]?.hubEdit === 'added' ? 'added' : 'edited';
-    const marked: BioFeature = { ...feature, ...featureEnvelope(feature), hubEdit };
     const previous = r.features[featureIndex];
+    const boundsChanged = !previous || previous.start !== feature.start || previous.end !== feature.end
+      || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments);
+    const orderChanged = JSON.stringify(previous?.writtenOrder) !== JSON.stringify(feature.writtenOrder);
+    const marked: BioFeature = { ...feature, ...(boundsChanged || orderChanged ? featureEnvelope(feature) : {}), hubEdit };
     if (!previous && !marked.segments?.length && !marked.remoteParts?.length && marked.start < marked.end) marked.segments = [{ start: marked.start, end: marked.end }];
-    if (previous && (previous.start !== feature.start || previous.end !== feature.end
-      || previous.strand !== feature.strand || JSON.stringify(previous.segments) !== JSON.stringify(feature.segments)
+    if (previous && (boundsChanged || previous.strand !== feature.strand
       || previous.metadata?.codon_start !== feature.metadata?.codon_start)) {
       marked.metadata = { ...feature.metadata };
       delete marked.metadata.phase;

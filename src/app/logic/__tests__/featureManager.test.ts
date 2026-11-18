@@ -33,6 +33,7 @@ import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { parseGenBank } from '@/src/core/genbank';
 import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { parseProject, serializeProject } from '../projectFile';
 import { metadataFromRows, qualifierRows } from '../qualifiers';
 
 const feat = (o: Partial<BioFeature> & { name: string }): BioFeature => ({
@@ -159,9 +160,10 @@ it('synchronizes the envelope after extending an edited segment', () => {
 
 it('synchronizes an edited circular join without flattening its wrap', () => {
   const feature = feat({ name: 'origin', start: 80, end: 20,
-    segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] });
+    segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] });
   const records = [rec({ id: 'r1', sequence: 'A'.repeat(100), isCircular: true, features: [feature] })];
-  expect(saveEditedFeature(records, 'r1', 0, feature)[0].features[0]).toMatchObject({ start: 70, end: 30 });
+  const edited = { ...feature, segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] };
+  expect(saveEditedFeature(records, 'r1', 0, edited)[0].features[0]).toMatchObject({ start: 70, end: 30 });
 });
 it('does not revive an imported phase after deleting codon_start in the editor', () => {
   const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
@@ -308,4 +310,30 @@ it('removes an inherited protein version when an annotation stops being a CDS', 
   const [saved] = saveEditedFeature([record], 'r', 0, { ...feature, type: 'misc_feature' }, notice);
   expect(saved.features[0].metadata).not.toHaveProperty('protein_id');
   expect(notice).toHaveBeenCalledWith(expect.stringContaining('/protein_id "AAA12345.1" removed'));
+});
+
+it('keeps a circular CDS envelope and curated protein through note Save and project reopen', () => {
+  const [record] = parseGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     CDS             join(10..12,1..3,7..9,4..6)
+                     /translation="MQAF"
+ORIGIN
+        1 CAGTTTCCCATG
+//`).records;
+  const [feature] = record.features;
+  const expected = {
+    start: 9, end: 6, operator: 'join', strand: 1,
+    segments: [{ start: 9, end: 12 }, { start: 0, end: 3 }, { start: 6, end: 9 }, { start: 3, end: 6 }],
+    locationString: 'join(10..12,1..3,7..9,4..6)',
+    metadata: { translation: 'MQAF', _translationSource: 'imported', note: 'checked' },
+  };
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...feature, metadata: { ...feature.metadata, note: 'checked' }, translationExceptions: [],
+  });
+  const opened = parseProject(serializeProject({
+    records: [saved], featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false,
+  }));
+
+  expect.soft(saved.features[0]).toMatchObject(expected);
+  expect(opened).toMatchObject({ ok: true, project: { records: [{ features: [expected] }] } });
 });

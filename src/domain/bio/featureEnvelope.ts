@@ -49,16 +49,20 @@ export function keptWrittenOrder(order: number[] | undefined, kept: number[]): n
   return ranked.some((position, i) => position !== i) ? ranked : undefined;
 }
 
-/** Authoritative segment bounds retain the high/low order of circular joins. */
-export function featureEnvelope(feature: BioFeature): FeatureSegment {
+/** A written origin join keeps its first start and last end, even with scattered interior parts. */
+export function featureEnvelope(feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'writtenOrder' | 'locationString'>): FeatureSegment {
   const parts = writtenOrderSegments(feature);
   if (!parts?.length) return { start: feature.start, end: feature.end };
   if (parts.length === 1) return { start: parts[0].start, end: parts[0].end };
 
   const minStart = Math.min(...parts.map(part => part.start));
   const maxEnd = Math.max(...parts.map(part => part.end));
-  const originJoin = parts[0].start > parts[parts.length - 1].end && minStart === 0;
-  if (feature.start > feature.end || originJoin) {
+  const firstStart = parts[0].start;
+  const lastEnd = parts[parts.length - 1].end;
+  if (firstStart > lastEnd && minStart === 0) return { start: firstStart, end: lastEnd };
+
+  // An explicit wrap can leave a gap at the origin.
+  if (feature.start > feature.end) {
     const split = parts.findIndex((part, i) => i > 0 && part.start < parts[i - 1].start);
     if (split > 0) {
       return {

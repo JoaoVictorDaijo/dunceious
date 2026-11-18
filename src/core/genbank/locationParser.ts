@@ -60,6 +60,7 @@
  */
 
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -201,25 +202,7 @@ export function parseLocation(loc: string): LocationData {
     strand = strands[0] ?? 1;
   }
 
-  let start = 0;
-  let end = 0;
-
-  if (written.length > 0) {
-    const firstStart = written[0].start;
-    const lastEnd = written[written.length - 1].end;
-    const minStart = Math.min(...written.map(s => s.start));
-
-    // Origin wrap vs. scattered trans-splice: a genuine wrap is contiguous
-    // around the origin, so it includes base 1 (minStart === 0); a scattered
-    // join is also descending but sits mid-genome. See the file header.
-    if (written.length > 1 && firstStart > lastEnd && minStart === 0) {
-      start = firstStart;
-      end = lastEnd;
-    } else {
-      start = minStart;
-      end = Math.max(...written.map(s => s.end));
-    }
-  }
+  const { start, end } = featureEnvelope({ start: 0, end: 0, segments, writtenOrder });
 
   return {
     segments, strand, start, end,
