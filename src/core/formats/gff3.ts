@@ -140,6 +140,12 @@ function addQualifiers(
   }
 }
 
+function addPartialRanges(attrs: Record<string, string | string[]>, segment: FeatureSegment): void {
+  if (segment.partialStart || segment.partialEnd) attrs.partial = 'true';
+  if (segment.partialStart) attrs.start_range = ['.', String(segment.start + 1)];
+  if (segment.partialEnd) attrs.end_range = [String(segment.end), '.'];
+}
+
 function appendFeatureRows(
   lines: string[],
   feature: BioFeature,
@@ -202,8 +208,7 @@ function appendFeatureRows(
     if (index > 0) delete partAttrs.transl_except;
     const site = segment.start === segment.end;
     if (site) partAttrs.insdc_site = 'true';
-    if (segment.partialStart) partAttrs.start_range = ['.', String(segment.start + 1)];
-    if (segment.partialEnd) partAttrs.end_range = [String(segment.end), '.'];
+    addPartialRanges(partAttrs, segment);
     const direction = segment.strand ?? getFeatureStrand(feature);
     const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
     lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
@@ -242,9 +247,15 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);
     const attributes: Record<string, string | string[]> = { ID: `${record.id}.0`, gbkey: 'Src' };
-    const sourceMetadata = { ...record.features.find(feature => feature.type === 'source')?.metadata };
+    const source = record.features.find(feature => feature.type === 'source');
+    const sourceMetadata = { ...source?.metadata };
     for (const key of [...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date', 'gbkey', 'Is_circular']) delete sourceMetadata[key];
     addQualifiers(attributes, sourceMetadata, referenceIds, report);
+    addPartialRanges(attributes, {
+      start: 0, end: length,
+      ...(source?.segments?.some(part => part.start === 0 && part.partialStart) && { partialStart: true as const }),
+      ...(source?.segments?.some(part => part.end === length && part.partialEnd) && { partialEnd: true as const }),
+    });
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));

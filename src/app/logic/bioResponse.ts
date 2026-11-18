@@ -37,9 +37,11 @@ function readSourceLists(text: string | undefined): Record<string, unknown> {
   }
 }
 
-function mergeSourceQualifiers(record: SeqRecord, metadata: Record<string, string> = {}): SeqRecord {
+function mergeSourceRegion(record: SeqRecord, incoming: BioFeature): SeqRecord {
+  const metadata = incoming.metadata ?? {};
+  const bounds = incoming.segments?.[0];
   const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists');
-  if (qualifiers.length === 0) return record;
+  if (qualifiers.length === 0 && !bounds?.partialStart && !bounds?.partialEnd) return record;
   const updated = writeDetails(record, {});
   const sourceIndex = updated.features.findIndex(feature => feature.type === 'source');
   const source = updated.features[sourceIndex];
@@ -56,8 +58,17 @@ function mergeSourceQualifiers(record: SeqRecord, metadata: Record<string, strin
     }
   }
   if (listsAdded) merged._gffLists = JSON.stringify(lists);
-  return { ...updated, features: updated.features.map((feature, index) =>
-    index === sourceIndex ? { ...source, metadata: merged } : feature) };
+  const parts = source.segments?.length ? source.segments : [{ start: source.start, end: source.end }];
+  let geometryChanged = false;
+  const segments = parts.map(part => {
+    const markStart = bounds?.partialStart && part.start === bounds.start && !part.partialStart;
+    const markEnd = bounds?.partialEnd && part.end === bounds.end && !part.partialEnd;
+    if (!markStart && !markEnd) return part;
+    geometryChanged = true;
+    return { ...part, ...(markStart && { partialStart: true as const }), ...(markEnd && { partialEnd: true as const }) };
+  });
+  const mergedSource = { ...source, metadata: merged, ...(geometryChanged && { segments, locationString: undefined }) };
+  return { ...updated, features: updated.features.map((feature, index) => index === sourceIndex ? mergedSource : feature) };
 }
 
 /**
@@ -150,7 +161,7 @@ export function applyAnnotations(
           }
           record = { ...writeDetails(record, fills), fileDetails };
         }
-        record = mergeSourceQualifiers(record, candidate.feature.metadata);
+        record = mergeSourceRegion(record, candidate.feature);
         if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
       } else items.push(candidate.feature);
     }

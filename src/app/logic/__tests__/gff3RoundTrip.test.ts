@@ -249,3 +249,16 @@ it('rebases a bare forward exception on a linear mixed CDS with a minus majority
   const reopened = reopenGenBank(exported.text);
   expect(conceptualTranslation(reopened.features.find(f => f.type === 'CDS')!, reopened)).toMatchObject({ status: 'ok', residues: 'UK' });
 });
+
+it('preserves both open boundaries on an attached full-length GFF3 source region', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', features: [] };
+  const { features, details } = parseGFF3('r\ts\tregion\t1\t9\t.\t+\t.\tID=r;gbkey=Src;organism=synthetic%20construct;mol_type=genomic%20DNA;partial=true;start_range=.,1;end_range=9,.');
+  const attached = applyAnnotations([record], features, details);
+  expect(attached.refusal).toBeUndefined();
+  const { text } = exportToGff3([reopenProject(attached.next[0])]);
+  const source = text.split('\n').find(line => line.split('\t')[2] === 'region')!;
+  expect(source.split('\t')[8].split(';')).toEqual(expect.arrayContaining(['partial=true', 'start_range=.,1', 'end_range=9,.']));
+  const reread = parseGFF3(text);
+  expect(reread.details.r.feature.segments).toEqual([{ start: 0, end: 9, partialStart: true, partialEnd: true }]);
+  expect(exportToGenBank(attached.next).text).toContain('     source          <1..>9\n');
+});
