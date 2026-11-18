@@ -112,11 +112,8 @@ including on the end whose number changed; adding or removing one waits for the 
 toggles (#231, #246). A selection marks the kept interval facing anything it drops, a cut part or a
 whole interval. 5′/3′ partiality is read from the flags in evaluation order
 (`isFivePrimePartialLocation`, `isThreePrimePartialLocation`), and the details window names it.
-GFF3 CDS exports use [NCBI GFF3](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#start-and-stop-codons)
-partial boundaries. All rows of a partial CDS carry `partial=true`. Each affected row carries
-`start_range=.,N` for a partial genomic start or `end_range=N,.` for a partial genomic end.
-The reader accepts these ranges and the private `insdc_partial_start`/`insdc_partial_end` markers,
-which are still written for non-CDS features. Projects saved
+GFF3 writes NCBI partial boundaries for every feature type as described in
+[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase). Projects saved
 before the flags existed get them from their location text on load. Tested against P1 and the 13
 `table2asn` 1.29.324 cases pinned by #278.
 
