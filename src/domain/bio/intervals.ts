@@ -250,13 +250,17 @@ export function sliceRecordsBySelection(
   const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
-    if (record.isCircular && slicedSeq === record.sequence && selStart <= 0 && selEnd >= seq.length) {
-      return { ...record, alignedSequence: undefined };
-    }
-    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: false };
+    const unchangedCircle = record.isCircular === true && slicedSeq === record.sequence && selStart <= 0 && selEnd >= seq.length;
+    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: unchangedCircle };
 
     const slicedFeatures = record.features
       .map(original => {
+        if (unchangedCircle) {
+          const stored = original.segments?.length ? original.segments : [original];
+          // A wrap with an empty origin-side piece is a single linear interval (LOC-6).
+          const hasEmptyWrapPiece = stored.some(part => part.start > part.end && (part.start === seq.length || part.end === 0));
+          if (!hasEmptyWrapPiece) return original;
+        }
         const feature = selectionGeometry(original, seq.length, record.isCircular === true);
         const result = clipFeature(feature, seq, selStart, selEnd, record.isCircular === true);
         const loss = selectionFeature(record, feature);
