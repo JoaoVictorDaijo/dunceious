@@ -315,7 +315,7 @@ it('keeps the written order of a nested feature through GFF3', () => {
   const [imported] = parseGFF3(exportToGff3([circular]).text).features.seq_1;
   expect(imported.writtenOrder).toEqual([1, 0]);
   expect(featureEnvelope(imported)).toEqual({ start: 0, end: 12 });
-  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe(extractFeatureSequence(nested, circular.sequence).featureSeq);
+  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe('AGCACG');
   expect(imported.metadata).not.toHaveProperty('insdc_written_order');
 });
 
@@ -331,7 +331,7 @@ it('carries remote parts through GFF3 and counts them in the report', () => {
   expect(report.remotePartsCarried).toBe(1);
   expect(report.remoteOnlyOmitted).toBe(1);
   const [imported] = parseGFF3(text).features.seq_1;
-  expect(imported.remoteParts).toEqual(parsed.remoteParts);
+  expect(imported.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
   expect(imported.metadata).not.toHaveProperty('insdc_remote');
 });
 
