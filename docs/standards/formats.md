@@ -314,8 +314,10 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
-phase carries across parts. Imported values are checked for count and 0/1/2, not continuity.
-Invalid `codon_start` suppresses phase export (`.`); absence defaults to frame 1. Arbitrary part order, mixed strands, slippage
+phase carries across parts, including intervals split at the circular origin. Cached phases are
+reused only when they contain one 0/1/2 value per row. A CDS row with phase `.` refuses import
+with its row number. Invalid `codon_start` still exports phase `.`, which makes that file fail
+reimport. Absence of `codon_start` defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
 
@@ -398,7 +400,9 @@ private state with format 2; `src/app/logic/projectFile.ts:87` validates local s
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
 rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
 (2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
-aligned rows with unequal widths. The format remains 2, and each existing aligned-row residue
+aligned rows with unequal widths. After recovering supported legacy location fields, project load
+refuses a parseable retained location that disagrees with the stored operator or geometry. The format
+remains 2, and each existing aligned-row residue
 check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source
 selects an alternative or a new schema.

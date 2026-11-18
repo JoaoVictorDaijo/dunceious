@@ -109,33 +109,73 @@ function sameIntervals(a: FeatureSegment[] | undefined, b: FeatureSegment[]): bo
   return a?.length === b.length && a.every((part, i) => part.start === b[i].start && part.end === b[i].end);
 }
 
+function samePart(a: FeatureSegment, b: FeatureSegment): boolean {
+  return a.start === b.start && a.end === b.end && a.strand === b.strand
+    && a.partialStart === b.partialStart && a.partialEnd === b.partialEnd;
+}
+
+function matchesLegacyParts(stored: FeatureSegment[] | undefined, parsed: FeatureSegment[]): boolean {
+  if (!stored?.length) return true;
+  return stored.length === parsed.length && stored.every((part, i) => samePart({
+    ...part, partialStart: part.partialStart ?? parsed[i].partialStart,
+    partialEnd: part.partialEnd ?? parsed[i].partialEnd,
+  }, parsed[i]));
+}
+
 /**
  * Projects saved before features carried `operator`, `betweenBases`, per-end partial flags,
  * `writtenOrder` and `remoteParts` hold them only in `locationString`, which the first edit clears;
  * read them from that text while it is still there. Remote intervals were stored as local
  * segments then, so a feature that has them is re-read from its text whole (#245).
  */
-function withLegacyLocation(feature: BioFeature, record: SeqRecord): BioFeature {
+function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature {
   if (!feature.locationString) return feature;
   let parsed: ReturnType<typeof parseLocation>;
   // Text saved before import validation may not parse; the feature then stays as it was saved.
   try { parsed = parseLocation(feature.locationString); } catch { return feature; }
-  if (parsed.remoteParts && !feature.remoteParts) {
-    const { segments, strand, start, end, operator, writtenOrder, remoteParts } = parsed;
-    return { ...feature, segments, strand, start, end, remoteParts,
-      ...(operator && { operator }), ...(writtenOrder && { writtenOrder }) };
+
+  const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
+  if (feature.operator !== undefined && feature.operator !== parsed.operator) {
+    throw new Error(description + ' disagrees with its stored operator.');
   }
+  const geometryError = () => new Error(description + ' disagrees with its stored geometry.');
+
   let next = feature;
-  if (!feature.segments?.length && feature.start === parsed.start && feature.end === parsed.end && feature.strand === parsed.strand) next = { ...feature, segments: parsed.segments };
-  if (!next.operator && parsed.operator && (next.segments?.length ?? 0) > 1) next = { ...next, operator: parsed.operator };
-  if (!next.betweenBases && parsed.betweenBases && siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) {
-    next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments, betweenBases: true };
+  if (parsed.remoteParts && !feature.remoteParts) {
+    const legacy = parseLocation(feature.locationString.replace(/\s/g, '').replace(/(^|[(,])[^():,]+:/g, '$1'));
+    if (feature.start !== legacy.start || feature.end !== legacy.end || feature.strand !== legacy.strand
+      || feature.writtenOrder?.some((rank, i) => rank !== (legacy.writtenOrder?.[i] ?? i))
+      || !matchesLegacyParts(feature.segments, legacy.segments)) throw geometryError();
+    next = { ...feature, ...parsed };
   }
+  if (!next.betweenBases && parsed.betweenBases) {
+    if (!siteFitsRecord(feature.locationString, record.sequence.length, record.isCircular === true)) throw geometryError();
+    const legacy = parseLocation(feature.locationString.replace('^', '..'));
+    const oldGeometry = next.start === legacy.start && next.end === legacy.end
+      && matchesLegacyParts(next.segments, legacy.segments);
+    if (oldGeometry) next = { ...next, start: parsed.start, end: parsed.end, segments: parsed.segments };
+    next = { ...next, betweenBases: true };
+  }
+  if (!next.segments?.length && parsed.segments.length === 1) {
+    next = { ...next, segments: [{ start: next.start, end: next.end }] };
+  }
+  if (!next.operator && parsed.operator) next = { ...next, operator: parsed.operator };
   if (!next.writtenOrder && parsed.writtenOrder && sameIntervals(next.segments, parsed.segments)) next = { ...next, writtenOrder: parsed.writtenOrder };
   if (!isPartialLocation(next) && isPartialLocation(parsed) && sameIntervals(next.segments, parsed.segments)) {
     next = { ...next, segments: next.segments!.map((part, i) => ({ ...part,
       ...(parsed.segments[i].partialStart && { partialStart: true as const }),
       ...(parsed.segments[i].partialEnd && { partialEnd: true as const }) })) };
+  }
+  const parts = next.segments ?? [];
+  const remote = [...next.remoteParts ?? []].sort((a, b) => a.index - b.index);
+  const parsedRemote = parsed.remoteParts ?? [];
+  if (next.start !== parsed.start || next.end !== parsed.end || next.strand !== parsed.strand
+    || next.betweenBases !== parsed.betweenBases
+    || parts.length !== parsed.segments.length || !parts.every((part, i) => samePart(part, parsed.segments[i]))
+    || parts.some((_, i) => (next.writtenOrder?.[i] ?? i) !== (parsed.writtenOrder?.[i] ?? i))
+    || remote.length !== parsedRemote.length || !remote.every((part, i) =>
+      part.index === parsedRemote[i].index && part.accession === parsedRemote[i].accession && samePart(part, parsedRemote[i]))) {
+    throw geometryError();
   }
   return next;
 }
@@ -162,7 +202,7 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   if (widths.size > 1) return { ok: false, message: "This project file contains an alignment whose rows have different lengths" };
   const ids = new Set<string>();
   for (const record of value.records as SeqRecord[]) {
-    for (const feature of record.features) {
+    for (const [index, feature] of record.features.entries()) {
       const order = feature.writtenOrder;
       if (order !== undefined && (!Array.isArray(order) || order.length !== (feature.segments?.length ?? 0)
         || new Set(order).size !== order.length || !order.every(index => Number.isInteger(index) && index >= 0 && index < order.length))) {
@@ -172,8 +212,12 @@ export function parseProject(text: string, addLog: (message: string) => void = c
       const scalar = feature.metadata?.transl_except ?? feature.unknownQualifiers?.transl_except;
       if (scalar !== undefined) return { ok: false, message: `CDS ${feature.name}, /transl_except ${JSON.stringify(scalar)}: canonical translationExceptions array required; scalar qualifiers are invalid project data` };
       delete feature.biological;
-      const malformed = malformedCodeBreakMessage(withLegacyLocation(feature, record), record);
+      let normalized: BioFeature;
+      try { normalized = readProjectLocation(feature, record); }
+      catch (error) { return { ok: false, message: (error as Error).message }; }
+      const malformed = malformedCodeBreakMessage(normalized, record);
       if (malformed) return { ok: false, message: malformed };
+      record.features[index] = normalized;
     }
     if (/[-.]/.test(record.sequence)) return { ok: false, message: `This project file contains gap characters in the sequence of ${record.id}; the file is damaged` };
     const id = record.id.toLowerCase();
@@ -188,11 +232,10 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   const project = value as unknown as ProjectFile;
   project.records = project.records.map(record => ({
     ...record, features: record.features.map(feature => {
-      let normalized = withLegacyLocation(feature, record);
-      if (!isCds(normalized)) return normalized;
-      normalized = { ...normalized, metadata: { ...normalized.metadata } };
+      if (!isCds(feature)) return feature;
+      const normalized = { ...feature, metadata: { ...feature.metadata } };
       delete normalized.metadata!._translationCheck;
-      if (isCds(normalized) && record.moleculeType === 'protein' && normalized.metadata!._translationSource === 'computed') {
+      if (record.moleculeType === 'protein' && normalized.metadata!._translationSource === 'computed') {
         delete normalized.metadata!.translation;
         normalized.metadata!._translationSource = 'removed';
         normalized.metadata!._translationMessage = `Translation discarded on load: ${translationReason({ status: 'unavailable', reason: 'protein-record' }, normalized)}`;

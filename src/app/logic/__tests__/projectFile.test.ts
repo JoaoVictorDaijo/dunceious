@@ -164,8 +164,8 @@ describe('project locations saved before operators and sites', () => {
       .toMatchObject({ start: 10, end: 10, segments: [{ start: 10, end: 10 }], betweenBases: true });
   });
 
-  it('leaves a site that does not fit its record as saved', () => {
-    expect(load({ start: 29, end: 1, locationString: '30^1' })).toMatchObject({ start: 29, end: 1 });
+  it('refuses inconsistent legacy origin-site geometry on a linear record', () => {
+    expect(() => load({ start: 29, end: 1, locationString: '30^1' })).toThrow(/Feature f.*30\^1.*stored geometry/);
   });
 
   it.each([{ operator: 'splice' }, { betweenBases: 'yes' }])('refuses the invalid location field %o', field => {
@@ -191,9 +191,9 @@ describe('project partial ends saved before the flags', () => {
       .toEqual([{ start: 0, end: 20, partialStart: true }]);
   });
 
-  it('leaves segments alone when they no longer match the text', () => {
-    expect(load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }).segments)
-      .toEqual([{ start: 0, end: 15 }]);
+  it('refuses segments whose coordinates disagree with the retained text', () => {
+    expect(() => load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }))
+      .toThrow(/Feature c.*<1\.\.20.*stored geometry/);
   });
 });
 
@@ -308,4 +308,13 @@ it('accepts a complete reversed permutation and exports it', () => {
   expect(opened.ok).toBe(true);
   if (!opened.ok) throw new Error(opened.message);
   expect(exportToGenBank(opened.project.records).text).toContain('complement(join(3..4,complement(1..2)))');
+});
+
+it('refuses a structured CDS join paired with retained order text', () => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGCCCTAA', alignedSequence: undefined, features: [{
+    type: 'CDS', name: 'contradiction', strand: 1, start: 0, end: 9, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }],
+    operator: 'join', locationString: 'order(1..3,7..9)',
+  }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
+    message: 'Feature contradiction location "order(1..3,7..9)" disagrees with its stored operator.' });
 });
