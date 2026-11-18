@@ -437,3 +437,17 @@ it('shows qualifier and translation warnings, attribute omissions and adjusted I
     spy.mockRestore();
   }
 });
+
+it('names an omitted GFF3 CDS and excludes it from the preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'misframed', start: 0, end: 9, strand: 1, hubEdit: 'edited', metadata: { codon_start: '4' } },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportWarning()).toContain('a: CDS misframed omitted; invalid /codon_start="4"');
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});

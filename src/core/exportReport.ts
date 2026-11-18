@@ -40,7 +40,7 @@ export interface ExportReport {
   remotePartsCarried: number;
   /** GFF3: features with no interval in this record, which GFF3 has no row for. */
   remoteOnlyOmitted: number;
-  gff3FeaturesOmitted: string[];
+  gff3FeaturesOmitted: { reason: string; edited: boolean }[];
 }
 
 export interface ExportResult { text: string; unalignedText?: string; report: ExportReport }

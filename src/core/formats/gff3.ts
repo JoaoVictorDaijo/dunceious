@@ -220,7 +220,10 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     const features = record.features.filter(feature => {
       const codonStart = feature.metadata?.codon_start;
       if (!isCds(feature) || validCodonStart(codonStart)) return true;
-      report.gff3FeaturesOmitted.push(`${record.id}: CDS ${feature.name} omitted; invalid /codon_start=${JSON.stringify(codonStart)}`);
+      report.gff3FeaturesOmitted.push({
+        reason: `${record.id}: CDS ${feature.name} omitted; invalid /codon_start=${JSON.stringify(codonStart)}`,
+        edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
+      });
       return false;
     });
     const ids = features.map(feature => {
