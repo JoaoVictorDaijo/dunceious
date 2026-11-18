@@ -308,7 +308,7 @@ it.each([
 
 it.each([
   [{ start: 9, end: 6, partialStart: true as const }, 1 as const, 'join(<10..12,1..6)', 'LK'],
-  [{ start: 9, end: 6, partialEnd: true as const, strand: -1 as const }, -1 as const, 'join(complement(1..>6),complement(10..12))', 'LFQ'],
+  [{ start: 9, end: 6, partialEnd: true as const, strand: -1 as const }, -1 as const, 'complement(join(10..12,1..>6))', 'LFQ'],
 ])('preserves wrapped partial markers through GenBank reimport: %s', (segment, strand, location, residues) => {
   const r = record({ sequence: 'AAATAACCCCTG', isCircular: true, fileDetails: { organism: 'synthetic construct' }, features: [
     { type: 'CDS', name: 'partial', start: 9, end: 6, strand, segments: [segment] },
@@ -319,7 +319,9 @@ it.each([
   expect(text).toContain(location);
   const imported = parseGenBank(text);
   expect(imported.findings.filter(f => f.tier === 'refuse')).toEqual([]);
-  expect(conceptualTranslation(imported.records[0].features.find(f => f.type === 'CDS')!, imported.records[0])).toMatchObject({ status: 'ok', residues });
+  const reopened = imported.records[0].features.find(f => f.type === 'CDS')!;
+  expect(reopened).toMatchObject({ start: 9, end: 6 });
+  expect(conceptualTranslation(reopened, imported.records[0])).toMatchObject({ status: 'ok', residues });
 });
 
 
