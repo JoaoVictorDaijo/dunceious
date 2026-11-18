@@ -82,7 +82,6 @@ function phaseState(feature: BioFeature, segments: FeatureSegment[]): string {
 
 function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   if (!isCds(feature)) return segments.map(() => '.');
-  if (!validCodonStart(feature.metadata?.codon_start)) return segments.map(() => '.');
   const imported = feature.metadata?._gffPhases;
   const legacy = !feature.metadata?._gffPhaseState && feature.metadata?.codon_start === undefined;
   if (imported && (legacy || feature.metadata?._gffPhaseState === phaseState(feature, segments))) {
@@ -204,20 +203,14 @@ function appendFeatureRows(
     lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(feature.start), String(feature.start), metadata.score ?? '.', strand, phases[0], attributeText(attrs)].join('\t'));
     return;
   }
-  const ncbiPartial = isCds(feature) && segments.some(segment => segment.partialStart || segment.partialEnd);
-  if (ncbiPartial) attrs.partial = 'true';
+  if (segments.some(segment => segment.partialStart || segment.partialEnd)) attrs.partial = 'true';
   segments.forEach((segment, index) => {
     const partAttrs = { ...attrs };
     if (index > 0) delete partAttrs.transl_except;
     const site = segment.start === segment.end;
     if (site) partAttrs.insdc_site = 'true';
-    if (ncbiPartial) {
-      if (segment.partialStart) partAttrs.start_range = ['.', String(segment.start + 1)];
-      if (segment.partialEnd) partAttrs.end_range = [String(segment.end), '.'];
-    } else {
-      if (segment.partialStart) partAttrs.insdc_partial_start = '<';
-      if (segment.partialEnd) partAttrs.insdc_partial_end = '>';
-    }
+    if (segment.partialStart) partAttrs.start_range = ['.', String(segment.start + 1)];
+    if (segment.partialEnd) partAttrs.end_range = [String(segment.end), '.'];
     const direction = segment.strand ?? getFeatureStrand(feature);
     const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
     lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
@@ -230,7 +223,13 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
   const plans = records.map(record => {
     let number = 0;
     const localIds = new Map<string, string | null>();
-    const ids = record.features.map(feature => {
+    const features = record.features.filter(feature => {
+      const codonStart = feature.metadata?.codon_start;
+      if (!isCds(feature) || validCodonStart(codonStart)) return true;
+      report.gff3FeaturesOmitted.push(`${record.id}: CDS ${feature.name} omitted; invalid /codon_start=${JSON.stringify(codonStart)}`);
+      return false;
+    });
+    const ids = features.map(feature => {
       const id = `${record.id}.${feature.type === 'source' ? 0 : ++number}`;
       const old = feature.metadata?.ID;
       if (old) {
@@ -238,9 +237,9 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       }
       return id;
     });
-    return { record, ids, localIds };
+    return { record, features, ids, localIds };
   });
-  for (const { record, ids, localIds } of plans) {
+  for (const { record, features, ids, localIds } of plans) {
     const referenceIds = localIds;
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
@@ -255,7 +254,7 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
 
     const landmark = { seqid: id, length, isCircular: record.isCircular };
-    for (const [featureIndex, feature] of record.features.entries()) {
+    for (const [featureIndex, feature] of features.entries()) {
       appendFeatureRows(lines, feature, ids[featureIndex], landmark, referenceIds, report);
     }
   }
@@ -377,8 +376,8 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     const featureType = metadata.insdc_type || type;
     const label = metadata.Name || metadata.name || metadata.ID || metadata.id;
     const name = label || `${type}_${from}`;
-    if ((isCds({ type }) || isCds({ type: featureType })) && phase === '.') {
-      throw new Error(`GFF3 row ${rowNumber}, ${featureType} ${name}: CDS phase must be 0, 1 or 2 (found ".")`);
+    if ((isCds({ type }) || isCds({ type: featureType })) && !/^[012]$/.test(phase)) {
+      throw new Error(`GFF3 row ${rowNumber}, ${featureType} ${name}: CDS phase must be 0, 1 or 2 (found ${JSON.stringify(phase)})`);
     }
     const bareException = raw.split(';').find(attribute => !attribute.includes('=') && decode(attribute).trim() === 'transl_except');
     if (bareException !== undefined) throw new Error(`${featureType} ${name}, attribute ${JSON.stringify(bareException)} requires transl_except=(pos:<location>,aa:<residue>) syntax`);

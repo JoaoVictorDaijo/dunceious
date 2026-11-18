@@ -253,3 +253,18 @@ it('refuses whole-record GenBank export for a Sequence Ontology CDS with an empt
   } });
   expect(exportToGenBank([toRecord('1')]).text).toContain('/transl_table=1');
 });
+
+it('omits an invalid GenBank CDS frame from GFF3 and names the feature in the preview', () => {
+  const { records, findings } = parseGenBank(`LOCUS       x 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /gene="misframed"
+                     /codon_start=4
+ORIGIN
+        1 ATGAAATAA
+//`);
+  expect(findings).toContainEqual(expect.objectContaining({ tier: 'warning', code: 'invalid-frame' }));
+  expect(describeExport(records, 'gff3').summary).toContain('x: CDS misframed omitted; invalid /codon_start="4"');
+  const output = parseGFF3(serializeExport(records, 'gff3').text);
+  expect(output.features.x?.some(feature => feature.type === 'CDS') ?? false).toBe(false);
+});

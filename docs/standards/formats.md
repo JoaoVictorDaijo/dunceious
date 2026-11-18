@@ -326,11 +326,20 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
 phase carries across parts, including intervals split at the circular origin. Cached phases are
-reused only when they contain one 0/1/2 value per row. A CDS row with phase `.` refuses import
-with its row number. Invalid `codon_start` still exports phase `.`, which makes that file fail
-reimport. Absence of `codon_start` defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
+reused only when they contain one 0/1/2 value per row. Import refuses a CDS row whose phase is
+anything other than `0`, `1` or `2` and reports the row and the value. Absence of `codon_start`
+defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
+
+**Owner decision 2026-11-18.** GFF3 import refuses conflicting translation values for one CDS and reports both values and their row numbers.
+
+**Owner decision 2026-11-18.** GFF3 export omits a CDS with invalid `/codon_start` and names the feature and invalid value in the export notice.
+
+GFF3 export writes genomic partial endpoints on every feature type as `partial=true` with
+`start_range=.,start` and/or `end_range=end,.` on the affected rows, following
+[NCBI's partial-boundary convention](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
+Import also reads the private `insdc_partial_*` attributes from older Dunceious exports.
 
 ## FMT-12. Dated EBI submission and result contracts
 

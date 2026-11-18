@@ -27,10 +27,11 @@ it('passes detail candidates through the annotation worker response', () => {
 });
 
 
-it.each(['CDS', 'SO:0000316'])('refuses a %s with undefined phase and identifies its GFF3 row', type => {
+it.each([['CDS', '.'], ['SO:0000316', '.'], ['CDS', '3'], ['CDS', ''], ['CDS', 'x']])(
+  'refuses %s phase "%s" on a later GFF3 row', (type, phase) => {
   const response = handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'bad.gff3',
-    content: `##gff-version 3\nr\ts\tgene\t1\t10\t.\t+\t.\tID=g\nr\ts\t${type}\t1\t10\t.\t+\t.\tID=c` });
-  expect(response).toMatchObject({ type: 'ERROR', error: expect.stringMatching(/row 3.* c.*phase.*0, 1 or 2/) });
+    content: `##gff-version 3\nr\ts\t${type}\t1\t3\t.\t+\t0\tID=c\nr\ts\t${type}\t4\t10\t.\t+\t${phase}\tID=c` });
+  expect(response).toMatchObject({ type: 'ERROR', error: expect.stringContaining(`GFF3 row 3, ${type} c: CDS phase must be 0, 1 or 2 (found "${phase}")`) });
 });
 
 it('refuses conflicting CDS translations and names both rows and values', () => {
