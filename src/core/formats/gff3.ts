@@ -378,11 +378,16 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     }
     if (!line.trim() || line.startsWith('#')) continue;
     const cols = line.split('\t');
-    if (cols.length < 9) continue;
+    const rowNumber = index + 1;
+    if (cols.length < 9) {
+      if (isCds({ type: cols[2] ?? '' })) {
+        throw new Error(`GFF3 row ${rowNumber}, ${cols[2]}: CDS requires 9 columns for phase and attributes (found ${cols.length})`);
+      }
+      continue;
+    }
     const [encodedId, source, type, from, to, score, strand, phase, raw] = cols;
     const seqid = decode(encodedId);
     const metadata = parseAttributes(raw);
-    const rowNumber = index + 1;
     const featureType = metadata.insdc_type || type;
     const label = metadata.Name || metadata.name || metadata.ID || metadata.id;
     const name = label || `${type}_${from}`;

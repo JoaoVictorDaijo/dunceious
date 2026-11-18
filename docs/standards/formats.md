@@ -326,8 +326,8 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
 phase carries across parts, including intervals split at the circular origin. Cached phases are
-reused only when they contain one 0/1/2 value per row. Import refuses a CDS row whose phase is
-anything other than `0`, `1` or `2` and reports the row and the value. Absence of `codon_start`
+reused only when they contain one 0/1/2 value per row. Import refuses a CDS row with fewer
+than nine columns or a phase other than `0`, `1` or `2` and reports the row and the problem. Absence of `codon_start`
 defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
