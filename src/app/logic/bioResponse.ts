@@ -169,6 +169,18 @@ export function applyAnnotations(
     let record = next[index];
     const items = [...(annotations[id] ?? [])];
     const candidate = details[id];
+    if (!record.isCircular) {
+      const landmark = [candidate?.feature, ...items].find(feature => feature && !('data' in feature)
+        && (feature.type === 'region' || feature.type === 'SO:0000001')
+        && feature.start === 0 && feature.end === record.sequence.length && feature.metadata?.Is_circular === 'true');
+      const wrapped = items.find((item): item is BioFeature => !('data' in item)
+        && (item.start > item.end || !!item.segments?.some(part => part.start > part.end)));
+      const conflict = landmark ? 'declares Is_circular=true' : wrapped ? `has a wrapped feature ${wrapped.name}` : undefined;
+      if (conflict) {
+        const refusal = `GFF3 landmark ${id} ${conflict}, but sequence ${record.id} is linear.`;
+        return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal };
+      }
+    }
     if (candidate) {
       if (candidate.start === 0 && candidate.end === record.sequence.length) {
         const current = readDetails(record);
@@ -184,7 +196,6 @@ export function applyAnnotations(
           record = { ...writeDetails(record, fills), fileDetails };
         }
         record = mergeSourceRegion(record, candidate.feature, warnings);
-        if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
       } else items.push(candidate.feature);
     }
     if (items.length > 0) {

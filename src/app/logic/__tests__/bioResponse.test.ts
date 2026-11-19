@@ -393,10 +393,10 @@ it('keeps imported provenance and file values intact during an alignment overlay
 });
 
 
-it('preserves circular topology from a whole-length GFF source through interchange exports', () => {
-  const imported = applyFastaResponse([], [{ id: 'circle', name: 'circle', sequence: 'A'.repeat(1000), features: [] }], false, 'circle.fa');
+it('preserves a matching circular record topology through interchange exports', () => {
+  const circular = rec({ id: 'circle', sequence: 'A'.repeat(1000), isCircular: true });
   const gff = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\ncircle\ts\tgene\t901\t1000\t.\t+\t.\tID=wrap\ncircle\ts\tgene\t1\t100\t.\t+\t.\tID=wrap');
-  const result = applyAnnotations(imported.next, gff.features, gff.details);
+  const result = applyAnnotations([circular], gff.features, gff.details);
   expect(result.next[0].isCircular).toBe(true);
   expect(result.next[0].features.find(f => f.type === 'gene')?.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
   expect(exportToGenBank(result.next).text).toMatch(/^LOCUS.*circular/m);

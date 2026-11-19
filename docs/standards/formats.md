@@ -281,6 +281,8 @@ the surveyed applications.
 **Dunceious.** Partial: attachment requires exactly one match, preferring the batch ID map
 before ID, name/accession and sanitized aliases (`src/app/logic/bioResponse.ts:98`). No assembly
 or residue verification is performed: [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250).
+Attachment to a linear record refuses a matching landmark with `Is_circular=true` or a wrapped
+feature. The entire attachment is refused before any annotations or source details are applied.
 **Owner decision open:** exact-ID-only attachment versus an explicitly retained alias mapping with
 specified identity evidence; the standard does not select between them. Whole-length source
 fill and qualifier merging are local policies, separately constrained by source fidelity OP-9;

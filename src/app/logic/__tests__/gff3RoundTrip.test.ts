@@ -112,7 +112,7 @@ it.each([
 });
 
 it('keeps landmark and wrapped GFF3 boundary uncertainty on the corresponding rows', () => {
-  const record = attachGff({ id: 'x', name: 'x', sequence: 'AGTGAAATAACA', features: [] }, [
+  const record = attachGff({ id: 'x', name: 'x', sequence: 'AGTGAAATAACA', features: [], isCircular: true }, [
     'x\tRefSeq\tregion\t1\t12\t.\t+\t.\tgbkey=Src;Is_circular=true;partial=true;start_range=.,2',
     'x\tRefSeq\tCDS\t9\t16\t.\t-\t0\tID=g;transl_table=11;partial=true;start_range=.,10;end_range=14,.',
   ].join('\n'));
@@ -527,6 +527,60 @@ it('reports a landmark bound that matches no source endpoint', () => {
     warnings: ['x: Open source region end at base 12 could not be kept because no source interval ends there.'],
   });
   expect(exportToGff3(attached.next).text).not.toContain('end_range=12,.');
+});
+
+it('refuses a circular Src landmark on the linear record of a descending GenBank join', () => {
+  const record = reopenGenBank(`LOCUS       x 12 bp DNA linear
+FEATURES             Location/Qualifiers
+     source          1..12
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+     CDS             join(7..9,1..3)
+ORIGIN
+        1 ATGCCCTAATTT
+//
+`);
+  const { features, details } = parseGFF3([
+    '##gff-version 3',
+    '##sequence-region x 1 12',
+    'x\tRefSeq\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x declares Is_circular=true, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
+  expect(result.next[0].features[1]).toMatchObject({ start: 0, end: 9, locationString: 'join(7..9,1..3)' });
+});
+
+it('refuses a plain circular landmark on a linear sequence and attaches it to a circular sequence', () => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAA', features: [] };
+  const { features, details } = parseGFF3([
+    '##gff-version 3',
+    '##sequence-region x 1 12',
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;Is_circular=true',
+    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x declares Is_circular=true, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
+  expect(result.next[0].features).toEqual([]);
+
+  const circular = applyAnnotations([{ ...record, isCircular: true }], features, details);
+  expect(circular.refusal).toBeUndefined();
+  expect(circular.totalAdded).toBe(2);
+  expect(featureSequenceViews(circular.next[0], circular.next[0].features[1])).toMatchObject({
+    feature: 'CCTGAAAGC', region: 'CCTGAAAGC', regionLength: 9, regionStart: 6, regionEnd: 3,
+  });
+});
+
+it('refuses a wrapped GFF3 feature on a linear target even when the source region length differs', () => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAAA', features: [] };
+  const { features, details } = parseGFF3([
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x has a wrapped feature wrap, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
 });
 
 it('drops and counts a GFF3 Parent pointing to an omitted remote-only feature', () => {
