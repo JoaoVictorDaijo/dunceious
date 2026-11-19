@@ -30,7 +30,7 @@ import { DEFAULT_UI_EFFECTS, UiEffectsContext } from '../uiEffects';
 const note = 'n'.repeat(300);
 const feature: BioFeature = {
   type: 'CDS', name: 'capsid', start: 0, end: 6, strand: 1,
-  translation: 'MK', metadata: { note },
+   metadata: { ...{ note }, translation: 'MK' },
 };
 const record: SeqRecord = { id: 'record-1', name: 'Record 1', sequence: 'ATGAAA', features: [feature] };
 const writeText = vi.fn().mockResolvedValue(undefined);

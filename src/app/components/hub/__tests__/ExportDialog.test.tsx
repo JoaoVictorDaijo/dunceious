@@ -119,10 +119,19 @@ it('offers exactly four formats with their destinations', () => {
 
 it('includes invalid edited organisms in the bulk repair selection according to the real report', () => {
   const onEditDetails = vi.fn();
-  render(<Subject value={[writeDetails(records[0], { organism: 'invalid\norganism' }), writeDetails(records[1], { organism: 'valid organism' })]} onEditDetails={onEditDetails} />); open(); format('GenBank');
+  render(<Subject value={[writeDetails(records[0], { organism: '   ' }), writeDetails(records[1], { organism: 'valid organism' })]} onEditDetails={onEditDetails} />); open(); format('GenBank');
   expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
   fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
   expect(onEditDetails).toHaveBeenCalledWith(new Set(['a']));
+});
+it('blocks GenBank export of organism text containing a line break', () => {
+  const onExport = vi.fn();
+  render(<Subject value={[writeDetails(records[0], { organism: 'invalid\norganism' })]} selected={['a']} onExport={onExport} />); open(); format('GenBank');
+  expect(screen.getByRole('alert').textContent).toContain('non-printable control characters');
+  const button = screen.getByRole('button', { name: /^Export \d+ sequences?$/ }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(onExport).not.toHaveBeenCalled();
 });
 it('blocks GenBank only when the actual serializer cannot represent the chosen annotations', () => {
   const value = [{ ...records[0], features: [{ name: 'unknown', type: 'gene', start: 0, end: 4, strand: 1 as const, metadata: { _gffStrand: '?' } }] }];
@@ -157,13 +166,16 @@ it('toggles the whole group and picks only sequences shown in the viewport', () 
 });
 
 
-it('does not rerun the export serializer when only the filename changes', () => {
+it('refreshes the filename preview while memoizing unrelated rerenders', () => {
   const describe = vi.spyOn(exportPlan, 'describeExport');
   try {
-    render(<Subject />); open(); format('GenBank');
+    const view = render(<Subject />); open(); format('GenBank');
     const count = describe.mock.calls.length;
-    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
+    view.rerender(<Subject />);
     expect(describe.mock.calls.length).toBe(count);
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'new name' } });
+    expect(describe.mock.calls.length).toBe(count + 1);
+    expect(describe).toHaveBeenLastCalledWith([records[0], records[1]], 'genbank', expect.objectContaining({ fileName: 'new name.gb' }));
     expect(exportSummary()).toBe('2 sequences · 0 annotations → new name.gb');
   } finally { describe.mockRestore(); }
 });
@@ -330,4 +342,139 @@ it('previews the circular record annotation count and each source qualifier inde
   fireEvent.click(screen.getByRole('checkbox', { name: 'CDS' }));
   expect(exportSummary()).toBe('1 sequence · 0 annotations → sequences.gb');
   expect(within(table).getByRole('row', { name: /^Organism / }).textContent).toContain('1 written');
+});
+
+it('warns about skipped sites even with organism set and counts written annotations', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', fileDetails: { organism: 'synthetic construct' }, features: [
+    { type: 'source', name: 'source', start: 0, end: 4, strand: 1, metadata: { organism: 'synthetic construct' } },
+    { type: 'gene', name: 'edge', start: 0, end: 0, strand: 1 },
+  ] };
+  render(<Subject value={[record]} selected={['r']} />); open(); format('GenBank');
+  expect(exportWarning()).toBe("1 feature not written: a site at a linear sequence's edge has no GenBank location");
+  expect(exportSummary()).toContain('0 annotations');
+  expect(screen.getByTitle('1 features skipped').textContent).toBe('0 annotations');
+});
+
+it('names GenBank gap omissions and distinguishes chosen records from written content', () => {
+  const value: SeqRecord[] = [
+    { id: 'clean', name: 'clean', sequence: 'ACGT', features: [{ type: 'gene', name: 'kept', start: 0, end: 2, strand: 1 }] },
+    { id: 'damaged', name: 'damaged', sequence: 'AC-GT', features: [{ type: 'gene', name: 'omitted', start: 0, end: 2, strand: 1 }] },
+  ];
+  const onExport = vi.fn();
+  render(<Subject value={value} selected={['clean', 'damaged']} onExport={onExport} />); open(); format('GenBank');
+  expect(screen.getByText('damaged not exported: its sequence contains gap characters')).toBeTruthy();
+  expect(screen.queryByText(/Sequences and annotations with valid qualifiers/)).toBeNull();
+  expect(screen.getByText('Display names stay in Dunceious.')).toBeTruthy();
+  expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
+  expect(screen.getByText('2 chosen')).toBeTruthy();
+  expect(screen.getByText('1 written')).toBeTruthy();
+  expect(exportSummary()).toBe('2 chosen · 1 written · 1 annotations → sequences.gb');
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export clean' }));
+  expect((screen.getByRole('button', { name: 'Export 0 sequences' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText('0 written')).toBeTruthy();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Export clean' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Export 1 sequence' }));
+  expect(onExport).toHaveBeenCalledWith(['clean', 'damaged'], 'genbank', expect.objectContaining({ fileName: 'sequences.gb' }));
+});
+
+it('previews the renamed companion file and exports the same name', () => {
+  const value: SeqRecord[] = [
+    { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] },
+    { id: 'u', name: 'u', sequence: 'TTTTTTTT', features: [] },
+  ];
+  const onExport = vi.fn();
+  render(<Subject value={value} selected={['a', 'u']} onExport={onExport} />); open();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Keep alignment gaps' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File name' }), { target: { value: 'chosen' } });
+  expect(exportWarning()).toContain('saved separately in chosen_unaligned.fasta');
+  fireEvent.change(screen.getByRole('textbox', { name: 'File name' }), { target: { value: 'renamed.fasta' } });
+  expect(exportWarning()).toContain('saved separately in renamed_unaligned.fasta');
+  expect(exportWarning()).not.toContain('chosen_unaligned.fasta');
+  fireEvent.click(screen.getByRole('button', { name: 'Export 2 sequences' }));
+  expect(onExport).toHaveBeenCalledWith(['a', 'u'], 'fasta', expect.objectContaining({ residues: 'aligned', fileName: 'renamed.fasta' }));
+});
+
+it.each([false, true])('previews general GenBank omissions with matching counts and detail scope, allInvalid=%s', allInvalid => {
+  const good: SeqRecord = { id: 'good', name: 'good', sequence: 'ACRGT', fileDetails: { organism: 'virus' }, features: [{ type: 'gene', name: 'kept', start: 0, end: 2, strand: 1 }] };
+  const bad = (id: string, sequence: string, metadata: Record<string, string> = {}): SeqRecord => ({ id, name: id, sequence, fileDetails: { organism: 'omitted' }, features: [{ type: 'CDS', name: 'broken', start: 0, end: sequence.length, strand: 1, metadata }] });
+  const damaged = [bad('gap', 'AC-GT'), bad('symbol', 'AC*GT'), bad('frame', 'ACRGT', { codon_start: '' }), bad('code', 'ACRGT', { transl_table: '99' })];
+  const detailed = damaged.map(r => writeDetails(r, { organism: 'omitted' }));
+  const value = allInvalid ? detailed : [writeDetails(good, { organism: 'virus' }), ...detailed];
+  const onExport = vi.fn(); render(<Subject value={value} selected={value.map(r => r.id)} onExport={onExport} />); open(); format('GenBank');
+  for (const reason of [
+    'gap not exported: its sequence contains gap characters',
+    'symbol not exported: its sequence contains non-residue characters',
+    'frame not exported: CDS broken has an invalid /codon_start',
+    'code not exported: CDS broken has an invalid /transl_table',
+  ]) expect(screen.getByText(reason)).toBeTruthy();
+  expect(document.querySelectorAll('[data-export-gap-omission]')).toHaveLength(1);
+  expect(exportSummary()).toBe(`${value.length} chosen · ${allInvalid ? 0 : 1} written · ${allInvalid ? 0 : 1} annotations → sequences.gb`);
+  expect(within(screen.getByRole('table', { name: 'Detail qualifiers' })).getByRole('row', { name: /^Organism / }).textContent).toContain(`${allInvalid ? 0 : 1} written · 0 empty`);
+  const button = screen.getByRole('button', { name: `Export ${allInvalid ? '0 sequences' : '1 sequence'}` }) as HTMLButtonElement;
+  expect(button.disabled).toBe(allInvalid);
+  if (allInvalid) { fireEvent.click(button); expect(onExport).not.toHaveBeenCalled(); }
+});
+
+it('shows qualifier and translation warnings, attribute omissions and adjusted IDs before GenBank download', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'gene', name: 'gene', start: 0, end: 9, strand: 1, metadata: { note: 'café', custom: 'left out' } },
+    { type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1, metadata: { _translationSource: 'removed', _translationMessage: 'Translation removed after edit' } },
+  ] }];
+  // Workspace IDs are normalized before the Hub opens; inject only the serializer's report entry.
+  const serialize = exportPlan.describeExport;
+  const spy = vi.spyOn(exportPlan, 'describeExport').mockImplementation((...args) => {
+    const preview = serialize(...args);
+    if (args[1] === 'genbank') preview.report.adjustedIds.push({ from: 'original id', to: 'a' });
+    return preview;
+  });
+  try {
+    render(<Subject value={value} selected={['a']} />); open(); format('GenBank');
+    expect(screen.getByText(/café.*ASCII/)).toBeTruthy();
+    expect(screen.getByText('coding: Translation removed after edit')).toBeTruthy();
+    expect(screen.getByText(/^1 non-GenBank attributes left out\.$/)).toBeTruthy();
+    expect(screen.getByText('ID: original id → a').closest('details')).toBeNull();
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it('names an omitted GFF3 CDS and excludes it from the preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'misframed', start: 0, end: 9, strand: 1, hubEdit: 'edited', metadata: { codon_start: '4' } },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportWarning()).toContain('a: CDS misframed omitted; invalid /codon_start="4"');
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});
+
+it('excludes an edited feature wholly in another record from the GFF3 preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'misc_feature', name: 'remote', start: 0, end: 0, strand: 1, hubEdit: 'edited', segments: [],
+      remoteParts: [{ start: 9, end: 20, strand: 1, accession: 'AB123.1', index: 0 }] },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});
+
+it('shows the named GenBank omission of a one-part ordered CDS and counts only written features', () => {
+  const value: SeqRecord[] = [{ id: 'x', name: 'x', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, operator: 'order', hubEdit: 'edited' },
+  ] }];
+  render(<Subject value={value} selected={['x']} />);
+  open();
+  format('GenBank');
+
+  expect(screen.getByText('x: CDS c: CDS omitted; one part of an order() CDS gives no defined product or frame')).toBeTruthy();
+  expect(exportSummary()).toBe('1 sequence · 0 annotations → sequences.gb');
+  expect(screen.getByText('0 edited or added')).toBeTruthy();
 });

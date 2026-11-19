@@ -48,7 +48,7 @@ describe('record status', () => {
     expect(annotationFeatures(original)).toEqual([gene]);
     expect(isUnannotated(original)).toBe(false);
     expect(isUnannotated({ ...original, features: [source] })).toBe(true);
-    expect(isPartial({ ...original, features: [{ ...gene, locationString: '<1..3' }] })).toBe(true);
+    expect(isPartial({ ...original, features: [{ ...gene, segments: [{ start: 0, end: 3, partialStart: true }] }] })).toBe(true);
     expect(isPartial({ ...original, definition: 'partial genome' })).toBe(true);
     expect(isPartial(original)).toBe(false);
   });
@@ -64,8 +64,8 @@ describe('record status', () => {
 
   it('detects the partial word and feature location markers', () => {
     expect(isPartial(record({ definition: 'virus, partial genome' }))).toBe(true);
-    expect(isPartial(record({ features: [{ ...gene, locationString: '<1..200' }] }))).toBe(true);
-    expect(isPartial(record({ features: [{ ...gene, locationString: '1..>200' }] }))).toBe(true);
+    expect(isPartial(record({ features: [{ ...gene, segments: [{ start: 0, end: 200, partialStart: true }] }] }))).toBe(true);
+    expect(isPartial(record({ features: [{ ...gene, segments: [{ start: 0, end: 200, partialEnd: true }] }] }))).toBe(true);
     expect(isPartial(record({ definition: 'impartial genome' }))).toBe(false);
   });
 

@@ -20,9 +20,13 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { TAP_WINDOW_MS, tapOutcome } from "@/src/app/logic/easterEgg";
+import { GenBankImportNotes } from './GenBankImportDiagnostics';
+import type { ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
 import CentralDogmaEgg from "./CentralDogmaEgg";
 
 interface StatusBarProps {
+  importNotes?: ImportDiagnosticFile[];
+  onClearImportNotes?: () => void;
   sessionMoleculeType: "nucleotide" | "protein" | null;
 }
 
@@ -35,7 +39,7 @@ const linkClass =
  * Footer status bar shown at the bottom of the app. The session pill takes the
  * environment accent, so it re-tints with the header when the workspace changes.
  */
-const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType, importNotes = [], onClearImportNotes = () => {} }) => {
   const taps = useRef({ count: 0, last: 0 });
   const [unlocked, setUnlocked] = useState(false);
   const [egg, setEgg] = useState<"closed" | "play" | "replay">("closed");
@@ -77,7 +81,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType }) => {
     </div>
   )}
   {egg !== "closed" && <CentralDogmaEgg replay={egg === "replay"} onClose={() => setEgg("closed")} />}
-  <div className="app-status relative bg-slate-950 border-t border-slate-800/80 overflow-hidden">
+  <div className="app-status relative z-20 shrink-0 bg-slate-950 border-t border-slate-800/80">
     <div className="status-copy relative z-[1] px-6 py-2 flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
       <div className="flex gap-4 items-center">
         {/* Tap seven times, as with Android's build number. */}
@@ -110,6 +114,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionMoleculeType }) => {
         </a>
       </div>
       <div className="flex gap-4 items-center">
+        {importNotes.length > 0 && <GenBankImportNotes files={importNotes} onClear={onClearImportNotes} />}
         {sessionMoleculeType && (
           <>
             <span

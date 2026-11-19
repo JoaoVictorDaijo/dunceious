@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
+
 export type QualifierSyntax = 'quoted' | 'unquoted' | 'flag';
 
 // Value syntax is part of the format contract, even for numeric-looking text.
@@ -130,38 +132,32 @@ export const NUCLEOTIDE_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new M
   ['variety', 'quoted'],
 ]);
 
-// GenPept adds protein feature qualifiers to the INSDC vocabulary.
-// https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/main/src/objtools/format/feature_item.cpp (2026-10-13)
-export const PROTEIN_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new Map([
-  ...NUCLEOTIDE_QUALIFIERS,
-  ['bond_type', 'quoted'],
-  ['calculated_mol_wt', 'unquoted'],
-  ['coded_by', 'quoted'],
-  ['derived_from', 'quoted'],
-  ['heterogen', 'quoted'],
-  ['name', 'quoted'],
-  ['non_std_residue', 'quoted'],
-  ['region_name', 'quoted'],
-  ['sec_str_type', 'quoted'],
-  ['site_type', 'quoted'],
-  ['UniProtKB_evidence', 'quoted'],
-]);
+export const PROTEIN_QUALIFIERS: ReadonlyMap<string, QualifierSyntax> = new Map(
+  FEATURE_TABLE.proteinQualifiers.map(key => [key, NUCLEOTIDE_QUALIFIERS.get(key) ?? (key === 'calculated_mol_wt' ? 'unquoted' : 'quoted')]),
+);
 
 export function formatQualifier(key: string, value: string, syntax: QualifierSyntax): string[] {
+  assertGenBankQualifierText(key, value);
   const indent = ' '.repeat(21);
   if (syntax === 'flag') return [indent + '/' + key];
   if (!value) return [];
 
-  value = value.replace(/\s*[\r\n]+\s*/g, ' ');
   const quoted = syntax === 'quoted';
   const escaped = quoted ? value.replace(/"/g, '""') : value;
   let remaining = `/${key}=${quoted ? '"' : ''}${escaped}${quoted ? '"' : ''}`;
   const lines: string[] = [];
   while (remaining.length > 58) {
+    if (key === 'transl_except') {
+      const comma = remaining.lastIndexOf(',', 57);
+      if (comma < 0) break;
+      lines.push(indent + remaining.slice(0, comma + 1));
+      remaining = remaining.slice(comma + 1);
+      continue;
+    }
     let boundary = key === 'translation' ? 58 : -1;
     if (key !== 'translation') {
       for (let i = 58; i > 0; i--) {
-        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ') {
+        if (remaining[i] === ' ' && remaining[i - 1] !== ' ' && remaining[i + 1] !== ' ' && remaining[i + 1] !== '/') {
           boundary = i;
           break;
         }
@@ -175,4 +171,8 @@ export function formatQualifier(key: string, value: string, syntax: QualifierSyn
   }
   lines.push(indent + remaining);
   return lines;
+}
+
+export function assertGenBankQualifierText(key: string, value: string): void {
+  if (/[\p{Cc}\p{Zl}\p{Zp}]/u.test(value)) throw new Error(`/${key}=${JSON.stringify(value)}: non-printable control characters (Cc) and line/paragraph separators (Zl/Zp) cannot be encoded in GenBank qualifiers`);
 }

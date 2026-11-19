@@ -19,6 +19,7 @@
  */
 
 
+import { displayTracks, trackValueRange } from '@/src/domain/bio/quantitativeTracks';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import { ALIGNMENT_LOCK_TIP } from '@/src/app/logic/remoteAlignment';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
@@ -29,6 +30,7 @@ import { RULER_HEIGHT, SIDEBAR_WIDTH } from './constants';
 import { computeRecordLayouts } from './layout';
 import { ANNOT_BASES_MIN_ZOOM, TRANSLATION_MIN_ZOOM } from './constants';
 import { Ruler } from './Ruler';
+import { alignedConservation } from '@/src/app/logic/viewModel';
 import { ConservationTrack } from './tracks/ConservationTrack';
 import { Row, type RowData } from './Row';
 import ViewerToolbar from './ViewerToolbar';
@@ -80,9 +82,9 @@ interface Props {
   onClearSelection: () => void;
   comparisonMenu: Omit<ComparisonMenuProps, 'compact' | 'arrive'> | null;
   onSelectionChange: (selection: SelectionArea | null) => void;
-  onExportFasta: () => void;
+  onExportFasta: (mode?: 'original' | 'aligned') => void;
   onAddAnnotation: (recordId: string, start: number, end: number, name: string) => void;
-  onExportRecord?: (recordId: string) => void;
+  onExportRecord?: (recordId: string, mode?: 'original' | 'aligned') => void;
   onViewDetails?: (recordId: string, feature?: BioFeature) => void;
   isAlignmentLocked?: boolean;
   onRemoveRecord?: (recordId: string) => void;
@@ -100,6 +102,7 @@ interface Props {
   focusedRegion?: FocusTarget | null;
   showConservation: boolean;
   showTracks: boolean;
+  addLog?: (message: string) => void;
   /** Reference comparison to draw in the sequence rows; null draws every residue in its own colour. */
   comparison?: ActiveComparison | null;
   /** Offered in the record menu, on aligned records only, while a comparison is possible. */
@@ -133,6 +136,7 @@ const GenomeViewer: React.FC<Props> = ({
   focusedRegion = null,
   showConservation,
   showTracks,
+  addLog,
   comparison = null,
   onSetComparisonReference,
 }) => {
@@ -145,31 +149,9 @@ const GenomeViewer: React.FC<Props> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, recordId: string, feature?: BioFeature } | null>(null);
   const quantValueRanges = useMemo(() => {
     const ranges: Record<string, { min: number, max: number }> = {};
-    records.forEach(r => {
-      if (r.tracks) {
-        r.tracks.forEach(t => {
-          if (t.data.length === 0) {
-            ranges[t.id] = { min: 0, max: 1 };
-            return;
-          }
-          const min = t.data.reduce((min, d) => d.value < min ? d.value : min, t.data[0].value);
-          const max = t.data.reduce((max, d) => d.value > max ? d.value : max, t.data[0].value);
-          
-          if (t.kind === 'interval') {
-            ranges[t.id] = { min, max };
-          } else {
-            ranges[t.id] = { 
-              min: Math.min(0, min),
-              max: Math.max(0, max) 
-            };
-          }
-          
-          if (ranges[t.id].min === ranges[t.id].max) {
-            ranges[t.id].max += 1;
-          }
-        });
-      }
-    });
+    records.forEach(record => displayTracks(record).forEach(display => {
+      ranges[display.track.id] = trackValueRange(display);
+    }));
     return ranges;
   }, [records]);
 
@@ -212,28 +194,11 @@ const GenomeViewer: React.FC<Props> = ({
     return () => window.removeEventListener('click', handleClick);
   }, []);
 
-  const conservationScores = useMemo(() => {
-    if (!showConservation || records.length < 2) return [];
-    const len = alignmentLength;
-    const scores = new Array(len).fill(0);
-    
-    for (let i = 0; i < len; i++) {
-      const counts: Record<string, number> = {};
-      let total = 0;
-      records.forEach(r => {
-        const char = (r.alignedSequence || r.sequence)[i];
-        if (char && char !== '-') {
-          counts[char] = (counts[char] || 0) + 1;
-          total++;
-        }
-      });
-      if (total > 0) {
-        const maxFreq = Math.max(...Object.values(counts));
-        scores[i] = maxFreq / records.length; 
-      }
-    }
-    return scores;
-  }, [showConservation, records, alignmentLength]);
+  const alignedRows = records.filter(record => record.visible !== false && record.alignedSequence !== undefined);
+  const unalignedRows = records.filter(record => record.visible !== false && record.alignedSequence === undefined);
+  const conservationTip = alignedRows.length < 2 ? 'Conservation needs at least two aligned sequences'
+    : `From ${alignedRows.length} aligned sequences${unalignedRows.length ? `; ${unalignedRows.map(record => record.id).join(', ')} not in the alignment` : ''}`;
+  const conservationScores = useMemo(() => showConservation ? alignedConservation(records) : [], [showConservation, records]);
 
   const persistentSelection = activeSelection;
   const setPersistentSelection = handleSelectionChange;
@@ -284,6 +249,7 @@ const GenomeViewer: React.FC<Props> = ({
     conservationScores,
     quantValueRanges,
     showTracks,
+    addLog,
     basesOpenness,
     focusedRegion: focusLabel,
     comparison,
@@ -292,13 +258,13 @@ const GenomeViewer: React.FC<Props> = ({
     persistentSelection, showAnnotations, showTranslation, 
     searchResultsByRecord, searchResults, currentSearchIdx, completedSearch,
     setPersistentSelection, handleContextMenu, onViewDetails, setTooltip, customColors,
-    showConservation, conservationScores, quantValueRanges, showTracks, basesOpenness, focusLabel, comparison
+    showConservation, conservationScores, quantValueRanges, showTracks, addLog, basesOpenness, focusLabel, comparison
   ]);
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-white overflow-hidden relative border-t border-slate-200 min-h-0 min-w-0">
       
-      <ViewerToolbar activeSelection={activeSelection} alignmentLength={alignmentLength} comparisonMenu={comparisonMenu}
+      <ViewerToolbar records={records} activeSelection={activeSelection} alignmentLength={alignmentLength} comparisonMenu={comparisonMenu}
         onClearSelection={onClearSelection} onExportFasta={onExportFasta} gotoPos={gotoPos} setGotoPos={setGotoPos}
         handleGoto={handleGoto} handleCenterOnSelection={handleCenterOnSelection} handleZoomToSelection={handleZoomToSelection}
         handleFit={handleFit} handleZoom={handleZoom} minimap={
@@ -373,8 +339,9 @@ const GenomeViewer: React.FC<Props> = ({
               }}
               className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 flex items-center gap-3 transition-colors"
             >
-              <i className="fas fa-download w-4 text-center opacity-50"></i> Export Sequence
+              <i className="fas fa-download w-4 text-center opacity-50"></i> FASTA (no gaps)
             </button>
+            {records.find(r => r.id === contextMenu.recordId)?.alignedSequence && <button className="w-full text-left px-4 py-2 text-[11px] font-bold text-slate-700 hover:bg-emerald-50" onClick={() => { onExportRecord?.(contextMenu.recordId, 'aligned'); setContextMenu(null); }}>FASTA (aligned)</button>}
             <button
               onClick={() => {
                 onViewDetails?.(contextMenu.recordId, contextMenu.feature);
@@ -479,7 +446,7 @@ const GenomeViewer: React.FC<Props> = ({
         {showConservation && conservationScores && (
           <div className="h-[60px] flex-none bg-white border-t border-slate-200 relative overflow-hidden flex">
             <div className="w-[120px] flex-none bg-slate-50 border-r border-slate-200 z-10 flex flex-col items-end px-2 justify-center shrink-0">
-              <div className="bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-sm text-[8px] font-bold text-amber-600 uppercase tracking-widest">
+              <div data-tip={conservationTip} className="bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-sm text-[8px] font-bold text-amber-600 uppercase tracking-widest">
                 Conservation
               </div>
             </div>

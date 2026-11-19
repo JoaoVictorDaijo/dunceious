@@ -21,6 +21,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+export const TOOLTIP_INVALIDATE = 'translation-tooltip-invalidate';
+export function invalidateTooltips(): void {
+  document.dispatchEvent(new Event(TOOLTIP_INVALIDATE));
+}
+
 const SHOW_DELAY_MS = 380;
 /** After a tooltip closes, the next one opens instantly for this long (scanning a toolbar). */
 const WARM_WINDOW_MS = 400;
@@ -89,6 +94,7 @@ const TooltipLayer: React.FC = () => {
     const onLeaveWindow = (e: PointerEvent) => { if (!e.relatedTarget) close(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
 
+    document.addEventListener(TOOLTIP_INVALIDATE, close);
     document.addEventListener('pointerover', onOver);
     document.addEventListener('pointerout', onLeaveWindow);
     document.addEventListener('focusin', onFocus);
@@ -99,6 +105,7 @@ const TooltipLayer: React.FC = () => {
     window.addEventListener('resize', close);
     return () => {
       close();
+      document.removeEventListener(TOOLTIP_INVALIDATE, close);
       document.removeEventListener('pointerover', onOver);
       document.removeEventListener('pointerout', onLeaveWindow);
       document.removeEventListener('focusin', onFocus);

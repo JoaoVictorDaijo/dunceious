@@ -19,18 +19,19 @@
  */
 
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { SelectionArea } from '@/src/domain/bio/types';
+import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
+import type { SelectionArea, SeqRecord } from '@/src/domain/bio/types';
 import ComparisonMenu, { type ComparisonMenuProps } from '@/src/app/components/ComparisonMenu';
 import { chooseViewerToolbarStep, VIEWER_TOOLBAR_STEPS, type ViewerToolbarStep } from '@/src/app/logic/viewerToolbarFit';
 
 interface Props {
   minimap: React.ReactNode;
+  records?: SeqRecord[];
   activeSelection: SelectionArea | null;
   alignmentLength: number;
   comparisonMenu: Omit<ComparisonMenuProps, 'compact' | 'arrive'> | null;
   onClearSelection: () => void;
-  onExportFasta: () => void;
+  onExportFasta: (mode?: 'original' | 'aligned') => void;
   gotoPos: string;
   setGotoPos: (value: string) => void;
   handleGoto: (position: number) => void;
@@ -49,8 +50,67 @@ const raisedShadow = { boxShadow: '0 1px 1.5px rgba(0,0,0,0.35), inset 0 1px 0 r
 const segField = "bg-[#0f1c37] border border-white/[0.07] rounded-md";
 const fieldShadow = { boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)' };
 
-function ToolbarControls({ activeSelection, alignmentLength, comparisonMenu, onClearSelection, onExportFasta,
+function SelectionExportMenu({ disabled, reason, onExport }: {
+  disabled: boolean; reason?: string; onExport: Props['onExportFasta'];
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const lastOnOpen = useRef(false);
+  const menuId = useId();
+  const close = () => { setOpen(false); trigger.current?.focus(); };
+  useEffect(() => {
+    if (!open) return;
+    const choices = menu.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
+    (lastOnOpen.current ? choices?.[choices.length - 1] : choices?.[0])?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
+  const choose = (mode: 'aligned' | 'original') => { close(); onExport(mode); };
+  return <div ref={root} className="relative" onBlur={event => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+  }}>
+    <button ref={trigger} type="button" className={segExport} style={raisedShadow}
+      aria-label="Export selection as FASTA" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined}
+      onClick={() => { lastOnOpen.current = false; setOpen(!open); }}
+      onKeyDown={event => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault(); event.stopPropagation(); lastOnOpen.current = event.key === 'ArrowUp'; setOpen(true);
+        }
+      }}><i aria-hidden="true" className="fas fa-download text-[8px]" /></button>
+    {open && <div ref={menu} id={menuId} role="menu" aria-label="Export selection as FASTA"
+      className="absolute right-0 z-40 bg-slate-900 p-3 rounded-lg text-xs whitespace-nowrap flex flex-col gap-2"
+      onKeyDown={event => {
+        if (event.key === 'Escape' || event.key === 'Tab') {
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
+          close();
+        }
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault(); event.stopPropagation();
+          const choices = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+          const index = choices.indexOf(document.activeElement as HTMLButtonElement);
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? choices.length - 1
+            : (index + (event.key === 'ArrowDown' ? 1 : -1) + choices.length) % choices.length;
+          choices[next]?.focus();
+        }
+      }}>
+      <button type="button" role="menuitem" tabIndex={-1} disabled={disabled} data-tip={reason}
+        onClick={() => choose('aligned')}>Aligned, with gaps</button>
+      <button type="button" role="menuitem" tabIndex={-1}
+        onClick={() => choose('original')}>Sequences only, no gaps</button>
+    </div>}
+  </div>;
+}
+
+function ToolbarControls({ records = [], activeSelection, alignmentLength, comparisonMenu, onClearSelection, onExportFasta,
   gotoPos, setGotoPos, handleGoto, handleCenterOnSelection, handleZoomToSelection, handleFit, handleZoom, step, measuring = false, variant = '', arrive }: Props & { step: ViewerToolbarStep; measuring?: boolean; variant?: string; arrive: boolean }) {
+  const aligned = records.filter(record => record.visible !== false && record.alignedSequence !== undefined);
+  const unaligned = records.filter(record => record.visible !== false && record.alignedSequence === undefined);
+  const outside = Boolean(activeSelection && Math.min(activeSelection.start, activeSelection.end) >= (aligned[0]?.alignedSequence?.length ?? 0));
   return (
   <div data-toolbar-measure={measuring ? variant : undefined} className={`flex items-center gap-2 ${step.wrap && !measuring ? 'flex-wrap w-full' : 'w-max shrink-0'}`}>
     <div className={`flex items-center ${segField}`} style={fieldShadow}>
@@ -90,10 +150,13 @@ function ToolbarControls({ activeSelection, alignmentLength, comparisonMenu, onC
           <button onClick={handleCenterOnSelection} aria-label="Center" className={step.iconActions ? segIcon : segBtn} style={raisedShadow} data-tip="Scroll the selection to the middle of the view" data-tip-kbd="C">{step.iconActions ? <i aria-hidden="true" className="fas fa-crosshairs" /> : 'Center'}</button>
           <button onClick={() => handleZoomToSelection()} aria-label="Zoom Sel" className={step.iconActions ? segIcon : segBtn} style={raisedShadow} data-tip="Zoom until the selection fills the view">{step.iconActions ? <i aria-hidden="true" className="fas fa-magnifying-glass-plus" /> : 'Zoom Sel'}</button>
         </div>
-        <button onClick={onExportFasta} className={segExport} style={raisedShadow} aria-label="Export selection as FASTA" data-tip="Download the selected region as FASTA"><i className="fas fa-download text-[8px]"></i></button>
+        <SelectionExportMenu disabled={!aligned.length || outside}
+          reason={!aligned.length ? 'No row is aligned' : outside ? 'The selection is outside the alignment' : undefined}
+          onExport={onExportFasta} />
         <button onClick={onClearSelection} className={segIcon} style={raisedShadow} aria-label="Clear selection" data-tip="Clear the current selection"><i aria-hidden="true" className="fas fa-xmark text-rose-400" /></button>
       </>
     )}
+    {aligned.length > 0 && unaligned.length > 0 && <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300" data-tip={`${unaligned.map(record => record.id).join(', ')} not in the alignment; left out of conservation and saved to a separate file in gapped exports`}>{aligned.length} of {aligned.length + unaligned.length} aligned</span>}
     {comparisonMenu && <ComparisonMenu {...comparisonMenu} compact={step.compareCompact} arrive={!measuring && arrive} />}
     <button onClick={handleFit} className={segBtn} style={raisedShadow} data-tip="Zoom out to fit the whole sequence" data-tip-kbd="F">Fit</button>
     <div className={segTrack} style={trackShadow}>

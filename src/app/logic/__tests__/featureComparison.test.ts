@@ -177,7 +177,7 @@ describe('feature comparison', () => {
   it('uses complete single-copy baselines without partial genomes shifting the median', () => {
     const records = [r('a', [f()]), r('b', [f()]), r('c', [f('S', 'CDS', 104)]), r('partial', [f('S', 'CDS', 40)], 'virus', { definition: 'partial genome' })];
     expect(states(records)).toEqual([['a', 'present'], ['b', 'present'], ['c', 'odd'], ['partial', 'odd']]);
-    const marked = groups([r('a', [f()]), r('b', [f()]), r('marked', [{ ...f('S', 'CDS', 40), locationString: '<1..40' }])])[0];
+    const marked = groups([r('a', [f()]), r('b', [f()]), r('marked', [{ ...f('S', 'CDS', 40), segments: [{ start: 10, end: 50, partialStart: true }] }])])[0];
     expect(marked.cells.map(cell => cell.state)).toEqual(['present', 'present', 'present']);
     expect(groups([r('partial', [f()], 'virus', { definition: 'partial genome' }), r('complete', [f('other')])]).find(group => group.identity === 'S')?.cells).toEqual([
       { recordId: 'complete', state: 'absent' }, { recordId: 'partial', state: 'present' },

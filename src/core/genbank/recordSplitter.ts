@@ -20,8 +20,9 @@
 
 /**
  * Splits a raw multi-record GenBank string into an array of individual
- * record strings.  Records are terminated by a line containing only "//".
+ * record strings. A new LOCUS also starts a piece so an unterminated entry
+ * cannot swallow the next entry before validation reports the missing terminator.
  */
 export function splitRecords(content: string): string[] {
-  return content.split(/\r?\n\/\/\s*(?:\r?\n|$)/).filter(s => s.trim());
+  return content.split(/\r?\n\/\/\s*(?:\r?\n|$)|(?=^LOCUS[ \t])/m).filter(s => s.trim());
 }

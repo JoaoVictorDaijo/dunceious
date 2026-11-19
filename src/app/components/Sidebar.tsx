@@ -53,7 +53,7 @@ export interface SidebarProps {
   remoteAlignmentState?: RemoteAlignmentState;
   onAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onExportSelection: () => void;
+  onExportSelection: (mode?: 'original' | 'aligned') => void;
   onExportSelectionJson: () => void;
   onStartNewFeature: () => void;
   logs: string[];
@@ -150,6 +150,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const dragCleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => { dragCleanup.current?.(); }, []);
   const addSequencesInput = useRef<HTMLInputElement>(null);
+  const alignedRow = records.find(record => record.alignedSequence);
+  const selectionOutsideAlignment = Boolean(activeSelection
+    && Math.min(activeSelection.start, activeSelection.end) >= (alignedRow?.alignedSequence?.length ?? 0));
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -266,9 +269,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-2">
-              <button onClick={onExportSelection} className="py-2 rounded-lg bg-emerald-600/20 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-600/30 transition-all" data-tip="Download the selected region of every visible record as FASTA">
-                <i className="fas fa-file-code mr-1"></i> FASTA
-              </button>
+              <details className="relative"><summary className="cursor-pointer py-2 text-emerald-400 text-[11px]">Export FASTA</summary>
+                <div className="absolute z-30 bg-slate-900 p-2 rounded-lg flex flex-col">
+                  <button disabled={!alignedRow || selectionOutsideAlignment} data-tip={!alignedRow ? 'No row is aligned' : selectionOutsideAlignment ? 'The selection is outside the alignment' : undefined} onClick={() => onExportSelection('aligned')}>Aligned, with gaps</button>
+                  <button onClick={() => onExportSelection('original')}>Sequences only, no gaps</button>
+                </div>
+              </details>
               <button onClick={onExportSelectionJson} className="py-2 rounded-lg bg-indigo-600/20 text-indigo-400 text-[11px] font-semibold hover:bg-indigo-600/30 transition-all" data-tip="Download the selection with its annotations as JSON">
                 <i className="fas fa-file-json mr-1"></i> JSON
               </button>
@@ -377,12 +383,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           accept=".gb,.genbank,.fasta,.fa" multiple onChange={onFileUpload} armed={fileDragActive} disabled={isAlignmentLocked}
           tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Open GenBank (.gb) or FASTA files, or drop them here"} />
 
-        <DropZone accent="emerald" icon="fa-file-import" title="Upload pre-aligned FASTA" hint="IDs must match active records"
-          accept=".fasta,.fa" onChange={onAlignmentUpload} armed={fileDragActive} disabled={isAlignmentLocked} unavailable={records.length === 0}
-          tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : "Overlay an alignment: a FASTA whose IDs match the loaded records"} />
+        <DropZone accent="emerald" icon="fa-file-import" title="Upload pre-aligned FASTA" hint={records.length === 0 ? "Loads sequences and alignment" : "IDs must match active records"}
+          accept=".fasta,.fa" onChange={onAlignmentUpload} armed={fileDragActive} disabled={isAlignmentLocked}
+          tip={isAlignmentLocked ? ALIGNMENT_LOCK_TIP : records.length === 0 ? "A pre-aligned FASTA: loads its sequences and alignment" : "Overlay an alignment: a FASTA whose IDs match the loaded records"} />
 
         <DropZone accent="sky" icon="fa-tags" title="Import annotations" hint="BED, GFF3, or BedGraph" className="mt-4"
-          accept=".bed,.gff,.gff3,.bedgraph" multiple onChange={onAnnotationUpload} armed={fileDragActive} unavailable={records.length === 0}
+          accept=".bed,.gff,.gff3,.bedgraph" multiple onChange={onAnnotationUpload} armed={fileDragActive} disabled={isAlignmentLocked} unavailable={records.length === 0}
           tip="Add annotations or data tracks from BED, GFF3 or BedGraph files" />
 
         <DropZone accent="amber" icon="fa-project-diagram" title="Load project JSON" hint="Restore entire workspace" className="mt-4"

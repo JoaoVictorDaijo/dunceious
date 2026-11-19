@@ -20,7 +20,9 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { detectMoleculeType, classifyLocusMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import { MixedFastaError } from '@/src/app/logic/bioResponse';
+import { describeSelectionLoss } from '@/src/core/exportReport';
+import { getOriginalPos, sliceRecordsBySelection, type SessionTypeConflict } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { downloadBlob } from '@/src/app/lib/download';
@@ -30,51 +32,6 @@ import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
 import { DEFAULT_ALIGNMENT_COMPARISON, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-
-const FASTA_SAMPLE_MAX_RECORDS = 3;
-const FASTA_SAMPLE_MAX_LENGTH = 1200;
-
-/** Returns 'protein' if the GenBank LOCUS line declares amino-acid units, else 'nucleotide'. */
-function sniffGenBankCategory(content: string): 'nucleotide' | 'protein' {
-  const match = content.match(/^LOCUS\s+.+$/m);
-  if (match && classifyLocusMoleculeType(match[0]) === 'protein') return 'protein';
-  return 'nucleotide';
-}
-
-/**
- * Samples the first few records of a FASTA string and classifies the sample
- * via the canonical `detectMoleculeType` (protein-only alphabet =
- * PROTEIN_ONLY_RESIDUES). RNA maps to 'nucleotide'.
- */
-function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
-  const lines = content.split('\n');
-  let seq = '';
-  let seenHeader = false;
-  let sampledRecords = 0;
-  for (const line of lines) {
-    const t = line.trim();
-    if (t.startsWith('>')) {
-      if (seenHeader && seq) {
-        sampledRecords += 1;
-        if (sampledRecords >= FASTA_SAMPLE_MAX_RECORDS || seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
-      }
-      seenHeader = true;
-      continue;
-    } else if (seenHeader && t) {
-      seq += t;
-      if (seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
-    }
-  }
-
-  const sample = seq.toUpperCase().replace(/[^A-Z*-]/g, '');
-  if (!sample) return 'nucleotide';
-  return detectMoleculeType(sample) === 'protein' ? 'protein' : 'nucleotide';
-}
-
-/** Returns the effective category of the current session's records. */
-function getLoadedCategory(records: SeqRecord[]): 'nucleotide' | 'protein' {
-  return isProteinSession(records) ? 'protein' : 'nucleotide';
-}
 
 /** Subset of app state that the project-restore handler needs to write back. */
 export interface ProjectSetters {
@@ -89,9 +46,7 @@ export interface ProjectSetters {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
 }
 
-export interface MoleculeTypeMismatchError {
-  incoming: 'nucleotide' | 'protein';
-  loaded: 'nucleotide' | 'protein';
+interface MoleculeTypeMismatchError extends SessionTypeConflict {
   fileName: string;
 }
 
@@ -101,13 +56,14 @@ export interface UseFileHandlersReturn {
   handleAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleExportRecord: (recordId: string) => void;
+  handleExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   exportRecords: (ids: string[], format: HubExportFormat, options?: ExportOptions) => void;
-  exportSelection: () => void;
+  exportSelection: (mode?: 'original' | 'aligned') => void;
   exportSelectionJson: () => void;
   exportProjectJson: () => string | null;
   moleculeTypeMismatch: MoleculeTypeMismatchError | null;
   closeMismatchModal: () => void;
+  showMismatchModal: (error: MoleculeTypeMismatchError) => void;
 }
 
 /**
@@ -148,8 +104,6 @@ export function useFileHandlers(
 
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
   const [projectName, setProjectName] = useState('dunceious_project');
-  const recordsRef = useRef(records);
-  recordsRef.current = records;
   const dropQueue = useRef(Promise.resolve());
   const workspaceRevision = useRef(0);
 
@@ -174,65 +128,68 @@ export function useFileHandlers(
     addLog,
   };
 
+  const getRevision = () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current;
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0) return;
     setIsProcessing(true);
+    const revision = getRevision();
     addLog(`Ingesting batch: ${files.length} file(s).`);
-    const buildRequest = (file: File) => (content: string): BioWorkerRequest | null => {
-      if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-      const isFasta = content.trimStart().startsWith('>');
-      if (records.length > 0) {
-        const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
-        const loaded = getLoadedCategory(records);
-        if (incoming !== loaded) {
-          setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
-          addLog(
-            `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
-          );
-          setIsProcessing(false);
-          return null;
-        }
-      }
-      return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
-    };
-    // Dispatch in selection order: the worker answers in order, so the first file sets an
-    // empty workspace's molecule type whichever read finishes first.
+    const reads = files.map(async file => {
+      try { return { file, content: await workerDeps.readText(file) }; }
+      catch (error) { return { file, error }; }
+    });
     void (async () => {
-      for (const file of files) {
-        try { await dispatchFile(file, buildRequest(file), workerDeps); }
-        catch (error) {
-          addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
-          setIsProcessing(false);
+      for (const read of reads) {
+        const result = await read;
+        const { file } = result;
+        if ('error' in result) {
+          addLog(`Could not read "${file.name}": ${result.error instanceof Error ? result.error.message : String(result.error)}`);
+          continue;
+        }
+        if (getRevision() !== revision) {
+          addLog(`${file.name} was not loaded: the workspace was replaced`);
+          continue;
+        }
+        if (isAlignmentLocked()) {
+          addLog(`${file.name} was not loaded: the workspace is locked`);
+          continue;
+        }
+        const { content } = result;
+        try {
+          if (!dropImport) throw new Error('The processing worker is unavailable.');
+          setIsProcessing(true);
+          await dropImport.requestBio({
+            type: content.trimStart().startsWith('>') ? 'PARSE_FASTA' : 'PARSE_GENBANK',
+            filename: file.name, content, workspaceRevision: revision,
+          });
+        } catch (error) {
+          if (!(error instanceof MixedFastaError) && getRevision() === revision) {
+            addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
+          }
         }
       }
+      setIsProcessing(false);
     })();
   };
 
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isAlignmentLocked()) return;
     const [file] = takeFiles(e.target);
-    if (!file || records.length === 0) return;
+    if (!file) return;
+    const revision = getRevision();
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
     dispatchFile(file, content => {
       if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-      const incoming = sniffFastaCategory(content);
-      const loaded = getLoadedCategory(records);
-      if (incoming !== loaded) {
-        setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
-        addLog(
-          `Cannot import ${incoming === 'protein' ? 'peptide' : 'nucleotide'} alignment "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
-        );
-        setIsProcessing(false);
-        return null;
-      }
-      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true };
+      if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
+      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision };
     }, workerDeps);
   };
 
   const handleAnnotationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0 || records.length === 0) return;
     setIsProcessing(true);
@@ -240,7 +197,14 @@ export function useFileHandlers(
     files.forEach(file =>
       dispatchFile(
         file,
-        content => ({ type: 'PARSE_ANNOTATIONS', filename: file.name, content }),
+        content => {
+          if (isAlignmentLocked()) {
+            addLog(`${file.name} was not loaded: the workspace is locked`);
+            setIsProcessing(false);
+            return null;
+          }
+          return { type: 'PARSE_ANNOTATIONS', filename: file.name, content };
+        },
         workerDeps,
       ),
     );
@@ -253,7 +217,7 @@ export function useFileHandlers(
     return (dropImport?.readText ?? readFileAsText)(file)
       .then(text => {
         if (isAlignmentLocked()) { setIsProcessing(false); return; }
-        const parsed = parseProject(text);
+        const parsed = parseProject(text, addLog);
         if (!parsed.ok) { addLog(parsed.message); return; }
         const project = parsed.project;
         workspaceRevision.current++;
@@ -302,7 +266,10 @@ export function useFileHandlers(
       setIsProcessing(true);
       const request = async (message: BioWorkerRequest) => {
         checkWorkspace();
-        if (isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
+        if (message.type === 'PARSE_ANNOTATIONS' && isAlignmentLocked()) {
+          addLog(`${message.filename} was not loaded: the workspace is locked`);
+          return { type: 'ANNOTATIONS_SUCCESS' as const, annotations: {}, details: {}, idMap: message.idMap };
+        }
         if (!dropImport) throw new Error('The processing worker is unavailable.');
         const response = await dropImport.requestBio(message, shouldCommit);
         if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
@@ -314,18 +281,17 @@ export function useFileHandlers(
           readText: dropImport?.readText ?? readFileAsText,
           importSequence: async (file, content) => {
             checkWorkspace();
-            const currentRecords = dropImport?.getRecords() ?? recordsRef.current;
-            const category = currentRecords.length > 0 ? getLoadedCategory(currentRecords) : undefined;
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
-            if (category && category !== incoming) {
-              setMoleculeTypeMismatch({ incoming, loaded: category, fileName: file.name });
-              throw new Error(`Cannot load "${file.name}": molecule type differs from the session.`);
+            try {
+              const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: undefined, ...(isFasta ? { asAlignment: false } : {}) });
+              if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+              if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
+              return response.idMap;
+            } catch (error) {
+              if (!(error instanceof MixedFastaError)) throw error;
+              checkWorkspace();
+              return error.idMap;
             }
-            const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, ...(isFasta ? { asAlignment: false } : {}) });
-            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
-            if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
-            return response.idMap;
           },
           importAnnotations: async (file, content, idMap) => {
             const response = await request({ type: 'PARSE_ANNOTATIONS', filename: file.name, content, idMap });
@@ -343,14 +309,24 @@ export function useFileHandlers(
 
   // ── Export helpers ────────────────────────────────────────────────────────
 
-  const exportSelection = () => {
+  const downloadExport = (result: ReturnType<typeof serializeExport>, fileName: string, mime = 'text/plain') => {
+    if (result.text) downloadBlob(result.text, fileName, mime);
+    if (result.unalignedText) {
+      const separateName = fileName.replace(/(\.[^.]*)?$/, '_unaligned$1');
+      downloadBlob(result.unalignedText, separateName, mime);
+      const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
+      addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
+    }
+    for (const warning of [...result.report.translationWarnings, ...result.report.qualifierWarnings, ...result.report.genBankFeaturesOmitted, ...result.report.gff3FeaturesOmitted.map(omitted => omitted.reason), ...result.report.gff3RangeWarnings]) addLog(`WARNING: ${warning}`);
+    for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
+    if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
+    if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
+  };
+  const exportSelection = (mode: 'original' | 'aligned' = 'aligned') => {
     const start = activeSelection ? Math.min(activeSelection.start, activeSelection.end) : undefined;
     const end = activeSelection ? Math.max(activeSelection.start, activeSelection.end) : undefined;
-    downloadBlob(
-      exportToFasta(records, { residues: 'aligned', header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }).text,
-      activeSelection ? 'selection_export.fasta' : 'msa_export.fasta',
-      'text/plain',
-    );
+    downloadExport(exportToFasta(records, { residues: mode, header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }),
+      activeSelection ? 'selection_export.fasta' : 'msa_export.fasta');
     addLog(`${activeSelection ? 'Selection' : 'Full'} FASTA exported.`);
   };
 
@@ -362,12 +338,12 @@ export function useFileHandlers(
       const aligned = record.alignedSequence;
       const biologicalStart = aligned ? getOriginalPos(aligned, start) : start;
       const biologicalEnd = aligned ? getOriginalPos(aligned, end) : end;
-      return sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd)
+      const sliced = sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd);
+      for (const loss of sliced.losses) addLog(`WARNING: ${describeSelectionLoss(loss)}`);
+      return sliced.records
         .map(sliced => ({
           ...sliced,
           alignedSequence: aligned?.substring(start, end),
-          // Source location text cannot describe coordinates rebased to a selection.
-          features: sliced.features.map(feature => ({ ...feature, locationString: undefined })),
         }));
     });
     const project = {
@@ -387,11 +363,11 @@ export function useFileHandlers(
     addLog(`Selection JSON exported (${start}-${end}).`);
   };
 
-  const handleExportRecord = (recordId: string) => {
+  const handleExportRecord = (recordId: string, mode: 'original' | 'aligned' = 'original') => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     downloadBlob(
-      exportToFasta([record]).text,
+      exportToFasta([record], { residues: mode, header: 'id' }).text,
       `${record.id.replace(/[^a-z0-9]/gi, '_')}.fasta`,
       'text/plain',
     );
@@ -432,8 +408,8 @@ export function useFileHandlers(
       const result = serializeExport(subset, format, { ...options,
         projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
       });
-      downloadBlob(result.text, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
-      addLog(`Exported ${subset.length} sequences as ${format}.`);
+      downloadExport(result, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
+      addLog(`Exported ${subset.length - result.report.genBankRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
     } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
@@ -449,6 +425,7 @@ export function useFileHandlers(
     exportSelectionJson,
     exportProjectJson,
     moleculeTypeMismatch,
+    showMismatchModal: setMoleculeTypeMismatch,
     closeMismatchModal: () => setMoleculeTypeMismatch(null),
   };
 }

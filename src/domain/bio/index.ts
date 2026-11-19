@@ -19,6 +19,7 @@
  */
 
 export { transposeCoordinates, transposeInterval, buildAlignedSegments, processTransposition } from './coordinate';
+export { alignedEnvelope, buildDisplayTrack, displayTracks, packTrackRows, pickTrackData, residueRuns, trackPosition, trackValueRange, unplacedSummary } from './quantitativeTracks';
 export { calculateConsensus } from './consensus';
 export { compareToReference } from './referenceComparison';
 export type { ResidueComparison, ComparisonAlphabet } from './referenceComparison';
@@ -27,6 +28,7 @@ export {
   reverseComplement,
   complementAlphabet,
   translateSequence,
+  initiatorResidue,
   isNcbiGeneticCode,
   featureTranslTable,
   extractFeatureSequence,
@@ -53,6 +55,8 @@ export type {
   SequenceDetails,
   FeatureSegment,
   BioFeature,
+  LocationOperator,
+  RemotePart,
   QuantitativeTrack,
   SeqRecord,
   SearchResult,
@@ -69,6 +73,9 @@ export { INSDC_COUNTRIES, INSDC_MISSING_TERMS } from './insdcVocabulary';
 export { isSourceFeature, annotationFeatures, isUnannotated, isPartial, isEdited, needsAttention, isolateOf } from './recordStatus';
 
 export { featureEnvelope } from './featureEnvelope';
+export { definesOneSequence, isBetweenBasesSite, isJoinedLocation, isOrderLocation } from './locationFlags';
 
 export { parseCigar, formatCigar, cigarSpans, expandCigar } from './cigar';
 export type { CigarOp } from './cigar';
+
+export * from './translation';

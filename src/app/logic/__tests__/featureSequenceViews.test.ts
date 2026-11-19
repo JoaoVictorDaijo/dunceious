@@ -27,11 +27,11 @@ import { featureSequenceViews } from '../viewModel';
 // Independent oracle: INSDC rules applied by hand (docs/standards/conformance/oracle.py), which
 // Reference-tool agreements and deviations are recorded beside that oracle.
 const dir = 'docs/standards/conformance';
-const [record] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8'));
+const [record] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8')).records;
 const oracle = Object.fromEntries(readFileSync(`${dir}/expected-oracle.txt`, 'utf8').trim().split('\n')
   .map(line => line.split('\t') as [string, string]));
 const views = (label: string) => {
-  const feature = record.features.find(f => f.metadata?.label === label);
+  const feature = record.features.find(f => f.unknownQualifiers?.label === label);
   if (!feature) throw new Error(`fixture has no ${label}`);
   return featureSequenceViews(record, feature);
 };

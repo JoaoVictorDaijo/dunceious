@@ -49,9 +49,7 @@ sourced protein-format fallback before claiming GenPept conformance.
 
 ## OP-3. Mixed molecule types in a workspace
 
-**Rule.** **Owner decision open:** define whether nucleotide and protein records may coexist
-in a workspace and what evidence can justify refusing an import. No standard or documented
-practice was found for the exact restrictive any-protein session gate and preview policy.
+**Rule.** A Dunceious workspace holds one molecule category. Treat this as an application policy.
 
 **Reference tools.** The verified search of NCBI, EMBOSS and Biopython typing/alignment
 documentation did not establish this viewer-wide restriction.
@@ -62,11 +60,10 @@ permits nucleotide and protein sequences together; this does not establish that 
 mixed types belong in one biological alignment. Evidence-supported options are a mixed list
 with operation-specific type requirements, or an explicitly defined homogeneous viewer policy.
 
-**Dunceious.** Policy unestablished; the code enforces a homogeneous workspace.
-`findSessionTypeConflict` (`src/domain/bio/sequence.ts`) checks every parsed record of a
+**Dunceious.** `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) checks every parsed record of a
 sequence import against the live workspace and refuses a file that mixes categories or differs
-from a non-empty workspace; the pre-dispatch FASTA preview in `useFileHandlers.ts` only refuses
-earlier. Classification is still alphabet-only for FASTA (`detectMoleculeType`), so a protein
+from a non-empty workspace. Classification is still alphabet-only for FASTA
+(`detectMoleculeType`), so a protein
 written only in nucleotide-overlapping letters is read as nucleotide. The inference limitation
 also concerns [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
 
@@ -88,9 +85,13 @@ in the verified application evidence.
 For a nonempty map, the start is clamped and the end forced to at least `safeStart + 1`,
 including empty or reversed input ranges; an empty map returns 0..0. The prefix-count map
 at `sequence.ts:439` counts residues before a boundary, rather than assigning a gap residue.
-`src/domain/bio/coordinate.ts:178` transposes features, while `coordinate.ts:181` preserves
-quantitative tracks in source coordinates, a deviation tracked in
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
+`src/domain/bio/coordinate.ts` transposes features into separate display copies.
+Quantitative tracks retain their source coordinates beside `displayTracks`: shared residue
+runs map their support into aligned columns, with gap-free picking and masked drawing
+(`src/domain/bio/quantitativeTracks.ts`). Invalid, out-of-range and empty quantitative
+intervals are reported as unplaced without clamping; the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+settles this display policy.
 **Owner decision open:** use a gap sentinel for residue lookup and a separate prefix-count
 boundary map, and decide explicitly whether invalid/empty ranges are preserved, refused or
 clamped. The reference does not authorize forcing a site to nonzero width; LOC-5 still applies.
@@ -162,13 +163,11 @@ does not settle six-frame row numbering or lane packing.
 
 **Applications.** Unknown for an exact matching reverse-lane numbering convention.
 
-**Dunceious.** Partial static agreement: `src/domain/bio/sequence.ts:223` extracts the oriented
-feature before applying its offset. `src/app/viewer/cds.ts:72` uses forward first-base mod 3
-and reverse `(firstBase + 1)` mod 3; `cds.ts:78` groups codon pieces by biological adjacency.
-These row indices are not GFF3 phase values. Full split-exon and descending-minus correctness
-has not been established by a reference run. **Owner decision open:** label rows by an explicitly
-declared genomic frame convention or a feature-relative codon convention, with lane packing
-kept separate from biological phase; neither exact layout is prescribed by these sources.
+**Dunceious.** Extracts the oriented feature before applying its offset. The display frame in
+`src/app/viewer/cds.ts` uses the first base's zero-based genomic index modulo 3 on the forward
+strand or that index plus 1 modulo 3 on the reverse strand. Dunceious uses the first
+biological base of a mixed-strand codon to set its lane and frame. All pieces stay in one lane so they read as one codon. The tooltip
+names each contributing base's strand. GFF3 phase remains a separate per-part value.
 
 ## OP-9. Source qualifier and span fidelity
 

@@ -57,3 +57,11 @@ it.each([['sequences', 0, 'join(2427..3308,1..1758)', '2,640 bp'], ['features', 
   expect(screen.getByLabelText(`Location: ${location}`).textContent).toBe(location);
   expect(screen.getByText(length)).toBeTruthy();
 });
+
+it.each([undefined, 'order(1..3,7..9)'])('shows full stored geometry or retained text %s', locationString => {
+  const feature = { name: 'joined', type: 'gene', start: 0, end: 9, strand: 1 as const, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], locationString };
+  const { container } = render(<AnnotationRow record={{ id: 'r', name: 'r', sequence: 'ACGTACGTAC', features: [feature] }} feature={feature} rowKey="r:0" kind="sequences" selected={false} current={false} lastFocused={false} onSelect={noop} onInspect={noop} onEdit={noop} onFocus={noop} onDelete={noop} onCurrent={noop} onHover={noop} />);
+  const text = locationString ?? 'join(1..3,7..9)';
+  expect(screen.getByText(text).getAttribute('data-tip')).toBe(text);
+  expect(container.textContent).toContain(text);
+});

@@ -1,7 +1,8 @@
 # Displayed metrics and sequence summaries
 
 Code assessments below are static inspections of `f5a6ad2` on 2026-10-23, not new runtime or
-reference-tool conformance tests. Sources marked Documented describe the cited version or
+reference-tool conformance tests, except METRIC-1, updated on 2026-11-06 for #259 with the mounted
+tests it names. Sources marked Documented describe the cited version or
 observation date only; live manuals are not assigned the releases in [Tools](tools.md).
 **Owner decision open** identifies an unresolved contract, not an adopted scientific method.
 Scientific choices still require an established source, its defaults and an independent oracle
@@ -27,13 +28,13 @@ width is not a record's ungapped residue length.
 
 **Applications.** No additional application-specific length convention is established here.
 
-**Dunceious.** Mixed — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:278` still counts aligned-or-raw width as `bp`;
-the raw-sequence badge at :333 also uses `bp` for proteins. Feature lengths at :219, :228 and
-the selected-view badge at :333 now choose `aa`/`bp` and name the counted view. Raw hub/index
-and export-tree lengths use correct units (`src/app/components/hub/SequenceSectionHeader.tsx:50`,
-`HubIndex.tsx:56`, `ExportSequenceTree.tsx:61`); annotation-row units at `AnnotationRow.tsx:84`
-are correct. `src/app/logic/bioResponse.ts:205` still calls alignment width `bp`.
+**Dunceious.** Record details count `record.sequence.length` as residues with `aa` for
+proteins and `bp` for nucleotides. When `alignedSequence` exists, a separate Alignment length
+row counts its columns, including gaps. The raw-sequence badge uses the same residue units.
+Feature lengths and selected-view badges retain their feature/region extents. Literal mounted
+oracles in `RecordDetailsModal.test.tsx` distinguish ACGT (4 bp) from AC--GT (6 columns),
+and MA (2 aa) from M--A (4 columns). Raw hub/index and export-tree lengths use molecule units,
+and so does the viewer's focus badge. The alignment-overlay log names its width in columns.
 
 ## METRIC-2. Feature length
 
@@ -70,9 +71,11 @@ The supplied version is pinned in [Sources](sources.md); the upstream URL rolls 
 
 **Applications.** No application fallback policy is inferred from database semantics.
 
-**Dunceious.** Deviates — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:272` displays `accession?.trim() || id` under
-Accession. METRIC-10a separately governs the feature count beside it.
+**Dunceious.** Record details show the trimmed accession, or `—` when absent, under
+Accession, and `record.id` separately under Identifier. HubIndex labels its accession-or-local-id
+sort “Identifier (A–Z)”; the sort key remains accession when available, otherwise local id.
+Mounted tests cover absent, blank and present accessions independently of the local identifier.
+METRIC-10a separately governs the feature count beside it.
 
 ## METRIC-3b. Detail-warning provenance
 
@@ -271,21 +274,21 @@ interpolation. [UCSC bedGraph, Data Values](https://genome.ucsc.edu/goldenPath/h
 (unversioned, observed 2026-10-23) graphs specified positions; a line connecting interval
 midpoints must not silently imply additional observed values. Half-open membership uses
 FMT-7/FMT-8; residue-to-alignment transposition uses OP-4; displayed numbering uses COORD-1.
-**Owner decision open:** interval bars/points or a declared interpolation can express different
-presentation contracts; no replacement interpolation method is selected here.
+**Project display policy:** supplied interval values use independent rectangles and top edges,
+without interpolation, clipped to residue columns as defined in the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md).
 
 **Reference tools.** Documented: UCSC offers bar/points and optional smoothing/windowing;
 these choices do not turn missing spans into supplied observations.
 
 **Applications.** No universal plotting aesthetic inferred from the bedGraph contract.
 
-**Dunceious.** Deviates in interval presentation —
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
-`src/app/viewer/tracks/QuantitativeTrack.tsx:117` connects midpoint values through missing spans.
-`src/app/viewer/Row.tsx:511` and :529 include exclusive ends in hit testing. Features are
-transposed at `src/domain/bio/coordinate.ts:178`, but quantitative tracks retain source coordinates
-through the record spread at :181 even when drawn on an aligned x-axis. These coordinate defects
-belong to FMT-7/FMT-8/OP-4 rather than a new metric coordinate rule.
+**Dunceious.** Quantitative values are drawn as independent half-open envelope rectangles,
+clipped to shared residue runs, without interpolation or values on alignment gaps.
+`src/domain/bio/quantitativeTracks.ts` preserves source intervals and lists every half-open
+pick match; `src/app/viewer/tracks/trackGeometry.ts` supplies exact support geometry.
+The [quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+defines placement refusal, source identity, selection and finite-value ranges.
 
 ## METRIC-7b. BED score meaning
 

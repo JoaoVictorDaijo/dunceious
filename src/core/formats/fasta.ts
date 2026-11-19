@@ -66,13 +66,18 @@ function cleanHeaderValue(value: string): string {
   return value.replace(/[[\]\r\n]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** A slice is expressed in the chosen residue string's coordinates, including alignment gaps. */
+/** Selection windows use alignment columns for aligned rows and own positions for unaligned rows. */
 export function exportToFasta(records: SeqRecord[], options: FastaExportOptions = { residues: 'original', header: 'id' }): ExportResult {
   const report = emptyReport();
-  const text = records.map(record => {
-    const residues = options.residues === 'aligned' ? record.alignedSequence || record.sequence : record.sequence;
+  const alignedWidth = records.find(record => record.alignedSequence)?.alignedSequence?.length;
+  const render = (rows: SeqRecord[]) => rows.flatMap(record => {
     const slice = options.slice;
-    const sequence = slice ? residues.substring(Math.max(0, slice.start), Math.min(residues.length, slice.end)) : residues;
+    const residues = slice || options.residues === 'aligned' ? record.alignedSequence ?? record.sequence : record.sequence;
+    const end = slice ? Math.min(residues.length, slice.end, record.alignedSequence && options.residues === 'aligned' ? alignedWidth ?? Infinity : Infinity) : residues.length;
+    const window = slice ? residues.slice(Math.max(0, slice.start), Math.max(0, end)) : residues;
+    const sequence = options.residues === 'original' && slice ? window.replace(/-/g, '') : window;
+    if (!sequence.length) { report.emptyRowsOmitted.push(record.id); return []; }
+    if (/^-+$/.test(sequence)) report.gapOnlyRows.push(record.id);
     let header = record.id;
     if (options.header === 'details') {
       const details = detailsForExport(record, report);
@@ -100,5 +105,9 @@ export function exportToFasta(records: SeqRecord[], options: FastaExportOptions 
     if (slice) header += ` [Slice: ${slice.start}-${slice.end}]`;
     return `>${header}\n${sequence.match(/.{1,60}/g)?.join('\n') || ''}`;
   }).join('\n\n');
-  return { text, report };
+  if (options.residues !== 'aligned') return { text: render(records), report };
+  const aligned = records.filter(record => record.alignedSequence !== undefined);
+  const unaligned = records.filter(record => record.alignedSequence === undefined);
+  report.unalignedRows = unaligned.map(record => record.id);
+  return { text: render(aligned), ...(unaligned.length ? { unalignedText: render(unaligned) } : {}), report };
 }

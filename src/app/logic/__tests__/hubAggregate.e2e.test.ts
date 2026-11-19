@@ -29,7 +29,7 @@ describe('Annotation Hub aggregate — influenza-a-pr8-8segments.gb', () => {
   const content = loadExample(EXAMPLES.influenzaPr8);
   let records: SeqRecord[];
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
   });
 
   it('renders one header per sequence and one row per annotation', () => {

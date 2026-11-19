@@ -24,34 +24,40 @@
  */
 
 import type { SeqRecord } from '@/src/domain/bio/types';
+import { isGenBankResidue } from '@/src/domain/bio/genbankValidation';
 import { parseHeader } from './headerParser';
+import type { FindingSink } from './findings';
 import { parseFeatures } from './featureParser';
 
-/** Extracts the nucleotide sequence from the ORIGIN section */
+/** Extracts the original residue characters from the ORIGIN section. */
 function parseSequence(lines: string[]): string {
   let sequence = '';
   let inOrigin = false;
 
   for (const line of lines) {
-    if (line.startsWith('ORIGIN')) {
+    if (/^ORIGIN(?:\s|$)/.test(line)) {
       inOrigin = true;
       continue;
     }
     if (inOrigin) {
-      if (line.trim().startsWith('//')) break;
-      sequence += line.replace(/[^A-Za-z\-*]/g, '').toUpperCase();
+      if (line.trim().startsWith('//') || line.startsWith('CONTIG')) break;
+      sequence += line.replace(/^\s*\d+\s+/, '').replace(/\s/g, '');
     }
   }
 
   return sequence;
 }
 
-export function toSeqRecord(recordStr: string): SeqRecord {
+export function toSeqRecord(recordStr: string, finding?: FindingSink): SeqRecord {
   const lines = recordStr.split(/\r?\n/);
 
   const header = parseHeader(lines);
-  const features = parseFeatures(lines);
+  const protein = header.moleculeType === 'protein';
   const sequence = parseSequence(lines);
+  const features = parseFeatures(lines, finding, protein, sequence.length, header.isCircular);
+  const residues = [...sequence];
+  const invalid = residues.findIndex(residue => !isGenBankResidue(residue, protein));
+  if (invalid !== -1) finding?.('refuse', 'invalid-residue', `The sequence contains "${residues[invalid]}" at ${protein ? 'residue' : 'base'} ${invalid + 1}.`);
 
   return {
     id: header.id,
@@ -61,7 +67,7 @@ export function toSeqRecord(recordStr: string): SeqRecord {
     version: header.version,
     locationQualifier: features.some(f => f.type === 'source' && f.metadata?.country !== undefined && f.metadata?.geo_loc_name === undefined) ? 'country' : undefined,
     moleculeType: header.moleculeType,
-    sequence,
+    sequence: invalid === -1 ? sequence.toUpperCase() : sequence.replace(/[a-z]/g, residue => residue.toUpperCase()),
     features,
     isCircular: header.isCircular,
   };

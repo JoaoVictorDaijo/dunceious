@@ -20,7 +20,7 @@
 
 // @vitest-environment jsdom
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { render, screen, within, fireEvent, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import GenomeViewer from '../GenomeViewer';
 import { DEFAULT_ALIGNMENT_COMPARISON } from '@/src/app/logic/alignmentComparison';
 import { useState, type ComponentProps } from 'react';
@@ -109,4 +109,103 @@ it('dismissing the cog with Escape preserves selection and restores focus before
   expect(screen.getByRole('button', { name: 'Clear selection' })).toBeTruthy();
   fireEvent.keyDown(cog, { key: 'Escape' });
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+});
+
+it('offers both FASTA modes, explains outside windows and marks only mixed rows', () => {
+  const exportFasta = vi.fn();
+  const raw = { id: 'raw', name: 'raw', sequence: 'TTTTTTTT', features: [] };
+  const view = render(<GenomeViewer {...defaults} records={[record, raw]} activeSelection={{ start: 1, end: 3, recordIds: [] }} onExportFasta={exportFasta} />);
+  const toolbar = () => view.container.querySelector('[data-viewer-toolbar]')!;
+  const trigger = () => within(toolbar() as HTMLElement).getByRole('button', { name: 'Export selection as FASTA' });
+  fireEvent.click(trigger());
+  const aligned = screen.getByRole('menuitem', { name: 'Aligned, with gaps' }) as HTMLButtonElement;
+  expect(aligned.textContent).toBe('Aligned, with gaps');
+  expect(aligned.disabled).toBe(false);
+  fireEvent.click(aligned);
+  expect(exportFasta).toHaveBeenCalledWith('aligned');
+  expect(screen.queryByRole('menu')).toBeNull();
+  fireEvent.click(trigger());
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Sequences only, no gaps' }));
+  expect(exportFasta).toHaveBeenCalledWith('original');
+  expect(toolbar().textContent).toContain('1 of 2 aligned');
+  expect(toolbar().querySelector('[data-tip*="left out of conservation"]')?.getAttribute('data-tip')).toContain('raw');
+  const rawLabel = view.container.querySelector<HTMLElement>('[data-unaligned]')!;
+  expect(rawLabel.style.borderStyle).toBe('dashed');
+  const tick = view.container.querySelector<HTMLElement>('[data-unaligned-end="raw"]')!;
+  expect(tick.getAttribute('data-tip')).toBe('raw ends here: 8 bp, not aligned');
+  expect(tick.style.left).not.toBe('');
+  view.rerender(<GenomeViewer {...defaults} records={[record, raw]} activeSelection={{ start: 5, end: 7, recordIds: [] }} />);
+  fireEvent.click(trigger());
+  expect((screen.getByRole('menuitem', { name: 'Aligned, with gaps' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole('menuitem', { name: 'Aligned, with gaps' }).getAttribute('data-tip')).toBe('The selection is outside the alignment');
+  fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+  view.rerender(<GenomeViewer {...defaults} records={[raw]} activeSelection={selection} />);
+  fireEvent.click(trigger());
+  expect((screen.getByRole('menuitem', { name: 'Aligned, with gaps' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole('menuitem', { name: 'Aligned, with gaps' }).getAttribute('data-tip')).toBe('No row is aligned');
+  expect(toolbar().textContent).not.toContain('of 1 aligned');
+});
+it('offers aligned FASTA only for aligned record context menus', () => {
+  const exportRecord = vi.fn();
+  const view = render(<GenomeViewer {...defaults} onExportRecord={exportRecord} />);
+  fireEvent.contextMenu(screen.getByText('ref'), { clientX: 10, clientY: 10 });
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (aligned)' }));
+  expect(exportRecord).toHaveBeenCalledWith('ref', 'aligned');
+  view.rerender(<GenomeViewer {...defaults} records={[{ ...record, alignedSequence: undefined }]} onExportRecord={exportRecord} />);
+  fireEvent.contextMenu(screen.getByText('ref'), { clientX: 10, clientY: 10 });
+  expect(screen.queryByRole('button', { name: 'FASTA (aligned)' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (no gaps)' }));
+  expect(exportRecord).toHaveBeenCalledWith('ref');
+});
+
+
+it('exposes the FASTA menu as a keyboard-operated button and restores focus without clearing selection', () => {
+  const clear = vi.fn();
+  const exportFasta = vi.fn();
+  const leakedKeys = vi.fn();
+  render(<div onKeyDown={leakedKeys}><GenomeViewer {...defaults} activeSelection={selection} onClearSelection={clear} onExportFasta={exportFasta} /></div>);
+  const trigger = screen.getByRole('button', { name: 'Export selection as FASTA' });
+  expect(trigger.tagName).toBe('BUTTON');
+  expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  const aligned = screen.getByRole('menuitem', { name: 'Aligned, with gaps' });
+  const original = screen.getByRole('menuitem', { name: 'Sequences only, no gaps' });
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  expect(trigger.getAttribute('aria-controls')).toBe(screen.getByRole('menu').id);
+  expect(document.activeElement).toBe(aligned);
+  fireEvent.keyDown(aligned, { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(original);
+  fireEvent.keyDown(original, { key: 'Home' });
+  expect(document.activeElement).toBe(aligned);
+  fireEvent.keyDown(aligned, { key: 'End' });
+  expect(document.activeElement).toBe(original);
+  fireEvent.keyDown(original, { key: 'Escape' });
+  expect(screen.queryByRole('menu')).toBeNull();
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(trigger);
+  expect(clear).not.toHaveBeenCalled();
+  fireEvent.keyDown(trigger, { key: 'ArrowUp' });
+  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Sequences only, no gaps' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Sequences only, no gaps' }));
+  expect(exportFasta.mock.calls).toEqual([['original']]);
+  expect(leakedKeys).not.toHaveBeenCalled();
+  expect(screen.queryByRole('menu')).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+});
+
+it('skips disabled aligned export and closes when focus or pointer leaves the menu', () => {
+  render(<GenomeViewer {...defaults} records={[{ ...record, alignedSequence: undefined }]} activeSelection={selection} />);
+  const trigger = screen.getByRole('button', { name: 'Export selection as FASTA' });
+  fireEvent.click(trigger);
+  const original = screen.getByRole('menuitem', { name: 'Sequences only, no gaps' });
+  expect(document.activeElement).toBe(original);
+  fireEvent.keyDown(original, { key: 'ArrowUp' });
+  expect(document.activeElement).toBe(original);
+  fireEvent.keyDown(original, { key: 'Tab' });
+  expect(screen.queryByRole('menu')).toBeNull();
+  fireEvent.click(trigger);
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'Fit' }));
+  expect(screen.queryByRole('menu')).toBeNull();
 });

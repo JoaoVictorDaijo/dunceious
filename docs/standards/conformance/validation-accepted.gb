@@ -1,0 +1,20 @@
+LOCUS       VALID                     12 bp    DNA    circular UNK 01-JAN-2000
+FEATURES             Location/Qualifiers
+     gene            <1..>12
+     CDS             complement(join(1..3,7..9))
+                     /codon_start=2
+     gene            join(10..12,1..3)
+     gene            12
+ORIGIN
+        1 acgtacgtacgt
+//
+LOCUS       RNAU                       4 bp    RNA    linear   UNK 01-JAN-2000
+FEATURES             Location/Qualifiers
+     gene            complement(1..4)
+ORIGIN
+        1 acgu
+//
+LOCUS       RNAT                       4 bp    RNA    linear   UNK 01-JAN-2000
+ORIGIN
+        1 acgt
+//

@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { trackFocusTarget } from '../focusTarget';
 import { describe, it, expect } from 'vitest';
 import type { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { featureFocusTarget, isFocusedSelection } from '../focusTarget';
@@ -32,17 +33,17 @@ describe('featureFocusTarget', () => {
     const r = record({ alignedSequence: '--A-CG--TA-C--GT--' });
     const target = targetFor(r, { type: 'gene', name: 'joined', start: 0, end: 8, strand: 1,
       segments: [{ start: 0, end: 3 }, { start: 4, end: 8 }] });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7, lengthText: '7 bp' });
   });
 
   it('keeps raw coordinates on an unaligned record', () => {
     const target = targetFor(record({}), { type: 'gene', name: 'g', start: 2, end: 6, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 6, label: 'g', length: 4 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 2, end: 6, label: 'g', length: 4, lengthText: '4 bp' });
   });
 
   it('keeps the wrap order of a feature crossing the origin', () => {
     const target = targetFor(record({ isCircular: true }), { type: 'gene', name: 'ori', start: 6, end: 2, strand: 1 });
-    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 6, end: 2, label: 'ori', length: 4 });
+    expect(target).toEqual({ recordId: 'r', featureIndex: 0, start: 6, end: 2, label: 'ori', length: 4, lengthText: '4 bp' });
   });
 });
 
@@ -88,4 +89,14 @@ it('keeps the circular envelope of edited high and low segment groups', () => {
     segments: [{ start: 70, end: 85 }, { start: 90, end: 100 }, { start: 0, end: 5 }, { start: 10, end: 30 }] };
   expect(targetFor(record({ sequence: 'A'.repeat(100), isCircular: true }), feature))
     .toMatchObject({ start: 70, end: 30 });
+});
+
+
+it('focuses placed track bounds in aligned coordinates and refuses entirely unplaced tracks', () => {
+  const track = { id: 'q', name: 'q', data: [{ start: 0, end: 1, value: 2 }] };
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: '--ACGT', features: [], tracks: [track] };
+  expect(trackFocusTarget(record, track)).toMatchObject({ start: 2, end: 3, length: 1 });
+  expect(trackFocusTarget({ ...record, alignedSequence: undefined }, track)).toMatchObject({ start: 0, end: 1 });
+  const invalid = { ...track, data: [{ start: 9, end: 10, value: 2 }] };
+  expect(trackFocusTarget({ ...record, tracks: [invalid] }, invalid)).toBeNull();
 });

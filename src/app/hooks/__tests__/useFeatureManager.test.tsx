@@ -250,3 +250,22 @@ it('keeps Local scoring and metrics in annotation provenance', () => {
   act(() => result.current.addAnnotationFromSearch('synthetic', 0, 2, 'local', undefined, 1, hit));
   expect(JSON.parse(result.current.editing!.feature.metadata!._searchHit)).toMatchObject({ mode: 'local', local, params: { scoring: 'EDNAFULL, gap 10/0.5 (EMBOSS water defaults)' } });
 });
+
+it('keeps invalid and partly stranded drafts unsaved and accepts complete explicit strands', () => {
+  const setRecords = vi.fn();
+  const log = vi.fn();
+  const { result } = renderHook(() => useFeatureManager(records, setRecords, null, log));
+  for (const segments of [
+    [{ start: -1, end: 3 }],
+    [{ start: 1, end: 2, strand: 1 as const }, { start: 3, end: 4 }],
+  ]) {
+    act(() => result.current.setEditing({ recordId: 'synthetic', featureIndex: -1, feature: { type: 'gene', name: 'draft', start: 1, end: 4, strand: 1, segments } }));
+    act(() => result.current.saveEditedFeature());
+    expect(setRecords).not.toHaveBeenCalled();
+    expect(result.current.editing?.feature.name).toBe('draft');
+  }
+  act(() => result.current.setEditing({ recordId: 'synthetic', featureIndex: -1, feature: { type: 'gene', name: 'ready', start: 1, end: 4, strand: 1, segments: [{ start: 1, end: 2, strand: -1 }, { start: 3, end: 4, strand: 1 }] } }));
+  act(() => result.current.saveEditedFeature());
+  expect(setRecords.mock.calls[0][0](records)[0].features[0].name).toBe('ready');
+  expect(result.current.editing).toBeNull();
+});

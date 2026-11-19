@@ -53,7 +53,7 @@ describe(`examples/${EXAMPLES.orf1abPolyprotein}`, () => {
   let records: SeqRecord[];
   let record: SeqRecord;
   beforeAll(() => {
-    records = parseGenBank(content);
+    records = parseGenBank(content).records;
     record = records[0];
   });
 
@@ -134,7 +134,7 @@ describe(`examples/${EXAMPLES.humanInsulin}`, () => {
   const content = loadExample(EXAMPLES.humanInsulin);
   let record: SeqRecord;
   beforeAll(() => {
-    record = parseGenBank(content)[0];
+    record = parseGenBank(content).records[0];
   });
 
   it('classifies the 110 aa preproinsulin as a protein session', () => {

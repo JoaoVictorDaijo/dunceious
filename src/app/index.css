@@ -141,3 +141,7 @@
 @container (max-width: 380px) {
   .hub-hidden-words { display: none; }
 }
+
+/* An order() feature's intervals are not joined (INSDC FT 11.4 §3.4.2.2), so no line connects
+   them; hovering any one of them lights all of them, which is how the group reads. */
+.annot-order:hover [data-annotation-part] { fill-opacity: 0.55; stroke-width: 1.75px; }
