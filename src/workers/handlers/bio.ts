@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkTranslationWithResult, hasTranslationMismatch } from '@/src/domain/bio/translation';
+import { checkTranslationWithResult, codeBreakNotices, hasTranslationMismatch } from '@/src/domain/bio/translation';
 import { processTransposition, calculateConsensus } from '@/src/domain/bio';
 import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '@/src/domain/bio/types';
@@ -50,9 +50,11 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
         const categories = [...msg.content.matchAll(/^LOCUS\s+.*?\s\d+\s+(bp|aa)(?=\s|$)/gmi)].map(m => m[1].toLowerCase() === 'aa' ? 'protein' as const : 'nucleotide' as const);
         return { type: 'PARSE_REFUSED', filename: msg.filename, ...parsed, categories };
       }
+      const notices: string[] = [];
       parsed.records = parsed.records.map((record, index) => {
         const features = record.features.map(feature => {
           const { feature: checked, result } = checkTranslationWithResult(feature, record);
+          if (result) notices.push(...codeBreakNotices(result));
           if (result && hasTranslationMismatch(checked, result)) {
             parsed.findings.push({
               tier: 'warning', code: 'translation-mismatch', record: { name: record.id, index: index + 1 },
@@ -64,7 +66,7 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
         });
         return { ...record, features };
       });
-      return { type: 'PARSE_SUCCESS', filename: msg.filename, ...parsed };
+      return { type: 'PARSE_SUCCESS', filename: msg.filename, ...parsed, codeBreakNotices: notices };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

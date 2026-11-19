@@ -172,20 +172,31 @@ export function hasTranslationMismatch(feature: BioFeature, result: ConceptualTr
   return Boolean(differing.length || storedExtra || storedShortBy);
 }
 
+/** The notices `translationWarning` lists for one CDS's code breaks. */
+export function codeBreakNotices(result: ConceptualTranslation): string[] {
+  const notices: string[] = [];
+  for (const e of result.exceptions ?? []) {
+    if (e.status !== 'applied') notices.push(codeBreakMessage(e));
+    for (const warning of e.warnings ?? []) notices.push(`${codeBreakMessage(e)}: ${warning}`);
+  }
+  return notices;
+}
+
+export function noticesWarning(notices: string[]): string | null {
+  return notices.length ? `WARNING: ${notices.join('; ')}` : null;
+}
+
 export function translationWarning(records: SeqRecord[], { includeMismatches = true } = {}): string | null {
   let count = 0;
   const notices: string[] = [];
   for (const record of records) for (const f of record.features) {
     if (!isCds(f)) continue;
     const checked = checkedTranslation(f, record);
-    for (const e of checked.exceptions ?? []) {
-      if (e.status !== 'applied') notices.push(codeBreakMessage(e));
-      for (const warning of e.warnings ?? []) notices.push(`${codeBreakMessage(e)}: ${warning}`);
-    }
+    notices.push(...codeBreakNotices(checked));
     if (includeMismatches && hasTranslationMismatch(f, checked)) count++;
   }
   if (count) notices.push(`${count} CDS have a /translation that differs from their DNA`);
-  return notices.length ? `WARNING: ${notices.join('; ')}` : null;
+  return noticesWarning(notices);
 }
 export function translationReason(result: ConceptualTranslation, feature: BioFeature): string {
   if (result.status === 'ok') return result.internalStops.length ? `internal stop at codon ${result.internalStops[0] + 1}; fix the CDS or mark it /pseudo` : '';
