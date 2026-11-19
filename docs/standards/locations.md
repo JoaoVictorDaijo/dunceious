@@ -303,11 +303,14 @@ A selection export keeps a local bond only when every recorded endpoint is selec
 all retained endpoints to the selection and names any omitted bond in the same notice used for
 between-base sites. This applies to project JSON and GenPept selection exports.
 
-GenPept import also accepts fuzzy and accession-qualified bonds and bonds inside compound
-locations, including nested `one-of()`, `order()` and `join()` wrappers from the
-[NCBI flat-file formatter](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463).
-It keeps the entire descriptor verbatim in GenBank exports and saved projects.
-These locations supply no local geometry, including for any other positions in a compound
+Every other GenPept location containing `bond(` is opaque. Import keeps the entire descriptor
+verbatim in GenBank exports and saved projects, without validating the location grammar or any
+sequence IDs or versions. This covers fuzzy bonds and compound descriptors, including the
+[wrappers](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463)
+and [remote ID forms](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L710-L732)
+emitted by the NCBI flat-file formatter.
+The general location text restrictions on control characters and line/paragraph separators still
+apply. Opaque locations supply no geometry, including for other positions in a compound
 descriptor. Import issues one notice per record naming the undrawn bonds. Selection exports
 omit them with the same named notice as other omitted bonds. GFF3 export omits and names them
 because a GFF3 row requires a position. Project reopen refuses any stored anchor that conflicts

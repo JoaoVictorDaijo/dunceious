@@ -51,12 +51,17 @@ it.each([
   'order(bond(2,6),3)',
   'one-of(bond(2,6),bond(3,5))',
   'order(join(2,3),bond(4,5))',
+  'one-of(bond(gi|123:2,6),bond(3,5))',
+  'one-of(bond(P01308:2,6),bond(3,5))',
+  'unknown(bond(foo~bar:?,{x}),3)',
+  'bond(ABC123.1:,6)',
+  'join(bond(2,6)..3,4)',
 ])('keeps %s verbatim through GenPept and project reopen without placing it', location => {
   const line = `     Bond            ${location}\n`;
   const imported = openGenPept(genPept('PROT', line + '                     /label="Cross-link"\n'));
   const accepted = {
     type: 'PARSE_SUCCESS',
-    findings: [{ tier: 'warning', record: { name: 'PROT', index: 1 },
+    findings: [{ tier: 'warning', code: 'undrawn-protein-bonds', record: { name: 'PROT', index: 1 },
       message: `Protein bonds kept without drawing: Bond Cross-link (${location}).` }],
   };
   expect(imported).toMatchObject(accepted);
@@ -89,6 +94,34 @@ it.each([
     .toEqual([['PROT', '.', 'region', '1', '6']]);
   expect(gff3.report.gff3FeaturesOmitted).toEqual([
     { reason: `PROT: Bond Cross-link (${location}) omitted because the bond position is unavailable`, edited: false },
+  ]);
+});
+
+it('refuses control characters in bond text on import, project reopen and GenPept export', () => {
+  expect(openGenPept(genPept('PROT', '     Bond            bond(<2,6)\t\n'))).toMatchObject({
+    type: 'PARSE_REFUSED',
+    findings: [{ code: 'malformed-location', message: expect.stringContaining('non-printable control characters') }],
+  });
+  const records = [{ id: 'PROT', name: 'PROT', moleculeType: 'protein' as const, sequence: 'MCAAVC',
+    features: [{ type: 'Bond', name: 'Bond', start: 0, end: 0, strand: 1 as const, segments: [],
+      locationString: 'bond(<2,\n6)' }] }];
+  const saved = serializeProject({ records, featureColors: {}, showAnnotations: true,
+    showTranslation: true, showConservation: false });
+  expect(parseProject(saved, () => {})).toMatchObject({
+    ok: false, message: expect.stringContaining('non-printable control characters'),
+  });
+  expect(() => exportToGenBank(records)).toThrow(/non-printable control characters/);
+});
+
+it.each([
+  ['source', { note: 'Opaque source note', organism: 'Opaque organism' }],
+  ['CDS', { codon_start: '4' }],
+] as const)('omits an opaque bond on a %s feature from GFF3 with the bond notice', (type, metadata) => {
+  const { text, report } = exportToGff3([{ id: 'PROT', name: 'PROT', moleculeType: 'protein', sequence: 'MCAAVC',
+    features: [{ type, name: type, start: 0, end: 0, strand: 1, segments: [], locationString: 'bond(<2,6)', metadata }] }]);
+  expect(text).toBe('##gff-version 3\n##sequence-region PROT 1 6\nPROT\t.\tregion\t1\t6\t.\t+\t.\tID=PROT.0;gbkey=Src\n');
+  expect(report.gff3FeaturesOmitted).toEqual([
+    { reason: `PROT: ${type} (bond(<2,6)) omitted because the bond position is unavailable`, edited: false },
   ]);
 });
 

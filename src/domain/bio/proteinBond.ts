@@ -28,8 +28,12 @@ export function proteinBondEndpoints(location: string): [number] | [number, numb
   return match[2] === undefined ? [first] : [first, Number(match[2])];
 }
 
+export function containsBond(location: string): boolean {
+  return location.replace(/\s/g, '').includes('bond(');
+}
+
 export function isUndrawnProteinBond(feature: Pick<BioFeature, 'segments' | 'locationString'>): boolean {
   const location = feature.locationString;
   return !feature.segments?.length && location !== undefined
-    && /\bbond\s*\(/.test(location) && !proteinBondEndpoints(location);
+    && containsBond(location) && !proteinBondEndpoints(location);
 }

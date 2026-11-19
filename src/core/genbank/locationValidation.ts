@@ -18,8 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
-import { parseLocation, retainsUndrawnProteinBond } from './locationParser';
+import { containsBond, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { parseLocation } from './locationParser';
 
 type LocationProblem = { code: string; message: string };
 /** `n.m` in a base number; an accession's `.version` (`AB123.1:`) is not a position. */
@@ -28,12 +28,20 @@ export const guardOneOfPosition = (text: string): boolean => /\d+\.(?!\.)\d+/.te
 export const guardRemoteSite = (text: string): boolean => /[^():,]+:[<>]?\d+\^/.test(text);
 export const guardSiteSpanEnd = (text: string): boolean => /\^/.test(text) && /\.\.\d+\^|\^\d+\.\./.test(text);
 
+export function locationTextProblem(text: string): LocationProblem | null {
+  return /[\p{Cc}\p{Zl}\p{Zp}]/u.test(text)
+    ? { code: 'malformed-location', message: 'has non-printable control characters or line/paragraph separators' }
+    : null;
+}
+
 /**
  * INSDC FT 11.4 §3.4: fully consumed grammar; supported local bounds use residue coordinates.
  * `order()` (LOC-2), between-base sites (LOC-5) and remote intervals (LOC-8) are read; `n^1` is a
  * site only on a circular molecule of length n (§3.4.2.1).
  */
 export function validateLocation(text: string, length?: number, circular = false, protein = false): LocationProblem | null {
+  const textProblem = locationTextProblem(text);
+  if (textProblem) return textProblem;
   const loc = text.replace(/\s/g, '');
   const malformed = (message = 'cannot be read') => ({ code: 'malformed-location', message });
   if (!loc) return { code: 'missing-location', message: 'has no location' };
@@ -45,7 +53,7 @@ export function validateLocation(text: string, length?: number, circular = false
     }
     return null;
   }
-  if (protein && retainsUndrawnProteinBond(loc)) return null;
+  if (protein && containsBond(loc)) return null;
   if (/join\(/.test(loc) && /order\(/.test(loc)) return malformed('mixes join and order');
   if (/>\d+\.\.|\.\.<\d+/.test(loc)) return malformed('has an invalid fuzzy endpoint');
   // Checked before the local site rules, which would test a remote site against this record's length.

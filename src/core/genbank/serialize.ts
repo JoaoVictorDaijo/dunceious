@@ -31,6 +31,7 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
+import { locationTextProblem } from './locationValidation';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier, assertGenBankQualifierText, type QualifierSyntax } from './qualifierRules';
 
 /**
@@ -185,6 +186,8 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     const text = featureLocation(feature, r, report);
     if (text === null) continue;
+    const problem = locationTextProblem(text);
+    if (problem) throw new Error(`Feature ${feature.name} location ${JSON.stringify(text)} ${problem.message}.`);
     if (feature.type !== 'source') {
       report.genBankWritten.annotations++;
       if (feature.hubEdit === 'edited' || feature.hubEdit === 'added') report.genBankWritten.edited++;

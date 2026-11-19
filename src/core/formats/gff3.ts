@@ -255,14 +255,21 @@ export function exportToGff3(
     const length = record.sequence.length;
     const landmark = { seqid: id, recordId: record.id, length, isCircular: record.isCircular };
     const sourceId = `${record.id}.0`;
-    const sources = record.features.filter(feature => feature.type === 'source');
+    const sources: BioFeature[] = [];
     const emittedIds = new Map<BioFeature, string>();
-    if (sources[0]) emittedIds.set(sources[0], sourceId);
 
     let number = 0;
     const rows: FeatureRows[] = [];
     for (const [index, feature] of record.features.entries()) {
       if (feature.type !== 'source' && !include(record, feature, index)) continue;
+      if (isUndrawnProteinBond(feature)) {
+        const name = feature.name === feature.type ? feature.type : `${feature.type} ${feature.name}`;
+        report.gff3FeaturesOmitted.push({
+          reason: `${record.id}: ${name} (${feature.locationString}) omitted because the bond position is unavailable`,
+          edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
+        });
+        continue;
+      }
       const codonStart = feature.metadata?.codon_start;
       if (isCds(feature) && !validCodonStart(codonStart)) {
         report.gff3FeaturesOmitted.push({
@@ -272,13 +279,8 @@ export function exportToGff3(
         continue;
       }
       if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
-      if (feature.type === 'source') continue;
-      if (isUndrawnProteinBond(feature)) {
-        const name = feature.name === feature.type ? feature.type : `${feature.type} ${feature.name}`;
-        report.gff3FeaturesOmitted.push({
-          reason: `${record.id}: ${name} (${feature.locationString}) omitted because the bond position is unavailable`,
-          edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
-        });
+      if (feature.type === 'source') {
+        sources.push(feature);
         continue;
       }
       const featureId = `${record.id}.${++number}`;
@@ -294,10 +296,11 @@ export function exportToGff3(
       rows.push({ feature, featureId, stored, split, segments });
       emittedIds.set(feature, featureId);
     }
+    if (sources[0]) emittedIds.set(sources[0], sourceId);
     const referenceIds = indexReferences(record.features, emittedIds);
 
     lines.push(`##sequence-region ${id} 1 ${length}`);
-    const details = detailsForExport(record, report);
+    const details = detailsForExport({ ...record, features: sources }, report);
     const attributes: Record<string, string | string[]> = { ID: sourceId, gbkey: 'Src' };
     const sourceMetadata = { ...sources[0]?.metadata };
     const sourceParts = sources.flatMap(feature => feature.segments ?? []);

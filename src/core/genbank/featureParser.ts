@@ -67,7 +67,7 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
 
     const featureLine = i + 1;
     const [, type, initialLoc] = featureMatch;
-    let fullLocation = (initialLoc ?? '').trim();
+    const locationLines = [initialLoc ?? ''];
 
     // Accumulate multi-line location (continuation lines, no qualifier)
     while (
@@ -75,10 +75,11 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
       lines[i + 1].startsWith(INDENT21) &&
       !lines[i + 1].trim().startsWith('/')
     ) {
-      fullLocation += lines[++i].trim();
+      locationLines.push(lines[++i].slice(INDENT21.length));
     }
 
-    const error = validateLocation(fullLocation, length, circular, protein);
+    const error = validateLocation(locationLines.join(''), length, circular, protein);
+    const fullLocation = locationLines.map(part => part.trim()).join('');
     let location;
     try { location = parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein); }
     catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }

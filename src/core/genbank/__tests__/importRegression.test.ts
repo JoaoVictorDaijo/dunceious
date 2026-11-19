@@ -94,14 +94,6 @@ it('round-trips a protein bond whose second endpoint is absent', () => {
   });
 });
 
-it.each(['bond(ABC123.1:,6)', 'join(bond(2,6)..3,4)'])('refuses malformed protein bond location %s and names the descriptor', location => {
-  const input = genBank('PROT 6 aa linear', 'mcaavc', `     Bond            ${location}\n`);
-  expect(importGenBank(input)).toMatchObject({
-    type: 'PARSE_REFUSED',
-    findings: [expect.objectContaining({ code: 'malformed-location', message: expect.stringContaining(`Bond location ${location}`) })],
-  });
-});
-
 it('checks the second endpoint of a protein bond against the record length', () => {
   const input = genBank('PROT 6 aa linear', 'mcaavc', '     Bond            bond(2,7)\n');
   expect(importGenBank(input)).toMatchObject({
