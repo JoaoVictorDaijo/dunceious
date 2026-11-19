@@ -88,7 +88,7 @@ Artemis accepts fuzzy syntax. The full import-edit-export lifecycle is unknown e
 (`locationParser.ts:102`); the details window flags a partial feature from the raw text
 (LOC-7). The raw text survives an unchanged GenBank export and GFF3
 partial attributes, but is lost after a geometry or strand edit (`FeatureEditorModal.tsx:78,167`)
-or a selection export (`useFileHandlers.ts:360`).
+or a selection export (`fileHandlers/exports.ts:40`).
 
 ## LOC-5. Between-base sites
 

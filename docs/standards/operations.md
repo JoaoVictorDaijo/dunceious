@@ -65,7 +65,7 @@ with operation-specific type requirements, or an explicitly defined homogeneous 
 **Dunceious.** Policy unestablished; the code enforces a homogeneous workspace.
 `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) checks every parsed record of a
 sequence import against the live workspace and refuses a file that mixes categories or differs
-from a non-empty workspace; the pre-dispatch FASTA preview in `useFileHandlers.ts` only refuses
+from a non-empty workspace; the pre-dispatch FASTA preview (`src/app/logic/sessionPreview.ts`) only refuses
 earlier. Classification is still alphabet-only for FASTA (`detectMoleculeType`), so a protein
 written only in nucleotide-overlapping letters is read as nucleotide. The inference limitation
 also concerns [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).

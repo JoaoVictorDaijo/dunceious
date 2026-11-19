@@ -185,7 +185,7 @@ are documented alternatives; they do not validate arbitrary local combinations.
 Dunceious's exact visibility/missing-row policy.
 
 **Dunceious.** Owner decision open — [#254](https://github.com/JoaoVictorDaijo/dunceious/issues/254).
-`src/app/hooks/useBioWorker.ts:189` dispatches visible records; `src/domain/bio/consensus.ts:31`
+`src/app/hooks/useBioWorker.ts:185` dispatches visible records; `src/domain/bio/consensus.ts:31`
 then keeps truthy aligned strings, ignores absent positions and compares case-sensitive literal
 symbols. The viewer at `src/app/viewer/GenomeViewer.tsx:223` uses aligned-or-raw strings, excludes
 gaps from candidates but keeps all rows in the denominator. The minimap at `Minimap.tsx:156`

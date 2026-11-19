@@ -74,7 +74,9 @@ src/
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI
     ├── showroom/        # phone test drive: the real viewer, Hub, Export and details over a bundled aligned sample, memory only
-    ├── App.tsx          # composition root of the workbench
+    ├── App.tsx          # composition root of the workbench: renders what useWorkbench returns
+    ├── workbench/       # useWorkbench and its state hooks (view settings, navigation, details, comparison, record removal),
+    │                    #   overlays, main area and the prop builders for TopNav, Sidebar, GenomeViewer and the Hub
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     │   ├── trackLayout.ts # cached strand-lane packing, deterministic track metrics/ruler
@@ -83,6 +85,7 @@ src/
     │   ├── featureComparison.ts # organism-scoped presence and per-type length comparison
     │   ├── exportPlan.ts # subset/options, shared preview and serializer dispatch
     │   ├── projectFile.ts # format-2 project serialization and validation
+    │   ├── sessionPreview.ts # pre-dispatch molecule-type preview of a file
     │   ├── alignmentComparison.ts # reference choice, comparison settings and the shared residue style
     │   └── dropRouting.ts # ordered drops and batch-scoped sequence-ID mapping
     ├── hooks/
@@ -177,7 +180,7 @@ See §2 and the skill's `where-does-x-go.md`.
   - **Batch load** (`asAlignment` absent/false): Each FASTA record becomes a new workspace entry. Molecule type (`dna | rna | protein`) is detected per record by `detectMoleculeType` (`src/domain/bio/sequence.ts`), which scans the whole record: any letter outside the IUPAC nucleotide alphabet (`PROTEIN_ONLY_RESIDUES`: E F I J L O P Q X Z, or `*`) makes it `protein`, else a `U` makes it `rna`, else `dna`. Nucleotide ambiguity codes (R Y S W K M B D H V N) never count as protein evidence, so a protein made only of those letters is classified `dna`. These per-record types are what the session-type check reads (see *Molecule-type enforcement* below). Duplicate record IDs are automatically de-duplicated with a numeric suffix (`seq1 → seq1_1 → seq1_2`) via `makeUniqueId()` (in `src/app/logic/idHelpers.ts`). `applyFastaResponse` removes `-` from each record before details are written, so stored sequences and source features count residues only, following NCBI's rule for sequences outside an alignment ([FASTA guidance](https://www.ncbi.nlm.nih.gov/genbank/fastaformat/)). It reports each change (`gapsRemoved`, by workspace ID), which `useBioWorker` logs and collects into `gapNotices` for the `GapRemovalNotice` dialog. A file with any record left without residues, including a header-only record, is refused whole (`reject-no-residues`), and its request fails so a dropped batch attaches no annotations. `parseFasta` stays lossless for alignment overlays. Records already saved in projects are not rewritten.
   - **Alignment overlay** (`asAlignment: true`): Applied via the **Upload Alignment** action. Every record in the file must match an existing workspace record, each workspace record must appear exactly once (`reject-duplicate` names repeated IDs, as `remapAlignment` refuses repeated aliases), all sequences must have equal length, and each row must equal the record's loaded residues once `-` is removed from both, ignoring case (`isGappedCopyOf` in `src/domain/bio/sequence.ts`, shared with `remapAlignment`). Rows containing `.` are refused rather than read as residues. Any mismatch is rejected with an error log entry naming the IDs, and the workspace is left unchanged. A record matches by the longest leading run of its FASTA header that is a workspace ID, so workspace suffixes (`seq1_1`) round-trip and a trailing description (`>seq1 reference strain`) is ignored; `parseFasta` keeps the full header for this (`FastaRecord.header`), and `applyFastaResponse` resolves it. Matching records have their `alignedSequence` field updated without altering sequence or feature data.
 - **Remote alignment** produces the same input as the overlay above, but computed by EMBL-EBI; see *Remote alignment (EMBL-EBI)* below.
-- **Molecule-type enforcement**: `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) is the authoritative check. `applyParseResponse` (GenBank) and the `applyFastaResponse` batch path run it on every parsed record against the live workspace before committing, and refuse the whole file (`reject-session-type`) when its records mix nucleotide and protein or differ from a non-empty workspace. `useBioWorker` logs the refusal, raises `sessionTypeNotice` for `MoleculeTypeMismatchModal`, and fails the request so a dropped batch attaches no annotations. Before dispatch, `useFileHandlers` also classifies a preview (`sniffFastaCategory` / `sniffGenBankCategory`: the first LOCUS line, or up to three FASTA records and 1,200 residues) to refuse an obviously wrong file without parsing it. The preview can only refuse; a file it passes still faces the full check. The picker dispatches files in selection order, so with an empty workspace the first file sets the category whichever read finishes first. Sessions must be homogeneous.
+- **Molecule-type enforcement**: `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) is the authoritative check. `applyParseResponse` (GenBank) and the `applyFastaResponse` batch path run it on every parsed record against the live workspace before committing, and refuse the whole file (`reject-session-type`) when its records mix nucleotide and protein or differ from a non-empty workspace. `useBioWorker` logs the refusal, raises `sessionTypeNotice` for `MoleculeTypeMismatchModal`, and fails the request so a dropped batch attaches no annotations. Before dispatch, `useFileHandlers` also classifies a preview (`previewMismatch` in `src/app/logic/sessionPreview.ts`, with `sniffFastaCategory` / `sniffGenBankCategory`: the first LOCUS line, or up to three FASTA records and 1,200 residues) to refuse an obviously wrong file without parsing it. The preview can only refuse; a file it passes still faces the full check. The picker dispatches files in selection order, so with an empty workspace the first file sets the category whichever read finishes first. Sessions must be homogeneous.
 - **BED / BedGraph Parser**: Extracts genomic intervals and scores; renders as interval or line tracks.
 - **GFF3 Parser**: Reconstructs parts sharing an ID and returns source-region candidates. `applyAnnotations` verifies each candidate against the loaded sequence length before applying details; a shorter region remains an annotation. Imported details fill empty values and their absent `fileDetails` snapshot keys, without overwriting existing file values or edits.
 - **Annotation Import**: Merges GFF/BED into records by exact workspace ID first; name/accession fallback requires one unambiguous match. Unmatched or ambiguous lines are reported.
@@ -309,7 +312,7 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 
 ### `src/app/App.tsx` (Composition Root)
 
-- Wires the hooks below together and holds the top-level UI state (active workspace, toggles, open modals, Focus and the Hub return target).
+- Renders the layout from `useWorkbench` (`src/app/workbench/`), which wires the hooks below together. The top-level UI state lives in small hooks there: `useViewSettings` (toggles, comparison settings, feature colours), `useNavigation` (active workspace, selection, Focus and the Hub return target), `useRecordDetails`, `useComparisonView` and `createRecordRemoval`. `WorkbenchOverlays` and `WorkbenchMain` render the dialogs and the viewport or Hub; `chromeProps.ts` and `panelProps.ts` build the `TopNav`, `Sidebar`, `GenomeViewer` and `AnnotationHubPanel` props.
 - Does not own the workers: `useBioWorker` and `useSearchWorker` create them, send typed `BioWorkerRequest` / `SearchWorkerRequest` messages and consume the typed responses — no `any` in worker message paths.
 
 ### `src/app/hooks/` (Custom Hooks)
@@ -317,13 +320,13 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 State and logic extracted from `App.tsx` into purpose-built hooks, each with a single responsibility:
 
 - `useAppLogger` – append-only activity log, stable `addLog` callback
-- `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
+- `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication; `bioResponseCommit.ts` commits each worker response (records, logs, notices) and returns the reply its request settles with
 - `useFeatureManager` – feature CRUD and undo with annotation edit markers, detail/display-name edits, search-to-annotation bridge, record visibility toggle
 - `useHubState` – session state owned above the workspace switch: per-tab offsets/folds, grouping, filters, density, selection and hub-only hidden IDs (not serialized); search folds reset when filters change
 - `useRemoteAlignment` – remote alignment dialog state, job lifecycle, consent and lock
 - `useDraggableJobPill` – pointer and keyboard dragging of the minimized alignment pill
 - `useFileDragActive` – whether files are being dragged over the window (depth-counted, reset on drop/dragend), which arms the Ingestion drop zones
-- `useFileHandlers` – file upload handlers (with molecule-type enforcement) and export helpers
+- `useFileHandlers` – file upload handlers (with molecule-type enforcement) and export helpers, composed from `fileHandlers/`: `pickerImports.ts`, `dropImport.ts`, `projectFile.ts` (load and save) and `exports.ts`
 - `useSearchWorker` – search worker bridge; derives `isProteinSession`; exposes grouped results and join helpers
 
 ### `src/app/components/` (Presentational Components)

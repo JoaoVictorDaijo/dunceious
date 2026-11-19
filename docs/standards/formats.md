@@ -110,7 +110,7 @@ FASTA support in [Tools](tools.md) establishes only support.
 but preserves internal whitespace, digits and punctuation, unlike the named Biopython practice:
 [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244). Output has headers and 60-column
 wrapping (`src/core/formats/fasta.ts:69`), including the original-residue single-record export
-(`src/app/hooks/useFileHandlers.ts:380`). These paths do not prove NCBI-submission-valid IDs,
+(`src/app/hooks/fileHandlers/exports.ts:81`). These paths do not prove NCBI-submission-valid IDs,
 residues or metadata. Molecule inference uses OP-1. The private Slice field and filenames remain
 application policy; aligned slicing uses FMT-6.
 
@@ -169,7 +169,7 @@ refused as an unsupported gap symbol (owner decision,
 check (`isGappedCopyOf`, `src/domain/bio/sequence.ts`).
 **Owner decision open:** reconcile exact IDs or retain an explicit alias mapping (FMT-9). Longest-prefix reconciliation has
 no established reference contract. Selection
-export slices aligned-or-raw strings (`src/app/hooks/useFileHandlers.ts:336`); equal widths are
+export slices aligned-or-raw strings (`src/app/hooks/fileHandlers/exports.ts:55`); equal widths are
 conditional on the input and not independently checked there. `[Slice: start-end]` is private
 metadata without externally established endpoints. Remote provider validation is narrower and
 separately described in FMT-12.
@@ -413,7 +413,7 @@ BED/bedGraph/GFF extensions, treats `.gff` as GFF3, then tests the first physica
 tab fields, otherwise defaults to BED. A leading GFF3 directive/comment defeats that fallback:
 [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250). Drop routing also uses extensions
 (`src/app/logic/dropRouting.ts:28`). The independent molecule preview
-(`src/app/hooks/useFileHandlers.ts:48`) appends complete lines before checking a cumulative
+(`src/app/logic/sessionPreview.ts:39`) appends complete lines before checking a cumulative
 1,200-character stopping trigger; it is not a hard cap. Its subsequent-header counter uses the
 same nonempty cumulative sample without resetting per record, so it does not reliably count
 three nonempty records. This algorithm does not gain scientific support from format-autodetection
