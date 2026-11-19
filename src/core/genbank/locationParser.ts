@@ -141,15 +141,15 @@ function locationOperator(text: string): LocationOperator | undefined {
 }
 
 export function parseLocation(loc: string, record?: LocationRecord, protein = false): LocationData {
-  const cleanLoc = loc.replace(/\s/g, '');
-  const bond = protein ? proteinBondEndpoints(cleanLoc) : undefined;
+  const bond = protein ? proteinBondEndpoints(loc) : undefined;
   if (bond) {
     // The first residue anchors the glyph. The retained location text carries the bond itself.
     const segment = { start: bond[0] - 1, end: bond[0] };
     return { segments: [segment], strand: 1, ...segment };
   }
-  if (protein && containsBond(cleanLoc)) return { segments: [], start: 0, end: 0, strand: 1 };
+  if (protein && containsBond(loc)) return { segments: [], start: 0, end: 0, strand: 1 };
 
+  const cleanLoc = loc.replace(/\s/g, '');
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;
   const body = outer ? outer[1] : cleanLoc;

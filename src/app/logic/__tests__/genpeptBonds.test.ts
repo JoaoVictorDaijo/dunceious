@@ -43,6 +43,9 @@ function openGenPept(content: string) {
 }
 
 it.each([
+  'bond(1 2,6)',
+  'bond(0 2,6)',
+  'bond(2, 6)',
   'bond(<2,6)',
   'bond(<2,>6)',
   'bond(2,ABC123.1:6)',

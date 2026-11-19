@@ -28,7 +28,7 @@
 
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import type { FindingSink, GenBankFinding } from './findings';
-import { validateLocation } from './locationValidation';
+import { locationTextProblem, validateLocation } from './locationValidation';
 import type { BioFeature } from '@/src/domain/bio/types';
 import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { parseLocation, type LocationData } from './locationParser';
@@ -78,8 +78,8 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
       locationLines.push(lines[++i].slice(INDENT21.length));
     }
 
-    const error = validateLocation(locationLines.join(''), length, circular, protein);
     const fullLocation = locationLines.map(part => part.trim()).join('');
+    const error = locationTextProblem(locationLines.join('')) ?? validateLocation(fullLocation, length, circular, protein);
     let location;
     try { location = parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein); }
     catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }

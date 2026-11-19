@@ -42,10 +42,7 @@ export function locationTextProblem(text: string): LocationProblem | null {
 export function validateLocation(text: string, length?: number, circular = false, protein = false): LocationProblem | null {
   const textProblem = locationTextProblem(text);
   if (textProblem) return textProblem;
-  const loc = text.replace(/\s/g, '');
-  const malformed = (message = 'cannot be read') => ({ code: 'malformed-location', message });
-  if (!loc) return { code: 'missing-location', message: 'has no location' };
-  const bond = protein ? proteinBondEndpoints(loc) : undefined;
+  const bond = protein ? proteinBondEndpoints(text) : undefined;
   if (bond) {
     // The NCBI Seq-bond endpoints are residue positions, even when only one anchors the glyph.
     if (bond.some(point => point < 1 || !Number.isSafeInteger(point) || (length !== undefined && point > length))) {
@@ -53,7 +50,10 @@ export function validateLocation(text: string, length?: number, circular = false
     }
     return null;
   }
-  if (protein && containsBond(loc)) return null;
+  if (protein && containsBond(text)) return null;
+  const loc = text.replace(/\s/g, '');
+  const malformed = (message = 'cannot be read') => ({ code: 'malformed-location', message });
+  if (!loc) return { code: 'missing-location', message: 'has no location' };
   if (/join\(/.test(loc) && /order\(/.test(loc)) return malformed('mixes join and order');
   if (/>\d+\.\.|\.\.<\d+/.test(loc)) return malformed('has an invalid fuzzy endpoint');
   // Checked before the local site rules, which would test a remote site against this record's length.

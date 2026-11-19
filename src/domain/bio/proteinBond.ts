@@ -22,7 +22,7 @@ import type { BioFeature } from './types';
 
 /** NCBI Seq-bond uses residue positions and writes a second endpoint only when available. */
 export function proteinBondEndpoints(location: string): [number] | [number, number] | undefined {
-  const match = /^bond\((\d+)(?:,(\d+))?\)$/.exec(location.replace(/\s/g, ''));
+  const match = /^bond\((\d+)(?:,(\d+))?\)$/.exec(location);
   if (!match) return undefined;
   const first = Number(match[1]);
   return match[2] === undefined ? [first] : [first, Number(match[2])];

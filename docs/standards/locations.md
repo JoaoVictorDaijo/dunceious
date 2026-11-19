@@ -291,8 +291,9 @@ Remote intervals are not
 local segments, so they are never tested against local sequence bounds. Saved projects follow the
 [project validation contract](formats.md#fmt-14-private-project-schema).
 
-GenPept records accept local `bond(a,b)` locations and `bond(a)` when only the first endpoint is
-known. The [NCBI C++ Toolkit data model](https://ncbi.github.io/cxx-toolkit/pages/ch_datamod#bond-a-chemical-bond-between-two-residues)
+GenPept places only the local forms `bond(a,b)` and `bond(a)`, where each endpoint contains
+only ASCII digits. A local descriptor has no whitespace inside its parentheses. The
+[NCBI C++ Toolkit data model](https://ncbi.github.io/cxx-toolkit/pages/ch_datamod#bond-a-chemical-bond-between-two-residues)
 defines the endpoints as residues connected by a chemical bond. The
 [NCBI flat-file formatter](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L449-L463)
 writes the second point when available. Import checks each residue position against the protein
@@ -303,8 +304,9 @@ A selection export keeps a local bond only when every recorded endpoint is selec
 all retained endpoints to the selection and names any omitted bond in the same notice used for
 between-base sites. This applies to project JSON and GenPept selection exports.
 
-Every other GenPept location containing `bond(` is opaque. Import keeps the entire descriptor
-verbatim in GenBank exports and saved projects, without validating the location grammar or any
+Every other GenPept location containing `bond(` is opaque, including `bond(1 2,6)`.
+Import keeps the entire descriptor verbatim in GenBank exports and saved projects without
+validating the location grammar or any
 sequence IDs or versions. This covers fuzzy bonds and compound descriptors, including the
 [wrappers](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463)
 and [remote ID forms](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L710-L732)
