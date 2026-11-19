@@ -33,13 +33,13 @@ numbers to types" ([GFF3 format, 25.0.3](https://resources.qiagenbioinformatics.
 
 **Dunceious.** Conforms to the grammar: every emitted term is in SO 2026-08-07. The mapping
 lives in `src/core/formats/soTypes.ts`; the original key is kept in an `insdc_type` attribute
-(`src/core/formats/gff3.ts:179`), where NCBI uses `gbkey`. Features crossing the origin are
-written as split rows; see LOC-6.
+(`src/core/formats/gff3.ts`), where NCBI uses `gbkey`. Contiguous origin crossings are
+written as one extended row. See [origin crossings](locations.md#loc-6-features-crossing-the-origin).
 
 For a feature with explicit interval strands (`insdc_interval_strands=true`), Dunceious writes
 the private `insdc_parent_strand` attribute when the exported intervals' majority strand differs
-from the stored feature strand. Splitting an interval at the circular origin can change that
-majority. The value `+` or `-` records the feature-level orientation. On import of per-interval
+from the stored feature strand. The majority is calculated over the decoded pieces because
+splitting an interval at the circular origin can change it. The value `+` or `-` records the feature-level orientation. On import of per-interval
 locations, that value restores the feature strand while each interval keeps its own strand.
 Without a recognized value, import uses Dunceious's shared feature-level fallback, the majority
 across local and remote intervals with ties resolved to `+`. Local intervals determine sequence
@@ -326,19 +326,22 @@ column 8; [INSDC FT 11.4](https://ftp.ncbi.nlm.nih.gov/genbank/docs/FTv11_4.html
 For coherent ordinary parts, `(phase − partLength) mod 3` is a derivation from that meaning,
 not a prescribed algorithm. Display frames remain OP-8; biological order remains LOC-1/LOC-3.
 
-**Reference tools.** Documented: GFF3 requires CDS phase and distinguishes it from frame;
-INSDC defines the initial coding offset. No runtime phase oracle was run.
+**Reference tools.** GFF3 requires CDS phase and distinguishes it from frame.
+INSDC defines the initial coding offset. Imported T4, 13a and phiX174 CDS products are tested
+against their GenBank translations using the [NCBI fixtures](../../src/core/formats/__tests__/fixtures/ncbi-gff3/PROVENANCE.md).
 
 **Applications.** Unknown for arbitrary/mixed-strand/slippage phase policies across applications.
 
-**Dunceious.** Conforms for coherent ordinary parts and valid imported values
-(`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
-phase carries across parts, including intervals split at the circular origin. Cached phases are
-reused only when they contain one 0/1/2 value per row. Import refuses a CDS row with fewer
+**Dunceious.** Import orders ordinary same-ID rows by increasing genomic coordinates while
+keeping the phase on its own row, including across the one-base overlap of a programmed
+frameshift. The first part in biological order supplies `codon_start`: the low-coordinate
+part on plus and the high-coordinate part on minus for ordinary in-bounds rows. An extended
+row at the origin supplies the phase at its own 5′ end before its two pieces are evaluated.
+Export carries phase across adjacent CDS parts and writes `.` for other feature types.
+Cached phases are reused when geometry and reading frame still match. Import refuses a CDS row with fewer
 than nine columns or a phase other than `0`, `1` or `2` and reports the row and the problem. Absence of `codon_start`
-defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
-overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
-biological cases or authorize a fallback policy.
+defaults to frame 1 on export. General biological interpretation of arbitrary or mixed order,
+slippage annotations beyond the retained overlap, and unsupported type spellings remains open.
 
 **Owner decision 2026-11-18.** GFF3 import refuses conflicting translation values for one CDS and reports both values and their row numbers.
 
@@ -348,12 +351,12 @@ GFF3 export writes genomic partial endpoints on every feature type as `partial=t
 `start_range` and/or `end_range` on the affected rows, following
 [NCBI's partial-boundary convention](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
 Each unchanged endpoint retains its imported open range. Rebasing a selection or splitting a
-circular GFF3 row translates the finite ambiguity limit into the new coordinates if it stays
-inside the retained interval. A moved or clipped boundary uses `start_range=.,start` or
-`end_range=end,.`.
-If a circular split cannot keep a finite limit on the row carrying its boundary, the GFF3
-export writes the partial marker at that boundary and names the feature and original range
-in the export report and preview.
+circular GFF3 row translates a finite limit when it stays inside the retained interval.
+Re-export of an extended row restores the original limit if it fits that row, even when it
+falls on the other side of the origin from its boundary. If the limit cannot be represented
+on the emitted row, export writes the partial marker and names the feature and original
+range in the export report and preview. A moved or clipped boundary uses
+`start_range=.,start` or `end_range=end,.`.
 The full-length `gbkey=Src` region carries any source interval's marks at the record boundaries.
 Attaching that region to a sequence preserves its open bounds on every matching source endpoint
 and reports a bound with no matching source endpoint in the attachment log.

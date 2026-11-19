@@ -25,6 +25,7 @@ import { parseGenBank, exportToGenBank } from '@/src/core/genbank';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { extractFeatureSequence } from '@/src/domain/bio/sequence';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
+import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { saveEditedFeature } from '../featureManager';
 import { featureFocusTarget } from '../focusTarget';
@@ -42,23 +43,25 @@ function attachGff(record: SeqRecord, text: string): SeqRecord {
 }
 
 it.each([
-  { sequence: 'AAATAACCCATG', start: 9, end: 6, strand: 1, protein: 'MK', partial: false, first: ['10', '12', '.', '+', '0'], second: ['1', '6', '.', '+', '0'] },
-  { sequence: 'AAATAACCCCTG', start: 9, end: 6, strand: 1, protein: 'LK', partial: true, first: ['10', '12', '.', '+', '0'], second: ['1', '6', '.', '+', '0'] },
-  { sequence: 'ATTTCATCCCTT', start: 10, end: 7, strand: -1, protein: 'MK', partial: true, first: ['11', '12', '.', '-', '2'], second: ['1', '7', '.', '-', '0'] },
-] as const)('writes and reattaches in-bounds wrapped CDS rows for $sequence', ({ sequence, start, end, strand, protein, partial, first, second }) => {
+  { sequence: 'AAATAACCCATG', start: 9, end: 6, strand: 1, partial: false, phase: '0', protein: 'MK' },
+  { sequence: 'AAATAACCCCTG', start: 9, end: 6, strand: 1, partial: true, phase: '0', protein: 'LK' },
+  { sequence: 'GAAATAACCAAT', start: 9, end: 7, strand: 1, partial: true, phase: '1', protein: 'MK' },
+  { sequence: 'TTTCATTCCCTTA', start: 10, end: 7, strand: -1, partial: true, phase: '1', protein: 'MK' },
+] as const)('writes and reattaches one extended CDS row for $sequence', ({ sequence, start, end, strand, partial, phase, protein }) => {
   const record: SeqRecord = { id: 'r', name: 'r', sequence, isCircular: true, features: [{
     type: 'CDS', name: 'c', start, end, strand,
     segments: [{ start, end, ...(partial && { partialStart: true, partialEnd: true }) }],
+    metadata: { codon_start: String(Number(phase) + 1) },
   }] };
   const { text } = exportToGff3([record]);
   const rows = text.trimEnd().split('\n').slice(3).map(row => row.split('\t'));
-  expect(rows.map(row => row.slice(3, 8))).toEqual([first, second]);
+  expect(rows.map(row => row.slice(3, 8))).toEqual([[String(start + 1), String(sequence.length + end), '.', strand === 1 ? '+' : '-', phase]]);
   if (partial) {
-    expect(rows[0][8].split(';')).toEqual(expect.arrayContaining(['partial=true', 'start_range=.,' + (start + 1)]));
-    expect(rows[1][8].split(';')).toEqual(expect.arrayContaining(['partial=true', 'end_range=' + end + ',.']));
+    expect(rows[0][8].split(';')).toEqual(expect.arrayContaining(['partial=true', 'start_range=.,' + (start + 1), 'end_range=' + (sequence.length + end) + ',.']));
   }
   const attached = attachGff(record, text);
   const feature = attached.features.find(feature => feature.type === 'CDS')!;
+  expect(feature).toMatchObject({ start, end, strand, metadata: { codon_start: String(Number(phase) + 1) } });
   expect(feature.segments).toEqual([
     { start, end: sequence.length, ...(partial && { partialStart: true }) },
     { start: 0, end, ...(partial && { partialEnd: true }) },
@@ -119,18 +122,14 @@ it('keeps landmark and wrapped GFF3 boundary uncertainty on the corresponding ro
   ].join('\n'));
   const { text } = exportToGff3([record]);
   const rows = text.trimEnd().split('\n').slice(2).map(row => row.split('\t')[8].split(';').filter(attr => /^(start|end)_range=/.test(attr)));
-  expect(rows).toEqual([['start_range=.,2'], ['start_range=.,10'], ['end_range=2,.']]);
+  expect(rows).toEqual([['start_range=.,2'], ['start_range=.,10', 'end_range=14,.']]);
 });
 
 it.each([
-  ['.,13', 'start_range=.,9', [
-    'x: g: start_range=.,13 cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
-    'x: g: end_range=11,. cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
-  ]],
-  ['.,10', 'start_range=.,10', [
-    'x: g: end_range=11,. cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
-  ]],
-] as const)('reports the original GFF3 limits lost on a circular split with start_range=%s', (start, startRange, warnings) => {
+  ['.,13', '.,13', []],
+  ['.,10', '.,10', []],
+  ['.,17', '.,9', ['x: g: start_range=.,17 cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.']],
+] as const)('retains limits that fit the extended row with start_range=%s', (start, startRange, warnings) => {
   const record = attachGff({ id: 'x', name: 'x', sequence: 'AGCTGACCTGAA', features: [], isCircular: true }, [
     '##gff-version 3',
     '##sequence-region x 1 12',
@@ -139,10 +138,9 @@ it.each([
   ].join('\n'));
   const reopened = reopenProject(record);
   const { text, report } = exportToGff3([reopened]);
-  expect(text.trimEnd().split('\n').slice(-2)).toEqual([
-    `x\t.\tgene\t9\t12\t.\t+\t.\tID=x.1;Name=g;partial=true;${startRange}`,
-    'x\t.\tgene\t1\t4\t.\t+\t.\tID=x.1;Name=g;partial=true;end_range=4,.',
-  ]);
+  expect(text.trimEnd().split('\n').at(-1)).toBe(
+    `x\t.\tgene\t9\t16\t.\t+\t.\tID=x.1;Name=g;partial=true;start_range=${startRange};end_range=11,.`,
+  );
   expect.soft(report).toMatchObject({ gff3RangeWarnings: warnings });
   const preview = describeExport([reopened], 'gff3');
   for (const warning of warnings) expect.soft(preview.summary).toContain(warning);
@@ -438,15 +436,16 @@ ORIGIN
   const { text } = exportToGff3([record]);
   const reopened = attachGff(record, text);
   const feature = reopened.features.find(part => part.type === 'misc_feature')!;
-  expect(feature).toMatchObject({
-    start: 6, end: 3, strand, segments: [{ start: 6, end: 9 }, { start: 0, end: 3 }, { start: 3, end: 3 }],
-  });
+  expect(feature).toMatchObject({ start: 6, end: 3, strand });
+  expect(writtenOrderSegments(feature)).toMatchObject([{ start: 6, end: 9 }, { start: 0, end: 3 }, { start: 3, end: 3 }]);
+  expect(extractFeatureSequence(feature, record.sequence).featureSeq).toBe(strand === 1 ? 'ATAAGT' : 'ACTTAT');
   expect(featureFocusTarget(reopened, feature)).toMatchObject({ start: 6, end: 3 });
   expect(featureSequenceViews(reopened, feature)).toMatchObject({ region: 'ATAACAAGT', regionLength: 9 });
 
-  const [header, directive, landmark, high, low, site] = text.trimEnd().split('\n');
-  for (const rows of [[low, site, high], [site, high, low]]) {
-    const rotated = parseGFF3([header, directive, landmark, ...rows].join('\n'));
+  const [header, directive, landmark, ...rows] = text.trimEnd().split('\n');
+  const unmarked = rows.map(row => row.replace(/;insdc_(?:written_order|interval_strands)=[^;]+/g, ''));
+  for (const order of [unmarked, [...unmarked].reverse()]) {
+    const rotated = parseGFF3([header, directive, landmark, ...order].join('\n'));
     expect(rotated.features.x[0]).toMatchObject({ start: 0, end: 9 });
   }
 });

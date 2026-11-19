@@ -41,7 +41,7 @@ import type {
 import type { LocalFilters, LocalStreamOutcome } from '../core/search/local/stream';
 import type { LocalSearchCounts } from '../core/search/local/selection';
 import type { LocalScoringId } from '../core/search/local/scoring';
-import type { GffSourceRegion } from '../core/formats/gff3';
+import type { GffOriginNotice, GffSourceRegion } from '../core/formats/gff3';
 
 // ---------------------------------------------------------------------------
 // Bio Worker — Requests (main → worker)
@@ -145,6 +145,7 @@ export interface AnnotationsSuccessResponse extends BioRequestContext {
   idMap?: BatchIdMap;
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>;
   details: Record<string, GffSourceRegion>;
+  originNotices?: Record<string, GffOriginNotice[]>;
 }
 
 export interface WorkerErrorResponse extends BioRequestContext {

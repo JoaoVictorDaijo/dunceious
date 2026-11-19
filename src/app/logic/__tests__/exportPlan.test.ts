@@ -177,8 +177,8 @@ it('round-trips origin-crossing GFF3 parts with valid intervals and source quali
   const result = serializeExport([record], 'gff3');
   const rows = result.text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t'));
   expect(rows.map(row => [row[2], Number(row[3]), Number(row[4])])).toEqual([
-    ['region', 1, 3308], ['CDS', 2427, 3308], ['CDS', 1, 1758],
-    ['CDS', 2992, 3308], ['CDS', 1, 964], ['CDS', 2021, 2587], ['mature_protein_region', 296, 961],
+    ['region', 1, 3308], ['CDS', 2427, 5066], ['CDS', 2992, 4272],
+    ['CDS', 2021, 2587], ['mature_protein_region', 296, 961],
   ]);
   expect(result.report.writtenDetails).toEqual({ organism: 1, host: 1, location: 1, collectionDate: 1 });
   const parsed = parseGFF3(result.text);

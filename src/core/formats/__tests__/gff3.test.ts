@@ -25,7 +25,8 @@ import { exportToGenBank } from '../../genbank/serialize';
 import { parseGenBank } from '../../genbank';
 import { soTypeFor } from '../soTypes';
 import { extractCodingSequence, extractFeatureSequence } from '@/src/domain/bio/sequence';
-import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { featureEnvelope, writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
+import { conceptualTranslation } from '@/src/domain/bio/translation';
 import { parseLocation } from '@/src/core/genbank/locationParser';
 
 const feature = (extra: Partial<BioFeature> = {}): BioFeature => ({ type: 'CDS', name: 'gene1', start: 0, end: 150, strand: 1, ...extra });
@@ -78,11 +79,34 @@ it('retains different imported phases per part through re-export', () => {
 it('round-trips circular origin crossings without start exceeding end on a GFF line', () => {
   const { text } = exportToGff3([record({ isCircular: true, features: [feature({ type: 'gene', start: 900, end: 100 })] })]);
   expect(lines(text)[0][8]).toContain('Is_circular=true');
-  expect(lines(text).slice(1).map(row => row.slice(3, 5))).toEqual([['901', '1000'], ['1', '100']]);
+  expect(lines(text).slice(1).map(row => row.slice(3, 5))).toEqual([['901', '1100']]);
   const [f] = parseGFF3(text).features.seq_1;
   expect(f).toMatchObject({ start: 900, end: 100 });
   expect(f.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(200);
   expect(f.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
+});
+
+it.each([
+  { sequence: 'TGACCAATAACCCCAA', strand: 1, expectedRows: [['15', '19', '.', '+', '1'], ['6', '10', '.', '+', '2']] },
+  { sequence: 'ATTCCTCATTCCCCTT', strand: -1, expectedRows: [['6', '10', '.', '-', '1'], ['15', '19', '.', '-', '2']] },
+] as const)('round-trips an origin-crossing part within a phased CDS on strand $strand', ({ sequence, strand, expectedRows }) => {
+  const original = record({ sequence, isCircular: true, features: [feature({
+    type: 'CDS', name: 'c', start: 14, end: 10, strand,
+    segments: [{ start: 14, end: 3, partialStart: true }, { start: 5, end: 10, partialEnd: true }],
+    metadata: { codon_start: '2' },
+  })] });
+  const { text } = exportToGff3([original]);
+  expect(lines(text).slice(1).map(row => row.slice(3, 8))).toEqual(expectedRows);
+  const parsed = { ...original, features: parseGFF3(text).features.seq_1 };
+  const [cds] = parsed.features;
+  expect(cds).toMatchObject({ start: 14, end: 10, strand, metadata: { codon_start: '2' } });
+  expect(writtenOrderSegments(cds)).toMatchObject([
+    { start: 14, end: 16, partialStart: true }, { start: 0, end: 3 }, { start: 5, end: 10, partialEnd: true },
+  ]);
+  expect(extractFeatureSequence(cds, sequence).featureSeq).toBe('AATGAAATAA');
+  expect(conceptualTranslation(cds, parsed)).toMatchObject({ residues: 'MK' });
+  const reexported = lines(exportToGff3([parsed]).text).slice(1);
+  expect(reexported.map(row => row.slice(3, 8))).toEqual(expectedRows);
 });
 
 it('maps INSDC types and restores their originals on import', () => {
@@ -160,17 +184,30 @@ it('preserves the entire high-coordinate run of a three-part circular feature', 
   expect(parsed.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(175);
 });
 
-it('orders sorted circular rows at the largest gap without losing exon order', () => {
+it('keeps in-bounds circular rows in coordinate order with their original phases', () => {
   const parsed = parseGFF3('seq_1\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\nseq_1\ts\tCDS\t1\t100\t.\t+\t0\tID=x\nseq_1\ts\tCDS\t901\t950\t.\t+\t1\tID=x\nseq_1\ts\tCDS\t976\t1000\t.\t+\t2\tID=x').features.seq_1[0];
-  expect(parsed).toMatchObject({ start: 900, end: 100, segments: [{ start: 900, end: 950 }, { start: 975, end: 1000 }, { start: 0, end: 100 }] });
-  expect(lines(exportToGff3([record({ isCircular: true, features: [parsed] })]).text).slice(1).map(row => row[7])).toEqual(['1', '2', '0']);
+  expect(parsed).toMatchObject({ start: 0, end: 1000, segments: [{ start: 0, end: 100 }, { start: 900, end: 950 }, { start: 975, end: 1000 }] });
+  expect(lines(exportToGff3([record({ isCircular: true, features: [parsed] })]).text).slice(1).map(row => row[7])).toEqual(['0', '1', '2']);
+});
+
+it('preserves a one-base frameshift overlap and row-local boundaries when rows are reversed', () => {
+  const first = 'seq_1\ts\tCDS\t1\t6\t.\t+\t0\tID=x;start_range=.,2';
+  const second = 'seq_1\ts\tCDS\t6\t11\t.\t+\t0\tID=x;end_range=10,.';
+  for (const rows of [[first, second], [second, first]]) {
+    const [parsed] = parseGFF3(rows.join('\n')).features.seq_1;
+    expect(parsed.segments).toEqual([
+      { start: 0, end: 6, partialStart: true, gffStartRange: { boundary: 0, limit: '2' } },
+      { start: 5, end: 11, partialEnd: true, gffEndRange: { boundary: 11, limit: '10' } },
+    ]);
+    expect(extractFeatureSequence(parsed, 'ATGAAACCCTT').featureSeq).toBe('ATGAAAACCCTT');
+  }
 });
 
 it.each(['+', '-'])('normalizes canonical unwrapped circular coordinates on strand %s', strand => {
   const parsed = parseGFF3(`seq_1\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\nseq_1\ts\tCDS\t901\t1100\t.\t${strand}\t1\tID=x`).features.seq_1[0];
   expect(parsed).toMatchObject({ start: 900, end: 100, segments: [{ start: 900, end: 1000 }, { start: 0, end: 100 }] });
   expect(parsed.segments!.reduce((sum, part) => sum + part.end - part.start, 0)).toBe(200);
-  expect(lines(exportToGff3([record({ isCircular: true, features: [parsed] })]).text).slice(1).map(row => row[7])).toEqual(strand === '+' ? ['1', '0'] : ['0', '1']);
+  expect(lines(exportToGff3([record({ isCircular: true, features: [parsed] })]).text).slice(1).map(row => row[7])).toEqual(['1']);
 });
 
 

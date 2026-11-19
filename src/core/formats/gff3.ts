@@ -32,6 +32,7 @@ import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { projectGffRange, splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
+import { compareCoordinates, decodeWrittenOrder, gffExportParts, phaseAfter } from './gff3Rows';
 import { searchHitNote } from './searchHitNote';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS } from '../genbank/qualifierRules';
 
@@ -40,6 +41,11 @@ export interface GffSourceRegion {
   start: number;
   end: number;
   feature: BioFeature;
+}
+
+export interface GffOriginNotice {
+  end: number;
+  message: string;
 }
 
 function encode(value: string): string {
@@ -107,7 +113,7 @@ function partPhases(feature: BioFeature, segments: FeatureSegment[]): string[] {
   for (const index of order) {
     result[index] = String(phase);
     const length = segments[index].end - segments[index].start;
-    phase = ((phase - length) % 3 + 3) % 3;
+    phase = phaseAfter(phase, length);
   }
   return result;
 }
@@ -191,11 +197,11 @@ interface FeatureRows {
 function appendFeatureRows(
   lines: string[],
   { feature, featureId, stored, split, segments }: FeatureRows,
-  landmark: { seqid: string; recordId: string },
+  landmark: { seqid: string; recordId: string; length: number; isCircular?: boolean },
   oldIds: Map<string, string | null>,
   report: ExportReport,
 ): void {
-  const remote = feature.remoteParts ?? [];
+  const remote = expandedRemoteParts(feature.remoteParts ?? [], split);
   const phases = partPhases(feature, segments);
   const so = soTypeFor(feature.type);
   const metadata = feature.metadata ?? {};
@@ -217,7 +223,7 @@ function appendFeatureRows(
   if (writtenOrder.some((rank, i) => rank !== i)) attrs.insdc_written_order = writtenOrder.map(String);
   if (remote.length) {
     // GFF3 has no remote reference: each part travels as `<stored index>:<INSDC descriptor>`.
-    attrs.insdc_remote = expandedRemoteParts(remote, split).map(part => {
+    attrs.insdc_remote = remote.map(part => {
       const span = `${part.accession}:${part.partialStart ? '<' : ''}${part.start + 1}..${part.partialEnd ? '>' : ''}${part.end}`;
       return `${part.index}:${part.strand === -1 ? `complement(${span})` : span}`;
     });
@@ -232,7 +238,19 @@ function appendFeatureRows(
     return;
   }
   if (segments.some(segment => segment.partialStart || segment.partialEnd)) attrs.partial = 'true';
-  segments.forEach((segment, index) => {
+
+  const rows = gffExportParts(feature, landmark, Boolean(attrs.insdc_interval_strands), { split, phases, writtenOrder, remote });
+  if (!attrs.insdc_interval_strands && !attrs.insdc_written_order && !remote.length
+      && rows.some(({ segment }, i) => i > 0 && compareCoordinates(segment, rows[i - 1].segment) <= 0)) {
+    // A disjoint INSDC join can carry an order that GFF3 coordinates alone cannot express.
+    attrs.insdc_interval_strands = 'true';
+    if (feature.strand === -1) {
+      rows.reverse();
+      writtenOrder.reverse();
+    }
+    attrs.insdc_written_order = writtenOrder.map(String);
+  }
+  rows.forEach(({ segment, phase }, index) => {
     const partAttrs = { ...attrs };
     if (index > 0) delete partAttrs.transl_except;
     const site = segment.start === segment.end;
@@ -240,7 +258,7 @@ function appendFeatureRows(
     addPartialRanges(partAttrs, segment, report.gff3RangeWarnings, `${landmark.recordId}: ${feature.name}`);
     const direction = segment.strand ?? getFeatureStrand(feature);
     const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
-    lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
+    lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phase, attributeText(partAttrs)].join('\t'));
   });
 }
 
@@ -388,37 +406,15 @@ function takeRemoteParts(feature: BioFeature): RemotePart[] | undefined {
   return parts.length ? parts : undefined;
 }
 
-/** Reads and removes `insdc_written_order`; a value that is not a permutation of the rows is dropped. */
-function takeWrittenOrder(feature: BioFeature): number[] | undefined {
-  const raw = takeListAttribute(feature, 'insdc_written_order');
-  if (raw === undefined) return undefined;
-  const order = raw.split(',').map(Number);
-  const length = feature.segments!.length;
-  const valid = order.length === length && new Set(order).size === length && order.every(i => Number.isInteger(i) && i >= 0 && i < length);
-  return valid ? order : undefined;
+interface AnnotationRow {
+  seqid: string;
+  feature: BioFeature;
+  rowNumber: number;
+  text: string;
 }
 
-function rotateCircularParts(feature: BioFeature, length: number): void {
-  const segments = feature.segments!;
-  const hasOrigin = segments.some(part => part.start === 0) && segments.some(part => part.end === length);
-  if (!hasOrigin || segments.some((part, i) => i > 0 && part.start < segments[i - 1].start)) return;
-  let cut = 0;
-  let largestGap = 0;
-  for (let i = 1; i < segments.length; i++) {
-    const gap = segments[i].start - segments[i - 1].end;
-    if (gap > largestGap) {
-      largestGap = gap;
-      cut = i;
-    }
-  }
-  if (cut === 0) return;
-  const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
-  feature.metadata!._gffPhases = JSON.stringify([...phases.slice(cut), ...phases.slice(0, cut)]);
-  feature.segments = [...segments.slice(cut), ...segments.slice(0, cut)];
-}
-
-function readRows(content: string, lengths: Map<string, number>): { seqid: string; feature: BioFeature; rowNumber: number }[] {
-  const rows: { seqid: string; feature: BioFeature; rowNumber: number }[] = [];
+function readRows(content: string, lengths: Map<string, number>): AnnotationRow[] {
+  const rows: AnnotationRow[] = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (line.startsWith('##FASTA')) break;
     const directive = /^##sequence-region\s+(\S+)\s+1\s+([0-9]+)$/.exec(line);
@@ -492,19 +488,57 @@ function readRows(content: string, lengths: Map<string, number>): { seqid: strin
     }
     const malformed = malformedCodeBreakMessage(feature);
     if (malformed) throw new Error(malformed);
-    rows.push({ seqid, feature, rowNumber });
+    rows.push({ seqid, feature, rowNumber, text: line });
   }
 
   return rows;
+}
+
+/** GFF3 1.26 groups rows by ID without a file-order convention. Sort intact rows
+ * so their phase and boundary attributes still belong to the same interval. */
+function orderAnnotationRows(rows: AnnotationRow[], lengths: Map<string, number>, circular: Set<string>) {
+  const byId = new Map<string, AnnotationRow[]>();
+  const groups: AnnotationRow[][] = [];
+  for (const row of rows) {
+    const id = row.feature.metadata!.ID;
+    const key = id ? JSON.stringify([row.seqid, id]) : undefined;
+    const existing = key === undefined ? undefined : byId.get(key);
+    if (existing) existing.push(row);
+    else {
+      const group = [row];
+      groups.push(group);
+      if (key !== undefined) byId.set(key, group);
+    }
+  }
+  return groups.flatMap(group => {
+    const first = group[0].feature;
+    const mixed = group.some(({ feature }) => getFeatureStrand(feature) !== getFeatureStrand(first));
+    const privateOrder = group.some(({ feature: { metadata } }) =>
+      metadata!.insdc_written_order !== undefined || metadata!.insdc_interval_strands !== undefined
+        || metadata!.insdc_remote !== undefined);
+    if (!mixed && !privateOrder) group.sort((a, b) => compareCoordinates(a.feature, b.feature)
+      || (a.text < b.text ? -1 : a.text > b.text ? 1 : 0));
+    const perInterval = group.some(({ feature }) => feature.strand !== first.strand)
+      || first.metadata!.insdc_interval_strands === 'true';
+    const rawOrder = first.metadata!.insdc_written_order;
+    const length = circular.has(group[0].seqid) ? lengths.get(group[0].seqid)! : Infinity;
+    const perIntervalWithOrder = !perInterval && rawOrder !== undefined && Boolean(decodeWrittenOrder(
+      rawOrder, group.reduce((count, { feature }) => count + (feature.end > length
+        ? splitWrapAround(feature.start, feature.end - length, length).length : 1), 0),
+    ));
+    return group.map(row => ({ ...row, perInterval: perInterval || perIntervalWithOrder, privateOrder }));
+  });
 }
 
 /** Candidates retain geometry so the import reducer can verify the loaded sequence's length. */
 export function parseGFF3(content: string): {
   features: Record<string, BioFeature[]>;
   details: Record<string, GffSourceRegion>;
+  originNotices?: Record<string, GffOriginNotice[]>;
 } {
   const features: Record<string, BioFeature[]> = Object.create(null);
   const details: Record<string, GffSourceRegion> = Object.create(null);
+  const originNotices: Record<string, GffOriginNotice[]> = Object.create(null);
   const lengths = new Map<string, number>();
   const circular = new Set<string>();
   const rows = readRows(content, lengths);
@@ -534,9 +568,12 @@ export function parseGFF3(content: string): {
   }
 
   const byId = new Map<string, { feature: BioFeature; translationRow?: number }>();
-  for (const { seqid, feature, rowNumber } of annotationRows) {
+  const extendedRows = new Set<BioFeature>();
+  const authoritativeOrder = new Set<BioFeature>();
+  for (const { seqid, feature, rowNumber, perInterval, privateOrder } of orderAnnotationRows(annotationRows, lengths, circular)) {
     const metadata = feature.metadata!;
-    if (circular.has(seqid) && feature.end > lengths.get(seqid)!) {
+    const extended = circular.has(seqid) && feature.end > lengths.get(seqid)!;
+    if (extended) {
       const length = lengths.get(seqid)!;
       const end = feature.end - length;
       const [original] = feature.segments!;
@@ -555,13 +592,21 @@ export function parseGFF3(content: string): {
           ?? { boundary: last.end, limit: original.gffEndRange.limit, lostAtOriginSplit: true };
       }
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
-      metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
+      const phases = partPhases(framed, feature.segments);
+      if (perInterval && feature.strand === -1) {
+        feature.segments.reverse();
+        phases.reverse();
+      }
+      metadata._gffPhases = JSON.stringify(phases);
     }
     metadata._gffPhases ??= JSON.stringify([metadata.phase]);
     if (metadata.translation !== undefined) metadata._translationSource = 'imported';
     const id = metadata.ID;
     const key = id ? JSON.stringify([seqid, id]) : undefined;
     const group = key ? byId.get(key) : undefined;
+    const merged = group?.feature ?? feature;
+    if (extended) extendedRows.add(merged);
+    if (privateOrder) authoritativeOrder.add(merged);
     if (group) {
       const previous = group.feature;
       const previousMetadata = previous.metadata!;
@@ -602,17 +647,25 @@ export function parseGFF3(content: string): {
       delete feature.metadata!.insdc_interval_strands;
       const parentStrand = feature.metadata!.insdc_parent_strand;
       delete feature.metadata!.insdc_parent_strand;
-      const writtenOrder = takeWrittenOrder(feature);
+      const writtenOrder = decodeWrittenOrder(takeListAttribute(feature, 'insdc_written_order'), feature.segments!.length);
       if (writtenOrder) feature.writtenOrder = writtenOrder;
       if (writtenOrder || perInterval || feature.segments!.some(part => part.strand !== undefined)) {
         // The rows are in evaluation order, each read on its own strand, as the parser stores them.
         feature.segments = feature.segments!.map(part => ({ ...part, strand: part.strand ?? feature.strand }));
         feature.strand = parentStrand === '-' ? -1 : parentStrand === '+' ? 1 : majorityStrand([...feature.segments, ...remoteParts ?? []]);
-      } else if (circular.has(seqid) && !remoteParts) {
-        // Rotating local rows would change their position relative to the remote intervals.
-        rotateCircularParts(feature, lengths.get(seqid)!);
       }
-      if (circular.has(seqid)) Object.assign(feature, featureEnvelope(feature, { length: lengths.get(seqid)!, isCircular: true }));
+      if (circular.has(seqid) && (extendedRows.has(feature) || authoritativeOrder.has(feature))) {
+        Object.assign(feature, featureEnvelope(feature, { length: lengths.get(seqid)!, isCircular: true }));
+      }
+      const parts = feature.segments!;
+      if (!extendedRows.has(feature) && feature.start === 0 && parts.length > 1
+          && parts.some(part => part.start === 0 && part.end < feature.end)
+          && parts.some(part => part.end === feature.end && part.start > 0 && part.start < part.end)) {
+        (originNotices[seqid] ??= []).push({
+          end: feature.end,
+          message: `${seqid}: ${feature.name} has rows at both ends of the circular landmark. These rows were read as separate intervals. GFF3 writes an origin crossing as one row whose end exceeds the landmark length.`,
+        });
+      }
       if (!isCds(feature)) continue;
       const phases: string[] = JSON.parse(feature.metadata!._gffPhases!);
       const reverse = feature.strand === -1 && !feature.segments?.some(part => part.strand !== undefined);
@@ -621,5 +674,5 @@ export function parseGFF3(content: string): {
       feature.metadata!._gffPhaseState = phaseState(feature, feature.segments!);
     }
   }
-  return { features, details };
+  return { features, details, ...(Object.keys(originNotices).length > 0 && { originNotices }) };
 }

@@ -265,7 +265,9 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     const annotationResponse = msg;
     let annotationRefusal: string | undefined;
     setRecords(prev => {
-      const { next, totalAdded, unmatched, warnings, refusal } = applyAnnotations(prev, annotationResponse.annotations, annotationResponse.details, annotationResponse.idMap);
+      const { next, totalAdded, unmatched, warnings, refusal } = applyAnnotations(
+        prev, annotationResponse.annotations, annotationResponse.details, annotationResponse.idMap, annotationResponse.originNotices,
+      );
       if (refusal) { annotationRefusal = refusal; addLog(`ERROR: Annotation import refused: ${refusal}`); return prev; }
       logAttachedTranslationWarning(prev, next, addLog);
       for (const warning of warnings) addLog(`WARNING: ${warning}`);
