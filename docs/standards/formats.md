@@ -327,22 +327,43 @@ For coherent ordinary parts, `(phase − partLength) mod 3` is a derivation from
 not a prescribed algorithm. Display frames remain OP-8; biological order remains LOC-1/LOC-3.
 
 **Reference tools.** GFF3 requires CDS phase and distinguishes it from frame.
-INSDC defines the initial coding offset. Imported T4, 13a and phiX174 CDS products are tested
-against their GenBank translations using the [NCBI fixtures](../../src/core/formats/__tests__/fixtures/ncbi-gff3/PROVENANCE.md).
+INSDC defines the initial coding offset. The T4, 13a, phiX174 and Arabidopsis chloroplast CDS tests compare imported products
+with GenBank translations. NCBI annotwriter writes ordinary CDS rows in strand-relative
+coordinate order and writes trans-spliced rps12 rows in evaluation order with `part=N`.
+NCBI also documents a proposed `part=X/Y` spelling. The import precedence below uses
+the integer spelling observed in the annotwriter fixtures.
+[NCBI fixtures](../../src/core/formats/__tests__/fixtures/ncbi-gff3/PROVENANCE.md)
+· [NCBI GFF3 documentation](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/).
 
 **Applications.** Unknown for arbitrary/mixed-strand/slippage phase policies across applications.
 
-**Dunceious.** Import orders ordinary same-ID rows by increasing genomic coordinates while
-keeping the phase on its own row, including across the one-base overlap of a programmed
-frameshift. The first part in biological order supplies `codon_start`: the low-coordinate
-part on plus and the high-coordinate part on minus for ordinary in-bounds rows. An extended
-row at the origin supplies the phase at its own 5′ end before its two pieces are evaluated.
+**Dunceious.** GFF3 1.26 groups discontinuous rows by ID and leaves their evaluation order
+unspecified. Dunceious groups by landmark and ID and uses this precedence.
+[GFF3 1.26](https://raw.githubusercontent.com/The-Sequence-Ontology/Specifications/master/gff3.md)
+
+1. Private Dunceious ordering attributes take precedence when they validate and agree on every row.
+   Invalid or inconsistent attributes are ignored with a notice naming the feature.
+2. A complete set of distinct integer `part=N` ranks from 1 through the row count supplies
+   evaluation order, with each row read on its own strand.
+3. Same-strand groups already monotonic by start and end in either direction use ascending
+   coordinates on plus and descending coordinates on minus. On circular landmarks the
+   comparison uses the coordinates as written, including extended ends. GFF3 extends the
+   end of the crossing row and gives no rule for moving another row to a different lap.
+   A change from file order is reported when the group has both extended and in-bounds rows.
+4. Other same-strand groups use file order, following annotwriter's evaluation-order practice.
+   A notice names the feature and states that file order was used for the ambiguous group.
+
+Mixed-strand groups without valid private order or complete ranks retain file order with
+per-row strands. The phase stays with its row, including across a programmed frameshift overlap.
+The first row in evaluation order supplies `codon_start` from its strand-relative 5′ phase
+even when that row is split at the origin.
+
 Export carries phase across adjacent CDS parts and writes `.` for other feature types.
 Cached phases are reused when geometry and reading frame still match and every part has a valid phase.
 Import refuses a CDS row with fewer than nine columns or a phase other than `0`, `1` or `2`
 and reports the row and the problem. Absence of `codon_start`
-defaults to frame 1 on export. General biological interpretation of arbitrary or mixed order,
-slippage annotations beyond the retained overlap, and unsupported type spellings remains open.
+defaults to frame 1 on export. General biological interpretation of slippage annotations beyond the retained overlap and
+unsupported type spellings remains open.
 
 **Owner decision 2026-11-18.** GFF3 import refuses conflicting translation values for one CDS and reports both values and their row numbers.
 

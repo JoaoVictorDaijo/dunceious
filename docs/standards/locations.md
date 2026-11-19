@@ -24,11 +24,15 @@ Neither documents literal `join` parsing or arbitrary interval order.
 
 **Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:166`), which
 the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
-`featureParts`, preserving stored order and splitting explicit circular wraps. Ordinary GFF3
-features obtain their interval order from the row coordinates. Dunceious's private order
-attributes preserve joins whose written order differs from coordinate order.
-See [feature sequence](#loc-7-the-sequence-of-a-multi-interval-feature) and
-[GFF3 CDS phase](formats.md#fmt-11-strand-relative-gff3-cds-phase).
+`featureParts`, preserving stored order and splitting explicit circular wraps. GFF3 import
+uses consistent, valid private Dunceious ordering attributes first, then complete integer
+NCBI annotwriter `part=N` ranks, then strand-relative coordinates for monotonic same-strand
+groups, and finally file order for non-monotonic same-strand groups. The importer reports
+invalid private attributes and ambiguous file order. Unranked mixed-strand groups keep
+their file order and per-row strands. GFF3 1.26 groups rows by ID and leaves row order
+unspecified. The phase and a description of the ordering evidence are in the format rule.
+[Feature sequence](#loc-7-the-sequence-of-a-multi-interval-feature)
+· [GFF3 CDS phase and row order](formats.md#fmt-11-strand-relative-gff3-cds-phase).
 
 ## LOC-2. `order()` is not `join()`
 
@@ -195,9 +199,14 @@ outer complement reverses sequence evaluation order. Explicit wrapped intervals 
 features contribute both origin-side pieces in written order when the record length is known.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
 GFF3 export writes a contiguous crossing as one row with the landmark length added to the end.
-Import splits that row into two origin-side intervals for evaluation. Ordinary in-bounds rows
-stay in coordinate order. Attachment issues a warning naming the feature when separate unmarked
-rows reach both ends of a circular record, including legacy split exports.
+Import compares unrolled row coordinates when the coordinate-order rule applies, then
+splits the extended row into two origin-side intervals for evaluation. When that rule changes
+the file order of a group with extended and in-bounds rows, attachment reports the choice.
+GFF3 1.26 extends the crossing row's end and leaves the other rows in the coordinate system
+of the landmark. Attachment reports separate in-bounds rows that reach both ends of a
+circular record when no row is extended. Older Dunceious exports used that shape for some
+continuous crossings. Interpreting those rows as separate intervals can change the feature's
+sequence and translation.
 Private order attributes preserve the written order of disjoint INSDC joins and remote intervals.
 For explicit per-part strands, rows follow evaluation order and `insdc_written_order` carries
 the written ranks of the decoded intervals, including the pieces of an explicit minus-strand wrap.

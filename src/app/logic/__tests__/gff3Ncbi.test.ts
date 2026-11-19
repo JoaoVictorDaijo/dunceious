@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { parseGenBank } from '@/src/core/genbank';
-import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { extractCodingSequence, translateSequence } from '@/src/domain/bio/sequence';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
 import type { SeqRecord } from '@/src/domain/bio/types';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
@@ -33,7 +33,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 function attach(record: SeqRecord, content: string) {
   const response = handleBioMessage({ type: 'PARSE_ANNOTATIONS', filename: 'reference.gff3', content });
   if (response.type !== 'ANNOTATIONS_SUCCESS') throw new Error(JSON.stringify(response));
-  const result = applyAnnotations([{ ...record, features: [] }], response.annotations, response.details, response.idMap, response.originNotices);
+  const result = applyAnnotations([{ ...record, features: [] }], response.annotations, response.details, response.idMap, response.gffNotices);
   expect(result.refusal).toBeUndefined();
   return result;
 }
@@ -70,6 +70,11 @@ const references = {
     genBank: 'examples/nucleotide/t7-phages/phage-13a-NC_011045.gb',
     proteins: ['YP_002003958.1'],
   },
+  chloroplast: {
+    gff: 'NC_000932.1.gff3',
+    genBank: 'examples/nucleotide/arabidopsis-chloroplast-NC_000932.gb',
+    proteins: ['NP_051037.1', 'NP_051038.1'],
+  },
   phiX174: {
     gff: 'NC_001422.1.gff3',
     genBank: fixtureDirectory + 'NC_001422.1.gb',
@@ -84,6 +89,8 @@ it.each([
   { reference: 'phage13a', order: 'original' },
   { reference: 'phage13a', order: 'reverse features' },
   { reference: 'phiX174', order: 'original' },
+  { reference: 'chloroplast', order: 'original' },
+  { reference: 'chloroplast', order: 'reverse features' },
 ] as const)('matches GenBank translations for $reference in $order order', ({ reference, order }) => {
   const { gff, genBank, proteins } = references[reference];
   const genBankText = read(genBank);
@@ -114,7 +121,7 @@ it.each([
 
 it.each([true, false])('reports in-bounds circular end rows with landmark declaration=%s', declared => {
   const { next: [record], warnings } = attach({
-    id: 'circle', name: 'circle', sequence: 'ATGCCCAAATAA', isCircular: true, features: [],
+    id: 'workspace-circle', name: 'circle', sequence: 'ATGCCCAAATAA', isCircular: true, features: [],
   }, [
     ...(declared ? ['circle\t.\tregion\t1\t12\t.\t+\t.\tgbkey=Src;Is_circular=true'] : []),
     'circle\t.\tCDS\t1\t3\t.\t+\t0\tID=end-touching',
@@ -123,5 +130,92 @@ it.each([true, false])('reports in-bounds circular end rows with landmark declar
   const cds = record.features.find(feature => feature.type === 'CDS')!;
   expect.soft(conceptualTranslation(cds, record)).toMatchObject({ status: 'ok', residues: 'MK' });
   expect.soft(cds).toMatchObject({ start: 0, end: 12, segments: [{ start: 0, end: 3 }, { start: 6, end: 12 }] });
-  expect(warnings).toEqual([expect.stringMatching(/end-touching.*read as separate intervals.*one row whose end exceeds the landmark length/)]);
+  expect(warnings).toEqual([expect.stringMatching(/workspace-circle.*end-touching.*separate intervals.*older Dunceious.*sequence and translation/i)]);
+});
+
+function attachCds(sequence: string, rows: string[], isCircular = false, declareCircular = isCircular) {
+  const { next: [record], warnings } = attach({
+    id: 'workspace-record', name: 's', sequence, isCircular, features: [],
+  }, [
+    ...(declareCircular ? [`s\t.\tregion\t1\t${sequence.length}\t.\t+\t.\tgbkey=Src;Is_circular=true`] : []),
+    ...rows.map(row => 's\t.\tCDS\t' + row),
+  ].join('\n'));
+  const cds = record.features.find(feature => feature.type === 'CDS')!;
+  const protein = translateSequence(extractCodingSequence(cds, record.sequence).codingSeq).replaceAll('_', '*');
+  return { cds, protein, warnings };
+}
+
+it('uses coordinate order for a descending plus-strand group without ranks', () => {
+  const { protein, warnings } = attachCds('AAATAAATGAAA', [
+    '7\t12\t.\t+\t0\tID=t',
+    '1\t6\t.\t+\t0\tID=t',
+  ]);
+  expect(protein).toBe('K*MK');
+  expect(warnings).toEqual([]);
+});
+
+it.each([
+  ['unranked', ['', '', '']],
+  ['incomplete', [';part=3', '', ';part=1']],
+  ['duplicate ranks', [';part=3', ';part=1', ';part=1']],
+] as const)('warns and reads a non-monotonic minus-strand group in file order with %s rows', (_, ranks) => {
+  const { protein, warnings } = attachCds('TTATTTCAT', [
+    '7\t9\t.\t-\t0\tID=splice' + ranks[0],
+    '1\t3\t.\t-\t0\tID=splice' + ranks[1],
+    '4\t6\t.\t-\t0\tID=splice' + ranks[2],
+  ]);
+  expect.soft(protein).toBe('M*K');
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*splice.*row order.*taken from the file/i)]);
+});
+
+it.each([
+  { strand: '+', rows: ['10\t15\t.\t+\t0\tID=c', '5\t7\t.\t+\t0\tID=c'], protein: '*MK' },
+  { strand: '-', rows: ['5\t7\t.\t-\t0\tID=c', '10\t15\t.\t-\t0\tID=c'], protein: 'FHL' },
+])('reports a change from file order on strand $strand for an extended row', ({ rows, protein }) => {
+  const result = attachCds('AAACTAACCATG', rows, true);
+  expect.soft(result.protein).toBe(protein);
+  expect(result.warnings).toEqual([expect.stringMatching(/workspace-record.*\bc\b.*coordinate order.*origin/i)]);
+});
+
+it('takes the minus-strand phase from the extended row read first in coordinate order', () => {
+  const { cds, protein } = attachCds('AAACTAACCATG', [
+    '5\t7\t.\t-\t2\tID=c',
+    '10\t14\t.\t-\t1\tID=c',
+  ], true);
+  expect(cds.metadata?.codon_start).toBe('2');
+  expect(protein).toBe('SF');
+});
+
+it.each([
+  { name: 'out-of-range written order', attributes: [';insdc_written_order=5', ''] },
+  { name: 'interval-strand marker on the second row only', attributes: ['', ';insdc_interval_strands=true'] },
+  { name: 'invalid rank on all rows', attributes: [';insdc_written_order=,1', ';insdc_written_order=,1'] },
+  { name: 'invalid remote descriptor', attributes: [';insdc_remote=1:bad', ';insdc_remote=1:bad'] },
+  { name: 'different valid rank lists', attributes: [';insdc_written_order=0,1', ';insdc_written_order=1,0'] },
+])('falls back to coordinate order and warns for $name', ({ attributes }) => {
+  const { protein, warnings } = attachCds('TTAGGGTTTCAT', [
+    '7\t12\t.\t-\t0\tID=m' + attributes[0],
+    '1\t3\t.\t-\t0\tID=m' + attributes[1],
+  ]);
+  expect.soft(protein).toBe('MK*');
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*\bm\b.*private.*ignored/i)]);
+});
+
+it('prefers consistent private order when the part ranks disagree with it', () => {
+  const { protein, warnings } = attachCds('TTAGGGTTTCAT', [
+    '7\t12\t.\t-\t0\tID=m;insdc_interval_strands=true;part=2',
+    '1\t3\t.\t-\t0\tID=m;insdc_interval_strands=true;part=1',
+  ]);
+  expect(protein).toBe('MK*');
+  expect(warnings).toEqual([]);
+});
+
+it.each([
+  { name: 'a linear landmark', circular: false, spans: [[1, 3], [7, 12]] },
+  { name: 'rows short of the landmark end', circular: true, spans: [[1, 3], [7, 9]] },
+  { name: 'a group with an extended row', circular: true, spans: [[1, 3], [10, 15]] },
+])('omits the split-origin notice for $name', ({ circular, spans }) => {
+  const { warnings } = attachCds('ATGCCCAAATAA',
+    spans.map(([start, end]) => `${start}\t${end}\t.\t+\t0\tID=end-touching`), circular);
+  expect(warnings).toEqual([]);
 });

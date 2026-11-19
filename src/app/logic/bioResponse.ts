@@ -23,7 +23,7 @@ import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } 
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
 import { findSessionTypeConflict, isGappedCopyOf, type SessionTypeConflict } from '@/src/domain/bio/sequence';
-import type { GffOriginNotice, GffSourceRegion } from '@/src/core/formats/gff3';
+import type { GffImportNotice, GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
 
 const detailQualifiers = new Set([...Object.values(DETAIL_QUALIFIER), 'country', 'nat-host', 'collection-date']);
@@ -186,7 +186,7 @@ export function applyAnnotations(
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
   details: Record<string, GffSourceRegion> = {},
   idMap?: BatchIdMap,
-  originNotices: Record<string, GffOriginNotice[]> = {},
+  gffNotices: Record<string, GffImportNotice[]> = {},
 ): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; warnings: string[]; refusal?: string } {
   let totalAdded = 0;
   const next = [...prev];
@@ -219,9 +219,11 @@ export function applyAnnotations(
     const candidate = source && { ...source, feature: withNamespace(source.feature) };
     const conflict = topologyRefusal(id, record, items, candidate?.feature);
     if (conflict) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal: conflict };
-    if (record.isCircular && Object.hasOwn(originNotices, id)) {
-      for (const notice of originNotices[id]) {
-        if (notice.end === record.sequence.length) warnings.push(notice.message);
+    if (Object.hasOwn(gffNotices, id)) {
+      for (const notice of gffNotices[id]) {
+        if (notice.circularEnd === undefined || (record.isCircular && notice.circularEnd === record.sequence.length)) {
+          warnings.push(`${record.id}: ${notice.message}`);
+        }
       }
     }
     if (candidate) {

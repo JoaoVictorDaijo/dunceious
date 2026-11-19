@@ -31,7 +31,7 @@ export function phaseAfter(phase: number, length: number): number {
 
 /** Ranks address the decoded intervals, including both pieces of an extended row. */
 export function decodeWrittenOrder(raw: string | undefined, length: number): number[] | undefined {
-  if (raw === undefined) return undefined;
+  if (raw === undefined || !/^\d+(,\d+)*$/.test(raw)) return undefined;
   const order = raw.split(',').map(Number);
   const valid = order.length === length && new Set(order).size === length && order.every(i => Number.isInteger(i) && i >= 0 && i < length);
   return valid ? order : undefined;
