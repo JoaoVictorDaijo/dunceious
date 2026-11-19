@@ -19,6 +19,7 @@
  */
 
 
+import { singleLocalStrand } from './featureParts';
 import type { BioFeature, SeqRecord, TranslationExceptionEvidence } from './types';
 
 export const SENSE_RESIDUES = 'ACDEFGHIKLMNPQRSTVWYUO';
@@ -32,7 +33,7 @@ type Position = { base: number; strand: 1 | -1; identity?: string };
 export type ParsedCodeBreak = { positions: Position[]; possible: string };
 
 /** INSDC 11.4 single-codon grammar; entry bases are converted once to zero-based positions. */
-export function parseCodeBreak(raw: string, inherited: 1 | -1): ParsedCodeBreak | string {
+export function parseCodeBreak(raw: string, feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>): ParsedCodeBreak | string {
   const match = raw.match(/^\(\s*pos:\s*(.+)\s*,\s*aa:\s*([A-Za-z]+)\s*\)$/i);
   if (!match) return 'expected (pos:<exact location>,aa:<INSDC residue>)';
   const possible = names[match[2].toUpperCase()];
@@ -63,7 +64,8 @@ export function parseCodeBreak(raw: string, inherited: 1 | -1): ParsedCodeBreak 
   };
   try {
     const positions = location(1);
-    if (inherited === -1 && !text.includes('complement(')) {
+    // Bare locations are forward in INSDC. The single-strand convention inherits the CDS direction.
+    if (singleLocalStrand(feature) === -1 && !text.includes('complement(')) {
       positions.reverse();
       for (const position of positions) position.strand = -1;
     }
@@ -76,7 +78,7 @@ export function parseCodeBreak(raw: string, inherited: 1 | -1): ParsedCodeBreak 
 export function codeBreakEvidence(feature: BioFeature, record: Pick<SeqRecord, 'accession' | 'version'>, codingSeq?: string, baseMap?: number[]): TranslationExceptionEvidence[] {
   return (feature.translationExceptions ?? []).map((raw, occurrence) => {
     const evidence: TranslationExceptionEvidence = { feature: feature.name, occurrence, raw, status: 'deferred' };
-    const parsed = parseCodeBreak(raw, feature.strand);
+    const parsed = parseCodeBreak(raw, feature);
     const fail = (status: TranslationExceptionEvidence['status'], reason: string) => ({ ...evidence, status, reason });
     if (typeof parsed === 'string') return fail('malformed', parsed);
     evidence.bases = parsed.positions.map(p => p.base);
@@ -115,8 +117,8 @@ export function codeBreakMessage(evidence: TranslationExceptionEvidence): string
 }
 
 /** Preserve biological visit order and each position's strand when transforming entry coordinates. */
-export function transformCodeBreak(raw: string, strand: 1 | -1, offset: number, keepIdentity = true, circularLength?: number): string {
-  const parsed = parseCodeBreak(raw, strand);
+export function transformCodeBreak(raw: string, feature: Pick<BioFeature, 'strand' | 'segments' | 'biological'>, offset: number, keepIdentity = true, circularLength?: number): string {
+  const parsed = parseCodeBreak(raw, feature);
   if (typeof parsed === 'string') return raw;
   const positions = parsed.positions.map(position => {
     const base = position.base + offset;

@@ -190,6 +190,18 @@ the valid entries. OTHER/Xaa compares as any sense residue including U/O, never 
 No silent rounding, X fallback or automatic correction is allowed. Owner decisions A–F and H
 (2026-11-07) resolve the import, editing, selection and export policies described below.
 
+**Owner decision 27a (2026-11-18).** A CDS is mixed-strand when its local intervals lie
+on both strands. On a mixed-strand CDS, a bare code-break position means the entry's
+forward strand, and `complement(...)` specifies the opposite strand. A bare position
+on a minus interval is contrary-orientation and refuses import. GenBank export writes
+forward positions bare and reverse positions with `complement(...)`. GenBank, GFF3 and
+project import, edit validation and selection rebasing use the same classification.
+Single-strand CDS interpret a bare position on the strand of their current local intervals and retain the
+original qualifier text in GenBank export. The mixed-strand rule follows
+[INSDC Feature Table §3.4.2.2 and the `/transl_except` qualifier](https://www.insdc.org/submitting-standards/feature-table/)
+and the explicit reverse Sec example in
+[NCBI's `SHOW_TRANSL_EXCEPT` documentation](https://www.ncbi.nlm.nih.gov/genbank/new_asndisc_examples/#SHOW_TRANSL_EXCEPT).
+
 **Executed reference probes (orchestrator, 2026-11-07).** table2asn 1.29.324,
 `-i X.fsa -f X.tbl -o results/X.sqn -V vb`, codon_start 1: split Sec MU, reverse Sec MUP,
 partial TERM M, duplicate Sec MU (collapsed by NCBI). Diagnostics were ShortIntron for split,
@@ -271,6 +283,9 @@ with a notice; strict project reopen refuses them. The source record is never mu
 Clipped CDSs use the shared CDS predicate (CDS, cds, SO:0000316) for both frame adjustment and
 recomputation, mark cut ends, retain INSDC frame through the existing removed-base formula and store
 only a newly computed kept-part protein under ordinary eligibility/internal-stop guards (D).
+An inherited versioned `/protein_id` is removed with a notice when a Save or selection clip
+changes the protein. INSDC assigns a new version to a changed amino-acid sequence.
+If the protein stays the same, its identifier is retained.
 After clipping/rebasing, the shared geometry evaluator rechecks each candidate against the kept
 CDS and adjusted codon_start before protein computation. Keeping every named base does not ensure
 codon membership when other multipart visits were cut. Newly unusable breaks are removed with

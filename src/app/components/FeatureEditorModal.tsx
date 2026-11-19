@@ -19,7 +19,7 @@
  */
 
 import { translationDescription } from '@/src/domain/bio/translation';
-import { saveEditedFeature } from '@/src/app/logic/featureManager';
+import { saveEditedFeature, undrawnBondLocationEdit } from '@/src/app/logic/featureManager';
 import React, { useId, useRef, useState } from 'react';
 import { SeqRecord, BioFeature } from '@/src/domain/bio/types';
 import { getFeatureColor } from '@/src/app/viewer/colors';
@@ -80,9 +80,10 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
   // circular molecule).  We surface this prominently so users know the
   // coordinates are intentionally inverted, not a data error.
   const record = records.find(record => record.id === recordId);
+  const bondLocationReadOnly = undrawnBondLocationEdit(record, featureIndex, feature) !== undefined;
   const locationRecord = { length: record?.sequence.length ?? 0, isCircular: record?.isCircular };
   const location = formatInsdcLocation(feature, locationRecord);
-  const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
+  const invalid = !bondLocationReadOnly && location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
   const perPart = feature.segments?.some(part => part.strand !== undefined);
   const isCircularWrap = Boolean(record?.isCircular) && feature.start > feature.end;
 
@@ -176,7 +177,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 {FEATURE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <div>
+            {!bondLocationReadOnly && <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Strand</label>
               <select
                 value={getFeatureStrand(feature)}
@@ -195,7 +196,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 <option value={1}>Forward (+)</option>
                 <option value={-1}>Reverse (-)</option>
               </select>
-            </div>
+            </div>}
           </div>
 
           <p className="text-[10px] text-slate-400">
@@ -226,7 +227,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           </div>
 
           {/* Coordinates */}
-          <div className="grid grid-cols-2 gap-6">
+          {!bondLocationReadOnly && <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">
                 {feature.segments && feature.segments.length > 1
@@ -253,7 +254,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-hidden text-slate-200"
               />
             </div>
-          </div>
+          </div>}
 
           {isBetweenBasesSite(feature) && (
             <p data-location-note="site" className="text-[11px] text-slate-400">
@@ -268,7 +269,7 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
           ) : null}
 
           {/* Segments editor (multi-segment features) */}
-          {feature.segments && feature.segments.length > 0 && (
+          {!bondLocationReadOnly && feature.segments && feature.segments.length > 0 && (
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">
@@ -347,8 +348,9 @@ const FeatureEditorModal: React.FC<FeatureEditorModalProps> = ({
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">
                 GenBank Location
-                <span className="ml-2 normal-case font-medium text-slate-600">from the source file; editing coordinates regenerates it</span>
+                {!bondLocationReadOnly && <span className="ml-2 normal-case font-medium text-slate-600">from the source file; editing coordinates regenerates it</span>}
               </label>
+              {bondLocationReadOnly && <p className="mb-2 text-xs text-slate-400">Bond position is unavailable. The imported location is read-only.</p>}
               <div className="w-full bg-slate-950 border border-slate-800 rounded-xl px-5 py-3 text-[10px] font-mono text-amber-500 break-all">
                 {feature.locationString}
               </div>

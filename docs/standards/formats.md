@@ -36,6 +36,15 @@ lives in `src/core/formats/soTypes.ts`; the original key is kept in an `insdc_ty
 (`src/core/formats/gff3.ts:179`), where NCBI uses `gbkey`. Features crossing the origin are
 written as split rows; see LOC-6.
 
+For a feature with explicit interval strands (`insdc_interval_strands=true`), Dunceious writes
+the private `insdc_parent_strand` attribute when the exported intervals' majority strand differs
+from the stored feature strand. Splitting an interval at the circular origin can change that
+majority. The value `+` or `-` records the feature-level orientation. On import of per-interval
+locations, that value restores the feature strand while each interval keeps its own strand.
+Without a recognized value, import uses Dunceious's shared feature-level fallback, the majority
+across local and remote intervals with ties resolved to `+`. Local intervals determine sequence
+orientation. The attribute is consumed during import.
+
 
 ## FMT-2. GenBank entries, headers and sequence layout
 
@@ -54,9 +63,9 @@ the CONTIG alternative. No additional tested parser equivalence is claimed.
 **Dunceious.** The reader returns records and exhaustive refusal/warning findings. It refuses
 unterminated entries, absent LOCUS/sequence, CONTIG-only data, unreadable length/unit,
 length discrepancies, non-residues and mixed nucleotide/protein categories. The category uses
-the integer-followed-by-unit token (`bp`/`aa`); DNA/RNA subtype and topology retain the known
-[#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243) classifier limitation.
-ORIGIN retains characters for validation, removing only the leading count and whitespace.
+the length unit (`bp`/`aa`). DNA/RNA subtype and topology come from their own LOCUS fields.
+The reader recognizes the ORIGIN keyword at a field boundary and validates the original
+residue characters against the ASCII alphabet before normalizing their case.
 The worker returns `PARSE_REFUSED` for any refusal; the main-thread ingestion guard checks workspace
 revision, alignment lock and validated molecule category before committing records or findings.
 App accumulates refused files in one dialog; accepted warnings stay in the StatusBar import
@@ -89,8 +98,11 @@ it does not prescribe Dunceious's name-selection algorithm.
 Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
 nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
 `old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
-value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). Malformed qualifiers refuse,
-resynchronising at the next feature/data boundary. Value validation is limited to CDS
+value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). A slash at the start of a
+continuation line remains text while a quoted qualifier is open. Embedded quotes use doubled
+quotes, and text after the closing quote is refused. Malformed qualifier and feature lines
+are reported with line numbers. The reader resumes at the next feature or data boundary.
+Value validation is limited to CDS
 `codon_start`, `transl_table` and `transl_except`; malformed translation exceptions strictly refuse import.
 `gap_type` is read only for the conditional requirement.
 
@@ -99,6 +111,8 @@ at **2b8ccee**, pinned in [`sources.json`](sources.json) as `ncbi-protein-seqfea
 `ncbi-protein-feature_item` and `ncbi-protein-seqfeat`. Protein tag problems warn. The key map
 maps `source` to `biosrc`, with no mandatory qualifiers. `coded_by` belongs to the CDS map;
 qualifiers occurring in any subtype map take precedence over flat-file-only exemptions.
+The source formatter can emit `/geo_loc_name` for the `country` slot. The generator reads
+that spelling from `feature_item.cpp` and includes it among the allowed source qualifiers.
 
 Unknown and underscore-prefixed input qualifiers live in `unknownQualifiers`, separate from
 computational metadata. Project files preserve them, the details view shows them, and GenBank
@@ -269,6 +283,11 @@ the surveyed applications.
 **Dunceious.** Partial: attachment requires exactly one match, preferring the batch ID map
 before ID, name/accession and sanitized aliases (`src/app/logic/bioResponse.ts:98`). No assembly
 or residue verification is performed: [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250).
+Attachment to a linear record refuses a matching landmark with `Is_circular=true` or a wrapped
+feature. The entire attachment is refused before any annotations or source details are applied.
+GFF3 export resolves `Parent` and `Derives_from` within the attachment's ID namespace on the
+record. An omitted or unresolved target is counted in the export report. For features without
+import provenance, an ID shared by multiple features remains ambiguous even if only one is exported.
 **Owner decision open:** exact-ID-only attachment versus an explicitly retained alias mapping with
 specified identity evidence; the standard does not select between them. Whole-length source
 fill and qualifier merging are local policies, separately constrained by source fidelity OP-9;
@@ -314,10 +333,31 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
 (`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
-phase carries across parts. Imported values are checked for count and 0/1/2, not continuity.
-Invalid `codon_start` suppresses phase export (`.`); absence defaults to frame 1. Arbitrary part order, mixed strands, slippage
+phase carries across parts, including intervals split at the circular origin. Cached phases are
+reused only when they contain one 0/1/2 value per row. Import refuses a CDS row with fewer
+than nine columns or a phase other than `0`, `1` or `2` and reports the row and the problem. Absence of `codon_start`
+defaults to frame 1 on export. Arbitrary part order, mixed strands, slippage
 overlaps and unsupported type spellings remain Unknown; this assessment does not settle those
 biological cases or authorize a fallback policy.
+
+**Owner decision 2026-11-18.** GFF3 import refuses conflicting translation values for one CDS and reports both values and their row numbers.
+
+**Owner decision 2026-11-18.** GFF3 export omits a CDS with invalid `/codon_start` and names the feature and invalid value in the export notice.
+
+GFF3 export writes genomic partial endpoints on every feature type as `partial=true` with
+`start_range` and/or `end_range` on the affected rows, following
+[NCBI's partial-boundary convention](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
+Each unchanged endpoint retains its imported open range. Rebasing a selection or splitting a
+circular GFF3 row translates the finite ambiguity limit into the new coordinates if it stays
+inside the retained interval. A moved or clipped boundary uses `start_range=.,start` or
+`end_range=end,.`.
+If a circular split cannot keep a finite limit on the row carrying its boundary, the GFF3
+export writes the partial marker at that boundary and names the feature and original range
+in the export report and preview.
+The full-length `gbkey=Src` region carries any source interval's marks at the record boundaries.
+Attaching that region to a sequence preserves its open bounds on every matching source endpoint
+and reports a bound with no matching source endpoint in the attachment log.
+Import also reads the private `insdc_partial_*` attributes from older Dunceious exports.
 
 ## FMT-12. Dated EBI submission and result contracts
 
@@ -398,7 +438,14 @@ private state with format 2; `src/app/logic/projectFile.ts:87` validates local s
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
 rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
 (2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
-aligned rows with unequal widths. The format remains 2, and each existing aligned-row residue
+aligned rows with unequal widths. Project load checks retained locations with the
+[GenBank location validator](locations.md#genbank-import-enforcement) using the record's bounds and
+topology, and names the feature and literal location text on refusal. It compares the stored
+envelope before filling missing legacy fields and refuses conflicting stored geometry or operators.
+The legacy remote-location migration is the exception: if the stored geometry matches the
+location with its accession prefixes removed, load separates those remote intervals from the
+local parts and corrects the envelope that counted them locally. The format
+remains 2, and each existing aligned-row residue
 check still applies; valid mixed aligned and unaligned projects remain accepted. Owner choices remain whether to
 retain that contract or define migrations, and which states/fields must survive; no cited source
 selects an alternative or a new schema.

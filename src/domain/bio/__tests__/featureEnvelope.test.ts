@@ -45,6 +45,12 @@ describe('featureEnvelope', () => {
       .toEqual({ start: 98, end: 4 });
   });
 
+  it('covers the out-of-order interior parts of an origin join', () => {
+    // join(10..12,1..2,7..8,3..4)
+    const segments = [{ start: 9, end: 12 }, { start: 0, end: 2 }, { start: 6, end: 8 }, { start: 2, end: 4 }];
+    expect(featureEnvelope(feature({ segments }))).toEqual({ start: 9, end: 8 });
+  });
+
   it.each(['join', 'order'])('uses written order for nested complement(%s) envelopes', operator => {
     const linear = feature({ start: 0, end: 6,
       locationString: ` complement( ${operator}( complement(<1..2), 5..>6 ) ) `,

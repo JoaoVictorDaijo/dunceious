@@ -297,3 +297,20 @@ it.each([undefined, 'M'])('draws and explains an SO CDS assumed view with stored
   expect(feature.metadata?.translation).toBe(translation);
   expect(feature.metadata?.transl_table).toBe('99');
 });
+
+it.each([
+  { location: 'join(1..3,complement(7..9))', protein: ['M', 'K'], second: 'reverse strand, codon 2, bases 9, 8, 7', top: '122px', reverse: 1 },
+  { location: 'join(1..4,complement(7..8))', protein: ['M', 'Q'], second: 'codon 2, bases 4 (forward strand), 8 (reverse strand), 7 (reverse strand)', top: '82px', reverse: 0 },
+])('uses the first biological visit for the lane and explains every strand in $location', ({ location, protein, second, top, reverse }) => {
+  const seq = 'ATGCCCTTT';
+  const feature: BioFeature = { ...parseLocation(location), type: 'CDS', name: 'coding' };
+  const input = props(seq, feature);
+  const view = render(<SequenceTrack {...input} />);
+  const targets = [...view.container.querySelectorAll<HTMLElement>('[data-codon-target]')];
+  expect(targets[0].getAttribute('aria-label')).toContain('forward strand, codon 1, bases 1, 2, 3');
+  expect(targets[1].getAttribute('aria-label')).toContain(second);
+  expect(targets[1].style.top).toBe(top);
+  expect(input.translationLanes).toMatchObject({ forward: 1, reverse });
+  if (reverse) expect(input.translationLanes.laneOf.get(feature)?.get(-1)).toBe(0);
+  expect(recorder.texts().slice(-2)).toEqual(protein);
+});

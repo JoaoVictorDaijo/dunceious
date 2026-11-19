@@ -18,68 +18,135 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { parseCodeBreak, codeBreakMessage } from '@/src/domain/bio/translationExceptions';
+import { parseCodeBreak, codeBreakMessage, transformCodeBreak } from '@/src/domain/bio/translationExceptions';
 import { isCds, conceptualTranslation } from '@/src/domain/bio/translation';
-import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, FeatureSegment, RemotePart, SeqRecord } from '@/src/domain/bio/types';
 import { parseLocation } from './locationParser';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
-import { featureParts } from '@/src/domain/bio/featureParts';
+import { hasMixedLocalStrands, splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
+import { expandedRemoteParts, expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
+import { isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from '@/src/domain/bio/locationFlags';
+import { isUndrawnProteinBond, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
 import { searchHitNote } from '../formats/searchHitNote';
+import { locationTextProblem } from './locationValidation';
 import { NUCLEOTIDE_QUALIFIERS, PROTEIN_QUALIFIERS, formatQualifier, assertGenBankQualifierText, type QualifierSyntax } from './qualifierRules';
 
 /**
- * The written form of per-strand segments stored in evaluation order (#241). Written neighbours
- * that evaluation reads in reverse sat inside one `complement(join(...))` (INSDC FT 11.4 §3.4.2.2),
- * so each such run is written back that way, its strands flipped. The result is re-parsed and used
- * only when it gives the stored segments back; otherwise the evaluated form is written.
+ * An INSDC join evaluates contiguous written blocks in order; a complement reverses
+ * their order and flips their strands (§3.4.2.2). Find the junctions where a written
+ * prefix covers consecutive evaluation ranks at either end of the current block.
  */
-function writtenNestedLocation(feature: BioFeature, segments: FeatureSegment[], record: SeqRecord): string | null {
-  const oriented = (segment: FeatureSegment, strand: 1 | -1) => {
-    const location = formatInsdcLocation({ ...segment, strand, segments: [{ ...segment, strand: undefined }] }, { length: record.sequence.length, isCircular: record.isCircular });
+function nestedLocation(order: number[], leaves: [string, string][], operator: string): string | null {
+  const render = (start: number, end: number, firstRank: number, reversed: boolean): string | null => {
+    if (end - start === 1) return leaves[order[start]][reversed ? 1 : 0];
+    let minRank = Infinity, maxRank = -Infinity;
+    let blockStart = start;
+    let nextRank = reversed ? firstRank + end - start - 1 : firstRank;
+    const parts: string[] = [];
+    for (let i = start; i < end; i++) {
+      minRank = Math.min(minRank, order[i]);
+      maxRank = Math.max(maxRank, order[i]);
+      const size = i - blockStart + 1;
+      const blockRank = reversed ? nextRank - size + 1 : nextRank;
+      if (minRank !== blockRank || maxRank !== blockRank + size - 1) continue;
+      if (size === end - start) return null;
+      const body = render(blockStart, i + 1, blockRank, reversed);
+      if (!body) {
+        const flipped = render(blockStart, i + 1, blockRank, !reversed);
+        if (!flipped) return null;
+        parts.push(`complement(${flipped})`);
+      } else parts.push(body);
+      blockStart = i + 1;
+      nextRank += reversed ? -size : size;
+      minRank = Infinity;
+      maxRank = -Infinity;
+    }
+    return blockStart === end ? `${operator}(${parts.join(',')})` : null;
+  };
+  const direct = render(0, order.length, 0, false);
+  if (direct) return direct;
+  const reversed = render(0, order.length, 0, true);
+  return reversed && `complement(${reversed})`;
+}
+
+function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string | null {
+  const stored = storedLocalParts(feature);
+  if (!stored?.some(part => part.strand !== undefined)) return null;
+  const landmark = { length: record.sequence.length, isCircular: record.isCircular };
+  const split = stored.map(part => splitFeaturePart(part, landmark));
+  const segments = split.flat();
+  const ranks = expandedWrittenOrder(feature.writtenOrder, stored, split);
+  if (ranks.every((rank, i) => rank === i)) return null;
+  const remoteParts = expandedRemoteParts(feature.remoteParts ?? [], split);
+  const parts: (FeatureSegment | RemotePart)[] = [...segments];
+  for (const part of remoteParts) parts.splice(part.index, 0, part);
+
+  // Only local written ranks are fixed. Group remote leaves with a neighbouring local leaf in
+  // evaluation order so inserting them cannot break a reconstructable local permutation.
+  const written = ranks.map((): number[] => []);
+  let localIndex = 0;
+  parts.forEach((part, i) => {
+    const anchor = 'accession' in part ? Math.max(0, localIndex - 1) : localIndex++;
+    written[ranks[anchor]].push(i);
+  });
+  const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
+  const oriented = (segment: FeatureSegment | RemotePart, strand: 1 | -1) => {
+    const geometry = 'accession' in segment
+      ? { ...segment, strand, segments: [], remoteParts: [{ ...segment, strand, index: 0 }] }
+      : { ...segment, strand, segments: [{ ...segment, strand: undefined }] };
+    const location = formatInsdcLocation(geometry, landmark);
     return location.kind === 'insdc' ? location.text : location.display;
   };
-  const order = feature.writtenOrder;
-  // writtenOrder ranks local intervals only; with remote parts the evaluated form is written.
-  if (order?.length !== segments.length || feature.remoteParts?.length) return null;
-  const operator = feature.operator ?? 'join';
-  const strandOf = (segment: FeatureSegment) => segment.strand ?? feature.strand;
-  const evaluationAt: number[] = [];
-  order.forEach((position, i) => { evaluationAt[position] = i; });
-  const parts: string[] = [];
-  for (let first = 0; first < segments.length;) {
-    let last = first;
-    while (last + 1 < segments.length && evaluationAt[last + 1] === evaluationAt[last] - 1) last++;
-    if (last === first) {
-      const segment = segments[evaluationAt[first]];
-      parts.push(oriented(segment, strandOf(segment)));
-    } else {
-      const inner = evaluationAt.slice(first, last + 1).map(i => oriented(segments[i], strandOf(segments[i]) === 1 ? -1 : 1));
-      parts.push(`complement(${operator}(${inner.join(',')}))`);
-    }
-    first = last + 1;
-  }
-  const location = parts.length === 1 ? parts[0] : `${operator}(${parts.join(',')})`;
-  const reread = parseLocation(location);
-  const same = reread.segments.length === segments.length && reread.segments.every((part, i) =>
-    part.start === segments[i].start && part.end === segments[i].end && (part.strand ?? reread.strand) === strandOf(segments[i]));
-  return same ? location : null;
+  const location = nestedLocation(written.flat(), parts.map(segment => [
+    oriented(segment, strandOf(segment)), oriented(segment, strandOf(segment) === 1 ? -1 : 1),
+  ]), feature.operator ?? 'join');
+  if (!location) return null;
+
+  const reread = parseLocation(location, landmark);
+  const reverseWhole = reread.strand === -1 && reread.segments.every(part => part.strand === undefined);
+  const evaluated = reverseWhole ? reread.segments.slice().reverse() : reread.segments;
+  const sameInterval = (actual: FeatureSegment, expected: FeatureSegment) =>
+    actual.start === expected.start && actual.end === expected.end
+    && Boolean(actual.partialStart) === Boolean(expected.partialStart)
+    && Boolean(actual.partialEnd) === Boolean(expected.partialEnd)
+    && (actual.strand ?? reread.strand) === strandOf(expected);
+  const sameLocal = evaluated.length === segments.length && evaluated.every((part, i) =>
+    sameInterval(part, segments[i])
+    && (reverseWhole ? evaluated.length - 1 - i : reread.writtenOrder?.[i] ?? i) === ranks[i]);
+  const rereadRemote = reread.remoteParts ?? [];
+  if (reverseWhole) rereadRemote.reverse();
+  const sameRemote = rereadRemote.length === remoteParts.length && rereadRemote.every((part, i) =>
+    part.accession === remoteParts[i].accession && sameInterval(part, remoteParts[i])
+    && (reverseWhole ? parts.length - 1 - part.index : part.index) === remoteParts[i].index);
+  return sameLocal && sameRemote ? location : null;
 }
 
 function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportReport): string | null {
-  if (feature.locationString) return feature.locationString;
+  const { locationString } = feature;
+  if (locationString) {
+    if (record.moleculeType === 'protein' && isUndrawnProteinBond(feature) && proteinBondEndpoints(locationString)) {
+      const name = feature.name === feature.type ? feature.type : `${feature.type} ${feature.name}`;
+      report.genBankFeaturesOmitted.push(`${record.id}: ${name} (${locationString}) omitted because reimport would treat it as a local bond`);
+      return null;
+    }
+    return locationString;
+  }
   const length = record.sequence.length;
   const location = formatInsdcLocation(feature, { length, isCircular: record.isCircular });
   if (location.kind === 'no-insdc-form') {
     report.featuresWithoutInsdcLocation[location.reason === 'linear-edge-site' ? 'linearEdgeSite' : 'invalidGeometry']++;
     return null;
   }
-  const parts = featureParts(feature, { length, isCircular: record.isCircular });
-  const nested = parts.some(part => part.strand !== undefined) ? writtenNestedLocation(feature, parts, record) : null;
-  return nested ?? location.text;
+  const text = writtenNestedLocation(feature, record) ?? location.text;
+  if (isCds(feature) && isOrderLocation(feature) && !isOrderLocation({ locationString: text })) {
+    report.genBankFeaturesOmitted.push(`${record.id}: CDS ${feature.name}: ${SINGLE_ORDER_CDS_OMISSION}`);
+    return null;
+  }
+  return text;
 }
 
 export function exportToGenBank(records: SeqRecord[]): ExportResult {
@@ -124,10 +191,16 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
   }
   for (const feature of features) {
     assertFeatureQualifierText(feature);
-      if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
+    if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
     report.droppedAttributes += Object.keys(feature.unknownQualifiers ?? {}).length;
     const text = featureLocation(feature, r, report);
     if (text === null) continue;
+    const problem = locationTextProblem(text);
+    if (problem) throw new Error(`Feature ${feature.name} location ${JSON.stringify(text)} ${problem.message}.`);
+    if (feature.type !== 'source') {
+      report.genBankWritten.annotations++;
+      if (feature.hubEdit === 'edited' || feature.hubEdit === 'added') report.genBankWritten.edited++;
+    }
     gb += `     ${feature.type.padEnd(15)} ${text}\n`;
     const metadata = { ...feature.metadata };
     if (!isCds(feature)) delete metadata.translation;
@@ -173,13 +246,17 @@ function serializeRecord(r: SeqRecord, report: ExportReport): string {
     const searchNote = searchHitNote(feature);
     if (searchNote) gb += serializeQualifier('note', searchNote, 'quoted', feature, r, report);
   }
-  gb += 'ORIGIN\n';
-  const residues = r.sequence.toLowerCase();
+  return gb + serializeOrigin(r.sequence) + '//\n';
+}
+
+function serializeOrigin(sequence: string): string {
+  let text = 'ORIGIN\n';
+  const residues = sequence.toLowerCase();
   for (let i = 0; i < residues.length; i += 60) {
     const groups = residues.slice(i, i + 60).match(/.{1,10}/g) ?? [];
-    gb += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
+    text += `${(i + 1).toString().padStart(9)} ${groups.join(' ')}\n`;
   }
-  return gb + '//\n';
+  return text;
 }
 
 function serializeCodeBreaks(feature: BioFeature, r: SeqRecord, report: ExportReport): string {
@@ -187,10 +264,12 @@ function serializeCodeBreaks(feature: BioFeature, r: SeqRecord, report: ExportRe
   let text = '';
   const malformed = conceptualTranslation(feature, r).exceptions?.find(e => e.status === 'malformed');
   if (malformed) throw new Error(codeBreakMessage(malformed));
-  for (const [occurrence, raw] of (feature.translationExceptions ?? []).entries()) {
-    const parsed = parseCodeBreak(raw, feature.strand);
+  const mixed = hasMixedLocalStrands(feature);
+  for (const [occurrence, raw] of feature.translationExceptions.entries()) {
+    const parsed = parseCodeBreak(raw, feature);
     if (typeof parsed === 'string') throw new Error(codeBreakMessage({ feature: feature.name, occurrence, raw, status: 'malformed', reason: parsed }));
-    text += serializeQualifier('transl_except', raw, 'unquoted', feature, r, report);
+    const value = mixed ? transformCodeBreak(raw, feature, 0) : raw;
+    text += serializeQualifier('transl_except', value, 'unquoted', feature, r, report);
   }
   return text;
 }

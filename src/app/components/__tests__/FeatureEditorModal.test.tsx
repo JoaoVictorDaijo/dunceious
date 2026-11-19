@@ -22,6 +22,9 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { useFeatureManager } from '@/src/app/hooks/useFeatureManager';
+import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
+import { exportToGenBank, parseGenBank } from '@/src/core/genbank';
 import FeatureEditorModal, { type EditingFeatureState } from '../FeatureEditorModal';
 
 const editing: EditingFeatureState = { recordId: 'synthetic', featureIndex: -1,
@@ -78,6 +81,51 @@ describe('qualifier editing', () => {
     fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '3' } });
     expect(change.mock.calls[0][0].feature).toMatchObject({ start: 3, locationString: undefined });
   });
+});
+
+it('applies a note edit to an imported undrawn bond and reopens both exports', () => {
+  const imported = parseGenBank(`LOCUS       PROT 6 aa linear
+FEATURES             Location/Qualifiers
+     Bond            bond(<2,6)
+ORIGIN
+        1 mcaavc
+//
+`);
+  expect(imported.findings.map(finding => finding.code)).toEqual(['undrawn-protein-bonds']);
+  const [record] = imported.records;
+  const log = vi.fn();
+  function Subject() {
+    const [records, setRecords] = useState(imported.records);
+    const manager = useFeatureManager(records, setRecords, null, log);
+    return manager.editing
+      ? <FeatureEditorModal editing={manager.editing} records={records} featureColors={{}}
+          onChange={manager.setEditing} onSave={manager.saveEditedFeature} onDiscard={() => manager.setEditing(null)} />
+      : <>
+          <button onClick={() => manager.setEditing({ recordId: record.id, featureIndex: 0, feature: records[0].features[0] })}>Edit bond</button>
+          <pre aria-label="GenPept output">{exportToGenBank(records).text}</pre>
+          <pre aria-label="Project output">{serializeProject({ records, featureColors: {},
+            showAnnotations: true, showTranslation: true, showConservation: false })}</pre>
+        </>;
+  }
+  render(<Subject />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit bond' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add Qualifier' }));
+  fireEvent.change(screen.getByLabelText('Qualifier name'), { target: { value: 'note' } });
+  fireEvent.change(screen.getByLabelText('Value of note'), { target: { value: 'x' } });
+  const apply = screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement;
+  expect(apply.disabled).toBe(false);
+  expect(screen.queryByRole('spinbutton')).toBeNull();
+  expect(screen.getByText('Bond position is unavailable. The imported location is read-only.')).toBeTruthy();
+  fireEvent.click(apply);
+
+  const text = screen.getByLabelText('GenPept output').textContent!;
+  expect(text).toContain('     Bond            bond(<2,6)\n                     /note="x"\n');
+  const expected = [{ features: [{ locationString: 'bond(<2,6)', segments: [], metadata: { note: 'x' } }] }];
+  expect(parseGenBank(text)).toMatchObject({
+    records: expected, findings: [{ code: 'undrawn-protein-bonds' }],
+  });
+  expect(parseProject(screen.getByLabelText('Project output').textContent!, log))
+    .toMatchObject({ ok: true, project: { records: expected } });
 });
 
 it('refuses to render a source feature in the generic editor', () => {

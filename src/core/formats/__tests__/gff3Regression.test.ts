@@ -135,8 +135,9 @@ it.each(['<1..>10', 'complement(<1..>10)', 'join(<1..3,7..>10)', 'complement(joi
   const features = parseGFF3(gff).features.s;
   const result = parseGenBank(exportToGenBank([record(features)]).text).records[0];
   expect(result.features.find(f => f.type === 'CDS')?.locationString).toBe(locationString);
-  expect(gff).toContain('insdc_partial_start=%3C');
-  expect(gff).toContain('insdc_partial_end=%3E');
+  expect(gff).toContain('start_range=.,1');
+  expect(gff).toContain('end_range=10,.');
+  expect(rows(gff).slice(1).every(row => row[8].includes('partial=true'))).toBe(true);
 });
 
 it('remaps repeated imported IDs within each record independently', () => {
@@ -199,4 +200,41 @@ it.each([
 
 it('writes an undefined source on a region row of unknown origin', () => {
   expect(rows(exportToGff3([record([])]).text)[0][1]).toBe('.');
+});
+
+it('keeps remote position, written order and parent orientation when splitting an explicit minus interval', () => {
+  const source: SeqRecord = { ...record([{
+    type: 'gene', name: 'c', start: 0, end: 12, strand: 1, operator: 'join',
+    segments: [{ start: 8, end: 2, strand: -1 }, { start: 4, end: 5, strand: 1 }, { start: 5, end: 7, strand: -1 }],
+    remoteParts: [{ accession: 'AB123.1', start: 2, end: 4, strand: 1, index: 3 }],
+    writtenOrder: [2, 0, 1],
+  }], 'ACGTACGTACGT'), isCircular: true };
+  const text = exportToGff3([source]).text;
+  expect(rows(text).slice(1).map(row => [row[3], row[4], row[6]])).toEqual([
+    ['1', '2', '-'], ['9', '12', '-'], ['5', '5', '+'], ['6', '7', '-'],
+  ]);
+  const [feature] = parseGFF3(text).features.s;
+  // INSDC written order: complement(join(complement(join(5,complement(6..7))),9..12,1..2)).
+  expect(feature).toMatchObject({ strand: 1, writtenOrder: [3, 2, 0, 1],
+    remoteParts: [{ accession: 'AB123.1', start: 2, end: 4, strand: 1, index: 4 }] });
+});
+
+it('ranks split minus pieces in INSDC written order under an outer complement', () => {
+  const [source] = parseGenBank(`LOCUS       s 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    complement(join(complement(4..5),9..12))
+ORIGIN
+        1 ATGAAACCCTAA
+//`).records;
+  const [feature] = source.features;
+  const [minus, plus] = feature.segments!;
+  delete feature.locationString;
+  feature.segments = [{ ...minus, end: 2 }, plus];
+
+  const { text } = exportToGff3([source]);
+  // complement(join(complement(4..5),9..12,1..2)) writes 4..5, 9..12, 1..2.
+  expect(rows(text).slice(1).map(row => [row[3], row[4], row[6]])).toEqual([
+    ['1', '2', '-'], ['9', '12', '-'], ['4', '5', '+'],
+  ]);
+  expect(parseGFF3(text).features.s[0].writtenOrder).toEqual([2, 1, 0]);
 });

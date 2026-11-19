@@ -35,7 +35,7 @@ import { getAminoAcidColor, getNucleotideColor } from '@/src/app/viewer/colors';
 import { alignedToOriginalPositions, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature } from '@/src/domain/bio';
 import { residueStyle as comparisonStyle, type ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { NT_ROW_HEIGHT, AA_ROW_HEIGHT, MONO_STACK, TRANSLATION_MIN_ZOOM } from '../constants';
-import { isTranslatedFeature, codonFrame, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
+import { isTranslatedFeature, codonDisplayAnchor, translationLaneKey, codonSpans, geneticCodeWarning, assumedCodonDescription, type TranslationLanes } from '../cds';
 
 export interface SequenceTrackProps {
   record?: SeqRecord;
@@ -76,6 +76,7 @@ interface CodonPiece {
   start: number;
   end: number;
   feature: BioFeature;
+  strand: 1 | -1;
   frame: 0 | 1 | 2;
   codon: string;
   residue: string;
@@ -85,7 +86,7 @@ interface CodonPiece {
   state?: CodonMark['state'];
   logicalKey?: string;
   label?: boolean;
-  chip?: { text: string; extra: number };
+  chip?: { text: string; extra: number; tailStrand: 1 | -1 };
 }
 
 export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({ 
@@ -148,19 +149,18 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       const add = (i: number, residue: string, state: CodonMark['state'], description: string, isAssumed = false) => {
         const indices = coding.alignedIndices.slice(i * 3, i * 3 + 3);
         if (!indices.length) return;
-        const firstBase = originalPositions ? originalPositions[indices[0]] : indices[0];
-        const frame = codonFrame(firstBase, feature.strand);
+        const { strand, frame } = codonDisplayAnchor(coding, i * 3, feature.strand, originalPositions);
         const codon = coding.codingSeq.slice(i * 3, i * 3 + 3);
         const pieces = codonSpans(indices, originalPositions);
         const label = pieces.reduce((a, b) => b.end - b.start > a.end - a.start ? b : a);
-        const prefix = codonPrefix(feature, i, indices.map(n => originalPositions ? originalPositions[n] : n));
+        const prefix = codonPrefix(feature, i, indices.map(n => originalPositions ? originalPositions[n] : n), coding.baseStrands?.slice(i * 3, i * 3 + 3));
         let explanation = description;
         if (isAssumed) explanation = `${prefix} ${assumedCodonDescription(codon, residue, !!assumed?.codeSensitive[i], i === 0 && initiation)} /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code. ${evidence.get(feature)?.exceptionDescriptions.get(i)?.text ?? ''} ${evidence.get(feature)?.summary ?? ''}`;
         else if (!explanation) explanation = assumed
           ? `${prefix} Annotated ${residue}. Cannot check against DNA: /transl_table=${feature.metadata?.transl_table} is not an NCBI genetic code.`
           : `${prefix} ${codon}: ${residue}, under table ${featureTranslTable(feature)}.`;
         pieces.forEach((piece, pieceIndex) => spans.push({
-          ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, logicalKey: `${featureIndex}-${i}`, order: spans.length, feature, frame, codon,
+          ...piece, key: `${featureIndex}-${i}-${pieceIndex}`, logicalKey: `${featureIndex}-${i}`, order: spans.length, feature, strand, frame, codon,
           residue, codeSensitive: isAssumed && !!assumed?.codeSensitive[i], initiation: i === 0 && initiation,
           state: !assumed && !isCds(feature) && ['_', '*'].includes(residue) && i < Math.floor(coding.codingSeq.length / 3) - 1 ? 'early-stop' : state, label: piece === label,
           description: explanation,
@@ -172,16 +172,17 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       const comparison = view?.comparison;
       const n = comparison?.storedExtra.length || comparison?.storedShortBy || 0;
       if (n && coding.alignedIndices.length) {
-        const endpoint = coding.alignedIndices.at(-1)! + (feature.strand === 1 ? 1 : 0);
-        const start = feature.strand === 1 ? endpoint : endpoint - 30;
-        const end = feature.strand === 1 ? endpoint + 30 : endpoint;
-        const last = coding.alignedIndices[Math.floor((coding.alignedIndices.length - 1) / 3) * 3];
+        const tailStrand = coding.baseStrands?.at(-1) ?? feature.strand;
+        const endpoint = coding.alignedIndices.at(-1)! + (tailStrand === 1 ? 1 : 0);
+        const start = tailStrand === 1 ? endpoint : endpoint - 30;
+        const end = tailStrand === 1 ? endpoint + 30 : endpoint;
+        const { strand, frame } = codonDisplayAnchor(coding, Math.floor((coding.alignedIndices.length - 1) / 3) * 3, feature.strand, originalPositions);
         const extra = comparison!.storedExtra.length;
         const text = `${extra ? '+' : '−'}${n} position${n === 1 ? '' : 's'}`;
         const detail = extra ? `Stored residues past the last translated position: ${comparison!.storedExtra.slice(0, 30)}. Preview; complete list in feature details.` : `${n} DNA-derived position${n === 1 ? '' : 's'} ${n === 1 ? 'has' : 'have'} no annotated residue.`;
         spans.push({ start, end, key: `chip-${featureIndex}`, logicalKey: `chip-${featureIndex}`, order: spans.length, feature,
-          frame: codonFrame(originalPositions ? originalPositions[last] : last, feature.strand), codon: '', residue: '', codeSensitive: false, initiation: false,
-          description: `${view?.summary}. ${detail} Terminal stop excluded.`, chip: { text, extra } });
+          strand, frame, codon: '', residue: '', codeSensitive: false, initiation: false,
+          description: `${view?.summary}. ${detail} Terminal stop excluded.`, chip: { text, extra, tailStrand } });
       }
 
     });
@@ -418,14 +419,14 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
     if (translationVisible) for (const span of visiblePieces) {
       if (span.chip) continue;
       const f = span.feature;
-      const ctx = f.strand === 1 ? forwardCtx : reverseCtx;
+      const ctx = span.strand === 1 ? forwardCtx : reverseCtx;
       const lanes = translationLanes.laneOf.get(f);
       if (!ctx || !lanes) continue;
-      const lane = lanes.get(span.frame) ?? 0;
-      const aaY = AA_ROW_HEIGHT * (f.strand === 1 ? translationLanes.forward - 1 - lane : lane);
+      const lane = lanes.get(translationLaneKey(span.strand, span.frame)) ?? 0;
+      const aaY = AA_ROW_HEIGHT * (span.strand === 1 ? translationLanes.forward - 1 - lane : lane);
       const aX = xScale(span.start) - scrollX;
       const aW = xScale(span.end) - xScale(span.start);
-      const baseColor = f.strand === 1 ? '#475569' : '#be185d';
+      const baseColor = span.strand === 1 ? '#475569' : '#be185d';
       const lighter = ['difference', 'hidden-stop', 'substitution'].includes(span.state ?? '');
       const early = span.state === 'early-stop';
       const dashed = span.codeSensitive || (assumedViews.has(f) && span.residue === '?');
@@ -498,16 +499,16 @@ export const SequenceTrack: React.FC<SequenceTrackProps> = memo(({
       const span = pieces[0];
       const lanes = translationLanes.laneOf.get(span.feature);
       if (!lanes) return null;
-      const lane = lanes.get(span.frame) ?? 0;
-      const top = span.feature.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
+      const lane = lanes.get(translationLaneKey(span.strand, span.frame)) ?? 0;
+      const top = span.strand === 1 ? bandTop + AA_ROW_HEIGHT * (translationLanes.forward - 1 - lane) : y + NT_ROW_HEIGHT + AA_ROW_HEIGHT * lane;
       if (span.chip) {
-        const endpoint = xScale(span.feature.strand === 1 ? span.start : span.end) - scrollX;
+        const endpoint = xScale(span.chip.tailStrand === 1 ? span.start : span.end) - scrollX;
         if (endpoint < 0 || endpoint > viewportWidth) return null;
         const width = span.chip.text.length * 6 + 14;
         return <button key={key} type="button" data-translation-chip="" data-tip={span.description}
           aria-label={span.chip.extra ? `${span.feature.name}: show all ${span.chip.extra} extra stored translation positions in feature details` : span.description}
           onClick={() => onViewDetails?.(span.feature)} className="rounded border bg-white font-mono text-[9px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-950"
-          style={{ position: 'absolute', left: span.feature.strand === 1 ? endpoint + 4 : endpoint - width - 4, top: top + 1, width, height: AA_ROW_HEIGHT - 2, color: span.feature.strand === 1 ? '#475569' : '#be185d', zIndex: 2 }}>{span.chip.text}</button>;
+          style={{ position: 'absolute', left: span.chip.tailStrand === 1 ? endpoint + 4 : endpoint - width - 4, top: top + 1, width, height: AA_ROW_HEIGHT - 2, color: span.strand === 1 ? '#475569' : '#be185d', zIndex: 2 }}>{span.chip.text}</button>;
       }
       const left = Math.max(0, Math.min(...pieces.map(piece => xScale(piece.start) - scrollX)));
       const right = Math.min(viewportWidth, Math.max(...pieces.map(piece => xScale(piece.end) - scrollX)));

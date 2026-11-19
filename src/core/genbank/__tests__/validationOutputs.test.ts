@@ -35,7 +35,11 @@ it.each(['', '0', '4', '2junk'])('suppresses every invalid-frame computation (%s
   const f = feature(frame);
   expect(extractCodingSequence(f, 'ATGAAATAA')).toEqual({ codingSeq: '', alignedIndices: [] });
   expect(isFeatureBroken({ ...f, metadata: { ...f.metadata, translation: 'M*K' } }, 'ATGAAATAA')).toBe(false);
-  expect(exportToGff3([record(undefined, [f])]).text.split('\n').filter(l => l.split('\t')[2] === 'CDS').map(l => l.split('\t')[7])).toEqual(['.']);
+  const { text, report } = exportToGff3([record(undefined, [f])]);
+  expect(text.split('\n').filter(line => line.split('\t')[2] === 'CDS')).toEqual([]);
+  expect(report.gff3FeaturesOmitted).toEqual([
+    { reason: `X: CDS C omitted; invalid /codon_start=${JSON.stringify(frame)}`, edited: false },
+  ]);
   expect(genBankExportProblem(record(undefined, [f]))).toContain('invalid /codon_start');
 });
 it('accepts valid frame and residue writer inputs, refuses invalid residues and code', () => {
@@ -85,4 +89,12 @@ it('preserves inert qualifiers and empty invalid frame/code values through a pro
     const metadata = { ...f.metadata }; delete metadata._translationCheck; return { ...f, metadata };
   }) }))).toEqual(records);
   expect(genBankExportProblem(restored.project.records[0])).toContain('invalid /codon_start');
+});
+
+it.each(['', ' \t\r\n'])('refuses a GenBank file with no records (%j)', content => {
+  expect(handleBioMessage({ type: 'PARSE_GENBANK', filename: 'empty.gb', content })).toMatchObject({
+    type: 'PARSE_REFUSED',
+    records: [],
+    findings: [expect.objectContaining({ tier: 'refuse', code: 'no-records', message: 'No GenBank record found.' })],
+  });
 });

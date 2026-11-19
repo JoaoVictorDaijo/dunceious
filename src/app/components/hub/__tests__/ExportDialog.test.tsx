@@ -364,7 +364,7 @@ it('names GenBank gap omissions and distinguishes chosen records from written co
   render(<Subject value={value} selected={['clean', 'damaged']} onExport={onExport} />); open(); format('GenBank');
   expect(screen.getByText('damaged not exported: its sequence contains gap characters')).toBeTruthy();
   expect(screen.queryByText(/Sequences and annotations with valid qualifiers/)).toBeNull();
-  expect(screen.queryByText(/Display names stay in Dunceious/)).toBeNull();
+  expect(screen.getByText('Display names stay in Dunceious.')).toBeTruthy();
   expect(exportWarning()).toBe('1 sequence has no organism; NCBI validation will reject this file, though most viewers open it');
   expect(screen.getByText('2 chosen')).toBeTruthy();
   expect(screen.getByText('1 written')).toBeTruthy();
@@ -413,4 +413,68 @@ it.each([false, true])('previews general GenBank omissions with matching counts 
   const button = screen.getByRole('button', { name: `Export ${allInvalid ? '0 sequences' : '1 sequence'}` }) as HTMLButtonElement;
   expect(button.disabled).toBe(allInvalid);
   if (allInvalid) { fireEvent.click(button); expect(onExport).not.toHaveBeenCalled(); }
+});
+
+it('shows qualifier and translation warnings, attribute omissions and adjusted IDs before GenBank download', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'gene', name: 'gene', start: 0, end: 9, strand: 1, metadata: { note: 'café', custom: 'left out' } },
+    { type: 'CDS', name: 'coding', start: 0, end: 9, strand: 1, metadata: { _translationSource: 'removed', _translationMessage: 'Translation removed after edit' } },
+  ] }];
+  // Workspace IDs are normalized before the Hub opens; inject only the serializer's report entry.
+  const serialize = exportPlan.describeExport;
+  const spy = vi.spyOn(exportPlan, 'describeExport').mockImplementation((...args) => {
+    const preview = serialize(...args);
+    if (args[1] === 'genbank') preview.report.adjustedIds.push({ from: 'original id', to: 'a' });
+    return preview;
+  });
+  try {
+    render(<Subject value={value} selected={['a']} />); open(); format('GenBank');
+    expect(screen.getByText(/café.*ASCII/)).toBeTruthy();
+    expect(screen.getByText('coding: Translation removed after edit')).toBeTruthy();
+    expect(screen.getByText(/^1 non-GenBank attributes left out\.$/)).toBeTruthy();
+    expect(screen.getByText('ID: original id → a').closest('details')).toBeNull();
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it('names an omitted GFF3 CDS and excludes it from the preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'misframed', start: 0, end: 9, strand: 1, hubEdit: 'edited', metadata: { codon_start: '4' } },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportWarning()).toContain('a: CDS misframed omitted; invalid /codon_start="4"');
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});
+
+it('excludes an edited feature wholly in another record from the GFF3 preview counts', () => {
+  const value: SeqRecord[] = [{ id: 'a', name: 'a', sequence: 'ATGAAATAA', features: [
+    { type: 'misc_feature', name: 'remote', start: 0, end: 0, strand: 1, hubEdit: 'edited', segments: [],
+      remoteParts: [{ start: 9, end: 20, strand: 1, accession: 'AB123.1', index: 0 }] },
+    { type: 'gene', name: 'kept', start: 0, end: 9, strand: 1, hubEdit: 'added' },
+  ] }];
+  render(<Subject value={value} selected={['a']} />);
+  open();
+  format('GFF3');
+
+  expect(exportSummary()).toBe('1 sequence · 1 annotations → sequences.gff3');
+  expect(screen.getByText('1 edited or added')).toBeDefined();
+});
+
+it('shows the named GenBank omission of a one-part ordered CDS and counts only written features', () => {
+  const value: SeqRecord[] = [{ id: 'x', name: 'x', sequence: 'ATGAAATAA', features: [
+    { type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, operator: 'order', hubEdit: 'edited' },
+  ] }];
+  render(<Subject value={value} selected={['x']} />);
+  open();
+  format('GenBank');
+
+  expect(screen.getByText('x: CDS c: CDS omitted; one part of an order() CDS gives no defined product or frame')).toBeTruthy();
+  expect(exportSummary()).toBe('1 sequence · 0 annotations → sequences.gb');
+  expect(screen.getByText('0 edited or added')).toBeTruthy();
 });

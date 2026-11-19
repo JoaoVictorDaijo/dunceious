@@ -34,6 +34,7 @@ import {
   toggleRecordVisibility as toggleVisibility,
   newFeatureFromSelection,
   annotationCoords,
+  undrawnBondLocationEdit,
 } from '@/src/app/logic/featureManager';
 
 function sameAnnotations(record: SeqRecord, expected: BioFeature[] | undefined): boolean {
@@ -222,8 +223,12 @@ export function useFeatureManager(
     const { recordId, featureIndex, feature } = editing;
     const record = records.find(record => record.id === recordId);
     if (!record) return;
-    const location = formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular });
-    if (location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry') return;
+    const bondEdit = undrawnBondLocationEdit(record, featureIndex, feature);
+    if (bondEdit === 'changed') return;
+    if (bondEdit === undefined) {
+      const location = formatInsdcLocation(feature, { length: record.sequence.length, isCircular: record.isCircular });
+      if (location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry') return;
+    }
     setRecords(prev => saveEditedFeatureReducer(prev, recordId, featureIndex, feature, addLog));
     addLog(
       featureIndex === -1

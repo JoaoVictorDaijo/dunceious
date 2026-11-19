@@ -336,3 +336,16 @@ it('refuses a bare transl_except after a valid GFF3 row without publishing eithe
   expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/CDS bad.*transl_except.*requires/));
   expect(h.log.mock.calls.flat().join(' ')).not.toContain('Annotation import complete');
 });
+
+it('logs a source bound that cannot be kept while accepting its GFF3 attachment', async () => {
+  const h = setup();
+  act(() => h.result.current.setRecords([{ id: 'x', name: 'x', sequence: 'ATGAAACCCTAA', features: [
+    { type: 'source', name: 'source', start: 0, end: 6, strand: 1 },
+    { type: 'source', name: 'source', start: 6, end: 11, strand: 1 },
+  ] }]));
+  const pending = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'x.gff3',
+    content: '##gff-version 3\nx\t.\tregion\t1\t12\t.\t+\t.\tID=landmark;gbkey=Src;partial=true;end_range=12,.\n' });
+  act(() => h.worker.release(h.worker.requests.length - 1));
+  expect(await pending).toMatchObject({ type: 'ANNOTATIONS_SUCCESS' });
+  expect(h.log).toHaveBeenCalledWith('WARNING: x: Open source region end at base 12 could not be kept because no source interval ends there.');
+});

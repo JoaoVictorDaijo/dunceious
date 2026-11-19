@@ -167,13 +167,11 @@ does not settle six-frame row numbering or lane packing.
 
 **Applications.** Unknown for an exact matching reverse-lane numbering convention.
 
-**Dunceious.** Partial static agreement: `src/domain/bio/sequence.ts:223` extracts the oriented
-feature before applying its offset. `src/app/viewer/cds.ts:72` uses forward first-base mod 3
-and reverse `(firstBase + 1)` mod 3; `cds.ts:78` groups codon pieces by biological adjacency.
-These row indices are not GFF3 phase values. Full split-exon and descending-minus correctness
-has not been established by a reference run. **Owner decision open:** label rows by an explicitly
-declared genomic frame convention or a feature-relative codon convention, with lane packing
-kept separate from biological phase; neither exact layout is prescribed by these sources.
+**Dunceious.** Extracts the oriented feature before applying its offset. The display frame in
+`src/app/viewer/cds.ts` uses the first base's zero-based genomic index modulo 3 on the forward
+strand or that index plus 1 modulo 3 on the reverse strand. Dunceious uses the first
+biological base of a mixed-strand codon to set its lane and frame. All pieces stay in one lane so they read as one codon. The tooltip
+names each contributing base's strand. GFF3 phase remains a separate per-part value.
 
 ## OP-9. Source qualifier and span fidelity
 

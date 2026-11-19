@@ -37,9 +37,11 @@ function readSourceLists(text: string | undefined): Record<string, unknown> {
   }
 }
 
-function mergeSourceQualifiers(record: SeqRecord, metadata: Record<string, string> = {}): SeqRecord {
-  const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists');
-  if (qualifiers.length === 0) return record;
+function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: string[]): SeqRecord {
+  const metadata = incoming.metadata ?? {};
+  const bounds = incoming.segments?.[0];
+  const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists' && key !== '_gffNamespace');
+  if (qualifiers.length === 0 && !bounds?.partialStart && !bounds?.partialEnd) return record;
   const updated = writeDetails(record, {});
   const sourceIndex = updated.features.findIndex(feature => feature.type === 'source');
   const source = updated.features[sourceIndex];
@@ -50,14 +52,53 @@ function mergeSourceQualifiers(record: SeqRecord, metadata: Record<string, strin
   for (const [key, value] of qualifiers) {
     if (Object.hasOwn(merged, key)) continue;
     merged[key] = value;
+    if (key === 'ID' && metadata._gffNamespace !== undefined) merged._gffNamespace = metadata._gffNamespace;
     if (Object.hasOwn(incomingLists, key) && !Object.hasOwn(lists, key)) {
       lists[key] = incomingLists[key];
       listsAdded = true;
     }
   }
   if (listsAdded) merged._gffLists = JSON.stringify(lists);
-  return { ...updated, features: updated.features.map((feature, index) =>
-    index === sourceIndex ? { ...source, metadata: merged } : feature) };
+  let keptStart = false;
+  let keptEnd = false;
+  const features = updated.features.map((feature, index) => {
+    if (feature.type !== 'source') return feature;
+    const parts = feature.segments?.length || feature.remoteParts?.length
+      ? feature.segments ?? [] : [{ start: feature.start, end: feature.end }];
+    const segments = parts.map(part => {
+      const matchStart = bounds?.partialStart && part.start === bounds.start;
+      const matchEnd = bounds?.partialEnd && part.end === bounds.end;
+      keptStart ||= Boolean(matchStart);
+      keptEnd ||= Boolean(matchEnd);
+      const markStart = matchStart && !part.partialStart;
+      const markEnd = matchEnd && !part.partialEnd;
+      const startRange = matchStart && !part.gffStartRange && bounds.gffStartRange;
+      const endRange = matchEnd && !part.gffEndRange && bounds.gffEndRange;
+      if (!markStart && !markEnd && !startRange && !endRange) return part;
+      return { ...part,
+        ...(markStart && { partialStart: true as const }),
+        ...(markEnd && { partialEnd: true as const }),
+        ...(startRange && { gffStartRange: startRange }),
+        ...(endRange && { gffEndRange: endRange }),
+      };
+    });
+    const segmentsChanged = segments.some((part, i) => part !== parts[i]);
+    if (!segmentsChanged && index !== sourceIndex) return feature;
+    const marksChanged = segments.some((part, i) => part.partialStart !== parts[i].partialStart || part.partialEnd !== parts[i].partialEnd);
+    return { ...feature, ...(index === sourceIndex && { metadata: merged }), ...(segmentsChanged && { segments }),
+      ...(marksChanged && { locationString: undefined }) };
+  });
+  if (bounds?.partialStart && !keptStart) warnings.push(`${record.id}: Open source region start at base ${bounds.start + 1} could not be kept because no source interval starts there.`);
+  if (bounds?.partialEnd && !keptEnd) warnings.push(`${record.id}: Open source region end at base ${bounds.end} could not be kept because no source interval ends there.`);
+  return { ...updated, features };
+}
+
+/** A GFF3 attachment adds its own ID namespace to the target record. */
+function annotationNamespace(record: SeqRecord): string {
+  const occupied = new Set(record.features.map(feature => feature.metadata?._gffNamespace));
+  let namespace = 1;
+  while (occupied.has(String(namespace))) namespace++;
+  return String(namespace);
 }
 
 /**
@@ -109,16 +150,30 @@ export function applyParseSuccess(
   return { next: [...prev, ...newRecords], count: newRecords.length, idMap };
 }
 
+function topologyRefusal(
+  id: string, record: SeqRecord, items: (BioFeature | QuantitativeTrack)[], source?: BioFeature,
+): string | undefined {
+  if (record.isCircular) return undefined;
+  const landmark = [source, ...items].some(feature => feature && !('data' in feature)
+    && (feature.type === 'region' || feature.type === 'SO:0000001')
+    && feature.start === 0 && feature.end === record.sequence.length && feature.metadata?.Is_circular === 'true');
+  if (landmark) return `GFF3 landmark ${id} declares Is_circular=true, but sequence ${record.id} is linear.`;
+  const wrapped = items.find((item): item is BioFeature => !('data' in item)
+    && (item.start > item.end || !!item.segments?.some(part => part.start > part.end)));
+  if (wrapped) return `GFF3 landmark ${id} has a wrapped feature ${wrapped.name}, but sequence ${record.id} is linear.`;
+}
+
 /** Batch ownership takes precedence over workspace aliases; ambiguous matches are refused. */
 export function applyAnnotations(
   prev: SeqRecord[],
   annotations: Record<string, (BioFeature | QuantitativeTrack)[]>,
   details: Record<string, GffSourceRegion> = {},
   idMap?: BatchIdMap,
-): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; refusal?: string } {
+): { next: SeqRecord[]; totalAdded: number; unmatched: string[]; warnings: string[]; refusal?: string } {
   let totalAdded = 0;
   const next = [...prev];
   const unmatched: string[] = [];
+  const warnings: string[] = [];
   for (const id of new Set([...Object.keys(annotations), ...Object.keys(details)])) {
     let matches: SeqRecord[];
     if (idMap && Object.hasOwn(idMap, id)) {
@@ -134,8 +189,18 @@ export function applyAnnotations(
     }
     const index = prev.indexOf(matches[0]);
     let record = next[index];
-    const items = [...(annotations[id] ?? [])];
-    const candidate = details[id];
+    const namespace = annotationNamespace(record);
+    const withNamespace = (feature: BioFeature): BioFeature => {
+      const metadata = feature.metadata;
+      return metadata && (metadata.ID || metadata.Parent || metadata.Derives_from)
+        ? { ...feature, metadata: { ...metadata, _gffNamespace: namespace } }
+        : feature;
+    };
+    const items = (annotations[id] ?? []).map(item => !('data' in item) && item.metadata?._gffPhases !== undefined ? withNamespace(item) : item);
+    const source = details[id];
+    const candidate = source && { ...source, feature: withNamespace(source.feature) };
+    const conflict = topologyRefusal(id, record, items, candidate?.feature);
+    if (conflict) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal: conflict };
     if (candidate) {
       if (candidate.start === 0 && candidate.end === record.sequence.length) {
         const current = readDetails(record);
@@ -150,8 +215,7 @@ export function applyAnnotations(
           }
           record = { ...writeDetails(record, fills), fileDetails };
         }
-        record = mergeSourceQualifiers(record, candidate.feature.metadata);
-        if (candidate.feature.metadata?.Is_circular === 'true') record = { ...record, isCircular: true };
+        record = mergeSourceRegion(record, candidate.feature, warnings);
       } else items.push(candidate.feature);
     }
     if (items.length > 0) {
@@ -165,11 +229,11 @@ export function applyAnnotations(
     for (const item of items) {
       if ('data' in item) continue;
       const refusal = malformedCodeBreakMessage(item, record);
-      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], refusal };
+      if (refusal) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal };
     }
     next[index] = { ...record, features: record.features.map(f => prev[index].features.includes(f) ? f : checkTranslation(f, record)) };
   }
-  return { next, totalAdded, unmatched };
+  return { next, totalAdded, unmatched, warnings };
 }
 
 /** A record loaded as a sequence whose gap characters were removed, by workspace ID. */

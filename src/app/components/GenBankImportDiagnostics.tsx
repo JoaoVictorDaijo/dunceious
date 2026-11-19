@@ -20,6 +20,27 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { importDetails, type ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
+import { useUiEffects } from './uiEffects';
+
+function CopyImportDetails({ files }: { files: ImportDiagnosticFile[] }) {
+  const { copyText } = useUiEffects();
+  const [failed, setFailed] = useState(false);
+  const copy = async () => {
+    try {
+      await copyText(importDetails(files));
+      if (failed) setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  };
+  return <div className="min-w-0 flex-1">
+    <button onClick={() => void copy()}>Copy details</button>
+    {failed && <>
+      <p role="alert" className="text-amber-300">Copy failed. Select and copy the details below.</p>
+      <textarea aria-label="Complete import details" className="w-full rounded bg-slate-950 p-2 text-slate-200" readOnly rows={6} value={importDetails(files)} />
+    </>}
+  </div>;
+}
 
 export function GenBankRefusalDialog({ files, onClose }: { files: ImportDiagnosticFile[]; onClose: () => void }) {
   const close = useRef<HTMLButtonElement>(null);
@@ -33,19 +54,18 @@ export function GenBankRefusalDialog({ files, onClose }: { files: ImportDiagnost
     <div ref={dialog} role="alertdialog" aria-modal="true" aria-labelledby="genbank-refusal-title" className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl border border-rose-500/40 bg-slate-900 p-6 text-slate-200" onKeyDown={event => {
       if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
       if (event.key === 'Tab') {
-        const buttons = dialog.current?.querySelectorAll('button');
-        if (!buttons?.length) return;
-        if (event.shiftKey && document.activeElement === buttons[0]) { event.preventDefault(); buttons[buttons.length - 1].focus(); }
-        else if (!event.shiftKey && document.activeElement === buttons[buttons.length - 1]) { event.preventDefault(); buttons[0].focus(); }
+        const controls = dialog.current?.querySelectorAll<HTMLElement>('button, textarea');
+        if (!controls?.length) return;
+        if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls[controls.length - 1].focus(); }
+        else if (!event.shiftKey && document.activeElement === controls[controls.length - 1]) { event.preventDefault(); controls[0].focus(); }
       }
     }}>
       <h2 id="genbank-refusal-title" className="mb-4 text-lg font-bold text-rose-300">Can't open this GenBank file</h2>
       {files.map((file, index) => <section key={index} className="mb-4">
         <h3 className="font-bold">{file.filename} wasn't loaded</h3>
-        <ul className="list-disc space-y-2 pl-5">{file.findings.slice(0, 20).map((f, i) => <li key={i}>Record {f.record.index} ({f.record.name}){f.feature ? ` · ${f.feature.key} ${f.feature.name}` : ''}{f.line ? ` · line ${f.line}` : ''}: {f.message}</li>)}</ul>
-        {file.findings.length > 20 && <p>and {file.findings.length - 20} more</p>}
+        <ul className="list-disc space-y-2 select-text break-words pl-5">{file.findings.map((f, i) => <li key={i}>{f.record && `Record ${f.record.index} (${f.record.name})${f.feature ? ` · ${f.feature.key} ${f.feature.name}` : ''}${f.line ? ` · line ${f.line}` : ''}: `}{f.message}</li>)}</ul>
       </section>)}
-      <div className="flex justify-end gap-4"><button onClick={() => void navigator.clipboard.writeText(importDetails(files))}>Copy details</button><button ref={close} onClick={onClose}>Close</button></div>
+      <div className="flex items-start justify-end gap-4"><CopyImportDetails files={files} /><button ref={close} onClick={onClose}>Close</button></div>
     </div>
   </div>;
 }
@@ -61,9 +81,9 @@ export function GenBankImportNotes({ files, onClear }: { files: ImportDiagnostic
       {files.map((file, i) => <section key={i}><h3>{file.filename}</h3>{[...new Set(file.findings.map(f => f.code))].map(code => {
         const group = file.findings.filter(f => f.code === code);
         const key = `${i}:${code}`;
-        return <div key={code}><h4>{code}: {group.length}</h4><ul>{(expanded.has(key) ? group : group.slice(0, 5)).map((f, index) => <li key={index}>{f.record.name} {f.feature?.name}: {f.message}</li>)}</ul>{group.length > 5 && !expanded.has(key) && <button onClick={() => setExpanded(new Set([...expanded, key]))}>Show all {group.length}</button>}</div>;
+        return <div key={code}><h4>{code}: {group.length}</h4><ul>{(expanded.has(key) ? group : group.slice(0, 5)).map((f, index) => <li key={index}>{f.record?.name} {f.feature?.name}: {f.message}</li>)}</ul>{group.length > 5 && !expanded.has(key) && <button onClick={() => setExpanded(new Set([...expanded, key]))}>Show all {group.length}</button>}</div>;
       })}</section>)}
-      <div className="mt-3 flex gap-4"><button onClick={() => void navigator.clipboard.writeText(importDetails(files))}>Copy details</button><button onClick={onClear}>Clear notes</button><button onClick={() => setOpen(false)}>Close</button></div>
+      <div className="mt-3 flex items-start gap-4"><CopyImportDetails files={files} /><button onClick={onClear}>Clear notes</button><button onClick={() => setOpen(false)}>Close</button></div>
     </div>}
   </div>;
 }

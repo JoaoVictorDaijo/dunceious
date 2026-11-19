@@ -297,7 +297,9 @@ it('writes and reads back per-row partial markers from the interval flags', () =
   const partial = feature({ type: 'misc_feature', name: 'p', operator: 'join', start: 0, end: 30,
     segments: [{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }] });
   const rows = lines(exportToGff3([record({ features: [partial] })]).text).slice(1);
-  expect(rows.map(row => [row[8].includes('insdc_partial_start=%3C'), row[8].includes('insdc_partial_end=%3E')])).toEqual([[true, false], [false, true]]);
+  expect(rows.map(row => row[8].split(';').filter(attr => /^(partial|start_range|end_range)=/.test(attr)))).toEqual([
+    ['partial=true', 'start_range=.,1'], ['partial=true', 'end_range=30,.'],
+  ]);
   const [imported] = parseGFF3(exportToGff3([record({ features: [partial] })]).text).features.seq_1;
   expect(imported.segments).toEqual([{ start: 0, end: 10, partialStart: true }, { start: 20, end: 30, partialEnd: true }]);
   expect(imported.metadata).not.toHaveProperty('_gffPartialEnds');
@@ -313,7 +315,7 @@ it('keeps the written order of a nested feature through GFF3', () => {
   const [imported] = parseGFF3(exportToGff3([circular]).text).features.seq_1;
   expect(imported.writtenOrder).toEqual([1, 0]);
   expect(featureEnvelope(imported)).toEqual({ start: 0, end: 12 });
-  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe(extractFeatureSequence(nested, circular.sequence).featureSeq);
+  expect(extractFeatureSequence(imported, circular.sequence).featureSeq).toBe('AGCACG');
   expect(imported.metadata).not.toHaveProperty('insdc_written_order');
 });
 
@@ -329,7 +331,7 @@ it('carries remote parts through GFF3 and counts them in the report', () => {
   expect(report.remotePartsCarried).toBe(1);
   expect(report.remoteOnlyOmitted).toBe(1);
   const [imported] = parseGFF3(text).features.seq_1;
-  expect(imported.remoteParts).toEqual(parsed.remoteParts);
+  expect(imported.remoteParts).toEqual([{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }]);
   expect(imported.metadata).not.toHaveProperty('insdc_remote');
 });
 
@@ -368,4 +370,15 @@ it('keeps the evaluation order of same-strand inner complements through GFF3', (
   expect(extractFeatureSequence(original, sequence).featureSeq).toBe('TTTCCC');
   expect(extractFeatureSequence(imported, sequence).featureSeq).toBe('TTTCCC');
   expect(imported.metadata).not.toHaveProperty('insdc_interval_strands');
+});
+
+it.each(['+', '-'])('reexports the NCBI partial boundaries of a %s gene', strand => {
+  const { features } = parseGFF3(`x\ts\tgene\t1\t9\t.\t${strand}\t.\tID=g;partial=true;start_range=.,1;end_range=9,.`);
+  const { text } = exportToGff3([{ id: 'x', name: 'x', sequence: 'ATGAAATAA', features: features.x }]);
+  const attrs = text.split('\n').find(row => row.includes('\tgene\t'))?.split('\t')[8].split(';');
+  expect(attrs).toEqual(expect.arrayContaining(['partial=true', 'start_range=.,1', 'end_range=9,.']));
+  expect(attrs?.some(attr => attr.startsWith('insdc_partial_'))).toBe(false);
+  expect(parseGFF3(text).features.x.find(feature => feature.type === 'gene')?.segments).toEqual([
+    { start: 0, end: 9, partialStart: true, partialEnd: true },
+  ]);
 });

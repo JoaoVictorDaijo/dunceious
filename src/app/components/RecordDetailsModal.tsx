@@ -20,6 +20,7 @@
 
 import { formatInsdcLocation, siteLabel } from '@/src/domain/bio/insdcLocation';
 import { displayLocation } from '@/src/app/logic/displayLocation';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { checkedTranslation, compareTranslation, isCds, storedTranslation, translationDescription } from '@/src/domain/bio/translation';
 import { readSearchHit, isSearchHitCurrent } from '@/src/domain/bio/searchHit';
 import { annotationDirection, showsAnnotationBases } from '@/src/app/viewer/annotationPresentation';
@@ -139,6 +140,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
   const current = feature ? isSearchHitCurrent(feature) : false;
   const multiInterval = !searchHit && (feature?.segments?.length ?? 0) > 1;
   const showBases = feature ? showsAnnotationBases(feature) : false;
+  const undrawnBond = feature ? isUndrawnProteinBond(feature) : false;
   const views = feature ? featureSequenceViews(record, feature) : null;
   const [view, setView] = useState<SequenceView>('feature');
   const viewGroup = useId();
@@ -174,7 +176,9 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
   const handleFocus = () => {
     if (!feature) return;
-    onFocusFeature(featureFocusTarget(record, feature));
+    const target = featureFocusTarget(record, feature);
+    if (!target) return;
+    onFocusFeature(target);
     onClose();
     onCopyLog(`Focusing on ${feature.name}`);
   };
@@ -234,7 +238,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </p>
               </div>
               {views && <div className="stack-y-1" data-feature-lengths="">
-                {invalidLocation ? <p>Invalid location</p> : <>
+                {undrawnBond ? <p>Bond position unavailable</p> : invalidLocation ? <p>Invalid location</p> : <>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Length</label>
                 <p className="text-sm font-mono font-bold text-slate-700">
                   {fmt(views.featureLength)} {unit}
@@ -320,7 +324,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
           )}
 
           {/* Sequence viewer */}
-          <div className="stack-y-3 pt-4 border-t border-slate-100">
+          {!undrawnBond && <div className="stack-y-3 pt-4 border-t border-slate-100">
             <div className="flex flex-wrap justify-between items-center gap-3">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 {feature ? 'Sequence' : 'Record Sequence (Raw)'}
@@ -368,7 +372,7 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
                 </span>
               </div>
             </div>
-          </div>
+          </div>}
 
           {comparison?.storedExtra && conceptual?.status === 'ok' && <TranslationExtras extra={comparison.storedExtra} offset={conceptual.residues.length} autoFocus />}
           {feature && isCds(feature) && <section aria-labelledby={diagnosticsHeading}>
@@ -418,14 +422,14 @@ const RecordDetailsModal: React.FC<RecordDetailsModalProps> = ({
 
         {/* Footer actions */}
         <div className="bg-slate-50 px-8 py-6 border-t border-slate-200 flex justify-end gap-3">
-          <button
+          {!undrawnBond && <button
             onClick={handleCopy}
             data-tip="Copy the sequence shown to the clipboard"
             className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase hover:bg-slate-100 hover:text-slate-800 transition-all flex items-center gap-2"
           >
             <i className="fas fa-copy"></i> Copy
-          </button>
-          {feature && (
+          </button>}
+          {feature && !undrawnBond && (
             <button
               onClick={handleFocus}
               data-tip="Open this annotation in the viewport, selected"

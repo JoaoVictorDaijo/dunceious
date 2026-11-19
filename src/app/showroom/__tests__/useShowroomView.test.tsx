@@ -74,6 +74,7 @@ describe('useShowroomView', () => {
     expect(expectedStart).toBeGreaterThan(spike.start);
 
     const target = featureFocusTarget(alpha, spike);
+    if (!target) throw new Error('Expected the placed spike annotation to have a focus target');
     expect(target).toMatchObject({ recordId: 'NC_003298', start: expectedStart, end: expectedEnd });
 
     act(() => result.current.focusOn(target));
@@ -93,6 +94,7 @@ describe('useShowroomView', () => {
     const { records, result } = viewHook();
     const alpha = records.find(record => record.id === 'NC_003298')!;
     const target = featureFocusTarget(alpha, alpha.features[0]);
+    if (!target) throw new Error('Expected the placed source annotation to have a focus target');
     const origin = { key: 'NC_003298:0', label: 'source' };
 
     act(() => result.current.setTab('features'));
@@ -115,6 +117,7 @@ describe('useShowroomView', () => {
     const { records, result } = viewHook();
     const alpha = records.find(record => record.id === 'NC_003298')!;
     const target = featureFocusTarget(alpha, alpha.features[0]);
+    if (!target) throw new Error('Expected the placed source annotation to have a focus target');
     act(() => result.current.focusFromHub(target, { key: 'NC_003298:0', label: 'source' }));
     act(() => result.current.dismissHubReturn());
     expect(result.current.showHubReturn).toBe(false);

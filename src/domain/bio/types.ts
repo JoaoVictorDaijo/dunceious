@@ -19,6 +19,15 @@
  */
 
 
+/** NCBI GFF3 open range, tied to one nominal 0-based segment boundary. */
+export interface GffBoundaryRange {
+  boundary: number;
+  /** The finite 1-based endpoint as written. */
+  limit: string;
+  /** The limit stays in the original virtual coordinates when the owning split row cannot carry it. */
+  lostAtOriginSplit?: true;
+}
+
 /**
  * A contiguous sub-range in the app's canonical coordinate model:
  * 0-based, half-open `[start, end)` — `start` inclusive, `end` exclusive.
@@ -36,6 +45,8 @@ export interface FeatureSegment {
   partialStart?: true;
   /** `>` after the end number: the interval ends somewhere after `end`. */
   partialEnd?: true;
+  gffStartRange?: GffBoundaryRange;
+  gffEndRange?: GffBoundaryRange;
 }
 
 /**
@@ -229,7 +240,7 @@ export interface SearchHitProvenance {
 export interface GenBankFinding {
   tier: 'refuse' | 'warning';
   code: string;
-  record: { name: string; index: number };
+  record?: { name: string; index: number };
   feature?: { key: string; name: string };
   line?: number;
   message: string;
@@ -238,6 +249,7 @@ export interface GenBankFinding {
 export interface SelectionLoss {
   record: string;
   feature: string;
+  key: string;
   reason: string;
   occurrence?: number;
   raw?: string;
@@ -263,6 +275,7 @@ export interface CodonProvenance {
   fragment: string;
   triplet: string;
   alignedIndices: number[];
+  baseStrands?: (1 | -1)[];
   ordinary: string;
   contextual: string;
   effective: string;

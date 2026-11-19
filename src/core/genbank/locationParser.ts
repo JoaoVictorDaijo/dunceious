@@ -43,23 +43,14 @@
  *   origin requirement is what separates a genuine wrap — contiguous around the
  *   origin, so it must include base 1 — from a scattered trans-splice
  *   (e.g. rps12), which is also out-of-order but whose parts sit mid-genome.
- *   For a genuine wrap:
- *     - `start` is set to the first segment's start (high number)
- *     - `end`   is set to the last  segment's end   (low  number)
- *   so that callers can detect circularity by checking `start > end`; a
- *   scattered join gets the ordinary linear envelope (min start … max end).
- *
- *   Accepted limitation: the origin start is necessary but not sufficient, so
- *   the check errs in both directions (both need the genome length, which this
- *   parser lacks, to resolve, and both are glyph-layout only):
- *     - false linear: a genuine wrap whose low part does not begin at base 1
- *       (base 1 inside an intron) is treated as linear;
- *     - false wrap: a scattered join that happens to include a segment at base 1
- *       is still flagged as a wrap (pre-existing; unchanged by this check).
- *   Both are near-impossible in real annotations.
+ *   The shared envelope uses the first written descent to cover intervals on both sides
+ *   of an inferred wrap (LOC-6 in docs/standards/locations.md).
  */
 
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
+import type { LocationRecord } from '@/src/domain/bio/featureParts';
+import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { containsBond, proteinBondEndpoints, undrawnProteinBondGeometry } from '@/src/domain/bio/proteinBond';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -70,7 +61,7 @@ export interface LocationData {
   end: number;
   operator?: LocationOperator;
   betweenBases?: true;
-  /** Written position of each stored segment, when it differs from the stored (evaluation) order. */
+  /** Written position of each stored segment in evaluation order. */
   writtenOrder?: number[];
   remoteParts?: RemotePart[];
 }
@@ -132,7 +123,7 @@ function parseCoord(el: string): Omit<FeatureSegment, 'strand'> {
   });
   const boundary = siteBoundary(el);
   if (boundary !== null) return { start: boundary, end: boundary };
-  const pair = el.match(/^([<>]?)(\d+)(?:\.\.|\^)([<>]?)(\d+)$/);
+  const pair = el.match(/^([<>]?)(\d+)\.\.([<>]?)(\d+)$/);
   if (pair) return { start: Number(pair[2]) - 1, end: Number(pair[4]), ...marks(pair[1], pair[3]) };
   const single = el.match(/^([<>]?)(\d+)$/);
   if (single) {
@@ -149,9 +140,16 @@ function locationOperator(text: string): LocationOperator | undefined {
   return match[1] === 'complement' ? locationOperator(match[2]) : match[1] as LocationOperator;
 }
 
-export function parseLocation(loc: string): LocationData {
-  const cleanLoc = loc.replace(/\s/g, '');
+export function parseLocation(loc: string, record?: LocationRecord, protein = false): LocationData {
+  const bond = protein ? proteinBondEndpoints(loc) : undefined;
+  if (bond) {
+    // The first residue anchors the glyph. The retained location text carries the bond itself.
+    const segment = { start: bond[0] - 1, end: bond[0] };
+    return { segments: [segment], strand: 1, ...segment };
+  }
+  if (protein && containsBond(loc)) return undrawnProteinBondGeometry();
 
+  const cleanLoc = loc.replace(/\s/g, '');
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;
   const body = outer ? outer[1] : cleanLoc;
@@ -195,31 +193,14 @@ export function parseLocation(loc: string): LocationData {
     // The parent strand is the majority (ties resolve to +1).
     segments = evaluated.map(interval => ({ ...strip(interval), strand: interval.strand }));
     strand = strands.filter(s => s === -1).length > strands.length / 2 ? -1 : 1;
-    if (evaluated.some((interval, i) => interval.written !== i)) writtenOrder = evaluated.map(interval => interval.written);
+    // An outer complement can leave the local order unchanged after its inner reversals.
+    if (outerComplement || evaluated.some((interval, i) => interval.written !== i)) writtenOrder = evaluated.map(interval => interval.written);
   } else {
     segments = written.map(strip);
     strand = strands[0] ?? 1;
   }
 
-  let start = 0;
-  let end = 0;
-
-  if (written.length > 0) {
-    const firstStart = written[0].start;
-    const lastEnd = written[written.length - 1].end;
-    const minStart = Math.min(...written.map(s => s.start));
-
-    // Origin wrap vs. scattered trans-splice: a genuine wrap is contiguous
-    // around the origin, so it includes base 1 (minStart === 0); a scattered
-    // join is also descending but sits mid-genome. See the file header.
-    if (written.length > 1 && firstStart > lastEnd && minStart === 0) {
-      start = firstStart;
-      end = lastEnd;
-    } else {
-      start = minStart;
-      end = Math.max(...written.map(s => s.end));
-    }
-  }
+  const { start, end } = featureEnvelope({ start: 0, end: 0, segments, writtenOrder }, record);
 
   return {
     segments, strand, start, end,
@@ -227,16 +208,4 @@ export function parseLocation(loc: string): LocationData {
     ...(writtenOrder && { writtenOrder }),
     ...(remoteParts.length > 0 && { remoteParts }),
   };
-}
-
-/**
- * INSDC FT 11.4 §3.4.2.1 against the record: `n^n+1` needs both bases inside it, and `n^1` is
- * allowed only on a circular molecule whose length is n. `parseLocation` cannot check this, as it
- * does not know the record.
- */
-export function siteFitsRecord(location: string, length: number, circular: boolean): boolean {
-  const site = location.replace(/\s/g, '').match(/^(?:complement\()?(\d+)\^(\d+)\)?$/);
-  if (!site) return false;
-  const [n, m] = [parseInt(site[1]), parseInt(site[2])];
-  return m === n + 1 ? n >= 1 && m <= length : m === 1 && n === length && circular;
 }

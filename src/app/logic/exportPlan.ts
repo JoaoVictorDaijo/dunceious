@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, DetailKey, SeqRecord } from '@/src/domain/bio/types';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
@@ -67,18 +67,23 @@ export function initialExportSelection(state: ExportSelectionState): { preset: '
 }
 
 /** Filtering uses original feature indices; source information is independent of annotation choices. */
+function matchesExportOptions(record: SeqRecord, feature: BioFeature, index: number, options: ExportOptions): boolean {
+  return (options.types === undefined || options.types.has(feature.type))
+    && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`));
+}
+
 export function exportRecordsForOptions(records: SeqRecord[], format: HubExportFormat, options: ExportOptions): SeqRecord[] {
   if (format !== 'genbank' && format !== 'gff3') return records;
   // Filtering must not hide the invalid CDS that makes a whole record ineligible.
   return records.map(record => format === 'genbank' && genBankExportProblem(record) ? record : ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
-    || (options.types === undefined || options.types.has(feature.type)) && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`))) }));
+    || matchesExportOptions(record, feature, index, options)) }));
 }
 
 /** Preview and download share this dispatch so the report describes the actual file. */
 export function serializeExport(records: SeqRecord[], format: HubExportFormat, options: ExportOptions = {}): ExportResult {
+  if (format === 'gff3') return exportToGff3(records, (record, feature, index) => matchesExportOptions(record, feature, index, options));
   const chosen = exportRecordsForOptions(records, format, options);
   if (format === 'genbank') return exportToGenBank(chosen);
-  if (format === 'gff3') return exportToGff3(chosen);
   if (format === 'fasta') return exportToFasta(chosen, { residues: options.residues ?? 'original', header: options.header ?? 'id' });
   const report = emptyReport();
   report.translationWarnings = chosen.flatMap(record => record.features
@@ -96,8 +101,8 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   if (format === 'project') return { report, summary: ['Every value, original file detail, edit state, display name, modifier and colour is kept.', ...report.translationWarnings].join(' ') };
   const written = Object.values(report.writtenDetails).reduce((a, b) => a + b, 0);
   const omitted = Object.values(report.invalidDetailsOmitted).reduce((a, b) => a + b, 0);
-  const notes = [format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.'];
-  notes.push(...report.translationWarnings, ...report.qualifierWarnings);
+  const introduction = format === 'fasta' ? 'Sequences only; no annotations.' : format === 'gff3' ? 'Annotations and source regions; no residues.' : 'Sequences and annotations with valid qualifiers.';
+  const notes = [...report.translationWarnings, ...report.qualifierWarnings, ...report.genBankFeaturesOmitted, ...report.gff3FeaturesOmitted.map(omitted => omitted.reason), ...report.gff3RangeWarnings];
   for (const omitted of report.genBankRecordsOmitted) notes.push(omitted.reason);
   if (report.unalignedRows.length) notes.push(`${report.unalignedRows.length} sequences aren't in the alignment and will be saved separately in ${(options.fileName ?? 'sequences.fasta').replace(/(\.[^.]*)?$/, '_unaligned$1')}`);
   if (written) notes.push(`${written} detail ${written === 1 ? 'value' : 'values'} written.`);
@@ -113,5 +118,7 @@ export function describeExport(records: SeqRecord[], format: HubExportFormat, op
   const { linearEdgeSite, invalidGeometry } = report.featuresWithoutInsdcLocation;
   if (linearEdgeSite) warnings.push(`${linearEdgeSite} ${linearEdgeSite === 1 ? 'feature' : 'features'} not written: ${linearEdgeSite === 1 ? 'a site' : 'sites'} at a linear sequence's edge ${linearEdgeSite === 1 ? 'has' : 'have'} no GenBank location`);
   if (invalidGeometry) warnings.push(`${invalidGeometry} ${invalidGeometry === 1 ? 'feature' : 'features'} not written: ${invalidGeometry === 1 ? 'its location is' : 'their location is'} invalid (outside the sequence or reversed)`);
-  return { report, summary: [notes.join(' '), ...warnings].join('\n') };
+  return { report, summary: (format === 'genbank'
+    ? [introduction, ...warnings, ...notes]
+    : [[introduction, ...notes].join(' '), ...warnings]).join('\n') };
 }

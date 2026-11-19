@@ -68,9 +68,8 @@ describe('parseLocation – single position and site', () => {
     expect(parseLocation(`${n}^1`)).toMatchObject({ start: n, end: n, betweenBases: true });
   });
 
-  // §3.4.2.1 permits only n^n+1 and the circular length^1; #298 refuses the rest on import.
-  it.each(['10^12', '11^10'])('never reads %s, whose bases are not adjoining, as a site', loc => {
-    expect(parseLocation(loc).betweenBases).toBeUndefined();
+  it.each(['10^12', '11^10'])('rejects nonadjoining caret descriptor %s', loc => {
+    expect(() => parseLocation(loc)).toThrow(`Unreadable location: ${loc}`);
   });
 });
 

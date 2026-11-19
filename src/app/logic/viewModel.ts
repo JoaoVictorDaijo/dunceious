@@ -122,7 +122,7 @@ export function featureSequenceViews(
 ): FeatureSequenceViews {
   const { sequence } = record;
   const alphabet = record.moleculeType === 'protein' ? 'protein' : complementAlphabet(sequence, record.moleculeType);
-  const envelope = featureEnvelope(feature);
+  const envelope = featureEnvelope(feature, { length: record.sequence.length, isCircular: record.isCircular });
   const location = formatInsdcLocation(feature, { length: sequence.length, isCircular: record.isCircular });
   const invalid = location.kind === 'no-insdc-form' && location.reason === 'invalid-geometry';
   return {

@@ -42,8 +42,13 @@ const named = (residue: string) => `${residue} (${names[residue] ?? 'unknown'})`
 const choices = (set: string) => [...set].map(named).join(', ');
 type TranslationRecord = Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular' | 'accession' | 'version'>;
 
-export function codonPrefix(feature: BioFeature, i: number, indices: number[]): string {
-  return `${feature.name}, ${getFeatureStrand(feature) === 1 ? 'forward' : 'reverse'} strand, codon ${i + 1}, bases ${indices.map(n => n + 1).join(', ')}.`;
+export function codonPrefix(feature: BioFeature, i: number, indices: number[], strands?: (1 | -1)[]): string {
+  const strandLabel = (strand: number) => strand === 1 ? 'forward strand' : 'reverse strand';
+  const firstStrand = strands?.[0] ?? feature.strand;
+  if (strands?.some(strand => strand !== firstStrand)) {
+    return `${feature.name}, codon ${i + 1}, bases ${indices.map((n, index) => `${n + 1} (${strandLabel(strands[index])})`).join(', ')}.`;
+  }
+  return `${feature.name}, ${strandLabel(firstStrand)}, codon ${i + 1}, bases ${indices.map(n => n + 1).join(', ')}.`;
 }
 
 function explained(feature: BioFeature, result: Extract<ConceptualTranslation, { status: 'ok' }>, c: CodonProvenance, residue: string, state: CodonMark['state'], hasStored: boolean, local?: LocalExceptionDescription): string {
@@ -80,7 +85,7 @@ export function codonMarks(feature: BioFeature, record: TranslationRecord, evide
     for (let i = 0; i < (stored?.length ?? 0); i++) {
       const indices = coding.alignedIndices.slice(i * 3, i * 3 + 3);
       if (!indices.length) break;
-      cells.push({ codonIndex: i, indices, residue: stored![i], state: 'unverified', description: `${codonPrefix(feature, i, indices)} Annotated ${named(stored![i])}. Cannot check against DNA: ${reason}. ${exceptionDescriptions.get(i)?.text ?? ''} ${summary}` });
+      cells.push({ codonIndex: i, indices, residue: stored![i], state: 'unverified', description: `${codonPrefix(feature, i, indices, coding.baseStrands?.slice(i * 3, i * 3 + 3))} Annotated ${named(stored![i])}. Cannot check against DNA: ${reason}. ${exceptionDescriptions.get(i)?.text ?? ''} ${summary}` });
     }
     return { ...empty, cells, summary, exceptionDescriptions, assumed: allowsAssumedCode(evidence) ? assumedTranslation(feature, coding.codingSeq) : undefined };
   }
@@ -94,7 +99,7 @@ export function codonMarks(feature: BioFeature, record: TranslationRecord, evide
     const state: CodonMark['state'] = c.terminalRemoved ? 'terminal' : stop ? residue === '*' ? 'early-stop' : 'hidden-stop'
       : differing.has(c.codonIndex) ? 'difference' : changed ? 'substitution' : 'ordinary';
     cells.push({ codonIndex: c.codonIndex, indices: c.alignedIndices, residue, state,
-      description: `${codonPrefix(feature, c.codonIndex, c.alignedIndices)} ${explained(feature, evidence, c, residue, state, !!stored, exceptionDescriptions.get(c.codonIndex))} ${summary}` });
+      description: `${codonPrefix(feature, c.codonIndex, c.alignedIndices, c.baseStrands)} ${explained(feature, evidence, c, residue, state, !!stored, exceptionDescriptions.get(c.codonIndex))} ${summary}` });
   }
   return { cells, summary, comparison, exceptionDescriptions, assumed: undefined };
 }

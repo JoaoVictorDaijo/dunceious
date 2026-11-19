@@ -23,6 +23,7 @@ import { beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { act, renderHook } from '@/src/app/testing/renderHarness';
 import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { importDetails } from '@/src/app/logic/genbankImport';
 import { useBioWorker } from '../useBioWorker';
 const Worker = createDeferredWorker(handleBioMessage);
 const gb = (id = 'A', unit = 'bp', residues = 'acgt', qualifiers = '') => `LOCUS ${id} 4 ${unit} DNA\nACCESSION   AB123\nVERSION     AB123.1\nFEATURES\n     CDS             1..4\n${qualifiers}ORIGIN\n 1 ${residues}\n//`;
@@ -94,4 +95,26 @@ it.each([false, true])('refuses the second category against the current committe
   act(() => h.worker.release(second.index)); await expect(second.promise).resolves.toMatchObject({ type: 'PARSE_REFUSED' });
   expect(h.result.current.records.map(r => r.id)).toEqual([proteinFirst ? 'P' : 'D']);
   expect(h.result.current.genBankRefusals[0].findings.map(f => f.code)).toContain('category-mismatch');
+});
+
+it('carries the curated mismatch through import notes, copied details and the activity log', async () => {
+  const h = setup();
+  const record = (id: string, protein: string) => `LOCUS       ${id} 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /gene="coding"
+                     /translation="${protein}"
+ORIGIN
+        1 atgaaataa
+//
+`;
+  const request = h.send(record('Curated', 'MQ') + record('Matching', 'MK'), 'proteins.gb');
+  act(() => h.worker.release(request.index));
+  const result = await request.promise;
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', findings: [
+    { tier: 'warning', code: 'translation-mismatch', record: { index: 1, name: 'Curated' }, feature: { key: 'CDS', name: 'coding' } },
+  ] });
+  expect(h.result.current.records[0].features[0].metadata?.translation).toBe('MQ');
+  expect(importDetails(h.result.current.importNotes)).toContain('Record 1 (Curated) / CDS coding: Stored /translation differs from the DNA-derived protein.');
+  expect(h.log).toHaveBeenCalledWith(expect.stringContaining('1 import notes (translation-mismatch)'));
 });

@@ -393,10 +393,10 @@ it('keeps imported provenance and file values intact during an alignment overlay
 });
 
 
-it('preserves circular topology from a whole-length GFF source through interchange exports', () => {
-  const imported = applyFastaResponse([], [{ id: 'circle', name: 'circle', sequence: 'A'.repeat(1000), features: [] }], false, 'circle.fa');
+it('preserves a matching circular record topology through interchange exports', () => {
+  const circular = rec({ id: 'circle', sequence: 'A'.repeat(1000), isCircular: true });
   const gff = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\ncircle\ts\tgene\t901\t1000\t.\t+\t.\tID=wrap\ncircle\ts\tgene\t1\t100\t.\t+\t.\tID=wrap');
-  const result = applyAnnotations(imported.next, gff.features, gff.details);
+  const result = applyAnnotations([circular], gff.features, gff.details);
   expect(result.next[0].isCircular).toBe(true);
   expect(result.next[0].features.find(f => f.type === 'gene')?.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
   expect(exportToGenBank(result.next).text).toMatch(/^LOCUS.*circular/m);
@@ -412,6 +412,17 @@ it('keeps a short circular Src candidate as an annotation without changing topol
   const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], gff.features, gff.details);
   expect(result.next[0].isCircular).toBeUndefined();
   expect(result.next[0].features[0].type).toBe('region');
+});
+
+it('refuses a wrapped GFF3 feature on a linear target even when the source region length differs', () => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAAA', features: [] };
+  const { features, details } = parseGFF3([
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x has a wrapped feature wrap, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
 });
 
 it('treats GFF-filled historical details as file data and keeps them in every interchange export', () => {

@@ -42,15 +42,22 @@ if Dunceious ever offers it, it must be labelled as such.
 **Applications.** Unknown for every application surveyed ([Tools](tools.md)).
 
 **Dunceious.** Conforms ([#225](https://github.com/JoaoVictorDaijo/dunceious/issues/225)). The
-parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`), so edits and
-selection export keep it, and a rebuilt location is written as `order(...)`. Readers ask
+parsed feature keeps its operator (`BioFeature.operator`, set by `parseLocation`). Selection
+projects retain this operator on surviving features. GenBank writes a rebuilt
+multipart ordered location as `order(...)`. Readers ask
 `isJoinedLocation` and `definesOneSequence` (`src/domain/bio/locationFlags.ts`), never the segment
 count, so an `order()` feature gets no connectors, frameshift junctions, translation or feature
 sequence, and its length reads "N bp in K intervals (not joined)" wherever a length is shown. Its
-intervals are drawn as separate bars that highlight together on hover. GFF3 has no operator, so
-export writes `insdc_operator=order` on each row and import reads it back. Projects saved before
+intervals are drawn as separate bars that highlight together on hover. GFF3 export writes the
+private attribute `insdc_operator=order` on each row and import reads it back, including for a
+single interval reopened from a project with an explicit operator. Projects saved before
 the field existed get it from their location text on load. Tested against O1 (Biopython 1.88
 write-back).
+
+**Owner decision 2026-11-18.** Every selection export omits a CDS clipped down to one part of an
+`order()` location and names the feature in the notice because the retained part gives no defined product or frame.
+GenBank export also omits and names a one-part ordered CDS when formatting would drop the
+operator. The preview and export log report the same reason.
 
 ## LOC-3. `complement()`, whole feature or per interval
 
@@ -76,13 +83,22 @@ full ([#241](https://github.com/JoaoVictorDaijo/dunceious/issues/241); checked a
 text applied by hand, no reference tool). The whole-feature J2 shape remains in written order
 with a parent strand; extraction reverse-complements the joined result once. Other per-strand
 shapes are stored in evaluation order with `writtenOrder`, the written position of each interval,
-and GenBank export rebuilds the nested written form from it. GFF3 rows cannot tell
+and GenBank export rebuilds the nested written form from it. An outer complement with nested
+strand evaluation keeps its local written ranks even when they are in evaluation order.
+Both GenBank and GFF3 expand
+the written ranks when an interval splits at the origin, including implicit identity ranks.
+An opposite-strand remote interval makes each local interval inherit its own direction from the
+feature, so export and selection resolve those directions before splitting and ranking the pieces.
+GFF3 rows cannot tell
 `join(complement(a),complement(b))` from `complement(join(a,b))`, so export marks per-interval
 strands with `insdc_interval_strands=true` and import reads each row on its own strand. Parser, extraction,
 view-model and details-window copy tests check the nested results against the INSDC oracle.
 Display and export share `formatInsdcLocation`. Without retained text, display uses equivalent
 per-part complements in evaluation order; GenBank export rebuilds the nested written form when
-re-parsing it recovers the stored intervals and strands.
+re-parsing it recovers the written ranks and the evaluated intervals, strands and partial endpoints.
+Remote parts retain their evaluation positions without contributing to the local written ranks or
+envelope. GFF3 and project files can represent permutations that INSDC location operators cannot
+express. For those permutations GenBank export preserves evaluation order in a flat location.
 
 ## LOC-4. Uncertain bounds
 
@@ -106,7 +122,8 @@ including on the end whose number changed; adding or removing one waits for the 
 toggles (#231, #246). A selection marks the kept interval facing anything it drops, a cut part or a
 whole interval. 5′/3′ partiality is read from the flags in evaluation order
 (`isFivePrimePartialLocation`, `isThreePrimePartialLocation`), and the details window names it.
-GFF3 carries the markers per row as `insdc_partial_start`/`insdc_partial_end`. Projects saved
+GFF3 writes NCBI partial boundaries for every feature type as described in
+[FMT-11](formats.md#fmt-11-strand-relative-gff3-cds-phase). Projects saved
 before the flags existed get them from their location text on load. Tested against P1 and the 13
 `table2asn` 1.29.324 cases pinned by #278.
 
@@ -126,12 +143,16 @@ EMBOSS 6.6.0, Tested: `seqret` round-trips it; `extractfeat` skips it as zero le
 site that is the whole location, its `complement()`, or a local part inside a compound location.
 `parseLocation` reads `n^n+1`, and `n^1` at the end of a circular record, as the empty interval at
 boundary n (`start === end`). Whole-site features carry `BioFeature.betweenBases` and readers ask
-`isBetweenBasesSite`; a site inside a compound remains a zero-length segment. The site has length 0, no feature
+`isBetweenBasesSite`; a site inside a compound remains a zero-length segment. CDS completeness
+uses the first and last residue-bearing intervals in biological order. The site has length 0, no feature
 sequence, and is drawn as a rule on the boundary with a caret under it. GenBank export writes it
 back as `n^n+1` or `n^1`; GFF3 writes the zero-length form (start = end = n) with
 `insdc_site=true`, so import can tell it from a one-base feature. A selection keeps a site only when
 both bases it lies between are selected. Import validation (#298) refuses a site whose bases do not
-adjoin or lie outside the record. Local site parts inside `join`/`order` export and re-import as zero-length intervals.
+adjoin or lie outside the record. The shared location parser reserves `^` for exact sites,
+including when it reads the GFF3 `insdc_remote` attribute. GFF3 import refuses remote
+sites and reports the row and descriptor, matching GenBank's unsupported-site rule. Local site parts inside
+`join`/`order` export and re-import as zero-length intervals.
 Linear-edge sites are skipped and counted in `featuresWithoutInsdcLocation.linearEdgeSite`.
 A site used as a span end remains unsupported and is refused on import. Tested against S1 (Biopython 1.88: `[10:10]`,
 written back as `10^11`).
@@ -150,16 +171,31 @@ GFF3 rows beyond the end only for circular references
 
 **Dunceious.** Partial. Extraction is correct (W1). Display and export share
 `formatInsdcLocation`, including explicit wrapped segments. Invalid geometry has no INSDC
-form: the editor blocks Save, project import keeps it, and GenBank export skips it with a
-warning. Invalid geometry yields no derived feature or region sequence and no translation
+form: the editor blocks Save and GenBank export skips it with a warning. Project import
+keeps structured geometry as stored when there is no retained location text. When a descriptor
+is retained, project import validates it and refuses conflicts with the stored geometry under the
+[project validation contract](formats.md#fmt-14-private-project-schema). Invalid geometry yields
+no derived feature or region sequence and no translation
 lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
-piece once any piece has one. A wrap is inferred only when the first
-interval starts after the last ends **and** one interval starts at base 1
-(`src/core/genbank/locationParser.ts`). The parser and `featureEnvelope` apply that heuristic
-in written order, including when a nested outer complement reverses sequence evaluation order.
-`featureEnvelope` reads that order from `writtenOrder` (LOC-3), so an edit that clears the text no
-longer infers a false wrap; GFF3 carries it as `insdc_written_order`. GFF3 export writes
-the parts as separate in-bounds rows sharing one ID, not the beyond-end form (`src/core/formats/gff3.ts:161-188`).
+piece once any piece has one. On a linear record, the envelope uses the minimum start and maximum
+end of the local intervals. On a circular record, a wrap is inferred only when the first interval
+starts after the last ends **and** one interval starts at base 1. For an inferred wrap, the first
+descent in written order splits the high and low sides. The envelope starts at the minimum
+start on the high side and ends at the maximum end on the low side. If the sides meet or
+overlap, the envelope uses the linear minimum start and maximum end. GenBank import,
+geometry editing and retained-location validation share this rule, including when a nested
+outer complement reverses sequence evaluation order. Explicit wrapped intervals in multipart
+features contribute both origin-side pieces in written order when the record length is known.
+`featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
+GFF3 export writes separate in-bounds rows sharing one ID. Import applies the same envelope rule
+with or without a part reaching the landmark end. Sorted rows that touch both sides of the
+origin can be rotated at the largest internal gap before computing the envelope.
+For explicit per-part strands, rows
+follow evaluation order and `insdc_written_order` carries each row's written rank, including
+when an explicit minus-strand wrap splits into two rows. With remote parts, import derives the
+envelope from the local written order without rotating the rows relative to the remote positions.
+A selection of the full, unchanged circular
+sequence keeps the record topology and feature geometry.
 
 ## LOC-7. The sequence of a multi-interval feature
 
@@ -252,4 +288,42 @@ Legal but unsupported one-of positions and span-end sites are refused separately
 locations (LOC-8) are read. Selection export keeps each compound site only when both
 neighbouring bases are selected; otherwise the selection-loss notice names its omission.
 Remote intervals are not
-local segments, so they are never tested against local sequence bounds. Existing saved project handling is unchanged.
+local segments, so they are never tested against local sequence bounds. Saved projects follow the
+[project validation contract](formats.md#fmt-14-private-project-schema).
+
+GenPept places only the local forms `bond(a,b)` and `bond(a)`, where each endpoint contains
+only ASCII digits. A local descriptor has no whitespace inside its parentheses. The
+[NCBI C++ Toolkit data model](https://ncbi.github.io/cxx-toolkit/pages/ch_datamod#bond-a-chemical-bond-between-two-residues)
+defines the endpoints as residues connected by a chemical bond. The
+[NCBI flat-file formatter](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L449-L463)
+writes the second point when available. Import checks each residue position against the protein
+length. The first residue anchors the glyph and the retained descriptor carries the bond through
+GenBank export and project reopen.
+
+A selection export keeps a local bond only when every recorded endpoint is selected. It rebases
+all retained endpoints to the selection and names any omitted bond in the same notice used for
+between-base sites. This applies to project JSON and GenPept selection exports.
+
+Every other GenPept location containing `bond(` is opaque, including `bond(1 2,6)`.
+Import keeps the descriptor in saved projects and preserves opaque descriptor text in GenPept
+exports when that text still reads as opaque. Import skips location grammar and sequence ID and
+version checks for opaque bonds. This covers fuzzy bonds and compound descriptors, including the
+[wrappers](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463)
+and [remote ID forms](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L710-L732)
+emitted by the NCBI flat-file formatter.
+
+An endpoint also stays opaque when a line wrap separates its digits and the text at the wrap
+contains whitespace beyond the standard continuation indentation. Location lines are still
+trimmed and joined as usual. A wrap at a comma or a digit wrap with only the standard
+indentation leaves a strict local form eligible for placement. Saved projects retain the joined
+descriptor and its empty geometry. GenPept export omits an opaque bond whose joined text would
+reimport as a strict local form and names the feature and descriptor in the export report.
+
+The general location text restrictions on control characters and line/paragraph separators still
+apply. Opaque locations supply no geometry, including for other positions in a compound
+descriptor. Import issues one notice per record naming the undrawn bonds. Selection exports
+omit them with the same named notice as other omitted bonds. GFF3 export omits and names them
+because a GFF3 row requires a position. Project reopen refuses any stored anchor that conflicts
+with the descriptor's empty geometry and names the bond. The metadata editor keeps the imported
+location read-only and saves qualifier and other metadata edits with the descriptor unchanged.
+Nucleotide import refuses bond locations.

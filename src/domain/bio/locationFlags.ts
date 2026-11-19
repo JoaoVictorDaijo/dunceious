@@ -20,6 +20,8 @@
 
 import type { BioFeature, FeatureSegment } from './types';
 
+export const SINGLE_ORDER_CDS_OMISSION = 'CDS omitted; one part of an order() CDS gives no defined product or frame';
+
 /**
  * `order()` (INSDC FT 11.4 §3.4.2.2): nothing is implied about joining the intervals (LOC-2).
  * The raw text answers only for features loaded before `operator` existed.
@@ -38,10 +40,9 @@ export function isJoinedLocation(feature: Pick<BioFeature, 'operator' | 'segment
   return (feature.segments?.length ?? 0) > 1 && !isOrderLocation(feature) && !feature.remoteParts?.length;
 }
 
-/** One interval, or intervals under `join`, all in this record: the location defines one sequence (LOC-7). */
+/** An ordered location never defines a joined sequence, even if clipping leaves only one interval. */
 export function definesOneSequence(feature: Pick<BioFeature, 'operator' | 'segments' | 'locationString' | 'remoteParts'>): boolean {
-  if (feature.remoteParts?.length) return false;
-  return (feature.segments?.length ?? 0) <= 1 || isJoinedLocation(feature);
+  return !feature.remoteParts?.length && !isOrderLocation(feature);
 }
 
 /** An INSDC `n^n+1` site (LOC-5): zero bases at the boundary `start`, which must equal `end`. */
@@ -90,12 +91,13 @@ function evaluatedIntervals(feature: Partial<Pick<BioFeature, 'strand' | 'segmen
   const perSegment = (feature.segments ?? []).some(segment => segment.strand !== undefined)
     || (feature.remoteParts ?? []).some(part => part.strand !== strand);
   const ordered = !perSegment && strand === -1 ? [...segments].reverse() : segments;
-  return ordered.map(segment => ({ segment, strand: segment.strand ?? strand }));
+  return ordered.filter(segment => segment.start !== segment.end)
+    .map(segment => ({ segment, strand: segment.strand ?? strand }));
 }
 
 /**
- * Whether the 5′ end of the sequence a location defines is partial: the marker on the interval read
- * first, `<` on its start when read forward or `>` on its end when complemented.
+ * Whether the first residue-bearing interval is partial at its 5′ end: `<` on its start when
+ * read forward or `>` on its end when complemented.
  */
 export function isFivePrimePartialLocation(feature: Partial<Pick<BioFeature, 'strand' | 'segments' | 'remoteParts'>>): boolean {
   const first = evaluatedIntervals(feature)[0];
@@ -103,7 +105,7 @@ export function isFivePrimePartialLocation(feature: Partial<Pick<BioFeature, 'st
 }
 
 /**
- * Whether the 3′ end is partial: the marker on the interval translated last, `>` on its end when
+ * Whether the 3′ end is partial: the marker on the last residue-bearing interval, `>` on its end when
  * read forward or `<` on its start when complemented. A marker on any other end leaves the 3′ end
  * complete, as the NCBI validator (table2asn 1.29.324) reads it.
  */

@@ -143,9 +143,6 @@ it('refuses partly stranded pieces naming the feature, retains invalid geometry,
   expect(JSON.parse(serializeProject({ ...state, records: [{ ...record, features: [invalid] }] })).records[0].features[0]).not.toHaveProperty('biological');
 });
 
-// Projects saved before features carried `operator` and `betweenBases` hold order() and n^n+1 only
-// in locationString, which the first edit clears. Loading reads both from that text (INSDC FT 11.4
-// §3.4.2.1-2), so an edit cannot turn order() into join() or keep a site two bases wide.
 describe('project locations saved before operators and sites', () => {
   const load = (feature: Record<string, unknown>, extra: Partial<SeqRecord> = {}) => {
     const legacy = { ...record, sequence: 'A'.repeat(30), alignedSequence: undefined, ...extra,
@@ -159,13 +156,13 @@ describe('project locations saved before operators and sites', () => {
     expect(load({ start: 0, end: 13, segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(1..3,11..13)' }).operator).toBe('order');
   });
 
-  it('re-reads a site saved with the two-base geometry as zero bases', () => {
-    expect(load({ start: 9, end: 11, segments: [{ start: 9, end: 11 }], locationString: '10^11' }))
+  it('recovers an omitted site marker and segment when the saved envelope agrees', () => {
+    expect(load({ start: 10, end: 10, locationString: '10^11' }))
       .toMatchObject({ start: 10, end: 10, segments: [{ start: 10, end: 10 }], betweenBases: true });
   });
 
-  it('leaves a site that does not fit its record as saved', () => {
-    expect(load({ start: 29, end: 1, locationString: '30^1' })).toMatchObject({ start: 29, end: 1 });
+  it('refuses inconsistent legacy origin-site geometry on a linear record', () => {
+    expect(() => load({ start: 29, end: 1, locationString: '30^1' })).toThrow(/Feature f.*30\^1.*between-base positions do not adjoin/);
   });
 
   it.each([{ operator: 'splice' }, { betweenBases: 'yes' }])('refuses the invalid location field %o', field => {
@@ -173,6 +170,27 @@ describe('project locations saved before operators and sites', () => {
       features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 0, end: 1, ...field } as never] }] }));
     expect(result.ok).toBe(false);
   });
+});
+
+it('reopens a saved protein bond with its literal descriptor and first-residue geometry', () => {
+  const bond = {
+    type: 'Bond', name: 'Bond', strand: 1 as const, start: 1, end: 2,
+    segments: [{ start: 1, end: 2 }], locationString: 'bond(2,6)',
+  };
+  const records: SeqRecord[] = [{ id: 'protein', name: 'protein', moleculeType: 'protein', sequence: 'MCAAVC', features: [bond] }];
+  const result = parseProject(serializeProject({ ...state, records }));
+  expect(result).toMatchObject({ ok: true, project: { records: [{ features: [bond] }] } });
+});
+
+it('refuses a saved interval that disagrees with a retained between-base site', () => {
+  const records = [{ id: 'x', name: 'x', sequence: 'ACGT', features: [{
+    type: 'misc_feature', name: 'cut', strand: 1, start: 1, end: 3,
+    segments: [{ start: 1, end: 3 }], locationString: '2^3',
+  }] }];
+  const result = parseProject(JSON.stringify({
+    format: 2, records, featureColors: {}, showAnnotations: true, showTranslation: false, showConservation: false,
+  }));
+  expect(result).toEqual({ ok: false, message: 'Feature cut location "2^3" disagrees with its stored geometry.' });
 });
 
 // LOC-4 for projects saved before the partial flags existed: the text still holds < and >, and the
@@ -191,9 +209,9 @@ describe('project partial ends saved before the flags', () => {
       .toEqual([{ start: 0, end: 20, partialStart: true }]);
   });
 
-  it('leaves segments alone when they no longer match the text', () => {
-    expect(load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }).segments)
-      .toEqual([{ start: 0, end: 15 }]);
+  it('refuses segments whose coordinates disagree with the retained text', () => {
+    expect(() => load({ start: 0, end: 15, segments: [{ start: 0, end: 15 }], locationString: '<1..20' }))
+      .toThrow(/Feature c.*<1\.\.20.*stored geometry/);
   });
 });
 
@@ -259,13 +277,11 @@ it('refuses damaged residues and unequal alignment widths, and accepts valid ali
   expect(parseProject(serializeProject(state)).ok).toBe(true);
 });
 
-// Codex review of #306, round 3: a saved location the parser cannot read (here the obsolete 2.3)
-// leaves the feature as saved instead of failing the whole project load.
-it('loads a project whose saved location text cannot be parsed, keeping the feature as saved', () => {
-  const legacy = { ...record, sequence: 'ACGT', alignedSequence: undefined,
-    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' } as never] };
-  const result = parseProject(serializeProject({ ...state, records: [legacy] }));
-  expect(result.ok && result.project.records[0].features[0]).toMatchObject({ start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' });
+it('refuses an unsupported legacy single-base range in retained location text', () => {
+  const legacy: SeqRecord = { ...record, sequence: 'ACGT', alignedSequence: undefined,
+    features: [{ type: 'misc_feature', name: 'f', strand: 1, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: '2.3' }] };
+  expect(parseProject(serializeProject({ ...state, records: [legacy] }))).toEqual({ ok: false,
+    message: 'Feature f location "2.3" uses a one-of position, which Dunceious cannot place yet.' });
 });
 
 it.each(['imported', 'computed'])('discards forged protein cache and enforces %s provenance', source => {
@@ -308,4 +324,33 @@ it('accepts a complete reversed permutation and exports it', () => {
   expect(opened.ok).toBe(true);
   if (!opened.ok) throw new Error(opened.message);
   expect(exportToGenBank(opened.project.records).text).toContain('complement(join(3..4,complement(1..2)))');
+});
+
+it('refuses a structured CDS join paired with retained order text', () => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGCCCTAA', alignedSequence: undefined, features: [{
+    type: 'CDS', name: 'contradiction', strand: 1, start: 0, end: 9, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }],
+    operator: 'join', locationString: 'order(1..3,7..9)',
+  }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
+    message: 'Feature contradiction location "order(1..3,7..9)" disagrees with its stored operator.' });
+});
+
+it('refuses an unreadable retained location alongside a valid structured CDS', () => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGAAATAA', alignedSequence: undefined, features: [{
+    type: 'CDS', name: 'unreadable', strand: 1, start: 0, end: 9, segments: [{ start: 0, end: 9 }],
+    locationString: 'join(1..3,2^>3)',
+  }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toEqual({ ok: false,
+    message: 'Feature unreadable location "join(1..3,2^>3)" could not be read.' });
+});
+
+it.each([
+  { location: '9^1', reason: 'between-base positions do not adjoin', start: 9, end: 9, betweenBases: true as const, segments: [{ start: 9, end: 9 }] },
+  { location: 'join(1..3,order(4..9))', reason: 'mixes join and order', start: 0, end: 9, segments: [{ start: 0, end: 3 }, { start: 3, end: 9 }] },
+])('refuses invalid retained location $location even when structured parts agree', ({ location, reason, ...geometry }) => {
+  const records: SeqRecord[] = [{ ...record, sequence: 'ATGAAATAA', alignedSequence: undefined, isCircular: false,
+    features: [{ ...geometry, type: 'misc_feature', name: 'invalid', strand: 1, locationString: location }] }];
+  expect(parseProject(serializeProject({ ...state, records }))).toMatchObject({
+    ok: false, message: `Feature invalid location "${location}" ${reason}.`,
+  });
 });

@@ -18,6 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { featureFocusTarget } from '../focusTarget';
+import { featureSequenceViews } from '../viewModel';
 import { describe, it, expect, vi } from 'vitest';
 import {
   saveEditedFeature,
@@ -33,6 +35,7 @@ import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { parseGenBank } from '@/src/core/genbank';
 import { extractCodingSequence } from '@/src/domain/bio/sequence';
+import { parseProject, serializeProject } from '../projectFile';
 import { metadataFromRows, qualifierRows } from '../qualifiers';
 
 const feat = (o: Partial<BioFeature> & { name: string }): BioFeature => ({
@@ -159,9 +162,10 @@ it('synchronizes the envelope after extending an edited segment', () => {
 
 it('synchronizes an edited circular join without flattening its wrap', () => {
   const feature = feat({ name: 'origin', start: 80, end: 20,
-    segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] });
+    segments: [{ start: 80, end: 100 }, { start: 0, end: 20 }] });
   const records = [rec({ id: 'r1', sequence: 'A'.repeat(100), isCircular: true, features: [feature] })];
-  expect(saveEditedFeature(records, 'r1', 0, feature)[0].features[0]).toMatchObject({ start: 70, end: 30 });
+  const edited = { ...feature, segments: [{ start: 70, end: 100 }, { start: 0, end: 30 }] };
+  expect(saveEditedFeature(records, 'r1', 0, edited)[0].features[0]).toMatchObject({ start: 70, end: 30 });
 });
 it('does not revive an imported phase after deleting codon_start in the editor', () => {
   const [feature] = parseGFF3('r1\ts\tCDS\t1\t10\t.\t+\t1\tID=c').features.r1;
@@ -274,6 +278,17 @@ it.each(['CDS', 'misc_feature'])('refuses an empty-part %s edit without changing
   expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: protected: a location must contain at least one segment; Save refused');
 });
 
+it('refuses replacing an undrawn bond location with a placed interval', () => {
+  const bond = feat({ type: 'Bond', name: 'Bond', start: 0, end: 0, segments: [], locationString: 'bond(<2,6)' });
+  const record = rec({ id: 'PROT', moleculeType: 'protein', sequence: 'MCAAVC', features: [bond] });
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...bond, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: undefined,
+  }, log);
+  expect(saved).toBe(record);
+  expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: Bond: the imported bond location is read-only; Save refused');
+});
+
 it.each([0, -1])('keeps a remote-only location saveable at feature index %i', featureIndex => {
   const original = feat({ name: 'remote', segments: [{ start: 0, end: 5 }],
     remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 1 }] });
@@ -283,4 +298,70 @@ it.each([0, -1])('keeps a remote-only location saveable at feature index %i', fe
     remoteParts: [{ ...original.remoteParts![0], index: 0 }] }, log);
   expect(saved.features[0]).toMatchObject({ segments: [], remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 0 }] });
   expect(log).not.toHaveBeenCalled();
+});
+
+it('preserves the curated imported protein on a note-only Save with empty code-break rows', () => {
+  const [record] = parseGenBank(`LOCUS       curated 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /translation="MQ"
+ORIGIN
+        1 atgaaataa
+//`).records;
+  const [feature] = record.features;
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...feature, metadata: { ...feature.metadata, note: 'checked' }, translationExceptions: [],
+  });
+  expect(saved.features[0].metadata).toMatchObject({ translation: 'MQ', _translationSource: 'imported', note: 'checked' });
+});
+
+it('removes an inherited protein version when an annotation stops being a CDS', () => {
+  const feature = feat({ type: 'CDS', name: 'c', end: 9, segments: [{ start: 0, end: 9 }],
+    metadata: { translation: 'MK', protein_id: 'AAA12345.1' } });
+  const record = rec({ id: 'r', sequence: 'ATGAAATAA', features: [feature] });
+  const notice = vi.fn();
+  const [saved] = saveEditedFeature([record], 'r', 0, { ...feature, type: 'misc_feature' }, notice);
+  expect(saved.features[0].metadata).not.toHaveProperty('protein_id');
+  expect(notice).toHaveBeenCalledWith(expect.stringContaining('/protein_id "AAA12345.1" removed'));
+});
+
+it('keeps a circular CDS envelope and curated protein through note Save and project reopen', () => {
+  const [record] = parseGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     CDS             join(10..12,1..3,7..9,4..6)
+                     /translation="MQAF"
+ORIGIN
+        1 CAGTTTCCCATG
+//`).records;
+  const [feature] = record.features;
+  const expected = {
+    start: 0, end: 12, operator: 'join', strand: 1,
+    segments: [{ start: 9, end: 12 }, { start: 0, end: 3 }, { start: 6, end: 9 }, { start: 3, end: 6 }],
+    locationString: 'join(10..12,1..3,7..9,4..6)',
+    metadata: { translation: 'MQAF', _translationSource: 'imported', note: 'checked' },
+  };
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...feature, metadata: { ...feature.metadata, note: 'checked' }, translationExceptions: [],
+  });
+  const opened = parseProject(serializeProject({
+    records: [saved], featureColors: {}, showAnnotations: true, showTranslation: true, showConservation: false,
+  }));
+
+  expect.soft(saved.features[0]).toMatchObject(expected);
+  expect(opened).toMatchObject({ ok: true, project: { records: [{ features: [expected] }] } });
+});
+
+it('covers every annotated base in the region and focus of a shuffled circular join', () => {
+  const [record] = parseGenBank(`LOCUS       x 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     misc_feature    join(10..12,1..2,7..8,3..4)
+ORIGIN
+        1 ACGTACGTACGT
+//`).records;
+  const [feature] = record.features;
+  expect(feature).toMatchObject({ start: 9, end: 8 });
+  expect(featureSequenceViews(record, feature)).toMatchObject({ region: 'CGTACGTACGT', regionLength: 11 });
+  expect(featureFocusTarget(record, feature)).toMatchObject({ start: 9, end: 8 });
+  const gff = parseGFF3(exportToGff3([record]).text);
+  expect(gff.features.x.find(feature => feature.type === 'misc_feature')).toMatchObject({ start: 9, end: 8 });
 });

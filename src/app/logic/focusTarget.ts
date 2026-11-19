@@ -21,6 +21,7 @@
 import { alignedEnvelope, displayTracks } from '@/src/domain/bio/quantitativeTracks';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { transposeInterval } from '@/src/domain/bio/coordinate';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import type { BioFeature, SelectionArea, SeqRecord, QuantitativeTrack } from '@/src/domain/bio/types';
 import { featureLength, featureLengthText } from './viewModel';
 
@@ -37,8 +38,9 @@ export interface FocusTarget {
 }
 
 /** Frames the feature's whole envelope, so every part of a joined feature is in view. */
-export function featureFocusTarget(record: SeqRecord, feature: BioFeature): FocusTarget {
-  const bounds = featureEnvelope(feature);
+export function featureFocusTarget(record: SeqRecord, feature: BioFeature): FocusTarget | null {
+  if (isUndrawnProteinBond(feature)) return null;
+  const bounds = featureEnvelope(feature, { length: record.sequence.length, isCircular: record.isCircular });
   const { start, end } = record.alignedSequence
     ? transposeInterval(bounds.start, bounds.end, record.alignedSequence)
     : bounds;

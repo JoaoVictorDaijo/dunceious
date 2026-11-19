@@ -23,6 +23,7 @@ import type { SeqRecord, BioFeature, QuantitativeTrack, DisplayTrack } from '@/s
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, ANNOT_LANE_GAP, AA_ROW_HEIGHT, NT_ROW_HEIGHT } from './constants';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import type { SearchResult } from '@/src/domain/bio/types';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { showsAnnotationBases } from './annotationPresentation';
 import { assignTranslationLanes, NO_TRANSLATION_LANES, type TranslationLanes } from './cds';
 
@@ -103,7 +104,7 @@ function annotationPackingFor(record: SeqRecord): AnnotationPacking {
     && feature.start >= 0 && feature.end >= 0 && feature.start <= genomeLength && feature.end <= genomeLength);
   const rows: { firstStart: number; lastEnd: number; intervals: { start: number; end: number }[] }[] = [];
   const laneHasBases: boolean[] = [];
-  const placements = [...record.features].sort((a, b) => a.start - b.start).map(feature => {
+  const placements = record.features.filter(feature => !isUndrawnProteinBond(feature)).sort((a, b) => a.start - b.start).map(feature => {
     const { start, end } = feature;
     const wraps = start > end;
     const intervals = bounded ? [] : wraps

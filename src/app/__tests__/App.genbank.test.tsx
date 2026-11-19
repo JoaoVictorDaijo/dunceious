@@ -77,6 +77,16 @@ it.each([false, true])('shows one accumulated refusal dialog in arrival order wi
   expect(screen.queryByRole('alertdialog')).toBeNull();
 });
 
+it('shows and copies an empty GenBank refusal without a record label', async () => {
+  const h = setup();
+  await h.pick([new File([' \t\r\n'], 'empty.gb')]);
+  await h.release('empty.gb');
+  const dialog = screen.getByRole('alertdialog', { name: "Can't open this GenBank file" });
+  expect(within(dialog).getByRole('listitem').textContent).toBe('No GenBank record found.');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Copy details' }));
+  expect(h.writeText).toHaveBeenCalledWith('empty.gb\nNo GenBank record found.');
+});
+
 it('opens the real status notes, expands and copies all seven, and clears without removing records', async () => {
   const h = setup(); await h.pick([new File([sevenNotes], 'notes.gb')]); await h.release('notes.gb');
   const status = h.container.querySelector('.app-status')!;

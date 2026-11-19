@@ -144,11 +144,29 @@ export function codonSpans(indices: number[], positions: ArrayLike<number> | nul
 }
 
 type Frame = 0 | 1 | 2;
+type StrandFrame = Frame | -1 | -2 | -3;
+
+/** A feature can occupy the same frame index on both sides of the nucleotide row. */
+export function translationLaneKey(strand: 1 | -1, frame: Frame): StrandFrame {
+  return strand === 1 ? frame : (-(frame + 1) as StrandFrame);
+}
+
+/** One codon stays in the lane of its first biological base, including across a strand change. */
+export function codonDisplayAnchor(
+  coding: ReturnType<typeof extractCodingSequence>,
+  offset: number,
+  featureStrand: 1 | -1,
+  positions: ArrayLike<number> | null,
+): { strand: 1 | -1; frame: Frame } {
+  const index = coding.alignedIndices[offset];
+  const strand = coding.baseStrands?.[offset] ?? featureStrand;
+  return { strand, frame: codonFrame(positions ? positions[index] : index, strand) };
+}
 
 /** Amino-acid row assignment for a record's translated CDS/ORF features. */
 export interface TranslationLanes {
-  /** Lane of each feature's codons per reading frame, counted outward from the nucleotide row. */
-  laneOf: Map<BioFeature, Map<Frame, number>>;
+  /** Lane of each feature's codons per strand and reading frame, counted outward from the nucleotide row. */
+  laneOf: Map<BioFeature, Map<StrandFrame, number>>;
   /** Row counts include space for invalid-frame warnings, which have no codon assignment. */
   forward: number;
   reverse: number;
@@ -171,61 +189,61 @@ export const assignTranslationLanes = (
 ): TranslationLanes => {
   if (moleculeType === 'protein') return NO_TRANSLATION_LANES;
   const positions = seq.includes('-') ? alignedToOriginalPositions(seq) : null;
-  const laneOf = new Map<BioFeature, Map<Frame, number>>();
-  const pack = (strand: 1 | -1) => {
-    const units: { feature: BioFeature; frame: Frame; spans: { start: number; end: number }[] }[] = [];
-    features
-      .filter(f => validCodonStart(f.metadata?.codon_start) && isTranslatedFeature(f) && getFeatureStrand(f) === strand)
-      .forEach(f => {
-        if (isCds(f)) {
-          const result = checkedTranslation(f, { sequence: seq, moleculeType, ...topology });
-          if (result.status === 'unavailable' && !storedTranslation(f)
-            && !allowsAssumedCode(result)) return;
-        }
-        const { codingSeq, alignedIndices } = extractCodingSequence(resolvedTranslationFeature(f), seq, topology);
-        const spans = new Map<Frame, { start: number; end: number }[]>();
-        for (let j = 0; j < codingSeq.length; j += 3) {
-          const startIdx = alignedIndices[j];
-          const endIdx = alignedIndices[Math.min(j + 2, alignedIndices.length - 1)];
-          if (startIdx === undefined || endIdx === undefined) continue;
-          const frame = codonFrame(positions ? positions[startIdx] : startIdx, strand);
-          const pieces = codonSpans(alignedIndices.slice(j, j + 3), positions);
-          const frameSpans = spans.get(frame) ?? [];
-          frameSpans.push(...pieces);
-          spans.set(frame, frameSpans);
-        }
-        if (isCds(f) && storedTranslation(f)) {
-          const result = checkedTranslation(f, { sequence: seq, moleculeType, ...topology });
-          if (result.status === 'ok') {
-            const comparison = compareTranslation(storedTranslation(f)!, result);
-            const last = alignedIndices.at(-1);
-            if ((comparison.storedExtra || comparison.storedShortBy) && last !== undefined) {
-              const anchor = alignedIndices[Math.floor((alignedIndices.length - 1) / 3) * 3];
-              const frame = codonFrame(positions ? positions[anchor] : anchor, strand);
-              const pieces = spans.get(frame) ?? [];
-              pieces.push(strand === 1 ? { start: last + 1, end: last + 31 } : { start: last - 30, end: last });
-              spans.set(frame, pieces);
-            }
-          }
-        }
-        spans.forEach((pieces, frame) => {
-          const merged: { start: number; end: number }[] = [];
-          pieces.sort((a, b) => a.start - b.start).forEach(piece => {
-            const last = merged[merged.length - 1];
-            if (last && piece.start <= last.end) last.end = Math.max(last.end, piece.end);
-            else merged.push({ ...piece });
-          });
-          units.push({ feature: f, frame, spans: merged });
-        });
+  const laneOf = new Map<BioFeature, Map<StrandFrame, number>>();
+  type Unit = { feature: BioFeature; key: StrandFrame; spans: { start: number; end: number }[] };
+  const byStrand: Record<1 | -1, Unit[]> = { 1: [], [-1]: [] };
+  for (const feature of features) {
+    const featureStrand = getFeatureStrand(feature);
+    if (typeof featureStrand !== 'number' || !validCodonStart(feature.metadata?.codon_start) || !isTranslatedFeature(feature)) continue;
+    const result = isCds(feature) ? checkedTranslation(feature, { sequence: seq, moleculeType, ...topology }) : undefined;
+    const stored = result ? storedTranslation(feature) : undefined;
+    if (result?.status === 'unavailable' && !stored && !allowsAssumedCode(result)) continue;
+    const coding = extractCodingSequence(resolvedTranslationFeature(feature), seq, topology);
+    const { alignedIndices } = coding;
+    const units = new Map<StrandFrame, Unit>();
+    const add = (offset: number, pieces: Unit['spans']) => {
+      const { strand, frame } = codonDisplayAnchor(coding, offset, featureStrand, positions);
+      const key = translationLaneKey(strand, frame);
+      let unit = units.get(key);
+      if (!unit) {
+        unit = { feature, key, spans: [] };
+        units.set(key, unit);
+        byStrand[strand].push(unit);
+      }
+      unit.spans.push(...pieces);
+    };
+    for (let offset = 0; offset < alignedIndices.length; offset += 3) {
+      add(offset, codonSpans(alignedIndices.slice(offset, offset + 3), positions));
+    }
+    if (result?.status === 'ok' && stored && alignedIndices.length) {
+      const comparison = compareTranslation(stored, result);
+      if (comparison.storedExtra || comparison.storedShortBy) {
+        const last = alignedIndices.at(-1)!;
+        const tailStrand = coding.baseStrands?.at(-1) ?? featureStrand;
+        const pieces = tailStrand === 1 ? [{ start: last + 1, end: last + 31 }] : [{ start: last - 30, end: last }];
+        add(Math.floor((alignedIndices.length - 1) / 3) * 3, pieces);
+      }
+    }
+    for (const unit of units.values()) {
+      const merged: Unit['spans'] = [];
+      unit.spans.sort((a, b) => a.start - b.start).forEach(piece => {
+        const last = merged.at(-1);
+        if (last && piece.start <= last.end) last.end = Math.max(last.end, piece.end);
+        else merged.push({ ...piece });
       });
+      unit.spans = merged;
+    }
+  }
+  const pack = (strand: 1 | -1) => {
+    const units = byStrand[strand];
     const lanes: (typeof units)[] = [];
     units.sort((a, b) => a.spans[0].start - b.spans[0].start).forEach(unit => {
       let lane = lanes.findIndex(placed => placed.every(p =>
-        (p.feature === unit.feature && p.frame === unit.frame) || unit.spans.every(a => p.spans.every(b => a.end <= b.start || b.end <= a.start))));
+        (p.feature === unit.feature && p.key === unit.key) || unit.spans.every(a => p.spans.every(b => a.end <= b.start || b.end <= a.start))));
       if (lane < 0) lane = lanes.push([]) - 1;
       lanes[lane].push(unit);
-      const frames = laneOf.get(unit.feature) ?? new Map<Frame, number>();
-      laneOf.set(unit.feature, frames.set(unit.frame, lane));
+      const frames = laneOf.get(unit.feature) ?? new Map<StrandFrame, number>();
+      laneOf.set(unit.feature, frames.set(unit.key, lane));
     });
     const needsWarning = features.some(f => CDS_ORF_TYPES.includes(f.type)
       && getFeatureStrand(f) === strand && !validCodonStart(f.metadata?.codon_start));

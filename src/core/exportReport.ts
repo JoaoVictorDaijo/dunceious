@@ -26,6 +26,8 @@ export interface ExportReport {
   translationWarnings: string[];
   qualifierWarnings: string[];
   gapRecordsOmitted: string[];
+  genBankWritten: { annotations: number; edited: number };
+  genBankFeaturesOmitted: string[];
   genBankRecordsOmitted: { id: string; reason: string }[];
   gapOnlyRows: string[];
   emptyRowsOmitted: string[];
@@ -40,6 +42,9 @@ export interface ExportReport {
   remotePartsCarried: number;
   /** GFF3: features with no interval in this record, which GFF3 has no row for. */
   remoteOnlyOmitted: number;
+  gff3Written: { annotations: number; edited: number };
+  gff3FeaturesOmitted: { reason: string; edited: boolean }[];
+  gff3RangeWarnings: string[];
 }
 
 export interface ExportResult { text: string; unalignedText?: string; report: ExportReport }
@@ -47,11 +52,12 @@ export interface ExportResult { text: string; unalignedText?: string; report: Ex
 export function emptyReport(): ExportReport {
   return {
     featuresWithoutInsdcLocation: { linearEdgeSite: 0, invalidGeometry: 0 },
+    genBankWritten: { annotations: 0, edited: 0 }, genBankFeaturesOmitted: [],
     translationWarnings: [], qualifierWarnings: [], gapRecordsOmitted: [], genBankRecordsOmitted: [], gapOnlyRows: [], emptyRowsOmitted: [], unalignedRows: [],
     writtenDetails: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     invalidDetailsOmitted: { organism: 0, host: 0, location: 0, collectionDate: 0 },
     droppedAttributes: 0, missingOrganism: 0, adjustedIds: [], deprecatedModifiersOmitted: 0,
-    remotePartsCarried: 0, remoteOnlyOmitted: 0,
+    remotePartsCarried: 0, remoteOnlyOmitted: 0, gff3Written: { annotations: 0, edited: 0 }, gff3FeaturesOmitted: [], gff3RangeWarnings: [],
   };
 }
 
@@ -70,5 +76,5 @@ export function detailsForExport(record: SeqRecord, report: ExportReport): Seque
 }
 
 export function describeSelectionLoss(loss: SelectionLoss): string {
-  return `${loss.record}: CDS ${loss.feature}${loss.occurrence === undefined ? '' : `, /transl_except occurrence ${loss.occurrence} ${JSON.stringify(loss.raw)}`}: ${loss.reason}`;
+  return `${loss.record}: ${loss.key} ${loss.feature}${loss.occurrence === undefined ? '' : `, /transl_except occurrence ${loss.occurrence} ${JSON.stringify(loss.raw)}`}: ${loss.reason}`;
 }

@@ -28,8 +28,9 @@
 
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import type { FindingSink, GenBankFinding } from './findings';
-import { validateLocation } from './locationValidation';
+import { locationTextProblem, validateLocation } from './locationValidation';
 import type { BioFeature } from '@/src/domain/bio/types';
+import { isUndrawnProteinBond, proteinBondEndpoints, undrawnProteinBondGeometry } from '@/src/domain/bio/proteinBond';
 import { parseLocation, type LocationData } from './locationParser';
 import { parseQualifiers } from './qualifierParser';
 
@@ -38,8 +39,14 @@ const NAME_QUALIFIERS = ['gene', 'product', 'label', 'locus_tag'];
 
 const INDENT21 = ' '.repeat(21);
 
+function hasSplitBondEndpoint(joined: string, lines: string[]): boolean {
+  // Newlines mark wrap boundaries. Whitespace beyond those markers can separate two endpoint digits.
+  return proteinBondEndpoints(joined) !== undefined && /\d(?=\s*\n)(?!\n+\d)\s+\d/.test(lines.join('\n'));
+}
+
 export function parseFeatures(lines: string[], finding?: FindingSink, protein = false, length?: number, circular = false): BioFeature[] {
   const features: BioFeature[] = [];
+  const undrawnBonds: string[] = [];
   let inFeatures = false;
 
   for (let i = 0; i < lines.length; i++) {
@@ -51,16 +58,21 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     }
     if (!inFeatures) continue;
 
-    if (/^(ORIGIN|CONTIG|\/\/)/.test(line)) break;
+    if (/^(?:ORIGIN|CONTIG|BASE COUNT)(?:\s|$)|^\/\//.test(line)) break;
 
     // Feature key line: exactly 5 spaces, then a non-space key token.
     // Keys such as 5'UTR are valid in GenBank and are not matched by \w+.
     const featureMatch = line.match(/^ {5}(\S+)(?: +(.*))?$/);
-    if (!featureMatch) continue;
+    if (!featureMatch) {
+      if (!line.trim()) continue;
+      finding?.('refuse', 'malformed-feature', `Feature table line "${line.trim()}" cannot be read.`, i + 1);
+      while (i + 1 < lines.length && lines[i + 1].startsWith(INDENT21)) i++;
+      continue;
+    }
 
     const featureLine = i + 1;
     const [, type, initialLoc] = featureMatch;
-    let fullLocation = (initialLoc ?? '').trim();
+    const locationLines = [initialLoc ?? ''];
 
     // Accumulate multi-line location (continuation lines, no qualifier)
     while (
@@ -68,13 +80,19 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
       lines[i + 1].startsWith(INDENT21) &&
       !lines[i + 1].trim().startsWith('/')
     ) {
-      fullLocation += lines[++i].trim();
+      locationLines.push(lines[++i].slice(INDENT21.length));
     }
 
-    const error = validateLocation(fullLocation, length, circular);
-    let location;
-    try { location = parseLocation(fullLocation); } catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }
-    const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = location as LocationData;
+    const fullLocation = locationLines.map(part => part.trim()).join('');
+    const splitBondEndpoint = protein && hasSplitBondEndpoint(fullLocation, locationLines);
+    const error = locationTextProblem(locationLines.join(''))
+      ?? (splitBondEndpoint ? null : validateLocation(fullLocation, length, circular, protein));
+    let location: LocationData;
+    try {
+      location = splitBondEndpoint ? undrawnProteinBondGeometry()
+        : parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein);
+    } catch { location = undrawnProteinBondGeometry(); }
+    const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = location;
 
     const feature: BioFeature = {
       type,
@@ -111,9 +129,14 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     if (!NAME_QUALIFIERS.some(key => qualifiers[key]) && qualifiers.standard_name) feature.name = qualifiers.standard_name;
 
     if (error) finding?.('refuse', error.code, `${type} location ${fullLocation || '(missing)'}: ${error.message}`, featureLine, { key: type, name: feature.name });
+    else if (protein && isUndrawnProteinBond(feature)) {
+      const name = feature.name === type ? type : `${type} ${feature.name}`;
+      undrawnBonds.push(`${name} (${fullLocation})`);
+    }
     for (const f of qualifierFindings) finding?.(f.tier, f.code, f.message, f.line, { key: type, name: feature.name });
     features.push(feature);
   }
 
+  if (undrawnBonds.length) finding?.('warning', 'undrawn-protein-bonds', `Protein bonds kept without drawing: ${undrawnBonds.join(', ')}.`);
   return features;
 }

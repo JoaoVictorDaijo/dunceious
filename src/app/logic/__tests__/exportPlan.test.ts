@@ -143,6 +143,20 @@ it('does not replace an excluded local GFF3 parent with a reused ID from another
   expect(report.droppedAttributes).toBe(1);
 });
 
+it('reports an ambiguous local GFF3 parent even if the selection exports only one candidate', () => {
+  const input: SeqRecord = { id: 's', name: 's', sequence: 'ATGAAATAG', features: [
+    { type: 'gene', name: 'first', start: 0, end: 3, strand: 1, metadata: { ID: 'g' } },
+    { type: 'gene', name: 'second', start: 3, end: 6, strand: 1, metadata: { ID: 'g' } },
+    { type: 'mRNA', name: 'child', start: 0, end: 3, strand: 1, metadata: { ID: 't', Parent: 'g' } },
+  ] };
+  const options = { matchingKeys: new Set(['s:1', 's:2']) };
+  expect(serializeExport([input], 'gff3', options).text.trimEnd().split('\n').slice(-2)).toEqual([
+    's\t.\tgene\t4\t6\t.\t+\t.\tID=s.1;Name=second',
+    's\t.\tmRNA\t1\t3\t.\t+\t.\tID=s.2;Name=child',
+  ]);
+  expect(describeExport([input], 'gff3', options).report.droppedAttributes).toBe(1);
+});
+
 
 it('preserves origin-crossing GenBank joins through export filtering and re-import', () => {
   const record = writeDetails(createOriginCrossingRecord(), { organism: 'Hepatitis B virus' });
@@ -238,4 +252,33 @@ it('previews the actual normalized export without restoring a dropped foreign qu
  expect(output.text).not.toContain('/transl_except=');
  expect(output.text).not.toContain('X.1');
  expect(JSON.stringify(record)).toBe(snapshot);
+});
+
+it('refuses whole-record GenBank export for a Sequence Ontology CDS with an empty code', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAATAA', features: [] };
+  const toRecord = (code: string) => {
+    const parsed = parseGFF3(`r	s	SO:0000316	1	9	.	+	0	ID=c;transl_table=${code}`);
+    return { ...record, features: parsed.features.r };
+  };
+  const invalid = toRecord('');
+  expect(invalid.features[0]).toMatchObject({ type: 'SO:0000316', metadata: { transl_table: '' } });
+  expect(exportToGenBank([invalid])).toMatchObject({ text: '', report: {
+    genBankRecordsOmitted: [{ id: 'r', reason: 'r not exported: CDS c has an invalid /transl_table' }],
+  } });
+  expect(exportToGenBank([toRecord('1')]).text).toContain('/transl_table=1');
+});
+
+it('omits an invalid GenBank CDS frame from GFF3 and names the feature in the preview', () => {
+  const { records, findings } = parseGenBank(`LOCUS       x 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /gene="misframed"
+                     /codon_start=4
+ORIGIN
+        1 ATGAAATAA
+//`);
+  expect(findings).toContainEqual(expect.objectContaining({ tier: 'warning', code: 'invalid-frame' }));
+  expect(describeExport(records, 'gff3').summary).toContain('x: CDS misframed omitted; invalid /codon_start="4"');
+  const output = parseGFF3(serializeExport(records, 'gff3').text);
+  expect(output.features.x?.some(feature => feature.type === 'CDS') ?? false).toBe(false);
 });

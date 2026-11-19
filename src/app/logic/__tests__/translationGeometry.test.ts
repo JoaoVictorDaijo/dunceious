@@ -23,11 +23,14 @@ import { expect, it } from 'vitest';
 import type { BioFeature, FeatureSegment, SeqRecord } from '@/src/domain/bio/types';
 import { conceptualTranslation, checkTranslation, geometryCodeBreakEvidence } from '@/src/domain/bio/translation';
 import { parseLocation } from '@/src/core/genbank/locationParser';
+import { featureFocusTarget } from '../focusTarget';
+import { featureSequenceViews } from '../viewModel';
 import { saveEditedFeature } from '../featureManager';
 import { parseProject, serializeProject } from '../projectFile';
 import { applyAnnotations, logAttachedTranslationWarning } from '../bioResponse';
 import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { describeSelectionLoss } from '@/src/core/exportReport';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { parseGFF3, exportToGff3 } from '@/src/core/formats/gff3';
 
@@ -208,4 +211,126 @@ it.each([
   expect(saved.features[0].metadata?.translation).toBeUndefined();
   expect(conceptualTranslation(saved.features[0], saved)).toMatchObject({ status: 'unavailable', reason: 'nonlocal-location' });
   expect(exportToGenBank([saved]).text).toContain(location);
+});
+
+it.each([
+  { sequence: 'ATGAAACCCTAA', protein: 'MKP', idKept: false },
+  { sequence: 'ATGAAATAA', protein: 'MK', idKept: true },
+])('keeps an inherited protein version only for the same protein on Save or selection: $protein', ({ sequence, protein, idKept }) => {
+  const imported = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'protein.gb', content: `LOCUS       r ${sequence.length} bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..${sequence.length}
+                     /gene="c"
+                     /protein_id="AAA12345.1"
+                     /translation="${protein}"
+ORIGIN
+        1 ${sequence.toLowerCase()}
+//` });
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error(`Unexpected ${imported.type}`);
+  const [record] = imported.records;
+  const [feature] = record.features;
+  const saveNotices: string[] = [];
+  const saved = saveEditedFeature([record], 'r', 0, { ...feature, end: 6, segments: parts([0, 6]), locationString: undefined }, m => saveNotices.push(m));
+  expect(saved[0].features[0].metadata?.translation).toBe('MK');
+  const selection = sliceRecordsBySelection([record], 0, 6);
+  const reopened = parseProject(serializeProject(state(selection.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const notice = /\/protein_id.*AAA12345\.1/;
+  expect(saveNotices.some(message => notice.test(message))).toBe(!idKept);
+  expect(selection.losses.some(loss => notice.test(loss.reason))).toBe(!idKept);
+  for (const records of [saved, reopened.project.records]) {
+    const { text } = exportToGenBank(records);
+    expect(text).toContain('/translation="MK"');
+    expect(text.includes('/protein_id="AAA12345.1"')).toBe(idKept);
+  }
+  expect(feature.metadata).toMatchObject({ translation: protein, protein_id: 'AAA12345.1' });
+});
+
+it('omits a clipped one-part order CDS from a reopened project', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAACCCTAA', features: [
+    { ...parseLocation('order(1..6,10..12)'), type: 'CDS', name: 'ordered' },
+  ] };
+  const selection = sliceRecordsBySelection([record], 0, 6);
+  const reopened = parseProject(serializeProject(state(selection.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const [selected] = reopened.project.records;
+  expect(selected.sequence).toBe('ATGAAA');
+  expect(selected.features).toEqual([]);
+  expect(selection.losses.map(describeSelectionLoss)).toEqual([
+    'r: CDS ordered: CDS omitted; one part of an order() CDS gives no defined product or frame',
+  ]);
+});
+
+it('uses the original feature key in a between-base selection loss', () => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATG', features: [
+    { ...parseLocation('1^2'), type: 'misc_feature', name: 'cut' },
+  ] };
+  const { losses } = sliceRecordsBySelection([record], 0, 1);
+  expect(losses.map(describeSelectionLoss)).toEqual([
+    'r: misc_feature cut: Between-base site omitted; both neighbouring bases must be selected',
+  ]);
+});
+
+it.each([
+  [1, 'AAATAACCCATG', 'join(10..12,1..6)', 9, 6],
+  [-1, 'CATGGGTTATTT', 'complement(join(7..12,1..3))', 6, 3],
+] as const)('reopens a whole circular selection on strand %i', (strand, sequence, locationString, start, end) => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence, isCircular: true, features: [
+    { ...parseLocation(locationString), locationString, type: 'CDS', name: 'wrapped' },
+  ] };
+  const selected = sliceRecordsBySelection([record], 0, 12);
+  const reopened = parseProject(serializeProject(state(selected.records)));
+  expect(reopened.ok).toBe(true);
+  if (!reopened.ok) throw new Error(reopened.message);
+  const [restored] = reopened.project.records;
+  expect(restored.isCircular).toBe(true);
+  expect(restored.features[0]).toMatchObject({ strand, start, end, locationString });
+  expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'MK' });
+});
+
+it('reopens a split minus interval in written order through GenBank and GFF3', () => {
+  const response = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'r.gb', content: `LOCUS       r 12 bp DNA circular
+FEATURES             Location/Qualifiers
+     CDS             complement(join(complement(4..5),9..12))
+                     /translation="Y"
+     source          1..12
+                     /mol_type="genomic DNA"
+                     /organism="synthetic construct"
+ORIGIN
+        1 CCGAAACCAATA
+//` });
+  if (response.type !== 'PARSE_SUCCESS') throw new Error(JSON.stringify(response));
+  const [imported] = response.records;
+  const [original] = imported.features;
+  const [first, second] = original.segments!;
+  const [edited] = saveEditedFeature([imported], imported.id, 0, {
+    ...original, locationString: undefined, segments: [{ ...first, end: 2 }, second],
+  });
+  expect(conceptualTranslation(edited.features[0], edited)).toMatchObject({ residues: 'GI' });
+  const { text } = exportToGenBank([edited]);
+  const reopened = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'r.gb', content: text });
+  if (reopened.type !== 'PARSE_SUCCESS') throw new Error(JSON.stringify(reopened));
+  const [genbank] = reopened.records;
+  const { features, details } = parseGFF3(exportToGff3([edited]).text);
+  const gff3 = applyAnnotations([{ ...edited, features: [] }], features, details);
+  expect(gff3.refusal).toBeUndefined();
+  const project = parseProject(serializeProject(state([edited])));
+  if (!project.ok) throw new Error(project.message);
+
+  expect(genbank.features.find(feature => feature.type === 'CDS')).toMatchObject({
+    locationString: 'complement(join(complement(4..5),9..12,1..2))',
+  });
+  for (const record of [genbank, gff3.next[0]]) {
+    const feature = record.features.find(feature => feature.type === 'CDS')!;
+    expect(feature.writtenOrder).toEqual([2, 1, 0]);
+    expect(feature).toMatchObject({ start: 3, end: 2 });
+    expect(conceptualTranslation(feature, record)).toMatchObject({ residues: 'GI' });
+  }
+  const [restored] = project.project.records;
+  expect(restored.features[0]).toMatchObject({ writtenOrder: [1, 0], start: 3, end: 2 });
+  expect(featureFocusTarget(restored, restored.features[0])).toMatchObject({ start: 3, end: 2 });
+  expect(featureSequenceViews(restored, restored.features[0])).toMatchObject({ region: 'AAACCAATACC', regionLength: 11 });
+  expect(conceptualTranslation(restored.features[0], restored)).toMatchObject({ residues: 'GI' });
 });
