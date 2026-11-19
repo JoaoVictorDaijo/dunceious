@@ -217,7 +217,14 @@ function decodeRuns(runs: number[]): number[] {
   return values;
 }
 
-/** The compact form, or undefined when the result has any shape `expandCodons` would not rebuild exactly. */
+/**
+ * The compact form of a plain object shaped as `conceptualTranslation` emits it, or undefined for any other shape,
+ * since `expandCodons` rebuilds only that shape: the emitted keys in order; one codon per `possible` entry plus at
+ * most one removed terminal stop; each codon at its own `codonIndex` and `proteinIndex` (none on the removed stop),
+ * with its `effective` set from `possible` and its `triplet` the fragment padded with N; three bases per codon, the
+ * last at most three, each with one safe-integer index and, in a stranded result, a strand of 1 or -1; and the
+ * result's `alignedIndices` a prefix of the codons' indices.
+ */
 function compactCodons(result: OkTranslation): CompactCodons | undefined {
   const keys = Object.keys(result).join();
   if (keys !== OK_KEYS && keys !== `${OK_KEYS},exceptions`) return undefined;
@@ -239,7 +246,7 @@ function compactCodons(result: OkTranslation): CompactCodons | undefined {
     if (!hasKeys(codon, codonKeys) || codon.codonIndex !== i || codon.proteinIndex !== (removed && last ? undefined : i) || codon.effective !== effective
       || codon.terminalRemoved !== (effective === '*' && last) || typeof fragment !== 'string' || codon.triplet !== fragment.padEnd(3, 'N')
       || typeof codon.ordinary !== 'string' || typeof codon.contextual !== 'string'
-      || (last ? fragment.length > 3 || alignedIndices.length > 3 : fragment.length !== 3 || alignedIndices.length !== 3)
+      || (last ? fragment.length > 3 : fragment.length !== 3) || alignedIndices.length !== fragment.length
       || !!strands !== !!baseStrands || (baseStrands && baseStrands.length !== alignedIndices.length)) return undefined;
     bases += fragment;
     for (let k = 0; k < alignedIndices.length; k++) {
@@ -266,8 +273,33 @@ function translationCache(conceptual: ConceptualTranslation, comparison: ReturnT
   return JSON.stringify({ ...rest, comparison, codonProvenance: compact });
 }
 
-/** The result as `JSON.parse` returns the full cache, keys in the same order. */
-function expandCodons(cache: Omit<OkTranslation, 'codons' | 'alignedIndices'> & { comparison?: unknown; codonProvenance: CompactCodons }): ConceptualTranslation {
+type CompactCache = Omit<OkTranslation, 'codons' | 'alignedIndices'> & { comparison?: unknown; codonProvenance: CompactCodons };
+
+const isCodonSets = (entries: unknown, n: number): boolean => Array.isArray(entries) && entries.every(entry => Array.isArray(entry)
+  && Number.isSafeInteger(entry[0]) && entry[0] >= 0 && entry[0] < n && typeof entry[1] === 'string');
+
+/** Whether `expandCodons` can rebuild the cache in work bounded by its `bases`, so a damaged or forged cache is recomputed instead. */
+function validCompact(cache: CompactCache): boolean {
+  const compact = cache.codonProvenance;
+  if (cache.status !== 'ok' || !Array.isArray(cache.possible) || typeof compact !== 'object') return false;
+  const { bases, indices, strands, removed, resultIndices } = compact;
+  if (typeof bases !== 'string' || (removed !== 0 && removed !== 1) || !Array.isArray(indices) || indices.length % 2) return false;
+  const n = cache.possible.length + removed;
+  if (n ? bases.length < 3 * (n - 1) || bases.length > 3 * n : bases.length) return false;
+  let total = 0;
+  for (let k = 0; k < indices.length; k += 2) {
+    const first = indices[k], count = indices[k + 1];
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(count) || count === 0 || !Number.isSafeInteger(first + count - Math.sign(count))) return false;
+    total += Math.abs(count);
+  }
+  return total === bases.length && Number.isSafeInteger(resultIndices) && resultIndices >= 0 && resultIndices <= total
+    && (strands === undefined || (Array.isArray(strands) && strands.length === total))
+    && isCodonSets(compact.ordinary, n) && isCodonSets(compact.contextual, n);
+}
+
+/** The result as `JSON.parse` returns the full cache, keys in the same order; undefined when the cache fails `validCompact`. */
+function expandCodons(cache: CompactCache): ConceptualTranslation | undefined {
+  if (!validCompact(cache)) return undefined;
   const compact = cache.codonProvenance;
   const indices = decodeRuns(compact.indices);
   const n = cache.possible.length + compact.removed;
@@ -339,7 +371,8 @@ export function checkedTranslation(feature: BioFeature, record: TranslationRecor
   if (feature.metadata?._translationCheck) {
     try {
       const cached = JSON.parse(feature.metadata._translationCheck);
-      return cached?.codonProvenance ? expandCodons(cached) : cached as ConceptualTranslation;
+      if (!cached?.codonProvenance) return cached as ConceptualTranslation;
+      return expandCodons(cached) ?? conceptualTranslation(feature, record);
     } catch {
       return conceptualTranslation(feature, record);
     }

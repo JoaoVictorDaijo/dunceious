@@ -21,7 +21,7 @@
 import { describe, it, expect } from 'vitest';
 import { isFeatureBroken } from '@/src/domain/bio/sequence';
 import { serializeProject, parseProject } from '../projectFile';
-import type { SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
 
@@ -296,14 +296,20 @@ it.each(['imported', 'computed'])('discards forged protein cache and enforces %s
   expect(f).not.toHaveProperty('translation');
 });
 
-it('discards a forged nucleotide cache hiding a definite internal stop before publication', () => {
+it('discards forged caches, on a CDS hiding a definite internal stop and on any other feature, before publication', () => {
   const nucleotide: SeqRecord = { id: 'r', name: 'r', moleculeType: 'dna', sequence: 'ATGTAAGGGTAA', features: [{
     type: 'CDS', name: 'c', start: 0, end: 12, strand: 1, segments: [{ start: 0, end: 12 }],
-    metadata: { translation: 'MKG', _translationSource: 'imported', _translationCheck: JSON.stringify({ status: 'ok', residues: 'MKG', possible: ['M', 'K', 'G'], internalStops: [], threePrimeIndeterminate: false, comparison: { differing: [], storedExtra: '', storedShortBy: 0 } }) },
-  }] };
+    metadata: { translation: 'MKG', _translationSource: 'imported' },
+  }, { type: 'gene', name: 'g', start: 0, end: 3, strand: 1, segments: [{ start: 0, end: 3 }], metadata: { note: 'kept' } }] };
+  const file = JSON.parse(serializeProject({ ...state, records: [nucleotide] }));
+  const [cdsMetadata, geneMetadata] = file.records[0].features.map((f: BioFeature) => f.metadata);
+  cdsMetadata._translationCheck = JSON.stringify({ status: 'ok', residues: 'MKG', possible: ['M', 'K', 'G'], internalStops: [], threePrimeIndeterminate: false, comparison: { differing: [], storedExtra: '', storedShortBy: 0 } });
+  geneMetadata._translationCheck = JSON.stringify({ status: 'unavailable', reason: 'empty', residues: 'X', possible: ['X'], internalStops: [], threePrimeIndeterminate: false,
+    codonProvenance: { bases: 'ATG', indices: [0, 1e15], removed: 0, ordinary: [], contextual: [], resultIndices: 3 } });
   const logs: string[] = [];
-  const loaded = parseProject(serializeProject({ ...state, records: [nucleotide] }), message => logs.push(message));
+  const loaded = parseProject(JSON.stringify(file), message => logs.push(message));
   if (!loaded.ok) throw new Error(loaded.message);
+  expect(loaded.project.records[0].features[1].metadata).toEqual({ note: 'kept' });
   const feature = loaded.project.records[0].features[0];
   expect(feature.metadata).toMatchObject({ translation: 'MKG', _translationSource: 'imported' });
   expect(JSON.parse(feature.metadata!._translationCheck)).toMatchObject({ status: 'ok', residues: 'M*G', possible: ['M', '*', 'G'], internalStops: [1], comparison: { differing: [1], storedExtra: '', storedShortBy: 0 } });

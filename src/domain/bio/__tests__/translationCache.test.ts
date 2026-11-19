@@ -54,11 +54,13 @@ const codon = (codonIndex: number, fragment: string, alignedIndices: number[], e
   ordinary: effective, contextual: effective, effective, terminalRemoved,
 });
 
+const twoBaseLastCodon = {
+  status: 'ok', codons: [codon(0, 'ATG', [0, 1, 2], 'M'), codon(1, 'AAA', [3, 4, 5], 'K'), codon(2, 'CC', [6, 7], 'P')],
+  residues: 'MKP', possible: ['M', 'K', 'P'], internalStops: [], threePrimeIndeterminate: false, alignedIndices: [0, 1, 2, 3, 4, 5, 6, 7],
+};
+
 it.each([
-  ['a two-base last codon', 'ATGAAACC', cds([{ start: 0, end: 8 }]), {
-    status: 'ok', codons: [codon(0, 'ATG', [0, 1, 2], 'M'), codon(1, 'AAA', [3, 4, 5], 'K'), codon(2, 'CC', [6, 7], 'P')],
-    residues: 'MKP', possible: ['M', 'K', 'P'], internalStops: [], threePrimeIndeterminate: false, alignedIndices: [0, 1, 2, 3, 4, 5, 6, 7],
-  }],
+  ['a two-base last codon', 'ATGAAACC', cds([{ start: 0, end: 8 }]), twoBaseLastCodon],
   ['an overlapping join sharing one base', 'ATGAATAA', cds([{ start: 0, end: 3 }, { start: 2, end: 8 }], 1, { operator: 'join' }), {
     status: 'ok', codons: [codon(0, 'ATG', [0, 1, 2], 'M'), codon(1, 'GAA', [2, 3, 4], 'E'), codon(2, 'TAA', [5, 6, 7], '*', true)],
     residues: 'ME', possible: ['M', 'E'], internalStops: [], threePrimeIndeterminate: false, alignedIndices: [0, 1, 2, 2, 3, 4],
@@ -66,4 +68,19 @@ it.each([
 ])('reads back the codons of %s as stated by hand', (_name, sequence, feature, expected) => {
   const record: SeqRecord = { id: 'r', name: 'r', sequence, moleculeType: 'dna', isCircular: false, features: [feature] };
   expect(JSON.stringify(checkedTranslation(checkTranslation(feature, record), record))).toBe(JSON.stringify(expected));
+});
+
+it.each<[string, (cache: { status: string; residues: string; codonProvenance: { indices: number[] } }) => void]>([
+  ['a corrupt run count', cache => { cache.codonProvenance.indices = [0, 1e15]; }],
+  ['a run length that disagrees with the bases', cache => { cache.codonProvenance.indices = [0, 7]; }],
+  ['a compact form under an unavailable status', cache => { cache.status = 'unavailable'; cache.residues = 'FAKE'; }],
+])('recomputes instead of expanding %s', (_name, forge) => {
+  const feature = cds([{ start: 0, end: 8 }]);
+  const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ATGAAACC', moleculeType: 'dna', isCircular: false, features: [feature] };
+  const cache = JSON.parse(checkTranslation(feature, record).metadata!._translationCheck);
+  forge(cache);
+  const started = performance.now();
+  const result = checkedTranslation({ ...feature, metadata: { _translationCheck: JSON.stringify(cache) } }, record);
+  expect(performance.now() - started).toBeLessThan(1000);
+  expect(JSON.stringify(result)).toBe(JSON.stringify(twoBaseLastCodon));
 });
