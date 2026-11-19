@@ -56,6 +56,17 @@ function expansions(codon: string): string[] {
   for (const base of codon) result = result.flatMap(prefix => [...(bases[base] ?? 'ACGT')].map(b => prefix + b));
   return result;
 }
+/** The genetic-code index of a codon of A, C, G and T only, whose sole expansion is itself; else -1. */
+function unambiguousCodonIndex(codon: string): number {
+  if (codon.length !== 3) return -1;
+  let n = 0;
+  for (let i = 0; i < 3; i++) {
+    const digit = 'TCAG'.indexOf(codon[i]);
+    if (digit < 0) return -1;
+    n = n * 4 + digit;
+  }
+  return n;
+}
 function reading(set: string): string {
   if (set.length === 1) return set;
   return ({ DN: 'B', EQ: 'Z', IL: 'J' } as Record<string, string>)[set] ?? 'X';
@@ -86,10 +97,12 @@ export function conceptualTranslation(feature: BioFeature, record: TranslationRe
   const contextual: string[] = [];
   const full = Math.floor(seq.length / 3);
   const index = (codon: string) => [...codon].reduce((n, b) => n * 4 + 'TCAG'.indexOf(b), 0);
-  const readings = (codon: string, terminal: boolean) => [...new Set(expansions(codon).map(c => {
-    const i = index(c);
-    return terminal && code.starts[i] === '*' ? '*' : code.aminoAcids[i];
-  }))].sort().join('');
+  const readingAt = (i: number, terminal: boolean) => terminal && code.starts[i] === '*' ? '*' : code.aminoAcids[i];
+  const readings = (codon: string, terminal: boolean) => {
+    const i = unambiguousCodonIndex(codon);
+    if (i >= 0) return readingAt(i, terminal);
+    return [...new Set(expansions(codon).map(c => readingAt(index(c), terminal)))].sort().join('');
+  };
   for (let i = 0; i < full; i++) {
     const codon = seq.slice(i * 3, i * 3 + 3);
     ordinary.push(readings(codon, false));
@@ -138,13 +151,18 @@ export function compareTranslation(stored: string, conceptual: Extract<Conceptua
 
 /** Disposable JSON cache fits the string-valued qualifier metadata contract. */
 export function checkTranslation(feature: BioFeature, record: TranslationRecord): BioFeature {
-  if (!isCds(feature)) return feature;
+  return checkTranslationWithResult(feature, record).feature;
+}
+
+/** `checkTranslation` and the conceptual translation it caches, so a caller can use the result without parsing the cache back. */
+export function checkTranslationWithResult(feature: BioFeature, record: TranslationRecord): { feature: BioFeature; result?: ConceptualTranslation } {
+  if (!isCds(feature)) return { feature };
   const conceptual = conceptualTranslation(feature, record);
   const dropped = new Set(geometryCodeBreakEvidence(feature, record).filter(e => e.status === 'dropped').map(e => e.occurrence));
   if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
-  return { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } };
+  return { feature: { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } }, result: conceptual };
 }
 export function hasTranslationMismatch(feature: BioFeature, result: ConceptualTranslation): boolean {
   if (feature.metadata?.exception !== undefined || result.status !== 'ok') return false;

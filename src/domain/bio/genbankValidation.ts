@@ -24,9 +24,23 @@ import { featureTranslTable, isNcbiGeneticCode } from './sequence';
 export { validCodonStart } from './codonStart';
 import { validCodonStart } from './codonStart';
 
+const PROTEIN_RESIDUES = 'ACDEFGHIKLMNPQRSTVWYUXBZJO';
+const NUCLEOTIDE_RESIDUES = 'ACGTURYMKSWBDHVN';
+const residue = { protein: new RegExp(`^[${PROTEIN_RESIDUES}]$`, 'i'), nucleotide: new RegExp(`^[${NUCLEOTIDE_RESIDUES}]$`, 'i') };
+const nonResidue = { protein: new RegExp(`[^${PROTEIN_RESIDUES}]`, 'i'), nucleotide: new RegExp(`[^${NUCLEOTIDE_RESIDUES}]`, 'i') };
+
 /** INSDC FT 11.4 §§7.4.1, 7.4.3: gap and stop symbols are not residues. */
 export function isGenBankResidue(character: string, protein = false): boolean {
-  return character.length === 1 && (protein ? /^[ACDEFGHIKLMNPQRSTVWYUXBZJO]$/i : /^[ACGTURYMKSWBDHVN]$/i).test(character);
+  return character.length === 1 && (protein ? residue.protein : residue.nucleotide).test(character);
+}
+
+/**
+ * The first character, by code point, that `isGenBankResidue` rejects. Every code unit before the
+ * first rejected one is a one-unit residue, so its code-unit index is also its code-point index.
+ */
+export function firstNonGenBankResidue(sequence: string, protein = false): { character: string; index: number } | undefined {
+  const index = sequence.search(protein ? nonResidue.protein : nonResidue.nucleotide);
+  return index === -1 ? undefined : { character: [...sequence.slice(index, index + 2)][0], index };
 }
 
 /** Omission reason for the GenBank writer and its preview; never repairs coordinates. */

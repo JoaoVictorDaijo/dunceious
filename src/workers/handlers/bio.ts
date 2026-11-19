@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { checkedTranslation, checkTranslation, hasTranslationMismatch, isCds } from '@/src/domain/bio/translation';
+import { checkTranslationWithResult, hasTranslationMismatch } from '@/src/domain/bio/translation';
 import { processTransposition, calculateConsensus } from '@/src/domain/bio';
 import { parseGenBank } from '@/src/core/genbank/index';
 import type { BioFeature } from '@/src/domain/bio/types';
@@ -52,8 +52,8 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
       }
       parsed.records = parsed.records.map((record, index) => {
         const features = record.features.map(feature => {
-          const checked = checkTranslation(feature, record);
-          if (isCds(checked) && hasTranslationMismatch(checked, checkedTranslation(checked, record))) {
+          const { feature: checked, result } = checkTranslationWithResult(feature, record);
+          if (result && hasTranslationMismatch(checked, result)) {
             parsed.findings.push({
               tier: 'warning', code: 'translation-mismatch', record: { name: record.id, index: index + 1 },
               feature: { key: checked.type, name: checked.name },

@@ -184,6 +184,17 @@ it('refuses ORIGINAL in place of the ORIGIN field', () => {
   });
 });
 
+it.each([['LF', '\n'], ['CRLF', '\r\n']])('numbers finding lines from the start of a multi-record file (%s)', (_name, eol) => {
+  const backwards = '     misc_feature    3..2\n';
+  const content = [genBank('A 4 bp DNA', 'ACGT'), genBank('B 4 bp DNA', 'ACGT', backwards), '\n', genBank('C 4 bp DNA', 'ACGT', backwards)]
+    .join('').replace(/\n/g, eol);
+  const response = importGenBank(content);
+  expect(response.type).toBe('PARSE_REFUSED');
+  if (response.type !== 'PARSE_REFUSED') throw new Error('Expected the backwards intervals to be refused');
+  expect(response.findings.filter(finding => finding.line !== undefined).map(({ code, record, line }) => ({ code, record: record?.index, line })))
+    .toEqual([{ code: 'location-out-of-range', record: 2, line: 8 }, { code: 'location-out-of-range', record: 3, line: 15 }]);
+});
+
 it('names the line of a misplaced feature key', () => {
   const response = importGenBank(genBank('X 4 bp DNA', 'ACGT', `      CDS            1..4
                      /note="ignored before"

@@ -55,8 +55,9 @@ export function displayTracks(record: SeqRecord): DisplayTrack[] {
   if (record.displayTracks) return record.displayTracks;
   const cached = recordDisplays.get(record);
   if (cached) return cached;
-  const runs = residueRuns(record);
-  const displays = (record.tracks ?? []).map(track => buildDisplayTrack(track, runs, record.sequence.length));
+  const tracks = record.tracks ?? [];
+  const runs = tracks.length ? residueRuns(record) : [];
+  const displays = tracks.map(track => buildDisplayTrack(track, runs, record.sequence.length));
   recordDisplays.set(record, displays);
   return displays;
 }
