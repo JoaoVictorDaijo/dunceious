@@ -33,6 +33,7 @@ export interface AnnotationRow {
 }
 
 export interface GffImportNotice {
+  circularOnly?: boolean;
   circularEnd?: number;
   message: string;
 }
@@ -98,7 +99,7 @@ function sortByPart(group: AnnotationRow[]): boolean {
   return true;
 }
 
-function orderGroup(group: AnnotationRow[], length: number, warn: (message: string) => void) {
+function orderGroup(group: AnnotationRow[], length: number, warn: (message: string, circularOnly?: boolean) => void) {
   const first = group[0].feature;
   const mixed = group.some(({ feature }) => getFeatureStrand(feature) !== getFeatureStrand(first));
   const mixedDirections = group.some(({ feature }) => feature.strand !== first.strand);
@@ -127,8 +128,8 @@ function orderGroup(group: AnnotationRow[], length: number, warn: (message: stri
   const coordinateOrder = [...group].sort((a, b) => compareCoordinates(a.feature, b.feature)
     || (a.text < b.text ? -1 : a.text > b.text ? 1 : 0));
   const reverse = first.strand === -1;
-  if (Number.isFinite(length) && coordinateOrder.some((row, i) => row !== group[reverse ? group.length - 1 - i : i])) {
-    warn('Rows were read in strand-relative coordinate order on a circular landmark. File order may give a different sequence or translation, especially if the feature spans the origin.');
+  if (coordinateOrder.some((row, i) => row !== group[reverse ? group.length - 1 - i : i])) {
+    warn('Rows were read in strand-relative coordinate order on a circular landmark. File order may give a different sequence or translation, especially if the feature spans the origin.', !Number.isFinite(length));
   }
   return { coordinateOrder, perInterval: false };
 }
@@ -153,8 +154,8 @@ export function orderAnnotationRows(rows: AnnotationRow[], lengths: Map<string, 
   return groups.flatMap(group => {
     const { seqid, feature } = group[0];
     const length = circular.has(seqid) ? lengths.get(seqid)! : Infinity;
-    const { coordinateOrder, perInterval, privateOrder } = orderGroup(group, length, message => {
-      (notices[seqid] ??= []).push({ message: `${feature.name}: ${message}` });
+    const { coordinateOrder, perInterval, privateOrder } = orderGroup(group, length, (message, circularOnly) => {
+      (notices[seqid] ??= []).push({ message: `${feature.name}: ${message}`, ...(circularOnly && { circularOnly }) });
     });
     return (coordinateOrder ?? group).map(row => ({ ...row, perInterval, privateOrder }));
   });

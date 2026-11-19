@@ -349,11 +349,11 @@ unspecified. Dunceious groups by landmark and ID and uses this precedence.
    and unusable, import reports that it ignored them and continues to the next rule.
    Import consumes `part` and export omits it.
 3. Same-strand groups already monotonic by start and end in either direction use ascending
-   coordinates on plus and descending coordinates on minus. For landmarks declared circular
-   in the GFF3, the comparison uses the coordinates as written, including extended ends, and
-   import reports any change from file order. NCBI extends the end of each row that spans the
-   origin. An extended parent can have children with in-bounds rows on both sides of the
-   origin, and GFF3 supplies no evaluation order for these rows.
+   coordinates on plus and descending coordinates on minus. The comparison uses the coordinates
+   as written, including extended ends. Import reports any change from file order when the GFF3
+   declares the landmark circular or the matched loaded record is circular. NCBI extends the
+   end of each row that spans the origin. An extended parent can have children with in-bounds
+   rows on both sides of the origin, and GFF3 supplies no evaluation order for these rows.
    [NCBI GFF3 origin-spanning features](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#origin-spanning-features).
 4. Non-monotonic and mixed-strand groups use file order and retain each row's strand. A notice
    names the feature and states that file order was used.

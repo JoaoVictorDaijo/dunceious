@@ -105,6 +105,7 @@ it.each([
   const { next: [record], warnings } = attach(landmark, content);
   const baseline = order === 'original' ? undefined : attach(landmark, original).next[0];
 
+  if (reference === 't4' || reference === 'phage13a') expect.soft(warnings).toEqual([]);
   for (const id of proteins) {
     const expected = oracle.features.find(feature => feature.metadata?.protein_id === id)?.metadata?.translation;
     expect(expected, id).toBeTruthy();
@@ -192,13 +193,17 @@ it('uses coordinate order for a descending plus-strand group without ranks', () 
   expect(warnings).toEqual([]);
 });
 
-it('reports coordinate reordering for in-bounds plus rows on a circular landmark', () => {
+it.each([
+  { topology: 'declared circular landmark', isCircular: true, declareCircular: true },
+  { topology: 'undeclared circular record', isCircular: true, declareCircular: false },
+  { topology: 'linear record', isCircular: false, declareCircular: false },
+])('applies the coordinate reorder notice for a $topology', ({ isCircular, declareCircular }) => {
   const { protein, warnings } = attachCds('GTAACCATGAAAGGG', [
     '7\t12\t.\t+\t0\tID=c',
     '2\t4\t.\t+\t0\tID=c',
-  ], true);
+  ], isCircular, declareCircular);
   expect.soft(protein).toBe('*MK');
-  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*\bc\b.*coordinate order.*origin/i)]);
+  expect(warnings).toEqual(isCircular ? [expect.stringMatching(/workspace-record.*\bc\b.*coordinate order.*origin/i)] : []);
 });
 
 it.each([false, true])('compares the documented circular minus CDS shape with descending rows=%s', descending => {
@@ -241,6 +246,23 @@ it('uses three ranks with and without row totals on a gene', () => {
     { start: 7, end: 10 }, { start: 4, end: 7 }, { start: 1, end: 4 },
   ]);
   expect(notices).toBeUndefined();
+});
+
+it('warns on attachment for the documented minus CDS rows without a circular declaration', () => {
+  const accession = 'NC_004367.1';
+  const { next: [record], warnings } = attach({
+    id: 'workspace-record', name: accession, sequence: 'N'.repeat(149696), isCircular: true, features: [],
+  }, [
+    `##sequence-region ${accession} 1 149696`,
+    `${accession}\tRefSeq\tCDS\t959\t966\t.\t-\t0\tID=cds0;Parent=rna0`,
+    `${accession}\tRefSeq\tCDS\t140247\t140485\t.\t-\t1\tID=cds0;Parent=rna0`,
+  ].join('\n'));
+  expect.soft(record.features).toMatchObject([{
+    strand: -1,
+    segments: [{ start: 958, end: 966 }, { start: 140246, end: 140485 }],
+    metadata: { codon_start: '2' },
+  }]);
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*cds0.*coordinate order.*origin/i)]);
 });
 
 it.each([

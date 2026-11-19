@@ -366,13 +366,12 @@ it('logs the separate-interval notice when end-touching GFF3 rows attach to a ci
   expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/^WARNING: circle: end-touching .* read as separate intervals/));
 });
 
-it('logs a GFF3 ordering notice under the attached workspace record', async () => {
+it('logs a GFF3 ordering notice when only the attached workspace record declares circularity', async () => {
   const h = setup();
   act(() => h.result.current.setRecords([{ id: 'workspace-circle', name: 'circle', sequence: 'GTAACCATGAAAGGG', isCircular: true, features: [] }]));
   const pending = h.result.current.requestBio({
     type: 'PARSE_ANNOTATIONS', filename: 'circle.gff3', idMap: { circle: 'workspace-circle' },
     content: [
-      'circle\t.\tregion\t1\t15\t.\t+\t.\tgbkey=Src;Is_circular=true',
       'circle\t.\tCDS\t7\t12\t.\t+\t0\tID=c',
       'circle\t.\tCDS\t2\t4\t.\t+\t0\tID=c',
     ].join('\n'),

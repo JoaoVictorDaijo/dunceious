@@ -221,6 +221,7 @@ export function applyAnnotations(
     if (conflict) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal: conflict };
     if (Object.hasOwn(gffNotices, id)) {
       for (const notice of gffNotices[id]) {
+        if (notice.circularOnly && !record.isCircular) continue;
         if (notice.circularEnd === undefined || (record.isCircular && notice.circularEnd === record.sequence.length)) {
           warnings.push(`${record.id}: ${notice.message}`);
         }
