@@ -1,7 +1,7 @@
 {
   "name": "genedunceious",
   "private": true,
-  "version": "4.0.1",
+  "version": "4.1.0",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620",
@@ -16,7 +16,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --max-warnings 60",
+    "lint": "eslint . --max-warnings 57",
     "lint:headers": "node scripts/check-license-headers.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

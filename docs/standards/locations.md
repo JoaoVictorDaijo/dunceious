@@ -22,7 +22,7 @@ Benchling translation groups skip introns
 ([help, 2025-09-30](https://help.benchling.com/hc/en-us/articles/39768268305805-How-to-characterize-sequences-with-annotations-and-translations)).
 Neither documents literal `join` parsing or arbitrary interval order.
 
-**Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), which
+**Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:166`), which
 the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
 `featureParts`, preserving stored order and splitting explicit circular wraps. Ordinary GFF3
 features obtain their interval order from the row coordinates. Dunceious's private order
@@ -250,7 +250,7 @@ first, the default the standard defines:
 
 **Dunceious.** The sequences conform for supported location forms under the decision in
 [#81](https://github.com/JoaoVictorDaijo/dunceious/issues/81), including LOC-3’s nested
-outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:82`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:150`), the extraction the CDS
+outer complements. `featureSequenceViews` (`src/app/logic/viewModel.ts:119`) builds both views from `extractFeatureSequence` (`src/domain/bio/sequence.ts:166`), the extraction the CDS
 track uses before `/codon_start`. `order()` is read from the feature's operator (LOC-2) and
 partial ends from its per-end flags (LOC-4). A location with intervals in other entries has no
 feature sequence; only its region in this record is shown (LOC-8). Tested against the oracle for J1–J5, W1, W2, O1 and P1

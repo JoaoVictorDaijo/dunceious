@@ -43,11 +43,15 @@ export function parseGenBank(content: string): { records: SeqRecord[]; findings:
   const findings: GenBankFinding[] = [];
   const names = new Set<string>();
   let offset = 0;
+  let newlines = 0;
+  let counted = 0;
   const pieces = splitRecords(content);
   if (!pieces.length) findings.push({ tier: 'refuse', code: 'no-records', message: 'No GenBank record found.' });
   const records = pieces.map((piece, index) => {
     const position = content.indexOf(piece, offset);
-    const lineOffset = content.slice(0, position).split('\n').length - 1;
+    for (let newline = content.indexOf('\n', counted); newline !== -1 && newline < position; newline = content.indexOf('\n', newline + 1)) newlines++;
+    counted = position;
+    const lineOffset = newlines;
     offset = position + piece.length;
     const name = piece.match(/^LOCUS\s+(\S+)/m)?.[1] ?? `Record ${index + 1}`;
     const finding: import('./findings').FindingSink = (tier, code, message, line, feature) => findings.push({ tier, code, message, record: { name, index: index + 1 }, feature, line: line === undefined ? undefined : line + lineOffset });

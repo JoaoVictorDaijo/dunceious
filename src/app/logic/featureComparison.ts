@@ -75,10 +75,11 @@ function lengthOf(row: FeatureRow): number {
 }
 
 
+/** Rows tie-break on what the feature states, never on the disposable translation cache. */
 function featureSortKey(feature: BioFeature): string {
   return JSON.stringify([feature.type, feature.name, feature.start, feature.end, feature.strand,
     feature.segments, feature.locationString, storedTranslation(feature), feature.color,
-    Object.entries(feature.metadata ?? {}).sort(([a], [b]) => a.localeCompare(b))]);
+    Object.entries(feature.metadata ?? {}).filter(([key]) => key !== '_translationCheck').sort(([a], [b]) => a.localeCompare(b))]);
 }
 
 function compareRows(a: FeatureRow, b: FeatureRow): number {

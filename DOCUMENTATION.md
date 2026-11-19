@@ -75,7 +75,7 @@ All source lives under `src/`, and imports only point down the stack `domain ←
 - **`src/domain/bio/`** — pure biology model and algorithms: coordinate transposition, consensus, intervals, sequence utilities (translation, reverse complement, molecule type), ribosomal frameshifts, and the canonical types.
 - **`src/core/`** — format parsers and serializers (`genbank/`, `formats/` for FASTA and BED/GFF3), search primitives (`search/`), and the EMBL-EBI contract model (`alignment/`, no network).
 - **`src/workers/`** — the typed message contracts (`protocol.ts`), the thin `bio.worker.ts` / `search.worker.ts` / `localSearch.worker.ts` shells and their `handlers/` bodies.
-- **`src/app/`** — the React application: `App.tsx` (composition root), `hooks/` (worker bridges, file handling, features, remote alignment), `components/` (sidebar, nav, Annotation Hub, modals), `viewer/` (the genome viewer) and `lib/` (downloads and the EMBL-EBI client).
+- **`src/app/`** — the React application: `App.tsx` (composition root) with `workbench/` (the hooks and components it composes), `hooks/` (worker bridges, file handling, features, remote alignment), `components/` (sidebar, nav, Annotation Hub, modals), `viewer/` (the genome viewer) and `lib/` (downloads and the EMBL-EBI client).
 
 ## 4. Technical Implementation Details
 

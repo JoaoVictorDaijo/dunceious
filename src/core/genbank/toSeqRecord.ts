@@ -24,7 +24,7 @@
  */
 
 import type { SeqRecord } from '@/src/domain/bio/types';
-import { isGenBankResidue } from '@/src/domain/bio/genbankValidation';
+import { firstNonGenBankResidue } from '@/src/domain/bio/genbankValidation';
 import { parseHeader } from './headerParser';
 import type { FindingSink } from './findings';
 import { parseFeatures } from './featureParser';
@@ -55,9 +55,8 @@ export function toSeqRecord(recordStr: string, finding?: FindingSink): SeqRecord
   const protein = header.moleculeType === 'protein';
   const sequence = parseSequence(lines);
   const features = parseFeatures(lines, finding, protein, sequence.length, header.isCircular);
-  const residues = [...sequence];
-  const invalid = residues.findIndex(residue => !isGenBankResidue(residue, protein));
-  if (invalid !== -1) finding?.('refuse', 'invalid-residue', `The sequence contains "${residues[invalid]}" at ${protein ? 'residue' : 'base'} ${invalid + 1}.`);
+  const invalid = firstNonGenBankResidue(sequence, protein);
+  if (invalid) finding?.('refuse', 'invalid-residue', `The sequence contains "${invalid.character}" at ${protein ? 'residue' : 'base'} ${invalid.index + 1}.`);
 
   return {
     id: header.id,
@@ -67,7 +66,7 @@ export function toSeqRecord(recordStr: string, finding?: FindingSink): SeqRecord
     version: header.version,
     locationQualifier: features.some(f => f.type === 'source' && f.metadata?.country !== undefined && f.metadata?.geo_loc_name === undefined) ? 'country' : undefined,
     moleculeType: header.moleculeType,
-    sequence: invalid === -1 ? sequence.toUpperCase() : sequence.replace(/[a-z]/g, residue => residue.toUpperCase()),
+    sequence: !invalid ? sequence.toUpperCase() : sequence.replace(/[a-z]/g, residue => residue.toUpperCase()),
     features,
     isCircular: header.isCircular,
   };

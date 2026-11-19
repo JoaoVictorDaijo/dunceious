@@ -65,7 +65,8 @@ const COVERAGE_THRESHOLDS = {
     functions: 97,
     statements: 94,
   },
-  "src/app/hooks/useBioWorker.ts": {
+  // A file split into helpers keeps its gate: each glob is measured over its matched files together.
+  "src/app/hooks/{useBioWorker,bioResponseCommit}.ts": {
     lines: 90,
     branches: 70,
     functions: 97,
@@ -83,13 +84,13 @@ const COVERAGE_THRESHOLDS = {
     functions: 97,
     statements: 96,
   },
-  "src/app/App.tsx": {
+  "src/app/{App.tsx,workbench/**}": {
     lines: 85,
     branches: 70,
     functions: 70,
     statements: 80,
   },
-  "src/app/hooks/useFileHandlers.ts": {
+  "src/app/hooks/{useFileHandlers.ts,fileHandlers/**}": {
     lines: 77,
     branches: 53,
     functions: 77,
@@ -171,10 +172,13 @@ export default defineConfig(() => {
           "src/app/viewer/annotationPresentation.ts",
           "src/app/lib/ebiClient.ts",
           "src/app/hooks/useBioWorker.ts",
+          "src/app/hooks/bioResponseCommit.ts",
           "src/app/hooks/useSearchWorker.ts",
           "src/app/hooks/useRemoteAlignment.ts",
           "src/app/App.tsx",
+          "src/app/workbench/**",
           "src/app/hooks/useFileHandlers.ts",
+          "src/app/hooks/fileHandlers/**",
           "src/app/hooks/useFeatureManager.ts",
           "src/app/hooks/useHubState.ts",
         ],

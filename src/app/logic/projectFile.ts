@@ -235,9 +235,9 @@ export function parseProject(text: string, addLog: (message: string) => void = c
   const project = value as unknown as ProjectFile;
   project.records = project.records.map(record => ({
     ...record, features: record.features.map(feature => {
-      if (!isCds(feature)) return feature;
       const normalized = { ...feature, metadata: { ...feature.metadata } };
       delete normalized.metadata!._translationCheck;
+      if (!isCds(feature)) return feature.metadata ? normalized : feature;
       if (record.moleculeType === 'protein' && normalized.metadata!._translationSource === 'computed') {
         delete normalized.metadata!.translation;
         normalized.metadata!._translationSource = 'removed';
