@@ -19,9 +19,9 @@ measurements rather than fixed performance thresholds.
 
 `sessionTimings.spec.ts` is skipped unless `SESSION_TIMINGS=1` is set. It times the steps of one
 session (loading sequences, attaching GFF3 annotations, applying a pre-aligned FASTA, opening the
-viewport, one search per mode, and arrow-key pan steps) on the T7 and T4 phage sets and on synthetic
+viewport, one search per mode, and arrow-key pan steps at maximum zoom) on the T7 and T4 phage sets and on synthetic
 alignments of 10, 50 and 100 sequences of 30 kb. Each step runs from the DOM event that starts it to
-the second animation frame after the last worker reply. It writes one JSON file per data set, with
+the second animation frame after the last file read or worker reply. It writes one JSON file per data set, with
 every run, the browser version and the machine, to `SESSION_TIMINGS_OUT` (default
 `test-results/session-timings`, which the next Playwright run clears). `SESSION_TIMINGS_RUNS` sets
 the repetitions (default 5). The numbers describe one machine and browser; they are not thresholds.

@@ -23,13 +23,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from './fixtures';
 
+// Same element touch.spec.ts reads: the viewer's native horizontal scroll container.
+const horizontalSelector = 'div.overflow-x-auto.overflow-y-hidden';
+
 /**
  * Opt-in timings of one session's steps (load, annotate, align, search, pan) in the production build
  * at native CPU speed, on the bundled phage sets and on synthetic alignments of growing size.
  * Each step runs from the DOM event that starts it to the second animation frame after the last
- * worker message, once every bio or search request has been answered and workers have been silent
- * for QUIET_MS. Local search ends at the panel's own "Search done" status. Set SESSION_TIMINGS=1
- * to run it.
+ * file read or worker message, once every file read and every bio or search request has finished
+ * and nothing has happened for QUIET_MS. Local search streams its results, so it ends at the second
+ * frame after the panel shows "Search done". Set SESSION_TIMINGS=1 to run it.
  */
 const RUNS = Number(process.env.SESSION_TIMINGS_RUNS ?? 5);
 const QUIET_MS = 400;
@@ -37,12 +40,11 @@ const OUT = process.env.SESSION_TIMINGS_OUT ?? 'test-results/session-timings';
 
 declare global {
   interface Window {
-    timingProbe: { t0: number; armed: boolean; lastActivity: number; painted: number; pending: number; keyLatency: number[] };
+    timingProbe: { t0: number; armed: boolean; lastActivity: number; painted: number; pending: number; doneSeen: number; panStep?: Promise<{ ms: number; moved: number }> };
   }
 }
 
 interface Dataset {
-  name: string;
   sequences: string[];
   annotations?: string;
   alignment?: string;
@@ -99,7 +101,7 @@ function synthetic(rows: number, length: number, directory: string): Dataset {
   writeFileSync(`${base}.fasta`, `${raw.join('\n')}\n`);
   writeFileSync(`${base}.aligned.fasta`, `${aligned.join('\n')}\n`);
   writeFileSync(`${base}.gff3`, `${gff.join('\n')}\n`);
-  return { name: `synthetic ${rows} x ${length}`, sequences: [`${base}.fasta`], annotations: `${base}.gff3`, alignment: `${base}.aligned.fasta`,
+  return { sequences: [`${base}.fasta`], annotations: `${base}.gff3`, alignment: `${base}.aligned.fasta`,
     rows, columns: length, features: rows * 30, query: mutate(genome.slice(10000, 10300).join('')) };
 }
 
@@ -125,19 +127,20 @@ function fastaWidth(file: string) {
 const t7 = ['phage-t7-NC_001604.gb', 'phage-13a-NC_011045.gb', 'phage-t3-NC_003298.gb'].map(file => `examples/nucleotide/t7-phages/${file}`);
 const t4 = ['phage-t4-NC_000866.gb', 'phage-t6-NC_054907.gb', 'phage-kha5h-NC_054905.gb'].map(file => `examples/nucleotide/t4-phages/${file}`);
 
-function datasets(): Dataset[] {
-  const scratch = path.join(OUT, 'inputs');
-  return [
-    { name: 'T7-like phages', sequences: t7, alignment: 'examples/nucleotide/t7-phages/aligned.fasta', rows: 3,
-      columns: fastaWidth('examples/nucleotide/t7-phages/aligned.fasta'), features: featureCount(t7), query: mutate(origin(t7[0]).slice(13000, 13300)) },
-    { name: 'T4-like phages (not aligned)', sequences: t4, rows: 3, columns: null, features: featureCount(t4), query: mutate(origin(t4[0]).slice(56000, 56300)) },
-    synthetic(10, 30000, scratch), synthetic(50, 30000, scratch), synthetic(100, 30000, scratch),
-  ];
-}
+// Inputs are read and generated inside the test that uses them: Playwright evaluates this file when
+// it lists tests, and a skipped run must not touch the disk.
+const scratch = path.join(OUT, 'inputs');
+const datasets: { name: string; build: () => Dataset }[] = [
+  { name: 'T7-like phages', build: () => ({ sequences: t7, alignment: 'examples/nucleotide/t7-phages/aligned.fasta', rows: 3,
+    columns: fastaWidth('examples/nucleotide/t7-phages/aligned.fasta'), features: featureCount(t7), query: mutate(origin(t7[0]).slice(13000, 13300)) }) },
+  { name: 'T4-like phages (not aligned)', build: () => ({ sequences: t4, rows: 3, columns: null, features: featureCount(t4),
+    query: mutate(origin(t4[0]).slice(56000, 56300)) }) },
+  ...[10, 50, 100].map(rows => ({ name: `synthetic ${rows} x 30000`, build: () => synthetic(rows, 30000, scratch) })),
+];
 
 async function probe(page: Page) {
   await page.addInitScript(() => {
-    const state = { t0: 0, armed: false, lastActivity: 0, painted: 0, pending: 0, keyLatency: [] as number[] };
+    const state = { t0: 0, armed: false, lastActivity: 0, painted: 0, pending: 0, doneSeen: 0 };
     // Bio and search workers answer each request once; local-search workers stream, so they are not counted.
     const counted = new WeakSet<Worker>();
     window.timingProbe = state;
@@ -164,51 +167,87 @@ async function probe(page: Page) {
         return worker;
       },
     });
-    const start = () => { if (state.armed) { state.armed = false; state.t0 = performance.now(); state.lastActivity = state.t0; state.painted = 0; paint(); } };
+    // An import reads its files before any worker hears of it; without this a slow read looks like silence.
+    for (const method of ['readAsText', 'readAsArrayBuffer', 'readAsDataURL', 'readAsBinaryString'] as const) {
+      const read = FileReader.prototype[method] as (this: FileReader, blob: Blob, ...rest: string[]) => void;
+      FileReader.prototype[method] = function(this: FileReader, blob: Blob, ...rest: string[]) {
+        state.lastActivity = performance.now();
+        state.pending++;
+        this.addEventListener('loadend', () => {
+          state.lastActivity = performance.now();
+          state.pending = Math.max(0, state.pending - 1);
+          paint();
+        }, { once: true });
+        return read.call(this, blob, ...rest);
+      };
+    }
+    const start = () => { if (state.armed) { state.armed = false; state.t0 = performance.now(); state.lastActivity = state.t0; state.painted = 0; state.doneSeen = 0; paint(); } };
     document.addEventListener('change', start, true);
     document.addEventListener('click', start, true);
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'ArrowRight') return;
-      const pressed = performance.now();
-      requestAnimationFrame(() => requestAnimationFrame(() => state.keyLatency.push(performance.now() - pressed)));
-    }, true);
   });
 }
 
-/** Arms the probe, runs the action, and returns the time to the frame after the last worker message. */
+/** Arms the probe, runs the action, and returns the time to the frame after the step's last activity. */
 async function timed(page: Page, action: () => Promise<void>, timeout = 180_000, doneText: string | null = null): Promise<number> {
   await page.evaluate(() => { window.timingProbe.armed = true; window.timingProbe.t0 = 0; });
   await action();
   const handle = await page.waitForFunction(([quiet, text]) => {
     const state = window.timingProbe;
-    if (text && !document.querySelector('[data-sequence-search-section]')?.textContent?.includes(text as string)) return false;
-    return state.t0 > 0 && state.pending === 0 && state.painted >= state.lastActivity && performance.now() - state.lastActivity > (quiet as number) ? state.painted - state.t0 : false;
-  }, [QUIET_MS, doneText] as const, { timeout, polling: 50 });
+    if (state.t0 === 0 || state.pending > 0) return false;
+    if (text) {
+      if (!document.querySelector('[data-sequence-search-section]')?.textContent?.includes(text as string)) return false;
+      // The status is in the DOM now; the step ends two frames later, when it has been painted.
+      if (state.doneSeen === 0) {
+        state.doneSeen = performance.now();
+        requestAnimationFrame(() => requestAnimationFrame(() => { state.painted = performance.now(); }));
+      }
+      return state.painted >= state.doneSeen ? state.painted - state.t0 : false;
+    }
+    return state.painted >= state.lastActivity && performance.now() - state.lastActivity > (quiet as number) ? state.painted - state.t0 : false;
+  }, [QUIET_MS, doneText] as const, { timeout, polling: 'raf' });
   return Math.round((await handle.jsonValue()) as number);
 }
 
-/** Time from each ArrowRight key press to the second animation frame after it. */
+/**
+ * Time from each ArrowRight key press to the second animation frame after it, from the left edge.
+ * A press that does not move the viewport is not a pan, so it fails the run instead of being timed.
+ */
 async function panLatency(page: Page, presses = 30): Promise<number[]> {
-  await page.evaluate(() => {
+  await page.evaluate(selector => {
     (document.activeElement as HTMLElement | null)?.blur();
-    window.timingProbe.keyLatency = [];
-  });
+    document.querySelector<HTMLElement>(selector)!.scrollLeft = 0;
+  }, horizontalSelector);
+  const samples: number[] = [];
   for (let i = 0; i < presses; i++) {
+    // The listener is in place before the key is sent; otherwise the press can arrive first and go unseen.
+    await page.evaluate(selector => {
+      window.timingProbe.panStep = new Promise(resolve => {
+        const scroller = document.querySelector<HTMLElement>(selector)!;
+        document.addEventListener('keydown', () => {
+          const pressed = performance.now();
+          const before = scroller.scrollLeft;
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve({ ms: performance.now() - pressed, moved: scroller.scrollLeft - before })));
+        }, { capture: true, once: true });
+      });
+    }, horizontalSelector);
     await page.keyboard.press('ArrowRight');
-    await page.waitForFunction(count => window.timingProbe.keyLatency.length >= count, i + 1);
+    const sample = await page.evaluate(() => window.timingProbe.panStep!);
+    expect(sample.moved, `pan step ${i + 1} moved the viewport`).toBeGreaterThan(0);
+    samples.push(Math.round(sample.ms));
   }
-  return page.evaluate(() => window.timingProbe.keyLatency.splice(0).map(Math.round));
+  return samples;
 }
 
 test.describe('session timings', () => {
   test.skip(!process.env.SESSION_TIMINGS, 'Set SESSION_TIMINGS=1 to collect session timings.');
   test.describe.configure({ timeout: 1_800_000 });
 
-  for (const dataset of datasets()) {
-    test(dataset.name, async ({ browser, browserName }, testInfo) => {
+  for (const { name, build } of datasets) {
+    test(name, async ({ context, browser, browserName }, testInfo) => {
+      const dataset = build();
       const runs: Record<string, number | number[] | string | null>[] = [];
       for (let run = 0; run < RUNS; run++) {
-        const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+        // A new page in the fixture's context: a fresh app for each run, still behind the network guard.
         const page = await context.newPage();
         const errors: string[] = [];
         page.on('pageerror', error => errors.push(error.message));
@@ -255,19 +294,18 @@ test.describe('session timings', () => {
         if (await monitor.isVisible()) await monitor.getByRole('button', { name: 'Close', exact: true }).click();
         await page.getByRole('button', { name: 'Clear search', exact: true }).click();
 
-        result.panOverviewMs = await panLatency(page);
         const zoomIn = page.getByRole('button', { name: 'Zoom in', exact: true });
         for (let i = 0; i < 60 && await zoomIn.isEnabled(); i++) await zoomIn.click();
         result.panMaxZoomMs = await panLatency(page);
         result.errors = errors.join(' | ');
         runs.push(result);
-        await context.close();
+        await page.close();
       }
-      const report = { dataset: dataset.name, rows: dataset.rows, columns: dataset.columns, features: dataset.features, queryLength: dataset.query.length,
+      const report = { dataset: name, rows: dataset.rows, columns: dataset.columns, features: dataset.features, queryLength: dataset.query.length,
         runs, browserName, browserVersion: browser.version(), platform: `${os.type()} ${os.release()}`, cpu: os.cpus()[0].model, cores: os.cpus().length,
         memoryGb: Math.round(os.totalmem() / 2 ** 30), node: process.version, quietMs: QUIET_MS };
       mkdirSync(OUT, { recursive: true });
-      writeFileSync(path.join(OUT, `${dataset.name.replace(/[^a-z0-9]+/gi, '-')}.json`), JSON.stringify(report, null, 2));
+      writeFileSync(path.join(OUT, `${name.replace(/[^a-z0-9]+/gi, '-')}.json`), JSON.stringify(report, null, 2));
       await testInfo.attach('session-timings', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
     });
   }
