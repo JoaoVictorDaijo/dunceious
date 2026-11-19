@@ -349,6 +349,9 @@ Each unchanged endpoint retains its imported open range. Rebasing a selection or
 circular GFF3 row translates the finite ambiguity limit into the new coordinates if it stays
 inside the retained interval. A moved or clipped boundary uses `start_range=.,start` or
 `end_range=end,.`.
+If a circular split cannot keep a finite limit on the row carrying its boundary, the GFF3
+export writes the partial marker at that boundary and names the feature and original range
+in the export report and preview.
 The full-length `gbkey=Src` region carries any source interval's marks at the record boundaries.
 Attaching that region to a sequence preserves its open bounds on every matching source endpoint
 and reports a bound with no matching source endpoint in the attachment log.

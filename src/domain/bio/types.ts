@@ -24,6 +24,8 @@ export interface GffBoundaryRange {
   boundary: number;
   /** The finite 1-based endpoint as written. */
   limit: string;
+  /** The limit stays in the original virtual coordinates when the owning split row cannot carry it. */
+  lostAtOriginSplit?: true;
 }
 
 /**

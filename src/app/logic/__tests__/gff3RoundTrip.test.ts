@@ -30,6 +30,7 @@ import { saveEditedFeature } from '../featureManager';
 import { featureFocusTarget } from '../focusTarget';
 import { featureSequenceViews } from '../viewModel';
 import { applyAnnotations } from '../bioResponse';
+import { describeExport } from '../exportPlan';
 import { parseProject, serializeProject } from '../projectFile';
 
 function attachGff(record: SeqRecord, text: string): SeqRecord {
@@ -119,6 +120,32 @@ it('keeps landmark and wrapped GFF3 boundary uncertainty on the corresponding ro
   const { text } = exportToGff3([record]);
   const rows = text.trimEnd().split('\n').slice(2).map(row => row.split('\t')[8].split(';').filter(attr => /^(start|end)_range=/.test(attr)));
   expect(rows).toEqual([['start_range=.,2'], ['start_range=.,10'], ['end_range=2,.']]);
+});
+
+it.each([
+  ['.,13', 'start_range=.,9', [
+    'x: g: start_range=.,13 cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
+    'x: g: end_range=11,. cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
+  ]],
+  ['.,10', 'start_range=.,10', [
+    'x: g: end_range=11,. cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.',
+  ]],
+] as const)('reports the original GFF3 limits lost on a circular split with start_range=%s', (start, startRange, warnings) => {
+  const record = attachGff({ id: 'x', name: 'x', sequence: 'AGCTGACCTGAA', features: [], isCircular: true }, [
+    '##gff-version 3',
+    '##sequence-region x 1 12',
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+    `x\t.\tgene\t9\t16\t.\t+\t.\tID=g;partial=true;start_range=${start};end_range=11,.`,
+  ].join('\n'));
+  const reopened = reopenProject(record);
+  const { text, report } = exportToGff3([reopened]);
+  expect(text.trimEnd().split('\n').slice(-2)).toEqual([
+    `x\t.\tgene\t9\t12\t.\t+\t.\tID=x.1;Name=g;partial=true;${startRange}`,
+    'x\t.\tgene\t1\t4\t.\t+\t.\tID=x.1;Name=g;partial=true;end_range=4,.',
+  ]);
+  expect.soft(report).toMatchObject({ gff3RangeWarnings: warnings });
+  const preview = describeExport([reopened], 'gff3');
+  for (const warning of warnings) expect.soft(preview.summary).toContain(warning);
 });
 
 it('reattaches a mixed-strand GenBank selenocysteine exception', () => {

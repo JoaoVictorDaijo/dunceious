@@ -159,10 +159,24 @@ function addQualifiers(
 }
 
 /** NCBI GFF3 applies ambiguity to the genomic columns independently of strand. */
-function addPartialRanges(attrs: Record<string, string | string[]>, segment: FeatureSegment): void {
+function addPartialRanges(
+  attrs: Record<string, string | string[]>, segment: FeatureSegment, warnings: string[], label: string,
+): void {
   if (segment.partialStart || segment.partialEnd) attrs.partial = 'true';
-  if (segment.partialStart) attrs.start_range = ['.', projectGffRange(segment.gffStartRange, segment.start, 0)?.limit ?? String(segment.start + 1)];
-  if (segment.partialEnd) attrs.end_range = [projectGffRange(segment.gffEndRange, segment.end, 0)?.limit ?? String(segment.end), '.'];
+  const boundaries = [
+    ['start_range', segment.partialStart, segment.gffStartRange, segment.start, segment.start + 1],
+    ['end_range', segment.partialEnd, segment.gffEndRange, segment.end, segment.end],
+  ] as const;
+  for (const [key, partial, retained, boundary, base] of boundaries) {
+    if (!partial) continue;
+    const range = projectGffRange(retained, boundary, 0);
+    const limit = range?.lostAtOriginSplit ? String(base) : range?.limit ?? String(base);
+    attrs[key] = key === 'start_range' ? ['.', limit] : [limit, '.'];
+    if (range?.lostAtOriginSplit) {
+      const original = key === 'start_range' ? `.,${range.limit}` : `${range.limit},.`;
+      warnings.push(`${label}: ${key}=${original} cannot be kept on the GFF3 row that owns the boundary after splitting at the origin.`);
+    }
+  }
 }
 
 interface FeatureRows {
@@ -176,7 +190,7 @@ interface FeatureRows {
 function appendFeatureRows(
   lines: string[],
   { feature, featureId, stored, split, segments }: FeatureRows,
-  landmark: { seqid: string },
+  landmark: { seqid: string; recordId: string },
   oldIds: Map<string, string | null>,
   report: ExportReport,
 ): void {
@@ -222,7 +236,7 @@ function appendFeatureRows(
     if (index > 0) delete partAttrs.transl_except;
     const site = segment.start === segment.end;
     if (site) partAttrs.insdc_site = 'true';
-    addPartialRanges(partAttrs, segment);
+    addPartialRanges(partAttrs, segment, report.gff3RangeWarnings, `${landmark.recordId}: ${feature.name}`);
     const direction = segment.strand ?? getFeatureStrand(feature);
     const strand = direction === 1 ? '+' : direction === -1 ? '-' : direction;
     lines.push([landmark.seqid, sourceColumn(metadata.source, feature.hubEdit === 'added'), so.type, String(site ? segment.start : segment.start + 1), String(segment.end), metadata.score ?? '.', strand, phases[index], attributeText(partAttrs)].join('\t'));
@@ -238,7 +252,7 @@ export function exportToGff3(
   for (const record of records) {
     const id = encodeSeqid(record.id);
     const length = record.sequence.length;
-    const landmark = { seqid: id, length, isCircular: record.isCircular };
+    const landmark = { seqid: id, recordId: record.id, length, isCircular: record.isCircular };
     const sourceId = `${record.id}.0`;
     const sources = record.features.filter(feature => feature.type === 'source');
     const emittedIds = new Map<BioFeature, string>();
@@ -286,7 +300,7 @@ export function exportToGff3(
       start: 0, end: length,
       ...(sourceStarts.length > 0 && { partialStart: true as const, gffStartRange: sourceStarts.find(part => part.gffStartRange)?.gffStartRange }),
       ...(sourceEnds.length > 0 && { partialEnd: true as const, gffEndRange: sourceEnds.find(part => part.gffEndRange)?.gffEndRange }),
-    });
+    }, report.gff3RangeWarnings, `${record.id}: source`);
     if (record.isCircular) attributes.Is_circular = 'true';
     for (const [key, value] of Object.entries(details)) attributes[DETAIL_QUALIFIER[key as keyof SequenceDetails]] = value;
     lines.push([id, sourceColumn(sourceMetadata.source, false), 'region', '1', String(length), '.', '+', '.', attributeText(attributes)].join('\t'));
@@ -520,10 +534,14 @@ export function parseGFF3(content: string): {
       const last = feature.segments[feature.segments.length - 1];
       if (original.partialStart) first.partialStart = true;
       if (original.partialEnd) last.partialEnd = true;
-      const startRange = projectGffRange(original.gffStartRange, first.start, 0, first);
-      const endRange = projectGffRange(original.gffEndRange, last.end + length, -length, last);
-      if (startRange) first.gffStartRange = startRange;
-      if (endRange) last.gffEndRange = endRange;
+      if (original.gffStartRange) {
+        first.gffStartRange = projectGffRange(original.gffStartRange, first.start, 0, first)
+          ?? { boundary: first.start, limit: original.gffStartRange.limit, lostAtOriginSplit: true };
+      }
+      if (original.gffEndRange) {
+        last.gffEndRange = projectGffRange(original.gffEndRange, last.end + length, -length, last)
+          ?? { boundary: last.end, limit: original.gffEndRange.limit, lostAtOriginSplit: true };
+      }
       const framed = { ...feature, metadata: { ...metadata, codon_start: /^[012]$/.test(metadata.phase) ? String(Number(metadata.phase) + 1) : '1' } };
       metadata._gffPhases = JSON.stringify(partPhases(framed, feature.segments));
     }

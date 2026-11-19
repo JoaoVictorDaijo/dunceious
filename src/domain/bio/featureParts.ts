@@ -67,6 +67,7 @@ export function projectGffRange(
   range: GffBoundaryRange | undefined, boundary: number, offset: number, retained?: FeatureSegment,
 ): GffBoundaryRange | undefined {
   if (range?.boundary !== boundary || typeof range.limit !== 'string' || !/^\d+$/.test(range.limit)) return undefined;
+  if (range.lostAtOriginSplit) return offset === 0 ? range : { ...range, boundary: boundary + offset };
   if (!retained && offset === 0) return range;
   const limit = Number(range.limit) + offset;
   if (!Number.isSafeInteger(limit) || (retained && (limit <= retained.start || limit > retained.end))) return undefined;
