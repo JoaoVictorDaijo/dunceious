@@ -162,7 +162,126 @@ export function checkTranslationWithResult(feature: BioFeature, record: Translat
   if (dropped.size) feature = { ...feature, translationExceptions: feature.translationExceptions?.filter((_, i) => !dropped.has(i)) };
   const stored = storedTranslation(feature);
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
-  return { feature: { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: JSON.stringify({ ...conceptual, comparison }) } }, result: conceptual };
+  return { feature: { ...feature, metadata: { ...feature.metadata, ...(stored && !feature.metadata?._translationSource ? { _translationSource: 'imported' } : {}), _translationCheck: translationCache(conceptual, comparison) } }, result: conceptual };
+}
+
+type OkTranslation = Extract<ConceptualTranslation, { status: 'ok' }>;
+
+/**
+ * An ok result's codons and alignment indices, which make up nearly all of its JSON, written
+ * without the fields that follow from the rest of the result. `checkedTranslation` rebuilds them.
+ */
+interface CompactCodons {
+  /** The codon fragments in order. */
+  bases: string;
+  /** The fragments' alignment indices as `[first, ±count]` runs of consecutive values. */
+  indices: number[];
+  strands?: (1 | -1)[];
+  /** 1 when a terminal stop codon follows the last `possible` entry. */
+  removed: 0 | 1;
+  /** `[codon, set]` where the codon's ordinary or contextual set differs from its effective set. */
+  ordinary: [number, string][];
+  contextual: [number, string][];
+  /** How many of `indices` the result's own `alignedIndices` holds. */
+  resultIndices: number;
+}
+
+const OK_KEYS = 'status,codons,residues,possible,internalStops,threePrimeIndeterminate,alignedIndices';
+const codonKeys = (strands: boolean) => `codonIndex,proteinIndex,fragment,triplet,alignedIndices,${strands ? 'baseStrands,' : ''}ordinary,contextual,effective,terminalRemoved`;
+
+function encodeRuns(values: number[]): number[] {
+  const runs: number[] = [];
+  for (let i = 0; i < values.length;) {
+    const step = values[i + 1] - values[i] === -1 ? -1 : 1;
+    let j = i + 1;
+    while (j < values.length && values[j] - values[j - 1] === step) j++;
+    runs.push(values[i], step * (j - i));
+    i = j;
+  }
+  return runs;
+}
+
+function decodeRuns(runs: number[]): number[] {
+  const values: number[] = [];
+  for (let k = 0; k < runs.length; k += 2) {
+    const step = Math.sign(runs[k + 1]);
+    for (let n = 0; n < Math.abs(runs[k + 1]); n++) values.push(runs[k] + step * n);
+  }
+  return values;
+}
+
+/** The compact form, or undefined when the result has any shape `expandCodons` would not rebuild exactly. */
+function compactCodons(result: OkTranslation): CompactCodons | undefined {
+  const keys = Object.keys(result).join();
+  if (keys !== OK_KEYS && keys !== `${OK_KEYS},exceptions`) return undefined;
+  const { codons, possible } = result;
+  const n = codons.length;
+  const removed = n - possible.length;
+  if (removed !== 0 && removed !== 1) return undefined;
+  const strands: (1 | -1)[] | undefined = codons[0]?.baseStrands ? [] : undefined;
+  // conceptualTranslation builds every codon from one object literal, so the ends show the shape.
+  if (n && [codons[0], codons[n - 1]].some(codon => Object.keys(codon).join() !== codonKeys(!!strands))) return undefined;
+  let bases = '';
+  const indices: number[] = [];
+  const ordinary: [number, string][] = [];
+  const contextual: [number, string][] = [];
+  for (let i = 0; i < n; i++) {
+    const codon = codons[i];
+    const last = i === n - 1;
+    const effective = i < possible.length ? possible[i] : '*';
+    const { fragment, alignedIndices, baseStrands } = codon;
+    if (codon.codonIndex !== i || codon.proteinIndex !== (removed && last ? undefined : i) || codon.effective !== effective
+      || codon.terminalRemoved !== (effective === '*' && last) || typeof fragment !== 'string' || codon.triplet !== fragment.padEnd(3, 'N')
+      || typeof codon.ordinary !== 'string' || typeof codon.contextual !== 'string'
+      || (last ? fragment.length > 3 || alignedIndices.length > 3 : fragment.length !== 3 || alignedIndices.length !== 3)
+      || !!strands !== !!baseStrands || (baseStrands && baseStrands.length !== alignedIndices.length)) return undefined;
+    bases += fragment;
+    for (let k = 0; k < alignedIndices.length; k++) {
+      if (!Number.isSafeInteger(alignedIndices[k])) return undefined;
+      indices.push(alignedIndices[k]);
+      if (strands) {
+        if (baseStrands![k] !== 1 && baseStrands![k] !== -1) return undefined;
+        strands.push(baseStrands![k]);
+      }
+    }
+    if (codon.ordinary !== effective) ordinary.push([i, codon.ordinary]);
+    if (codon.contextual !== effective) contextual.push([i, codon.contextual]);
+  }
+  const resultIndices = result.alignedIndices.length;
+  if (resultIndices > indices.length) return undefined;
+  for (let k = 0; k < resultIndices; k++) if (result.alignedIndices[k] !== indices[k]) return undefined;
+  return { bases, indices: encodeRuns(indices), ...(strands && { strands }), removed: removed as 0 | 1, ordinary, contextual, resultIndices };
+}
+
+function translationCache(conceptual: ConceptualTranslation, comparison: ReturnType<typeof compareTranslation> | undefined): string {
+  const compact = conceptual.status === 'ok' ? compactCodons(conceptual) : undefined;
+  if (!compact || conceptual.status !== 'ok') return JSON.stringify({ ...conceptual, comparison });
+  const { codons: _codons, alignedIndices: _alignedIndices, ...rest } = conceptual;
+  return JSON.stringify({ ...rest, comparison, codonProvenance: compact });
+}
+
+/** The result as `JSON.parse` returns the full cache, keys in the same order. */
+function expandCodons(cache: Omit<OkTranslation, 'codons' | 'alignedIndices'> & { comparison?: unknown; codonProvenance: CompactCodons }): ConceptualTranslation {
+  const compact = cache.codonProvenance;
+  const indices = decodeRuns(compact.indices);
+  const n = cache.possible.length + compact.removed;
+  const ordinary = new Map(compact.ordinary);
+  const contextual = new Map(compact.contextual);
+  const codons: CodonProvenance[] = [];
+  for (let i = 0; i < n; i++) {
+    const effective = i < cache.possible.length ? cache.possible[i] : '*';
+    const fragment = compact.bases.slice(i * 3, i * 3 + 3);
+    codons.push({
+      codonIndex: i, ...(compact.removed && i === n - 1 ? {} : { proteinIndex: i }), fragment, triplet: fragment.padEnd(3, 'N'),
+      alignedIndices: indices.slice(i * 3, i * 3 + 3), ...(compact.strands && { baseStrands: compact.strands.slice(i * 3, i * 3 + 3) }),
+      ordinary: ordinary.get(i) ?? effective, contextual: contextual.get(i) ?? effective, effective, terminalRemoved: effective === '*' && i === n - 1,
+    });
+  }
+  return {
+    status: 'ok', codons, residues: cache.residues, possible: cache.possible, internalStops: cache.internalStops,
+    threePrimeIndeterminate: cache.threePrimeIndeterminate, alignedIndices: indices.slice(0, compact.resultIndices),
+    ...('exceptions' in cache && { exceptions: cache.exceptions }), ...('comparison' in cache && { comparison: cache.comparison }),
+  } as ConceptualTranslation;
 }
 export function hasTranslationMismatch(feature: BioFeature, result: ConceptualTranslation): boolean {
   if (feature.metadata?.exception !== undefined || result.status !== 'ok') return false;
@@ -213,7 +332,8 @@ export function resolvedTranslationFeature(feature: BioFeature): BioFeature {
 export function checkedTranslation(feature: BioFeature, record: TranslationRecord): ConceptualTranslation {
   if (feature.metadata?._translationCheck) {
     try {
-      return JSON.parse(feature.metadata._translationCheck) as ConceptualTranslation;
+      const cached = JSON.parse(feature.metadata._translationCheck);
+      return cached?.codonProvenance ? expandCodons(cached) : cached as ConceptualTranslation;
     } catch {
       return conceptualTranslation(feature, record);
     }
