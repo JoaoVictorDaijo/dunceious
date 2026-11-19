@@ -22,6 +22,43 @@ All notable changes to Dunceious. Format loosely follows
 
 ## [Unreleased]
 
+## [4.1.0] — 2026-11-19
+
+### Added
+
+- Add an opt-in browser test that times the steps of a session (load, annotate, align, search, pan) on the bundled phage sets and on synthetic alignments.
+- Translation codons explain curated differences, initiation, code breaks, partial codons and uncertainty on hover and keyboard focus; stored residues remain visible, and hidden DNA stops carry a red edge. Translation-length chips and complete extra-residue lists explain unmatched positions without inventing codon cells; overlapping CDSs use independent lanes.
+
+### Changed
+
+- Show an explicitly assumed table-1 view, with dashed uncertain codons, for coding annotations with an invalid /transl_table, while keeping computed results and exports unchanged.
+- Files picked or dropped together commit in selection order, waiting on each gap-removal decision, and a refused file no longer stops the rest of the selection.
+- Search panel controls share one field style with built-in steppers, and metric definitions open as tooltips. Search details shows its counts as a labelled table, and the record bar no longer clips at its corners.
+
+### Fixed
+
+- Recompute stored CDS proteins after coding edits, preserve imported assertions with provenance and discrepancy warnings, and make translation qualifiers read-only.
+- Validate and apply CDS code breaks across imports, edits and selection export, preserving strand and frame with visible loss notices. Revalidate code breaks against the clipped CDS before selection export computes its protein, so exported projects reopen with named notices for newly unusable breaks.
+- Correct the user manual, architecture notes and example guide where they disagreed with the app: accepted file extensions, BED parsing, low-zoom sampling, the 15-second search limit, molecule-type detection, GFF3 source and the phone sample's reference.
+- Show joined, complemented and circular annotation locations consistently; preserve sites and part order through alignment and warn when GenBank cannot write a location. Keep site parts from producing false frameshift claims or hiding annotation labels and arrowheads; reuse known biological lengths during aligned translation redraws.
+- Load pre-aligned FASTA into empty workspaces, confirm batch gap removal, and offer consistent gapped or ungapped FASTA exports with separate files for unaligned rows. Refuse damaged gap-bearing project sequences and GenBank exports, and exclude unaligned rows from conservation while marking mixed workspaces.
+- Validate GenBank sequence and feature meaning with exhaustive findings, inert private qualifiers, and guarded invalid reading frames.
+- Warn when GenBank preserves printable non-ASCII qualifier text; refuse control characters and line separators.
+- Show methionine for annotated T7 initiator codons in the greeter using genetic code 11, while preserving literal internal-codon translation.
+- Fix location, translation and export defects from the second integration review: keep GenPept bond locations, keep the descriptor of bonds that can't be read safely without drawing them, and show named notices wherever a feature is left out of an export or a selection.
+- Preserve biological partial ends including empty origin-side wrap pieces, circular annotations, and between-base sites including circular origin sites and rebased standalone locations and ordered locations through edits and exports. Refuse damaged project interval orders and clarify unverified genetic-code warnings. Restore the selection FASTA export button with keyboard menu navigation and focus return.
+- Do not report internal translation provenance as an illegal GenBank qualifier on import.
+- Prevent removing the last location segment of an annotation, preserving its stored translation and viewer lane when an empty-location edit is refused.
+- Keep order(), between-base sites, partial ends, the written order of nested locations and intervals in other records through edits and export, instead of reading them as join(), two bases, complete ends, a false origin crossing or local bases.
+- Preserve quantitative track coordinates across alignments, draw only supplied residue support, and use half-open picking and aligned track focus.
+- Separate record residue lengths from alignment columns, use molecule-aware length units, and distinguish local identifiers from accessions in record details and the Hub sort label.
+- Refuse a sequence file whose records mix nucleotide and peptide, or differ from the workspace, after checking every record; files picked together load in selection order. Refuse a pre-aligned FASTA that lists the same record more than once instead of applying the first row.
+- Translation paint and pointer targets split at alignment gaps, invalid-code codons keep an explicitly assumed view without applying exceptions, and dropped conflicts or foreign-accession breaks never receive substitution marks. Codon tooltips use local exception previews and compact counts, complete diagnostics stay in annotation details, and Hub translation summaries keep dropped-exception counts after normalization.
+
+### Security
+
+- Update jsdom's transitive Undici to 7.30.2 to address GHSA-mqg3-3v4r-cm32.
+
 ## [4.0.1] — 2026-11-05
 
 ### Changed
