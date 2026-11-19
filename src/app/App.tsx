@@ -134,6 +134,8 @@ const App: React.FC = () => {
     applyAlignmentOverlay,
     gapNotices,
     dismissGapNotices,
+    sessionTypeNotice,
+    dismissSessionTypeNotice,
   } = useBioWorker(addLog);
 
   const remoteAlignment = useRemoteAlignment(records, applyAlignmentOverlay, addLog);
@@ -252,6 +254,7 @@ const App: React.FC = () => {
     remoteAlignment.isLocked,
     { requestBio, getRecords, getWorkspaceRevision: () => hubState.workspaceRevision.current },
   );
+  const sessionMismatch = moleculeTypeMismatch ?? sessionTypeNotice;
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Details can open from the hub (a copy carrying `index`) or the viewer (the
@@ -408,12 +411,12 @@ const App: React.FC = () => {
         />
       )}
 
-      {moleculeTypeMismatch && (
+      {sessionMismatch && (
         <MoleculeTypeMismatchModal
-          incoming={moleculeTypeMismatch.incoming}
-          loaded={moleculeTypeMismatch.loaded}
-          fileName={moleculeTypeMismatch.fileName}
-          onClose={closeMismatchModal}
+          incoming={sessionMismatch.incoming}
+          loaded={sessionMismatch.loaded}
+          fileName={sessionMismatch.fileName}
+          onClose={() => { closeMismatchModal(); dismissSessionTypeNotice(); }}
         />
       )}
 

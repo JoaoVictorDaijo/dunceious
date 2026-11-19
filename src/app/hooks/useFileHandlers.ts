@@ -168,7 +168,7 @@ export function useFileHandlers(
   // processing flag on failure (unreadable file, absent worker) so the
   // ProcessingOverlay can never hang. See logic/upload.ts.
   const workerDeps: WorkerUploadDeps = {
-    readText: readFileAsText,
+    readText: dropImport?.readText ?? readFileAsText,
     postToWorker: request => postToWorker(bioWorkerRef.current, request),
     setProcessing: setIsProcessing,
     addLog,
@@ -180,25 +180,34 @@ export function useFileHandlers(
     if (files.length === 0) return;
     setIsProcessing(true);
     addLog(`Ingesting batch: ${files.length} file(s).`);
-    files.forEach(file =>
-      dispatchFile(file, content => {
-        if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-        const isFasta = content.trimStart().startsWith('>');
-        if (records.length > 0) {
-          const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
-          const loaded = getLoadedCategory(records);
-          if (incoming !== loaded) {
-            setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
-            addLog(
-              `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
-            );
-            setIsProcessing(false);
-            return null;
-          }
+    const buildRequest = (file: File) => (content: string): BioWorkerRequest | null => {
+      if (isAlignmentLocked()) { setIsProcessing(false); return null; }
+      const isFasta = content.trimStart().startsWith('>');
+      if (records.length > 0) {
+        const incoming = isFasta ? sniffFastaCategory(content) : sniffGenBankCategory(content);
+        const loaded = getLoadedCategory(records);
+        if (incoming !== loaded) {
+          setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
+          addLog(
+            `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
+          );
+          setIsProcessing(false);
+          return null;
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
-      }, workerDeps),
-    );
+      }
+      return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
+    };
+    // Dispatch in selection order: the worker answers in order, so the first file sets an
+    // empty workspace's molecule type whichever read finishes first.
+    void (async () => {
+      for (const file of files) {
+        try { await dispatchFile(file, buildRequest(file), workerDeps); }
+        catch (error) {
+          addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
+          setIsProcessing(false);
+        }
+      }
+    })();
   };
 
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -20,11 +20,15 @@
 
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 import { SeqRecord } from '@/src/domain/bio/types';
-import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, applyFastaAndLog, type GapRemoval } from '@/src/app/logic/bioResponse';
+import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse, ParseGenBankSuccessResponse } from '@/src/workers/protocol';
+import { applyParseResponse, applyAnnotations, applyFastaAndLog, sessionTypeConflictMessage, type GapRemoval } from '@/src/app/logic/bioResponse';
+import type { SessionTypeConflict } from '@/src/domain/bio';
 
 /** One FASTA file loaded as sequences whose records lost '-' gap characters. */
 export interface GapNotice { fileName: string; records: GapRemoval[] }
+
+/** A parsed file refused because its records would mix molecule categories in the workspace. */
+export type SessionTypeNotice = SessionTypeConflict & { fileName: string };
 
 export interface UseBioWorkerReturn {
   getRecords: () => SeqRecord[];
@@ -41,6 +45,8 @@ export interface UseBioWorkerReturn {
   /** Files whose records lost '-' since the user last dismissed the notice. */
   gapNotices: GapNotice[];
   dismissGapNotices: () => void;
+  sessionTypeNotice: SessionTypeNotice | null;
+  dismissSessionTypeNotice: () => void;
 }
 
 /** The reply a FASTA request settles with, and the gap notice its batch load raised. */
@@ -50,8 +56,27 @@ function fastaReply(msg: ParseFastaSuccessResponse, result: ReturnType<typeof ap
     return result.gapsRemoved.length > 0 ? { reply, notice: { fileName: msg.filename, records: result.gapsRemoved } } : { reply };
   }
   // A refused file must fail its request, so a dropped batch attaches no annotations.
-  if (result.kind === 'reject-no-residues') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
+  if (result.kind === 'reject-no-residues' || result.kind === 'reject-session-type') return { reply: { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` } };
   return { reply: msg };
+}
+
+interface ParseCommitEffects {
+  setRecords: (next: SeqRecord[]) => void;
+  addLog: (message: string) => void;
+  notifySessionType: (notice: SessionTypeNotice) => void;
+}
+
+/** Commits a GenBank parse; a refused file fails its request, so a dropped batch attaches no annotations. */
+function commitParse(msg: ParseGenBankSuccessResponse, prev: SeqRecord[], effects: ParseCommitEffects): BioWorkerResponse {
+  const result = applyParseResponse(prev, msg.records, msg.filename);
+  if (result.kind === 'reject-session-type') {
+    effects.addLog(sessionTypeConflictMessage(msg.filename, result.conflict));
+    effects.notifySessionType({ ...result.conflict, fileName: msg.filename });
+    return { type: 'ERROR', requestId: msg.requestId, error: `${msg.filename} was not loaded.` };
+  }
+  effects.setRecords(result.next);
+  effects.addLog(`Batch ingestion complete: ${result.count} records added.`);
+  return { ...msg, idMap: result.idMap };
 }
 
 /**
@@ -89,6 +114,8 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
   const [isProcessing, setIsProcessing] = useState(false);
   const [gapNotices, setGapNotices] = useState<GapNotice[]>([]);
   const dismissGapNotices = useCallback(() => setGapNotices([]), []);
+  const [sessionTypeNotice, setSessionTypeNotice] = useState<SessionTypeNotice | null>(null);
+  const dismissSessionTypeNotice = useCallback(() => setSessionTypeNotice(null), []);
 
   const bioWorkerRef = useRef<Worker | null>(null);
 
@@ -143,10 +170,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
         addLog(`Genomic processing complete. ${msg.records.length} records ready.`);
 
       } else if (msg.type === 'PARSE_SUCCESS') {
-        const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
-        setRecords(result.next);
-        addLog(`Batch ingestion complete: ${result.count} records added.`);
-        msg = { ...msg, idMap: result.idMap };
+        msg = commitParse(msg, recordsRef.current, { setRecords, addLog, notifySessionType: setSessionTypeNotice });
         setIsProcessing(false);
 
       } else if (msg.type === 'ANNOTATIONS_SUCCESS') {
@@ -169,6 +193,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
       } else if (msg.type === 'FASTA_SUCCESS') {
         const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
         setRecords(result.next);
+        if (result.kind === 'reject-session-type') setSessionTypeNotice({ ...result.conflict, fileName: msg.filename });
         const outcome = fastaReply(msg, result);
         msg = outcome.reply;
         const notice = outcome.notice;
@@ -237,5 +262,7 @@ export function useBioWorker(addLog: (msg: string) => void): UseBioWorkerReturn 
     bioWorkerRef,
     gapNotices,
     dismissGapNotices,
+    sessionTypeNotice,
+    dismissSessionTypeNotice,
   };
 }

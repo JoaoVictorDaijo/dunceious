@@ -491,3 +491,29 @@ export const getOriginalPos = (alignedSeq: string, alignedPos: number): number =
 export function isProteinSession(records: { moleculeType?: 'dna' | 'rna' | 'protein' }[]): boolean {
   return records.some(r => r.moleculeType === 'protein');
 }
+
+/** A workspace holds one molecule category: nucleotide (DNA and RNA together) or protein. */
+export type MoleculeCategory = 'nucleotide' | 'protein';
+
+/** Why a batch cannot join the workspace; `loaded` is null for an empty workspace. */
+export interface SessionTypeConflict {
+  incoming: MoleculeCategory | 'mixed';
+  loaded: MoleculeCategory | null;
+}
+
+/**
+ * Checks every incoming record against the workspace it would join. A batch is refused
+ * whole when its own records span both categories, or when its category differs from a
+ * non-empty workspace's, so a session never holds nucleotide and protein records together.
+ */
+export function findSessionTypeConflict(
+  loaded: { moleculeType?: 'dna' | 'rna' | 'protein' }[],
+  incoming: { moleculeType?: 'dna' | 'rna' | 'protein' }[],
+): SessionTypeConflict | null {
+  const loadedCategory: MoleculeCategory | null = loaded.length === 0 ? null : isProteinSession(loaded) ? 'protein' : 'nucleotide';
+  const proteins = incoming.filter(r => r.moleculeType === 'protein').length;
+  if (proteins > 0 && proteins < incoming.length) return { incoming: 'mixed', loaded: loadedCategory };
+  const incomingCategory: MoleculeCategory = proteins > 0 ? 'protein' : 'nucleotide';
+  if (incoming.length > 0 && loadedCategory && incomingCategory !== loadedCategory) return { incoming: incomingCategory, loaded: loadedCategory };
+  return null;
+}
