@@ -18,10 +18,12 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { extractFeatureSequence } from '@/src/domain/bio/sequence';
+import { conceptualTranslation } from '@/src/domain/bio/translation';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
-import { parseGenBank } from '../index';
+import { exportToGenBank, parseGenBank } from '../index';
 
 function genBank(locus: string, sequence: string, features = '', origin = 'ORIGIN'): string {
   return `LOCUS       ${locus}
@@ -35,6 +37,80 @@ ${features}${origin}
 function importGenBank(content: string) {
   return handleBioMessage({ type: 'PARSE_GENBANK', filename: 'fixture.gb', content });
 }
+
+it('opens human VMO1 and round-trips its bond locations verbatim', () => {
+  const input = readFileSync('src/core/genbank/__tests__/fixtures/vmo1-human.gb', 'utf8');
+  const descriptors = ['bond(53,86)', 'bond(114,146)', 'bond(169,199)', 'bond(174,200)'];
+  const imported = importGenBank(input);
+  expect(imported.type).toBe('PARSE_SUCCESS');
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected GenPept import to succeed');
+
+  const [record] = imported.records;
+  expect(record.features).toHaveLength(17);
+  const bonds = record.features.filter(feature => feature.type === 'Bond');
+  expect(bonds.map(feature => feature.locationString)).toEqual(descriptors);
+  expect(bonds.map(feature => feature.segments)).toEqual([
+    [{ start: 52, end: 53 }],
+    [{ start: 113, end: 114 }],
+    [{ start: 168, end: 169 }],
+    [{ start: 173, end: 174 }],
+  ]);
+  for (const bond of bonds) {
+    expect(conceptualTranslation(bond, record)).toEqual({ status: 'unavailable', reason: 'protein-record' });
+  }
+
+  const { text } = exportToGenBank([record]);
+  expect([...text.matchAll(/^ {5}Bond +(.+)$/gm)].map(match => match[1])).toEqual(descriptors);
+  const reopened = importGenBank(text);
+  expect(reopened).toMatchObject({ type: 'PARSE_SUCCESS', findings: [] });
+  if (reopened.type !== 'PARSE_SUCCESS') throw new Error('Expected GenPept export to reopen');
+  expect(reopened.records[0].features).toHaveLength(17);
+  expect(reopened.records[0].features.filter(feature => feature.type === 'Bond').map(feature => feature.locationString)).toEqual(descriptors);
+});
+
+it('refuses a nucleotide bond location and names the descriptor', () => {
+  const input = genBank('DNA 9 bp DNA linear', 'atgcaaata', '     misc_feature    bond(2,6)\n');
+  expect(importGenBank(input)).toMatchObject({
+    type: 'PARSE_REFUSED',
+    findings: [expect.objectContaining({ code: 'malformed-location', message: expect.stringContaining('misc_feature location bond(2,6)') })],
+  });
+});
+
+it('round-trips a protein bond whose second endpoint is absent', () => {
+  const input = genBank('PROT 6 aa linear', 'mcaavc', '     Bond            bond(2)\n');
+  const imported = importGenBank(input);
+  expect(imported.type).toBe('PARSE_SUCCESS');
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected GenPept import to succeed');
+
+  const { text } = exportToGenBank(imported.records);
+  expect(text).toContain('     Bond            bond(2)\n');
+  expect(importGenBank(text)).toMatchObject({
+    type: 'PARSE_SUCCESS',
+    findings: [],
+    records: [{ features: [{ locationString: 'bond(2)', segments: [{ start: 1, end: 2 }] }] }],
+  });
+});
+
+it.each([
+  'bond(<2,>6)',
+  'bond(2,ABC123.1:6)',
+  'bond(ABC123.1:2,6)',
+  'order(bond(2,6),3)',
+])('refuses unsupported protein bond location %s and names the descriptor', location => {
+  const input = genBank('PROT 6 aa linear', 'mcaavc', `     Bond            ${location}\n`);
+  expect(importGenBank(input)).toMatchObject({
+    type: 'PARSE_REFUSED',
+    findings: [expect.objectContaining({ code: 'malformed-location', message: expect.stringContaining(`Bond location ${location}`) })],
+  });
+});
+
+it('checks the second endpoint of a protein bond against the record length', () => {
+  const input = genBank('PROT 6 aa linear', 'mcaavc', '     Bond            bond(2,7)\n');
+  expect(importGenBank(input)).toMatchObject({
+    type: 'PARSE_REFUSED',
+    findings: [expect.objectContaining({ code: 'location-out-of-range', message: expect.stringContaining('Bond location bond(2,7)') })],
+  });
+});
 
 it.each([
   ['acſt', '4 bp', 'ſ', 3],

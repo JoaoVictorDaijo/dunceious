@@ -76,9 +76,9 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
       fullLocation += lines[++i].trim();
     }
 
-    const error = validateLocation(fullLocation, length, circular);
+    const error = validateLocation(fullLocation, length, circular, protein);
     let location;
-    try { location = parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }); }
+    try { location = parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein); }
     catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }
     const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = location as LocationData;
 

@@ -139,8 +139,22 @@ function locationOperator(text: string): LocationOperator | undefined {
   return match[1] === 'complement' ? locationOperator(match[2]) : match[1] as LocationOperator;
 }
 
-export function parseLocation(loc: string, record?: LocationRecord): LocationData {
+/** The NCBI flat-file formatter writes a second endpoint only when it is available. */
+export function proteinBondEndpoints(location: string): [number] | [number, number] | undefined {
+  const match = /^bond\((\d+)(?:,(\d+))?\)$/.exec(location);
+  if (!match) return undefined;
+  const first = Number(match[1]);
+  return match[2] === undefined ? [first] : [first, Number(match[2])];
+}
+
+export function parseLocation(loc: string, record?: LocationRecord, protein = false): LocationData {
   const cleanLoc = loc.replace(/\s/g, '');
+  const bond = protein ? proteinBondEndpoints(cleanLoc) : undefined;
+  if (bond) {
+    // The first residue anchors the glyph. The retained location text carries the bond itself.
+    const segment = { start: bond[0] - 1, end: bond[0] };
+    return { segments: [segment], strand: 1, ...segment };
+  }
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;

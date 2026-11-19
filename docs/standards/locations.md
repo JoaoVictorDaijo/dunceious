@@ -290,3 +290,11 @@ neighbouring bases are selected; otherwise the selection-loss notice names its o
 Remote intervals are not
 local segments, so they are never tested against local sequence bounds. Saved projects follow the
 [project validation contract](formats.md#fmt-14-private-project-schema).
+
+GenPept records accept local `bond(a,b)` locations and `bond(a)` when only the first endpoint is
+known. The [NCBI C++ Toolkit data model](https://ncbi.github.io/cxx-toolkit/pages/ch_datamod#bond-a-chemical-bond-between-two-residues)
+defines the endpoints as residues connected by a chemical bond. The
+[NCBI flat-file formatter](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L449-L463)
+writes the second point when available. Import checks each residue position against the protein
+length. The first residue anchors the glyph and the retained descriptor carries the bond through
+GenBank export and project reopen.

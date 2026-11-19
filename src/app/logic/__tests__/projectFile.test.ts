@@ -172,6 +172,16 @@ describe('project locations saved before operators and sites', () => {
   });
 });
 
+it('reopens a saved protein bond with its literal descriptor and first-residue geometry', () => {
+  const bond = {
+    type: 'Bond', name: 'Bond', strand: 1 as const, start: 1, end: 2,
+    segments: [{ start: 1, end: 2 }], locationString: 'bond(2,6)',
+  };
+  const records: SeqRecord[] = [{ id: 'protein', name: 'protein', moleculeType: 'protein', sequence: 'MCAAVC', features: [bond] }];
+  const result = parseProject(serializeProject({ ...state, records }));
+  expect(result).toMatchObject({ ok: true, project: { records: [{ features: [bond] }] } });
+});
+
 it('refuses a saved interval that disagrees with a retained between-base site', () => {
   const records = [{ id: 'x', name: 'x', sequence: 'ACGT', features: [{
     type: 'misc_feature', name: 'cut', strand: 1, start: 1, end: 3,

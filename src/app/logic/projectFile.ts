@@ -132,12 +132,13 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
   if (feature.locationString === undefined) return feature;
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
   const landmark = { length: record.sequence.length, isCircular: record.isCircular === true };
-  const problem = validateLocation(feature.locationString, landmark.length, landmark.isCircular);
+  const protein = record.moleculeType === 'protein';
+  const problem = validateLocation(feature.locationString, landmark.length, landmark.isCircular, protein);
   if (problem) {
     const reason = problem.message === 'cannot be read' ? 'could not be read' : problem.message;
     throw new Error(description + ' ' + reason + '.');
   }
-  const parsed = parseLocation(feature.locationString, landmark);
+  const parsed = parseLocation(feature.locationString, landmark, protein);
 
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {
     throw new Error(description + ' disagrees with its stored operator.');

@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { parseLocation } from './locationParser';
+import { parseLocation, proteinBondEndpoints } from './locationParser';
 
 type LocationProblem = { code: string; message: string };
 /** `n.m` in a base number; an accession's `.version` (`AB123.1:`) is not a position. */
@@ -32,10 +32,18 @@ export const guardSiteSpanEnd = (text: string): boolean => /\^/.test(text) && /\
  * `order()` (LOC-2), between-base sites (LOC-5) and remote intervals (LOC-8) are read; `n^1` is a
  * site only on a circular molecule of length n (§3.4.2.1).
  */
-export function validateLocation(text: string, length?: number, circular = false): LocationProblem | null {
+export function validateLocation(text: string, length?: number, circular = false, protein = false): LocationProblem | null {
   const loc = text.replace(/\s/g, '');
   const malformed = (message = 'cannot be read') => ({ code: 'malformed-location', message });
   if (!loc) return { code: 'missing-location', message: 'has no location' };
+  const bond = protein ? proteinBondEndpoints(loc) : undefined;
+  if (bond) {
+    // The NCBI Seq-bond endpoints are residue positions, even when only one anchors the glyph.
+    if (bond.some(point => point < 1 || !Number.isSafeInteger(point) || (length !== undefined && point > length))) {
+      return { code: 'location-out-of-range', message: `is outside the ${length ?? ''} residue sequence` };
+    }
+    return null;
+  }
   if (/join\(/.test(loc) && /order\(/.test(loc)) return malformed('mixes join and order');
   if (/>\d+\.\.|\.\.<\d+/.test(loc)) return malformed('has an invalid fuzzy endpoint');
   // Checked before the local site rules, which would test a remote site against this record's length.
