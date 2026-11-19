@@ -40,7 +40,7 @@ const OUT = process.env.SESSION_TIMINGS_OUT ?? 'test-results/session-timings';
 
 declare global {
   interface Window {
-    timingProbe: { t0: number; armed: boolean; lastActivity: number; painted: number; pending: number; doneSeen: number; panStep?: Promise<{ ms: number; moved: number }> };
+    timingProbe: { t0: number; armed: boolean; lastActivity: number; painted: number; pending: number; doneSeen: number; donePainted: number; panStep?: Promise<{ ms: number; moved: number }> };
   }
 }
 
@@ -140,30 +140,41 @@ const datasets: { name: string; build: () => Dataset }[] = [
 
 async function probe(page: Page) {
   await page.addInitScript(() => {
-    const state = { t0: 0, armed: false, lastActivity: 0, painted: 0, pending: 0, doneSeen: 0 };
+    const state = { t0: 0, armed: false, lastActivity: 0, painted: 0, pending: 0, doneSeen: 0, donePainted: 0 };
     // Bio and search workers answer each request once; local-search workers stream, so they are not counted.
-    const counted = new WeakSet<Worker>();
+    // Requests are counted per worker, so one that is terminated or fails gives its unanswered ones back.
+    const unanswered = new WeakMap<Worker, number>();
     window.timingProbe = state;
     const paint = () => requestAnimationFrame(() => requestAnimationFrame(() => { state.painted = performance.now(); }));
+    const settle = (worker: Worker, count: number) => {
+      const settled = Math.min(count, unanswered.get(worker) ?? 0);
+      unanswered.set(worker, (unanswered.get(worker) ?? 0) - settled);
+      state.pending -= settled;
+      state.lastActivity = performance.now();
+      paint();
+    };
     const NativeWorker = window.Worker;
     const post = NativeWorker.prototype.postMessage;
     NativeWorker.prototype.postMessage = function(this: Worker, ...args: unknown[]) {
+      // A post that throws never reaches the worker, so it is counted only once it has been sent.
+      (post as (...a: unknown[]) => void).apply(this, args);
       state.lastActivity = performance.now();
       const message = args[0] as { type?: unknown; mode?: unknown } | null;
       if (message && ((typeof message.type === 'string' && /^[A-Z_]+$/.test(message.type)) || typeof message.mode === 'string')) {
-        counted.add(this);
+        unanswered.set(this, (unanswered.get(this) ?? 0) + 1);
         state.pending++;
       }
-      return (post as (...a: unknown[]) => void).apply(this, args);
     } as typeof post;
+    const terminate = NativeWorker.prototype.terminate;
+    NativeWorker.prototype.terminate = function(this: Worker) {
+      settle(this, Infinity);
+      return terminate.call(this);
+    };
     window.Worker = new Proxy(NativeWorker, {
       construct(target, args) {
         const worker = new target(...(args as [string | URL, WorkerOptions?]));
-        worker.addEventListener('message', () => {
-          state.lastActivity = performance.now();
-          if (counted.has(worker)) state.pending = Math.max(0, state.pending - 1);
-          paint();
-        });
+        worker.addEventListener('message', () => settle(worker, 1));
+        worker.addEventListener('error', () => settle(worker, Infinity));
         return worker;
       },
     });
@@ -171,17 +182,18 @@ async function probe(page: Page) {
     for (const method of ['readAsText', 'readAsArrayBuffer', 'readAsDataURL', 'readAsBinaryString'] as const) {
       const read = FileReader.prototype[method] as (this: FileReader, blob: Blob, ...rest: string[]) => void;
       FileReader.prototype[method] = function(this: FileReader, blob: Blob, ...rest: string[]) {
+        // A read that throws (a busy reader, a bad argument) starts nothing and is not counted.
+        read.call(this, blob, ...rest);
         state.lastActivity = performance.now();
         state.pending++;
         this.addEventListener('loadend', () => {
           state.lastActivity = performance.now();
-          state.pending = Math.max(0, state.pending - 1);
+          state.pending--;
           paint();
         }, { once: true });
-        return read.call(this, blob, ...rest);
       };
     }
-    const start = () => { if (state.armed) { state.armed = false; state.t0 = performance.now(); state.lastActivity = state.t0; state.painted = 0; state.doneSeen = 0; paint(); } };
+    const start = () => { if (state.armed) { state.armed = false; state.t0 = performance.now(); state.lastActivity = state.t0; state.painted = 0; state.doneSeen = 0; state.donePainted = 0; paint(); } };
     document.addEventListener('change', start, true);
     document.addEventListener('click', start, true);
   });
@@ -199,9 +211,10 @@ async function timed(page: Page, action: () => Promise<void>, timeout = 180_000,
       // The status is in the DOM now; the step ends two frames later, when it has been painted.
       if (state.doneSeen === 0) {
         state.doneSeen = performance.now();
-        requestAnimationFrame(() => requestAnimationFrame(() => { state.painted = performance.now(); }));
+        requestAnimationFrame(() => requestAnimationFrame(() => { state.donePainted = performance.now(); }));
       }
-      return state.painted >= state.doneSeen ? state.painted - state.t0 : false;
+      // Its own timestamp: frames scheduled for earlier worker messages must not end the step.
+      return state.donePainted > 0 ? state.donePainted - state.t0 : false;
     }
     return state.painted >= state.lastActivity && performance.now() - state.lastActivity > (quiet as number) ? state.painted - state.t0 : false;
   }, [QUIET_MS, doneText] as const, { timeout, polling: 'raf' });
