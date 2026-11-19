@@ -171,8 +171,11 @@ GFF3 rows beyond the end only for circular references
 
 **Dunceious.** Partial. Extraction is correct (W1). Display and export share
 `formatInsdcLocation`, including explicit wrapped segments. Invalid geometry has no INSDC
-form: the editor blocks Save, project import keeps it, and GenBank export skips it with a
-warning. Invalid geometry yields no derived feature or region sequence and no translation
+form: the editor blocks Save and GenBank export skips it with a warning. Project import
+keeps structured geometry as stored when there is no retained location text. When a descriptor
+is retained, project import validates it and refuses conflicts with the stored geometry under the
+[project validation contract](formats.md#fmt-14-private-project-schema). Invalid geometry yields
+no derived feature or region sequence and no translation
 lanes; stored translation remains visible with an explicit unchecked-data label. A partly stranded project feature is refused; the editor requires a strand on every
 piece once any piece has one. On a linear record, the envelope uses the minimum start and maximum
 end of the local intervals. On a circular record, a wrap is inferred only when the first interval
