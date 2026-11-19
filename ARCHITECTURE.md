@@ -74,7 +74,9 @@ src/
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI
     ├── showroom/        # phone test drive: the real viewer, Hub, Export and details over a bundled aligned sample, memory only
-    ├── App.tsx          # composition root of the workbench
+    ├── App.tsx          # composition root of the workbench: renders what useWorkbench returns
+    ├── workbench/       # useWorkbench and its state hooks (view settings, navigation, details, comparison, record removal),
+    │                    #   overlays, main area and the prop builders for TopNav, Sidebar, GenomeViewer and the Hub
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     │   ├── trackLayout.ts # cached strand-lane packing, deterministic track metrics/ruler
@@ -309,7 +311,7 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 
 ### `src/app/App.tsx` (Composition Root)
 
-- Wires the hooks below together and holds the top-level UI state (active workspace, toggles, open modals, Focus and the Hub return target).
+- Renders the layout from `useWorkbench` (`src/app/workbench/`), which wires the hooks below together. The top-level UI state lives in small hooks there: `useViewSettings` (toggles, comparison settings, feature colours), `useNavigation` (active workspace, selection, Focus and the Hub return target), `useRecordDetails`, `useComparisonView` and `createRecordRemoval`. `WorkbenchOverlays` and `WorkbenchMain` render the dialogs and the viewport or Hub; `chromeProps.ts` and `panelProps.ts` build the `TopNav`, `Sidebar`, `GenomeViewer` and `AnnotationHubPanel` props.
 - Does not own the workers: `useBioWorker` and `useSearchWorker` create them, send typed `BioWorkerRequest` / `SearchWorkerRequest` messages and consume the typed responses — no `any` in worker message paths.
 
 ### `src/app/hooks/` (Custom Hooks)
@@ -317,13 +319,13 @@ descending segment pair takes the wrap branch, even if only one pair crosses the
 State and logic extracted from `App.tsx` into purpose-built hooks, each with a single responsibility:
 
 - `useAppLogger` – append-only activity log, stable `addLog` callback
-- `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication
+- `useBioWorker` – worker lifecycle, `records` / `transposedRecords` / `consensus` state, ID deduplication; `bioResponseCommit.ts` commits worker responses, handles import consent and diagnostics, and settles pending requests
 - `useFeatureManager` – feature CRUD and undo with annotation edit markers, detail/display-name edits, search-to-annotation bridge, record visibility toggle
 - `useHubState` – session state owned above the workspace switch: per-tab offsets/folds, grouping, filters, density, selection and hub-only hidden IDs (not serialized); search folds reset when filters change
 - `useRemoteAlignment` – remote alignment dialog state, job lifecycle, consent and lock
 - `useDraggableJobPill` – pointer and keyboard dragging of the minimized alignment pill
 - `useFileDragActive` – whether files are being dragged over the window (depth-counted, reset on drop/dragend), which arms the Ingestion drop zones
-- `useFileHandlers` – file upload handlers and export helpers
+- `useFileHandlers` – file upload handlers and export helpers, composed from `fileHandlers/`: `pickerImports.ts`, `dropImport.ts`, `projectFile.ts` (load and save) and `exports.ts`
 - `useSearchWorker` – search worker bridge; derives `isProteinSession`; exposes grouped results and join helpers
 
 ### `src/app/components/` (Presentational Components)

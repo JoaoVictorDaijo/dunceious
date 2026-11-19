@@ -95,7 +95,7 @@ complete amino-termini must be set to 1." Values 1, 2 or 3.
 ([Calculate menu](https://www.jalview.org/help/html/menus/alwcalculate.html)); it is not a
 qualifier handler.
 
-**Dunceious.** Conforms (`src/domain/bio/sequence.ts:230`).
+**Dunceious.** Conforms (`src/domain/bio/sequence.ts:264`).
 
 ## TRANS-3. Alternative initiation codons
 

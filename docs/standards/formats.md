@@ -33,7 +33,7 @@ numbers to types" ([GFF3 format, 25.0.3](https://resources.qiagenbioinformatics.
 
 **Dunceious.** Conforms to the grammar: every emitted term is in SO 2026-08-07. The mapping
 lives in `src/core/formats/soTypes.ts`; the original key is kept in an `insdc_type` attribute
-(`src/core/formats/gff3.ts:179`), where NCBI uses `gbkey`. Features crossing the origin are
+(`src/core/formats/gff3.ts:207`), where NCBI uses `gbkey`. Features crossing the origin are
 written as split rows; see LOC-6.
 
 For a feature with explicit interval strands (`insdc_interval_strands=true`), Dunceious writes
@@ -139,11 +139,11 @@ writer defaults to 60 columns. NCBI's stricter SeqID, alphabet and line guidance
 **Applications.** Unknown for these exact parser/writer semantics across surveyed applications;
 FASTA support in [Tools](tools.md) establishes only support.
 
-**Dunceious.** Mixed: `src/core/formats/fasta.ts:31` handles first-token IDs and wrapped input,
+**Dunceious.** Mixed: `src/core/formats/fasta.ts:32` handles first-token IDs and wrapped input,
 but preserves internal whitespace, digits and punctuation, unlike the named Biopython practice:
 [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244). Output has headers and 60-column
-wrapping (`src/core/formats/fasta.ts:69`), including the original-residue single-record export
-(`src/app/hooks/useFileHandlers.ts:380`). These paths do not prove NCBI-submission-valid IDs,
+wrapping (`src/core/formats/fasta.ts:70`), including the original-residue single-record export
+(`src/app/hooks/fileHandlers/exports.ts:89`). These paths do not prove NCBI-submission-valid IDs,
 residues or metadata. Molecule inference uses OP-1. The private Slice field and filenames remain
 application policy; aligned slicing uses FMT-6.
 
@@ -178,7 +178,7 @@ new-submission deprecation. Unknown retained names are not thereby submission-va
 **Dunceious.** Partial. Import recognizes documented keys plus case and legacy/underscore
 aliases, retaining unknown keys (`src/core/formats/ncbiModifiers.ts:39`). Export uses the four
 detail spellings, isolate/strain and the listed deprecation omissions, but emits retained unknown
-keys without validating them against NCBI's list (`src/core/formats/fasta.ts:76`). Full header
+keys without validating them against NCBI's list (`src/core/formats/fasta.ts:82`). Full header
 submission compatibility is Unknown. Local invalid-detail omission is separate from the modifier
 contract; OP-18 records date validation limits and
 [#247](https://github.com/JoaoVictorDaijo/dunceious/issues/247).
@@ -199,7 +199,7 @@ EMBOSS documents gapped FASTA. Neither specifies a workspace-ID reconciliation a
 selection windows and residue-integrity checks are Unknown there.
 
 **Dunceious.** Partial. Local overlay checks equal, nonempty rows and ID sets
-(`src/app/logic/bioResponse.ts:168`), but duplicate upload IDs can evade set comparison. Each row
+(`src/app/logic/bioResponse.ts:325`), and repeated rows are refused after header IDs are resolved. Each row
 must equal its record's loaded residues once `-` is removed from both, ignoring case, or the
 overlay is refused with the offending IDs and the workspace unchanged; rows containing `.` are
 refused as an unsupported gap symbol (owner decision,
@@ -281,7 +281,7 @@ sequence-region bounds; it does not supply an alias-equivalence algorithm.
 the surveyed applications.
 
 **Dunceious.** Partial: attachment requires exactly one match, preferring the batch ID map
-before ID, name/accession and sanitized aliases (`src/app/logic/bioResponse.ts:98`). No assembly
+before ID, name/accession and sanitized aliases (`src/app/logic/bioResponse.ts:194`). No assembly
 or residue verification is performed: [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250).
 Attachment to a linear record refuses a matching landmark with `Is_circular=true` or a wrapped
 feature. The entire attachment is refused before any annotations or source details are applied.
@@ -332,7 +332,7 @@ INSDC defines the initial coding offset. No runtime phase oracle was run.
 **Applications.** Unknown for arbitrary/mixed-strand/slippage phase policies across applications.
 
 **Dunceious.** Conforms for coherent ordinary parts and valid imported values
-(`src/core/formats/gff3.ts:85`): whole-feature minus traversal reverses, non-CDS gets `.`, and
+(`src/core/formats/gff3.ts:86`): whole-feature minus traversal reverses, non-CDS gets `.`, and
 phase carries across parts, including intervals split at the circular origin. Cached phases are
 reused only when they contain one 0/1/2 value per row. Import refuses a CDS row with fewer
 than nine columns or a phase other than `0`, `1` or `2` and reports the row and the problem. Absence of `codon_start`
@@ -433,8 +433,8 @@ compatible external contract ([Biopython SeqIO](https://biopython.org/docs/lates
 **Applications.** Unknown for this exact schema. Other applications' project formats do not
 establish Dunceious migration or retention semantics.
 
-**Dunceious.** Unknown against external authority: `src/app/logic/projectFile.ts:41` writes
-private state with format 2; `src/app/logic/projectFile.ts:87` validates local shapes and rejects
+**Dunceious.** Unknown against external authority: `src/app/logic/projectFile.ts:57` writes
+private state with format 2; `src/app/logic/projectFile.ts:186` validates local shapes and rejects
 case-insensitive duplicate IDs. No runtime round-trip evidence is claimed. The current exact-version
 rejection and shape checks are implementation evidence only. The owner-confirmed gap contract
 (2026-11-06, #286) additionally refuses any `sequence` containing `-` or `.`, and any set of
@@ -468,7 +468,7 @@ not define Dunceious's provenance object or reproducibility guarantee. Exact pol
 query span; `src/domain/bio/searchHit.ts:56` compares feature geometry, not current residues,
 scoring implementation/version, reference span or coordinate ordering. Metadata is serialized
 at `src/domain/bio/searchHit.ts:47` and populated with version/time/search fields at
-`src/app/hooks/useFeatureManager.ts:259`. Notes use consent plus this currency gate and an
+`src/app/hooks/useFeatureManager.ts:270`. Notes use consent plus this currency gate and an
 edit-derived query percentage (`src/core/formats/searchHitNote.ts:23`):
 [#258](https://github.com/JoaoVictorDaijo/dunceious/issues/258). METRIC-4 governs its identity
 label separately. Owner choices are to scope “current” to unchanged geometry or require additional
@@ -492,16 +492,11 @@ an explicit format. None supplies Dunceious's fallback algorithm.
 (observed 2026-10-23, live version unspecified) routes by extension, distinguishing `.gff`
 (GFF2) from `.gff3`. Exact ambiguity handling elsewhere is Unknown.
 
-**Dunceious.** Partial match to extension routing: `src/workers/handlers/bio.ts:57` routes
+**Dunceious.** Partial match to extension routing: `src/workers/handlers/bio.ts:88` routes
 BED/bedGraph/GFF extensions, treats `.gff` as GFF3, then tests the first physical line for nine
 tab fields, otherwise defaults to BED. A leading GFF3 directive/comment defeats that fallback:
 [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250). Drop routing also uses extensions
-(`src/app/logic/dropRouting.ts:28`). The independent molecule preview
-(`src/app/hooks/useFileHandlers.ts:48`) appends complete lines before checking a cumulative
-1,200-character stopping trigger; it is not a hard cap. Its subsequent-header counter uses the
-same nonempty cumulative sample without resetting per record, so it does not reliably count
-three nonempty records. This algorithm does not gain scientific support from format-autodetection
-practice. Owner options remain explicit format, scoped autodetection or extension routing, with
+(`src/app/logic/dropRouting.ts:29`). Owner options remain explicit format, scoped autodetection or extension routing, with
 an explicit ambiguous-input policy; no option is selected here.
 
 ## FMT-17. GFF3 source column
@@ -519,7 +514,7 @@ No runtime oracle was run.
 
 **Applications.** Unknown.
 
-**Dunceious.** Conforms (`src/core/formats/gff3.ts:49`, [#251](https://github.com/JoaoVictorDaijo/dunceious/issues/251)).
+**Dunceious.** Conforms (`src/core/formats/gff3.ts:58`, [#251](https://github.com/JoaoVictorDaijo/dunceious/issues/251)).
 An imported source is decoded on import and written back unchanged, including after the feature is
 edited; a literal non-conforming `%` is kept as text. Features added in Dunceious, and with no
 source of their own, are written as `Dunceious`. Every other feature, and the `region` row of a

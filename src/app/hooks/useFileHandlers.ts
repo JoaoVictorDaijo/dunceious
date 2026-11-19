@@ -18,37 +18,17 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Dispatch, SetStateAction, useState, useRef } from 'react';
-import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { MixedFastaError } from '@/src/app/logic/bioResponse';
-import { describeSelectionLoss } from '@/src/core/exportReport';
-import { getOriginalPos, sliceRecordsBySelection, type SessionTypeConflict } from '@/src/domain/bio';
-import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
-import { exportToFasta } from '@/src/core/formats/fasta';
-import { downloadBlob } from '@/src/app/lib/download';
-import { takeFiles, readFileAsText, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
+import { useState, useRef } from 'react';
+import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import type { HubExportFormat, ExportOptions } from '@/src/app/logic/exportPlan';
+import { readFileAsText } from '@/src/app/logic/upload';
+import type { DropImport, FileHandlerContext, MoleculeTypeMismatchError, ProjectSetters, ViewportState } from './fileHandlers/context';
+import { createPickerHandlers } from './fileHandlers/pickerImports';
+import { createDropHandler } from './fileHandlers/dropImport';
+import { useProjectFile } from './fileHandlers/projectFile';
+import { createExportHandlers } from './fileHandlers/exports';
 
-import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
-import { DEFAULT_ALIGNMENT_COMPARISON, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
-import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
-import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-
-/** Subset of app state that the project-restore handler needs to write back. */
-export interface ProjectSetters {
-  onWorkspaceReplaced?: () => void;
-  setRecords: Dispatch<SetStateAction<SeqRecord[]>>;
-  setFeatureColors: Dispatch<SetStateAction<Record<string, string>>>;
-  setActiveSelection: Dispatch<SetStateAction<SelectionArea | null>>;
-  setShowAnnotations: Dispatch<SetStateAction<boolean>>;
-  setShowTranslation: Dispatch<SetStateAction<boolean>>;
-  setShowConservation: Dispatch<SetStateAction<boolean>>;
-  setAlignmentComparison: Dispatch<SetStateAction<AlignmentComparisonSettings>>;
-  setIsProcessing: Dispatch<SetStateAction<boolean>>;
-}
-
-interface MoleculeTypeMismatchError extends SessionTypeConflict {
-  fileName: string;
-}
+export type { MoleculeTypeMismatchError, ProjectSetters } from './fileHandlers/context';
 
 export interface UseFileHandlersReturn {
   handleDroppedFiles: (files: File[]) => Promise<void>;
@@ -85,345 +65,28 @@ export function useFileHandlers(
   records: SeqRecord[],
   activeSelection: SelectionArea | null,
   featureColors: Record<string, string>,
-  viewportState: { showAnnotations: boolean; showTranslation: boolean; showConservation: boolean; alignmentComparison: AlignmentComparisonSettings },
+  viewportState: ViewportState,
   setters: ProjectSetters,
   addLog: (msg: string) => void,
   isAlignmentLocked: () => boolean = () => false,
-  dropImport?: { getWorkspaceRevision?: () => number; getRecords: () => SeqRecord[]; requestBio: (request: BioWorkerRequest, shouldCommit?: () => boolean) => Promise<BioWorkerResponse | 'stale'>; readText?: (file: File) => Promise<string> },
+  dropImport?: DropImport,
 ): UseFileHandlersReturn {
-  const {
-    setRecords,
-    setFeatureColors,
-    setActiveSelection,
-    setShowAnnotations,
-    setShowTranslation,
-    setShowConservation,
-    setAlignmentComparison,
-    setIsProcessing,
-  } = setters;
-
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
-  const [projectName, setProjectName] = useState('dunceious_project');
   const dropQueue = useRef(Promise.resolve());
   const workspaceRevision = useRef(0);
-
-  const promptForProjectName = () => {
-    const input = window.prompt('Project name (required):', projectName);
-    if (input === null) return null;
-    const trimmed = input.trim();
-    if (!trimmed) return null;
-    setProjectName(trimmed);
-    return trimmed;
-  };
-
-  // ── Upload handlers ───────────────────────────────────────────────────────
-
-  // Shared plumbing: read a file, dispatch to the worker, and always settle the
-  // processing flag on failure (unreadable file, absent worker) so the
-  // ProcessingOverlay can never hang. See logic/upload.ts.
-  const workerDeps: WorkerUploadDeps = {
+  const ctx: FileHandlerContext = {
+    bioWorkerRef, records, activeSelection, featureColors, viewportState, setters, addLog, isAlignmentLocked, dropImport,
+    getWorkspaceRevision: () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current,
     readText: dropImport?.readText ?? readFileAsText,
-    postToWorker: request => postToWorker(bioWorkerRef.current, request),
-    setProcessing: setIsProcessing,
-    addLog,
+    workspaceRevision,
   };
-
-  const getRevision = () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current;
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAlignmentLocked()) return;
-    const files = takeFiles(e.target);
-    if (files.length === 0) return;
-    setIsProcessing(true);
-    const revision = getRevision();
-    addLog(`Ingesting batch: ${files.length} file(s).`);
-    const reads = files.map(async file => {
-      try { return { file, content: await workerDeps.readText(file) }; }
-      catch (error) { return { file, error }; }
-    });
-    void (async () => {
-      for (const read of reads) {
-        const result = await read;
-        const { file } = result;
-        if ('error' in result) {
-          addLog(`Could not read "${file.name}": ${result.error instanceof Error ? result.error.message : String(result.error)}`);
-          continue;
-        }
-        if (getRevision() !== revision) {
-          addLog(`${file.name} was not loaded: the workspace was replaced`);
-          continue;
-        }
-        if (isAlignmentLocked()) {
-          addLog(`${file.name} was not loaded: the workspace is locked`);
-          continue;
-        }
-        const { content } = result;
-        try {
-          if (!dropImport) throw new Error('The processing worker is unavailable.');
-          setIsProcessing(true);
-          await dropImport.requestBio({
-            type: content.trimStart().startsWith('>') ? 'PARSE_FASTA' : 'PARSE_GENBANK',
-            filename: file.name, content, workspaceRevision: revision,
-          });
-        } catch (error) {
-          if (!(error instanceof MixedFastaError) && getRevision() === revision) {
-            addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
-          }
-        }
-      }
-      setIsProcessing(false);
-    })();
-  };
-
-  const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAlignmentLocked()) return;
-    const [file] = takeFiles(e.target);
-    if (!file) return;
-    const revision = getRevision();
-    setIsProcessing(true);
-    addLog(`Importing external alignment: ${file.name}`);
-    dispatchFile(file, content => {
-      if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-      if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
-      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision };
-    }, workerDeps);
-  };
-
-  const handleAnnotationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAlignmentLocked()) return;
-    const files = takeFiles(e.target);
-    if (files.length === 0 || records.length === 0) return;
-    setIsProcessing(true);
-    addLog(`Importing annotations from ${files.length} files...`);
-    files.forEach(file =>
-      dispatchFile(
-        file,
-        content => {
-          if (isAlignmentLocked()) {
-            addLog(`${file.name} was not loaded: the workspace is locked`);
-            setIsProcessing(false);
-            return null;
-          }
-          return { type: 'PARSE_ANNOTATIONS', filename: file.name, content };
-        },
-        workerDeps,
-      ),
-    );
-  };
-
-  const loadProjectFile = (file: File): Promise<void> => {
-    if (isAlignmentLocked()) return Promise.resolve();
-    setIsProcessing(true);
-    addLog(`Loading project: ${file.name}`);
-    return (dropImport?.readText ?? readFileAsText)(file)
-      .then(text => {
-        if (isAlignmentLocked()) { setIsProcessing(false); return; }
-        const parsed = parseProject(text, addLog);
-        if (!parsed.ok) { addLog(parsed.message); return; }
-        const project = parsed.project;
-        workspaceRevision.current++;
-        setters.onWorkspaceReplaced?.();
-        setRecords(project.records.map(r => ({ ...r, visible: r.visible ?? true })));
-        setFeatureColors(project.featureColors);
-        setActiveSelection(project.activeSelection ?? null);
-        setShowAnnotations(project.showAnnotations);
-        setShowTranslation(project.showTranslation);
-        setShowConservation(project.showConservation);
-        setAlignmentComparison(project.alignmentComparison ?? DEFAULT_ALIGNMENT_COMPARISON);
-        if (project.name?.trim()) setProjectName(project.name.trim());
-        addLog('Project loaded successfully.');
-      })
-      .catch(err => {
-        addLog(`Could not read project file "${file.name}": ${err instanceof Error ? err.message : String(err)}`);
-      })
-      .finally(() => setIsProcessing(false));
-  };
-
-  const handleProjectUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isAlignmentLocked()) return;
-    const [file] = takeFiles(e.target);
-    if (file) void loadProjectFile(file);
-  };
-
-  const handleDroppedFiles = (files: File[]): Promise<void> => {
-    if (isAlignmentLocked() || files.length === 0) return Promise.resolve();
-    const route = routeDroppedFiles(files);
-    if (route.kind === 'refused') {
-      addLog(route.reason);
-      return Promise.resolve();
-    }
-    const run = async () => {
-      if (isAlignmentLocked()) return;
-      if (route.kind === 'project') {
-        if (window.confirm('Load this project and replace the workspace?')) await loadProjectFile(route.file);
-        return;
-      }
-      const getRevision = () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current;
-      const revision = getRevision();
-      const shouldCommit = () => getRevision() === revision;
-      const checkWorkspace = () => {
-        if (!shouldCommit()) throw new Error('Drop cancelled: the workspace was replaced');
-      };
-      setIsProcessing(true);
-      const request = async (message: BioWorkerRequest) => {
-        checkWorkspace();
-        if (message.type === 'PARSE_ANNOTATIONS' && isAlignmentLocked()) {
-          addLog(`${message.filename} was not loaded: the workspace is locked`);
-          return { type: 'ANNOTATIONS_SUCCESS' as const, annotations: {}, details: {}, idMap: message.idMap };
-        }
-        if (!dropImport) throw new Error('The processing worker is unavailable.');
-        const response = await dropImport.requestBio(message, shouldCommit);
-        if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
-        checkWorkspace();
-        return response;
-      };
-      try {
-        await importDroppedBatch<File>(route, {
-          readText: dropImport?.readText ?? readFileAsText,
-          importSequence: async (file, content) => {
-            checkWorkspace();
-            const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            try {
-              const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: undefined, ...(isFasta ? { asAlignment: false } : {}) });
-              if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
-              if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
-              return response.idMap;
-            } catch (error) {
-              if (!(error instanceof MixedFastaError)) throw error;
-              checkWorkspace();
-              return error.idMap;
-            }
-          },
-          importAnnotations: async (file, content, idMap) => {
-            const response = await request({ type: 'PARSE_ANNOTATIONS', filename: file.name, content, idMap });
-            if (response.type !== 'ANNOTATIONS_SUCCESS') throw new Error(`Unexpected annotation response for "${file.name}".`);
-          },
-        });
-      } catch (error) {
-        addLog(error instanceof Error ? error.message : String(error));
-      } finally { setIsProcessing(false); }
-    };
-    const pending = dropQueue.current.then(run);
-    dropQueue.current = pending;
-    return pending;
-  };
-
-  // ── Export helpers ────────────────────────────────────────────────────────
-
-  const downloadExport = (result: ReturnType<typeof serializeExport>, fileName: string, mime = 'text/plain') => {
-    if (result.text) downloadBlob(result.text, fileName, mime);
-    if (result.unalignedText) {
-      const separateName = fileName.replace(/(\.[^.]*)?$/, '_unaligned$1');
-      downloadBlob(result.unalignedText, separateName, mime);
-      const savedCount = result.report.unalignedRows.filter(id => !result.report.emptyRowsOmitted.includes(id)).length;
-      addLog(`${savedCount} sequences aren't in the alignment, so they have no alignment columns and were saved separately in ${separateName}`);
-    }
-    for (const warning of [...result.report.translationWarnings, ...result.report.qualifierWarnings, ...result.report.genBankFeaturesOmitted, ...result.report.gff3FeaturesOmitted.map(omitted => omitted.reason), ...result.report.gff3RangeWarnings]) addLog(`WARNING: ${warning}`);
-    for (const omitted of result.report.genBankRecordsOmitted) addLog(omitted.reason);
-    if (result.report.gapOnlyRows.length) addLog(`Only gaps in the exported window: ${result.report.gapOnlyRows.join(', ')}`);
-    if (result.report.emptyRowsOmitted.length) addLog(`No residues in the exported window; left out: ${result.report.emptyRowsOmitted.join(', ')}`);
-  };
-  const exportSelection = (mode: 'original' | 'aligned' = 'aligned') => {
-    const start = activeSelection ? Math.min(activeSelection.start, activeSelection.end) : undefined;
-    const end = activeSelection ? Math.max(activeSelection.start, activeSelection.end) : undefined;
-    downloadExport(exportToFasta(records, { residues: mode, header: 'id', slice: start !== undefined && end !== undefined ? { start, end } : undefined }),
-      activeSelection ? 'selection_export.fasta' : 'msa_export.fasta');
-    addLog(`${activeSelection ? 'Selection' : 'Full'} FASTA exported.`);
-  };
-
-  const exportSelectionJson = () => {
-    if (!activeSelection) { addLog('No selection active for JSON export.'); return; }
-    const start = Math.min(activeSelection.start, activeSelection.end);
-    const end = Math.max(activeSelection.start, activeSelection.end);
-    const selectedRecords = records.flatMap(record => {
-      const aligned = record.alignedSequence;
-      const biologicalStart = aligned ? getOriginalPos(aligned, start) : start;
-      const biologicalEnd = aligned ? getOriginalPos(aligned, end) : end;
-      const sliced = sliceRecordsBySelection([{ ...record, alignedSequence: undefined }], biologicalStart, biologicalEnd);
-      for (const loss of sliced.losses) addLog(`WARNING: ${describeSelectionLoss(loss)}`);
-      return sliced.records
-        .map(sliced => ({
-          ...sliced,
-          alignedSequence: aligned?.substring(start, end),
-        }));
-    });
-    const project = {
-      records: selectedRecords,
-      featureColors,
-      ...viewportState,
-      activeSelection: null,
-      selectionRange: { start, end },
-      version: __APP_VERSION__,
-      exportedAt: new Date().toISOString(),
-    };
-    downloadBlob(
-      serializeProject(project),
-      `selection_${start}_${end}.json`,
-      'application/json',
-    );
-    addLog(`Selection JSON exported (${start}-${end}).`);
-  };
-
-  const handleExportRecord = (recordId: string, mode: 'original' | 'aligned' = 'original') => {
-    const record = records.find(r => r.id === recordId);
-    if (!record) return;
-    downloadBlob(
-      exportToFasta([record], { residues: mode, header: 'id' }).text,
-      `${record.id.replace(/[^a-z0-9]/gi, '_')}.fasta`,
-      'text/plain',
-    );
-    addLog(`Exported record ${record.id} to FASTA.`);
-  };
-
-  /** Returns the saved file name, or null when the user cancels the name prompt. */
-  const saveProject = (selectedRecords: SeqRecord[]): string | null => {
-    const chosenProjectName = promptForProjectName();
-    if (!chosenProjectName) {
-      addLog('Project save cancelled: a project name is required.');
-      return null;
-    }
-    const safeName = chosenProjectName.replace(/[^a-z0-9._-]/gi, '_');
-    const project = {
-      name: chosenProjectName,
-      records: selectedRecords,
-      featureColors,
-      activeSelection,
-      showAnnotations: viewportState.showAnnotations,
-      showTranslation: viewportState.showTranslation,
-      showConservation: viewportState.showConservation,
-      alignmentComparison: viewportState.alignmentComparison,
-      version: __APP_VERSION__,
-    };
-    const fileName = `${safeName || 'dunceious_project'}.json`;
-    downloadBlob(serializeProject(project), fileName, 'application/json');
-    addLog('Project JSON exported.');
-    return fileName;
-  };
-
-  const exportProjectJson = () => saveProject(records);
-  const exportRecords = (ids: string[], format: HubExportFormat, options: ExportOptions = {}) => {
-    const requested = new Set(ids);
-    const subset = records.filter(record => requested.has(record.id));
-    if (!subset.length) return;
-    try {
-      const result = serializeExport(subset, format, { ...options,
-        projectState: { featureColors, ...viewportState, activeSelection: null, name: options.fileName?.replace(/\.json$/i, ''), version: __APP_VERSION__ },
-      });
-      downloadExport(result, options.fileName ?? `sequences.${EXPORT_EXTENSION[format]}`, format === 'project' ? 'application/json' : 'text/plain');
-      addLog(`Exported ${subset.length - result.report.genBankRecordsOmitted.length - result.report.emptyRowsOmitted.length} sequences as ${format}.`);
-    } catch (error) { addLog(`Export stopped: ${error instanceof Error ? error.message : String(error)}`); }
-  };
-
+  const project = useProjectFile(ctx);
   return {
-    exportRecords,
-    handleDroppedFiles,
-    handleFileUpload,
-    handleAlignmentUpload,
-    handleAnnotationUpload,
-    handleProjectUpload,
-    handleExportRecord,
-    exportSelection,
-    exportSelectionJson,
-    exportProjectJson,
+    ...createPickerHandlers(ctx),
+    ...createExportHandlers(ctx),
+    handleDroppedFiles: createDropHandler(ctx, dropQueue, project.loadProjectFile),
+    handleProjectUpload: project.handleProjectUpload,
+    exportProjectJson: project.exportProjectJson,
     moleculeTypeMismatch,
     showMismatchModal: setMoleculeTypeMismatch,
     closeMismatchModal: () => setMoleculeTypeMismatch(null),
