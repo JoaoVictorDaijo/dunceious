@@ -19,6 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readDetails, writeDetails } from '@/src/domain/bio/details';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { exportToGenBank } from '../serialize';
 import { parseGenBank } from '../index';
@@ -68,6 +69,27 @@ describe('GenBank format contract', () => {
     expect(text).toContain('/site_type="active"');
     expect(text).toContain('/coded_by="X:1..12"');
     expect(text).not.toContain('/mol_type');
+  });
+
+  it.each(['import', 'edit'])('round-trips the GenPept source location from Details after %s', mode => {
+    const input = `LOCUS       PROT 9 aa linear
+FEATURES             Location/Qualifiers
+     source          1..9
+                     /organism="Escherichia coli"
+ORIGIN
+        1 makafavle
+//
+`;
+    const withLocation = input.replace('ORIGIN', '                     /geo_loc_name="USA: California"\nORIGIN');
+    const imported = parseGenBank(mode === 'import' ? withLocation : input).records[0];
+    const recordWithLocation = mode === 'import' ? imported : writeDetails(imported, { location: 'USA: California' });
+    expect(readDetails(recordWithLocation).location).toBe('USA: California');
+
+    const { text } = exportToGenBank([recordWithLocation]);
+    expect(text).toContain('/geo_loc_name="USA: California"');
+    const reopened = parseGenBank(text);
+    expect(reopened.findings).toEqual([]);
+    expect(readDetails(reopened.records[0]).location).toBe('USA: California');
   });
 
   it.each(['dna', 'rna'] as const)('adds required source information for unannotated %s', moleculeType => {

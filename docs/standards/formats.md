@@ -111,6 +111,8 @@ at **2b8ccee**, pinned in [`sources.json`](sources.json) as `ncbi-protein-seqfea
 `ncbi-protein-feature_item` and `ncbi-protein-seqfeat`. Protein tag problems warn. The key map
 maps `source` to `biosrc`, with no mandatory qualifiers. `coded_by` belongs to the CDS map;
 qualifiers occurring in any subtype map take precedence over flat-file-only exemptions.
+The source formatter can emit `/geo_loc_name` for the `country` slot. The generator reads
+that spelling from `feature_item.cpp` and includes it among the allowed source qualifiers.
 
 Unknown and underscore-prefixed input qualifiers live in `unknownQualifiers`, separate from
 computational metadata. Project files preserve them, the details view shows them, and GenBank

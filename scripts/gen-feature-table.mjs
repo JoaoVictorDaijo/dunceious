@@ -58,11 +58,16 @@ export function generateFeatureTable() {
   // The formatter names mapped protein precursors independently of the subtype name table.
   if (!emitter.includes('return "Precursor"')) throw new Error('Missing protein precursor key');
   protein.Precursor = { mandatory: mandatory.preprotein ?? [], optional: maps.preprotein };
+  // The source formatter can spell a mapped BioSource qualifier differently in the flat file.
+  const sourceAliases = [...emitter.matchAll(/x_FormatQual\(\s*eSQ_(\w+),\s*"(\w+)"/g)]
+    .filter(([, slot]) => maps.biosrc.includes(slot))
+    .map(([, , name]) => name);
+  protein.source.optional = [...new Set([...protein.source.optional, ...sourceAliases])].sort();
   const mapped = new Set(Object.values(maps).flat());
   const emitted = [...emitter.matchAll(/x_FormatQual\(\s*eFQ_\w+,\s*"(\w+)"/g)].map(m => m[1]);
   emitted.push(...[...emitter.matchAll(/(?:DO_QUAL|ADD_QUAL)\(\s*(\w+)/g)].map(m => m[1]));
   const flatFileOnly = [...new Set(emitted.filter(q => q !== 'x' && !mapped.has(q)))].sort();
-  const proteinQualifiers = [...new Set([...Object.values(qualifierNames), ...flatFileOnly])].sort();
+  const proteinQualifiers = [...new Set([...Object.values(qualifierNames), ...flatFileOnly, ...sourceAliases])].sort();
   const data = { sources, nucleotide, nucleotideQualifiers, protein, proteinQualifiers, flatFileOnly };
   const header = readFileSync('src/domain/bio/types.ts', 'utf8').split('*/')[0] + '*/\n\n';
   return header + '/** INSDC 11.4; NCBI C++ Toolkit 2b8ccee. Regenerate with scripts/gen-feature-table.mjs. */\n'
