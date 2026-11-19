@@ -117,6 +117,11 @@ export interface ParseGenBankSuccessResponse extends BioRequestContext {
   incomingCategory?: 'nucleotide' | 'protein';
   type: 'PARSE_SUCCESS';
   findings?: import('@/src/domain/bio/types').GenBankFinding[];
+  /**
+   * The records' code-break notices in record and feature order, as `translationWarning` lists
+   * them without mismatches. Absent when the sender did not compute them.
+   */
+  codeBreakNotices?: string[];
   /** Workspace assignments supplied by the main-thread acknowledgment. */
   idMap?: BatchIdMap;
   filename: string;

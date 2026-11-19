@@ -21,7 +21,7 @@
 import type { Dispatch, SetStateAction, MutableRefObject } from 'react';
 import { findSessionTypeConflict, type MoleculeCategory, type SessionTypeConflict } from '@/src/domain/bio/sequence';
 import type { SeqRecord } from '@/src/domain/bio/types';
-import { translationWarning } from '@/src/domain/bio/translation';
+import { noticesWarning, translationWarning } from '@/src/domain/bio/translation';
 import { unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import { refusedGenBankIds, importLog, type ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
 import { sanitizeId } from '@/src/app/logic/idHelpers';
@@ -120,7 +120,8 @@ function commitGenBank(msg: ParseGenBankSuccessResponse | ParseGenBankRefusedRes
     addLog(importLog(file, false));
   }
   addLog(`Batch ingestion complete: ${result.count} records added.`);
-  const exceptionWarning = translationWarning(msg.records, { includeMismatches: false });
+  const exceptionWarning = msg.codeBreakNotices
+    ? noticesWarning(msg.codeBreakNotices) : translationWarning(msg.records, { includeMismatches: false });
   if (exceptionWarning) addLog(exceptionWarning);
   const remoteWarning = remotePartsWarning(msg.records);
   if (remoteWarning) {
