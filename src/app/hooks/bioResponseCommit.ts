@@ -141,7 +141,9 @@ function receiveAnnotations(msg: Extract<BioWorkerResponse, { type: 'ANNOTATIONS
   }
   let annotationRefusal: string | undefined;
   setRecords(prev => {
-    const { next, totalAdded, unmatched, warnings, refusal } = applyAnnotations(prev, msg.annotations, msg.details, msg.idMap);
+    const { next, totalAdded, unmatched, warnings, refusal } = applyAnnotations(
+      prev, msg.annotations, msg.details, msg.idMap, msg.gffNotices,
+    );
     if (refusal) { annotationRefusal = refusal; addLog(`ERROR: Annotation import refused: ${refusal}`); return prev; }
     logAttachedTranslationWarning(prev, next, addLog);
     for (const warning of warnings) addLog(`WARNING: ${warning}`);

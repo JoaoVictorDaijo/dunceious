@@ -1,0 +1,40 @@
+##gff-version 3
+#!gff-spec-version 1.21
+#!processor NCBI annotwriter
+##sequence-region NC_001422.1 1 5386
+##species https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=2886930
+NC_001422.1	RefSeq	region	1	5386	.	+	.	ID=NC_001422.1:1..5386;Dbxref=taxon:2886930;Is_circular=true;gbkey=Src;genome=genomic;mol_type=genomic DNA;old-name=BACTERIOPHAGE PHI-X174
+NC_001422.1	RefSeq	gene	51	221	.	+	.	ID=gene-phiX174p04;Dbxref=GeneID:2546403;Name=phiX174p04;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p04
+NC_001422.1	RefSeq	CDS	51	221	.	+	0	ID=cds-NP_040706.1;Parent=gene-phiX174p04;Dbxref=GenBank:NP_040706.1,GeneID:2546403;Name=NP_040706.1;gbkey=CDS;locus_tag=phiX174p04;product=K;protein_id=NP_040706.1;transl_table=11
+NC_001422.1	RefSeq	sequence_alteration	57	57	.	+	.	ID=id-phiX174p04;Dbxref=GeneID:2546403;Note=am6 [14];gbkey=variation;locus_tag=phiX174p04;replace=c
+NC_001422.1	RefSeq	sequence_alteration	117	117	.	+	.	ID=id-phiX174p04-2;Dbxref=GeneID:2546403;Note=am6 [14];gbkey=variation;locus_tag=phiX174p04;replace=a
+NC_001422.1	RefSeq	gene	133	393	.	+	.	ID=gene-phiX174p05;Dbxref=GeneID:2546402;Name=phiX174p05;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p05
+NC_001422.1	RefSeq	CDS	133	393	.	+	0	ID=cds-NP_040707.1;Parent=gene-phiX174p05;Dbxref=GenBank:NP_040707.1,GeneID:2546402;Name=NP_040707.1;Note=DNA maturation;gbkey=CDS;locus_tag=phiX174p05;product=terminase;protein_id=NP_040707.1;transl_table=11
+NC_001422.1	RefSeq	gene	358	3975	.	+	.	ID=gene-phiX174p06;Dbxref=GeneID:2546408;Name=phiX174p06;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p06
+NC_001422.1	RefSeq	mRNA	358	3975	.	+	.	ID=rna-phiX174p06;Parent=gene-phiX174p06;Dbxref=GeneID:2546408;gbkey=mRNA;locus_tag=phiX174p06;product=major transcript
+NC_001422.1	RefSeq	exon	358	3975	.	+	.	ID=exon-phiX174p06-1;Parent=rna-phiX174p06;Dbxref=GeneID:2546408;gbkey=mRNA;locus_tag=phiX174p06;product=major transcript
+NC_001422.1	RefSeq	CDS	1001	2284	.	+	0	ID=cds-NP_040711.1;Parent=rna-phiX174p06;Dbxref=GenBank:NP_040711.1,GeneID:2546408;Name=NP_040711.1;gbkey=CDS;locus_tag=phiX174p06;product=major head protein;protein_id=NP_040711.1;transl_table=11
+NC_001422.1	RefSeq	sequence_feature	3962	3962	.	+	.	ID=id-phiX174p06;Dbxref=GeneID:2546408;Note=transcription start site;gbkey=misc_feature;locus_tag=phiX174p06
+NC_001422.1	RefSeq	gene	358	991	.	+	.	ID=gene-phiX174p07;Dbxref=GeneID:2546399;Name=phiX174p07;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p07
+NC_001422.1	RefSeq	mRNA	358	991	.	+	.	ID=rna-phiX174p07;Parent=gene-phiX174p07;Dbxref=GeneID:2546399;gbkey=mRNA;locus_tag=phiX174p07;product=minor transcript
+NC_001422.1	RefSeq	exon	358	991	.	+	.	ID=exon-phiX174p07-1;Parent=rna-phiX174p07;Dbxref=GeneID:2546399;gbkey=mRNA;locus_tag=phiX174p07;product=minor transcript
+NC_001422.1	RefSeq	CDS	390	848	.	+	0	ID=cds-NP_040708.1;Parent=rna-phiX174p07;Dbxref=GenBank:NP_040708.1,GeneID:2546399;Name=NP_040708.1;gbkey=CDS;locus_tag=phiX174p07;product=head morphogenesis;protein_id=NP_040708.1;transl_table=11
+NC_001422.1	RefSeq	gene	568	843	.	+	.	ID=gene-phiX174p08;Dbxref=GeneID:2546400;Name=phiX174p08;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p08
+NC_001422.1	RefSeq	CDS	568	843	.	+	0	ID=cds-NP_040709.1;Parent=gene-phiX174p08;Dbxref=GenBank:NP_040709.1,GeneID:2546400;Name=NP_040709.1;gbkey=CDS;locus_tag=phiX174p08;product=endolysin;protein_id=NP_040709.1;transl_table=11
+NC_001422.1	RefSeq	gene	848	964	.	+	.	ID=gene-phiX174p09;Dbxref=GeneID:2546404;Name=phiX174p09;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p09
+NC_001422.1	RefSeq	CDS	848	964	.	+	0	ID=cds-NP_040710.1;Parent=gene-phiX174p09;Dbxref=GenBank:NP_040710.1,GeneID:2546404;Name=NP_040710.1;Note=DNA condensation;gbkey=CDS;locus_tag=phiX174p09;product=DNA condensation;protein_id=NP_040710.1;transl_table=11
+NC_001422.1	RefSeq	gene	2395	2922	.	+	.	ID=gene-phiX174p10;Dbxref=GeneID:2546401;Name=phiX174p10;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p10
+NC_001422.1	RefSeq	CDS	2395	2922	.	+	0	ID=cds-NP_040712.1;Parent=gene-phiX174p10;Dbxref=GenBank:NP_040712.1,GeneID:2546401;Name=NP_040712.1;gbkey=CDS;locus_tag=phiX174p10;product=major spike protein;protein_id=NP_040712.1;transl_table=11
+NC_001422.1	RefSeq	gene	2931	3917	.	+	.	ID=gene-phiX174p11;Dbxref=GeneID:2546407;Name=phiX174p11;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p11
+NC_001422.1	RefSeq	CDS	2931	3917	.	+	0	ID=cds-NP_040713.1;Parent=gene-phiX174p11;Dbxref=GenBank:NP_040713.1,GeneID:2546407;Name=NP_040713.1;gbkey=CDS;locus_tag=phiX174p11;product=pilot protein for DNA ejection;protein_id=NP_040713.1;transl_table=11
+NC_001422.1	RefSeq	gene	3981	5522	.	+	.	ID=gene-phiX174p01;Dbxref=GeneID:2546398;Name=phiX174p01;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p01
+NC_001422.1	RefSeq	CDS	3981	5522	.	+	0	ID=cds-NP_040703.1;Parent=gene-phiX174p01;Dbxref=GenBank:NP_040703.1,GeneID:2546398;Name=NP_040703.1;Note=rf replication;gbkey=CDS;locus_tag=phiX174p01;product=DNA replication initiation;protein_id=NP_040703.1;transl_table=11
+NC_001422.1	RefSeq	origin_of_replication	4306	4306	.	+	.	ID=id-phiX174p01;Dbxref=GeneID:2546398;Note=origin of viral strand synthesis;gbkey=rep_origin;locus_tag=phiX174p01
+NC_001422.1	RefSeq	gene	4497	5522	.	+	.	ID=gene-phiX174p02;Dbxref=GeneID:2546406;Name=phiX174p02;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p02
+NC_001422.1	RefSeq	CDS	4497	5522	.	+	0	ID=cds-NP_040704.1;Parent=gene-phiX174p02;Dbxref=GenBank:NP_040704.1,GeneID:2546406;Name=NP_040704.1;gbkey=CDS;locus_tag=phiX174p02;product=DNA replication initiation;protein_id=NP_040704.1;transl_table=11
+NC_001422.1	RefSeq	sequence_feature	4899	4899	.	+	.	ID=id-phiX174p02;Dbxref=GeneID:2546406;Note=transcription start site;gbkey=misc_feature;locus_tag=phiX174p02
+NC_001422.1	RefSeq	gene	5075	5437	.	+	.	ID=gene-phiX174p03;Dbxref=GeneID:2546405;Name=phiX174p03;gbkey=Gene;gene_biotype=protein_coding;locus_tag=phiX174p03
+NC_001422.1	RefSeq	CDS	5075	5437	.	+	0	ID=cds-NP_040705.1;Parent=gene-phiX174p03;Dbxref=GenBank:NP_040705.1,GeneID:2546405;Name=NP_040705.1;gbkey=CDS;locus_tag=phiX174p03;product=head morphogenesis;protein_id=NP_040705.1;transl_table=11
+NC_001422.1	RefSeq	sequence_alteration	23	23	.	+	.	ID=id-phiX174p03;Dbxref=GeneID:2546405;Note=in am18 and am35 [14];gbkey=variation;locus_tag=phiX174p03;replace=t
+NC_001422.1	RefSeq	sequence_alteration	25	25	.	+	.	ID=id-phiX174p03-2;Dbxref=GeneID:2546405;Note=ts116 [14];gbkey=variation;locus_tag=phiX174p03;replace=c
+

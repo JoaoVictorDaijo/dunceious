@@ -350,6 +350,40 @@ it('logs a source bound that cannot be kept while accepting its GFF3 attachment'
   expect(h.log).toHaveBeenCalledWith('WARNING: x: Open source region end at base 12 could not be kept because no source interval ends there.');
 });
 
+it('logs the separate-interval notice when end-touching GFF3 rows attach to a circular record', async () => {
+  const h = setup();
+  act(() => h.result.current.setRecords([{ id: 'circle', name: 'circle', sequence: 'ATGCCCAAATAA', isCircular: true, features: [] }]));
+  const content = [
+    'circle\t.\tCDS\t1\t3\t.\t+\t0\tID=end-touching',
+    'circle\t.\tCDS\t7\t12\t.\t+\t0\tID=end-touching',
+  ].join('\n');
+  const pending = h.result.current.requestBio({ type: 'PARSE_ANNOTATIONS', filename: 'circle.gff3', content });
+  await act(async () => {
+    h.worker.release(h.worker.requests.length - 1);
+    await pending;
+  });
+  expect(h.result.current.records[0].features).toHaveLength(1);
+  expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/^WARNING: circle: end-touching .* read as separate intervals/));
+});
+
+it('logs a GFF3 ordering notice when only the attached workspace record declares circularity', async () => {
+  const h = setup();
+  act(() => h.result.current.setRecords([{ id: 'workspace-circle', name: 'circle', sequence: 'GTAACCATGAAAGGG', isCircular: true, features: [] }]));
+  const pending = h.result.current.requestBio({
+    type: 'PARSE_ANNOTATIONS', filename: 'circle.gff3', idMap: { circle: 'workspace-circle' },
+    content: [
+      'circle\t.\tCDS\t7\t12\t.\t+\t0\tID=c',
+      'circle\t.\tCDS\t2\t4\t.\t+\t0\tID=c',
+    ].join('\n'),
+  });
+  await act(async () => {
+    h.worker.release(h.worker.requests.length - 1);
+    await pending;
+  });
+  expect(h.result.current.records[0].features.filter(feature => feature.type === 'CDS')).toHaveLength(1);
+  expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/^WARNING: workspace-circle: c: .*coordinate order/));
+});
+
 describe('session-type refusals', () => {
   const peptideGenBank = 'LOCUS       P1                         4 aa            linear   PRI 01-JAN-2020\nORIGIN\n        1 meep\n//\n';
   const dnaGenBank = 'LOCUS       D1 4 bp DNA linear\nORIGIN\n        1 acgt\n//\n';

@@ -48,7 +48,7 @@ Every claim about a tool carries one of these:
 | LOC-3 | `complement()`, whole feature or per interval | INSDC FT 11.4 §3.4.2.2 | Conforms, including nesting at any depth | [locations](locations.md#loc-3-complement-whole-feature-or-per-interval) |
 | LOC-4 | `<` `>` uncertain bounds | INSDC FT 11.4 §3.4.2.1, §3.4.3 | Conforms | [locations](locations.md#loc-4-uncertain-bounds) |
 | LOC-5 | `n^(n+1)` between-base sites | INSDC FT 11.4 §3.4.2.1 | Conforms | [locations](locations.md#loc-5-between-base-sites) |
-| LOC-6 | Features crossing the origin | INSDC FT 11.4; GFF3 1.26 | Partial | [locations](locations.md#loc-6-features-crossing-the-origin) |
+| [LOC-6](locations.md#loc-6-features-crossing-the-origin) | Features crossing the origin | INSDC FT 11.4; GFF3 1.26 | GFF3 extended rows tested against NCBI; other limits in rule | [locations](locations.md#loc-6-features-crossing-the-origin) |
 | LOC-7 | The sequence of a multi-interval feature | INSDC FT 11.4 §3.4.2.2 | Conforms; decided in #81 | [locations](locations.md#loc-7-the-sequence-of-a-multi-interval-feature) |
 | LOC-8 | Intervals in other entries | INSDC FT 11.4 §3.4.2.1(e) | Conforms | [locations](locations.md#loc-8-intervals-in-other-entries) |
 | COORD-1 | Positions shown to users | INSDC FT 11.4 §3.4.2.1 | Deviates: #231 | [alphabets and coordinates](alphabets-and-coordinates.md#coord-1-positions-shown-to-users) |

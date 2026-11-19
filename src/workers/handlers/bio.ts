@@ -82,9 +82,11 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
       const ext = msg.filename.split('.').pop()?.toLowerCase();
       let parsed: Record<string, AnnotationTrack[] | BioFeature[]>;
       let details: ReturnType<typeof parseGFF3>['details'] = {};
+      let gffNotices: ReturnType<typeof parseGFF3>['notices'] | undefined;
       const parseGff = () => {
         const result = parseGFF3(msg.content);
         details = result.details;
+        gffNotices = result.notices;
         return result.features;
       };
       if (ext === 'bed') parsed = parseBED(msg.content, msg.filename);
@@ -95,7 +97,7 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
       } else {
         parsed = parseBED(msg.content, msg.filename);
       }
-      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details, idMap: msg.idMap };
+      return { type: 'ANNOTATIONS_SUCCESS', annotations: parsed, details, idMap: msg.idMap, ...(gffNotices && { gffNotices }) };
     } catch (error) {
       return { type: 'ERROR', error: (error as Error).message };
     }

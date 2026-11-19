@@ -24,7 +24,14 @@ Neither documents literal `join` parsing or arbitrary interval order.
 
 **Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:166`), which
 the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
-`featureParts`, preserving stored order and splitting explicit circular wraps. See LOC-7.
+`featureParts`, preserving stored order and splitting explicit circular wraps. GFF3 import
+uses consistent, valid private Dunceious ordering attributes first, then complete NCBI
+`part` ranks, then strand-relative coordinates for monotonic same-strand groups. Other
+groups retain file order and per-row strands. Import reports invalid private attributes,
+unusable ranks and fallback to file order. GFF3 1.26 groups rows by ID and leaves row order
+unspecified. The phase and a description of the ordering evidence are in the format rule.
+[Feature sequence](#loc-7-the-sequence-of-a-multi-interval-feature)
+· [GFF3 CDS phase and row order](formats.md#fmt-11-strand-relative-gff3-cds-phase).
 
 ## LOC-2. `order()` is not `join()`
 
@@ -85,8 +92,9 @@ with a parent strand; extraction reverse-complements the joined result once. Oth
 shapes are stored in evaluation order with `writtenOrder`, the written position of each interval,
 and GenBank export rebuilds the nested written form from it. An outer complement with nested
 strand evaluation keeps its local written ranks even when they are in evaluation order.
-Both GenBank and GFF3 expand
-the written ranks when an interval splits at the origin, including implicit identity ranks.
+GenBank export expands written ranks when it splits an interval at the origin. GFF3 export
+writes one extended row for the crossing and carries expanded ranks for the pieces that
+import reconstructs, including implicit identity ranks.
 An opposite-strand remote interval makes each local interval inherit its own direction from the
 feature, so export and selection resolve those directions before splitting and ranking the pieces.
 GFF3 rows cannot tell
@@ -164,6 +172,8 @@ terminal and initial intervals, e.g. `join(115..120,1..5)`. GFF3 1.26 writes it 
 whose end is the wrapped end plus the landmark length, with `Is_circular=true` on the landmark.
 
 **Reference tools.** Biopython 1.88 and EMBOSS 6.6.0 (`-join Y`), Tested: W1 matches the oracle.
+NCBI annotwriter uses one extended row for each origin-crossing phiX174 CDS in the
+[reference fixtures](../../src/core/formats/__tests__/fixtures/ncbi-gff3/PROVENANCE.md).
 
 **Applications.** Benchling wraps annotations across the origin; CLC Genomics Workbench imports
 GFF3 rows beyond the end only for circular references
@@ -187,13 +197,18 @@ geometry editing and retained-location validation share this rule, including whe
 outer complement reverses sequence evaluation order. Explicit wrapped intervals in multipart
 features contribute both origin-side pieces in written order when the record length is known.
 `featureEnvelope` reads that order from `writtenOrder` (LOC-3) even when an edit clears the text.
-GFF3 export writes separate in-bounds rows sharing one ID. Import applies the same envelope rule
-with or without a part reaching the landmark end. Sorted rows that touch both sides of the
-origin can be rotated at the largest internal gap before computing the envelope.
-For explicit per-part strands, rows
-follow evaluation order and `insdc_written_order` carries each row's written rank, including
-when an explicit minus-strand wrap splits into two rows. With remote parts, import derives the
-envelope from the local written order without rotating the rows relative to the remote positions.
+GFF3 export writes a contiguous crossing as one row with the landmark length added to the end.
+Import compares unrolled row coordinates when the coordinate-order rule applies, then
+splits the extended row into two origin-side intervals for evaluation. When that rule changes
+file order on a landmark declared circular in the GFF3, attachment reports the choice.
+Attachment also reports separate in-bounds rows that reach both ends of a
+circular record when no row is extended. Older Dunceious exports used that shape for some
+continuous crossings. Interpreting those rows as separate intervals can change the feature's
+sequence and translation.
+Private order attributes preserve the written order of disjoint INSDC joins and remote intervals.
+For explicit per-part strands, rows follow evaluation order and `insdc_written_order` carries
+the written ranks of the decoded intervals, including the pieces of an explicit minus-strand wrap.
+The phiX174 tests compare both origin-crossing CDS proteins to their GenBank translations.
 A selection of the full, unchanged circular
 sequence keeps the record topology and feature geometry.
 

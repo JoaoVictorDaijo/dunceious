@@ -211,7 +211,7 @@ it('keeps remote position, written order and parent orientation when splitting a
   }], 'ACGTACGTACGT'), isCircular: true };
   const text = exportToGff3([source]).text;
   expect(rows(text).slice(1).map(row => [row[3], row[4], row[6]])).toEqual([
-    ['1', '2', '-'], ['9', '12', '-'], ['5', '5', '+'], ['6', '7', '-'],
+    ['9', '14', '-'], ['5', '5', '+'], ['6', '7', '-'],
   ]);
   const [feature] = parseGFF3(text).features.s;
   // INSDC written order: complement(join(complement(join(5,complement(6..7))),9..12,1..2)).
@@ -234,7 +234,7 @@ ORIGIN
   const { text } = exportToGff3([source]);
   // complement(join(complement(4..5),9..12,1..2)) writes 4..5, 9..12, 1..2.
   expect(rows(text).slice(1).map(row => [row[3], row[4], row[6]])).toEqual([
-    ['1', '2', '-'], ['9', '12', '-'], ['4', '5', '+'],
+    ['9', '14', '-'], ['4', '5', '+'],
   ]);
   expect(parseGFF3(text).features.s[0].writtenOrder).toEqual([2, 1, 0]);
 });
