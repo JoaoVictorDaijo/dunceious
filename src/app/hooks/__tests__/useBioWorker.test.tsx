@@ -181,3 +181,24 @@ describe('gap removal notices for FASTA loaded as sequences (#267)', () => {
     expect(h.result.current.gapNotices).toEqual([]);
   });
 });
+
+describe('session-type refusals', () => {
+  const load = async (h: ReturnType<typeof setup>, request: Parameters<ReturnType<typeof setup>['result']['current']['requestBio']>[0]) => {
+    const pending = h.result.current.requestBio(request);
+    act(() => h.worker.release(h.worker.requests.length - 1));
+    return pending;
+  };
+  const peptideGenBank = 'LOCUS       P1                         4 aa            linear   PRI 01-JAN-2020\nORIGIN\n        1 meep\n//\n';
+
+  it.each([
+    ['a peptide GenBank file', { type: 'PARSE_GENBANK', filename: 'p.gb', content: peptideGenBank }, { incoming: 'protein', loaded: 'nucleotide', fileName: 'p.gb' }],
+    ['a mixed FASTA file', { type: 'PARSE_FASTA', filename: 'mixed.fa', content: '>d\nACGT\n>p\nMEEPQ\n', asAlignment: false }, { incoming: 'mixed', loaded: 'nucleotide', fileName: 'mixed.fa' }],
+  ] as const)('fails the request for %s, keeps the workspace and raises a notice until dismissed', async (_case, request, notice) => {
+    const h = setup();
+    await expect(load(h, request)).rejects.toThrow(`${notice.fileName} was not loaded.`);
+    expect(h.result.current.records.map(r => r.id)).toEqual(['original']);
+    expect(h.result.current.sessionTypeNotice).toEqual(notice);
+    act(() => h.result.current.dismissSessionTypeNotice());
+    expect(h.result.current.sessionTypeNotice).toBeNull();
+  });
+});

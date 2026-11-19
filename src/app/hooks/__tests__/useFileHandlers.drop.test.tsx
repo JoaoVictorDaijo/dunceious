@@ -209,3 +209,35 @@ it('does not dispatch annotations after workspace replacement while awaiting a s
   await pending;
   expect(log).toHaveBeenCalledWith('Drop cancelled: the workspace was replaced');
 });
+
+it('refuses a dropped file whose later records break the session type, and attaches none of its annotations', async () => {
+  // Three DNA records come first, so the pre-dispatch preview sees only nucleotide.
+  const mixed = '>d1\nACGT\n>d2\nACGT\n>d3\nACGT\n>p1\nMEEPQSDPSV';
+  const { result, log } = setup(async file => file.name === 'mixed.fa' ? mixed : 'p1\ts\tgene\t1\t2\t.\t+\t.\tID=g');
+  act(() => { result.current.bio.setRecords([{ id: 'kept', name: 'kept', sequence: 'ACGT', moleculeType: 'dna', features: [] }]); });
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.handlers.handleDroppedFiles([new File([], 'mixed.fa'), new File([], 'mixed.gff3')]); });
+  const worker = LocalWorker.instance;
+  const parse = worker.requests.find(r => r.type === 'PARSE_FASTA')!;
+  await act(async () => { worker.respond(parse); await pending; });
+  expect(worker.requests.map(r => r.type)).not.toContain('PARSE_ANNOTATIONS');
+  expect(result.current.bio.records.map(r => r.id)).toEqual(['kept']);
+  expect(result.current.bio.sessionTypeNotice).toEqual({ incoming: 'mixed', loaded: 'nucleotide', fileName: 'mixed.fa' });
+  expect(log).toHaveBeenCalledWith('ERROR: mixed.fa was not loaded: it mixes nucleotide and peptide records, and a workspace holds one molecule type.');
+});
+
+it('loads picked files in selection order, so the first file sets the type of an empty workspace', async () => {
+  let finishDna!: (text: string) => void;
+  const dnaText = new Promise<string>(resolve => { finishDna = resolve; });
+  const { result } = setup(file => file.name === 'dna.fa' ? dnaText : Promise.resolve('>p0\nMEEPQSDPSV'));
+  const files = [new File([], 'dna.fa'), new File([], 'protein.fa')];
+  act(() => { result.current.handlers.handleFileUpload({ target: { files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>); });
+  // The protein file finishes reading first; it must still wait for the file selected before it.
+  await act(async () => { await Promise.resolve(); });
+  expect(LocalWorker.instance.requests).toEqual([]);
+  await act(async () => { finishDna('>d0\nACGT'); });
+  await vi.waitFor(() => expect(LocalWorker.instance.requests).toHaveLength(2));
+  await act(async () => { for (const request of [...LocalWorker.instance.requests]) LocalWorker.instance.respond(request); });
+  expect(result.current.bio.records.map(r => `${r.id}:${r.moleculeType}`)).toEqual(['d0:dna']);
+  expect(result.current.bio.sessionTypeNotice).toEqual({ incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.fa' });
+});

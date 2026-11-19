@@ -21,7 +21,7 @@
 import { SeqRecord, BioFeature, QuantitativeTrack, DetailKey, SequenceDetails } from '@/src/domain/bio/types';
 import { makeUniqueId, sanitizeId } from '@/src/app/logic/idHelpers';
 import { DETAIL_QUALIFIER, readDetails, writeDetails, isDetailEdited } from '@/src/domain/bio/details';
-import { isGappedCopyOf } from '@/src/domain/bio/sequence';
+import { findSessionTypeConflict, isGappedCopyOf, type SessionTypeConflict } from '@/src/domain/bio/sequence';
 import type { GffSourceRegion } from '@/src/core/formats/gff3';
 import type { BatchIdMap, FastaAlignedRecord } from '@/src/workers/protocol';
 
@@ -96,6 +96,23 @@ export function applyParseSuccess(
   return { next: [...prev, ...newRecords], count: newRecords.length, idMap };
 }
 
+/** Appends parsed sequence records after the workspace's molecule-category check (`findSessionTypeConflict`). */
+export function applyParseResponse(prev: SeqRecord[], incoming: SeqRecord[], filename?: string):
+  | ({ kind: 'batch' } & ReturnType<typeof applyParseSuccess>)
+  | { next: SeqRecord[]; kind: 'reject-session-type'; conflict: SessionTypeConflict } {
+  const conflict = findSessionTypeConflict(prev, incoming);
+  if (conflict) return { next: prev, kind: 'reject-session-type', conflict };
+  return { kind: 'batch', ...applyParseSuccess(prev, incoming, filename) };
+}
+
+const categoryLabel = (category: 'nucleotide' | 'protein') => category === 'protein' ? 'peptide' : 'nucleotide';
+
+export function sessionTypeConflictMessage(filename: string | undefined, conflict: SessionTypeConflict): string {
+  const file = filename ?? 'The file';
+  if (conflict.incoming === 'mixed') return `ERROR: ${file} was not loaded: it mixes nucleotide and peptide records, and a workspace holds one molecule type.`;
+  return `ERROR: ${file} was not loaded: its ${categoryLabel(conflict.incoming)} records do not match the ${categoryLabel(conflict.loaded!)} workspace.`;
+}
+
 /** Batch ownership takes precedence over workspace aliases; ambiguous matches are refused. */
 export function applyAnnotations(
   prev: SeqRecord[],
@@ -163,8 +180,10 @@ export interface GapRemoval { id: string; removed: number }
  * sequences outside an alignment ("do not use "?" or "-" characters. These will be
  * stripped from the sequence.", https://www.ncbi.nlm.nih.gov/genbank/fastaformat/).
  * The removals are reported; a file with a record left without residues is refused whole.
+ * A batch whose records break the workspace's single molecule category is refused whole.
  * An overlay row must hold its record's loaded residues once '-' is removed from both,
  * ignoring ASCII case (`isGappedCopyOf`); '.' is refused rather than read as a residue or a gap.
+ * Each record appears once, as the remote-result check (`remapAlignment`) also requires.
  */
 export function applyFastaResponse(
   prev: SeqRecord[],
@@ -174,6 +193,8 @@ export function applyFastaResponse(
 ):
   | ({ next: SeqRecord[]; kind: 'batch'; count: number; idMap: BatchIdMap; gapsRemoved: GapRemoval[] })
   | ({ next: SeqRecord[]; kind: 'reject-no-residues'; ids: string[] })
+  | ({ next: SeqRecord[]; kind: 'reject-session-type'; conflict: SessionTypeConflict })
+  | ({ next: SeqRecord[]; kind: 'reject-duplicate'; ids: string[] })
   | ({ next: SeqRecord[]; kind: 'overlay'; length: number })
   | ({ next: SeqRecord[]; kind: 'reject-mismatch'; missing: string[]; extra: string[] })
   | ({ next: SeqRecord[]; kind: 'reject-length'; lengths: number[] })
@@ -184,6 +205,8 @@ export function applyFastaResponse(
     const residues = alignedData.map(d => d.sequence.replace(/-/g, ''));
     const empty = alignedData.filter((_, i) => residues[i].length === 0).map(d => d.id);
     if (empty.length > 0) return { next: prev, kind: 'reject-no-residues', ids: empty };
+    const conflict = findSessionTypeConflict(prev, alignedData);
+    if (conflict) return { next: prev, kind: 'reject-session-type', conflict };
     // Ungap before writeDetails so the generated source feature spans residues only.
     const incoming = alignedData.map(({ header: _header, details, ...r }, i) => {
       const record = { ...r, sequence: residues[i] };
@@ -199,6 +222,10 @@ export function applyFastaResponse(
 
   const currentIds = new Set(prev.map(r => r.id));
   alignedData = alignedData.map(d => ({ ...d, id: resolveHeaderId(d, currentIds) }));
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const d of alignedData) (seen.has(d.id) ? repeated : seen).add(d.id);
+  if (repeated.size > 0) return { next: prev, kind: 'reject-duplicate', ids: [...repeated] };
   const uploadedIds = new Set(alignedData.map(d => d.id));
   const missing = prev.filter(r => !uploadedIds.has(r.id)).map(r => r.id);
   const extra = alignedData.filter(d => !currentIds.has(d.id)).map(d => d.id);
@@ -243,6 +270,8 @@ export function applyFastaAndLog(
       }
       break;
     }
+    case 'reject-session-type': addLog(sessionTypeConflictMessage(filename, result.conflict)); break;
+    case 'reject-duplicate': addLog(`ERROR: Each record may appear only once in an alignment; repeated: [${result.ids.join(', ')}]`); break;
     case 'reject-no-residues': addLog(`ERROR: ${filename ?? 'The FASTA file'} was not loaded: records with no residues: [${result.ids.join(', ')}].`); break;
     case 'overlay': addLog(`External alignment applied successfully (${result.length} bp).`); break;
     case 'reject-mismatch': addLog(`ERROR: Sequence mismatch. Missing: [${result.missing.join(', ')}], Extra: [${result.extra.join(', ')}]`); break;
