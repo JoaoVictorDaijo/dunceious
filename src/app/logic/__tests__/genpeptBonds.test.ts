@@ -100,6 +100,65 @@ it.each([
   ]);
 });
 
+it.each([
+  ['bond(1 \n                     2,6)', 'bond(12,6)'],
+  ['bond(0 \n                     2,6)', 'bond(02,6)'],
+])('keeps wrapped %j undrawn in projects and reports its export omissions', (input, joined) => {
+  const imported = openGenPept(genPept('PROT', `     Bond            ${input}\n                     /label="Cross-link"\n`));
+  expect(imported).toMatchObject({
+    type: 'PARSE_SUCCESS',
+    findings: [{ tier: 'warning', code: 'undrawn-protein-bonds', record: { name: 'PROT', index: 1 },
+      message: `Protein bonds kept without drawing: Bond Cross-link (${joined}).` }],
+  });
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected the protein to open');
+
+  const saved = serializeProject({ records: imported.records, featureColors: {}, showAnnotations: true,
+    showTranslation: true, showConservation: false });
+  const reopened = parseProject(saved, () => {});
+  if (!reopened.ok) throw new Error(reopened.message);
+  for (const [record] of [imported.records, reopened.project.records]) {
+    expect(record.features).toMatchObject([{ name: 'Cross-link', locationString: joined, start: 0, end: 0, segments: [] }]);
+    const [bond] = record.features;
+    expect(featureParts(bond, { length: 6 })).toEqual([]);
+    expect(featureFocusTarget(record, bond)).toBeNull();
+    expect(computeRecordLayouts([record], { showAnnotations: true, translationVisible: false, showTracks: false })[0].placements).toEqual([]);
+
+    const selected = sliceRecordsBySelection([record], 0, 6);
+    expect(selected.records[0].features).toEqual([]);
+    expect(selected.losses.map(describeSelectionLoss)).toEqual([
+      `PROT: Bond Cross-link: Bond ${joined} omitted because every endpoint must be selected`,
+    ]);
+    const gff3 = exportToGff3([record]);
+    expect(gff3.text).toBe('##gff-version 3\n##sequence-region PROT 1 6\nPROT\t.\tregion\t1\t6\t.\t+\t.\tID=PROT.0;gbkey=Src\n');
+    expect(gff3.report.gff3FeaturesOmitted).toEqual([
+      { reason: `PROT: Bond Cross-link (${joined}) omitted because the bond position is unavailable`, edited: false },
+    ]);
+
+    const genpept = exportToGenBank([record]);
+    expect(genpept.text).not.toContain('     Bond ');
+    expect(genpept.report.genBankFeaturesOmitted).toEqual([
+      `PROT: Bond Cross-link (${joined}) omitted because reimport would treat it as a local bond`,
+    ]);
+    expect(openGenPept(genpept.text)).toMatchObject({ type: 'PARSE_SUCCESS', records: [{ sequence: 'MCAAVC', features: [] }] });
+  }
+});
+
+it.each([
+  ['bond(2,\n                     6)', 'bond(2,6)'],
+  ['bond(0\n                     2,6)', 'bond(02,6)'],
+])('draws wrapped %j at residue 2 when the wrap adds only standard indentation', (input, joined) => {
+  const imported = openGenPept(genPept('PROT', `     Bond            ${input}\n`));
+  expect(imported).toMatchObject({
+    type: 'PARSE_SUCCESS', records: [{ features: [{ locationString: joined, segments: [{ start: 1, end: 2 }] }] }],
+  });
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected the protein to open');
+  expect(computeRecordLayouts(imported.records, { showAnnotations: true, translationVisible: false, showTracks: false })[0].placements)
+    .toMatchObject([{ feature: { start: 1, end: 2 } }]);
+  const { text, report } = exportToGenBank(imported.records);
+  expect(text).toContain(`     Bond            ${joined}\n`);
+  expect(report.genBankFeaturesOmitted).toEqual([]);
+});
+
 it('refuses control characters in bond text on import, project reopen and GenPept export', () => {
   expect(openGenPept(genPept('PROT', '     Bond            bond(<2,6)\t\n'))).toMatchObject({
     type: 'PARSE_REFUSED',

@@ -50,7 +50,7 @@
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
 import type { LocationRecord } from '@/src/domain/bio/featureParts';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { containsBond, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { containsBond, proteinBondEndpoints, undrawnProteinBondGeometry } from '@/src/domain/bio/proteinBond';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -147,7 +147,7 @@ export function parseLocation(loc: string, record?: LocationRecord, protein = fa
     const segment = { start: bond[0] - 1, end: bond[0] };
     return { segments: [segment], strand: 1, ...segment };
   }
-  if (protein && containsBond(loc)) return { segments: [], start: 0, end: 0, strand: 1 };
+  if (protein && containsBond(loc)) return undrawnProteinBondGeometry();
 
   const cleanLoc = loc.replace(/\s/g, '');
   const outer = cleanLoc.match(/^complement\((.*)\)$/);

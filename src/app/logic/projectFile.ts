@@ -20,9 +20,10 @@
 
 import { malformedCodeBreakMessage, checkTranslation, isCds, translationReason, translationWarning } from '@/src/domain/bio/translation';
 import type { BioFeature, FeatureSegment, SeqRecord, SelectionArea } from '@/src/domain/bio/types';
-import { parseLocation } from '@/src/core/genbank/locationParser';
-import { validateLocation } from '@/src/core/genbank/locationValidation';
+import { parseLocation, type LocationData } from '@/src/core/genbank/locationParser';
+import { locationTextProblem, validateLocation } from '@/src/core/genbank/locationValidation';
 import { hasPartialStrands } from '@/src/domain/bio/featureParts';
+import { isUndrawnProteinBond, undrawnProteinBondGeometry } from '@/src/domain/bio/proteinBond';
 import { isGappedCopyOf } from '@/src/domain/bio/sequence';
 import { sanitizeId } from './idHelpers';
 import { isAlignmentComparisonSettings, type AlignmentComparisonSettings } from './alignmentComparison';
@@ -133,12 +134,14 @@ function readProjectLocation(feature: BioFeature, record: SeqRecord): BioFeature
   const description = 'Feature ' + feature.name + ' location ' + JSON.stringify(feature.locationString);
   const landmark = { length: record.sequence.length, isCircular: record.isCircular === true };
   const protein = record.moleculeType === 'protein';
-  const problem = validateLocation(feature.locationString, landmark.length, landmark.isCircular, protein);
+  const undrawnBond = protein && isUndrawnProteinBond(feature);
+  const problem = undrawnBond ? locationTextProblem(feature.locationString)
+    : validateLocation(feature.locationString, landmark.length, landmark.isCircular, protein);
   if (problem) {
     const reason = problem.message === 'cannot be read' ? 'could not be read' : problem.message;
     throw new Error(description + ' ' + reason + '.');
   }
-  const parsed = parseLocation(feature.locationString, landmark, protein);
+  const parsed: LocationData = undrawnBond ? undrawnProteinBondGeometry() : parseLocation(feature.locationString, landmark, protein);
 
   if (feature.operator !== undefined && feature.operator !== parsed.operator) {
     throw new Error(description + ' disagrees with its stored operator.');

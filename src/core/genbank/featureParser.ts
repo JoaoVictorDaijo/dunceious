@@ -30,7 +30,7 @@ import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import type { FindingSink, GenBankFinding } from './findings';
 import { locationTextProblem, validateLocation } from './locationValidation';
 import type { BioFeature } from '@/src/domain/bio/types';
-import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
+import { isUndrawnProteinBond, proteinBondEndpoints, undrawnProteinBondGeometry } from '@/src/domain/bio/proteinBond';
 import { parseLocation, type LocationData } from './locationParser';
 import { parseQualifiers } from './qualifierParser';
 
@@ -38,6 +38,11 @@ import { parseQualifiers } from './qualifierParser';
 const NAME_QUALIFIERS = ['gene', 'product', 'label', 'locus_tag'];
 
 const INDENT21 = ' '.repeat(21);
+
+function hasSplitBondEndpoint(joined: string, lines: string[]): boolean {
+  // Newlines mark wrap boundaries. Whitespace beyond those markers can separate two endpoint digits.
+  return proteinBondEndpoints(joined) !== undefined && /\d(?=\s*\n)(?!\n+\d)\s+\d/.test(lines.join('\n'));
+}
 
 export function parseFeatures(lines: string[], finding?: FindingSink, protein = false, length?: number, circular = false): BioFeature[] {
   const features: BioFeature[] = [];
@@ -79,11 +84,15 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     }
 
     const fullLocation = locationLines.map(part => part.trim()).join('');
-    const error = locationTextProblem(locationLines.join('')) ?? validateLocation(fullLocation, length, circular, protein);
-    let location;
-    try { location = parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein); }
-    catch { location = { segments: [], strand: 1 as const, start: 0, end: 0 }; }
-    const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = location as LocationData;
+    const splitBondEndpoint = protein && hasSplitBondEndpoint(fullLocation, locationLines);
+    const error = locationTextProblem(locationLines.join(''))
+      ?? (splitBondEndpoint ? null : validateLocation(fullLocation, length, circular, protein));
+    let location: LocationData;
+    try {
+      location = splitBondEndpoint ? undrawnProteinBondGeometry()
+        : parseLocation(fullLocation, length === undefined ? undefined : { length, isCircular: circular }, protein);
+    } catch { location = undrawnProteinBondGeometry(); }
+    const { segments, strand, start, end, operator, betweenBases, writtenOrder, remoteParts } = location;
 
     const feature: BioFeature = {
       type,

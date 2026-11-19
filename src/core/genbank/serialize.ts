@@ -27,6 +27,7 @@ import { hasMixedLocalStrands, splitFeaturePart, storedLocalParts } from '@/src/
 import { expandedRemoteParts, expandedWrittenOrder } from '@/src/domain/bio/featureEnvelope';
 import { formatInsdcLocation } from '@/src/domain/bio/insdcLocation';
 import { isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from '@/src/domain/bio/locationFlags';
+import { isUndrawnProteinBond, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { emptyReport, detailsForExport, type ExportResult, type ExportReport } from '../exportReport';
@@ -125,7 +126,15 @@ function writtenNestedLocation(feature: BioFeature, record: SeqRecord): string |
 }
 
 function featureLocation(feature: BioFeature, record: SeqRecord, report: ExportReport): string | null {
-  if (feature.locationString) return feature.locationString;
+  const { locationString } = feature;
+  if (locationString) {
+    if (record.moleculeType === 'protein' && isUndrawnProteinBond(feature) && proteinBondEndpoints(locationString)) {
+      const name = feature.name === feature.type ? feature.type : `${feature.type} ${feature.name}`;
+      report.genBankFeaturesOmitted.push(`${record.id}: ${name} (${locationString}) omitted because reimport would treat it as a local bond`);
+      return null;
+    }
+    return locationString;
+  }
   const length = record.sequence.length;
   const location = formatInsdcLocation(feature, { length, isCircular: record.isCircular });
   if (location.kind === 'no-insdc-form') {

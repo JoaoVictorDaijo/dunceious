@@ -254,8 +254,9 @@ function clipProteinBond(
   feature: BioFeature, record: SeqRecord, selStart: number, selEnd: number, losses: SelectionLoss[],
 ): BioFeature | null | undefined {
   if (record.moleculeType !== 'protein' || !feature.locationString) return undefined;
-  const endpoints = proteinBondEndpoints(feature.locationString);
-  if (!endpoints && !isUndrawnProteinBond(feature)) return undefined;
+  const undrawn = isUndrawnProteinBond(feature);
+  const endpoints = undrawn ? undefined : proteinBondEndpoints(feature.locationString);
+  if (!endpoints && !undrawn) return undefined;
   const offset = Math.max(0, selStart);
   if (!endpoints || endpoints.some(point => point <= offset || point > selEnd)) {
     losses.push({ ...selectionFeature(record, feature), reason: `Bond ${feature.locationString} omitted because every endpoint must be selected` });

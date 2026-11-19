@@ -305,12 +305,20 @@ all retained endpoints to the selection and names any omitted bond in the same n
 between-base sites. This applies to project JSON and GenPept selection exports.
 
 Every other GenPept location containing `bond(` is opaque, including `bond(1 2,6)`.
-Import keeps the entire descriptor verbatim in GenBank exports and saved projects without
-validating the location grammar or any
-sequence IDs or versions. This covers fuzzy bonds and compound descriptors, including the
+Import keeps the descriptor in saved projects and preserves opaque descriptor text in GenPept
+exports when that text still reads as opaque. Import skips location grammar and sequence ID and
+version checks for opaque bonds. This covers fuzzy bonds and compound descriptors, including the
 [wrappers](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463)
 and [remote ID forms](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L710-L732)
 emitted by the NCBI flat-file formatter.
+
+An endpoint also stays opaque when a line wrap separates its digits and the text at the wrap
+contains whitespace beyond the standard continuation indentation. Location lines are still
+trimmed and joined as usual. A wrap at a comma or a digit wrap with only the standard
+indentation leaves a strict local form eligible for placement. Saved projects retain the joined
+descriptor and its empty geometry. GenPept export omits an opaque bond whose joined text would
+reimport as a strict local form and names the feature and descriptor in the export report.
+
 The general location text restrictions on control characters and line/paragraph separators still
 apply. Opaque locations supply no geometry, including for other positions in a compound
 descriptor. Import issues one notice per record naming the undrawn bonds. Selection exports

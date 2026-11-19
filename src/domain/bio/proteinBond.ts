@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioFeature } from './types';
+import type { BioFeature, FeatureSegment } from './types';
 
 /** NCBI Seq-bond uses residue positions and writes a second endpoint only when available. */
 export function proteinBondEndpoints(location: string): [number] | [number, number] | undefined {
@@ -32,8 +32,14 @@ export function containsBond(location: string): boolean {
   return location.replace(/\s/g, '').includes('bond(');
 }
 
-export function isUndrawnProteinBond(feature: Pick<BioFeature, 'segments' | 'locationString'>): boolean {
+export function undrawnProteinBondGeometry() {
+  return { start: 0, end: 0, strand: 1 as const, segments: [] as FeatureSegment[] };
+}
+
+export function isUndrawnProteinBond(feature: Pick<BioFeature, 'start' | 'end' | 'segments' | 'locationString'>): boolean {
   const location = feature.locationString;
-  return !feature.segments?.length && location !== undefined
-    && containsBond(location) && !proteinBondEndpoints(location);
+  if (feature.segments?.length || location === undefined || !containsBond(location)) return false;
+
+  // A trimmed wrap can make an opaque bond look local. Its explicit empty geometry preserves that decision.
+  return !proteinBondEndpoints(location) || (feature.segments?.length === 0 && feature.start === 0 && feature.end === 0);
 }
