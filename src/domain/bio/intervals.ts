@@ -25,7 +25,7 @@ import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite, isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from './locationFlags';
 import { expandedRemoteParts, expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
-import { proteinBondEndpoints } from './proteinBond';
+import { isUndrawnProteinBond, proteinBondEndpoints } from './proteinBond';
 
 export { splitWrapAround } from './featureParts';
 
@@ -250,6 +250,23 @@ function selectionGeometry(feature: BioFeature, length: number, isCircular: bool
     ...(feature.remoteParts && { remoteParts }) };
 }
 
+function clipProteinBond(
+  feature: BioFeature, record: SeqRecord, selStart: number, selEnd: number, losses: SelectionLoss[],
+): BioFeature | null | undefined {
+  if (record.moleculeType !== 'protein' || !feature.locationString) return undefined;
+  const endpoints = proteinBondEndpoints(feature.locationString);
+  if (!endpoints && !isUndrawnProteinBond(feature)) return undefined;
+  const offset = Math.max(0, selStart);
+  if (!endpoints || endpoints.some(point => point <= offset || point > selEnd)) {
+    losses.push({ ...selectionFeature(record, feature), reason: `Bond ${feature.locationString} omitted because every endpoint must be selected` });
+    return null;
+  }
+  if (offset === 0) return feature;
+  const rebased = endpoints.map(point => point - offset);
+  const segment = { start: rebased[0] - 1, end: rebased[0] };
+  return { ...feature, ...segment, segments: [segment], locationString: `bond(${rebased.join(',')})` };
+}
+
 /**
  * Slices all records to the selection window `[selStart, selEnd)`, rebasing
  * feature/segment coordinates and filtering zero-length track intervals.
@@ -268,20 +285,8 @@ export function sliceRecordsBySelection(
 
     const slicedFeatures = record.features
       .map(original => {
-        if (record.moleculeType === 'protein' && original.locationString) {
-          const endpoints = proteinBondEndpoints(original.locationString);
-          if (endpoints) {
-            const offset = Math.max(0, selStart);
-            if (endpoints.some(point => point <= offset || point > Math.min(selEnd, seq.length))) {
-              losses.push({ ...selectionFeature(record, original), reason: `Bond ${original.locationString} omitted because every endpoint must be selected` });
-              return null;
-            }
-            if (offset === 0) return original;
-            const rebased = endpoints.map(point => point - offset);
-            const segment = { start: rebased[0] - 1, end: rebased[0] };
-            return { ...original, ...segment, segments: [segment], locationString: `bond(${rebased.join(',')})` };
-          }
-        }
+        const bond = clipProteinBond(original, record, selStart, Math.min(selEnd, seq.length), losses);
+        if (bond !== undefined) return bond;
         if (unchangedCircle) {
           const stored = original.segments?.length ? original.segments : [original];
           // A wrap with an empty origin-side piece is a single linear interval (LOC-6).

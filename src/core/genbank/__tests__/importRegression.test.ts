@@ -68,11 +68,11 @@ it('opens human VMO1 and round-trips its bond locations verbatim', () => {
   expect(reopened.records[0].features.filter(feature => feature.type === 'Bond').map(feature => feature.locationString)).toEqual(descriptors);
 });
 
-it('refuses a nucleotide bond location and names the descriptor', () => {
-  const input = genBank('DNA 9 bp DNA linear', 'atgcaaata', '     misc_feature    bond(2,6)\n');
+it.each(['bond(2,6)', 'bond(<2,6)', 'bond(ABC123.1:2,6)', 'join(bond(2,6),3)'])('refuses nucleotide bond location %s and names the descriptor', location => {
+  const input = genBank('DNA 9 bp DNA linear', 'atgcaaata', `     misc_feature    ${location}\n`);
   expect(importGenBank(input)).toMatchObject({
     type: 'PARSE_REFUSED',
-    findings: [expect.objectContaining({ code: 'malformed-location', message: expect.stringContaining('misc_feature location bond(2,6)') })],
+    findings: [expect.objectContaining({ code: 'malformed-location', message: expect.stringContaining(`misc_feature location ${location}`) })],
   });
 });
 
@@ -91,12 +91,7 @@ it('round-trips a protein bond whose second endpoint is absent', () => {
   });
 });
 
-it.each([
-  'bond(<2,>6)',
-  'bond(2,ABC123.1:6)',
-  'bond(ABC123.1:2,6)',
-  'order(bond(2,6),3)',
-])('refuses unsupported protein bond location %s and names the descriptor', location => {
+it.each(['bond(ABC123.1:,6)', 'join(bond(2,6)..3,4)'])('refuses malformed protein bond location %s and names the descriptor', location => {
   const input = genBank('PROT 6 aa linear', 'mcaavc', `     Bond            ${location}\n`);
   expect(importGenBank(input)).toMatchObject({
     type: 'PARSE_REFUSED',

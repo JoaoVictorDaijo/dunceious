@@ -19,8 +19,9 @@
  */
 
 import type { BioFeature, FeatureSegment, GffBoundaryRange } from './types';
+import { isUndrawnProteinBond } from './proteinBond';
 
-export type FeatureGeometry = Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'> & Partial<Pick<BioFeature, 'operator' | 'betweenBases' | 'remoteParts'>>;
+export type FeatureGeometry = Pick<BioFeature, 'start' | 'end' | 'strand' | 'segments'> & Partial<Pick<BioFeature, 'operator' | 'betweenBases' | 'remoteParts' | 'locationString'>>;
 export type LocationRecord = { length: number; isCircular?: boolean };
 
 /**
@@ -94,6 +95,7 @@ export function invalidLocationPart(part: Pick<FeatureSegment, 'start' | 'end'>,
 
 /** INSDC FT 11.4 §3.4.2.2: preserve evaluation order, including per-part reverse wraps. */
 export function featureParts(feature: FeatureGeometry, record: LocationRecord): FeatureSegment[] {
+  if (isUndrawnProteinBond(feature)) return [];
   const parts = feature.segments?.length || feature.remoteParts?.length ? feature.segments ?? [] : [{ start: feature.start, end: feature.end }];
   return parts.flatMap(part => splitFeaturePart(part, record));
 }

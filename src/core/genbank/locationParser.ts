@@ -50,7 +50,7 @@
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
 import type { LocationRecord } from '@/src/domain/bio/featureParts';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { maskProteinBondLocations, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -147,6 +147,11 @@ export function parseLocation(loc: string, record?: LocationRecord, protein = fa
     // The first residue anchors the glyph. The retained location text carries the bond itself.
     const segment = { start: bond[0] - 1, end: bond[0] };
     return { segments: [segment], strand: 1, ...segment };
+  }
+  const masked = protein ? maskProteinBondLocations(cleanLoc) : cleanLoc;
+  if (masked !== cleanLoc) {
+    parseLocation(masked, record);
+    return { segments: [], start: 0, end: 0, strand: 1 };
   }
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);

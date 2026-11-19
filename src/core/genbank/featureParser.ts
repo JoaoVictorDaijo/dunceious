@@ -30,6 +30,7 @@ import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
 import type { FindingSink, GenBankFinding } from './findings';
 import { validateLocation } from './locationValidation';
 import type { BioFeature } from '@/src/domain/bio/types';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { parseLocation, type LocationData } from './locationParser';
 import { parseQualifiers } from './qualifierParser';
 
@@ -40,6 +41,7 @@ const INDENT21 = ' '.repeat(21);
 
 export function parseFeatures(lines: string[], finding?: FindingSink, protein = false, length?: number, circular = false): BioFeature[] {
   const features: BioFeature[] = [];
+  const undrawnBonds: string[] = [];
   let inFeatures = false;
 
   for (let i = 0; i < lines.length; i++) {
@@ -117,9 +119,14 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     if (!NAME_QUALIFIERS.some(key => qualifiers[key]) && qualifiers.standard_name) feature.name = qualifiers.standard_name;
 
     if (error) finding?.('refuse', error.code, `${type} location ${fullLocation || '(missing)'}: ${error.message}`, featureLine, { key: type, name: feature.name });
+    else if (protein && isUndrawnProteinBond(feature)) {
+      const name = feature.name === type ? type : `${type} ${feature.name}`;
+      undrawnBonds.push(`${name} (${fullLocation})`);
+    }
     for (const f of qualifierFindings) finding?.(f.tier, f.code, f.message, f.line, { key: type, name: feature.name });
     features.push(feature);
   }
 
+  if (undrawnBonds.length) finding?.('warning', 'undrawn-protein-bonds', `Protein bonds kept without drawing: ${undrawnBonds.join(', ')}.`);
   return features;
 }

@@ -302,3 +302,11 @@ GenBank export and project reopen.
 A selection export keeps a local bond only when every recorded endpoint is selected. It rebases
 all retained endpoints to the selection and names any omitted bond in the same notice used for
 between-base sites. This applies to project JSON and GenPept selection exports.
+
+GenPept import also accepts fuzzy and accession-qualified bonds and bonds inside compound
+locations. It keeps the entire descriptor verbatim in GenBank exports and saved projects.
+These locations supply no local geometry, including for any other positions in a compound
+descriptor. Import issues one notice per record naming the undrawn bonds. Selection exports
+omit them with the same named notice as other omitted bonds. GFF3 export omits and names them
+because a GFF3 row requires a position. Project reopen refuses any stored anchor that conflicts
+with the descriptor's empty geometry and names the bond. Nucleotide import refuses bond locations.

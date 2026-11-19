@@ -19,6 +19,7 @@
  */
 
 import { displayLocation } from '@/src/app/logic/displayLocation';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isolateOf } from '@/src/domain/bio/recordStatus';
@@ -62,6 +63,7 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     ? [feature.name, product !== feature.name ? product : undefined, isolateOf(record)].filter(Boolean).join(' · ')
     : product !== feature.name ? product : undefined;
   const location = displayLocation(feature, record);
+  const undrawnBond = isUndrawnProteinBond(feature);
   const length = featureLength(record.sequence.length, feature.start, feature.end, feature.segments).toLocaleString('en-US');
   const lengthText = featureLengthText(record, feature);
   return <div data-row-key={rowKey} data-state={current ? 'current' : lastFocused ? 'last-focused' : selected ? 'selected' : 'idle'} aria-current={current} tabIndex={0} onClick={event => { if (!(event.target as HTMLElement).closest('button, input')) onCurrent(); }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onCurrent(); } }}
@@ -83,12 +85,12 @@ export default function AnnotationRow({ record, feature, rowKey, kind, selected,
     <div data-row-actions className={`hub-row-actions ml-auto flex shrink-0 justify-end gap-0.5 text-slate-500 ${selected || current || lastFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'} transition-opacity motion-reduce:transition-none`}>
       <button aria-label={`Inspect ${feature.name} on ${record.id}`} data-tip="Details" className="h-[30px] w-[30px] rounded-lg hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onInspect}><i aria-hidden="true" className="fas fa-circle-info" /></button>
       <button disabled={locked} aria-label={`Edit ${feature.name} on ${record.id}`} data-tip="Edit annotation" className="h-[30px] w-[30px] rounded-lg hover:bg-slate-100 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onEdit}><i aria-hidden="true" className="fas fa-pen" /></button>
-      <button aria-label={`Open ${feature.name} on ${record.id} in viewport`} data-tip="Open in the Visual Viewport" className="h-[30px] w-[30px] rounded-lg hover:bg-sky-50 hover:text-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onFocus}><i aria-hidden="true" className="fas fa-crosshairs" /></button>
+      {!undrawnBond && <button aria-label={`Open ${feature.name} on ${record.id} in viewport`} data-tip="Open in the Visual Viewport" className="h-[30px] w-[30px] rounded-lg hover:bg-sky-50 hover:text-sky-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onFocus}><i aria-hidden="true" className="fas fa-crosshairs" /></button>}
       <button disabled={locked} aria-label={`Delete ${feature.name} on ${record.id}`} data-tip="Delete annotation" className="h-[30px] w-[30px] rounded-lg hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500" onClick={onDelete}><i aria-hidden="true" className="fas fa-trash-can" /></button>
     </div>
     </div>
     <span data-tip={location} aria-label={`Location: ${location}`} className="min-w-0 truncate font-mono text-slate-600">{location}</span>
-    <span data-tip={lengthText} className="text-right font-mono text-slate-600">{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}{lengthText.includes('not joined') && <span className="block font-sans text-[10px] text-slate-400">not joined</span>}</span>
+    <span data-tip={undrawnBond ? 'Bond position unavailable' : lengthText} className="text-right font-mono text-slate-600">{!undrawnBond && <>{length} {record.moleculeType === 'protein' ? 'aa' : 'bp'}{lengthText.includes('not joined') && <span className="block font-sans text-[10px] text-slate-400">not joined</span>}</>}</span>
 
   </div>;
 }

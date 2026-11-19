@@ -28,6 +28,7 @@ import { DETAIL_QUALIFIER } from '@/src/domain/bio/details';
 import { splitWrapAround } from '@/src/domain/bio/intervals';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { isBetweenBasesSite, isOrderLocation } from '@/src/domain/bio/locationFlags';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 import { projectGffRange, splitFeaturePart, storedLocalParts } from '@/src/domain/bio/featureParts';
 import { detailsForExport, emptyReport, type ExportReport, type ExportResult } from '../exportReport';
 import { soTypeFor } from './soTypes';
@@ -272,6 +273,14 @@ export function exportToGff3(
       }
       if (feature.metadata?._translationSource === 'removed') report.translationWarnings.push(`${feature.name}: ${feature.metadata._translationMessage ?? 'Translation removed'}`);
       if (feature.type === 'source') continue;
+      if (isUndrawnProteinBond(feature)) {
+        const name = feature.name === feature.type ? feature.type : `${feature.type} ${feature.name}`;
+        report.gff3FeaturesOmitted.push({
+          reason: `${record.id}: ${name} (${feature.locationString}) omitted because the bond position is unavailable`,
+          edited: feature.hubEdit === 'edited' || feature.hubEdit === 'added',
+        });
+        continue;
+      }
       const featureId = `${record.id}.${++number}`;
       if (feature.remoteParts?.length && !feature.segments?.length) {
         report.remoteOnlyOmitted++;
