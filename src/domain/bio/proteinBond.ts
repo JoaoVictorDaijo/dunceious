@@ -28,15 +28,6 @@ export function proteinBondEndpoints(location: string): [number] | [number, numb
   return match[2] === undefined ? [first] : [first, Number(match[2])];
 }
 
-const position = String.raw`(?:[<>]?\d+|-?\d+\^\d+|\(-?\d+\.\d+\)\.\.\(\d+\.\d+\))`;
-const point = String.raw`(?:[A-Za-z]\w*\.\d+:)?(?:${position}|complement\(${position}\))`;
-const bondLocation = new RegExp(String.raw`(^|[(:,])bond\(${point}(?:,${point})?\)(?=$|[,)])`, 'g');
-
-/** NCBI flat-file bonds are point locations. Mask them only to validate the enclosing syntax. */
-export function maskProteinBondLocations(location: string): string {
-  return location.replace(bondLocation, (_, prefix: string) => prefix + '1');
-}
-
 export function isUndrawnProteinBond(feature: Pick<BioFeature, 'segments' | 'locationString'>): boolean {
   const location = feature.locationString;
   return !feature.segments?.length && location !== undefined

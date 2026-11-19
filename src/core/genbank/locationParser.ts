@@ -50,7 +50,7 @@
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
 import type { LocationRecord } from '@/src/domain/bio/featureParts';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
-import { maskProteinBondLocations, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -94,6 +94,37 @@ function splitTopLevelCommas(list: string): string[] {
   }
   out.push(cur);
   return out;
+}
+
+const accession = String.raw`(?:[A-Za-z]\w*\.\d+:)?`;
+const bound = String.raw`(?:[<>]?\d+|\(-?\d+\.-?\d+\))`;
+const span = String.raw`${bound}(?:\.\.${bound})?`;
+const position = String.raw`(?:${span}|-?\d+\^-?\d+)`;
+const bondPosition = String.raw`(?:[<>]?\d+|-?\d+\^-?\d+|\(-?\d+\.\d+\)\.\.\(\d+\.\d+\))`;
+const bondPoint = String.raw`${accession}(?:${bondPosition}|complement\(${bondPosition}\))`;
+const bondLocation = new RegExp(String.raw`^bond\(${bondPoint}(?:,${bondPoint})?\)$`);
+const locationLeaf = new RegExp(String.raw`^(?:${accession}${position}|gap\((?:unk)?\d*\))$`);
+const locationWrapper = new RegExp(String.raw`^${accession}(one-of|order|join|complement)\((.*)\)$`);
+
+/**
+ * NCBI flat_seqloc.cpp at 2b8ccee emits bonds inside recursive location wrappers.
+ * Check their syntax without evaluating any of the positions in an undrawn descriptor.
+ */
+export function retainsUndrawnProteinBond(location: string): boolean {
+  if (!/\bbond\(/.test(location)) return false;
+  let hasBond = false;
+  const valid = (text: string): boolean => {
+    if (bondLocation.test(text)) {
+      hasBond = true;
+      return true;
+    }
+    if (locationLeaf.test(text)) return true;
+    const wrapper = locationWrapper.exec(text);
+    if (!wrapper) return false;
+    const parts = splitTopLevelCommas(wrapper[2]);
+    return (wrapper[1] !== 'complement' || parts.length === 1) && parts.every(valid);
+  };
+  return valid(location) && hasBond;
 }
 
 /** One interval as evaluated: the strand it is read on and its position in the written text. */
@@ -148,11 +179,7 @@ export function parseLocation(loc: string, record?: LocationRecord, protein = fa
     const segment = { start: bond[0] - 1, end: bond[0] };
     return { segments: [segment], strand: 1, ...segment };
   }
-  const masked = protein ? maskProteinBondLocations(cleanLoc) : cleanLoc;
-  if (masked !== cleanLoc) {
-    parseLocation(masked, record);
-    return { segments: [], start: 0, end: 0, strand: 1 };
-  }
+  if (protein && retainsUndrawnProteinBond(cleanLoc)) return { segments: [], start: 0, end: 0, strand: 1 };
 
   const outer = cleanLoc.match(/^complement\((.*)\)$/);
   const outerComplement = outer !== null;

@@ -49,6 +49,8 @@ it.each([
   'bond(ABC123.1:2,6)',
   'join(bond(2,6),3)',
   'order(bond(2,6),3)',
+  'one-of(bond(2,6),bond(3,5))',
+  'order(join(2,3),bond(4,5))',
 ])('keeps %s verbatim through GenPept and project reopen without placing it', location => {
   const line = `     Bond            ${location}\n`;
   const imported = openGenPept(genPept('PROT', line + '                     /label="Cross-link"\n'));
@@ -82,6 +84,12 @@ it.each([
   expect(losses.map(describeSelectionLoss)).toEqual([
     `PROT: Bond Cross-link: Bond ${location} omitted because every endpoint must be selected`,
   ]);
+  const gff3 = exportToGff3(imported.records);
+  expect(gff3.text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t').slice(0, 5)))
+    .toEqual([['PROT', '.', 'region', '1', '6']]);
+  expect(gff3.report.gff3FeaturesOmitted).toEqual([
+    { reason: `PROT: Bond Cross-link (${location}) omitted because the bond position is unavailable`, edited: false },
+  ]);
 });
 
 it('names every undrawn bond in one import notice per record', () => {
@@ -96,17 +104,6 @@ it('names every undrawn bond in one import notice per record', () => {
         message: 'Protein bonds kept without drawing: Bond (order(bond(2,6),3)).' },
     ],
   });
-});
-
-it('reports the omitted bond in GFF3 without exporting a site at coordinate zero', () => {
-  const imported = openGenPept(genPept('PROT', '     Bond            bond(ABC123.1:2,6)\n                     /label="Cross-link"\n'));
-  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected the protein to open');
-  const { text, report } = exportToGff3(imported.records);
-  expect(text.split('\n').filter(line => line && !line.startsWith('#')).map(line => line.split('\t').slice(0, 5)))
-    .toEqual([['PROT', '.', 'region', '1', '6']]);
-  expect(report.gff3FeaturesOmitted).toEqual([
-    { reason: 'PROT: Bond Cross-link (bond(ABC123.1:2,6)) omitted because the bond position is unavailable', edited: false },
-  ]);
 });
 
 it('names the geometry conflict when reopening a legacy project with a fabricated bond anchor', () => {

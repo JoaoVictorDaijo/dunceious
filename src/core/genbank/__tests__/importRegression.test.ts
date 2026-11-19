@@ -68,7 +68,10 @@ it('opens human VMO1 and round-trips its bond locations verbatim', () => {
   expect(reopened.records[0].features.filter(feature => feature.type === 'Bond').map(feature => feature.locationString)).toEqual(descriptors);
 });
 
-it.each(['bond(2,6)', 'bond(<2,6)', 'bond(ABC123.1:2,6)', 'join(bond(2,6),3)'])('refuses nucleotide bond location %s and names the descriptor', location => {
+it.each([
+  'bond(2,6)', 'bond(<2,6)', 'bond(ABC123.1:2,6)', 'join(bond(2,6),3)',
+  'one-of(bond(2,6),bond(3,5))', 'order(join(2,3),bond(4,5))',
+])('refuses nucleotide bond location %s and names the descriptor', location => {
   const input = genBank('DNA 9 bp DNA linear', 'atgcaaata', `     misc_feature    ${location}\n`);
   expect(importGenBank(input)).toMatchObject({
     type: 'PARSE_REFUSED',

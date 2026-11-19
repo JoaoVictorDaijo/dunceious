@@ -18,8 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { maskProteinBondLocations, proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
-import { parseLocation } from './locationParser';
+import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { parseLocation, retainsUndrawnProteinBond } from './locationParser';
 
 type LocationProblem = { code: string; message: string };
 /** `n.m` in a base number; an accession's `.version` (`AB123.1:`) is not a position. */
@@ -45,8 +45,7 @@ export function validateLocation(text: string, length?: number, circular = false
     }
     return null;
   }
-  const masked = protein ? maskProteinBondLocations(loc) : loc;
-  if (masked !== loc) return validateLocation(masked, length, circular);
+  if (protein && retainsUndrawnProteinBond(loc)) return null;
   if (/join\(/.test(loc) && /order\(/.test(loc)) return malformed('mixes join and order');
   if (/>\d+\.\.|\.\.<\d+/.test(loc)) return malformed('has an invalid fuzzy endpoint');
   // Checked before the local site rules, which would test a remote site against this record's length.
